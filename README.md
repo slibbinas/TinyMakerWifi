@@ -10,7 +10,7 @@ This project is a modified and extended version of the original open-source Tiny
 ## Modifications
 
 * Added WiFi connectivity.
-* [You can list other specific changes here, e.g., Added OTA updates, modified pinout, etc.]
+* Added PrusSlicer direct upload
 
 ## License
 
