@@ -14,4 +14,8 @@ This project is a modified and extended version of the original open-source Tiny
 
 ## License
 
-This project retains the original license of the TinyMaker3D project. Please refer to the `LICENSE` file for more details.
+This project retains the original dual-licensing of the TinyMaker3D project:
+* **Firmware:** MIT License
+* **Hardware:** CC BY-NC-SA 4.0
+
+Please refer to the `LICENSE.md` file for full details and copyright notices.
