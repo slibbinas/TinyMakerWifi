@@ -1,6 +1,6 @@
 # TinyMakerWifi
 
-This project is a modified and extended version of the original open-source TinyMaker 3D printer firmware. The primary addition in this repository is the implementation of WiFi functionality.
+This project is a modified and extended version of the original open-source TinyMaker 3D printer firmware. The primary addition in this repository is the implementation of WiFi functionality and direct model upload from PrusaSlicer.
 
 ## Credits & Acknowledgements
 
