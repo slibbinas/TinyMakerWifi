@@ -83,14 +83,12 @@ Requirements: [VS Code + PlatformIO](https://platformio.org/).
 
 Build switches at the top of the main `.ino`:
 
-```cpp
 #define ENABLE_NETWORK       1   // 0 = original firmware behavior, no network code
 #define ENABLE_SERIAL_DEBUG  1   // 0 = no serial output
 
 ## Support this project
 
-If you find this project useful and want to support my work, 
-you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
+If you find this project useful and want to support my work, you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
 
 ## Credits & Acknowledgements
 
