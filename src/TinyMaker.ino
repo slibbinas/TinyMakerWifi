@@ -1,7 +1,7 @@
 /**
  * @file TinyMaker-Firmware-v1-0-2.ino
  * @author Tinymaker Team (Original), Viktoras Sidlauskas (Modified)
- * @version 1.0.2-vs-wifi-0.1
+ * @version 1.0.2-vs-wifi-0.2
  * @date 2027-07-26
  * @brief Main firmware for Tinymaker MSLA 3D Printer.
  *
@@ -29,6 +29,13 @@
 #else
   static inline void DBG(const char *, ...) {}
   #define DBGLN(x)
+#endif
+
+// Settings saraso paskutinio iraso numeris: 11 originaliu + WiFi Info (12)
+#if ENABLE_NETWORK
+  #define SETTING_ITEM_MAX 12
+#else
+  #define SETTING_ITEM_MAX 11
 #endif
 
 #include <SPI.h>
@@ -376,6 +383,15 @@ void loop() {
       }
       delay(300);
         break; 
+      #if ENABLE_NETWORK
+      case 312:                 // WiFi Info -> back to Settings list (item 12)
+        setting_item = 11;
+        screen31DOWN();
+        break;
+      case 3121:                // Reset confirm -> cancel, back to WiFi Info
+        screenWifiInfo();
+        break;
+      #endif
       case 3111:
       Layer_Height = EEPROM.read(1) / 100.00;
       Base_Exposure = EEPROM.read(2);
@@ -861,6 +877,14 @@ void loop() {
       case 31:
         screen311();
         break;
+      #if ENABLE_NETWORK
+      case 312:                 // WiFi Info -> open Reset WiFi confirmation
+        screenWifiResetConfirm();
+        break;
+      case 3121:                // Confirmed -> erase credentials + reboot
+        wifiDoReset();
+        break;
+      #endif
       case 311:
       if(setting_item_updown == 1){
         setting_item ++;

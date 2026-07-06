@@ -5,22 +5,26 @@
 void screen0(){
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setCursor(122, 74);
+  gfx2->setCursor(5, 74);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
+#ifdef FIRMWARE_VERSION
+  gfx2->println(FIRMWARE_VERSION);
+#else
   gfx2->println("1.0.2");
+#endif
   for (int i = 0; i < 40; i++) {
-    gfx2->setCursor(35, i);
+    gfx2->setCursor(40, i);
     gfx2->setTextColor(ORANGE);
-    gfx2->println("Hello, World!"); 
+    gfx2->println("Tiny Maker"); 
     delay(30);
-    gfx2->setCursor(35, i);
+    gfx2->setCursor(40, i);
     gfx2->setTextColor(BLACK);
-    gfx2->println("Hello, World!");
+    gfx2->println("Tiny Maker");
   }
-  gfx2->setCursor(35, 40);
+  gfx2->setCursor(40, 40);
   gfx2->setTextColor(ORANGE);
-  gfx2->println("Hello, World!"); 
+  gfx2->println("Tiny Maker"); 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +68,9 @@ void screen1(){
   gfx2->setCursor(63, 71);
   gfx2->print("Print");
 
+  #if ENABLE_NETWORK
+  drawWifiBadge();
+  #endif
   screen = 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,6 +88,9 @@ void screen2(){
   gfx2->fillRect(0, 50, 160, 30, BLACK);
   gfx2->setCursor(31, 71);
   gfx2->print("Maintenance");
+  #if ENABLE_NETWORK
+  drawWifiBadge();
+  #endif
   screen = 2;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,8 +106,11 @@ void screen3(){
   gfx2->drawRoundRect(110, 10, 40, 40, 5, ORANGE);
   gfx2->drawRoundRect(60, 10, 40, 40, 5, BLACK);
   gfx2->fillRect(0, 50, 160, 30, BLACK);
-  gfx2->setCursor(55, 71);
-  gfx2->print("Setting");
+  gfx2->setCursor(51, 71);
+  gfx2->print("Settings");
+  #if ENABLE_NETWORK
+  drawWifiBadge();
+  #endif
   screen = 3;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1351,6 +1364,16 @@ void screen31UP(){
       gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
       gfx2->drawRoundRect(0, 0, 160, 39, 3, WHITE); 
         break;     
+      #if ENABLE_NETWORK
+      case 11:
+      gfx2->setCursor(5, 15);
+      gfx2->println("Back to Default"); 
+      gfx2->setCursor(5, 56);
+      gfx2->println("WiFi Info");     
+      gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
+      gfx2->drawRoundRect(0, 0, 160, 39, 3, WHITE); 
+        break;     
+      #endif
     }
   }
   else{
@@ -1388,7 +1411,7 @@ void screen31UP(){
  * Navigates down through the settings list.
  */
 void screen31DOWN(){
-  if (setting_item < 11) {
+  if (setting_item < SETTING_ITEM_MAX) {
     setting_item ++;
     gfx2->fillScreen(BLACK);
     gfx2->setFont(&FreeSans8pt7b);
@@ -1543,6 +1566,16 @@ void screen31DOWN(){
       gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
       gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
         break;     
+      #if ENABLE_NETWORK
+      case 12:
+      gfx2->setCursor(5, 15);
+      gfx2->println("Back to Default"); 
+      gfx2->setCursor(5, 56);
+      gfx2->println("WiFi Info");     
+      gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
+      gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
+        break;     
+      #endif
     }
   }
   else{
@@ -1550,6 +1583,12 @@ void screen31DOWN(){
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
+    #if ENABLE_NETWORK
+    gfx2->setCursor(5, 15);
+    gfx2->println("Back to Default"); 
+    gfx2->setCursor(5, 56);
+    gfx2->println("WiFi Info");     
+    #else
     gfx2->setCursor(5, 15);
     gfx2->println("Drop Back Feedrate"); 
     gfx2->setCursor(5, 33);
@@ -1558,6 +1597,7 @@ void screen31DOWN(){
     gfx2->print("mm/min");  
     gfx2->setCursor(5, 56);
     gfx2->println("Back to Default");     
+    #endif
     gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
     gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
   }
@@ -1574,13 +1614,20 @@ void screen31DOWN(){
  * Handles triangle selection indicators and "Back to Default" reset.
  */
 void screen311(){
+  #if ENABLE_NETWORK
+  if (setting_item == 12) {     // WiFi Info entry
+    screenWifiInfo();
+    delay(300);
+    return;
+  }
+  #endif
   if (setting_item_updown == 1) {
     // Top Option Selected
     gfx2->fillTriangle(151, 20, 148, 23, 154, 23, WHITE); 
     gfx2->fillTriangle(151, 33, 148, 30, 154, 30, WHITE);
     screen = 311;  
   }
-  if (setting_item_updown == 0) {
+  if (setting_item_updown == 0 || setting_item == 11) {
     if(setting_item != 11){
       // Bottom Option Selected
       gfx2->fillTriangle(151, 61, 148, 64, 154, 64, WHITE); 

@@ -279,18 +279,74 @@ void finishUpload() {
 // Setup - call from setup() just BEFORE the final screen1()
 // ===================================================================================
 
-void wmAPCallback(WiFiManager *wm) {
-  netMessage("WiFi setup - join AP:", "TinyMaker-Setup");
+// --- Boot-time progress UI: two text lines + bounded progress bar ---
+// The bar fills toward the timeout, so the user can see how long is left.
+void netProgressStart(const char *line1, const char *line2) {
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 18);
+  gfx2->print(line1);
+  gfx2->setCursor(5, 38);
+  gfx2->print(line2);
+  gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
+}
+
+void netProgressBar(int step, int total) {
+  int w = (int)(136L * step / total);
+  if (w > 136) w = 136;
+  if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
+}
+
+// --- WiFi status badge on the main menu (top-right corner, above the icons):
+// green dot = connected, grey dot = offline. Called from screen1/2/3 and
+// refreshed periodically from network_loop().
+void drawWifiBadge() {
+  uint16_t c = (WiFi.status() == WL_CONNECTED) ? GREEN : DARKGREY;
+  gfx2->fillCircle(154, 4, 3, c);
 }
 
 void network_setup() {
   WiFiManager wm;
-  wm.setConfigPortalTimeout(120); // after 2 min give up, boot without WiFi
-  wm.setConnectTimeout(15);
-  wm.setAPCallback(wmAPCallback);
+  bool saved = wm.getWiFiIsSaved();
 
-  bool ok = wm.autoConnect("TinyMaker-Setup");
-  if (!ok) {
+  if (saved) {
+    // Credentials stored in NVS: try to connect ourselves with a visible
+    // 15 s progress bar. NO config portal on failure - the printer may
+    // simply be away from its home network; boot into offline mode instead.
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+    const int steps = 30; // 30 x 500 ms = 15 s
+    netProgressStart("WiFi connecting...", "");
+    for (int i = 1; i <= steps && WiFi.status() != WL_CONNECTED; i++) {
+      delay(500);
+      netProgressBar(i, steps);
+    }
+  } else {
+    // No credentials yet (first boot / after Reset WiFi): captive portal
+    // in NON-blocking mode so we can draw the bar filling toward the
+    // 120 s timeout while wm.process() serves the portal.
+    wm.setConfigPortalBlocking(false);
+    wm.startConfigPortal("TinyMaker-Setup");
+    netProgressStart("WiFi setup - join AP:", "TinyMaker-Setup");
+    const int totalSec = 120;
+    unsigned long t0 = millis();
+    int lastSec = -1;
+    while (WiFi.status() != WL_CONNECTED) {
+      wm.process();
+      int sec = (int)((millis() - t0) / 1000);
+      if (sec != lastSec) {
+        lastSec = sec;
+        netProgressBar(sec, totalSec);
+      }
+      if (sec >= totalSec) break;
+      delay(10);
+    }
+    wm.stopConfigPortal();
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
     netMessage("WiFi: offline mode", "");
     delay(1200);
     return;
@@ -327,6 +383,99 @@ void network_setup() {
 // ===================================================================================
 void network_loop() {
   server.handleClient();
+
+  // Live refresh of the WiFi info screen (312): redraw values every 2 s
+  // while the screen is open. 'screen' global is defined in the main .ino
+  // (earlier in the combined compilation unit), so it is visible here.
+  static unsigned long wifiInfoTs = 0;
+  if (screen == 312 && millis() - wifiInfoTs > 2000) {
+    wifiInfoTs = millis();
+    wifiInfoValues();
+  }
+
+  // Refresh the main-menu WiFi badge every 5 s (connection may drop/return
+  // while the printer sits in the menu)
+  static unsigned long badgeTs = 0;
+  if ((screen == 1 || screen == 2 || screen == 3) && millis() - badgeTs > 5000) {
+    badgeTs = millis();
+    drawWifiBadge();
+  }
+}
+
+// ===================================================================================
+// WiFi Info screen (312) - opened from Settings list item 12
+// and Reset WiFi confirmation (3121)
+// ===================================================================================
+
+// Redrawable middle part: signal + IP (called on open and every 2 s)
+void wifiInfoValues() {
+  gfx2->fillRect(0, 20, 160, 40, BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 35);
+  if (WiFi.status() == WL_CONNECTED) {
+    long r = WiFi.RSSI();
+    gfx2->print("Sig: ");
+    gfx2->print(r);
+    gfx2->print(" dBm ");
+    gfx2->print(r > -60 ? "(Good)" : (r > -75 ? "(OK)" : "(Weak)"));
+    gfx2->setCursor(5, 55);
+    gfx2->print("IP: ");
+    gfx2->print(WiFi.localIP());
+  } else {
+    gfx2->print("Not connected");
+  }
+}
+
+// Full screen draw; sets screen = 312.
+// Buttons on 312 (handled in main loop switches):
+//   Back -> back to Settings list (item 12), OK -> Reset WiFi confirmation
+void screenWifiInfo() {
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 15);
+  if (WiFi.status() == WL_CONNECTED) {
+    gfx2->print("WiFi: ");
+    gfx2->print(WiFi.SSID());
+  } else {
+    gfx2->print("WiFi: Offline");
+  }
+  wifiInfoValues();
+  gfx2->setCursor(5, 74);
+  gfx2->print("FW ");
+#ifdef FIRMWARE_VERSION
+  gfx2->print(FIRMWARE_VERSION);
+#else
+  gfx2->print("?");
+#endif
+  screen = 312;
+}
+
+// Confirmation screen; sets screen = 3121.
+// Buttons on 3121: OK -> wifiDoReset(), Back -> screenWifiInfo()
+void screenWifiResetConfirm() {
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 25);
+  gfx2->print("Reset WiFi settings?");
+  gfx2->setCursor(5, 55);
+  gfx2->print("OK=Yes  Back=No");
+  screen = 3121;
+}
+
+// Erase stored credentials and reboot -> captive portal on next boot
+void wifiDoReset() {
+  netMessage("WiFi reset...", "Restarting");
+  WiFiManager wm;
+  wm.resetSettings();
+  delay(500);
+  ESP.restart();
 }
 
 #endif // ENABLE_NETWORK
+p
