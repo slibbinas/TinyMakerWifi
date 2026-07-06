@@ -6,11 +6,10 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 * **WiFi setup via captive portal** — no credentials in code, configured from your phone on first boot
 * **Direct upload from PrusaSlicer** ("Send to printer" button) — the printer emulates the Prusa SL1 network protocol
-* **OTA (Over-the-Air) updates added** — update your firmware wirelessly without a USB cable
 * Automatic unpacking of uploaded `.sl1` / `.zip` files into the layer format the stock firmware expects (works with both PrusaSlicer and UVtools numbering)
 * New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), firmware Update info, About
 * WiFi status indicator (green/grey dot) on the main menu
-* Firmware update over WiFi: browser page at `/update` + PlatformIO OTA for developers *(since v1.0.2-vs-wifi-0.4)*
+* **OTA updates** — firmware update over WiFi: browser page at `/update` + PlatformIO OTA for developers *(since v1.0.2-wifi-0.4)*
 * Everything is optional: build switches let you compile the original, network-free firmware from the same code base
 
 ## Hardware
@@ -27,7 +26,8 @@ If your computer does not recognize the printer when connected via USB, install 
 
 ### 2. Download Tools & Firmware
 1. Locate the **`flash_download_tool.zip`** inside the `Flash_Installer` folder of this repository (or download it from the official [Espressif Flash Download Tool](https://docs.espressif.com/projects/esp-test-tools/en/latest/esp32/production_stage/tools/flash_download_tool.html) page). **Extract the ZIP archive fully before running.**
-2. Download the latest `firmware.bin` from the [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) section of this repository.
+2. Download the latest **`firmware-full.bin`** from the [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) section of this repository.
+   * Note: use `firmware-full.bin` (complete image with bootloader and partition table) for this first USB flash. The smaller `firmware.bin` is for later wireless updates via `/update` only — flashing it alone over the stock firmware would leave the old partition layout and break OTA.
 
 ### 3. Flashing Steps
 1. Run the extracted `flash_download_tool_xxx.exe`.
@@ -36,12 +36,14 @@ If your computer does not recognize the printer when connected via USB, install 
     * **SPI Speed:** 40 MHz
     * **SPI Mode:** DIO
     * **Flash Size:** 32 Mbit (4MB)
-4. Click on the three dots `...` next to the first row and select your downloaded `firmware.bin` file.
-5. In the address field next to the file, enter: **`0x10000`**.
+4. Click on the three dots `...` next to the first row and select your downloaded `firmware-full.bin` file.
+5. In the address field next to the file, enter: **`0x0`**.
 6. Ensure the checkbox on the left of the file path is **checked**.
 7. Select the correct **COM port** for your printer.
 8. Click **START**.
 9. Once the progress bar reaches 100% and says "FINISH", power cycle your printer.
+
+Note: the first boot after flashing may take a few seconds longer than usual, and the printer will start the `TinyMaker-Setup` WiFi access point (see below). Printer settings (exposure, layer height, etc.) reset to factory defaults.
 
 ## First WiFi setup
 
@@ -67,7 +69,7 @@ WiFi status, signal strength and IP are always visible under **System → WiFi I
 
 ## Wireless Firmware Updates
 
-*(since v1.0.2-vs-wifi-0.4)*
+*(since v1.0.2-wifi-0.4)*
 
 * **From a browser:** download `firmware.bin` from [Releases](https://github.com/slibbinas/TinyMakerWifi/releases), open `http://tinymaker.local/update`, select the file, press Update. Do not power off during the update — and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 * **For developers:** PlatformIO OTA — select the `env:tinymaker-ota` environment and Upload goes over WiFi.
@@ -79,12 +81,14 @@ Requirements: [VS Code + PlatformIO](https://platformio.org/).
 1. Clone this repo.
 2. Unpack the four vendor-verified libraries from `Firmware/Libraries/*.zip` of the original project into the `lib/` folder: `AccelStepper` (1.64), `Arduino_GFX` (1.2.0), `PNGdec` (1.0.1), `SdFat` (1.1.2). **Do not use newer versions from the registry** — the APIs changed.
 3. `pio run` — the platform (`espressif32@6.5.0`, Arduino core 2.x) and the network libraries (WiFiManager, unzipLIB) are fetched automatically. Do not upgrade to Arduino core 3.x.
-4. First flash goes over USB (`env:tinier`, CH340 serial); after that OTA works (`env:tinymaker-ota`).
+4. First flash goes over USB (`env:tinymaker`, CH340 serial); after that OTA works (`env:tinymaker-ota`).
 
 Build switches at the top of the main `.ino`:
 
+```cpp
 #define ENABLE_NETWORK       1   // 0 = original firmware behavior, no network code
 #define ENABLE_SERIAL_DEBUG  1   // 0 = no serial output
+```
 
 ## Support this project
 
