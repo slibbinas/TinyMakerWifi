@@ -8,7 +8,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Direct upload from PrusaSlicer** ("Send to printer" button) — the printer emulates the Prusa SL1 network protocol
 * **OTA (Over-the-Air) updates added** — update your firmware wirelessly without a USB cable
 * Automatic unpacking of uploaded `.sl1` / `.zip` files into the layer format the stock firmware expects (works with both PrusaSlicer and UVtools numbering)
-* New **System** menu on the printer: WiFi Info (SSID, signal, IP), firmware Update, About
+* New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), firmware Update info, About
 * WiFi status indicator (green/grey dot) on the main menu
 * Firmware update over WiFi: browser page at `/update` + PlatformIO OTA for developers *(since v1.0.2-vs-wifi-0.4)*
 * Everything is optional: build switches let you compile the original, network-free firmware from the same code base
