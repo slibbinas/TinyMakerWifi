@@ -89,7 +89,8 @@ Build switches at the top of the main `.ino`:
 
 ## Support this project
 
-If you find this project useful and want to support my work, you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
+If you find this project useful and want to support my work, 
+you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
 
 ## Credits & Acknowledgements
 
