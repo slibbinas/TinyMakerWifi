@@ -36,32 +36,42 @@ void screen0(){
  */
 void screen1(){
   gfx2->fillScreen(BLACK);
-  
-  gfx2->fillTriangle(19, 23, 29, 18, 39, 23, ORANGE);
-  gfx2->fillTriangle(19, 23, 29, 28, 39, 23, ORANGE);
-  gfx2->drawLine(19, 27, 29, 32, ORANGE);
-  gfx2->drawLine(19, 31, 29, 36, ORANGE);
-  gfx2->drawLine(19, 35, 29, 40, ORANGE);
-  gfx2->drawLine(29, 32, 39, 27, ORANGE);
-  gfx2->drawLine(29, 36, 39, 31, ORANGE);
-  gfx2->drawLine(29, 40, 39, 35, ORANGE);    
 
-  gfx2->fillCircle(72, 37, 3, ORANGE); 
-  gfx2->fillCircle(72, 37, 1, BLACK); 
-  gfx2->fillCircle(85, 24, 6, ORANGE);
-  gfx2->fillCircle(87, 22, 3, BLACK); 
-  gfx2->fillCircle(88, 21, 3, BLACK);
-  gfx2->fillTriangle(71, 34, 79, 26, 75, 38, ORANGE);
-  gfx2->fillTriangle(75, 38, 83, 30, 79, 26, ORANGE);
+  // Print icon (box 1: x0-40)
+  gfx2->fillTriangle(9, 23, 19, 18, 29, 23, ORANGE);
+  gfx2->fillTriangle(9, 23, 19, 28, 29, 23, ORANGE);
+  gfx2->drawLine(9, 27, 19, 32, ORANGE);
+  gfx2->drawLine(9, 31, 19, 36, ORANGE);
+  gfx2->drawLine(9, 35, 19, 40, ORANGE);
+  gfx2->drawLine(19, 32, 29, 27, ORANGE);
+  gfx2->drawLine(19, 36, 29, 31, ORANGE);
+  gfx2->drawLine(19, 40, 29, 35, ORANGE);
 
-  gfx2->fillRoundRect(121, 21, 20, 2, 1, ORANGE);
-  gfx2->fillRoundRect(121, 28, 20, 2, 1, ORANGE);
-  gfx2->fillRoundRect(121, 35, 20, 2, 1, ORANGE);
-  gfx2->fillCircle(134, 21, 2, ORANGE);
-  gfx2->fillCircle(129, 28, 2, ORANGE);
-  gfx2->fillCircle(134, 35, 2, ORANGE);
-            
-  gfx2->drawRoundRect(10, 10, 40, 40, 5, ORANGE);
+  // Maintenance icon (box 2: x40-80)
+  gfx2->fillCircle(52, 37, 3, ORANGE); 
+  gfx2->fillCircle(52, 37, 1, BLACK); 
+  gfx2->fillCircle(65, 24, 6, ORANGE);
+  gfx2->fillCircle(67, 22, 3, BLACK); 
+  gfx2->fillCircle(68, 21, 3, BLACK);
+  gfx2->fillTriangle(51, 34, 59, 26, 55, 38, ORANGE);
+  gfx2->fillTriangle(55, 38, 63, 30, 59, 26, ORANGE);
+
+  // Settings icon (box 3: x80-120)
+  gfx2->fillRoundRect(91, 21, 20, 2, 1, ORANGE);
+  gfx2->fillRoundRect(91, 28, 20, 2, 1, ORANGE);
+  gfx2->fillRoundRect(91, 35, 20, 2, 1, ORANGE);
+  gfx2->fillCircle(104, 21, 2, ORANGE);
+  gfx2->fillCircle(99, 28, 2, ORANGE);
+  gfx2->fillCircle(104, 35, 2, ORANGE);
+
+  // System icon: WiFi arcs + dot (box 4: x120-160)
+  gfx2->drawCircle(140, 42, 15, ORANGE);
+  gfx2->drawCircle(140, 42, 10, ORANGE);
+  gfx2->drawCircle(140, 42, 5, ORANGE);
+  gfx2->fillRect(122, 43, 37, 15, BLACK);
+  gfx2->fillCircle(140, 42, 2, ORANGE);
+
+  gfx2->drawRoundRect(0, 10, 40, 40, 5, ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
@@ -82,9 +92,10 @@ void screen1(){
  * @brief Screen 2: Main Menu - Maintenance
  */
 void screen2(){
-  gfx2->drawRoundRect(10, 10, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(110, 10, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(60, 10, 40, 40, 5, ORANGE);
+  gfx2->drawRoundRect(0, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 10, 40, 40, 5, ORANGE);
   gfx2->fillRect(0, 50, 160, 30, BLACK);
   gfx2->setCursor(31, 71);
   gfx2->print("Maintenance");
@@ -102,9 +113,10 @@ void screen2(){
  * @brief Screen 3: Main Menu - Setting
  */
 void screen3(){
-  gfx2->drawRoundRect(10, 10, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(110, 10, 40, 40, 5, ORANGE);
-  gfx2->drawRoundRect(60, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(0, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 10, 40, 40, 5, ORANGE);
   gfx2->fillRect(0, 50, 160, 30, BLACK);
   gfx2->setCursor(51, 71);
   gfx2->print("Settings");
@@ -113,6 +125,113 @@ void screen3(){
   #endif
   screen = 3;
 }
+/**
+ * @brief Screen 4: Main Menu - System
+ */
+void screen4(){
+  gfx2->drawRoundRect(0, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 10, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 10, 40, 40, 5, ORANGE);
+  gfx2->fillRect(0, 50, 160, 30, BLACK);
+  gfx2->setCursor(53, 71);
+  gfx2->print("System");
+  #if ENABLE_NETWORK
+  drawWifiBadge();
+  #endif
+  screen = 4;
+}
+
+/**
+ * @brief Screens 41-43: System submenu (WiFi Info / About / Update)
+ */
+void screen41(){
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setCursor(7, 17);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->println("WiFi Info");
+  gfx2->setCursor(7, 44);
+  gfx2->print("Update");
+  gfx2->setCursor(7, 71);
+  gfx2->print("About");
+  gfx2->drawRoundRect(1, 1, 158, 24, 3, WHITE);
+  screen = 41;
+}
+
+void screen42(){
+  gfx2->drawRoundRect(1, 1, 158, 24, 3, BLACK);
+  gfx2->drawRoundRect(1, 28, 158, 24, 3, WHITE);
+  gfx2->drawRoundRect(1, 55, 158, 24, 3, BLACK);
+  screen = 42;
+}
+
+void screen43(){
+  gfx2->drawRoundRect(1, 1, 158, 24, 3, BLACK);
+  gfx2->drawRoundRect(1, 28, 158, 24, 3, BLACK);
+  gfx2->drawRoundRect(1, 55, 158, 24, 3, WHITE);
+  screen = 43;
+}
+
+/**
+ * @brief Screen 411: shown instead of WiFi Info when ENABLE_NETWORK = 0
+ */
+void screen411(){
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 35);
+  gfx2->print("Network disabled");
+  gfx2->setCursor(5, 55);
+  gfx2->print("in this build");
+  screen = 411;
+}
+
+/**
+ * @brief Screen 421: Update placeholder (OTA later)
+ */
+void screen421(){
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 30);
+  gfx2->print("Update");
+  gfx2->setTextColor(ORANGE);
+  gfx2->setCursor(5, 58);
+  gfx2->print("Coming soon...");
+  screen = 421;
+}
+
+/**
+ * @brief Screen 431: About
+ */
+void screen431(){
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(ORANGE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 16);
+  gfx2->print("TinyMaker WiFi");
+  gfx2->setFont(NULL); // built-in small font for long lines
+  gfx2->setTextColor(WHITE);
+  gfx2->setCursor(5, 28);
+#ifdef FIRMWARE_VERSION
+  gfx2->print("FW: ");
+  gfx2->print(FIRMWARE_VERSION);
+#else
+  gfx2->print("FW: 1.0.2");
+#endif
+  gfx2->setCursor(5, 46);
+  gfx2->print("github.com/slibbinas/");
+  gfx2->setCursor(5, 58);
+  gfx2->print("TinyMakerWifi");
+  gfx2->setFont(&FreeSans8pt7b); // restore UI font
+  screen = 431;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1364,16 +1483,6 @@ void screen31UP(){
       gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
       gfx2->drawRoundRect(0, 0, 160, 39, 3, WHITE); 
         break;     
-      #if ENABLE_NETWORK
-      case 11:
-      gfx2->setCursor(5, 15);
-      gfx2->println("Back to Default"); 
-      gfx2->setCursor(5, 56);
-      gfx2->println("WiFi Info");     
-      gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
-      gfx2->drawRoundRect(0, 0, 160, 39, 3, WHITE); 
-        break;     
-      #endif
     }
   }
   else{
@@ -1411,7 +1520,7 @@ void screen31UP(){
  * Navigates down through the settings list.
  */
 void screen31DOWN(){
-  if (setting_item < SETTING_ITEM_MAX) {
+  if (setting_item < 11) {
     setting_item ++;
     gfx2->fillScreen(BLACK);
     gfx2->setFont(&FreeSans8pt7b);
@@ -1566,16 +1675,6 @@ void screen31DOWN(){
       gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
       gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
         break;     
-      #if ENABLE_NETWORK
-      case 12:
-      gfx2->setCursor(5, 15);
-      gfx2->println("Back to Default"); 
-      gfx2->setCursor(5, 56);
-      gfx2->println("WiFi Info");     
-      gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
-      gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
-        break;     
-      #endif
     }
   }
   else{
@@ -1583,12 +1682,6 @@ void screen31DOWN(){
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
-    #if ENABLE_NETWORK
-    gfx2->setCursor(5, 15);
-    gfx2->println("Back to Default"); 
-    gfx2->setCursor(5, 56);
-    gfx2->println("WiFi Info");     
-    #else
     gfx2->setCursor(5, 15);
     gfx2->println("Drop Back Feedrate"); 
     gfx2->setCursor(5, 33);
@@ -1597,7 +1690,6 @@ void screen31DOWN(){
     gfx2->print("mm/min");  
     gfx2->setCursor(5, 56);
     gfx2->println("Back to Default");     
-    #endif
     gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
     gfx2->drawRoundRect(0, 0, 160, 39, 3, BLACK); 
   }
@@ -1614,13 +1706,6 @@ void screen31DOWN(){
  * Handles triangle selection indicators and "Back to Default" reset.
  */
 void screen311(){
-  #if ENABLE_NETWORK
-  if (setting_item == 12) {     // WiFi Info entry
-    screenWifiInfo();
-    delay(300);
-    return;
-  }
-  #endif
   if (setting_item_updown == 1) {
     // Top Option Selected
     gfx2->fillTriangle(151, 20, 148, 23, 154, 23, WHITE); 

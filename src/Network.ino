@@ -169,9 +169,18 @@ bool unpackModel(const char *zipPath, const char *destDir) {
   } while (zip->gotoNextFile() == UNZ_OK);
   zip->closeZIP();
   if (total == 0) { delete zip; free(buf); return false; }
+  DBG("Unpack: %d layers (min index %d)\n", total, minN);
 
   // ---- Prepare destination
   SD.mkdir(destDir);
+
+  // Remove stale layers from a previous upload with the same model name.
+  // Leftover files above the new layer count would inflate the count seen
+  // by the firmware's contiguous-file probing (mixed/oversized model!).
+  for (int i = 1; ; i++) {
+    String p = String(destDir) + "/" + String(i) + ".png";
+    if (!SD.remove(p.c_str())) break;
+  }
 
   // ---- Pass 2: extract each *.png as <n - minN + 1>.png
   bool ok = true;
@@ -396,7 +405,7 @@ void network_loop() {
   // Refresh the main-menu WiFi badge every 5 s (connection may drop/return
   // while the printer sits in the menu)
   static unsigned long badgeTs = 0;
-  if ((screen == 1 || screen == 2 || screen == 3) && millis() - badgeTs > 5000) {
+  if ((screen == 1 || screen == 2 || screen == 3 || screen == 4) && millis() - badgeTs > 5000) {
     badgeTs = millis();
     drawWifiBadge();
   }
@@ -478,4 +487,3 @@ void wifiDoReset() {
 }
 
 #endif // ENABLE_NETWORK
-p

@@ -1,7 +1,7 @@
 /**
  * @file TinyMaker-Firmware-v1-0-2.ino
  * @author Tinymaker Team (Original), Viktoras Sidlauskas (Modified)
- * @version 1.0.2-vs-wifi-0.2
+ * @version 1.0.2-vs-wifi-0.1
  * @date 2027-07-26
  * @brief Main firmware for Tinymaker MSLA 3D Printer.
  *
@@ -31,12 +31,10 @@
   #define DBGLN(x)
 #endif
 
-// Settings saraso paskutinio iraso numeris: 11 originaliu + WiFi Info (12)
-#if ENABLE_NETWORK
-  #define SETTING_ITEM_MAX 12
-#else
-  #define SETTING_ITEM_MAX 11
-#endif
+// Maksimalus modelio PNG failu skaicius: N x 0.05 mm auksciui.
+// Originalas: 1080 (=54 mm). Pakelta iki 1200 (=60 mm) - realus sio
+// spausdintuvo limitas; Z eigos atsarga kelimui lieka (max_height = 68 mm).
+#define MAX_LAYER_FILES 1200
 
 #include <SPI.h>
 #include <EEPROM.h>              // For storing settings persistently
@@ -372,6 +370,23 @@ void loop() {
       screen1(); 
       screen3();
         break; 
+      case 41:
+      case 42:
+      case 43:
+      screen1(); 
+      screen4();
+        break;
+      case 411:
+      screen41();
+        break;
+      case 421:
+      screen41(); 
+      screen42();
+        break;
+      case 431:
+      screen41(); 
+      screen43();
+        break;
       case 311:
       if(setting_item_updown == 1){
         setting_item ++;
@@ -384,9 +399,8 @@ void loop() {
       delay(300);
         break; 
       #if ENABLE_NETWORK
-      case 312:                 // WiFi Info -> back to Settings list (item 12)
-        setting_item = 11;
-        screen31DOWN();
+      case 312:                 // WiFi Info -> back to System menu
+        screen41();
         break;
       case 3121:                // Reset confirm -> cancel, back to WiFi Info
         screenWifiInfo();
@@ -426,6 +440,16 @@ void loop() {
         break;
       case 3:
       screen2();
+        break;
+      case 4:
+      screen3();
+        break;
+      case 42:
+      screen41();
+        break;
+      case 43:
+      screen41(); 
+      screen42();
         break;
       case 11:
       folderUp(root);
@@ -477,6 +501,15 @@ void loop() {
         break;
       case 2:
       screen3();
+        break;
+      case 3:
+      screen4();
+        break;
+      case 41:
+      screen42();
+        break;
+      case 42:
+      screen43();
         break;
       case 11:
       folderDown(root);
@@ -569,7 +602,7 @@ void loop() {
       } while(entry);
       layer_counter --; 
 
-      if (layer_counter <= 1080){
+      if (layer_counter <= MAX_LAYER_FILES){
         screen111();
       }else{
         screen112();
@@ -876,6 +909,22 @@ void loop() {
         break;
       case 31:
         screen311();
+        break;
+      case 4:
+        screen41();
+        break;
+      case 41:
+        #if ENABLE_NETWORK
+        screenWifiInfo();
+        #else
+        screen411();
+        #endif
+        break;
+      case 42:
+        screen421();
+        break;
+      case 43:
+        screen431();
         break;
       #if ENABLE_NETWORK
       case 312:                 // WiFi Info -> open Reset WiFi confirmation
