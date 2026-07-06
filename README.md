@@ -79,10 +79,28 @@ Requirements: [VS Code + PlatformIO](https://platformio.org/).
 1. Clone this repo.
 2. Unpack the four vendor-verified libraries from `Firmware/Libraries/*.zip` of the original project into the `lib/` folder: `AccelStepper` (1.64), `Arduino_GFX` (1.2.0), `PNGdec` (1.0.1), `SdFat` (1.1.2). **Do not use newer versions from the registry** — the APIs changed.
 3. `pio run` — the platform (`espressif32@6.5.0`, Arduino core 2.x) and the network libraries (WiFiManager, unzipLIB) are fetched automatically. Do not upgrade to Arduino core 3.x.
-4. First flash goes over USB (`env:tinymaker`, CH340 serial); after that OTA works (`env:tinymaker-ota`).
+4. First flash goes over USB (`env:tinier`, CH340 serial); after that OTA works (`env:tinymaker-ota`).
 
 Build switches at the top of the main `.ino`:
 
 ```cpp
 #define ENABLE_NETWORK       1   // 0 = original firmware behavior, no network code
 #define ENABLE_SERIAL_DEBUG  1   // 0 = no serial output
+
+## Support this project
+
+If you find this project useful and want to support my work, you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
+
+## Credits & Acknowledgements
+
+* **Original project:** [TinyMaker-Open-Source-3D-Printer](https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer)
+* **Original authors:** TinyMaker3D Team
+
+## License
+
+This project retains the original dual licensing of the TinyMaker3D project:
+
+* **Firmware:** MIT License
+* **Hardware:** CC BY-NC-SA 4.0
+
+See `LICENSE.md` for full details and copyright notices.
