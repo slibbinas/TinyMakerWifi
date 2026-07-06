@@ -190,18 +190,35 @@ void screen411(){
 }
 
 /**
- * @brief Screen 421: Update placeholder (OTA later)
+ * @brief Screen 421: Firmware update info (web /update)
  */
 void screen421(){
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
+  gfx2->setCursor(5, 16);
+  gfx2->print("Firmware update");
+#if ENABLE_NETWORK
+  gfx2->setFont(NULL); // built-in small font for URLs
   gfx2->setCursor(5, 30);
-  gfx2->print("Update");
+  if (WiFi.status() == WL_CONNECTED) {
+    gfx2->print("Open in browser:");
+    gfx2->setCursor(5, 44);
+    gfx2->print("http://");
+    gfx2->print(WiFi.localIP());
+    gfx2->print("/update");
+    gfx2->setCursor(5, 56);
+    gfx2->print("or tinymaker.local/update");
+  } else {
+    gfx2->print("WiFi not connected");
+  }
+  gfx2->setFont(&FreeSans8pt7b); // restore UI font
+#else
   gfx2->setTextColor(ORANGE);
-  gfx2->setCursor(5, 58);
-  gfx2->print("Coming soon...");
+  gfx2->setCursor(5, 55);
+  gfx2->print("Network disabled");
+#endif
   screen = 421;
 }
 

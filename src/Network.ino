@@ -35,6 +35,8 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <unzipLIB.h>      // bitbank2
+#include <Update.h>        // web /update firmware flashing
+#include <ArduinoOTA.h>    // PlatformIO espota uploads
 
 WebServer server(80);
 // NOTE: no global 'UNZIP zip;' here! The UNZIP object is ~40 KB - declared
@@ -288,6 +290,78 @@ void finishUpload() {
 // Setup - call from setup() just BEFORE the final screen1()
 // ===================================================================================
 
+// ===================================================================================
+// Firmware update over the web: GET /update (page) + POST /update (flash)
+// Users download firmware.bin from GitHub Releases and upload it here.
+// Runs only from loop() -> physically impossible during printing.
+// ===================================================================================
+bool otaWebOk = false;
+unsigned long otaShownBytes = 0;
+
+void handleUpdatePage() {
+  String page =
+    "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>TinyMaker firmware update</title></head><body style='font-family:sans-serif'>"
+    "<h2>TinyMaker firmware update</h2><p>Current version: ";
+#ifdef FIRMWARE_VERSION
+  page += FIRMWARE_VERSION;
+#else
+  page += "unknown";
+#endif
+  page +=
+    "</p><p>Get <b>firmware.bin</b> from "
+    "<a href='https://github.com/slibbinas/TinyMakerWifi/releases'>GitHub Releases</a>.</p>"
+    "<form method='POST' action='/update' enctype='multipart/form-data'>"
+    "<input type='file' name='firmware' accept='.bin' required> "
+    "<input type='submit' value='Update'></form>"
+    "<p><b>Do not power off the printer during the update.</b></p></body></html>";
+  server.send(200, "text/html", page);
+}
+
+void handleUpdateUpload() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    otaWebOk = false;
+    otaShownBytes = 0;
+    DBG("Web OTA start: %s\n", up.filename.c_str());
+    netMessage("Firmware update", "Receiving...");
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+      DBGLN("Update.begin failed");
+    }
+  }
+  else if (up.status == UPLOAD_FILE_WRITE) {
+    Update.write(up.buf, up.currentSize);
+    if (up.totalSize - otaShownBytes >= 131072) { // redraw every 128 KB
+      otaShownBytes = up.totalSize;
+      String p = String(up.totalSize / 1024) + " KB";
+      netMessage("Firmware update", p.c_str());
+    }
+  }
+  else if (up.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) otaWebOk = true;
+    DBG("Web OTA end: %u bytes, ok=%d\n", up.totalSize, otaWebOk);
+  }
+  else if (up.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
+  }
+}
+
+void handleUpdateFinish() {
+  if (otaWebOk) {
+    server.send(200, "text/html",
+      "<html><body><h3>Update OK - printer is rebooting...</h3></body></html>");
+    netMessage("Update OK", "Restarting...");
+    delay(800);
+    ESP.restart();
+  } else {
+    server.send(500, "text/html",
+      "<html><body><h3>Update FAILED</h3><p>Check the firmware.bin file and try again.</p></body></html>");
+    netMessage("Update FAILED", "");
+    delay(1500);
+    screen1();
+  }
+}
+
 // --- Boot-time progress UI: two text lines + bounded progress bar ---
 // The bar fills toward the timeout, so the user can see how long is left.
 void netProgressStart(const char *line1, const char *line2) {
@@ -377,7 +451,27 @@ void network_setup() {
   //   curl -F "file=@model.zip" http://tinymaker.local/upload
   server.on("/upload", HTTP_POST, finishUpload, handleUploadData);
 
+  // Web firmware update (users): http://tinymaker.local/update
+  server.on("/update", HTTP_GET, handleUpdatePage);
+  server.on("/update", HTTP_POST, handleUpdateFinish, handleUpdateUpload);
+
   server.begin();
+
+  // Developer OTA: PlatformIO 'espota' uploads over WiFi (env:tinymaker-ota).
+  // No password by default (home LAN); add ArduinoOTA.setPassword("...")
+  // + upload_flags = --auth=... in platformio.ini if the network is shared.
+  ArduinoOTA.setHostname("tinymaker");
+  ArduinoOTA.onStart([]() { netProgressStart("PlatformIO OTA...", ""); });
+  ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
+    netProgressBar(done, total);
+  });
+  ArduinoOTA.onEnd([]() { netMessage("OTA OK", "Restarting..."); });
+  ArduinoOTA.onError([](ota_error_t e) {
+    netMessage("OTA FAILED", "");
+    delay(1200);
+    screen1();
+  });
+  ArduinoOTA.begin();
 
   String ip = "IP: " + WiFi.localIP().toString();
   netMessage("WiFi connected", ip.c_str());
@@ -392,6 +486,7 @@ void network_setup() {
 // ===================================================================================
 void network_loop() {
   server.handleClient();
+  ArduinoOTA.handle();
 
   // Live refresh of the WiFi info screen (312): redraw values every 2 s
   // while the screen is open. 'screen' global is defined in the main .ino
