@@ -2,6 +2,8 @@
 
 Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D printer. The main additions: **WiFi connectivity**, **OTA updates**, and **direct model upload from PrusaSlicer** — no more SD card shuffling.
 
+![TinyMaker palm-sized resin 3D printer](Images/Palm_Sized.jpg)
+
 ## Features
 
 * **WiFi setup via captive portal** — no credentials in code, configured from your phone on first boot
@@ -18,17 +20,16 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 Stock TinyMaker electronics — **ESP32-WROOM-32E-N4** (4 MB flash, no PSRAM). No hardware modifications required; WiFi is already on the module.
 
-## Initial Firmware Installation (NOT VERIFIED - STILL IN TESTING !!!)
+## Initial Firmware Installation
 
 If you are installing this firmware for the first time, you need to flash it via USB. After this one-time step, all future updates can be done wirelessly via your browser.
 
-### 1. Install Drivers
-If your computer does not recognize the printer when connected via USB, install the CH340 driver located in the `Driver` folder of this repository:
+### 1. Install Drivers (if needed)
+Modern browsers and Windows usually detect the CH340 USB chip automatically. If your computer does **not** recognize the printer when connected via USB, install the CH340 driver from the `Driver` folder of this repository:
 * Run `CH341SER.EXE`.
 
-### 2. Download Tools & Firmware
-1. Locate the **`flash_download_tool.zip`** inside the `Flash_Installer` folder of this repository (or download it from the official [Espressif Flash Download Tool](https://docs.espressif.com/projects/esp-test-tools/en/latest/esp32/production_stage/tools/flash_download_tool.html) page). **Extract the ZIP archive fully before running.**
-2. Download the latest **`firmware-full.bin`** from the [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) section of this repository.
+### 2. Download the firmware
+Download the latest **`firmware-full.bin`** from the [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) section of this repository.
 
 > ⚠️ **Which file do I need?** Releases contain two files and they are NOT interchangeable:
 >
@@ -39,19 +40,31 @@ If your computer does not recognize the printer when connected via USB, install 
 >
 > Flashing `firmware.bin` over USB will **not** work correctly: it lacks the bootloader and partition table, so the printer either won't boot (if flashed at `0x0`) or OTA updates will be broken (if flashed at `0x10000` over the stock firmware).
 
-### 3. Flashing Steps
-1. Run the extracted `flash_download_tool_xxx.exe`.
-2. In the "Download Tool" window, select **ESP32** and **Develop** mode.
-3. Configure the settings **exactly** as follows (wrong settings are the most common cause of a non-booting printer):
+### 3. Flash it — Option A: web tool (recommended, no install)
+
+The easiest way — works straight from a Chrome/Edge browser, no drivers or software to install *(thanks to the community for the tip)*:
+
+1. Open **[https://esptool.spacehuhn.com/](https://esptool.spacehuhn.com/)** in Chrome or Edge.
+2. Click **Connect** and select your printer's serial port (if unsure which one it is, unplug and replug the USB cable and watch which entry appears).
+3. **Remove all pre-filled entries** in the list.
+4. Click **ADD**, upload your **`firmware-full.bin`**, and make sure its address field is set to **`0`**.
+5. Click **Program**, wait for it to finish, and power cycle the printer.
+
+### 3. Flash it — Option B: Espressif Flash Download Tool (Windows)
+
+If you prefer the official desktop tool:
+
+1. Get **`flash_download_tool.zip`** from the `Flash_Installer` folder of this repo (or the official [Espressif Flash Download Tool](https://docs.espressif.com/projects/esp-test-tools/en/latest/esp32/production_stage/tools/flash_download_tool.html) page). **Extract the ZIP fully before running.**
+2. Run the extracted `flash_download_tool_xxx.exe`.
+3. In the "Download Tool" window, select **ESP32** and **Develop** mode.
+4. Configure the settings **exactly** as follows (wrong settings are the most common cause of a non-booting printer):
     * **SPI Speed:** 40 MHz
     * **SPI Mode:** DIO
     * **Flash Size:** 32 Mbit (4MB)
-4. Click on the three dots `...` next to the first row and select your downloaded **`firmware-full.bin`** file (not `firmware.bin`!).
-5. In the address field next to the file, enter: **`0x0`** (zero — not `0x10000`).
-6. Ensure the checkbox on the left of the file path is **checked** — without it the tool flashes nothing and still reports success.
-7. Select the correct **COM port** for your printer.
-8. Click **START**.
-9. Once the progress bar reaches 100% and says "FINISH", power cycle your printer.
+5. Click the three dots `...` next to the first row and select **`firmware-full.bin`** (not `firmware.bin`!).
+6. In the address field next to the file, enter **`0x0`** (zero — not `0x10000`).
+7. Ensure the checkbox on the left of the file path is **checked** — without it the tool flashes nothing and still reports success.
+8. Select the correct **COM port**, click **START**, and power cycle the printer when it says "FINISH".
 
 Note: the first boot after flashing may take a few seconds longer than usual, and the printer will start the `TinyMaker-Setup` WiFi access point (see below). Printer settings (exposure, layer height, etc.) reset to factory defaults.
 
