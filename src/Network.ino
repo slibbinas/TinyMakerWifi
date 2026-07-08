@@ -154,7 +154,13 @@ static bool otaMenuOpen() { return screen == 421 || screen == 422; }
 String otaStyledPage(const String &inner) {
   return String(
     "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
-    "<title>TinyMaker firmware update</title><style>"
+    "<title>TinyMaker firmware update</title>"
+    // Inline data-URI favicon (orange rounded square with a white T) -
+    // shows in the browser tab and bookmarks, nothing stored on the device
+    "<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>"
+    "<rect width='16' height='16' rx='3' fill='%23e8720c'/>"
+    "<text x='8' y='12.5' font-family='Arial' font-size='11' font-weight='bold' fill='white' text-anchor='middle'>T</text></svg>\">"
+    "<style>"
     "*{box-sizing:border-box}"
     "body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
     "background:#1c1c1e;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#eee}"

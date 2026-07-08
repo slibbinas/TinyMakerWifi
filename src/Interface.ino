@@ -168,12 +168,19 @@ void screen1(){
   gfx2->fillCircle(99, 28, 2, ORANGE);
   gfx2->fillCircle(104, 35, 2, ORANGE);
 
-  // System icon: WiFi arcs + dot (box 4: x120-160)
-  gfx2->drawCircle(140, 42, 15, ORANGE);
-  gfx2->drawCircle(140, 42, 10, ORANGE);
-  gfx2->drawCircle(140, 42, 5, ORANGE);
-  gfx2->fillRect(122, 43, 37, 15, BLACK);
-  gfx2->fillCircle(140, 42, 2, ORANGE);
+  // System icon: gear with a hole (box 4: x120-160) - 8 teeth drawn as
+  // small circles on the rim, then the body, then the black center hole.
+  // (The old WiFi arcs read as "WiFi", but System holds Update/About too.)
+  gfx2->fillCircle(140, 21, 2, ORANGE);   // N tooth
+  gfx2->fillCircle(140, 39, 2, ORANGE);   // S
+  gfx2->fillCircle(149, 30, 2, ORANGE);   // E
+  gfx2->fillCircle(131, 30, 2, ORANGE);   // W
+  gfx2->fillCircle(146, 24, 2, ORANGE);   // NE
+  gfx2->fillCircle(134, 24, 2, ORANGE);   // NW
+  gfx2->fillCircle(146, 36, 2, ORANGE);   // SE
+  gfx2->fillCircle(134, 36, 2, ORANGE);   // SW
+  gfx2->fillCircle(140, 30, 7, ORANGE);   // body
+  gfx2->fillCircle(140, 30, 3, BLACK);    // hole
 
   gfx2->drawRoundRect(0, 12, 40, 40, 5, 0x879F);
   gfx2->setFont(&FreeSans8pt7b);
