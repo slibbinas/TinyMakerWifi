@@ -12,6 +12,8 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), firmware Update info, About
 * WiFi status indicator (green/grey dot) on the main menu
 * **Model deletion from the printer** — long-press OK on a model in the Print menu
+* **Import from SD card** — copy an `.sl1`/`.zip` onto the card and it shows up in the Print menu (in blue); press OK to convert it into a printable model. Works without any network, the archive is removed after a successful import
+* **Lifetime print-hours counter** — the About screen shows total printing time (stored in NVS, survives firmware updates)
 * **Resin usage estimate** — press UP on the print preview to estimate the resin (ml) a model needs; live ml is shown while printing
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
 * **Firmware updates over WiFi** — self-update straight from the printer (System → Update shows installed vs latest, one-button install), browser upload for a specific/older version, and PlatformIO OTA for developers. Flashing is gated to the Update menu for safety.
@@ -112,9 +114,13 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 
 **Always slice with the 0.05 mm profile.** The firmware is designed for 0.05 mm source layers (when the printer is set to 0.10 mm it skips every other image). Maximum model size: 1200 layers = 60 mm.
 
+## Importing models from the SD card
+
+No network? Copy an `.sl1` or `.zip` (exported by PrusaSlicer/UVtools) into the **root** of the SD card. It appears in the **Print** menu in **blue** among the models — press **OK** to convert it (progress is shown). When done, the new model appears in the list and the archive is deleted from the card. Long-press OK on a blue entry deletes the archive without importing.
+
 ## Deleting uploaded models
 
-In the **Print** menu, **press and hold OK for ~2.5 seconds** on a model — a *Delete model?* confirmation appears (release the button first, then OK = delete, Back = cancel). Deletion removes the whole model folder from the SD card and shows a progress bar (large models take a while — hundreds of layer files). A short OK press starts printing as usual.
+In the **Print** menu, **press and hold OK for ~1.5 seconds** on a model — a *Delete model?* confirmation appears (release the button first, then **OK = Delete**, **Back = No**). Deletion removes the whole model folder from the SD card and shows a progress bar (large models take a while — hundreds of layer files). A short OK press starts printing as usual.
 
 ## Wireless Firmware Updates
 

@@ -53,8 +53,10 @@
 #include <Update.h>        // web /update firmware flashing
 #include <ArduinoOTA.h>    // PlatformIO espota uploads
 #include <esp_wifi.h>      // reliable WiFi credential erase / config read
-#include <Preferences.h>   // forcePortal flag (survives reboot)
 #endif
+#include <Preferences.h>   // NVS: forcePortal flag, total print hours
+                           // (outside the network guard - print hours are
+                           // tracked in network-free builds too)
 
 // Resin estimation globals live in PNG.ino - forward-declare for the
 // files compiled before it (Interface.ino, TinyMaker.ino)
@@ -63,9 +65,28 @@ extern double resinEstimateMl;
 bool estimateResin();               // returns true if user chose Start
 bool startFromResin = false;        // set when Start pressed on resin screen
 
+// Print-list selection kind: false = model folder (OK prints), true =
+// .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
+// listEntryValid() in Folder.ino.
+bool selIsArchive = false;
+
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
+
+// Total print time, persisted in NVS (survives firmware re-flash, unlike the
+// EEPROM settings area). Written rarely - only at print end/cancel - to spare
+// flash wear. A power loss mid-print loses that session's time (accepted).
+Preferences sysPrefs;
+uint32_t totalPrintSecs = 0;        // lifetime printing seconds (loaded in setup)
+unsigned long printStartMs = 0;     // millis() when the current print started
+
+void savePrintTime() {
+  totalPrintSecs += (millis() - printStartMs) / 1000UL;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putULong("printSecs", totalPrintSecs);
+  sysPrefs.end();
+}
 
 #if ENABLE_NETWORK
 // Self-update (defined in Network.ino) - forward-declared so screen421()
@@ -321,6 +342,11 @@ void setup() {
   if (EEPROM.read(1) == 255 || Layer_Height < 0.01 || Layer_Height > 0.2) {
     resetSettingsToDefault();
   }
+
+  // Lifetime print-hours counter (NVS, shown on the About screen)
+  sysPrefs.begin("tinymaker", true);
+  totalPrintSecs = sysPrefs.getULong("printSecs", 0);
+  sysPrefs.end();
 
   delay(1000);
   #if ENABLE_NETWORK
@@ -662,11 +688,11 @@ void loop() {
         deleteSelectedModel();
         break;
       case 11: {
-      // Long-press OK (>= 2.5 s) on a model -> delete confirmation
+      // Long-press OK (>= 1.5 s) on a model -> delete confirmation
       {
         unsigned long okHold = millis();
-        while (digitalRead(buttonOK) == LOW && millis() - okHold < 2500) delay(10);
-        if (millis() - okHold >= 2500 && strlen(foldersel_long) > 0) {
+        while (digitalRead(buttonOK) == LOW && millis() - okHold < 1500) delay(10);
+        if (millis() - okHold >= 1500 && strlen(foldersel_long) > 0) {
           screenDeleteConfirm();
           // Wait for button release - otherwise the still-held OK would be
           // read again on the next loop() pass and instantly confirm delete
@@ -674,17 +700,24 @@ void loop() {
           break;
         }
       }
-      gfx2->fillScreen(BLACK);
-      gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-      gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK); 
+      if (selIsArchive) {
+        // OK on a .sl1/.zip -> convert it to a model, then refresh the list
+        // (the archive is gone, the new model folder appears)
+        importSelectedArchive();
+        screen11();
+        counter = 0;
+        folderDown(root);
+        break;
+      }
+      uiFrame(ORANGE);
       gfx2->setFont(&FreeSans8pt7b);
       gfx2->setTextColor(WHITE);
       gfx2->setTextSize(1);
       gfx2->setCursor(22, 34);
-      gfx2->print("Processing files");   
+      gfx2->print("Processing files");
       gfx2->setCursor(34, 52);
       gfx2->print("Please wait...");
-      delay(500); 
+      delay(500);
  
       layer_counter = 0;
       File entry;
@@ -717,6 +750,7 @@ void loop() {
         break;
       case 111: {
         startFromResin = false;   // consume the resin-screen Start request
+        printStartMs = millis();  // print-hours accounting (incl. pauses)
         homing_canceled = false;
         print_paused = false;
         print_canceled = false;
@@ -964,7 +998,8 @@ void loop() {
           lift_finished_print();
         }
         digitalWrite(FAN, LOW);
-        screen1(); 
+        savePrintTime();   // single exit point: finish, cancel and homing-abort
+        screen1();
       }
         break;
       

@@ -34,7 +34,6 @@
 #include <WiFiManager.h>   // tzapu, v2.0.x
 #include <ESPmDNS.h>
 #include <WebServer.h>
-#include <unzipLIB.h>      // bitbank2
 #include <Update.h>        // web /update firmware flashing
 #include <ArduinoOTA.h>    // PlatformIO espota uploads
 #include <WiFiClientSecure.h> // HTTPS to GitHub for version check + self-update
@@ -62,187 +61,10 @@ String modelName;       // e.g. "Benchy"
 bool uploadOk = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
 
-// Separate File handle for the unzipper - do NOT reuse the global
-// 'myfile' from PNG.ino (it belongs to the PNGdec callbacks).
-File zipSrcFile;
-
-// ===================================================================================
-// unzipLIB <-> SdFat callbacks
-// NOTE: verify exact callback/getFileInfo signatures against the unzipLIB
-// example sketches on first build - the library API is small but strict.
-// ===================================================================================
-void *zipOpen(const char *filename, int32_t *size) {
-  zipSrcFile = SD.open(filename);
-  if (!zipSrcFile) return NULL;
-  *size = zipSrcFile.size();
-  return (void *)&zipSrcFile;
-}
-
-void zipClose(void *p) {
-  ZIPFILE *pzf = (ZIPFILE *)p;
-  File *f = (File *)pzf->fHandle;
-  if (f) f->close();
-}
-
-int32_t zipRead(void *p, uint8_t *buffer, int32_t length) {
-  ZIPFILE *pzf = (ZIPFILE *)p;
-  File *f = (File *)pzf->fHandle;
-  return f->read(buffer, length);
-}
-
-int32_t zipSeek(void *p, int32_t position, int iType) {
-  ZIPFILE *pzf = (ZIPFILE *)p;
-  File *f = (File *)pzf->fHandle;
-  if (iType == SEEK_SET)      f->seek(position);
-  else if (iType == SEEK_CUR) f->seek(f->position() + position);
-  else                        f->seek(f->size() + position); // SEEK_END
-  return f->position();
-}
-
-// ===================================================================================
-// Helpers
-// ===================================================================================
-
-// Small status line on the UI LCD (gfx2)
-void netMessage(const char *line1, const char *line2) {
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(WHITE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(8, 32);
-  gfx2->print(line1);
-  gfx2->setCursor(8, 56);
-  gfx2->print(line2);
-}
-
-// Extract layer number from a zip entry name, or -1 if not a layer PNG.
-// Accepts "17.png", "Benchy00016.png", "slice/12.png". Rejects thumbnails
-// and non-png entries. Number = trailing digits right before ".png".
-int layerIndexFromEntry(const char *entryName) {
-  String n = String(entryName);
-  n.toLowerCase();
-  if (n.indexOf("thumbnail") >= 0) return -1;
-  if (!n.endsWith(".png")) return -1;
-  int slash = n.lastIndexOf('/');
-  String base = n.substring(slash + 1, n.length() - 4); // strip dir + ".png"
-  int i = base.length() - 1;
-  if (i < 0 || !isDigit(base[i])) return -1;
-  while (i > 0 && isDigit(base[i - 1])) i--;
-  return base.substring(i).toInt();
-}
-
-// Make a safe SD folder name from the uploaded filename (no extension).
-// Folder name buffer in the stock firmware is 101 chars; keep well under.
-String safeModelName(String fn) {
-  int slash = max(fn.lastIndexOf('/'), fn.lastIndexOf('\\'));
-  if (slash >= 0) fn = fn.substring(slash + 1);
-  int dot = fn.lastIndexOf('.');
-  if (dot > 0) fn = fn.substring(0, dot);
-  String out = "";
-  for (unsigned int i = 0; i < fn.length() && out.length() < 40; i++) {
-    char c = fn[i];
-    if (isAlphaNumeric(c) || c == '-' || c == '_') out += c;
-  }
-  if (out.length() == 0) out = "Model";
-  return out;
-}
-
-// ===================================================================================
-// ZIP / SL1 unpacker
-// Pass 1: find lowest layer number and count. Pass 2: extract each *.png
-// as /<dest>/<n - min + 1>.png so the stock firmware (which probes 1.png,
-// 2.png, ... with no gaps) sees a valid model regardless of source format.
-// ===================================================================================
-bool unpackModel(const char *zipPath, const char *destDir) {
-  char entry[256];
-  const int BUFSZ = 4096;
-
-  // UNZIP object is ~40 KB -> allocate on heap only while unpacking.
-  // Never make it global/static (overflows WROOM DRAM at link time).
-  UNZIP *zip = new UNZIP();
-  uint8_t *buf = (uint8_t *)malloc(BUFSZ);
-  if (!zip || !buf) {
-    if (zip) delete zip;
-    if (buf) free(buf);
-    return false;
-  }
-
-  // ---- Pass 1: scan - find lowest layer number and count
-  int minN = 0x7FFFFFFF, total = 0;
-  if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
-    delete zip; free(buf);
-    return false;
-  }
-  zip->gotoFirstFile();
-  do {
-    zip->getFileInfo(NULL, entry, sizeof(entry), NULL, 0, NULL, 0);
-    int n = layerIndexFromEntry(entry);
-    if (n >= 0) { total++; if (n < minN) minN = n; }
-  } while (zip->gotoNextFile() == UNZ_OK);
-  zip->closeZIP();
-  if (total == 0) { delete zip; free(buf); return false; }
-  DBG("Unpack: %d layers (min index %d)\n", total, minN);
-
-  // ---- Prepare destination
-  SD.mkdir(destDir);
-
-  // Remove stale layers from a previous upload with the same model name.
-  // Leftover files above the new layer count would inflate the count seen
-  // by the firmware's contiguous-file probing (mixed/oversized model!).
-  for (int i = 1; ; i++) {
-    String p = String(destDir) + "/" + String(i) + ".png";
-    if (!SD.remove(p.c_str())) break;
-  }
-
-  // ---- Pass 2: extract each *.png as <n - minN + 1>.png
-  bool ok = true;
-  int done = 0;
-  if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
-    delete zip; free(buf);
-    return false;
-  }
-  zip->gotoFirstFile();
-  do {
-    zip->getFileInfo(NULL, entry, sizeof(entry), NULL, 0, NULL, 0);
-    int n = layerIndexFromEntry(entry);
-    if (n < 0) continue;
-
-    String outPath = String(destDir) + "/" + String(n - minN + 1) + ".png";
-    SD.remove(outPath.c_str());
-    File out = SD.open(outPath.c_str(), FILE_WRITE);
-    if (!out) { ok = false; break; }
-
-    if (zip->openCurrentFile() != UNZ_OK) { out.close(); ok = false; break; }
-    int rc;
-    while ((rc = zip->readCurrentFile(buf, BUFSZ)) > 0)
-      out.write(buf, rc);
-    zip->closeCurrentFile();
-    out.close();
-    if (rc < 0) { ok = false; break; }
-
-    done++;
-    if (done % 20 == 0 || done == total) {
-      String p = String(done) + " / " + String(total);
-      netMessage("Unpacking layers", p.c_str());
-    }
-  } while (zip->gotoNextFile() == UNZ_OK);
-  zip->closeZIP();
-  delete zip;
-  free(buf);
-
-  // On failure remove the partial folder - a model with missing layers
-  // would otherwise print incomplete (firmware probes until first gap).
-  if (!ok) {
-    for (int i = 1; i <= total; i++) {
-      String p = String(destDir) + "/" + String(i) + ".png";
-      SD.remove(p.c_str());
-    }
-    SD.rmdir(destDir);
-  }
-  return ok;
-}
+// The ZIP/SL1 conversion pipeline (zip callbacks, layerIndexFromEntry,
+// safeModelName, unpackModel) lives in Import.ino - outside the network
+// guard - so the on-device "import from SD" flow works with
+// ENABLE_NETWORK=0. The upload handlers below reuse it.
 
 // ===================================================================================
 // HTTP upload handlers
@@ -321,10 +143,11 @@ bool otaWebOk = false;
 bool otaBlocked = false;   // set when a flash is attempted outside the Update menu
 
 // Security: firmware flashing is only accepted while the printer is showing
-// the System -> Update screen (screen 421). Model upload from PrusaSlicer
+// the System -> Update screen (421) or its "Install from file" subscreen
+// (422) - the latter is precisely the screen that tells the user to open the
+// browser, so it must keep the gate open. Model upload from PrusaSlicer
 // (/api/files/local) is intentionally NOT gated - only firmware flashing is.
-#define OTA_UPDATE_SCREEN 421
-static bool otaMenuOpen() { return screen == OTA_UPDATE_SCREEN; }
+static bool otaMenuOpen() { return screen == 421 || screen == 422; }
 
 // Shared page chrome (head + styled card) for all firmware-update responses.
 // Pass the inner card HTML; returns the full document.
@@ -531,32 +354,15 @@ void otaInstallLatest() {
   }
 }
 
-// --- Boot-time progress UI: two text lines + bounded progress bar ---
-// The bar fills toward the timeout, so the user can see how long is left.
-void netProgressStart(const char *line1, const char *line2) {
-  gfx2->fillScreen(BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(WHITE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(5, 18);
-  gfx2->print(line1);
-  gfx2->setCursor(5, 38);
-  gfx2->print(line2);
-  gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
-}
-
-void netProgressBar(int step, int total) {
-  int w = (int)(136L * step / total);
-  if (w > 136) w = 136;
-  if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
-}
-
 // --- WiFi status badge on the main menu (top-right corner, above the icons):
-// green dot = connected, grey dot = offline. Called from screen1/2/3 and
-// refreshed periodically from network_loop().
+// three mini signal bars - green = connected, grey = offline. 2 px margin
+// from the screen edge so it does not blend into screen frames.
+// Called from screen1/2/3 and refreshed periodically from network_loop().
 void drawWifiBadge() {
   uint16_t c = (WiFi.status() == WL_CONNECTED) ? GREEN : DARKGREY;
-  gfx2->fillCircle(154, 4, 3, c);
+  gfx2->fillRect(148, 8, 2, 3, c);   // short bar
+  gfx2->fillRect(151, 5, 2, 6, c);   // medium bar
+  gfx2->fillRect(154, 2, 2, 9, c);   // tall bar (ends 2 px from the edge)
 }
 
 void network_setup() {

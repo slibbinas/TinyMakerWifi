@@ -1,3 +1,96 @@
+// ===================================================================================
+// Shared UI helpers - the single place the common look is defined.
+// All screens draw frames, titles, bottom buttons and action hints through
+// these, so a style change is made once here, not per screen.
+// Kept OUTSIDE any #if ENABLE_NETWORK guard: used by network-free builds too.
+// ===================================================================================
+
+// Standard rounded frame: colored border + black inside (pass ORANGE, RED...)
+void uiFrame(uint16_t color) {
+  gfx2->fillScreen(BLACK);
+  gfx2->fillRoundRect(0, 0, 160, 80, 5, color);
+  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
+}
+
+// Orange screen title, top-left (About / Update / WiFi Info style)
+void uiTitle(const char *text) {
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(ORANGE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 16);
+  gfx2->print(text);
+  gfx2->setTextColor(WHITE);
+}
+
+// One bottom button. slot 0 = left (Back position), 1 = right (OK position).
+// The label is centered inside the 72x18 button.
+void uiButton(int slot, const char *label, uint16_t color) {
+  int x = slot ? 82 : 6;
+  gfx2->fillRoundRect(x, 58, 72, 18, 2, color);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  int16_t bx, by; uint16_t bw, bh;
+  gfx2->getTextBounds(label, 0, 0, &bx, &by, &bw, &bh);
+  gfx2->setCursor(x + (72 - (int)bw) / 2 - bx, 71);
+  gfx2->print(label);
+}
+
+// The usual bottom pair: orange Back-style left + colored action right.
+// Pass NULL to skip a slot.
+void uiButtons(const char *left, const char *right, uint16_t rightColor) {
+  if (left)  uiButton(0, left, ORANGE);
+  if (right) uiButton(1, right, rightColor);
+}
+
+// Small button-like action hint: light rounded square with a dark UP
+// triangle inside + a small-font label to the right. Same shape for every
+// "press UP does X" hint. x,y = top-left of the 13x13 square.
+void uiActionHint(int x, int y, const char *label) {
+  gfx2->fillRoundRect(x, y, 13, 13, 3, 0x879F);
+  gfx2->fillTriangle(x + 6, y + 3, x + 2, y + 9, x + 10, y + 9, BLACK);
+  gfx2->setFont(NULL);              // built-in small font for the label
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(x + 16, y + 3);
+  gfx2->print(label);
+  gfx2->setTextColor(WHITE);
+  gfx2->setFont(&FreeSans8pt7b);
+}
+
+// Framed two-line status message (used by upload/OTA/import flows)
+void netMessage(const char *line1, const char *line2) {
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 32);
+  gfx2->print(line1);
+  gfx2->setCursor(8, 56);
+  gfx2->print(line2);
+}
+
+// Two text lines + bounded progress bar (WiFi connect / uploads / OTA / import)
+void netProgressStart(const char *line1, const char *line2) {
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 18);
+  gfx2->print(line1);
+  gfx2->setCursor(5, 38);
+  gfx2->print(line2);
+  gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
+}
+
+void netProgressBar(int step, int total) {
+  int w = (int)(136L * step / total);
+  if (w > 136) w = 136;
+  if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 /**
  * @brief Screen 0: Welcome Screen
  * Displays "Hello, World!" message on startup.
@@ -198,17 +291,9 @@ void screen411(){
  */
 void screen421Buttons(bool installActive){
   // Left: UP -> install from file (browser upload of any/older version)
-  gfx2->fillTriangle(10, 59, 5, 67, 15, 67, 0x879F);
-  gfx2->setFont(NULL);
-  gfx2->setTextColor(0x879F);
-  gfx2->setCursor(19, 62);
-  gfx2->print("Local");
-  // Right: OK -> install latest (self-update)
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->fillRoundRect(82, 58, 72, 18, 2, installActive ? 0x879F : DARKGREY);
-  gfx2->setTextColor(WHITE);
-  gfx2->setCursor(90, 71);
-  gfx2->print("Install");
+  uiActionHint(5, 60, "Local");
+  // Right: OK -> install latest (self-update); greyed when nothing newer
+  uiButton(1, "Install", installActive ? 0x879F : DARKGREY);
   gfx2->setFont(NULL);
 }
 
@@ -218,11 +303,7 @@ void screen421Buttons(bool installActive){
  */
 void screen422(){
   gfx2->fillScreen(BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(ORANGE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(5, 14);
-  gfx2->print("Install from file");
+  uiTitle("Install from file");
   gfx2->setFont(NULL);
   gfx2->setTextColor(WHITE);
   gfx2->setCursor(5, 30);
@@ -250,11 +331,7 @@ void screen422(){
  */
 void screen421(){
   gfx2->fillScreen(BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(ORANGE);   // orange title, matching About / WiFi Info
-  gfx2->setTextSize(1);
-  gfx2->setCursor(5, 14);
-  gfx2->print("Firmware update");
+  uiTitle("Firmware update");
 #if ENABLE_NETWORK
   gfx2->setFont(NULL); // built-in small font for versions
   gfx2->setTextColor(WHITE);
@@ -314,25 +391,27 @@ void screen421(){
  */
 void screen431(){
   gfx2->fillScreen(BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(ORANGE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(5, 16);
-  gfx2->print("TinyMaker WiFi");
+  uiTitle("TinyMaker WiFi");
   gfx2->setFont(NULL); // built-in small font for long lines
   gfx2->setTextColor(WHITE);
-  gfx2->setCursor(5, 28);
+  gfx2->setCursor(5, 26);
 #ifdef FIRMWARE_VERSION
   gfx2->print("FW: v");
   gfx2->print(FIRMWARE_VERSION);
 #else
-  gfx2->print("FW: v0.7.0");
+  gfx2->print("FW: v?");
 #endif
-  gfx2->setCursor(5, 40);
+  gfx2->setCursor(5, 36);
   gfx2->print("Based on TinyMaker 1.0.2");
-  gfx2->setCursor(5, 54);
+  gfx2->setCursor(5, 46);
+  gfx2->print("Printed: ");
+  gfx2->print(totalPrintSecs / 3600UL);
+  gfx2->print("h ");
+  gfx2->print((totalPrintSecs % 3600UL) / 60UL);
+  gfx2->print("m");
+  gfx2->setCursor(5, 56);
   gfx2->print("github.com/slibbinas/");
-  gfx2->setCursor(5, 64);
+  gfx2->setCursor(5, 66);
   gfx2->print("TinyMakerWifi");
   gfx2->setFont(&FreeSans8pt7b); // restore UI font
   screen = 431;
@@ -348,10 +427,8 @@ void screen431(){
  * Displays a list of files/folders.
  */
 void screen11(){
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 20, 3, ORANGE);  
+  uiFrame(ORANGE);
+  gfx2->fillRoundRect(0, 0, 160, 20, 3, ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
@@ -359,13 +436,8 @@ void screen11(){
   gfx2->print("Select File");
   gfx2->drawRoundRect(6, 27, 148, 24, 3, WHITE);
   gfx2->fillTriangle(147, 32, 144, 35, 150, 35, WHITE);
-  gfx2->fillTriangle(147, 45, 144, 42, 150, 42, WHITE);    
-  gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
-  gfx2->setCursor(24, 71);
-  gfx2->println("Back");
-  gfx2->fillRoundRect(82, 58, 72, 18, 2,  0x879F);
-  gfx2->setCursor(102, 71);
-  gfx2->println("Next");
+  gfx2->fillTriangle(147, 45, 144, 42, 150, 42, WHITE);
+  uiButtons("Back", "Next", 0x879F);
   screen = 11;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -428,39 +500,26 @@ void screen111(){
   estimated_hours = estimated_seconds / 3600;
   estimated_minutes = (estimated_seconds % 3600) / 60; 
 
-  // Draw UI  
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK); 
+  // Draw UI
+  uiFrame(ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(7, 16);
   gfx2->print("Layers: ");
   gfx2->print(layer_counter);
-  // Hint: press UP to estimate resin -> small up-arrow icon + "ml".
-  // Compact icon leaves a margin from the orange frame (old "UP=ml" clipped).
-  gfx2->fillTriangle(120, 6, 115, 14, 125, 14, 0x879F); // up arrow
-  gfx2->setCursor(129, 16);
-  gfx2->setTextColor(0x879F);
-  gfx2->print("ml");
-  gfx2->setTextColor(WHITE);
+  uiActionHint(118, 5, "ml");   // UP on this screen estimates resin
   gfx2->setCursor(7, 34);
-  gfx2->print("Height: "); 
-  gfx2->print(total_height); 
-  gfx2->print("mm");  
+  gfx2->print("Height: ");
+  gfx2->print(total_height);
+  gfx2->print("mm");
   gfx2->setCursor(7, 52);
   gfx2->print("Time: ");
   gfx2->print(estimated_hours);
   gfx2->print("h ");
   gfx2->print(estimated_minutes);
-  gfx2->print("min"); 
-  gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
-  gfx2->setCursor(24, 71);
-  gfx2->println("Back");
-  gfx2->fillRoundRect(82, 58, 72, 18, 2,  0x879F);
-  gfx2->setCursor(102, 71);
-  gfx2->println("Start");
+  gfx2->print("min");
+  uiButtons("Back", "Start", 0x879F);
   screen = 111;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -473,11 +532,9 @@ void screen111(){
  * Displays warning if object height exceeds build volume.
  */
 void screen112(){
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, RED);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
-  gfx2->fillRoundRect(9, 4, 5, 10, 1, RED); 
-  gfx2->fillCircle(11, 18, 2, RED); 
+  uiFrame(RED);
+  gfx2->fillRoundRect(9, 4, 5, 10, 1, RED);
+  gfx2->fillCircle(11, 18, 2, RED);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
@@ -487,9 +544,7 @@ void screen112(){
   gfx2->println("object exceeds the");
   gfx2->setCursor(6, 52);
   gfx2->println("max build volume.");
-  gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
-  gfx2->setCursor(24, 71);
-  gfx2->println("Back");
+  uiButton(0, "Back", ORANGE);
   delay(200);
   gfx2->fillRoundRect(9, 4, 5, 10, 1, BLACK); 
   gfx2->fillCircle(11, 18, 2, BLACK);

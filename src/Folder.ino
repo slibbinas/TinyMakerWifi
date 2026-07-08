@@ -1,40 +1,70 @@
 /**
+ * @brief Decide whether a directory entry appears in the Print list.
+ * Two kinds of entries qualify: a printable model folder (contains 1.png)
+ * and an importable .sl1/.zip archive in the SD root (OK converts it).
+ * Sets the global selIsArchive for the accepted entry.
+ */
+bool listEntryValid(File &entry) {
+  char name[101];
+  entry.getName(name, sizeof(name));
+  if (entry.isDirectory()) {
+    FileName = name;
+    FileName += "/1.png";
+    File probe = SD.open(FileName);
+    if (!probe) return false;
+    probe.close();
+    selIsArchive = false;
+    return true;
+  }
+  String n = String(name);
+  n.toLowerCase();
+  if (n.endsWith(".sl1") || n.endsWith(".zip")) {
+    selIsArchive = true;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @brief Draw the currently selected list entry into the Select File box.
+ * Archives are drawn in blue (import), model folders in white (print).
+ */
+void drawListSelection() {
+  foldersel = String(foldersel_long);
+  foldersel = foldersel.substring(0, 10);
+  gfx2->fillRoundRect(7, 28, 137, 22, 2, BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(selIsArchive ? 0x879F : WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(12, 43);
+  gfx2->print(foldersel);
+  gfx2->setTextColor(WHITE);
+}
+
+/**
  * @brief Folder Down Navigation
- * Browses into the Next folder or displays file name.
+ * Browses to the next list entry (model folder or importable archive).
  *
  * @param dir The directory to read from
  */
 void folderDown(File dir) {
-  counter++;  
+  counter++;
   for (int i = 0; i < counter; i++) {
     while (true) {
-      File entry =  dir.openNextFile();     
+      File entry = dir.openNextFile();
       if (! entry) {
         counter--;
         break;
       }
-      if (entry.isDirectory()) {
-        char foldertest[101];
-        entry.getName(foldertest, 101);
-        FileName = foldertest;
-        FileName += "/1.png";
-        File entry2 = SD.open(FileName);
-        if (entry2){
-          entry.getName(foldersel_long, 101);
-          break;  
-        }  
+      if (listEntryValid(entry)) {
+        entry.getName(foldersel_long, 101);
+        entry.close();
+        break;
       }
       entry.close();
     }
-  } 
-    foldersel = String(foldersel_long);
-    foldersel = foldersel.substring(0, 10);
-    gfx2->fillRoundRect(7, 28, 137, 22, 2, BLACK);
-    gfx2->setFont(&FreeSans8pt7b);
-    gfx2->setTextColor(WHITE);
-    gfx2->setTextSize(1);
-    gfx2->setCursor(12, 43);
-    gfx2->print(foldersel);  
+  }
+  drawListSelection();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +73,7 @@ void folderDown(File dir) {
 
 /**
  * @brief Folder Up Navigation
- * Browses to the Previous folder.
+ * Browses to the previous list entry.
  *
  * @param dir The directory to read from
  */
@@ -52,29 +82,17 @@ void folderUp(File dir) {
     counter --;
     for (int i = 0; i < counter; i++) {
       while (true) {
-        File entry =  dir.openNextFile();
-        /*if (! entry) {
-          break;
-        }*/
-        if (entry.isDirectory()) {
+        File entry = dir.openNextFile();
+        if (! entry) break;   // safety net (should not happen: entry exists)
+        if (listEntryValid(entry)) {
           entry.getName(foldersel_long, 101);
-          FileName = foldersel_long;
-          FileName += "/1.png";
-          File entry2 = SD.open(FileName);
-          if (entry2)
-            break;
+          entry.close();
+          break;
         }
         entry.close();
       }
-    }  
-    foldersel = String(foldersel_long);
-    foldersel = foldersel.substring(0, 10);
-    gfx2->fillRoundRect(7, 28, 137, 22, 2, BLACK);
-    gfx2->setFont(&FreeSans8pt7b);
-    gfx2->setTextColor(WHITE);
-    gfx2->setTextSize(1);
-    gfx2->setCursor(12, 43);
-    gfx2->print(foldersel);
+    }
+    drawListSelection();
   }
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,20 +147,17 @@ bool deleteModelFolder(const char *path) {
  * OK = delete (handled in loop), Back = return to the model list.
  */
 void screenDeleteConfirm(){
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
+  uiFrame(RED);   // red frame: destructive action
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 20);
-  gfx2->print("Delete model?");
+  gfx2->print(selIsArchive ? "Delete file?" : "Delete model?");
   gfx2->setTextColor(ORANGE);
   gfx2->setCursor(8, 44);
   gfx2->print(foldersel);
   gfx2->setTextColor(WHITE);
-  gfx2->setCursor(8, 70);
-  gfx2->print("OK=Yes  Back=No");
+  uiButtons("Back", "Delete", RED);   // Back = No, OK = Delete
   screen = 113;
 }
 
@@ -160,7 +175,9 @@ void deleteSelectedModel(){
   gfx2->print(foldersel);
   gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
   String path = "/" + String(foldersel_long);
-  bool ok = deleteModelFolder(path.c_str());
+  // Archives are single files; models are whole layer folders
+  bool ok = selIsArchive ? SD.remove(path.c_str())
+                         : deleteModelFolder(path.c_str());
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);

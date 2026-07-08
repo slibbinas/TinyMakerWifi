@@ -6,6 +6,7 @@
 #define PX_AREA_MM2 0.01626
 unsigned long whitePixelsAccum = 0;   // reused for both counting passes
 bool countPixelsMode = false;         // true = PNGDraw also counts white px
+bool estimateCancelReq = false;       // Back pressed during the estimate scan
 double resinUsedMl = 0.0;             // grows while printing
 double resinEstimateMl = 0.0;         // filled by estimateResin()
 
@@ -56,6 +57,9 @@ void PNGDraw(PNGDRAW *pDraw) {
   }
   if (!countPixelsMode)
     gfx1->draw16bitRGBBitmap(0, pDraw->y + 0, usPixels, pDraw->iWidth, 1);    // Draw to display (skip when only counting)
+  else if (digitalRead(buttonBack) == LOW)
+    estimateCancelReq = true;   // latch: sampled every line, so a short Back
+                                // press during the estimate scan is not lost
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,21 +106,17 @@ void print_next_png(){
  * @return true if the user pressed Start (begin printing), false for Back.
  */
 bool estimateResin(){
-  gfx2->fillScreen(BLACK);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(WHITE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(5, 18);
-  gfx2->print("Estimating resin");
-  gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
+  netProgressStart("Estimating resin ml", "");
 
   int total = layer_counter;              // already halved for 0.1 mm by screen111
   double volMm3 = 0.0;
   countPixelsMode = true;                 // PNGDraw counts, does not draw
+  estimateCancelReq = false;
 
   for (int layer = 1; layer <= total; layer++) {
-    // Back cancels a long estimate (hundreds of layers take a while)
-    if (digitalRead(buttonBack) == LOW) {
+    // Back cancels a long estimate. The press is latched inside PNGDraw()
+    // (sampled every decoded line), so even a short tap registers here.
+    if (estimateCancelReq || digitalRead(buttonBack) == LOW) {
       countPixelsMode = false;
       while (digitalRead(buttonBack) == LOW) delay(10);
       return false;                       // caller redraws the preview screen
@@ -144,9 +144,7 @@ bool estimateResin(){
   resinEstimateMl = volMm3 / 1000.0;
 
   // Show result with Back / Start buttons (same layout as screen111 preview)
-  gfx2->fillScreen(BLACK);
-  gfx2->fillRoundRect(0, 0, 160, 80, 5, ORANGE);
-  gfx2->fillRoundRect(2, 2, 156, 76, 3, BLACK);
+  uiFrame(ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
@@ -157,12 +155,7 @@ bool estimateResin(){
   gfx2->print(resinEstimateMl, 1);
   gfx2->print(" ml");
   gfx2->setTextColor(WHITE);
-  gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
-  gfx2->setCursor(24, 71);
-  gfx2->print("Back");
-  gfx2->fillRoundRect(82, 58, 72, 18, 2, 0x879F);
-  gfx2->setCursor(102, 71);
-  gfx2->print("Start");
+  uiButtons("Back", "Start", 0x879F);
 
   // Wait for release of UP (which triggered this), then Start (OK) or Back.
   while (digitalRead(buttonUp) == LOW) delay(10);
