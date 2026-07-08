@@ -454,7 +454,11 @@ String otaBinUrl    = "";   // direct URL of the latest firmware.bin
 int otaState = 0;
 
 // Compare two "MAJOR.MINOR.PATCH" strings. >0 if a>b, <0 if a<b, 0 if equal.
+// Tolerates a leading "v"/"V" (e.g. a version.txt copied from a git tag name) -
+// without this, "v0.8.0" would parse as 0.0.0 and silently report "Up to date".
 static int cmpSemver(const char *a, const char *b) {
+  if (*a == 'v' || *a == 'V') a++;
+  if (*b == 'v' || *b == 'V') b++;
   int va[3] = {0, 0, 0}, vb[3] = {0, 0, 0};
   sscanf(a, "%d.%d.%d", &va[0], &va[1], &va[2]);
   sscanf(b, "%d.%d.%d", &vb[0], &vb[1], &vb[2]);
@@ -462,9 +466,15 @@ static int cmpSemver(const char *a, const char *b) {
   return 0;
 }
 
+unsigned long otaCheckedAt = 0;   // millis() of the last successful check
+
 // Fetch version.txt over HTTPS and work out whether an update is available.
 // Blocking (a few seconds); the caller should show "checking..." first.
+// A successful result is cached for 5 min so reopening the Update screen
+// (or bouncing to/from "Install from file") does not re-block the UI.
 void otaCheckLatest() {
+  if ((otaState == 2 || otaState == 3) && millis() - otaCheckedAt < 300000UL)
+    return;                        // recent successful check - reuse it
   otaState = 1;
   otaLatestVer = "";
   otaBinUrl = "";
@@ -494,6 +504,7 @@ void otaCheckLatest() {
     int c = 1;
 #endif
     otaState = (c > 0) ? 3 : 2;    // newer available vs. already current
+    otaCheckedAt = millis();       // cache successful result (see above)
   } else {
     otaState = 4;
   }

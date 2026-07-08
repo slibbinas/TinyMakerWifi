@@ -110,12 +110,17 @@ bool estimateResin(){
   gfx2->print("Estimating resin");
   gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
 
-  int total = layer_counter;
-  if (Layer_Height > 0.06) total = layer_counter; // layer_counter already halved for 0.1
+  int total = layer_counter;              // already halved for 0.1 mm by screen111
   double volMm3 = 0.0;
   countPixelsMode = true;                 // PNGDraw counts, does not draw
 
   for (int layer = 1; layer <= total; layer++) {
+    // Back cancels a long estimate (hundreds of layers take a while)
+    if (digitalRead(buttonBack) == LOW) {
+      countPixelsMode = false;
+      while (digitalRead(buttonBack) == LOW) delay(10);
+      return false;                       // caller redraws the preview screen
+    }
     int idx = layer;
     if (Layer_Height > 0.06) idx = layer * 2 - 1;
     String fn = String(foldersel_long) + "/" + String(idx) + ".png";

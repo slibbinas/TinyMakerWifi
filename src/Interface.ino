@@ -282,7 +282,7 @@ void screen421(){
 
   // Blocking HTTPS check, then refresh the Latest line + Install button
   otaCheckLatest();
-  gfx2->fillRect(0, 36, 160, 11, BLACK);   // clear the Latest line only
+  gfx2->fillRect(0, 36, 160, 12, BLACK);   // clear the Latest line (glyphs span y40..47)
   gfx2->setFont(NULL);
   gfx2->setCursor(5, 40);
   int st = otaVersionState();

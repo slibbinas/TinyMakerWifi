@@ -824,9 +824,13 @@ void loop() {
             gfx2->print(layer_counter);
             gfx2->setCursor(6, 74);
             gfx2->print(estimated_hours);
-            gfx2->print("h ");
+            gfx2->print("h");
             gfx2->print(estimated_minutes);
-            gfx2->print("min");
+            gfx2->print("m ");
+            gfx2->setTextColor(0x879F);   // live cured-resin counter (matches screen1111)
+            gfx2->print(resinUsedMl, 1);
+            gfx2->print("ml");
+            gfx2->setTextColor(WHITE);
           }
           
           if (current_state != 4 && current_state != 5){
