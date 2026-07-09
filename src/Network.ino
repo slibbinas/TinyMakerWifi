@@ -755,7 +755,7 @@ bool deleteSdItem(const String &requestedName, String &error) {
     return false;
   }
 
-  bool ok = isDir ? deleteModelFolder(path.c_str()) : SD.remove(path.c_str());
+  bool ok = isDir ? deleteModelFolder(path.c_str(), false) : SD.remove(path.c_str());
   if (!ok) {
     error = "delete failed";
     return false;

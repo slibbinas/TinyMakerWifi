@@ -118,7 +118,7 @@ void folderUp(File dir) {
  * @brief Delete a model folder from SD: removes all files inside, then the
  * folder itself. Used by the long-press-OK delete feature in the Print menu.
  */
-bool deleteModelFolder(const char *path) {
+bool deleteModelFolder(const char *path, bool showProgress = true) {
   // Pass 1: count entries (deleting hundreds of layer PNGs takes tens of
   // seconds on FAT, so we show a progress bar like the WiFi connect one)
   File dir = SD.open(path);
@@ -148,7 +148,7 @@ bool deleteModelFolder(const char *path) {
     if (isDir) SD.rmdir(full.c_str());
     else SD.remove(full.c_str());
     done++;
-    if (done % 10 == 0 || done == total) {
+    if (showProgress && (done % 10 == 0 || done == total)) {
       int w = (int)(136L * done / total);
       if (w > 136) w = 136;
       if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
