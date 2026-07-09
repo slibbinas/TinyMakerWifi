@@ -419,7 +419,31 @@ void advancedOptionsSelect() {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
+  if (advanced_item == 3) {
+    // WiFi state only changes at boot (network_setup has no runtime
+    // teardown/bring-up path), so offer a reboot to apply it now.
+    screenRebootConfirm();
+    return;
+  }
   screenAdvancedOptions();
+}
+
+/**
+ * @brief Screen 442: WiFi toggled in Advanced - reboot to apply.
+ * OK reboots immediately; Back returns to Advanced (saved setting
+ * takes effect on the next power-up).
+ */
+void screenRebootConfirm() {
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("Reboot required");
+  gfx2->setCursor(8, 43);
+  gfx2->print("Reboot now?");
+  uiButtons("Later", "Reboot", 0x879F);
+  screen = 442;
 }
 
 #if ENABLE_NETWORK

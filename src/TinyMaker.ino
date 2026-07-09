@@ -632,6 +632,9 @@ void loop() {
       case 441:
       screen42();
         break;
+      case 442:                 // reboot prompt -> "Later", back to Advanced
+      screenAdvancedOptions();
+        break;
       case 421:
       screen41();
       screen43();
@@ -1260,6 +1263,9 @@ void loop() {
       #endif
       case 441:
         advancedOptionsSelect();
+        break;
+      case 442:                 // reboot prompt -> "Reboot" confirmed
+        ESP.restart();
         break;
       case 311:
       if(setting_item_updown == 1){

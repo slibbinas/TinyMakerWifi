@@ -937,10 +937,18 @@ void handleApiConfigSave() {
     return;
   }
 
+  bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
   sendApiOk(configJson());
+  if (wifiWasEnabled && !wifiEnabled) {
+    // WiFi turned off from the browser: the network stack has no runtime
+    // teardown path, so reboot to shut the radio down cleanly. The printer
+    // is idle here (printerBusy() gate above).
+    delay(700); // let the response reach the client first
+    ESP.restart();
+  }
 }
 
 void resetWebConfigToDefaults() {
@@ -1531,7 +1539,7 @@ void handleRootPage() {
       </div>
       <div id='mqttHint' class='hint'>MQTT publishing will use these settings in the SmartHome integration step.</div>
     </div>
-    <button id='configSaveButton' type='submit'>Save config</button>
+    <button id='configSaveButton' class='spanAll' type='submit'>Save config</button>
   </form>
   <button id='configDefaultsButton' class='button secondary' type='button'>Reset to defaults</button>
   <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
@@ -1744,7 +1752,7 @@ const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiE
 const confirmNetworkToggle=e=>{
   if(e.target.checked){updateNetworkFields();return;}
   const text=e.target.id==='cfgWifiEnabled'
-    ? 'Turn WiFi off?\nYou will lose web access until it is re-enabled on the printer.'
+    ? 'Turn WiFi off?\nThe printer will reboot and you will lose web access until WiFi is re-enabled on the printer (System > Advanced).'
     : 'Turn Web dash off?\nYou will lose dashboard access until it is re-enabled on the printer.';
   if(!confirm(text))e.target.checked=true;
   updateNetworkFields();
