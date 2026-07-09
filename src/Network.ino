@@ -101,6 +101,57 @@ bool sdCardReady() {
   return true;
 }
 
+String uint64Json(uint64_t value) {
+  char buf[24];
+  snprintf(buf, sizeof(buf), "%llu", (unsigned long long)value);
+  return String(buf);
+}
+
+bool sdCardUsage(uint64_t &totalBytes, uint64_t &freeBytes) {
+  totalBytes = 0;
+  freeBytes = 0;
+  if (!sdCardReady()) return false;
+
+  FatVolume *vol = SD.vol();
+  if (!vol) return false;
+
+  int32_t freeClusters = vol->freeClusterCount();
+  if (freeClusters < 0) return false;
+
+  uint64_t bytesPerCluster = (uint64_t)vol->blocksPerCluster() * 512ULL;
+  totalBytes = (uint64_t)vol->clusterCount() * bytesPerCluster;
+  freeBytes = (uint64_t)freeClusters * bytesPerCluster;
+  return totalBytes > 0;
+}
+
+uint64_t sdFolderSize(const String &path) {
+  uint64_t total = 0;
+  File dir = SD.open(path.c_str());
+  if (!dir) return 0;
+
+  while (true) {
+    File entry = dir.openNextFile();
+    if (!entry) break;
+
+    char rawName[160];
+    entry.getName(rawName, sizeof(rawName));
+    String childName = String(rawName);
+    String childPath = childName.startsWith("/") ? childName : path + (path.endsWith("/") ? "" : "/") + childName;
+    bool isDir = entry.isDirectory();
+    uint64_t bytes = isDir ? 0 : (uint64_t)entry.size();
+    entry.close();
+
+    if (isDir) {
+      total += sdFolderSize(childPath);
+    } else {
+      total += bytes;
+    }
+  }
+
+  dir.close();
+  return total;
+}
+
 // Streaming part - called repeatedly with chunks of the multipart body
 void handleUploadData() {
   HTTPUpload &up = server.upload();
@@ -530,7 +581,7 @@ bool rootEntryManaged(const String &name, bool isDir) {
   return lower.endsWith(".sl1") || lower.endsWith(".zip");
 }
 
-String rootStyledPage(const String &inner);
+void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw);
 
 bool validPrintableModel(const String &name) {
   if (!safeRootName(name)) return false;
@@ -557,7 +608,24 @@ void handleApiFiles() {
     return;
   }
 
-  String out = "{\"ok\":true,\"sdReady\":true,\"items\":[";
+  uint64_t totalBytes = 0;
+  uint64_t freeBytes = 0;
+  bool usageOk = sdCardUsage(totalBytes, freeBytes);
+  uint64_t usedBytes = (usageOk && totalBytes >= freeBytes) ? (totalBytes - freeBytes) : 0;
+  int usagePct = (usageOk && totalBytes > 0) ? (int)((usedBytes * 100ULL) / totalBytes) : 0;
+
+  String out = "{\"ok\":true,\"sdReady\":true";
+  out += ",\"usageKnown\":";
+  out += usageOk ? "true" : "false";
+  out += ",\"totalBytes\":\"";
+  out += uint64Json(totalBytes);
+  out += "\",\"freeBytes\":\"";
+  out += uint64Json(freeBytes);
+  out += "\",\"usedBytes\":\"";
+  out += uint64Json(usedBytes);
+  out += "\",\"usagePct\":";
+  out += String(usagePct);
+  out += ",\"items\":[";
   bool first = true;
   int shown = 0;
   int skipped = 0;
@@ -569,7 +637,7 @@ void handleApiFiles() {
     entry.getName(rawName, sizeof(rawName));
     String name = String(rawName);
     bool isDir = entry.isDirectory();
-    uint32_t bytes = isDir ? 0 : entry.size();
+    uint64_t bytes = isDir ? 0 : (uint64_t)entry.size();
     entry.close();
 
     if (!rootEntryManaged(name, isDir)) {
@@ -590,7 +658,10 @@ void handleApiFiles() {
     out += "\",\"printable\":";
     out += isDir ? "true" : "false";
     out += ",\"sizeBytes\":";
-    out += String(bytes);
+    if (isDir) bytes = sdFolderSize("/" + name);
+    out += "\"";
+    out += uint64Json(bytes);
+    out += "\"";
     out += "}";
     shown++;
   }
@@ -785,6 +856,8 @@ String configJson() {
   out += uvLedEnabled ? "false" : "true";
   out += ",\"uvLedEnabled\":";
   out += uvLedEnabled ? "true" : "false";
+  out += ",\"experimentalSlicing\":";
+  out += experimentalSlicingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
   out += mqttEnabled ? "true" : "false";
   out += ",\"mqttConfigured\":";
@@ -817,6 +890,7 @@ void applyConfigRequest() {
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
+  experimentalSlicingEnabled = server.hasArg("experimental_slicing");
   mqttEnabled = server.hasArg("mqtt_enabled");
   mqttHost = formString("mqtt_host", mqttHost, 80);
   mqttPort = formLong("mqtt_port", mqttPort, 1, 65535);
@@ -851,6 +925,7 @@ void resetWebConfigToDefaults() {
   resetSettingsToDefault();
   uiTimeoutSecs = 0;
   uvLedEnabled = true;
+  experimentalSlicingEnabled = false;
   saveDeviceConfig();
 }
 
@@ -926,6 +1001,9 @@ bool requestPrintPause(String &error) {
 }
 
 bool requestPrintResume(String &error) {
+  if (printerBusy() && current_state == 7) {
+    return true;
+  }
   if (!printerBusy() || current_state != 6) {
     error = "printer is not paused";
     return false;
@@ -943,8 +1021,7 @@ bool requestPrintStop(String &error) {
     return false;
   }
   if (current_state == 4) {
-    error = "printer is already stopping";
-    return false;
+    return true;
   }
 
   bool wasHoming = current_state == 0;
@@ -1061,6 +1138,9 @@ void mqttPublishStatus() {
   bool busy = printerBusy();
   bool sdReady = busy ? false : sdCardReady();
   String base = mqttBaseTopic();
+  int mqttCurrentLayer = busy ? current_layer : 0;
+  int mqttTotalLayers = busy ? layer_counter : 0;
+  double mqttResinMl = busy ? resinUsedMl : 0.0;
 
   mqttPublishRaw(mqttAvailabilityTopic(), "online", true);
   mqttPublishRaw(base + "/status/state", printerStateText(), true);
@@ -1069,9 +1149,9 @@ void mqttPublishStatus() {
   mqttPublishRaw(base + "/status/ip", WiFi.localIP().toString(), true);
   mqttPublishRaw(base + "/status/wifi_rssi", String(WiFi.RSSI()), true);
   mqttPublishRaw(base + "/sd/ready", sdReady ? "ON" : "OFF", true);
-  mqttPublishRaw(base + "/print/current_layer", String(current_layer), true);
-  mqttPublishRaw(base + "/print/total_layers", String(layer_counter), true);
-  mqttPublishRaw(base + "/print/resin_used_ml", String(resinUsedMl, 1), true);
+  mqttPublishRaw(base + "/print/current_layer", String(mqttCurrentLayer), true);
+  mqttPublishRaw(base + "/print/total_layers", String(mqttTotalLayers), true);
+  mqttPublishRaw(base + "/print/resin_used_ml", String(mqttResinMl, 1), true);
   mqttPublishRaw(base + "/print/running_time_sec", String(currentRunSecs()), true);
   mqttPublishRaw(base + "/print/remaining_time_sec", String(remainingPrintSecs()), true);
 }
@@ -1094,6 +1174,7 @@ bool mqttConnect() {
   mqttClient.setCallback(mqttCallback);
   mqttClient.setBufferSize(1024);
   mqttClient.setSocketTimeout(1);
+  mqttClient.setKeepAlive(120);
 
   String id = mqttDeviceId();
   bool ok;
@@ -1116,6 +1197,18 @@ void mqtt_loop() {
   if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) {
     if (mqttClient.connected()) mqttClient.disconnect();
     mqttDiscoverySent = false;
+    return;
+  }
+
+  if (printerBusy()) {
+    if (mqttClient.connected()) {
+      mqttClient.loop();
+      unsigned long now = millis();
+      if (now - mqttLastPublishMs >= 10000UL) {
+        mqttLastPublishMs = now;
+        mqttPublishStatus();
+      }
+    }
     return;
   }
 
@@ -1184,6 +1277,9 @@ void handleApiStatus() {
   bool busy = printerBusy();
   bool connected = WiFi.status() == WL_CONNECTED;
   bool sdReady = busy ? false : sdCardReady();
+  int statusCurrentLayer = busy ? current_layer : 0;
+  int statusTotalLayers = busy ? layer_counter : 0;
+  double statusResinMl = busy ? resinUsedMl : 0.0;
 
   String out = "{";
   out += "\"busy\":";
@@ -1223,15 +1319,15 @@ void handleApiStatus() {
   out += ",\"lifetimePrintTime\":\"";
   out += formatDuration(totalPrintSecs);
   out += "\",\"currentLayer\":";
-  out += String(current_layer);
+  out += String(statusCurrentLayer);
   out += ",\"totalLayers\":";
-  out += String(layer_counter);
+  out += String(statusTotalLayers);
   out += ",\"layerText\":\"";
-  out += String(current_layer) + " / " + String(layer_counter);
+  out += String(statusCurrentLayer) + " / " + String(statusTotalLayers);
   out += "\",\"resinUsedMl\":";
-  out += String(resinUsedMl, 1);
+  out += String(statusResinMl, 1);
   out += ",\"resinText\":\"";
-  out += String(resinUsedMl, 1) + " ml";
+  out += String(statusResinMl, 1) + " ml";
   out += "\",\"runSecs\":";
   out += String(currentRunSecs());
   out += ",\"runTime\":\"";
@@ -1245,8 +1341,10 @@ void handleApiStatus() {
   server.send(200, "application/json", out);
 }
 
-String rootStyledPage(const String &inner) {
-  return String(
+void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/html", "");
+  server.sendContent_P(PSTR(
     "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
     "<title>TinyMaker</title>"
     "<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>"
@@ -1272,8 +1370,14 @@ String rootStyledPage(const String &inner) {
     ".actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}"
     ".toolbar{display:flex;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:#3c3c42}"
     ".banner{background:#3a2818;border-color:#e8720c}.banner strong{display:block;color:#ffb15f;margin-bottom:4px}"
+    ".fitOk{color:#5fd08a}.fitBad{color:#ff6b5f}"
+    ".profileBox{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}"
+    ".previewGrid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}"
+    ".previewCanvas{width:100%;aspect-ratio:4/3;background:#111;border:1px solid #555;border-radius:8px;image-rendering:pixelated}"
     ".progress{height:10px;border:1px solid #555;border-radius:999px;overflow:hidden;background:#1c1c1e;margin-top:10px}"
     ".progress span{display:block;height:100%;width:45%;background:#e8720c;animation:barMove 1.1s infinite linear}"
+    ".storageBar{height:10px;border:1px solid #555;border-radius:999px;overflow:hidden;background:#1c1c1e;margin-top:8px}"
+    ".storageBar span{display:block;height:100%;width:0;background:#e8720c;transition:width .2s ease}"
     "@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}"
     "button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:#e8720c;color:#fff;padding:12px 14px;"
     "font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}"
@@ -1284,19 +1388,24 @@ String rootStyledPage(const String &inner) {
     ".hidden{display:none}"
     ".hint{font-size:13px;color:#aaa;margin:10px 0 0;line-height:1.4}"
     ".configGrid .hint{grid-column:1/-1}"
-    "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}}"
-    "</style></head><body><main class='wrap'>") + inner + "</main></body></html>";
+    "@media(max-width:520px){.grid,.configGrid,.actions,.profileBox{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}}"
+    "</style></head><body><main class='wrap'>"));
+  server.sendContent_P(bodyBeforeFw);
+  server.sendContent(fw);
+  server.sendContent_P(bodyAfterFw);
+  server.sendContent_P(PSTR("</main></body></html>"));
 }
 
 void handleRootPage() {
-  String fw =
+  const char *fw =
 #ifdef FIRMWARE_VERSION
     FIRMWARE_VERSION;
 #else
     "unknown";
 #endif
-  String inner = R"SPA(
-<div class='head'><div><h1>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'>{{FW}}</span></div></div></div>
+  static const char rootBodyBeforeFw[] PROGMEM = R"SPA(
+<div class='head'><div><h1>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'>)SPA";
+  static const char rootBodyAfterFw[] PROGMEM = R"SPA(</span></div></div></div>
 
 <section id='dryRunBanner' class='card banner hidden'>
   <strong>Dry run mode enabled.</strong>
@@ -1306,6 +1415,7 @@ void handleRootPage() {
 
 <div class='toolbar'>
   <button id='homeViewButton' type='button'>Dashboard</button>
+  <button id='slicerViewButton' class='hidden' type='button'>Slicer</button>
   <button id='configViewButton' type='button'>Config</button>
   <a class='button secondary' href='/update'>Update</a>
 </div>
@@ -1337,6 +1447,11 @@ void handleRootPage() {
 
   <section class='card'>
     <h2>SD manager</h2>
+    <div id='sdUsageBox' class='hidden' style='margin-bottom:12px'>
+      <div class='label'>SD memory usage</div>
+      <div id='sdUsageText' class='value'>-</div>
+      <div class='storageBar'><span id='sdUsageBar'></span></div>
+    </div>
     <form id='uploadForm'>
       <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' required>
       <button id='uploadButton' type='submit'>Upload model</button>
@@ -1362,6 +1477,44 @@ void handleRootPage() {
   </div>
 </section>
 
+<section id='slicerView' class='card hidden'>
+  <button id='slicerBackButton' class='button secondary' type='button'>Back to dashboard</button>
+  <h2>Prepare model</h2>
+  <div class='hint warn'>Beta slicer. Proceed with caution: STL files must already be the right way up; this does not add supports, hollow models, repair geometry, or optimize orientation.</div>
+  <input id='slicerFile' type='file' accept='.stl' />
+  <div class='profileBox'>
+    <div><div class='label'>Build area</div><div class='value'>40.8 x 30.6 mm</div></div>
+    <div><div class='label'>Max height</div><div class='value'>60 mm</div></div>
+    <div><div class='label'>LCD</div><div class='value'>320 x 240 px</div></div>
+  </div>
+  <div class='previewGrid'>
+    <div>
+      <div class='label'>Model preview</div>
+      <canvas id='modelPreviewCanvas' class='previewCanvas' width='320' height='240'></canvas>
+    </div>
+    <div id='layerPreviewBox' class='hidden'>
+      <div class='label'>Layer preview <span id='layerPreviewLabel'></span></div>
+      <canvas id='layerPreviewCanvas' class='previewCanvas' width='320' height='240'></canvas>
+      <input id='layerPreviewRange' type='range' min='1' max='1' value='1'>
+    </div>
+  </div>
+  <div class='grid' style='margin-top:12px'>
+    <div><div class='label'>Model size</div><div id='slicerSize' class='value'>-</div></div>
+    <div><div class='label'>Scaled size</div><div id='slicerScaledSize' class='value'>-</div></div>
+    <div><div class='label'>Scale</div><div id='slicerScaleValue' class='value'>100%</div></div>
+    <div><div class='label'>Fit check</div><div id='slicerFit' class='value'>Load STL</div></div>
+  </div>
+  <label><span>Scale (%)</span><input id='slicerScale' type='number' min='1' max='1000' step='1' value='100'></label>
+  <div id='slicerProgress' class='progress hidden'><span></span></div>
+  <div class='actions'>
+    <button id='slicerFitButton' type='button' disabled>Scale to fit</button>
+    <button id='slicerSliceButton' type='button' disabled>Slice to ZIP</button>
+    <button id='slicerDownloadButton' class='secondaryBtn' type='button' disabled>Download ZIP</button>
+    <button id='slicerUploadButton' type='button' disabled>Upload sliced ZIP</button>
+  </div>
+  <div id='slicerHint' class='hint'>STL fit checking is active. Layer slicing and ZIP generation are the next step.</div>
+</section>
+
 <section id='configView' class='card hidden'>
   <button id='configBackButton' class='button secondary' type='button'>Back to dashboard</button>
   <h2>Config</h2>
@@ -1378,6 +1531,7 @@ void handleRootPage() {
     <label><span>Drop back feedrate</span><input name='drop_back_feedrate' id='cfgDropBackFeedrate' type='number' min='20' max='50' step='10'></label>
     <label><span>UI timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
+    <label class='check'><input name='experimental_slicing' id='cfgExperimentalSlicing' type='checkbox' value='1'><span>Enable experimental slicing</span></label>
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT? (SmartHome integration)</span></label>
     <div id='mqttFields' class='spanAll hidden'>
       <div class='configGrid'>
@@ -1398,24 +1552,92 @@ void handleRootPage() {
 
 <script>
 const $=id=>document.getElementById(id);
-let statusData=null,selectedModel='';
+let statusData=null,selectedModel='',sdFreeBytes=0,sdTotalBytes=0,slicingEnabled=false;
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
 const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const api=async(path,opt)=>{const r=await fetch(path,Object.assign({cache:'no-store'},opt||{}));let j={};try{j=await r.json();}catch(e){}if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));return j;};
+const api=async(path,opt,timeoutMs)=>{
+  const o=Object.assign({cache:'no-store'},opt||{});let timer=null,ctrl=null;
+  if(timeoutMs&&typeof AbortController!=='undefined'){ctrl=new AbortController();o.signal=ctrl.signal;timer=setTimeout(()=>ctrl.abort(),timeoutMs);}
+  try{
+    const r=await fetch(path,o);let j={};try{j=await r.json();}catch(e){}
+    if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));
+    return j;
+  }catch(e){if(e.name==='AbortError')throw new Error('timeout');throw e;}
+  finally{if(timer)clearTimeout(timer);}
+};
 const msg=(t,warn)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);};
+const bytesNum=v=>Number(v||0)||0;
+const formatBytes=v=>{
+  let n=bytesNum(v),u=['B','KB','MB','GB'],i=0;
+  while(n>=1024&&i<u.length-1){n/=1024;i++;}
+  return (i? n.toFixed(n<10?1:0):Math.round(n))+' '+u[i];
+};
+const formatShortTime=ms=>{
+  const s=Math.max(0,Math.floor(ms/1000)),m=Math.floor(s/60),r=s%60;
+  return m?m+'m '+r+'s':r+'s';
+};
+const uploadRequiredBytes=bytes=>Math.ceil(bytesNum(bytes)*2.1);
+const checkUploadFits=(bytes,hintEl)=>{
+  if(!sdFreeBytes)return true;
+  const need=uploadRequiredBytes(bytes);
+  if(need<=sdFreeBytes)return true;
+  hintEl.textContent='Not enough SD space. Need about '+formatBytes(need)+' free while importing; available '+formatBytes(sdFreeBytes)+'.';
+  return false;
+};
+const updateSdUsage=d=>{
+  sdFreeBytes=d&&d.usageKnown?bytesNum(d.freeBytes):0;
+  sdTotalBytes=d&&d.usageKnown?bytesNum(d.totalBytes):0;
+  show('sdUsageBox',!!(d&&d.usageKnown));
+  if(!(d&&d.usageKnown))return;
+  const used=bytesNum(d.usedBytes),pct=Math.max(0,Math.min(100,Number(d.usagePct)||0));
+  setText('sdUsageText',formatBytes(used)+' / '+formatBytes(sdTotalBytes)+' ('+pct+'%)');
+  $('sdUsageBar').style.width=pct+'%';
+};
+const uploadWithProgress=(fd,hintEl)=>{
+  const started=Date.now();
+  let lastLoaded=0,total=0;
+  const render=()=>{
+    const elapsed=Date.now()-started, pct=total?Math.round(lastLoaded*100/total):0;
+    const speed=elapsed>0?formatBytes(lastLoaded/(elapsed/1000))+'/s':'-';
+    hintEl.textContent='Uploading'+(total?' '+pct+'%':'')+' - '+formatShortTime(elapsed)+' - '+speed;
+  };
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    const timer=setInterval(render,500);
+    xhr.open('POST','/upload');
+    xhr.upload.onprogress=e=>{lastLoaded=e.loaded||lastLoaded;total=e.lengthComputable?e.total:total;render();};
+    xhr.onload=()=>{
+      clearInterval(timer);
+      let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){}
+      if(xhr.status>=200&&xhr.status<300&&j.ok!==false)resolve(j);
+      else reject(new Error(j.error||('HTTP '+xhr.status)));
+    };
+    xhr.onerror=()=>{clearInterval(timer);reject(new Error('upload failed'));};
+    xhr.onabort=()=>{clearInterval(timer);reject(new Error('upload cancelled'));};
+    render();
+    xhr.send(fd);
+  });
+};
+const BUILD={x:40.8,y:30.6,z:60,px:320,py:240};
+let slicerModel=null,slicedZip=null;
+let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0;
 const openView=view=>{
+  if(view==='slicer'&&!slicingEnabled){msg('Experimental slicing is disabled in Config.',true);view='config';}
   show('homeView',view==='home');
   show('modelPanel',view==='model');
+  show('slicerView',view==='slicer');
   show('configView',view==='config');
   if(view==='home')loadFiles();
   if(view==='config')loadConfig();
 };
 
-const refreshStatus=async()=>{
-  try{
-    const s=await api('/api/status'); const was=statusData&&statusData.busy; statusData=s;
+const applyStatus=s=>{
+    const was=statusData&&statusData.busy; statusData=s;
+    if(s.busy&&typeof s.runSecs==='number')localPrintStartedAt=Date.now()-s.runSecs*1000;
+    if(!s.busy)localPrintStartedAt=0;
+    if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
     setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('sdValue',s.sdText);
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',s.remainingTime);
     show('dryRunBanner',!!s.dryRun);
@@ -1432,10 +1654,34 @@ const refreshStatus=async()=>{
     resume.disabled=!s.canResume;
     $('stopButton').textContent=s.stopping?'Stopping...':'Stop';
     $('stopButton').disabled=!s.canStop;
+    applyPendingPrintUi();
+    if(!$('configView').classList.contains('hidden')){
+      setConfigDisabled(configIsLocallyLocked());
+      if(configIsLocallyLocked())$('configHint').textContent='Config is locked while printing.';
+    }
     $('uploadButton').disabled=s.busy||!s.sdReady; $('uploadFile').disabled=s.busy||!s.sdReady;
     if(s.busy){$('uploadHint').textContent='Uploads and SD actions are disabled while the printer is busy.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
     if(was!==s.busy){loadFiles();loadConfig();}
-  }catch(e){msg('Status unavailable: '+e.message,true);}
+};
+const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
+  busy:true,paused:false,pausing:false,resuming:false,stopping:false,dryRun:statusData&&statusData.dryRun,
+  canPause:false,canResume:false,canStop:true,state:state,stateCode:code,wifiText:statusData?statusData.wifiText:'-',ip:statusData?statusData.ip:'-',
+  sdReady:false,sdText:'Locked',lifetimePrintTime:statusData?statusData.lifetimePrintTime:'-',layerText:statusData?statusData.layerText:'-',
+  resinText:statusData?statusData.resinText:'-',runSecs:statusData?statusData.runSecs:0,runTime:statusData?statusData.runTime:'0m 0s',remainingTime:statusData?statusData.remainingTime:'-'
+});
+const refreshStatus=async()=>{
+  if(statusInFlight)return;
+  statusInFlight=true;
+  try{
+    const s=await api('/api/status',null,30000);
+    statusFailCount=0;
+    applyStatus(s);
+    if(!pendingPrintCmd)msg('',false);
+  }catch(e){
+    statusFailCount++;
+    if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
+    else msg('Status unavailable: '+e.message,true);
+  }finally{statusInFlight=false;}
 };
 
 const loadFiles=async()=>{
@@ -1443,17 +1689,19 @@ const loadFiles=async()=>{
   if(statusData&&statusData.busy){list.innerHTML='<div class="hint warn">SD manager actions are disabled while printing.</div>';return;}
   try{
     const d=await api('/api/files');
+    updateSdUsage(d);
     if(!d.items.length){list.innerHTML='<div class="hint">No printable model folders or SL1/ZIP archives found.</div>';return;}
     let h='';
     d.items.forEach(it=>{
-      const meta=it.type==='model'?'Model folder':('Archive - '+Math.ceil((it.sizeBytes||0)/1024)+' KB');
+      const size=formatBytes(it.sizeBytes);
+      const meta=(it.type==='model'?'Model folder':'Archive')+' - '+size;
       h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
       if(it.type==='model')h+='<button class="small secondaryBtn" onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small" onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
       h+='<button class="delete" onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
     });
     if(d.hiddenCount>0)h+='<div class="hint">'+d.hiddenCount+' other SD item(s) hidden.</div>';
     list.innerHTML=h;
-  }catch(e){list.innerHTML='<div class="hint warn">'+e.message+'</div>';}
+  }catch(e){updateSdUsage(null);list.innerHTML='<div class="hint warn">'+e.message+'</div>';}
 };
 
 const modelDetails=async(nameEnc,estimate)=>{
@@ -1474,51 +1722,286 @@ const modelDetails=async(nameEnc,estimate)=>{
   finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
 };
 
-const startPrint=async nameEnc=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name||!confirm('Start this print?'))return;try{await api('/api/print/start?name='+enc(name),{method:'POST'});msg('Print queued.');openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
+const applyPendingPrintUi=()=>{
+  if(!pendingPrintCmd)return;
+  if(pendingPrintCmd==='pause'){$('pauseButton').textContent='Pause requested...';$('pauseButton').disabled=true;}
+  if(pendingPrintCmd==='resume'){$('resumeButton').textContent='Resume requested...';$('resumeButton').disabled=true;}
+  if(pendingPrintCmd==='stop'){$('stopButton').textContent='Stop requested...';$('stopButton').disabled=true;}
+};
+const retryPendingPrintCommand=async()=>{
+  if(!pendingPrintCmd||pendingPrintInFlight)return;
+  pendingPrintInFlight=true;
+  const cmd=pendingPrintCmd;
+  try{
+    await api('/api/print/'+cmd,{method:'POST'},30000);
+    pendingPrintCmd='';
+    msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' accepted.');
+    refreshStatus();
+  }catch(e){
+    if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';msg(e.message,true);}
+    else msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for the next safe network window...',true);
+  }finally{pendingPrintInFlight=false;applyPendingPrintUi();}
+};
+const startPrint=async nameEnc=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name||!confirm('Start this print?'))return;try{await api('/api/print/start?name='+enc(name),{method:'POST'},8000);msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!confirm('Delete this SD item?'))return;try{await api('/api/files/delete?name='+enc(name),{method:'POST'});msg('Deleted '+name+'.');loadFiles();}catch(e){msg(e.message,true);}};
-const printCommand=async(cmd,confirmText)=>{if(confirmText&&!confirm(confirmText))return;try{await api('/api/print/'+cmd,{method:'POST'});refreshStatus();}catch(e){msg(e.message,true);}};
+const printCommand=async(cmd,confirmText)=>{if(confirmText&&!confirm(confirmText))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
+const tickLocalStatus=()=>{
+  if(statusData&&statusData.busy&&localPrintStartedAt){
+    setText('runValue',formatShortTime(Date.now()-localPrintStartedAt));
+  }
+};
+
+const fmtMm=v=>Number(v).toFixed(2)+' mm';
+const slicerSetFit=(ok,text)=>{const e=$('slicerFit');e.textContent=text;e.classList.toggle('fitOk',ok);e.classList.toggle('fitBad',!ok);};
+const clearLayerPreview=()=>{show('layerPreviewBox',false);const c=$('layerPreviewCanvas'),ctx=c.getContext('2d');ctx.fillStyle='#111';ctx.fillRect(0,0,c.width,c.height);};
+const drawModelPreview=()=>{
+  const c=$('modelPreviewCanvas'),ctx=c.getContext('2d');ctx.fillStyle='#111';ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#444';ctx.lineWidth=1;ctx.strokeRect(0.5,0.5,c.width-1,c.height-1);
+  if(!slicerModel){ctx.fillStyle='#777';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Load STL',c.width/2,c.height/2);return;}
+  const scale=Math.max(1,Number($('slicerScale').value)||100)/100, tris=slicerModel.bounds.tris, step=Math.max(1,Math.ceil(tris.length/2500));
+  const map=p=>{const t=transformPt(p,scale);return {x:t.x/BUILD.x*c.width,y:c.height-(t.y/BUILD.y*c.height)};};
+  ctx.strokeStyle='#e8720c';ctx.globalAlpha=.28;ctx.lineWidth=.8;
+  for(let i=0;i<tris.length;i+=step){
+    const a=map(tris[i][0]),b=map(tris[i][1]),d=map(tris[i][2]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(d.x,d.y);ctx.closePath();ctx.stroke();
+  }
+  ctx.globalAlpha=1;ctx.strokeStyle='#5fd08a';ctx.strokeRect(0.5,0.5,c.width-1,c.height-1);
+};
+const stlFromBinary=buf=>{
+  const dv=new DataView(buf); const tris=dv.getUint32(80,true);
+  if(84+tris*50>buf.byteLength)throw new Error('Invalid binary STL');
+  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity],out=[];
+  for(let i=0,p=84;i<tris;i++,p+=50){
+    const tri=[];
+    for(let v=0;v<3;v++){
+      const o=p+12+v*12;
+      const pt=[dv.getFloat32(o,true),dv.getFloat32(o+4,true),dv.getFloat32(o+8,true)];
+      tri.push(pt);
+      for(let a=0;a<3;a++){const n=pt[a]; if(n<min[a])min[a]=n; if(n>max[a])max[a]=n;}
+    }
+    out.push(tri);
+  }
+  return {min,max,tris:out};
+};
+const stlFromAscii=text=>{
+  const re=/vertex\s+([+-]?\d*\.?\d+(?:e[+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:e[+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:e[+-]?\d+)?)/ig;
+  const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity],verts=[],out=[]; let m,count=0;
+  while((m=re.exec(text))){
+    const pt=[parseFloat(m[1]),parseFloat(m[2]),parseFloat(m[3])]; verts.push(pt); count++;
+    for(let a=0;a<3;a++){const n=pt[a]; if(n<min[a])min[a]=n; if(n>max[a])max[a]=n;}
+    if(verts.length===3){out.push([verts[0],verts[1],verts[2]]);verts.length=0;}
+  }
+  if(!count)throw new Error('No STL vertices found');
+  return {min,max,tris:out};
+};
+const parseStl=buf=>{
+  try{return stlFromBinary(buf);}catch(e){}
+  return stlFromAscii(new TextDecoder().decode(buf));
+};
+const updateSlicerFit=()=>{
+  slicedZip=null;$('slicerUploadButton').disabled=true;$('slicerDownloadButton').disabled=true;show('slicerProgress',false);clearLayerPreview();drawModelPreview();
+  if(!slicerModel){setText('slicerScaleValue','100%');setText('slicerSize','-');setText('slicerScaledSize','-');slicerSetFit(false,'Load STL');$('slicerFitButton').disabled=true;$('slicerSliceButton').disabled=true;return;}
+  const scale=Math.max(1,Number($('slicerScale').value)||100)/100;
+  const d=slicerModel.dims, sx=d.x*scale, sy=d.y*scale, sz=d.z*scale;
+  const ok=sx<=BUILD.x&&sy<=BUILD.y&&sz<=BUILD.z;
+  setText('slicerScaleValue',Math.round(scale*100)+'%');
+  setText('slicerSize',fmtMm(d.x)+' x '+fmtMm(d.y)+' x '+fmtMm(d.z));
+  setText('slicerScaledSize',fmtMm(sx)+' x '+fmtMm(sy)+' x '+fmtMm(sz));
+  slicerSetFit(ok,ok?'Fits':'Too big');
+  $('slicerFitButton').disabled=ok;
+  $('slicerSliceButton').disabled=!ok;
+  $('slicerHint').textContent=ok?'Model fits TinyMaker. Ready to slice to ZIP.':'Model is larger than the TinyMaker build volume.';
+  drawModelPreview();
+};
+const loadSlicerFile=async file=>{
+  slicedZip=null;
+  if(!file){slicerModel=null;updateSlicerFit();return;}
+  $('slicerHint').textContent='Reading STL...';
+  try{
+    const b=parseStl(await file.arrayBuffer());
+    const dims={x:b.max[0]-b.min[0],y:b.max[1]-b.min[1],z:b.max[2]-b.min[2]};
+    slicerModel={name:file.name,bounds:b,dims};
+    $('slicerScale').value=100;
+    updateSlicerFit();
+  }catch(e){slicerModel=null;updateSlicerFit();$('slicerHint').textContent=e.message;}
+};
+const scaleSlicerToFit=()=>{
+  if(!slicerModel)return;
+  const d=slicerModel.dims;
+  const s=Math.min(BUILD.x/d.x,BUILD.y/d.y,BUILD.z/d.z,1);
+  const pct=Math.max(1,Math.floor(s*100));
+  if(pct<100&&!confirm('Model scaled to '+pct+'% to fit - continue?'))return;
+  $('slicerScale').value=pct;
+  updateSlicerFit();
+};
+const sleep=()=>new Promise(r=>setTimeout(r,0));
+const canvasBlob=(canvas,type)=>new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(new Error('PNG encode failed')),type));
+const safeZipName=name=>String(name||'model').replace(/\.[^.]+$/,'').replace(/[^A-Za-z0-9_-]+/g,'_')||'model';
+const transformPt=(p,scale)=>{
+  const b=slicerModel.bounds;
+  const cx=(b.min[0]+b.max[0])*0.5, cy=(b.min[1]+b.max[1])*0.5;
+  return {x:(p[0]-cx)*scale+BUILD.x*0.5,y:(p[1]-cy)*scale+BUILD.y*0.5,z:(p[2]-b.min[2])*scale};
+};
+const layerSegments=z=>{
+  const scale=Math.max(1,Number($('slicerScale').value)||100)/100, segs=[];
+  for(const tri of slicerModel.bounds.tris){
+    const pts=[transformPt(tri[0],scale),transformPt(tri[1],scale),transformPt(tri[2],scale)], hits=[];
+    for(let e=0;e<3;e++){
+      const a=pts[e],b=pts[(e+1)%3];
+      if((a.z<=z&&b.z>z)||(b.z<=z&&a.z>z)){
+        const t=(z-a.z)/(b.z-a.z);
+        hits.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+      }
+    }
+    if(hits.length===2)segs.push([hits[0],hits[1]]);
+  }
+  return segs;
+};
+const renderLayerPng=async z=>{
+  const canvas=document.createElement('canvas'); canvas.width=BUILD.px; canvas.height=BUILD.py;
+  const ctx=canvas.getContext('2d'), img=ctx.createImageData(BUILD.px,BUILD.py), data=img.data, segs=layerSegments(z);
+  for(let py=0;py<BUILD.py;py++){
+    const y=(py+0.5)/BUILD.py*BUILD.y, xs=[];
+    for(const s of segs){
+      const a=s[0],b=s[1];
+      if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))xs.push(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));
+    }
+    xs.sort((a,b)=>a-b);
+    for(let i=0;i+1<xs.length;i+=2){
+      const x1=Math.max(0,Math.min(BUILD.x,xs[i])), x2=Math.max(0,Math.min(BUILD.x,xs[i+1]));
+      let p1=Math.floor((BUILD.x-x2)/BUILD.x*BUILD.px), p2=Math.ceil((BUILD.x-x1)/BUILD.x*BUILD.px);
+      if(p1<0)p1=0;if(p2>BUILD.px)p2=BUILD.px;
+      for(let px=p1;px<p2;px++){const o=(py*BUILD.px+px)*4;data[o]=255;data[o+1]=255;data[o+2]=255;data[o+3]=255;}
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return canvasBlob(canvas,'image/png');
+};
+const crcTable=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+const crc32=buf=>{let c=0xffffffff;for(const b of buf)c=crcTable[(c^b)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
+const u16=(a,v)=>{a.push(v&255,(v>>>8)&255);};
+const u32=(a,v)=>{a.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255);};
+const makeZip=async files=>{
+  const encText=new TextEncoder(), chunks=[], central=[]; let offset=0;
+  for(const f of files){
+    const name=encText.encode(f.name), data=new Uint8Array(await f.blob.arrayBuffer()), crc=crc32(data), local=[];
+    u32(local,0x04034b50);u16(local,20);u16(local,0);u16(local,0);u16(local,0);u16(local,0);u32(local,crc);u32(local,data.length);u32(local,data.length);u16(local,name.length);u16(local,0);
+    chunks.push(new Uint8Array(local),name,data);
+    const cen=[];u32(cen,0x02014b50);u16(cen,20);u16(cen,20);u16(cen,0);u16(cen,0);u16(cen,0);u16(cen,0);u32(cen,crc);u32(cen,data.length);u32(cen,data.length);u16(cen,name.length);u16(cen,0);u16(cen,0);u16(cen,0);u16(cen,0);u32(cen,0);u32(cen,offset);
+    central.push(new Uint8Array(cen),name); offset+=local.length+name.length+data.length;
+  }
+  const centralSize=central.reduce((n,c)=>n+c.length,0), end=[];u32(end,0x06054b50);u16(end,0);u16(end,0);u16(end,files.length);u16(end,files.length);u32(end,centralSize);u32(end,offset);u16(end,0);
+  return new Blob([...chunks,...central,new Uint8Array(end)],{type:'application/zip'});
+};
+const showLayerPreview=idx=>{
+  if(!slicedZip||!slicedZip.layers||!slicedZip.layers.length)return;
+  const layer=Math.max(1,Math.min(slicedZip.layers.length,idx||1));
+  const c=$('layerPreviewCanvas'),ctx=c.getContext('2d'),img=new Image(),url=URL.createObjectURL(slicedZip.layers[layer-1]);
+  $('layerPreviewRange').value=layer;
+  $('layerPreviewLabel').textContent=layer+' / '+slicedZip.layers.length;
+  img.onload=()=>{ctx.fillStyle='#111';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);};
+  img.onerror=()=>URL.revokeObjectURL(url);
+  img.src=url;
+};
+const enableLayerPreview=layers=>{
+  $('layerPreviewRange').min=1;
+  $('layerPreviewRange').max=layers.length;
+  const mid=Math.max(1,Math.ceil(layers.length/2));
+  show('layerPreviewBox',true);
+  showLayerPreview(mid);
+};
+const sliceToZip=async()=>{
+  if(!slicerModel)return;
+  const scale=Math.max(1,Number($('slicerScale').value)||100)/100, height=slicerModel.dims.z*scale, lh=Number($('cfgLayerHeight').value)||0.05, layers=Math.max(1,Math.ceil(height/lh));
+  if(layers>1200&&!confirm('This will create '+layers+' layers. Continue?'))return;
+  $('slicerSliceButton').disabled=true;$('slicerUploadButton').disabled=true;$('slicerDownloadButton').disabled=true;show('slicerProgress',true);
+  const files=[];
+  try{
+    for(let i=1;i<=layers;i++){
+      $('slicerHint').textContent='Slicing layer '+i+' / '+layers+'...';
+      files.push({name:i+'.png',blob:await renderLayerPng((i-0.5)*lh)});
+      if(i%4===0)await sleep();
+    }
+    $('slicerHint').textContent='Packaging ZIP...';
+    const blob=await makeZip(files), name=safeZipName(slicerModel.name)+'.zip';
+    slicedZip={blob,name,layers:files.map(f=>f.blob)};
+    $('slicerUploadButton').disabled=false;
+    $('slicerDownloadButton').disabled=false;
+    enableLayerPreview(slicedZip.layers);
+    $('slicerHint').textContent='ZIP ready: '+name+' ('+Math.ceil(blob.size/1024)+' KB).';
+  }catch(e){$('slicerHint').textContent=e.message;}
+  finally{$('slicerSliceButton').disabled=false;show('slicerProgress',false);}
+};
+const downloadSlicedZip=()=>{
+  if(!slicedZip)return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(slicedZip.blob);
+  a.download=slicedZip.name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+};
+const uploadSlicedZip=async()=>{
+  if(!slicedZip)return;
+  if(!checkUploadFits(slicedZip.blob.size,$('slicerHint')))return;
+  const fd=new FormData();fd.append('file',new File([slicedZip.blob],slicedZip.name,{type:'application/zip'}));
+  $('slicerUploadButton').disabled=true;$('slicerHint').textContent='Uploading sliced ZIP...';
+  const started=Date.now();
+  try{await uploadWithProgress(fd,$('slicerHint'));$('slicerHint').textContent='Upload complete in '+formatShortTime(Date.now()-started)+'.';openView('home');loadFiles();}
+  catch(e){$('slicerHint').textContent=e.message;$('slicerUploadButton').disabled=false;}
+};
 
 const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton').forEach(e=>e.disabled=disabled);};
+const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateMqttFields=()=>show('mqttFields',$('cfgMqttEnabled').checked);
 const loadConfig=async()=>{
   try{
     const c=await api('/api/config');
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgExperimentalSlicing').checked=!!c.experimentalSlicing;
+    slicingEnabled=!!c.experimentalSlicing;show('slicerViewButton',slicingEnabled);if(!slicingEnabled&&!$('slicerView').classList.contains('hidden'))openView('home');
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     updateMqttFields();
     show('configMqttResetButton',!!c.mqttConfigured);
     $('configDefaultsButton').textContent=c.mqttConfigured?'Reset to defaults (Excluding MQTT)':'Reset to defaults';
-    setConfigDisabled(!!c.locked); $('configHint').textContent=c.locked?'Config is locked while printing.':'Config locks automatically while printing.';
-  }catch(e){$('configHint').textContent=e.message;}
+    const locked=!!c.locked||configIsLocallyLocked();
+    setConfigDisabled(locked); $('configHint').textContent=locked?'Config is locked while printing.':'Config locks automatically while printing.';
+  }catch(e){const locked=configIsLocallyLocked();setConfigDisabled(locked);$('configHint').textContent=locked?'Config is locked while printing.':e.message;}
 };
 
 window.modelDetails=modelDetails;
 window.startPrint=startPrint;
 window.deleteFile=deleteFile;
 
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';try{await api('/upload',{method:'POST',body:fd});$('uploadFile').value='';$('uploadHint').textContent='Upload complete.';loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{$('uploadButton').disabled=false;}});
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;const fd=new FormData();fd.append('file',f);$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{await uploadWithProgress(fd,$('uploadHint'));$('uploadFile').value='';$('uploadHint').textContent='Upload complete in '+formatShortTime(Date.now()-started)+'.';loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:new FormData(e.target)});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('MQTT')>=0;if(!confirm(keep?'Reset config to defaults and keep MQTT settings?':'Reset config to defaults?'))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. MQTT settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!confirm('Reset MQTT settings?'))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!confirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('homeViewButton').addEventListener('click',()=>openView('home'));
+$('slicerViewButton').addEventListener('click',()=>openView('slicer'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
+$('slicerBackButton').addEventListener('click',()=>openView('home'));
 $('configBackButton').addEventListener('click',()=>openView('home'));
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
 $('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),true));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
+$('slicerFile').addEventListener('change',e=>loadSlicerFile(e.target.files[0]));
+$('slicerScale').addEventListener('input',updateSlicerFit);
+$('slicerFitButton').addEventListener('click',scaleSlicerToFit);
+$('slicerSliceButton').addEventListener('click',sliceToZip);
+$('slicerDownloadButton').addEventListener('click',downloadSlicedZip);
+$('slicerUploadButton').addEventListener('click',uploadSlicedZip);
+$('layerPreviewRange').addEventListener('input',e=>showLayerPreview(Number(e.target.value)));
 
-openView('home');refreshStatus();loadConfig();setInterval(refreshStatus,2000);
+drawModelPreview();clearLayerPreview();openView('home');refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
 )SPA";
-  inner.replace("{{FW}}", fw);
-  server.send(200, "text/html", rootStyledPage(inner));
+  sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
 }
 
 // ===================================================================================
@@ -1779,6 +2262,14 @@ void network_loop() {
     badgeTs = millis();
     drawWifiBadge();
   }
+}
+
+void network_service_window(uint16_t durationMs) {
+  unsigned long until = millis() + durationMs;
+  do {
+    network_loop();
+    delay(1);
+  } while ((long)(until - millis()) > 0);
 }
 
 // ===================================================================================

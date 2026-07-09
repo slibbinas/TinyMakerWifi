@@ -128,9 +128,6 @@ void lift_print(){
   stepper.enableOutputs();
   stepper.move(lift_print_steps_total); 
   while (stepper.distanceToGo()!= 0){
-    #if ENABLE_NETWORK
-    network_loop();
-    #endif
     if (stepper.distanceToGo()==lift_print_steps_fast){
       stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60); 
     }
@@ -214,9 +211,6 @@ void lower_print(){
   stepper.enableOutputs();
   stepper.move(lower_print_steps); 
   while (stepper.distanceToGo()!= 0){
-    #if ENABLE_NETWORK
-    network_loop();
-    #endif
     stepper.run();    
     Duration2 = millis()-startTime2;
     if (Duration2 >= 500 && digitalRead(buttonUp) == LOW && screen == 1111 && print_canceled == false && print_paused == false){
@@ -296,9 +290,6 @@ void lift_finished_print(){
   stepper.enableOutputs();
   stepper.moveTo(lift_finished_print_steps); 
   while (stepper.distanceToGo()!= 0){
-    #if ENABLE_NETWORK
-    network_loop();
-    #endif
     stepper.run();
   }
   stepper.disableOutputs();

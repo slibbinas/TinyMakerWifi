@@ -23,9 +23,6 @@ void turn_on_LED(){
   digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
   
   while (Duration <= ExposureMillis && !print_canceled){
-    #if ENABLE_NETWORK
-    network_loop();
-    #endif
     Duration = millis()-startTime;
     Duration2 = millis()-startTime2;
     

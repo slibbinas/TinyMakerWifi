@@ -84,6 +84,7 @@ uint32_t totalPrintSecs = 0;        // lifetime printing seconds (loaded in setu
 unsigned long printStartMs = 0;     // millis() when the current print started
 uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
 bool uvLedEnabled = true;           // false = dry-run motion/display only
+bool experimentalSlicingEnabled = false;
 bool mqttEnabled = false;           // Smart Home / MQTT integration scaffold
 String mqttHost = "";
 uint16_t mqttPort = 1883;
@@ -105,6 +106,7 @@ void loadDeviceConfig() {
   totalPrintSecs = sysPrefs.getULong("printSecs", 0);
   uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 0);
   uvLedEnabled = sysPrefs.getBool("uvLed", true);
+  experimentalSlicingEnabled = sysPrefs.getBool("expSlicing", false);
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
   mqttPort = sysPrefs.getUShort("mqttPort", 1883);
@@ -118,6 +120,7 @@ void saveDeviceConfig() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putUShort("uiTimeout", uiTimeoutSecs);
   sysPrefs.putBool("uvLed", uvLedEnabled);
+  sysPrefs.putBool("expSlicing", experimentalSlicingEnabled);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
   sysPrefs.putString("mqttHost", mqttHost);
   sysPrefs.putUShort("mqttPort", mqttPort);
@@ -136,6 +139,7 @@ const char *otaLatestVerStr();
 int otaVersionState();
 bool otaHasUpdate();
 void otaInstallLatest();
+void network_service_window(uint16_t durationMs);
 void screen422();   // "install from file" screen (Interface.ino, #if-guarded)
 #endif
 
@@ -855,6 +859,9 @@ void loop() {
         screen1111_state();
         screen1111UP();
         delay(500);
+        #if ENABLE_NETWORK
+        network_service_window(500);
+        #endif
 
         // -------------------------------------------------------------------------------
         // Homing Sequence
@@ -865,9 +872,6 @@ void loop() {
         long initial_homing = 0;
         long current_position;
         while(!digitalRead(end_stop) && !homing_canceled && !print_canceled){
-          #if ENABLE_NETWORK
-          network_loop();
-          #endif
           stepper.moveTo(initial_homing);  // Set the position to move to
           initial_homing--;  // Decrease by 1 for next move if needed
           stepper.run();  // Start moving the stepper          
@@ -939,6 +943,9 @@ void loop() {
           estimated_minutes = (estimated_seconds % 3600) / 60;
                         
           print_next_png();
+          #if ENABLE_NETWORK
+          network_service_window(160);
+          #endif
             
           if (screen != 11111 && screen != 11112){                
             gfx2->fillRoundRect(2, 38, 116, 40, 3, BLACK);
@@ -967,6 +974,9 @@ void loop() {
                   
           turn_on_LED();          
           gfx1->fillScreen(BLACK);
+          #if ENABLE_NETWORK
+          network_service_window(160);
+          #endif
           
           if (current_state != 4 && current_state != 5){
             current_state = 2;
@@ -974,6 +984,9 @@ void loop() {
           }
           lift_print();
           delay(50);
+          #if ENABLE_NETWORK
+          network_service_window(160);
+          #endif
           
           if(current_layer == layer_counter)
             break;
@@ -990,9 +1003,6 @@ void loop() {
             else
               stepper.moveTo(max_height * steps_mm);  
             while (stepper.distanceToGo()!= 0) {
-              #if ENABLE_NETWORK
-              network_loop();
-              #endif
               stepper.run();
             }
             stepper.disableOutputs();
@@ -1066,9 +1076,6 @@ void loop() {
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);  
               while (stepper.distanceToGo()!= 0) {
-                #if ENABLE_NETWORK
-                network_loop();
-                #endif
                 stepper.run();
               }
               stepper.disableOutputs();
@@ -1085,7 +1092,10 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
-            lower_print();              
+            lower_print();
+            #if ENABLE_NETWORK
+            network_service_window(160);
+            #endif
           }           
         } 
         if (!homing_canceled){
