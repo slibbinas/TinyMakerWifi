@@ -64,6 +64,8 @@ extern double resinUsedMl;
 extern double resinEstimateMl;
 bool estimateResin();               // returns true if user chose Start
 bool startFromResin = false;        // set when Start pressed on resin screen
+bool webStartPrint = false;         // set by the web SD manager after preview validation
+bool webResumePrint = false;        // set by the web dashboard while paused
 
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
@@ -80,11 +82,30 @@ void resetSettingsToDefault();
 Preferences sysPrefs;
 uint32_t totalPrintSecs = 0;        // lifetime printing seconds (loaded in setup)
 unsigned long printStartMs = 0;     // millis() when the current print started
+uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
+bool uvLedEnabled = true;           // false = dry-run motion/display only
+unsigned long lastUiActivityMs = 0;
+bool uiBlanked = false;
 
 void savePrintTime() {
   totalPrintSecs += (millis() - printStartMs) / 1000UL;
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putULong("printSecs", totalPrintSecs);
+  sysPrefs.end();
+}
+
+void loadDeviceConfig() {
+  sysPrefs.begin("tinymaker", true);
+  totalPrintSecs = sysPrefs.getULong("printSecs", 0);
+  uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 0);
+  uvLedEnabled = sysPrefs.getBool("uvLed", true);
+  sysPrefs.end();
+}
+
+void saveDeviceConfig() {
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUShort("uiTimeout", uiTimeoutSecs);
+  sysPrefs.putBool("uvLed", uvLedEnabled);
   sysPrefs.end();
 }
 
@@ -223,6 +244,49 @@ String FileName;          // Current file name
 File myfile;
 PNG png; // PNG decoder instance
 
+void savePrintSettings() {
+  EEPROM.write(1, Layer_Height * 100);
+  EEPROM.write(2, Base_Exposure);
+  EEPROM.write(3, Regular_Exposure);
+  EEPROM.write(4, Base_Layer);
+  EEPROM.write(5, Transition_Layer);
+  EEPROM.write(6, Slow_Lift_Distance);
+  EEPROM.write(7, Fast_Lift_Distance);
+  EEPROM.write(8, Slow_Lift_Feedrate);
+  EEPROM.write(9, Fast_Lift_Feedrate);
+  EEPROM.write(10, Drop_Back_Feedrate);
+  EEPROM.commit();
+}
+
+bool printerBusy() {
+  return screen == 1111 || screen == 1112 || screen == 11111 ||
+         screen == 11112 || screen == 11113;
+}
+
+bool handleUiTimeout() {
+  bool buttonPressed = digitalRead(buttonBack) == LOW ||
+                       digitalRead(buttonUp) == LOW ||
+                       digitalRead(buttonDown) == LOW ||
+                       digitalRead(buttonOK) == LOW;
+  if (buttonPressed) {
+    lastUiActivityMs = millis();
+    if (uiBlanked) {
+      uiBlanked = false;
+      screen1();
+      delay(200);
+      return true;                  // consume wake press
+    }
+  }
+
+  if (uiTimeoutSecs == 0 || uiBlanked || printerBusy()) return false;
+  if (!(screen == 1 || screen == 2 || screen == 3 || screen == 4)) return false;
+  if (millis() - lastUiActivityMs < (unsigned long)uiTimeoutSecs * 1000UL) return false;
+
+  gfx2->fillScreen(BLACK);          // visual blank; no LCD backlight pin is exposed
+  uiBlanked = true;
+  return false;
+}
+
 // ===================================================================================
 // Settings
 // ===================================================================================
@@ -343,16 +407,57 @@ void setup() {
     resetSettingsToDefault();
   }
 
-  // Lifetime print-hours counter (NVS, shown on the About screen)
-  sysPrefs.begin("tinymaker", true);
-  totalPrintSecs = sysPrefs.getULong("printSecs", 0);
-  sysPrefs.end();
+  // NVS-backed system values: lifetime print time + web/device settings.
+  loadDeviceConfig();
+  lastUiActivityMs = millis();
 
   delay(1000);
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
   #endif
   screen1(); // jumps to Main Menu
+}
+
+bool prepareSelectedPrintPreview() {
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(22, 34);
+  gfx2->print("Processing files");
+  gfx2->setCursor(34, 52);
+  gfx2->print("Please wait...");
+  delay(500);
+
+  layer_counter = 0;
+  File entry;
+  do {
+    layer_counter += 100;
+    FileName = foldersel_long;
+    FileName += "/";
+    FileName += layer_counter;
+    FileName += ".png";
+    entry = SD.open(FileName);
+  } while(entry);
+  layer_counter -= 100;
+
+  do {
+    layer_counter++;
+    FileName = foldersel_long;
+    FileName += "/";
+    FileName += layer_counter;
+    FileName += ".png";
+    entry = SD.open(FileName);
+  } while(entry);
+  layer_counter--;
+
+  if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
+    screen112();
+    return false;
+  }
+
+  screen111();
+  return true;
 }
 
 // ===================================================================================
@@ -366,6 +471,7 @@ void loop() {
   #if ENABLE_NETWORK
   network_loop(); // network uploads - only serviced while printer is idle
   #endif
+  if (handleUiTimeout()) return;
   // -----------------------------------------------------------------------------------
   // Back Button Handling
   // Only triggers if the button is pressed (LOW)
@@ -669,9 +775,9 @@ void loop() {
 
   // -----------------------------------------------------------------------------------
   // OK Button Handling
-  // (startFromResin lets the resin screen's "Start" flow straight into printing)
+  // (startFromResin/webStartPrint let non-OK flows start the existing print path)
   // -----------------------------------------------------------------------------------
-  if (digitalRead(buttonOK) == LOW || startFromResin) {
+  if (digitalRead(buttonOK) == LOW || startFromResin || webStartPrint) {
     switch (screen) {
       case 1:
       if (SD.begin(SDCS, SD_SCK_MHZ(16))){
@@ -709,51 +815,17 @@ void loop() {
         folderDown(root);
         break;
       }
-      uiFrame(ORANGE);
-      gfx2->setFont(&FreeSans8pt7b);
-      gfx2->setTextColor(WHITE);
-      gfx2->setTextSize(1);
-      gfx2->setCursor(22, 34);
-      gfx2->print("Processing files");
-      gfx2->setCursor(34, 52);
-      gfx2->print("Please wait...");
-      delay(500);
- 
-      layer_counter = 0;
-      File entry;
-      do {
-        layer_counter += 100;
-        FileName = foldersel_long;
-        FileName += "/";
-        FileName += layer_counter;
-        FileName += ".png";
-        entry = SD.open(FileName);        
-      } while(entry);
-      layer_counter -= 100;
-
-      do {
-        layer_counter++;
-        FileName = foldersel_long;
-        FileName += "/";
-        FileName += layer_counter;
-        FileName += ".png";
-        entry = SD.open(FileName);    
-      } while(entry);
-      layer_counter --; 
-
-      if (layer_counter <= MAX_LAYER_FILES){
-        screen111();
-      }else{
-        screen112();
-      }
+      prepareSelectedPrintPreview();
       }
         break;
       case 111: {
         startFromResin = false;   // consume the resin-screen Start request
+        webStartPrint = false;    // consume the web SD-manager Start request
         printStartMs = millis();  // print-hours accounting (incl. pauses)
         homing_canceled = false;
         print_paused = false;
         print_canceled = false;
+        webResumePrint = false;
         resinUsedMl = 0.0;        // reset cured-resin counter for this print
         current_state = 0;
         current_layer = 0;
@@ -774,7 +846,10 @@ void loop() {
         stepper.enableOutputs();
         long initial_homing = 0;
         long current_position;
-        while(!digitalRead(end_stop)){
+        while(!digitalRead(end_stop) && !homing_canceled && !print_canceled){
+          #if ENABLE_NETWORK
+          network_loop();
+          #endif
           stepper.moveTo(initial_homing);  // Set the position to move to
           initial_homing--;  // Decrease by 1 for next move if needed
           stepper.run();  // Start moving the stepper          
@@ -896,8 +971,12 @@ void loop() {
               stepper.move(20 * steps_mm);
             else
               stepper.moveTo(max_height * steps_mm);  
-            while (stepper.distanceToGo()!= 0)
+            while (stepper.distanceToGo()!= 0) {
+              #if ENABLE_NETWORK
+              network_loop();
+              #endif
               stepper.run();
+            }
             stepper.disableOutputs();
             delay(10); 
 
@@ -908,6 +987,9 @@ void loop() {
             screen1111DOWN();
               
             while(print_paused == true){
+              #if ENABLE_NETWORK
+              network_loop();
+              #endif
               Duration2 = millis()-startTime2;
               if (Duration2 >= 500 && digitalRead(buttonUp) == LOW && screen == 1112){
               screen1111UP();
@@ -953,7 +1035,8 @@ void loop() {
               print_canceled = true;
               print_paused = false;
               }  
-              if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113){
+              if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
+              webResumePrint = false;
               screen1111();
               current_state = 7;
               screen1111_state();           
@@ -964,8 +1047,12 @@ void loop() {
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);  
-              while (stepper.distanceToGo()!= 0)
+              while (stepper.distanceToGo()!= 0) {
+                #if ENABLE_NETWORK
+                network_loop();
+                #endif
                 stepper.run();
+              }
               stepper.disableOutputs();
               delay(10);
               gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1095,17 +1182,7 @@ void loop() {
       }
         break; 
       case 3111:
-      EEPROM.write(1, Layer_Height*100);
-      EEPROM.write(2, Base_Exposure);
-      EEPROM.write(3, Regular_Exposure);
-      EEPROM.write(4, Base_Layer);
-      EEPROM.write(5, Transition_Layer);
-      EEPROM.write(6, Slow_Lift_Distance);
-      EEPROM.write(7, Fast_Lift_Distance);
-      EEPROM.write(8, Slow_Lift_Feedrate);
-      EEPROM.write(9, Fast_Lift_Feedrate);
-      EEPROM.write(10, Drop_Back_Feedrate);
-      EEPROM.commit(); 
+      savePrintSettings();
       if(setting_item_updown == 1){
         setting_item ++;
         screen31UP();

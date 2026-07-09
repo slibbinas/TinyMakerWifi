@@ -1462,7 +1462,7 @@ void screen23111(){
   byte buttonBackClicked = 0;    
   digitalWrite(FAN, HIGH);
   gfx1->fillScreen(WHITE);
-  digitalWrite(LED, HIGH); 
+  digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
   startTime = millis();
   Duration = 0;
   while (Duration <= ExposureMillis){
