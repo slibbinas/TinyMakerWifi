@@ -84,6 +84,12 @@ uint32_t totalPrintSecs = 0;        // lifetime printing seconds (loaded in setu
 unsigned long printStartMs = 0;     // millis() when the current print started
 uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
 bool uvLedEnabled = true;           // false = dry-run motion/display only
+bool mqttEnabled = false;           // Smart Home / MQTT integration scaffold
+String mqttHost = "";
+uint16_t mqttPort = 1883;
+String mqttUser = "";
+String mqttPass = "";
+String mqttTopic = "TinyMaker";
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 
@@ -99,6 +105,12 @@ void loadDeviceConfig() {
   totalPrintSecs = sysPrefs.getULong("printSecs", 0);
   uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 0);
   uvLedEnabled = sysPrefs.getBool("uvLed", true);
+  mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
+  mqttHost = sysPrefs.getString("mqttHost", "");
+  mqttPort = sysPrefs.getUShort("mqttPort", 1883);
+  mqttUser = sysPrefs.getString("mqttUser", "");
+  mqttPass = sysPrefs.getString("mqttPass", "");
+  mqttTopic = sysPrefs.getString("mqttTopic", "TinyMaker");
   sysPrefs.end();
 }
 
@@ -106,6 +118,12 @@ void saveDeviceConfig() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putUShort("uiTimeout", uiTimeoutSecs);
   sysPrefs.putBool("uvLed", uvLedEnabled);
+  sysPrefs.putBool("mqttEnabled", mqttEnabled);
+  sysPrefs.putString("mqttHost", mqttHost);
+  sysPrefs.putUShort("mqttPort", mqttPort);
+  sysPrefs.putString("mqttUser", mqttUser);
+  sysPrefs.putString("mqttPass", mqttPass);
+  sysPrefs.putString("mqttTopic", mqttTopic);
   sysPrefs.end();
 }
 

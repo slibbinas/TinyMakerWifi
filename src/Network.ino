@@ -41,6 +41,7 @@
 #include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
+#include <PubSubClient.h>
 
 // Where the printer checks for a newer firmware (self-update, "Install latest").
 // version.txt must contain two lines: (1) the latest version, e.g. "0.7.0",
@@ -49,6 +50,8 @@
 
 WebServer server(80);
 Preferences netPrefs;
+WiFiClient mqttNet;
+PubSubClient mqttClient(mqttNet);
 // NOTE: no global 'UNZIP zip;' here! The UNZIP object is ~40 KB - declared
 // globally it lands in static .bss and overflows WROOM's DRAM segment
 // (verified: "region dram0_0_seg overflowed"). It is heap-allocated inside
@@ -61,6 +64,9 @@ String modelName;       // e.g. "Benchy"
 bool uploadOk = false;
 bool uploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
+unsigned long mqttLastAttemptMs = 0;
+unsigned long mqttLastPublishMs = 0;
+bool mqttDiscoverySent = false;
 
 extern unsigned long whitePixelsAccum;
 extern bool countPixelsMode;
@@ -480,6 +486,14 @@ long formLong(const char *name, long fallback, long minVal, long maxVal) {
   return v;
 }
 
+String formString(const char *name, const String &fallback, uint16_t maxLen) {
+  if (!server.hasArg(name)) return fallback;
+  String v = server.arg(name);
+  v.trim();
+  if (v.length() > maxLen) v = v.substring(0, maxLen);
+  return v;
+}
+
 void sendApiError(int code, const char *message) {
   String out = "{\"ok\":false,\"error\":\"";
   out += jsonEscape(message);
@@ -741,6 +755,8 @@ bool queueModelPrint(const String &requestedName, String &error) {
 }
 
 String configJson() {
+  bool mqttConfigured = mqttEnabled || mqttHost.length() > 0 || mqttUser.length() > 0 ||
+                        mqttPass.length() > 0 || mqttPort != 1883 || mqttTopic != "TinyMaker";
   String out = "\"locked\":";
   out += printerBusy() ? "true" : "false";
   out += ",\"layerHeight\":";
@@ -769,6 +785,21 @@ String configJson() {
   out += uvLedEnabled ? "false" : "true";
   out += ",\"uvLedEnabled\":";
   out += uvLedEnabled ? "true" : "false";
+  out += ",\"mqttEnabled\":";
+  out += mqttEnabled ? "true" : "false";
+  out += ",\"mqttConfigured\":";
+  out += mqttConfigured ? "true" : "false";
+  out += ",\"mqttHost\":\"";
+  out += jsonEscape(mqttHost);
+  out += "\",\"mqttPort\":";
+  out += String(mqttPort);
+  out += ",\"mqttUser\":\"";
+  out += jsonEscape(mqttUser);
+  out += "\",\"mqttPasswordSet\":";
+  out += mqttPass.length() > 0 ? "true" : "false";
+  out += ",\"mqttTopic\":\"";
+  out += jsonEscape(mqttTopic);
+  out += "\"";
   return out;
 }
 
@@ -786,6 +817,15 @@ void applyConfigRequest() {
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
+  mqttEnabled = server.hasArg("mqtt_enabled");
+  mqttHost = formString("mqtt_host", mqttHost, 80);
+  mqttPort = formLong("mqtt_port", mqttPort, 1, 65535);
+  mqttUser = formString("mqtt_user", mqttUser, 64);
+  if (server.hasArg("mqtt_password") && server.arg("mqtt_password").length() > 0) {
+    mqttPass = formString("mqtt_password", mqttPass, 64);
+  }
+  mqttTopic = formString("mqtt_topic", mqttTopic, 64);
+  if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
 
   savePrintSettings();
   saveDeviceConfig();
@@ -802,6 +842,8 @@ void handleApiConfigSave() {
   }
 
   applyConfigRequest();
+  mqttClient.disconnect();
+  mqttDiscoverySent = false;
   sendApiOk(configJson());
 }
 
@@ -812,6 +854,16 @@ void resetWebConfigToDefaults() {
   saveDeviceConfig();
 }
 
+void resetMqttConfigToDefaults() {
+  mqttEnabled = false;
+  mqttHost = "";
+  mqttPort = 1883;
+  mqttUser = "";
+  mqttPass = "";
+  mqttTopic = "TinyMaker";
+  saveDeviceConfig();
+}
+
 void handleApiConfigDefaults() {
   if (printerBusy()) {
     sendApiError(409, "printer busy");
@@ -819,6 +871,18 @@ void handleApiConfigDefaults() {
   }
 
   resetWebConfigToDefaults();
+  sendApiOk(configJson());
+}
+
+void handleApiConfigMqttDefaults() {
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+
+  resetMqttConfigToDefaults();
+  mqttClient.disconnect();
+  mqttDiscoverySent = false;
   sendApiOk(configJson());
 }
 
@@ -897,6 +961,179 @@ bool requestPrintStop(String &error) {
   webResumePrint = false;
   if (wasHoming) homing_canceled = true;
   return true;
+}
+
+String mqttBaseTopic() {
+  String base = mqttTopic;
+  base.trim();
+  if (base.length() == 0) base = "TinyMaker";
+  while (base.endsWith("/")) base.remove(base.length() - 1);
+  return base;
+}
+
+String mqttDeviceId() {
+  String id = WiFi.macAddress();
+  id.replace(":", "");
+  id.toLowerCase();
+  return "tinymaker_" + id;
+}
+
+String mqttAvailabilityTopic() {
+  return mqttBaseTopic() + "/status/availability";
+}
+
+const char *mqttFirmwareVersion() {
+#ifdef FIRMWARE_VERSION
+  return FIRMWARE_VERSION;
+#else
+  return "unknown";
+#endif
+}
+
+String mqttDeviceJson() {
+  String id = mqttDeviceId();
+  String out = "{\"identifiers\":[\"";
+  out += id;
+  out += "\"],\"name\":\"TinyMaker\",\"manufacturer\":\"TinyMaker\",\"model\":\"TinyMaker MSLA\",\"sw_version\":\"";
+  out += mqttFirmwareVersion();
+  out += "\"}";
+  return out;
+}
+
+bool mqttPublishRaw(const String &topic, const String &payload, bool retained = false) {
+  return mqttClient.connected() && mqttClient.publish(topic.c_str(), payload.c_str(), retained);
+}
+
+void mqttPublishDiscoveryItem(const char *component, const char *objectSuffix, const char *name,
+                              const String &stateTopic, const char *extra = "") {
+  String id = mqttDeviceId();
+  String objectId = id + "_" + objectSuffix;
+  String topic = "homeassistant/";
+  topic += component;
+  topic += "/";
+  topic += objectId;
+  topic += "/config";
+
+  String payload = "{\"name\":\"";
+  payload += name;
+  payload += "\",\"unique_id\":\"";
+  payload += objectId;
+  payload += "\",\"state_topic\":\"";
+  payload += stateTopic;
+  payload += "\",\"availability_topic\":\"";
+  payload += mqttAvailabilityTopic();
+  payload += "\",\"payload_available\":\"online\",\"payload_not_available\":\"offline\",\"device\":";
+  payload += mqttDeviceJson();
+  if (extra && strlen(extra) > 0) {
+    payload += ",";
+    payload += extra;
+  }
+  payload += "}";
+
+  mqttPublishRaw(topic, payload, true);
+}
+
+void mqttPublishDiscovery() {
+  String base = mqttBaseTopic();
+  mqttPublishDiscoveryItem("sensor", "state", "State", base + "/status/state");
+  mqttPublishDiscoveryItem("binary_sensor", "busy", "Busy", base + "/status/busy",
+                           "\"payload_on\":\"ON\",\"payload_off\":\"OFF\"");
+  mqttPublishDiscoveryItem("binary_sensor", "dry_run", "Dry run", base + "/status/dry_run",
+                           "\"payload_on\":\"ON\",\"payload_off\":\"OFF\"");
+  mqttPublishDiscoveryItem("binary_sensor", "sd_ready", "SD ready", base + "/sd/ready",
+                           "\"payload_on\":\"ON\",\"payload_off\":\"OFF\"");
+  mqttPublishDiscoveryItem("sensor", "wifi_rssi", "WiFi RSSI", base + "/status/wifi_rssi",
+                           "\"device_class\":\"signal_strength\",\"unit_of_measurement\":\"dBm\",\"state_class\":\"measurement\"");
+  mqttPublishDiscoveryItem("sensor", "current_layer", "Current layer", base + "/print/current_layer",
+                           "\"state_class\":\"measurement\"");
+  mqttPublishDiscoveryItem("sensor", "total_layers", "Total layers", base + "/print/total_layers",
+                           "\"state_class\":\"measurement\"");
+  mqttPublishDiscoveryItem("sensor", "resin_used_ml", "Resin used", base + "/print/resin_used_ml",
+                           "\"unit_of_measurement\":\"mL\",\"state_class\":\"measurement\"");
+  mqttPublishDiscoveryItem("sensor", "running_time_sec", "Running time", base + "/print/running_time_sec",
+                           "\"device_class\":\"duration\",\"unit_of_measurement\":\"s\",\"state_class\":\"measurement\"");
+  mqttPublishDiscoveryItem("sensor", "remaining_time_sec", "Remaining time", base + "/print/remaining_time_sec",
+                           "\"device_class\":\"duration\",\"unit_of_measurement\":\"s\",\"state_class\":\"measurement\"");
+  mqttDiscoverySent = true;
+}
+
+void mqttPublishStatus() {
+  bool busy = printerBusy();
+  bool sdReady = busy ? false : sdCardReady();
+  String base = mqttBaseTopic();
+
+  mqttPublishRaw(mqttAvailabilityTopic(), "online", true);
+  mqttPublishRaw(base + "/status/state", printerStateText(), true);
+  mqttPublishRaw(base + "/status/busy", busy ? "ON" : "OFF", true);
+  mqttPublishRaw(base + "/status/dry_run", uvLedEnabled ? "OFF" : "ON", true);
+  mqttPublishRaw(base + "/status/ip", WiFi.localIP().toString(), true);
+  mqttPublishRaw(base + "/status/wifi_rssi", String(WiFi.RSSI()), true);
+  mqttPublishRaw(base + "/sd/ready", sdReady ? "ON" : "OFF", true);
+  mqttPublishRaw(base + "/print/current_layer", String(current_layer), true);
+  mqttPublishRaw(base + "/print/total_layers", String(layer_counter), true);
+  mqttPublishRaw(base + "/print/resin_used_ml", String(resinUsedMl, 1), true);
+  mqttPublishRaw(base + "/print/running_time_sec", String(currentRunSecs()), true);
+  mqttPublishRaw(base + "/print/remaining_time_sec", String(remainingPrintSecs()), true);
+}
+
+void mqttCallback(char *topic, byte *payload, unsigned int length) {
+  String t = topic;
+  if (t != "homeassistant/status") return;
+
+  String msg;
+  for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
+  if (msg == "online") {
+    mqttDiscoverySent = false;
+  }
+}
+
+bool mqttConnect() {
+  if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) return false;
+
+  mqttClient.setServer(mqttHost.c_str(), mqttPort);
+  mqttClient.setCallback(mqttCallback);
+  mqttClient.setBufferSize(1024);
+  mqttClient.setSocketTimeout(1);
+
+  String id = mqttDeviceId();
+  bool ok;
+  if (mqttUser.length() > 0) {
+    ok = mqttClient.connect(id.c_str(), mqttUser.c_str(), mqttPass.c_str(),
+                            mqttAvailabilityTopic().c_str(), 0, true, "offline");
+  } else {
+    ok = mqttClient.connect(id.c_str(), mqttAvailabilityTopic().c_str(), 0, true, "offline");
+  }
+
+  if (!ok) return false;
+  mqttClient.subscribe("homeassistant/status");
+  mqttPublishRaw(mqttAvailabilityTopic(), "online", true);
+  mqttDiscoverySent = false;
+  mqttLastPublishMs = 0;
+  return true;
+}
+
+void mqtt_loop() {
+  if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) {
+    if (mqttClient.connected()) mqttClient.disconnect();
+    mqttDiscoverySent = false;
+    return;
+  }
+
+  if (!mqttClient.connected()) {
+    unsigned long now = millis();
+    if (now - mqttLastAttemptMs < 10000UL) return;
+    mqttLastAttemptMs = now;
+    if (!mqttConnect()) return;
+  }
+
+  mqttClient.loop();
+  if (!mqttDiscoverySent) mqttPublishDiscovery();
+
+  unsigned long now = millis();
+  if (now - mqttLastPublishMs >= 5000UL) {
+    mqttLastPublishMs = now;
+    mqttPublishStatus();
+  }
 }
 
 void handleApiPrintStart() {
@@ -1028,8 +1265,9 @@ String rootStyledPage(const String &inner) {
     "border-top:1px solid #3a3a3f;padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
     ".meta{font-size:12px;color:#aaa;margin-top:3px}"
-    "input[type=file],input[type=number]{width:100%;margin:6px 0 12px;padding:10px;border:1px solid #555;border-radius:8px;background:#1c1c1e;color:#eee}"
+    "input[type=file],input[type=number],input[type=text],input[type=password]{width:100%;margin:6px 0 12px;padding:10px;border:1px solid #555;border-radius:8px;background:#1c1c1e;color:#eee}"
     "label span{display:block;font-size:13px;color:#aaa}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}"
+    ".spanAll{grid-column:1/-1}"
     ".check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:#eee}"
     ".actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}"
     ".toolbar{display:flex;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:#3c3c42}"
@@ -1140,9 +1378,21 @@ void handleRootPage() {
     <label><span>Drop back feedrate</span><input name='drop_back_feedrate' id='cfgDropBackFeedrate' type='number' min='20' max='50' step='10'></label>
     <label><span>UI timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
+    <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT? (SmartHome integration)</span></label>
+    <div id='mqttFields' class='spanAll hidden'>
+      <div class='configGrid'>
+        <label><span>MQTT broker host</span><input name='mqtt_host' id='cfgMqttHost' type='text' maxlength='80' placeholder='192.168.1.10'></label>
+        <label><span>MQTT broker port</span><input name='mqtt_port' id='cfgMqttPort' type='number' min='1' max='65535' step='1'></label>
+        <label><span>MQTT username</span><input name='mqtt_user' id='cfgMqttUser' type='text' maxlength='64' autocomplete='username'></label>
+        <label><span>MQTT password</span><input name='mqtt_password' id='cfgMqttPassword' type='password' maxlength='64' autocomplete='current-password' placeholder='Leave blank to keep current'></label>
+        <label class='spanAll'><span>MQTT topic prefix</span><input name='mqtt_topic' id='cfgMqttTopic' type='text' maxlength='64' placeholder='TinyMaker'></label>
+      </div>
+      <div id='mqttHint' class='hint'>MQTT publishing will use these settings in the SmartHome integration step.</div>
+    </div>
     <button id='configSaveButton' type='submit'>Save config</button>
   </form>
   <button id='configDefaultsButton' class='button secondary' type='button'>Reset to defaults</button>
+  <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
   <div id='configHint' class='hint'>Config locks automatically while printing.</div>
 </section>
 
@@ -1228,12 +1478,18 @@ const startPrint=async nameEnc=>{const name=decodeURIComponent(nameEnc||enc(sele
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!confirm('Delete this SD item?'))return;try{await api('/api/files/delete?name='+enc(name),{method:'POST'});msg('Deleted '+name+'.');loadFiles();}catch(e){msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!confirm(confirmText))return;try{await api('/api/print/'+cmd,{method:'POST'});refreshStatus();}catch(e){msg(e.message,true);}};
 
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton').forEach(e=>e.disabled=disabled);};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton').forEach(e=>e.disabled=disabled);};
+const updateMqttFields=()=>show('mqttFields',$('cfgMqttEnabled').checked);
 const loadConfig=async()=>{
   try{
     const c=await api('/api/config');
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
     $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun;
+    $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
+    $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
+    updateMqttFields();
+    show('configMqttResetButton',!!c.mqttConfigured);
+    $('configDefaultsButton').textContent=c.mqttConfigured?'Reset to defaults (Excluding MQTT)':'Reset to defaults';
     setConfigDisabled(!!c.locked); $('configHint').textContent=c.locked?'Config is locked while printing.':'Config locks automatically while printing.';
   }catch(e){$('configHint').textContent=e.message;}
 };
@@ -1244,8 +1500,10 @@ window.deleteFile=deleteFile;
 
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';try{await api('/upload',{method:'POST',body:fd});$('uploadFile').value='';$('uploadHint').textContent='Upload complete.';loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:new FormData(e.target)});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
-$('configDefaultsButton').addEventListener('click',async()=>{if(!confirm('Reset config to defaults?'))return;try{await api('/api/config/defaults',{method:'POST'});msg('Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
+$('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('MQTT')>=0;if(!confirm(keep?'Reset config to defaults and keep MQTT settings?':'Reset config to defaults?'))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. MQTT settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
+$('configMqttResetButton').addEventListener('click',async()=>{if(!confirm('Reset MQTT settings?'))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!confirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
+$('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
@@ -1450,6 +1708,7 @@ void network_setup() {
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigSave);
   server.on("/api/config/defaults", HTTP_POST, handleApiConfigDefaults);
+  server.on("/api/config/mqtt/defaults", HTTP_POST, handleApiConfigMqttDefaults);
   server.on("/api/config/dry-run", HTTP_POST, handleApiConfigDryRun);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
@@ -1502,6 +1761,7 @@ void network_loop() {
   // Dev espota OTA is answered only while the printer is on the Update screen
   // (same safety gate as the web /update flasher).
   if (otaMenuOpen()) ArduinoOTA.handle();
+  mqtt_loop();
 
   // Live refresh of the WiFi info screen (312): redraw values every 2 s
   // while the screen is open. 'screen' global is defined in the main .ino
