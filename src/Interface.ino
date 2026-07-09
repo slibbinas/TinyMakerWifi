@@ -135,6 +135,21 @@ void screen0(){
 
 
 
+// System-menu gear icon, 27x27 px 1-bit bitmap (MSB first, 4 bytes/row).
+// Generated from a symmetric radius+angle pixel model: 8 identical teeth,
+// rounded cardinal tips, large center hole. Drawn with drawBitmap(ORANGE).
+static const uint8_t gearBitmap[] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x1F, 0x00, 0x00,
+  0x06, 0x1F, 0x0C, 0x00, 0x0F, 0x1F, 0x1E, 0x00, 0x1F, 0xFF, 0xFF, 0x00,
+  0x1F, 0xFF, 0xFF, 0x00, 0x0F, 0xFF, 0xFE, 0x00, 0x07, 0xFF, 0xFC, 0x00,
+  0x07, 0xE0, 0xFC, 0x00, 0x07, 0xC0, 0x7C, 0x00, 0x3F, 0x80, 0x3F, 0x80,
+  0x7F, 0x80, 0x3F, 0xC0, 0x7F, 0x80, 0x3F, 0xC0, 0x7F, 0x80, 0x3F, 0xC0,
+  0x3F, 0x80, 0x3F, 0x80, 0x07, 0xC0, 0x7C, 0x00, 0x07, 0xE0, 0xFC, 0x00,
+  0x07, 0xFF, 0xFC, 0x00, 0x0F, 0xFF, 0xFE, 0x00, 0x1F, 0xFF, 0xFF, 0x00,
+  0x1F, 0xFF, 0xFF, 0x00, 0x0F, 0x1F, 0x1E, 0x00, 0x06, 0x1F, 0x0C, 0x00,
+  0x00, 0x1F, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
 /**
  * @brief Screen 1: Main Menu - Print
  */
@@ -168,23 +183,10 @@ void screen1(){
   gfx2->fillCircle(99, 28, 2, ORANGE);
   gfx2->fillCircle(104, 35, 2, ORANGE);
 
-  // System icon: gear with a hole (box 4: x120-160). Rectangular teeth:
-  // 4 cardinal ones are straight rects, 4 diagonal ones are 45-degree
-  // squares (two triangles each) - round teeth read as flower petals.
-  gfx2->fillRect(137, 19, 7, 5, ORANGE);                  // N
-  gfx2->fillRect(137, 37, 7, 5, ORANGE);                  // S
-  gfx2->fillRect(147, 27, 5, 7, ORANGE);                  // E
-  gfx2->fillRect(129, 27, 5, 7, ORANGE);                  // W
-  gfx2->fillTriangle(143, 24, 146, 21, 149, 24, ORANGE);  // NE
-  gfx2->fillTriangle(143, 24, 146, 27, 149, 24, ORANGE);
-  gfx2->fillTriangle(131, 24, 134, 21, 137, 24, ORANGE);  // NW
-  gfx2->fillTriangle(131, 24, 134, 27, 137, 24, ORANGE);
-  gfx2->fillTriangle(143, 36, 146, 33, 149, 36, ORANGE);  // SE
-  gfx2->fillTriangle(143, 36, 146, 39, 149, 36, ORANGE);
-  gfx2->fillTriangle(131, 36, 134, 33, 137, 36, ORANGE);  // SW
-  gfx2->fillTriangle(131, 36, 134, 39, 137, 36, ORANGE);
-  gfx2->fillCircle(140, 30, 8, ORANGE);                   // body
-  gfx2->fillCircle(140, 30, 3, BLACK);                    // hole
+  // System icon: gear (box 4: x120-160), drawn from a 1-bit 27x27 bitmap
+  // (generated pixel map - 8 identical teeth, rounded tips, big hole;
+  // shape approved by the maintainer). See gearBitmap above screen1().
+  gfx2->drawBitmap(127, 19, gearBitmap, 27, 27, ORANGE);
 
   gfx2->drawRoundRect(0, 13, 40, 40, 5, 0x879F);
   gfx2->setFont(&FreeSans8pt7b);
