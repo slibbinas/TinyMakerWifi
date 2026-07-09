@@ -291,6 +291,7 @@ bool handleUiTimeout() {
     lastUiActivityMs = millis();
     if (uiBlanked) {
       uiBlanked = false;
+      ((Arduino_TFT *)gfx2)->displayOn();
       screen1();
       delay(200);
       return true;                  // consume wake press
@@ -301,7 +302,8 @@ bool handleUiTimeout() {
   if (!(screen == 1 || screen == 2 || screen == 3 || screen == 4)) return false;
   if (millis() - lastUiActivityMs < (unsigned long)uiTimeoutSecs * 1000UL) return false;
 
-  gfx2->fillScreen(BLACK);          // visual blank; no LCD backlight pin is exposed
+  gfx2->fillScreen(BLACK);
+  ((Arduino_TFT *)gfx2)->displayOff(); // may not cut backlight if it is hard-wired
   uiBlanked = true;
   return false;
 }
