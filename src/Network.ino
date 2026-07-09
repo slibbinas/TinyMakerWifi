@@ -829,6 +829,7 @@ bool queueModelPrint(const String &requestedName, String &error) {
   selIsArchive = false;
   root = SD.open("/");
 
+  wakeUiForRemoteAction();
   if (!prepareSelectedPrintPreview()) {
     delay(1000);
     screen1();
@@ -877,6 +878,8 @@ String configJson() {
   out += wifiEnabled ? "true" : "false";
   out += ",\"webDashboardEnabled\":";
   out += webDashboardEnabled ? "true" : "false";
+  out += ",\"bootUpdateCheck\":";
+  out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
   out += mqttEnabled ? "true" : "false";
   out += ",\"mqttConfigured\":";
@@ -912,6 +915,7 @@ void applyConfigRequest() {
   uvLedEnabled = !server.hasArg("dry_run");
   wifiEnabled = server.hasArg("wifi_enabled");
   webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
+  bootUpdateCheckEnabled = server.hasArg("boot_update_check");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
   mqttHost = formString("mqtt_host", mqttHost, 80);
@@ -957,6 +961,7 @@ void resetWebConfigToDefaults() {
   uvLedEnabled = true;
   wifiEnabled = true;
   webDashboardEnabled = true;
+  bootUpdateCheckEnabled = true;
   saveDeviceConfig();
 }
 
@@ -1418,6 +1423,9 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:#7b2f2f}.secondaryBtn{background:#3c3c42}"
     "button:disabled{background:#555;color:#aaa;cursor:not-allowed}"
     ".button.secondary{background:#3c3c42;margin-top:10px}"
+    "body.updating main>*:not(#updateBanner){opacity:.55;pointer-events:none}"
+    "body.updating #updateBanner{opacity:1;pointer-events:auto}"
+    "body.updating #updateNowButton{pointer-events:none}"
     ".warn{color:#ffb15f}"
     ".hidden{display:none}"
     ".hint{font-size:13px;color:#aaa;margin:10px 0 0;line-height:1.4}"
@@ -1445,6 +1453,12 @@ void handleRootPage() {
   <strong>Dry run mode enabled.</strong>
   <div>Prints will not print, only for testing purposes.</div>
   <button id='disableDryRunButton' class='button secondary' type='button'>Press here to disable</button>
+</section>
+
+<section id='updateBanner' class='card banner hidden'>
+  <strong>Firmware update available.</strong>
+  <div id='updateText'>A newer firmware is available.</div>
+  <button id='updateNowButton' class='button secondary' type='button'>Update now</button>
 </section>
 
 <div class='toolbar'>
@@ -1526,6 +1540,7 @@ void handleRootPage() {
     <label><span>VAT size (ml)</span><input name='vat_ml' id='cfgVatMl' type='number' min='10' max='40' step='1'></label>
     <label><span>UI timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
+    <label class='check'><input name='boot_update_check' id='cfgBootUpdateCheck' type='checkbox' value='1'><span>Boot update check</span></label>
     <label class='check'><input name='wifi_enabled' id='cfgWifiEnabled' type='checkbox' value='1'><span>WiFi</span></label>
     <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web access</span></label>
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT? (SmartHome integration)</span></label>
@@ -1549,8 +1564,12 @@ void handleRootPage() {
 <script>
 const $=id=>document.getElementById(id);
 let statusData=null,selectedModel='',sdFreeBytes=0,sdTotalBytes=0;
+let updateInfo=null,waitingForUpdateReboot=false;
+const OTA_VERSION_URL='https://slibbinas.github.io/TinyMakerWifi/version.txt';
+const currentFwVersion=()=>($('fwVersion').textContent||'').trim();
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
 const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
+const setUpdateLock=on=>{waitingForUpdateReboot=!!on;document.body.classList.toggle('updating',!!on);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api=async(path,opt,timeoutMs)=>{
@@ -1564,6 +1583,61 @@ const api=async(path,opt,timeoutMs)=>{
   finally{if(timer)clearTimeout(timer);}
 };
 const msg=(t,warn)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);};
+const versionParts=v=>String(v||'').trim().replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0);
+const compareVersions=(a,b)=>{const av=versionParts(a),bv=versionParts(b);for(let i=0;i<3;i++){if((av[i]||0)!==(bv[i]||0))return(av[i]||0)-(bv[i]||0);}return 0;};
+const checkFirmwareUpdate=async()=>{
+  if(waitingForUpdateReboot)return;
+  try{
+    const r=await fetch(OTA_VERSION_URL,{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const lines=(await r.text()).split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const latest=lines[0]||'',url=lines[1]||'';
+    if(latest&&url&&compareVersions(latest,currentFwVersion())>0){
+      updateInfo={version:latest,url:url};
+      setText('updateText','Version v'+latest+' is available. Current: v'+currentFwVersion()+'.');
+      show('updateBanner',true);
+    }else{
+      updateInfo=null;
+      show('updateBanner',false);
+    }
+  }catch(e){}
+};
+const waitForUpdateReturn=()=>{
+  let sawOffline=false,attempts=0;
+  const timer=setInterval(async()=>{
+    attempts++;
+    try{
+      await api('/api/status',null,5000);
+      if(sawOffline||attempts>30){clearInterval(timer);location.reload();}
+    }catch(e){sawOffline=true;}
+  },4000);
+};
+const startFirmwareUpdate=async()=>{
+  if(!updateInfo)return;
+  if(statusData&&statusData.busy){msg('Updates are disabled while printing.',true);return;}
+  if(!confirm('Are you sure you want to update?'))return;
+  const fd=new FormData();fd.append('version',updateInfo.version);fd.append('url',updateInfo.url);
+  $('updateNowButton').disabled=true;
+  try{
+    await api('/api/update/install',{method:'POST',body:fd},8000);
+  }catch(e){
+    $('updateNowButton').disabled=false;
+    $('updateNowButton').textContent='Update now';
+    if(e.message.indexOf('firmware is not newer')>=0){
+      setText('updateText','Firmware is already current. Reloading dashboard...');
+      updateInfo=null;
+      setTimeout(()=>location.reload(),1000);
+      return;
+    }
+    msg(e.message,true);
+    checkFirmwareUpdate();
+    return;
+  }
+  setUpdateLock(true);
+  $('updateNowButton').textContent='Update started';
+  setText('updateText','Update started. Waiting for the printer to come back online...');
+  waitForUpdateReturn();
+};
 const bytesNum=v=>Number(v||0)||0;
 const formatBytes=v=>{
   let n=bytesNum(v),u=['B','KB','MB','GB'],i=0;
@@ -1638,6 +1712,8 @@ const applyStatus=s=>{
     show('dryRunBanner',!!s.dryRun);
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
+    $('updateNowButton').disabled=!!s.busy||waitingForUpdateReboot;
+    if(!waitingForUpdateReboot)$('updateNowButton').textContent=s.busy?'Update when idle':'Update now';
     ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,s.busy));
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
@@ -1762,7 +1838,7 @@ const loadConfig=async()=>{
   try{
     const c=await api('/api/config');
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     updateNetworkFields();updateMqttFields();
@@ -1782,6 +1858,7 @@ $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('MQTT')>=0;if(!confirm(keep?'Reset config to defaults and keep MQTT settings?':'Reset config to defaults?'))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. MQTT settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!confirm('Reset MQTT settings?'))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!confirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
+$('updateNowButton').addEventListener('click',startFirmwareUpdate);
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
@@ -1795,7 +1872,7 @@ $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this prin
 $('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),true));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
-openView(location.hash==='#settings'?'config':'home');refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+openView(location.hash==='#settings'?'config':'home');refreshStatus();loadConfig();checkFirmwareUpdate();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);setInterval(checkFirmwareUpdate,3600000);
 </script>
 )SPA";
   sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
@@ -1887,6 +1964,59 @@ void otaInstallLatest() {
     delay(1800);
     screen1();
   }
+}
+
+bool otaSetBrowserUpdate(const String &version, const String &url, String &error) {
+  String v = version;
+  String u = url;
+  v.trim();
+  u.trim();
+  if (v.length() == 0 || v.length() > 24) {
+    error = "invalid firmware version";
+    return false;
+  }
+  if (u.length() == 0 || u.length() > 240 || !(u.startsWith("https://") || u.startsWith("http://"))) {
+    error = "invalid firmware url";
+    return false;
+  }
+#ifdef FIRMWARE_VERSION
+  if (cmpSemver(v.c_str(), FIRMWARE_VERSION) <= 0) {
+    error = "firmware is not newer";
+    return false;
+  }
+#endif
+  otaLatestVer = v;
+  otaBinUrl = u;
+  otaState = 3;
+  otaCheckedAt = millis();
+  return true;
+}
+
+void handleApiUpdateInstall() {
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+
+  String error;
+  if (!otaSetBrowserUpdate(formString("version", "", 24), formString("url", "", 240), error)) {
+    sendApiError(400, error.c_str());
+    return;
+  }
+
+  sendApiOk("\"started\":true");
+  delay(250); // let the JSON response leave before the updater takes over
+  wakeUiForRemoteAction();
+  otaInstallLatest();
+}
+
+bool network_boot_update_check() {
+  if (!bootUpdateCheckEnabled || WiFi.status() != WL_CONNECTED) return false;
+  netProgressStart("Checking update...", "");
+  otaCheckLatest();
+  if (!otaHasUpdate()) return false;
+  screenBootUpdateAvailable();
+  return true;
 }
 
 // --- WiFi status badge on the main menu (top-right corner, above the icons):
@@ -1997,6 +2127,7 @@ void network_setup() {
   server.on("/api/config/defaults", HTTP_POST, handleApiConfigDefaults);
   server.on("/api/config/mqtt/defaults", HTTP_POST, handleApiConfigMqttDefaults);
   server.on("/api/config/dry-run", HTTP_POST, handleApiConfigDryRun);
+  server.on("/api/update/install", HTTP_POST, handleApiUpdateInstall);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
   server.on("/api/print/resume", HTTP_POST, handleApiPrintResume);

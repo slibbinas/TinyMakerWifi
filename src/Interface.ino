@@ -333,7 +333,7 @@ bool advancedMqttConfigured() {
 }
 
 int advancedOptionCount() {
-  int count = 3; // screen timeout, dry run, WiFi
+  int count = 4; // screen timeout, dry run, boot update, WiFi
   if (wifiEnabled) count++; // web dashboard
   if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
   return count;
@@ -342,9 +342,10 @@ int advancedOptionCount() {
 String advancedLabel(int item) {
   if (item == 1) return "Screen timeout";
   if (item == 2) return "Dry run";
-  if (item == 3) return "WiFi";
-  if (wifiEnabled && item == 4) return "Web access";
-  if (wifiEnabled && advancedMqttConfigured() && item == 5) return "MQTT";
+  if (item == 3) return "Boot update";
+  if (item == 4) return "WiFi";
+  if (wifiEnabled && item == 5) return "Web access";
+  if (wifiEnabled && advancedMqttConfigured() && item == 6) return "MQTT";
   return "";
 }
 
@@ -354,9 +355,10 @@ String advancedValue(int item) {
     return String(uiTimeoutSecs) + "s";
   }
   if (item == 2) return uvLedEnabled ? "Off" : "On";
-  if (item == 3) return wifiEnabled ? "On" : "Off";
-  if (wifiEnabled && item == 4) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 5) return mqttEnabled ? "On" : "Off";
+  if (item == 3) return bootUpdateCheckEnabled ? "On" : "Off";
+  if (item == 4) return wifiEnabled ? "On" : "Off";
+  if (wifiEnabled && item == 5) return webDashboardEnabled ? "On" : "Off";
+  if (wifiEnabled && advancedMqttConfigured() && item == 6) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
@@ -406,6 +408,8 @@ void advancedOptionsSelect() {
   } else if (advanced_item == 2) {
     uvLedEnabled = !uvLedEnabled;
   } else if (advanced_item == 3) {
+    bootUpdateCheckEnabled = !bootUpdateCheckEnabled;
+  } else if (advanced_item == 4) {
     wifiEnabled = !wifiEnabled;
     if (!wifiEnabled) {
       webDashboardEnabled = false;
@@ -413,13 +417,13 @@ void advancedOptionsSelect() {
     } else {
       webDashboardEnabled = true;
     }
-  } else if (wifiEnabled && advanced_item == 4) {
+  } else if (wifiEnabled && advanced_item == 5) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 5) {
+  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 6) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
-  if (advanced_item == 3) {
+  if (advanced_item == 4) {
     // WiFi state only changes at boot (network_setup has no runtime
     // teardown/bring-up path), so offer a reboot to apply it now.
     screenRebootConfirm();
@@ -497,6 +501,40 @@ void screenUpdateWifiConfirm(){
   gfx2->print("Enable for update?");
   uiButtons("No", "Yes", 0x879F);
   screen = 423;
+}
+
+void screenBootUpdateAvailable(){
+  gfx2->fillScreen(BLACK);
+  uiTitle("Firmware update");
+  gfx2->setFont(NULL);
+  gfx2->setTextColor(WHITE);
+  gfx2->setCursor(5, 26);
+  gfx2->print("Installed: v");
+#ifdef FIRMWARE_VERSION
+  gfx2->print(FIRMWARE_VERSION);
+#else
+  gfx2->print("?");
+#endif
+  gfx2->setCursor(5, 40);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Available: v");
+  gfx2->print(otaLatestVerStr());
+  gfx2->setFont(&FreeSans8pt7b);
+  uiButtons("Cancel", "Install", 0x879F);
+  screen = 424;
+}
+
+void screenBootUpdateDisableConfirm(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("Disable boot");
+  gfx2->setCursor(8, 43);
+  gfx2->print("update check?");
+  uiButtons("No", "Yes", 0x879F);
+  screen = 425;
 }
 #endif
 

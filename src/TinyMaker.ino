@@ -86,6 +86,7 @@ uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
 bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
 bool webDashboardEnabled = true;
+bool bootUpdateCheckEnabled = true;
 bool wifiTemporarilyEnabled = false;
 bool webDashboardTemporarilyEnabled = false;
 bool mqttEnabled = false;           // Smart Home / MQTT integration scaffold
@@ -111,6 +112,7 @@ void loadDeviceConfig() {
   uvLedEnabled = sysPrefs.getBool("uvLed", true);
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
+  bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdate", true);
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
   mqttPort = sysPrefs.getUShort("mqttPort", 1883);
@@ -126,6 +128,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("uvLed", uvLedEnabled);
   sysPrefs.putBool("wifiEnabled", wifiEnabled);
   sysPrefs.putBool("webDash", webDashboardEnabled);
+  sysPrefs.putBool("bootUpdate", bootUpdateCheckEnabled);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
   sysPrefs.putString("mqttHost", mqttHost);
   sysPrefs.putUShort("mqttPort", mqttPort);
@@ -144,8 +147,11 @@ const char *otaLatestVerStr();
 int otaVersionState();
 bool otaHasUpdate();
 void otaInstallLatest();
+bool network_boot_update_check();
 void network_service_window(uint16_t durationMs);
 void screen422();   // "install from file" screen (Interface.ino, #if-guarded)
+void screenBootUpdateAvailable();
+void screenBootUpdateDisableConfirm();
 #endif
 
 // ===================================================================================
@@ -291,6 +297,13 @@ void savePrintSettings() {
 bool printerBusy() {
   return screen == 1111 || screen == 1112 || screen == 11111 ||
          screen == 11112 || screen == 11113;
+}
+
+void wakeUiForRemoteAction() {
+  lastUiActivityMs = millis();
+  if (!uiBlanked) return;
+  uiBlanked = false;
+  ((Arduino_TFT *)gfx2)->displayOn();
 }
 
 bool handleUiTimeout() {
@@ -457,6 +470,7 @@ void setup() {
   delay(1000);
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
+  if (network_boot_update_check()) return;
   #endif
   screen1(); // jumps to Main Menu
 }
@@ -646,6 +660,12 @@ void loop() {
       case 423:                 // temporary WiFi prompt -> cancel, back to System > Update
       screen43();
         break;
+      case 424:                 // boot update prompt -> cancel
+      screenBootUpdateDisableConfirm();
+        break;
+      case 425:                 // disable boot update prompt -> no
+      screen1();
+        break;
       #endif
       case 431:
       screen41();
@@ -720,6 +740,12 @@ void loop() {
       #if ENABLE_NETWORK
       case 421:                 // UP on Update screen -> install from file
       screen422();
+        break;
+      case 424:                 // boot update prompt -> cancel
+      screenBootUpdateDisableConfirm();
+        break;
+      case 425:                 // disable boot update prompt -> no
+      screen1();
         break;
       #endif
       case 43:
@@ -1259,6 +1285,14 @@ void loop() {
         break;
       case 421:                 // Update screen -> install latest (self-update)
         if (otaHasUpdate()) otaInstallLatest();
+        break;
+      case 424:                 // boot update prompt -> install latest
+        if (otaHasUpdate()) otaInstallLatest();
+        break;
+      case 425:                 // disable future boot update checks
+        bootUpdateCheckEnabled = false;
+        saveDeviceConfig();
+        screen1();
         break;
       #endif
       case 441:
