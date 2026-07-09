@@ -298,7 +298,14 @@ String otaStyledPage(const String &inner) {
     "input[type=submit]:hover{background:#ff8419}"
     ".ok{font-size:15px;color:#5fd08a}.err{font-size:15px;color:#ff6b5f}"
     ".warn{font-size:12px;color:#e0a030;margin-top:18px}"
-    "</style></head><body><div class='card'>") + inner + "</div></body></html>";
+    // Same tab row as the dashboard - Update is the active tab here
+    ".tabs{display:flex;gap:8px;margin-bottom:16px}"
+    ".tabs a,.tabs span{flex:1;padding:9px 0;border-radius:8px;background:#3c3c42;color:#eee;"
+    "font-size:13px;font-weight:600;text-decoration:none;text-align:center}"
+    ".tabs .active{background:#e8720c;color:#fff}"
+    "</style></head><body><div class='card'>"
+    "<div class='tabs'><a href='/'>Dashboard</a><a href='/#settings'>Settings</a>"
+    "<span class='active'>Update</span></div>") + inner + "</div></body></html>";
 }
 
 void handleUpdatePage() {
@@ -1349,7 +1356,8 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "<style>"
     "*{box-sizing:border-box}"
     "body{margin:0;min-height:100vh;background:#1c1c1e;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#eee}"
-    ".wrap{max-width:560px;margin:0 auto;padding:28px 18px}"
+    // Orange window frame matching the printer's on-screen UI
+    ".wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid #e8720c;border-radius:14px;background:#232326}"
     ".head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}"
     "h1{margin:0;font-size:24px;color:#e8720c}h2{font-size:17px;margin:0 0 12px;color:#eee}.fw{font-size:13px;color:#aaa}"
     ".card{background:#2a2a2e;border:1px solid #444;border-radius:10px;padding:18px;margin:12px 0}"
@@ -1364,7 +1372,13 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".spanAll{grid-column:1/-1}"
     ".check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:#eee}"
     ".actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}"
-    ".toolbar{display:flex;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:#3c3c42}"
+    // Tabs: equal-size Dashboard/Settings/Update, active one orange
+    ".toolbar{display:flex;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:#3c3c42;color:#eee}"
+    ".toolbar .active{background:#e8720c;color:#fff}"
+    // Mini WiFi signal bars (same idea as the printer's badge)
+    ".wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}"
+    ".wbars i{width:4px;background:#4a4a50;border-radius:1px}.wbars i:nth-child(1){height:5px}"
+    ".wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}"
     ".banner{background:#3a2818;border-color:#e8720c}.banner strong{display:block;color:#ffb15f;margin-bottom:4px}"
     ".progress{height:10px;border:1px solid #555;border-radius:999px;overflow:hidden;background:#1c1c1e;margin-top:10px}"
     ".progress span{display:block;height:100%;width:45%;background:#e8720c;animation:barMove 1.1s infinite linear}"
@@ -1406,16 +1420,16 @@ void handleRootPage() {
 </section>
 
 <div class='toolbar'>
-  <button id='homeViewButton' type='button'>Dashboard</button>
-  <button id='configViewButton' type='button'>Config</button>
-  <a class='button secondary' href='/update'>Update</a>
+  <button id='homeViewButton' type='button' class='active'>Dashboard</button>
+  <button id='configViewButton' type='button'>Settings</button>
+  <a class='button' href='/update'>Update</a>
 </div>
 
 <div id='homeView'>
   <section class='card'>
     <div class='grid'>
       <div><div class='label'>State</div><div id='stateValue' class='value'>Loading</div></div>
-      <div><div class='label'>WiFi</div><div id='wifiValue' class='value'>-</div></div>
+      <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBars' class='wbars'><i></i><i></i><i></i></span></div></div>
       <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
       <div><div class='label'>Lifetime print time</div><div id='lifetimeValue' class='value'>-</div></div>
       <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
@@ -1469,8 +1483,7 @@ void handleRootPage() {
 </section>
 
 <section id='configView' class='card hidden'>
-  <button id='configBackButton' class='button secondary' type='button'>Back to dashboard</button>
-  <h2>Config</h2>
+  <h2>Settings</h2>
   <form id='configForm' class='configGrid'>
     <label><span>Layer height (mm)</span><input name='layer_height' id='cfgLayerHeight' type='number' min='0.05' max='0.10' step='0.05'></label>
     <label><span>Base exposure (s)</span><input name='base_exposure' id='cfgBaseExposure' type='number' min='10' max='60' step='1'></label>
@@ -1577,6 +1590,8 @@ const openView=view=>{
   show('homeView',view==='home');
   show('modelPanel',view==='model');
   show('configView',view==='config');
+  $('homeViewButton').classList.toggle('active',view==='home'||view==='model');
+  $('configViewButton').classList.toggle('active',view==='config');
   if(view==='home')loadFiles();
   if(view==='config')loadConfig();
 };
@@ -1587,6 +1602,7 @@ const applyStatus=s=>{
     if(!s.busy)localPrintStartedAt=0;
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
     setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('sdValue',s.sdText);
+    const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',s.remainingTime);
     show('dryRunBanner',!!s.dryRun);
     $('disableDryRunButton').disabled=!!s.busy;
@@ -1730,14 +1746,14 @@ $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
-$('configBackButton').addEventListener('click',()=>openView('home'));
+
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
 $('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),true));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
-openView('home');refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+openView(location.hash==='#settings'?'config':'home');refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
 )SPA";
   sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
