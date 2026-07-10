@@ -51,6 +51,16 @@ bool webDashboardRuntimeEnabled() {
   return webDashboardEnabled || webDashboardTemporarilyEnabled;
 }
 
+// Web control gate (since 0.12.0 the dashboard is view-only when it is off):
+// state-changing browser/API actions - print control, SD delete, config,
+// VAT refill, firmware - return 403; viewing, status polling and the
+// PrusaSlicer/UVtools model upload keep working. WiFi off still kills all.
+bool rejectIfWebControlOff() {
+  if (webDashboardRuntimeEnabled()) return false;
+  sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
+  return true;
+}
+
 // Where the printer checks for a newer firmware (self-update, "Install latest").
 // version.txt must contain two lines: (1) the latest version, e.g. "0.7.0",
 // (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
@@ -791,6 +801,7 @@ bool deleteSdItem(const String &requestedName, String &error) {
 }
 
 void handleApiFileDelete() {
+  if (rejectIfWebControlOff()) return;
   String error;
   if (!deleteSdItem(server.arg("name"), error)) {
     int code = 400;
@@ -949,6 +960,7 @@ void handleApiConfigGet() {
 }
 
 void handleApiConfigSave() {
+  if (rejectIfWebControlOff()) return;
   if (printerBusy()) {
     sendApiError(409, "printer busy");
     return;
@@ -988,6 +1000,7 @@ void resetMqttConfigToDefaults() {
 }
 
 void handleApiConfigDefaults() {
+  if (rejectIfWebControlOff()) return;
   if (printerBusy()) {
     sendApiError(409, "printer busy");
     return;
@@ -998,6 +1011,7 @@ void handleApiConfigDefaults() {
 }
 
 void handleApiConfigMqttDefaults() {
+  if (rejectIfWebControlOff()) return;
   if (printerBusy()) {
     sendApiError(409, "printer busy");
     return;
@@ -1010,6 +1024,7 @@ void handleApiConfigMqttDefaults() {
 }
 
 void handleApiConfigDryRun() {
+  if (rejectIfWebControlOff()) return;
   if (printerBusy()) {
     sendApiError(409, "printer busy");
     return;
@@ -1285,7 +1300,8 @@ void mqtt_loop() {
 }
 
 void handleApiPrintStart() {
-  // Low-resin pre-start check (mirrors the LCD screen 113 warning). The
+  if (rejectIfWebControlOff()) return;
+  // Low-resin pre-start check (mirrors the LCD screen 114 warning). The
   // browser confirms and retries with force=1.
   if (!server.hasArg("force") && !printerBusy() &&
       vatRemaining() <= (float)lowResinThresholdMl) {
@@ -1309,6 +1325,7 @@ void handleApiPrintStart() {
 }
 
 void handleApiVatRefilled() {
+  if (rejectIfWebControlOff()) return;
   vatMarkRefilled();
   String out = "\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
@@ -1316,6 +1333,7 @@ void handleApiVatRefilled() {
 }
 
 void handleApiPrintPause() {
+  if (rejectIfWebControlOff()) return;
   String error;
   if (!requestPrintPause(error)) {
     sendApiError(409, error.c_str());
@@ -1326,6 +1344,7 @@ void handleApiPrintPause() {
 }
 
 void handleApiPrintResume() {
+  if (rejectIfWebControlOff()) return;
   String error;
   if (!requestPrintResume(error)) {
     sendApiError(409, error.c_str());
@@ -1336,6 +1355,7 @@ void handleApiPrintResume() {
 }
 
 void handleApiPrintStop() {
+  if (rejectIfWebControlOff()) return;
   String error;
   if (!requestPrintStop(error)) {
     sendApiError(409, error.c_str());
@@ -1408,7 +1428,9 @@ void handleApiStatus() {
   out += String(remainingPrintSecs());
   out += ",\"remainingTime\":\"";
   out += formatDuration(remainingPrintSecs());
-  out += "\",\"vatRemainingMl\":";
+  out += "\",\"webControl\":";
+  out += webDashboardRuntimeEnabled() ? "true" : "false";
+  out += ",\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
   out += ",\"vatText\":\"";
   out += String(vatRemaining(), 1) + " ml\",\"vatLow\":";
@@ -1491,6 +1513,11 @@ void handleRootPage() {
   <strong>Dry run mode enabled.</strong>
   <div>Prints will not print, only for testing purposes.</div>
   <button id='disableDryRunButton' class='button secondary' type='button'>Press here to disable</button>
+</section>
+
+<section id='webControlBanner' class='card banner hidden'>
+  <strong>Web control is off - view only.</strong>
+  <div>Print controls, SD delete, settings and firmware updates are disabled. Slicer upload and monitoring keep working. Enable: printer &rarr; System &rarr; Advanced.</div>
 </section>
 
 <div class='toolbar'>
@@ -1711,7 +1738,10 @@ const applyStatus=s=>{
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',s.remainingTime);
     setText('vatValue',s.vatLow?s.vatText+' (low!)':s.vatText); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
-    $('vatRefillButton').disabled=!!s.busy&&!s.canResume;
+    const wc=s.webControl!==false;
+    show('webControlBanner',!wc);
+    $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
+    $('modelStartButton').disabled=!wc;
     show('dryRunBanner',!!s.dryRun);
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
@@ -1722,13 +1752,13 @@ const applyStatus=s=>{
     resume.classList.toggle('hidden',!showResume);
     pause.textContent=s.pausing?'Pausing...':'Pause';
     resume.textContent=s.resuming?'Resuming...':'Resume';
-    pause.disabled=!s.canPause;
-    resume.disabled=!s.canResume;
+    pause.disabled=!s.canPause||!wc;
+    resume.disabled=!s.canResume||!wc;
     $('stopButton').textContent=s.stopping?'Stopping...':'Stop';
-    $('stopButton').disabled=!s.canStop;
+    $('stopButton').disabled=!s.canStop||!wc;
     applyPendingPrintUi();
     if(!$('configView').classList.contains('hidden')){
-      setConfigDisabled(configIsLocallyLocked());
+      setConfigDisabled(configIsLocallyLocked()||!wc);
       if(configIsLocallyLocked())$('configHint').textContent='Config is locked while printing.';
     }
     $('uploadButton').disabled=s.busy||!s.sdReady; $('uploadFile').disabled=s.busy||!s.sdReady;
@@ -1764,12 +1794,13 @@ const loadFiles=async()=>{
     updateSdUsage(d);
     if(!d.items.length){list.innerHTML='<div class="hint">No printable model folders or SL1/ZIP archives found.</div>';return;}
     let h='';
+    const dis=(statusData&&statusData.webControl===false)?' disabled':'';
     d.items.forEach(it=>{
       const size=formatBytes(it.sizeBytes);
       const meta=(it.type==='model'?'Model folder':'Archive')+' - '+size;
       h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
-      if(it.type==='model')h+='<button class="small secondaryBtn" onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small" onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
-      h+='<button class="delete" onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
+      if(it.type==='model')h+='<button class="small secondaryBtn" onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
+      h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
     });
     if(d.hiddenCount>0)h+='<div class="hint">'+d.hiddenCount+' other SD item(s) hidden.</div>';
     list.innerHTML=h;
@@ -1833,7 +1864,7 @@ const confirmNetworkToggle=e=>{
   if(e.target.checked){updateNetworkFields();return;}
   const text=e.target.id==='cfgWifiEnabled'
     ? 'Turn WiFi off?\nThe printer will reboot and you will lose web access until WiFi is re-enabled on the printer (System > Advanced).'
-    : 'Turn web control off?\nThe dashboard and slicer upload (PrusaSlicer/UVtools) will stop; status stays visible via MQTT/Home Assistant. Re-enable on the printer (System > Advanced).';
+    : 'Turn web control off?\nThe dashboard becomes view-only: print controls, SD delete, settings and firmware updates are disabled (monitoring and slicer upload keep working). Re-enable on the printer (System > Advanced).';
   if(!confirm(text))e.target.checked=true;
   updateNetworkFields();
 };
@@ -1848,8 +1879,9 @@ const loadConfig=async()=>{
     updateNetworkFields();updateMqttFields();
     show('configMqttResetButton',!!c.mqttConfigured);
     $('configDefaultsButton').textContent=c.mqttConfigured?'Reset to defaults (Excluding MQTT)':'Reset to defaults';
-    const locked=!!c.locked||configIsLocallyLocked();
-    setConfigDisabled(locked); $('configHint').textContent=locked?'Config is locked while printing.':'Config locks automatically while printing.';
+    const noWc=!c.webDashboardEnabled;
+    const locked=!!c.locked||configIsLocallyLocked()||noWc;
+    setConfigDisabled(locked); $('configHint').textContent=noWc?'Settings are disabled while Web control is off (enable it on the printer: System > Advanced).':(locked?'Config is locked while printing.':'Config locks automatically while printing.');
   }catch(e){const locked=configIsLocallyLocked();setConfigDisabled(locked);$('configHint').textContent=locked?'Config is locked while printing.':e.message;}
 };
 
@@ -1880,7 +1912,9 @@ const loadUpdate=async()=>{
     updInstalledVer=u.installed;
     setText('updInstalled',u.installed);setText('updLatest',u.latest&&u.latest.length?u.latest:'-');
     $('updInstallLatest').disabled=!(u.hasUpdate&&u.allowed);
-    $('updMsg').textContent=u.state===4?'Version check failed - is the printer online?':(u.hasUpdate?'A newer firmware is available.':'Firmware is up to date.');
+    $('updInstallSelected').disabled=!u.allowed;
+    $('updUploadButton').disabled=!u.allowed;
+    $('updMsg').textContent=u.state===4?'Version check failed - is the printer online?':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':'Firmware is up to date.'));
   }catch(e){$('updMsg').textContent=e.message;}
   try{
     const r=await fetch('https://slibbinas.github.io/TinyMakerWifi/versions.txt',{cache:'no-store'});
@@ -2052,6 +2086,7 @@ void handleApiUpdateGet() {
 // POST /api/update/install[?version=X.Y.Z] -> self-update from the dashboard.
 // Without ?version installs the latest; with it, that exact hosted version.
 void handleApiUpdateInstall() {
+  if (rejectIfWebControlOff()) return;
   if (!otaWebAllowed()) {
     sendApiError(409, "updates are blocked while printing");
     return;
@@ -2241,7 +2276,8 @@ void network_setup() {
 // ===================================================================================
 void network_loop() {
   if (!networkRuntimeEnabled()) return;
-  if (webDashboardRuntimeEnabled() || otaMenuOpen()) server.handleClient();
+  server.handleClient();   // dashboard stays viewable with Web control off
+                           // (actions are 403'd - see rejectIfWebControlOff)
   // Dev espota OTA is answered only while the printer is on the Update screen
   // (same safety gate as the web /update flasher).
   if (otaMenuOpen()) ArduinoOTA.handle();

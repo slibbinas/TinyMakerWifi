@@ -144,15 +144,15 @@ Open the printer's IP address in any browser for the full dashboard *(contribute
 | Low resin pause | On = the print pauses for a refill when the estimate runs low |
 | Low resin warn | The warning/pause threshold, 1–10 ml (OK cycles) |
 | **WiFi** | **On/Off — the whole network** (web, PrusaSlicer upload, MQTT, self-update) |
-| Web control | On/Off — browser dashboard + slicer upload (MQTT/HA status keeps working) |
+| Web control | On/Off — browser **actions**. Off = the dashboard turns view-only (watch, but no print control, SD delete, settings or firmware updates); slicer upload and MQTT/HA keep working |
 | MQTT | On/Off (shown once MQTT is configured in the dashboard) |
 
 How the network switches behave:
 
 * **WiFi Off** makes the printer fully offline, like the original firmware. Toggling WiFi asks *"Reboot now?"* — OK reboots and applies it immediately, Back applies it on the next power-up. Everything network-related disappears from the menus until WiFi is back on — **turning it back on is done right here (System → Advanced → WiFi)**, no reflash or reset needed.
-* **Web control Off** keeps the printer on WiFi (Home Assistant still gets status, self-update still works) but stops the browser dashboard **and** PrusaSlicer/UVtools "Send to printer". Use it when you want monitoring without anyone on the network being able to control the printer.
+* **Web control Off** makes the dashboard **view-only**: anyone on the network can still open it and watch the print (status, layers, resin left, SD contents), but every action — print stop/pause, SD delete, settings, VAT refilled, firmware updates — is disabled with a clear banner. PrusaSlicer/UVtools "Send to printer" and MQTT/Home Assistant keep working. Turning it back on is done on the printer (System → Advanced), since the settings form is among the things it locks.
 * If WiFi is off and you open **System → Update**, the printer offers to enable WiFi temporarily just for the update.
-* WiFi and Web control are also in the dashboard's Settings tab (with a confirmation, since unchecking them cuts off your own web access — the printer reboots if you turn WiFi off from the browser).
+* WiFi and Web control are also in the dashboard's Settings tab (with a confirmation — unchecking Web control locks you out of settings until it is re-enabled on the printer, and turning WiFi off from the browser reboots the printer).
 
 Both switches default to **On**, and stay On after upgrading from an older version — nothing changes until you change it.
 
