@@ -11,7 +11,9 @@ Patched spots:
   printer-screens.png       update tile ("Installed: vX / Latest: vY"),
                             About tile ("FW: vY"), WiFi-info tile ("FW vY")
   web-dashboard.png         "Firmware Y" under the title
-  firmware-update-page.png  "Current version: Y" (centered line)
+  firmware-update-page.png  regenerated in full (dashboard Update tab:
+                            installed/latest, Install latest, version
+                            picker, upload) - see draw_update_page()
 
 Versions: "latest" comes from FIRMWARE_VERSION in platformio.ini, "installed"
 (the update tile's old version) from the newest git tag below it - override
@@ -36,7 +38,6 @@ SEGOE = r"C:\Windows\Fonts\segoeui.ttf"
 
 ORANGE = (232, 114, 12)
 BLUE = (132, 188, 248)
-PAGE_BLUE = (132, 188, 248)
 
 
 def read_latest_version():
@@ -71,6 +72,86 @@ def patch(img, draw, box, text_runs, probe):
         draw.text((box[0] + dx, box[1]), text, font=font, fill=color)
 
 
+def _seg(size, bold=False):
+    return ImageFont.truetype(r"C:\Windows\Fonts\segoeui%s.ttf" % ("b" if bold else ""), size)
+
+
+def _center(d, box, text, font, fill):
+    bb = font.getbbox(text)
+    w, h = bb[2] - bb[0], bb[3] - bb[1]
+    d.text((box[0] + (box[2] - box[0] - w) / 2 - bb[0],
+            box[1] + (box[3] - box[1] - h) / 2 - bb[1]), text, font=font, fill=fill)
+
+
+def draw_update_page(installed, latest):
+    """Full redraw of firmware-update-page.png: the dashboard's Update tab
+    (browser chrome + tabs + installed/latest + Install latest + version
+    picker + upload), styled to match web-dashboard.png."""
+    WHITE = (238, 238, 238)
+    GRAY = (170, 170, 170)
+    CARD = (42, 42, 46)
+    FIELD = (28, 28, 30)
+    BTN2 = (58, 58, 64)
+
+    img = Image.new("RGB", (1120, 1330), (0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    # browser window + chrome bar
+    d.rounded_rectangle((40, 40, 1080, 1290), 26, fill=(28, 28, 30))
+    d.rounded_rectangle((40, 40, 1080, 150), 26, fill=(35, 35, 38))
+    d.rectangle((40, 110, 1080, 150), fill=(28, 28, 30))
+    for cx, col in ((80, (255, 95, 87)), (115, (254, 188, 46)), (150, (40, 200, 64))):
+        d.ellipse((cx - 11, 84, cx + 11, 106), fill=col)
+    d.rounded_rectangle((185, 62, 935, 128), 18, fill=(22, 22, 24))
+    d.rounded_rectangle((205, 74, 247, 116), 9, fill=ORANGE)
+    _center(d, (205, 74, 247, 116), "T", _seg(26, True), (255, 255, 255))
+    d.text((265, 78), "192.168.1.42", font=_seg(27), fill=(200, 200, 205))
+
+    # orange wrap + title
+    d.rounded_rectangle((75, 185, 1045, 1250), 16, fill=(35, 35, 38), outline=ORANGE, width=3)
+    d.text((110, 212), "TinyMaker", font=_seg(42, True), fill=ORANGE)
+    d.text((112, 278), f"Firmware {installed}", font=_seg(21), fill=GRAY)
+
+    # tabs (Update active)
+    for box, label, fill in (((110, 330, 398, 396), "Dashboard", BTN2),
+                             ((415, 330, 703, 396), "Settings", BTN2),
+                             ((720, 330, 1008, 396), "Update", ORANGE)):
+        d.rounded_rectangle(box, 14, fill=fill)
+        _center(d, box, label, _seg(24, True), (255, 255, 255))
+
+    # card content
+    d.rounded_rectangle((110, 430, 1008, 1215), 14, fill=CARD)
+    d.text((140, 462), "Firmware update", font=_seg(28, True), fill=WHITE)
+    d.text((140, 530), "Installed", font=_seg(20), fill=GRAY)
+    d.text((140, 560), installed, font=_seg(30), fill=WHITE)
+    d.text((560, 530), "Latest", font=_seg(20), fill=GRAY)
+    d.text((560, 560), latest, font=_seg(30), fill=WHITE)
+    d.text((140, 622), "A newer firmware is available.", font=_seg(20), fill=GRAY)
+
+    d.rounded_rectangle((140, 668, 978, 730), 12, fill=ORANGE)
+    _center(d, (140, 668, 978, 730), "Install latest", _seg(24, True), (255, 255, 255))
+
+    d.text((140, 766), "Install a specific version", font=_seg(20), fill=GRAY)
+    d.rounded_rectangle((140, 800, 600, 858), 10, fill=FIELD, outline=(85, 85, 90), width=2)
+    d.text((165, 812), latest, font=_seg(24), fill=WHITE)
+    d.polygon([(556, 822), (580, 822), (568, 838)], fill=GRAY)
+    d.rounded_rectangle((622, 800, 978, 858), 10, fill=BTN2)
+    _center(d, (622, 800, 978, 858), "Install selected", _seg(22, True), WHITE)
+
+    d.text((140, 902), "Or upload a firmware.bin from", font=_seg(20), fill=GRAY)
+    w = _seg(20).getbbox("Or upload a firmware.bin from ")[2]
+    d.text((140 + w, 902), "GitHub Releases:", font=_seg(20), fill=BLUE)
+    d.rounded_rectangle((140, 940, 978, 1000), 10, fill=FIELD, outline=(85, 85, 90), width=2)
+    d.text((168, 953), "firmware.bin", font=_seg(24), fill=WHITE)
+    d.rounded_rectangle((140, 1022, 978, 1084), 12, fill=ORANGE)
+    _center(d, (140, 1022, 978, 1084), "Upload & flash", _seg(24, True), (255, 255, 255))
+
+    d.text((140, 1120), "Updates are blocked while printing.", font=_seg(19), fill=GRAY)
+    d.text((140, 1152), "Do not power off - the printer reboots by itself when done.",
+           font=_seg(19), fill=GRAY)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--installed", help="version shown as 'Installed:' on the "
@@ -85,7 +166,6 @@ def main():
     mono28 = ImageFont.truetype(CONSOLA, 28)
     mono26 = ImageFont.truetype(CONSOLA, 26)
     seg21 = ImageFont.truetype(SEGOE, 21)
-    seg24 = ImageFont.truetype(SEGOE, 24)
 
     # --- printer-screens.png (2080x1920, 4x3 LCD tile collage) ---
     p = MOCKUPS / "printer-screens.png"
@@ -115,17 +195,10 @@ def main():
     img.save(p)
     print(f"  {p.name} ok")
 
-    # --- firmware-update-page.png (1000x1000), centered blue line ---
+    # --- firmware-update-page.png: full redraw of the Update tab ---
     p = MOCKUPS / "firmware-update-page.png"
-    img = Image.open(p).convert("RGB")
-    d = ImageDraw.Draw(img)
-    text = f"Current version: {latest}"
-    bb = seg24.getbbox(text)
-    bg = img.getpixel((700, 497))
-    d.rectangle((300, 482, 700, 516), fill=bg, outline=bg)
-    d.text((500 - (bb[2] - bb[0]) / 2, 484), text, font=seg24, fill=PAGE_BLUE)
-    img.save(p)
-    print(f"  {p.name} ok")
+    draw_update_page(installed, latest).save(p)
+    print(f"  {p.name} ok (regenerated)")
 
 
 if __name__ == "__main__":
