@@ -142,34 +142,6 @@ bool sdCardUsage(uint64_t &totalBytes, uint64_t &freeBytes) {
   return totalBytes > 0;
 }
 
-uint64_t sdFolderSize(const String &path) {
-  uint64_t total = 0;
-  File dir = SD.open(path.c_str());
-  if (!dir) return 0;
-
-  while (true) {
-    File entry = dir.openNextFile();
-    if (!entry) break;
-
-    char rawName[160];
-    entry.getName(rawName, sizeof(rawName));
-    String childName = String(rawName);
-    String childPath = childName.startsWith("/") ? childName : path + (path.endsWith("/") ? "" : "/") + childName;
-    bool isDir = entry.isDirectory();
-    uint64_t bytes = isDir ? 0 : (uint64_t)entry.size();
-    entry.close();
-
-    if (isDir) {
-      total += sdFolderSize(childPath);
-    } else {
-      total += bytes;
-    }
-  }
-
-  dir.close();
-  return total;
-}
-
 // Streaming part - called repeatedly with chunks of the multipart body
 void handleUploadData() {
   HTTPUpload &up = server.upload();
@@ -693,8 +665,10 @@ void handleApiFiles() {
     out += isDir ? "model" : "archive";
     out += "\",\"printable\":";
     out += isDir ? "true" : "false";
+    // Folder sizes are NOT computed here anymore: sdFolderSize walked every
+    // layer file of every model, making the list O(models x layers) slow.
+    // Archives keep their (cheap) file size; model folders report 0.
     out += ",\"sizeBytes\":";
-    if (isDir) bytes = sdFolderSize("/" + name);
     out += "\"";
     out += uint64Json(bytes);
     out += "\"";
@@ -1634,6 +1608,7 @@ void handleRootPage() {
       <button id='uploadButton' type='submit'>Upload model</button>
     </form>
     <div id='uploadHint' class='hint'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
+    <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
     <div id='filesList' class='files'></div>
   </section>
 </div>
@@ -1878,24 +1853,38 @@ const refreshStatus=async()=>{
   }finally{statusInFlight=false;}
 };
 
+let filesItems=[],filesHidden=0,filesPage=0,filesQuery='';
+const FILES_PER_PAGE=12;
+const renderFiles=()=>{
+  const list=$('filesList');
+  const q=filesQuery.toLowerCase();
+  const items=q?filesItems.filter(it=>it.name.toLowerCase().indexOf(q)>=0):filesItems;
+  const pages=Math.max(1,Math.ceil(items.length/FILES_PER_PAGE));
+  if(filesPage>=pages)filesPage=pages-1;
+  if(filesPage<0)filesPage=0;
+  const slice=items.slice(filesPage*FILES_PER_PAGE,(filesPage+1)*FILES_PER_PAGE);
+  const dis=(statusData&&statusData.webControl===false)?' disabled':'';
+  let h='';
+  if(!slice.length)h='<div class="hint">'+(q?'No models match the filter.':'No printable model folders or SL1/ZIP archives found.')+'</div>';
+  slice.forEach(it=>{
+    const meta=it.type==='model'?'Model folder':'Archive - '+formatBytes(it.sizeBytes);
+    h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
+    if(it.type==='model')h+='<button class="small secondaryBtn" onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
+    h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
+  });
+  if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small secondaryBtn"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small secondaryBtn"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
+  if(filesHidden>0)h+='<div class="hint">'+filesHidden+' other SD item(s) hidden.</div>';
+  list.innerHTML=h;
+};
 const loadFiles=async()=>{
   const list=$('filesList');
-  if(statusData&&statusData.busy){list.innerHTML='<div class="hint warn">SD manager actions are disabled while printing.</div>';return;}
+  if(statusData&&statusData.busy){list.innerHTML='<div class="hint warn">SD manager actions are disabled while printing.</div>';show('filesFilter',false);return;}
   try{
     const d=await api('/api/files');
     updateSdUsage(d);
-    if(!d.items.length){list.innerHTML='<div class="hint">No printable model folders or SL1/ZIP archives found.</div>';return;}
-    let h='';
-    const dis=(statusData&&statusData.webControl===false)?' disabled':'';
-    d.items.forEach(it=>{
-      const size=formatBytes(it.sizeBytes);
-      const meta=(it.type==='model'?'Model folder':'Archive')+' - '+size;
-      h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
-      if(it.type==='model')h+='<button class="small secondaryBtn" onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
-      h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
-    });
-    if(d.hiddenCount>0)h+='<div class="hint">'+d.hiddenCount+' other SD item(s) hidden.</div>';
-    list.innerHTML=h;
+    filesItems=d.items;filesHidden=d.hiddenCount||0;
+    show('filesFilter',filesItems.length>FILES_PER_PAGE);
+    renderFiles();
   }catch(e){updateSdUsage(null);list.innerHTML='<div class="hint warn">'+e.message+'</div>';}
 };
 
@@ -2073,6 +2062,8 @@ const loadConfig=async()=>{
 window.modelDetails=modelDetails;
 window.startPrint=startPrint;
 window.deleteFile=deleteFile;
+window.filesNav=d=>{filesPage+=d;renderFiles();};
+$('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
 
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;const fd=new FormData();fd.append('file',f);uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{await uploadWithProgress(fd,$('uploadHint'));$('uploadFile').value='';$('uploadHint').textContent='Upload complete in '+formatShortTime(Date.now()-started)+'.';loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:new FormData(e.target)});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
