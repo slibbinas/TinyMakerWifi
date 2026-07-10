@@ -896,6 +896,8 @@ String configJson() {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"askRefill\":";
+  out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
   out += String(uiTimeoutSecs);
   out += ",\"dryRun\":";
@@ -938,7 +940,8 @@ void applyConfigRequest() {
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
   lowResinPauseEnabled = server.hasArg("low_resin_pause");
-  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 10);
+  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
+  askRefillEnabled = server.hasArg("ask_refill");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
   wifiEnabled = server.hasArg("wifi_enabled");
@@ -1421,8 +1424,20 @@ void handleApiStatus() {
   out += String(statusCurrentLayer) + " / " + String(statusTotalLayers);
   out += "\",\"resinUsedMl\":";
   out += String(statusResinMl, 1);
+  // Resin shown like layers: "used / total ml". Total = the fresh model
+  // estimate when one exists, otherwise a running per-layer average
+  // (needs a few layers to settle; base layers skew it high at first).
+  double statusResinTotal = -1;
+  if (busy) {
+    if (resinNeedForModelMl > 0) statusResinTotal = resinNeedForModelMl;
+    else if (current_layer >= 3)
+      statusResinTotal = resinUsedMl / current_layer * layer_counter;
+  }
   out += ",\"resinText\":\"";
-  out += String(statusResinMl, 1) + " ml";
+  if (statusResinTotal > 0)
+    out += String(statusResinMl, 1) + " / ~" + String(statusResinTotal, 1) + " ml";
+  else
+    out += String(statusResinMl, 1) + " ml";
   out += "\",\"runSecs\":";
   out += String(currentRunSecs());
   out += ",\"runTime\":\"";
@@ -1433,6 +1448,8 @@ void handleApiStatus() {
   out += formatDuration(remainingPrintSecs());
   out += "\",\"webControl\":";
   out += webDashboardRuntimeEnabled() ? "true" : "false";
+  out += ",\"askRefill\":";
+  out += askRefillEnabled ? "true" : "false";
   out += ",\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
   out += ",\"vatText\":\"";
@@ -1603,12 +1620,13 @@ void handleRootPage() {
     <label><span>Fast lift feedrate</span><input name='fast_lift_feedrate' id='cfgFastLiftFeedrate' type='number' min='20' max='50' step='10'></label>
     <label><span>Drop back feedrate</span><input name='drop_back_feedrate' id='cfgDropBackFeedrate' type='number' min='20' max='50' step='10'></label>
     <label><span>VAT size (ml)</span><input name='vat_ml' id='cfgVatMl' type='number' min='10' max='40' step='1'></label>
-    <label><span>Low resin warn (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='1' max='10' step='1'></label>
+    <label><span>Low resin warn (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='1' max='3' step='1'></label>
     <label><span>UI timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin pause (mid-print)</span></label>
+    <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
     <label class='check'><input name='wifi_enabled' id='cfgWifiEnabled' type='checkbox' value='1'><span>WiFi</span></label>
-    <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web control (dashboard + upload)</span></label>
+    <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web control (browser actions)</span></label>
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT? (SmartHome integration)</span></label>
     <div id='mqttFields' class='spanAll hidden'>
       <div class='configGrid'>
@@ -1854,7 +1872,13 @@ const retryPendingPrintCommand=async()=>{
     else msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for the next safe network window...',true);
   }finally{pendingPrintInFlight=false;applyPendingPrintUi();}
 };
-const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;if(!force&&!confirm('Start this print?'))return;try{
+const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;if(!force&&!confirm('Start this print?'))return;
+  if(!force&&statusData&&statusData.askRefill){
+    if(confirm('Did you refill the VAT since the last print?\nOK = yes (restart the estimate from a full VAT), Cancel = no.')){
+      try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
+    }
+  }
+  try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(confirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
   msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
@@ -1882,7 +1906,7 @@ const loadConfig=async()=>{
   try{
     const c=await api('/api/config');
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     updateNetworkFields();updateMqttFields();

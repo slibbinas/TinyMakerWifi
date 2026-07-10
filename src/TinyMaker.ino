@@ -77,10 +77,15 @@ bool selIsArchive = false;
 // estimate. -1 = never set; lazily seeded to Vat_Capacity_Ml (see vatRemaining()).
 float vatRemainingMl = -1;
 bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
-uint8_t lowResinThresholdMl = 2;    // warning threshold (ml); also pre-start check
+uint8_t lowResinThresholdMl = 2;    // warning threshold (ml, 1..3); also pre-start check
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
+bool askRefillEnabled = true;       // ask "VAT refilled?" before every print
+bool refillAsked = false;           // the ask was answered for this start attempt
+float resinNeedForModelMl = -1;     // fresh full-model estimate for the selected
+                                    // model (-1 = none); set by the resin screen,
+                                    // cleared when a new preview opens
 
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
@@ -130,6 +135,9 @@ void loadDeviceConfig() {
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
   lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
   lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
+  if (lowResinThresholdMl < 1 || lowResinThresholdMl > 3)
+    lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
+  askRefillEnabled = sysPrefs.getBool("askRefill", true);
   sysPrefs.end();
 }
 
@@ -147,6 +155,7 @@ void saveDeviceConfig() {
   sysPrefs.putString("mqttTopic", mqttTopic);
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
+  sysPrefs.putBool("askRefill", askRefillEnabled);
   sysPrefs.end();
 }
 
@@ -511,6 +520,7 @@ void setup() {
 }
 
 bool prepareSelectedPrintPreview() {
+  resinNeedForModelMl = -1;   // a new preview invalidates the old estimate
   uiFrame(ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
@@ -590,6 +600,11 @@ void loop() {
         break;
       case 114:                 // low-resin warning -> back to preview
       screen111();
+        break;
+      case 115:                 // "VAT refilled?" -> Back = no, start as-is
+      refillAsked = true;
+      startFromResin = true;
+      screen = 111;
         break;
       case 12:
       screen1(); 
@@ -755,10 +770,17 @@ void loop() {
       screen1();    
         break;
       case 111:                 // UP on preview screen -> estimate resin
-      if (estimateResin())
+      if (estimateResin()) {
+        resinNeedForModelMl = (float)resinEstimateMl;  // fresh full-model need
         startFromResin = true;  // Start pressed -> print starts in OK handler
-      else
+      } else
         screen111();            // Back pressed -> redraw preview (Height/Time)
+        break;
+      case 114:                 // UP on low-resin warning -> "Refilled" shortcut
+      vatMarkRefilled();
+      refillAsked = true;
+      startFromResin = true;    // re-run the start path (recheck passes now,
+      screen = 111;             // unless the model needs more than a full VAT)
         break;
       case 3:
       screen2();
@@ -944,13 +966,26 @@ void loop() {
         startFromResin = true;  // re-enters the start path on the next pass
         screen = 111;
         break;
+      case 115:                 // "VAT refilled?" -> OK = yes, mark full & start
+        vatMarkRefilled();
+        refillAsked = true;
+        startFromResin = true;
+        screen = 111;
+        break;
       case 111: {
+        // "VAT refilled?" ask before every print (optional, System > Advanced).
+        // The web start path asks in the browser instead (see startPrint JS).
+        if (askRefillEnabled && !refillAsked && !webStartPrint) {
+          startFromResin = false;
+          screenRefillAsk();
+          break;
+        }
         // Low-resin pre-start check (bookkeeping estimate, no sensor). The web
         // start path (webStartPrint) confirms in the browser instead - see
-        // handleApiPrintStart. A fresh model estimate (Start from the resin
-        // screen) allows a need-vs-left comparison; otherwise threshold only.
+        // handleApiPrintStart. A fresh model estimate (resinNeedForModelMl,
+        // set by the resin screen) allows a need-vs-left comparison.
         if (!resinWarnAccepted && !webStartPrint) {
-          float needMl = startFromResin ? (float)resinEstimateMl : -1;
+          float needMl = resinNeedForModelMl;
           if ((needMl >= 0 && needMl > vatRemaining()) ||
               vatRemaining() <= (float)lowResinThresholdMl) {
             startFromResin = false;
@@ -959,6 +994,7 @@ void loop() {
           }
         }
         resinWarnAccepted = false;
+        refillAsked = false;      // re-ask on the next print
         startFromResin = false;   // consume the resin-screen Start request
         webStartPrint = false;    // consume the web SD-manager Start request
         printStartMs = millis();  // print-hours accounting (incl. pauses)

@@ -335,7 +335,7 @@ bool advancedMqttConfigured() {
 }
 
 int advancedOptionCount() {
-  int count = 6; // timeout, dry run, VAT refilled, low resin pause+warn, WiFi
+  int count = 7; // timeout, dry run, VAT refilled, pause, warn, ask, WiFi
   if (wifiEnabled) count++; // web control
   if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
   return count;
@@ -347,9 +347,10 @@ String advancedLabel(int item) {
   if (item == 3) return "VAT refilled";
   if (item == 4) return "Low resin pause";
   if (item == 5) return "Low resin warn";
-  if (item == 6) return "WiFi";
-  if (wifiEnabled && item == 7) return "Web control";
-  if (wifiEnabled && advancedMqttConfigured() && item == 8) return "MQTT";
+  if (item == 6) return "Ask refill";
+  if (item == 7) return "WiFi";
+  if (wifiEnabled && item == 8) return "Web control";
+  if (wifiEnabled && advancedMqttConfigured() && item == 9) return "MQTT";
   return "";
 }
 
@@ -362,9 +363,10 @@ String advancedValue(int item) {
   if (item == 3) return String(vatRemaining(), 1) + " ml left";
   if (item == 4) return lowResinPauseEnabled ? "On" : "Off";
   if (item == 5) return String(lowResinThresholdMl) + " ml";
-  if (item == 6) return wifiEnabled ? "On" : "Off";
-  if (wifiEnabled && item == 7) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 8) return mqttEnabled ? "On" : "Off";
+  if (item == 6) return askRefillEnabled ? "On" : "Off";
+  if (item == 7) return wifiEnabled ? "On" : "Off";
+  if (wifiEnabled && item == 8) return webDashboardEnabled ? "On" : "Off";
+  if (wifiEnabled && advancedMqttConfigured() && item == 9) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
@@ -418,9 +420,11 @@ void advancedOptionsSelect() {
   } else if (advanced_item == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
   } else if (advanced_item == 5) {
-    lowResinThresholdMl++;      // cycle 1..10 ml
-    if (lowResinThresholdMl > 10) lowResinThresholdMl = 1;
+    lowResinThresholdMl++;      // cycle 1..3 ml
+    if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
   } else if (advanced_item == 6) {
+    askRefillEnabled = !askRefillEnabled;
+  } else if (advanced_item == 7) {
     wifiEnabled = !wifiEnabled;
     if (!wifiEnabled) {
       webDashboardEnabled = false;
@@ -428,13 +432,13 @@ void advancedOptionsSelect() {
     } else {
       webDashboardEnabled = true;
     }
-  } else if (wifiEnabled && advanced_item == 7) {
+  } else if (wifiEnabled && advanced_item == 8) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 8) {
+  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 9) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
-  if (advanced_item == 6) {
+  if (advanced_item == 7) {
     // WiFi state only changes at boot (network_setup has no runtime
     // teardown/bring-up path), so offer a reboot to apply it now.
     screenRebootConfirm();
@@ -455,6 +459,7 @@ void screenLowResinWarn(float needMl) {
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
   gfx2->print("Low resin!");
+  uiActionHint(92, 8, "Refilled");   // UP = mark full & start (top-right)
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   if (needMl >= 0) {
@@ -470,6 +475,28 @@ void screenLowResinWarn(float needMl) {
   gfx2->setTextColor(WHITE);
   uiButtons("Back", "Start", 0x879F);
   screen = 114;
+}
+
+/**
+ * @brief Screen 115: "VAT refilled?" ask before every print (optional).
+ * OK = yes (bookkeeping restarts from a full VAT), Back = no, start
+ * with the current estimate. Disable under System > Advanced.
+ */
+void screenRefillAsk() {
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("VAT refilled?");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 43);
+  gfx2->print("~");
+  gfx2->print(vatRemaining(), 1);
+  gfx2->print(" ml left now");
+  gfx2->setTextColor(WHITE);
+  uiButtons("No", "Yes", 0x879F);
+  screen = 115;
 }
 
 /**
