@@ -803,6 +803,47 @@ bool deleteSdItem(const String &requestedName, String &error) {
   return true;
 }
 
+// GET /api/files/layer?name=X&i=N - one sliced-layer PNG straight from SD.
+// Feeds the dashboard's 3D preview (the browser renders; the ESP32 only
+// streams files). i is a PRINT layer index - mapped to the source file the
+// same way print_next_png() does (0.10 mm mode uses every other file).
+// Read-only, so allowed with Web control off; blocked while printing (SD busy).
+void handleApiFileLayer() {
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+  if (!sdCardReady()) {
+    sendApiError(503, "sd card unavailable");
+    return;
+  }
+  String name = server.arg("name");
+  if (!validPrintableModel(name)) {
+    sendApiError(404, "model not found");
+    return;
+  }
+  long i = server.arg("i").toInt();
+  if (i < 1 || i > 20000) {
+    sendApiError(400, "bad layer index");
+    return;
+  }
+  long fileIdx = (Layer_Height > 0.06) ? (2 * i - 1) : i;
+  String path = "/" + name + "/" + String(fileIdx) + ".png";
+  File f = SD.open(path.c_str());
+  if (!f) {
+    sendApiError(404, "layer not found");
+    return;
+  }
+  server.sendHeader("Cache-Control", "max-age=86400"); // layers never change
+  server.setContentLength(f.size());
+  server.send(200, "image/png", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  f.close();
+}
+
 void handleApiFileDelete() {
   if (rejectIfWebControlOff()) return;
   String error;
@@ -1601,8 +1642,13 @@ void handleRootPage() {
   </div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div class='actions'>
+    <button id='modelPreviewButton' class='button secondary' type='button'>Preview 3D</button>
     <button id='modelMlButton' type='button'>Calculate ml</button>
-    <button id='modelStartButton' type='button'>Start print</button>
+    <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
+  </div>
+  <div id='previewWrap' class='hidden' style='margin-top:12px'>
+    <canvas id='modelPreviewCanvas' style='width:100%;border:1px solid #3a3a3f;border-radius:8px;background:#151517'></canvas>
+    <div class='hint'>Preview is built in the browser from every Nth sliced layer; the box is the printer's build volume (40.8 &times; 30.6 &times; 68 mm).</div>
   </div>
 </section>
 
@@ -1766,6 +1812,8 @@ const applyStatus=s=>{
     $('modelStartButton').disabled=!wc;
     // estimate scan occupies the printer -> action; keep disabled while running
     $('modelMlButton').disabled=!wc||$('modelMlButton').textContent!=='Calculate ml';
+    // preview is read-only (allowed with Web control off) but needs the SD idle
+    $('modelPreviewButton').disabled=!!s.busy||$('modelPreviewButton').textContent!=='Preview 3D';
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     $('uploadButton').disabled=!wc||uploadBusy;
     $('uploadFile').disabled=!wc;
@@ -1838,7 +1886,7 @@ const modelDetails=async(nameEnc,estimate)=>{
   const name=decodeURIComponent(nameEnc); selectedModel=name; openView('model');
   if(!estimate){
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
-    show('modelResinBox',false); show('modelProgress',false);
+    show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
   } else {
     $('modelMlButton').disabled=true;
     $('modelMlButton').textContent='Calculating...';
@@ -1850,6 +1898,63 @@ const modelDetails=async(nameEnc,estimate)=>{
     show('modelResinBox',!!d.resinEstimated); if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
   }catch(e){msg(e.message,true);}
   finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
+};
+
+// --- 3D preview: fetch every Nth sliced layer, render an isometric stack
+// inside the build-volume box. All drawing happens in the browser.
+const PREV_W=720,PREV_H=560,PREV_S=4.6,PREV_CX=360,PREV_CY=420;
+const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
+const drawPreview=(slices,gw,gh,modelH)=>{
+  const cv=$('modelPreviewCanvas');cv.width=PREV_W;cv.height=PREV_H;
+  const ctx=cv.getContext('2d');ctx.clearRect(0,0,PREV_W,PREV_H);
+  const MX=40.8,MY=30.6,MZ=68;
+  ctx.strokeStyle='#4a4a52';ctx.lineWidth=1;
+  const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
+  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{
+    const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);
+    ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();
+  });
+  const N=slices.length;
+  for(let k=0;k<N;k++){
+    const z=N>1?k/(N-1)*modelH:0;
+    const t=N>1?k/(N-1):0;
+    ctx.fillStyle='rgb('+Math.round(150+105*t)+','+Math.round(80+90*t)+','+Math.round(30+50*t)+')';
+    const s=slices[k];
+    for(let j=gh-1;j>=0;j--)for(let i=0;i<gw;i++){
+      if(!s[j*gw+i])continue;
+      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
+      ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
+    }
+  }
+  ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
+  ctx.fillText($('modelTitle').textContent+' - '+$('modelHeight').textContent+' - '+$('modelLayers').textContent+' layers',12,PREV_H-12);
+};
+const modelPreview=async()=>{
+  if(!selectedModel)return;
+  const layers=parseInt($('modelLayers').textContent)||0;
+  if(!layers){msg('Model details are still loading - try again.',true);return;}
+  const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
+  const btn=$('modelPreviewButton');btn.disabled=true;
+  show('previewWrap',true);
+  const N=Math.min(36,layers),gw=80,gh=60,slices=[];
+  const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
+  const octx=oc.getContext('2d',{willReadFrequently:true});
+  try{
+    for(let k=0;k<N;k++){
+      const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
+      const img=new Image();
+      img.src='/api/files/layer?name='+enc(selectedModel)+'&i='+li;
+      await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('layer '+li+' failed to load'));});
+      octx.drawImage(img,0,0,gw,gh);
+      const d=octx.getImageData(0,0,gw,gh).data;
+      const s=new Uint8Array(gw*gh);
+      for(let p=0;p<gw*gh;p++)s[p]=d[p*4]>96?1:0;
+      slices.push(s);
+      btn.textContent='Loading '+Math.round(100*(k+1)/N)+'%';
+    }
+    drawPreview(slices,gw,gh,modelH);
+  }catch(e){msg(e.message,true);show('previewWrap',false);}
+  btn.disabled=false;btn.textContent='Preview 3D';
 };
 
 const applyPendingPrintUi=()=>{
@@ -1985,6 +2090,7 @@ $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this p
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
 $('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),true));
+$('modelPreviewButton').addEventListener('click',modelPreview);
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
 openView(location.hash==='#settings'?'config':'home');refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
@@ -2254,6 +2360,7 @@ void network_setup() {
   server.on("/api/status", HTTP_GET, handleApiStatus);
   server.on("/api/files", HTTP_GET, handleApiFiles);
   server.on("/api/files/model", HTTP_GET, handleApiFileModel);
+  server.on("/api/files/layer", HTTP_GET, handleApiFileLayer);
   server.on("/api/files/delete", HTTP_POST, handleApiFileDelete);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigSave);

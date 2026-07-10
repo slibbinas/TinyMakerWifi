@@ -17,6 +17,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Lifetime print-hours counter** — the About screen shows total printing time (stored in NVS, survives firmware updates)
 * **Resin usage estimate** — press UP on the print preview to estimate the resin a model needs — shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-level--refills))
+* **3D model preview in the dashboard** — open a model's details and press *Preview 3D*: the browser rebuilds the shape from the sliced layers and draws it inside the printer's build-volume box, so you can tell models apart without printing them
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
 * **Web dashboard** — open the printer's IP in a browser: SD manager (upload/delete/start), live print status with pause/resume/stop, device config and a dry-run test mode *(contributed by [@Briadark](https://github.com/Briadark))*
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
