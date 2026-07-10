@@ -152,6 +152,112 @@ def draw_update_page(installed, latest):
     return img
 
 
+def _pawn_slices(n=36, gw=80, gh=60):
+    """Procedural chess-pawn-ish model as boolean slice grids (for the
+    preview mockup - looks like a real sliced model without needing one)."""
+    import math
+    slices = []
+    cx, cy = gw * 0.5, gh * 0.5
+    for k in range(n):
+        t = k / (n - 1)
+        if t < 0.10:
+            r_mm = 9.0                        # base disc
+        elif t < 0.60:
+            r_mm = 4.0 + 3.0 * (0.60 - t)     # tapering stem
+        elif t < 0.70:
+            r_mm = 6.0                        # collar
+        else:
+            a = (t - 0.85) / 0.15             # head sphere
+            r_mm = 7.0 * math.sqrt(max(0.0, 1 - a * a))
+        rx = r_mm / 40.8 * gw
+        ry = r_mm / 30.6 * gh
+        s = bytearray(gw * gh)
+        for j in range(gh):
+            for i in range(gw):
+                if ((i - cx) / rx) ** 2 + ((j - cy) / ry) ** 2 <= 1 if rx > 0 and ry > 0 else False:
+                    s[j * gw + i] = 1
+        slices.append(bytes(s))
+    return slices
+
+
+def _draw_iso(d, x0, y0, slices, gw, gh, model_h, done_frac):
+    """PIL version of the dashboard's drawIso (cube + shaded slice stack)."""
+    S, CX, CY = 5.4, x0 + 434, y0 + 322
+    MX, MY, MZ = 40.8, 30.6, 68.0
+
+    def pt(x, y, z):
+        return (CX + (x - y) * 0.866 * S, CY + (x + y) * 0.35 * S - z * 0.8 * S)
+
+    corners = [(0, 0, 0), (MX, 0, 0), (MX, MY, 0), (0, MY, 0),
+               (0, 0, MZ), (MX, 0, MZ), (MX, MY, MZ), (0, MY, MZ)]
+    for a, b in [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
+                 (0, 4), (1, 5), (2, 6), (3, 7)]:
+        d.line([pt(*corners[a]), pt(*corners[b])], fill=(74, 74, 82))
+
+    n = len(slices)
+    for k in range(n):
+        t = k / (n - 1)
+        z = t * model_h
+        s = slices[k]
+        solid = t <= done_frac
+        for j in range(gh - 1, -1, -1):
+            for i in range(gw):
+                if not s[j * gw + i]:
+                    continue
+                edge = (i == 0 or i == gw - 1 or j == 0 or j == gh - 1 or
+                        not s[j * gw + i - 1] or not s[j * gw + i + 1] or
+                        not s[(j - 1) * gw + i] or not s[(j + 1) * gw + i])
+                if solid:
+                    lit = (0.55 + 0.45 * ((i / gw) + (1 - j / gh)) / 2) * (0.5 if edge else 1)
+                    col = (int((150 + 105 * t) * lit), int((80 + 90 * t) * lit),
+                           int((30 + 50 * t) * lit))
+                else:
+                    col = (56, 56, 66) if edge else (34, 34, 40)
+                x, y = pt((i + 0.5) / gw * MX, (j + 0.5) / gh * MY, z)
+                d.rectangle((x - 1, y - 1, x + 1.2, y + 1.2), fill=col)
+
+
+def draw_preview_mockup():
+    """model-preview-3d.png: dashboard model preview + 3D print progress."""
+    WHITE = (238, 238, 238)
+    GRAY = (170, 170, 170)
+    CARD = (42, 42, 46)
+    img = Image.new("RGB", (1120, 1560), (0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    d.rounded_rectangle((40, 40, 1080, 1520), 26, fill=(28, 28, 30))
+    d.rounded_rectangle((40, 40, 1080, 150), 26, fill=(35, 35, 38))
+    d.rectangle((40, 110, 1080, 150), fill=(28, 28, 30))
+    for cx, col in ((80, (255, 95, 87)), (115, (254, 188, 46)), (150, (40, 200, 64))):
+        d.ellipse((cx - 11, 84, cx + 11, 106), fill=col)
+    d.rounded_rectangle((185, 62, 935, 128), 18, fill=(22, 22, 24))
+    d.rounded_rectangle((205, 74, 247, 116), 9, fill=ORANGE)
+    _center(d, (205, 74, 247, 116), "T", _seg(26, True), (255, 255, 255))
+    d.text((265, 78), "192.168.1.42", font=_seg(27), fill=(200, 200, 205))
+
+    d.rounded_rectangle((75, 185, 1045, 1490), 16, fill=(35, 35, 38), outline=ORANGE, width=3)
+    d.text((110, 210), "TinyMaker", font=_seg(40, True), fill=ORANGE)
+
+    slices = _pawn_slices()
+
+    # card 1: model preview
+    d.rounded_rectangle((110, 285, 1008, 900), 14, fill=CARD)
+    d.text((140, 312), "Pawn - Preview 3D", font=_seg(26, True), fill=WHITE)
+    d.rounded_rectangle((140, 360, 978, 860), 10, fill=(21, 21, 23), outline=(58, 58, 63))
+    _draw_iso(d, 140, 380, slices, 80, 60, 40.0, 1.0)
+    d.text((156, 828), "Pawn - 40.0 mm - 800 layers", font=_seg(16), fill=GRAY)
+
+    # card 2: print progress
+    d.rounded_rectangle((110, 930, 1008, 1460), 14, fill=CARD)
+    d.text((140, 955), "Print progress 3D", font=_seg(26, True), fill=WHITE)
+    d.rounded_rectangle((140, 1000, 978, 1420), 10, fill=(21, 21, 23), outline=(58, 58, 63))
+    _draw_iso(d, 140, 968, slices, 80, 60, 40.0, 0.45)
+    d.text((156, 1388), "Pawn - 40.0 mm - 800 layers - 45% printed", font=_seg(16), fill=GRAY)
+
+    img.save(MOCKUPS / "model-preview-3d.png")
+    print("  model-preview-3d.png ok (regenerated)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--installed", help="version shown as 'Installed:' on the "
@@ -199,6 +305,9 @@ def main():
     p = MOCKUPS / "firmware-update-page.png"
     draw_update_page(installed, latest).save(p)
     print(f"  {p.name} ok (regenerated)")
+
+    # --- model-preview-3d.png: full redraw of the 3D preview/progress ---
+    draw_preview_mockup()
 
 
 if __name__ == "__main__":

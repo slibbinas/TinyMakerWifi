@@ -1457,6 +1457,8 @@ void handleApiStatus() {
   out += String(totalPrintSecs);
   out += ",\"lifetimePrintTime\":\"";
   out += formatDuration(totalPrintSecs);
+  out += "\",\"model\":\"";
+  out += busy ? jsonEscape(String(foldersel_long)) : String("");
   out += "\",\"currentLayer\":";
   out += String(statusCurrentLayer);
   out += ",\"totalLayers\":";
@@ -1615,6 +1617,11 @@ void handleRootPage() {
     </div>
   </section>
 
+  <section id='printPreviewCard' class='card hidden'>
+    <h2>Print progress 3D</h2>
+    <canvas id='printPreviewCanvas' style='width:100%;border:1px solid #3a3a3f;border-radius:8px;background:#151517'></canvas>
+  </section>
+
   <section class='card'>
     <h2>SD manager</h2>
     <div id='sdUsageBox' class='hidden' style='margin-bottom:12px'>
@@ -1642,7 +1649,7 @@ void handleRootPage() {
   </div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div class='actions'>
-    <button id='modelPreviewButton' class='button secondary' type='button'>Preview 3D</button>
+    <button id='modelPreviewButton' type='button'>Preview 3D</button>
     <button id='modelMlButton' type='button'>Calculate ml</button>
     <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
   </div>
@@ -1821,6 +1828,16 @@ const applyStatus=s=>{
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
     ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,s.busy));
+    // 3D print progress: reuses slices prefetched before the start (or by an
+    // earlier Preview 3D) - zero printer traffic while printing
+    if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
+      show('printPreviewCard',true);
+      const frac=Math.min(1,s.currentLayer/s.totalLayers);
+      if(Math.abs(frac-lastPrevFrac)>=0.004){lastPrevFrac=frac;drawIso($('printPreviewCanvas'),frac);}
+    }else{
+      show('printPreviewCard',false);
+      if(!s.busy)lastPrevFrac=-1;
+    }
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
     pause.classList.toggle('hidden',showResume);
@@ -1901,11 +1918,16 @@ const modelDetails=async(nameEnc,estimate)=>{
 };
 
 // --- 3D preview: fetch every Nth sliced layer, render an isometric stack
-// inside the build-volume box. All drawing happens in the browser.
-const PREV_W=720,PREV_H=560,PREV_S=4.6,PREV_CX=360,PREV_CY=420;
+// inside the build-volume box. All drawing happens in the browser. Slices are
+// kept in slicesCache so the print-progress view can reuse them with zero
+// printer traffic while printing.
+const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
-const drawPreview=(slices,gw,gh,modelH)=>{
-  const cv=$('modelPreviewCanvas');cv.width=PREV_W;cv.height=PREV_H;
+let slicesCache={name:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+let lastPrevFrac=-1;
+const drawIso=(cv,doneFrac)=>{
+  const {slices,gw,gh,modelH}=slicesCache;
+  cv.width=PREV_W;cv.height=PREV_H;
   const ctx=cv.getContext('2d');ctx.clearRect(0,0,PREV_W,PREV_H);
   const MX=40.8,MY=30.6,MZ=68;
   ctx.strokeStyle='#4a4a52';ctx.lineWidth=1;
@@ -1916,18 +1938,45 @@ const drawPreview=(slices,gw,gh,modelH)=>{
   });
   const N=slices.length;
   for(let k=0;k<N;k++){
-    const z=N>1?k/(N-1)*modelH:0;
-    const t=N>1?k/(N-1):0;
-    ctx.fillStyle='rgb('+Math.round(150+105*t)+','+Math.round(80+90*t)+','+Math.round(30+50*t)+')';
-    const s=slices[k];
+    const t=N>1?k/(N-1):0,z=t*modelH;
+    const s=slices[k],solid=t<=doneFrac;
     for(let j=gh-1;j>=0;j--)for(let i=0;i<gw;i++){
       if(!s[j*gw+i])continue;
+      // model edge (any empty 4-neighbour) -> darker: silhouette lines
+      const edge=i===0||i===gw-1||j===0||j===gh-1||!s[j*gw+i-1]||!s[j*gw+i+1]||!s[(j-1)*gw+i]||!s[(j+1)*gw+i];
+      if(solid){
+        // directional light from the front-left corner + height gradient
+        const lit=(0.55+0.45*((i/gw)+(1-j/gh))/2)*(edge?0.5:1);
+        ctx.fillStyle='rgb('+Math.round((150+105*t)*lit)+','+Math.round((80+90*t)*lit)+','+Math.round((30+50*t)*lit)+')';
+      }else{
+        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')'; // not-yet-printed ghost
+      }
       const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
       ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
     }
   }
   ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
-  ctx.fillText($('modelTitle').textContent+' - '+$('modelHeight').textContent+' - '+$('modelLayers').textContent+' layers',12,PREV_H-12);
+  let cap=slicesCache.name+' - '+modelH.toFixed(1)+' mm - '+slicesCache.layers+' layers';
+  if(doneFrac<1)cap+=' - '+Math.round(doneFrac*100)+'% printed';
+  ctx.fillText(cap,12,PREV_H-10);
+};
+const fetchSlices=async(name,layers,modelH,btn)=>{
+  const N=Math.min(36,layers),gw=80,gh=60,slices=[];
+  const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
+  const octx=oc.getContext('2d',{willReadFrequently:true});
+  for(let k=0;k<N;k++){
+    const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
+    const img=new Image();
+    img.src='/api/files/layer?name='+enc(name)+'&i='+li;
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('layer '+li+' failed to load'));});
+    octx.drawImage(img,0,0,gw,gh);
+    const d=octx.getImageData(0,0,gw,gh).data;
+    const s=new Uint8Array(gw*gh);
+    for(let p=0;p<gw*gh;p++)s[p]=d[p*4]>96?1:0;
+    slices.push(s);
+    if(btn)btn.textContent='Loading '+Math.round(100*(k+1)/N)+'%';
+  }
+  slicesCache={name:name,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers};
 };
 const modelPreview=async()=>{
   if(!selectedModel)return;
@@ -1936,23 +1985,10 @@ const modelPreview=async()=>{
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   const btn=$('modelPreviewButton');btn.disabled=true;
   show('previewWrap',true);
-  const N=Math.min(36,layers),gw=80,gh=60,slices=[];
-  const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
-  const octx=oc.getContext('2d',{willReadFrequently:true});
   try{
-    for(let k=0;k<N;k++){
-      const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
-      const img=new Image();
-      img.src='/api/files/layer?name='+enc(selectedModel)+'&i='+li;
-      await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('layer '+li+' failed to load'));});
-      octx.drawImage(img,0,0,gw,gh);
-      const d=octx.getImageData(0,0,gw,gh).data;
-      const s=new Uint8Array(gw*gh);
-      for(let p=0;p<gw*gh;p++)s[p]=d[p*4]>96?1:0;
-      slices.push(s);
-      btn.textContent='Loading '+Math.round(100*(k+1)/N)+'%';
-    }
-    drawPreview(slices,gw,gh,modelH);
+    if(slicesCache.name!==selectedModel||!slicesCache.slices.length)
+      await fetchSlices(selectedModel,layers,modelH,btn);
+    drawIso($('modelPreviewCanvas'),1);
   }catch(e){msg(e.message,true);show('previewWrap',false);}
   btn.disabled=false;btn.textContent='Preview 3D';
 };
@@ -1982,6 +2018,17 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
     if(confirm('Did you refill the VAT since the last print?\nOK = yes (restart the estimate from a full VAT), Cancel = no.')){
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
     }
+  }
+  // prefetch slices for the 3D progress view (best effort - the print starts
+  // either way; while printing the layer endpoint is unavailable)
+  if(!force||!(slicesCache.name===name&&slicesCache.slices.length)){
+    try{
+      if(slicesCache.name!==name||!slicesCache.slices.length){
+        msg('Preparing 3D progress preview...');
+        const d=await api('/api/files/model?name='+enc(name));
+        await fetchSlices(name,d.layers,Number(d.heightMm)||d.layers*0.05,null);
+      }
+    }catch(e){}
   }
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);

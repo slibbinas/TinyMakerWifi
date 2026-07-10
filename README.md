@@ -18,6 +18,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Resin usage estimate** — press UP on the print preview to estimate the resin a model needs — shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-level--refills))
 * **3D model preview in the dashboard** — open a model's details and press *Preview 3D*: the browser rebuilds the shape from the sliced layers and draws it inside the printer's build-volume box, so you can tell models apart without printing them
+* **3D print progress** — while printing, the dashboard shows the same 3D view filling up in real time: the printed part in color, the rest as a ghost outline. Zero load on the printer (the browser renders from prefetched layers)
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
 * **Web dashboard** — open the printer's IP in a browser: SD manager (upload/delete/start), live print status with pause/resume/stop, device config and a dry-run test mode *(contributed by [@Briadark](https://github.com/Briadark))*
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
@@ -132,6 +133,12 @@ In the **Print** menu, **press and hold OK for ~1.5 seconds** on a model — a *
 Open the printer's IP address in any browser for the full dashboard *(contributed by [@Briadark](https://github.com/Briadark))*: live print status and controls, SD card management with one-click start/import, device settings and firmware updates — all in three tabs styled to match the printer's UI.
 
 <img src="Images/mockups/web-dashboard.png" width="420" alt="TinyMakerWiFi web dashboard: live print status, controls and SD manager">
+
+### 3D preview & live print progress
+
+Every model on the SD card can be previewed in 3D — the browser rebuilds the shape from the sliced layers (the printer only streams a few dozen small files) and draws it inside the build-volume box. Start the print from the dashboard and the same view turns into a **live progress render**: the printed part fills in with color, the unprinted rest stays a ghost outline. Works offline, no libraries, and costs the printer nothing while printing.
+
+<img src="Images/mockups/model-preview-3d.png" width="420" alt="Dashboard 3D model preview in the build volume box, and the same model filling up as print progress">
 
 ## Advanced menu (WiFi and Web control switches)
 
