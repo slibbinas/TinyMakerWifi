@@ -923,6 +923,8 @@ String configJson() {
   out += wifiEnabled ? "true" : "false";
   out += ",\"webDashboardEnabled\":";
   out += webDashboardEnabled ? "true" : "false";
+  out += ",\"bootUpdateCheck\":";
+  out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
   out += mqttEnabled ? "true" : "false";
   out += ",\"mqttConfigured\":";
@@ -961,6 +963,7 @@ void applyConfigRequest() {
   uvLedEnabled = !server.hasArg("dry_run");
   wifiEnabled = server.hasArg("wifi_enabled");
   webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
+  bootUpdateCheckEnabled = server.hasArg("boot_update_check");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
   mqttHost = formString("mqtt_host", mqttHost, 80);
@@ -1007,6 +1010,7 @@ void resetWebConfigToDefaults() {
   uvLedEnabled = true;
   wifiEnabled = true;
   webDashboardEnabled = true;
+  bootUpdateCheckEnabled = true;
   saveDeviceConfig();
 }
 
@@ -1400,7 +1404,13 @@ void handleApiStatus() {
   double statusResinMl = busy ? resinUsedMl : 0.0;
 
   String out = "{";
-  out += "\"busy\":";
+  out += "\"firmwareVersion\":\"";
+#ifdef FIRMWARE_VERSION
+  out += jsonEscape(FIRMWARE_VERSION);
+#else
+  out += "unknown";
+#endif
+  out += "\",\"busy\":";
   out += busy ? "true" : "false";
   out += ",\"paused\":";
   out += print_paused ? "true" : "false";
@@ -1700,6 +1710,7 @@ void handleRootPage() {
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
     <label class='check'><input name='wifi_enabled' id='cfgWifiEnabled' type='checkbox' value='1'><span>WiFi</span></label>
     <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web control (browser actions)</span></label>
+    <label class='check spanAll'><input name='boot_update_check' id='cfgBootUpdateCheck' type='checkbox' value='1'><span>Boot update check</span></label>
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT? (SmartHome integration)</span></label>
     <div id='mqttFields' class='spanAll hidden'>
       <div class='configGrid'>
@@ -1812,6 +1823,13 @@ const uploadWithProgress=(fd,hintEl)=>{
 };
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
+const pageFirmwareVersion=()=>$('fwVersion').textContent.trim();
+const reloadIfFirmwareChanged=s=>{
+  const live=String(s.firmwareVersion||'').trim(),page=pageFirmwareVersion();
+  if(!live||!page||live===page)return false;
+  location.replace('/?fw='+encodeURIComponent(live)+'&r='+Date.now());
+  return true;
+};
 const openView=view=>{
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -1831,7 +1849,7 @@ const applyStatus=s=>{
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
     setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('sdValue',s.sdText);
-    if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k · min '+Math.round(s.minFreeHeap/1024)+'k · blk '+Math.round(s.maxAllocHeap/1024)+'k · up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
+    if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',s.remainingTime);
     setText('vatValue',s.vatLow?s.vatText+' (low!)':s.vatText); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
@@ -1896,6 +1914,7 @@ const refreshStatus=async()=>{
   statusInFlight=true;
   try{
     const s=await api('/api/status',null,30000);
+    if(reloadIfFirmwareChanged(s))return;
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
     statusFailCount=0;
@@ -2121,7 +2140,7 @@ const loadConfig=async()=>{
   try{
     const c=await api('/api/config');
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     updateNetworkFields();updateMqttFields();
@@ -2265,7 +2284,7 @@ unsigned long otaCheckedAt = 0;   // millis() of the last successful check
 // Blocking (a few seconds); the caller should show "checking..." first.
 // A successful result is cached for 5 min so reopening the Update screen
 // (or bouncing to/from "Install from file") does not re-block the UI.
-void otaCheckLatest() {
+void otaCheckLatest(uint16_t timeoutMs) {
   if ((otaState == 2 || otaState == 3) && millis() - otaCheckedAt < 300000UL)
     return;                        // recent successful check - reuse it
   otaState = 1;
@@ -2276,8 +2295,8 @@ void otaCheckLatest() {
   WiFiClientSecure client;
   client.setInsecure();            // home LAN: skip cert validation
   HTTPClient https;
-  https.setConnectTimeout(6000);
-  https.setTimeout(6000);
+  https.setConnectTimeout(timeoutMs);
+  https.setTimeout(timeoutMs);
   if (!https.begin(client, OTA_VERSION_URL)) { otaState = 4; return; }
 
   int code = https.GET();
@@ -2304,9 +2323,17 @@ void otaCheckLatest() {
   https.end();
 }
 
+void otaCheckLatest() { otaCheckLatest(6000); }
+
 const char *otaLatestVerStr() { return otaLatestVer.c_str(); }
 int  otaVersionState()        { return otaState; }
 bool otaHasUpdate()           { return otaState == 3 && otaBinUrl.length() > 0; }
+
+void otaBootCheckMaybePrompt() {
+  if (!bootUpdateCheckEnabled || WiFi.status() != WL_CONNECTED) return;
+  otaCheckLatest(2500);
+  if (otaHasUpdate()) screenBootUpdatePrompt();
+}
 
 // Download a firmware image over HTTPS and flash it. Shows progress on the
 // LCD; reboots on success. Shared by "Install latest" and the version picker.
@@ -2550,7 +2577,10 @@ void network_setup() {
 
   String ip = "IP: " + WiFi.localIP().toString();
   netMessage("WiFi connected", ip.c_str());
-  delay(1500);
+  delay(700);
+  otaBootCheckMaybePrompt();
+  if (screen == 424) return;
+  delay(800);
 }
 
 // ===================================================================================

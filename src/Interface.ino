@@ -335,7 +335,7 @@ bool advancedMqttConfigured() {
 }
 
 int advancedOptionCount() {
-  int count = 7; // timeout, dry run, VAT refilled, pause, warn, ask, WiFi
+  int count = 8; // timeout, dry run, VAT refilled, pause, warn, ask, WiFi, boot update
   if (wifiEnabled) count++; // web control
   if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
   return count;
@@ -349,8 +349,9 @@ String advancedLabel(int item) {
   if (item == 5) return "Low resin warn";
   if (item == 6) return "Ask refill";
   if (item == 7) return "WiFi";
-  if (wifiEnabled && item == 8) return "Web control";
-  if (wifiEnabled && advancedMqttConfigured() && item == 9) return "MQTT";
+  if (item == 8) return "Boot update";
+  if (wifiEnabled && item == 9) return "Web control";
+  if (wifiEnabled && advancedMqttConfigured() && item == 10) return "MQTT";
   return "";
 }
 
@@ -365,8 +366,9 @@ String advancedValue(int item) {
   if (item == 5) return String(lowResinThresholdMl) + " ml";
   if (item == 6) return askRefillEnabled ? "On" : "Off";
   if (item == 7) return wifiEnabled ? "On" : "Off";
-  if (wifiEnabled && item == 8) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 9) return mqttEnabled ? "On" : "Off";
+  if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
+  if (wifiEnabled && item == 9) return webDashboardEnabled ? "On" : "Off";
+  if (wifiEnabled && advancedMqttConfigured() && item == 10) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
@@ -432,9 +434,11 @@ void advancedOptionsSelect() {
     } else {
       webDashboardEnabled = true;
     }
-  } else if (wifiEnabled && advanced_item == 8) {
+  } else if (advanced_item == 8) {
+    bootUpdateCheckEnabled = !bootUpdateCheckEnabled;
+  } else if (wifiEnabled && advanced_item == 9) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 9) {
+  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 10) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
@@ -568,6 +572,33 @@ void screenUpdateWifiConfirm(){
   gfx2->print("Enable for update?");
   uiButtons("No", "Yes", 0x879F);
   screen = 423;
+}
+
+void screenBootUpdatePrompt(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("Update available");
+  gfx2->setCursor(8, 43);
+  gfx2->print("v");
+  gfx2->print(otaLatestVerStr());
+  uiButtons("Later", "Install", 0x879F);
+  screen = 424;
+}
+
+void screenBootUpdateDisablePrompt(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("Disable boot");
+  gfx2->setCursor(8, 43);
+  gfx2->print("update check?");
+  uiButtons("No", "Yes", 0x879F);
+  screen = 425;
 }
 #endif
 
