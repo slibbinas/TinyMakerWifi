@@ -356,6 +356,211 @@ void savePrintSettings() {
   EEPROM.commit();
 }
 
+// ===================================================================================
+// Settings backup & restore (flat JSON, on SD or via the dashboard)
+// ===================================================================================
+// One file holds every user setting AND the lifetime counters, so a full USB
+// reflash (which wipes both EEPROM and NVS) can be undone from the SD card.
+// Compiled unconditionally - the boot-time SD restore must work network-free.
+static const char *BACKUP_PATH = "/tinymaker-backup.json";
+bool settingsWereFactoryReset = false;  // set when setup() seeds factory defaults
+
+String backupEscape(const String &v) {
+  String out;
+  for (size_t i = 0; i < v.length(); i++) {
+    char c = v[i];
+    if (c == '"' || c == '\\') { out += '\\'; out += c; }
+    else if (c != '\n' && c != '\r') out += c;
+  }
+  return out;
+}
+
+String buildConfigBackupJson() {
+  String out = "{\"backupVersion\":1,\"firmware\":\"";
+#ifdef FIRMWARE_VERSION
+  out += FIRMWARE_VERSION;
+#endif
+  out += "\",\"layerHeight\":";
+  out += String(Layer_Height, 2);
+  out += ",\"baseExposure\":";
+  out += String(Base_Exposure);
+  out += ",\"regularExposure\":";
+  out += String(Regular_Exposure);
+  out += ",\"baseLayers\":";
+  out += String(Base_Layer);
+  out += ",\"transitionLayers\":";
+  out += String(Transition_Layer);
+  out += ",\"slowLiftDistance\":";
+  out += String(Slow_Lift_Distance);
+  out += ",\"fastLiftDistance\":";
+  out += String(Fast_Lift_Distance);
+  out += ",\"slowLiftFeedrate\":";
+  out += String(Slow_Lift_Feedrate);
+  out += ",\"fastLiftFeedrate\":";
+  out += String(Fast_Lift_Feedrate);
+  out += ",\"dropBackFeedrate\":";
+  out += String(Drop_Back_Feedrate);
+  out += ",\"vatMl\":";
+  out += String(Vat_Capacity_Ml);
+  out += ",\"lowResinPause\":";
+  out += lowResinPauseEnabled ? "true" : "false";
+  out += ",\"lowResinMl\":";
+  out += String(lowResinThresholdMl);
+  out += ",\"askRefill\":";
+  out += askRefillEnabled ? "true" : "false";
+  out += ",\"uiTimeout\":";
+  out += String(uiTimeoutSecs);
+  out += ",\"dryRun\":";
+  out += uvLedEnabled ? "false" : "true";
+  out += ",\"wifiEnabled\":";
+  out += wifiEnabled ? "true" : "false";
+  out += ",\"webDashboardEnabled\":";
+  out += webDashboardEnabled ? "true" : "false";
+  out += ",\"bootUpdateCheck\":";
+  out += bootUpdateCheckEnabled ? "true" : "false";
+  out += ",\"mqttEnabled\":";
+  out += mqttEnabled ? "true" : "false";
+  out += ",\"mqttHost\":\"";
+  out += backupEscape(mqttHost);
+  out += "\",\"mqttPort\":";
+  out += String(mqttPort);
+  out += ",\"mqttUser\":\"";
+  out += backupEscape(mqttUser);
+  out += "\",\"mqttPass\":\"";
+  out += backupEscape(mqttPass);
+  out += "\",\"mqttTopic\":\"";
+  out += backupEscape(mqttTopic);
+  out += "\",\"printSecs\":";
+  out += String(totalPrintSecs);
+  out += ",\"uvLedSecs\":";
+  out += String(totalUvLedSecs);
+  out += ",\"vatRemainingMl\":";
+  out += String(vatRemainingMl, 1);
+  out += "}";
+  return out;
+}
+
+// --- tiny extractors for OUR OWN flat backup format (not a general parser) ---
+static int backupFind(const String &j, const char *key) {
+  String needle = "\"";
+  needle += key;
+  needle += "\":";
+  int p = j.indexOf(needle);
+  return p < 0 ? -1 : p + needle.length();
+}
+
+double backupNum(const String &j, const char *key, double def) {
+  int p = backupFind(j, key);
+  return p < 0 ? def : atof(j.c_str() + p);   // atof stops at ',' or '}'
+}
+
+bool backupBool(const String &j, const char *key, bool def) {
+  int p = backupFind(j, key);
+  return p < 0 ? def : j.startsWith("true", p);
+}
+
+String backupStr(const String &j, const char *key, const String &def) {
+  int p = backupFind(j, key);
+  if (p < 0 || p >= (int)j.length() || j[p] != '"') return def;
+  String out;
+  bool esc = false;
+  for (int i = p + 1; i < (int)j.length(); i++) {
+    char c = j[i];
+    if (esc) { out += c; esc = false; }
+    else if (c == '\\') esc = true;
+    else if (c == '"') break;
+    else out += c;
+  }
+  return out;
+}
+
+static long backupClamp(double v, long lo, long hi) {
+  long n = (long)v;
+  if (n < lo) return lo;
+  if (n > hi) return hi;
+  return n;
+}
+
+// Apply a backup: same value clamps as the web config form (applyConfigRequest),
+// so a hand-edited or stale file can't smuggle absurd values in.
+void applyConfigBackup(const String &j) {
+  Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
+  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 10, 60);
+  Regular_Exposure = backupClamp(backupNum(j, "regularExposure", Regular_Exposure), 1, 30);
+  Base_Layer = backupClamp(backupNum(j, "baseLayers", Base_Layer), 1, 8);
+  Transition_Layer = backupClamp(backupNum(j, "transitionLayers", Transition_Layer), 0, 10);
+  Slow_Lift_Distance = backupClamp(backupNum(j, "slowLiftDistance", Slow_Lift_Distance), 1, 3);
+  Fast_Lift_Distance = backupClamp(backupNum(j, "fastLiftDistance", Fast_Lift_Distance), 1, 3);
+  Slow_Lift_Feedrate = backupClamp(backupNum(j, "slowLiftFeedrate", Slow_Lift_Feedrate), 20, 50);
+  Fast_Lift_Feedrate = backupClamp(backupNum(j, "fastLiftFeedrate", Fast_Lift_Feedrate), 20, 50);
+  Drop_Back_Feedrate = backupClamp(backupNum(j, "dropBackFeedrate", Drop_Back_Feedrate), 20, 50);
+  Vat_Capacity_Ml = backupClamp(backupNum(j, "vatMl", Vat_Capacity_Ml), 10, 40);
+  lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
+  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
+  askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
+  uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
+  uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
+  wifiEnabled = backupBool(j, "wifiEnabled", wifiEnabled);
+  webDashboardEnabled = wifiEnabled && backupBool(j, "webDashboardEnabled", webDashboardEnabled);
+  bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
+  mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
+  mqttHost = backupStr(j, "mqttHost", mqttHost);
+  mqttPort = backupClamp(backupNum(j, "mqttPort", mqttPort), 1, 65535);
+  mqttUser = backupStr(j, "mqttUser", mqttUser);
+  mqttPass = backupStr(j, "mqttPass", mqttPass);
+  mqttTopic = backupStr(j, "mqttTopic", mqttTopic);
+  if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
+  totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
+  totalUvLedSecs = (uint32_t)backupNum(j, "uvLedSecs", totalUvLedSecs);
+  vatRemainingMl = (float)backupNum(j, "vatRemainingMl", vatRemainingMl);
+
+  savePrintSettings();
+  saveDeviceConfig();
+  saveVatRemaining();
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putULong("printSecs", totalPrintSecs);
+  sysPrefs.putULong("uvLedSecs", totalUvLedSecs);
+  sysPrefs.end();
+}
+
+bool sdBackupExists() {
+  File f = SD.open(BACKUP_PATH);
+  if (!f) return false;
+  f.close();
+  return true;
+}
+
+bool writeBackupToSd() {
+  SD.remove((char *)BACKUP_PATH);
+  File f = SD.open(BACKUP_PATH, FILE_WRITE);
+  if (!f) return false;
+  f.print(buildConfigBackupJson());
+  f.close();
+  return true;
+}
+
+bool restoreFromSdBackup() {
+  File f = SD.open(BACKUP_PATH);
+  if (!f) return false;
+  String j;
+  j.reserve(1024);
+  while (f.available() && j.length() < 4096) j += (char)f.read();
+  f.close();
+  if (backupNum(j, "backupVersion", 0) < 1) return false;
+  applyConfigBackup(j);
+  return true;
+}
+
+// Continue the boot sequence after the SD-restore prompt (screen 426) -
+// the network (and its possible boot-update prompt) run only after it.
+void finishRestorePromptBoot() {
+  #if ENABLE_NETWORK
+  network_setup();
+  if (screen == 424 || screen == 425) return;   // boot update prompt took over
+  #endif
+  screen1();
+}
+
 bool printerBusy() {
   return screen == 1111 || screen == 1112 || screen == 11111 ||
          screen == 11112 || screen == 11113;
@@ -517,6 +722,7 @@ void setup() {
   // Settings -> "Back to Default" menu uses when values are out of range.
   if (EEPROM.read(1) == 255 || Layer_Height < 0.01 || Layer_Height > 0.2) {
     resetSettingsToDefault();
+    settingsWereFactoryReset = true;   // a full reflash wiped the settings
   }
 
   // VAT capacity (added in 0.9.2 at EEPROM addr 11) - older installs have
@@ -533,6 +739,12 @@ void setup() {
   lastUiActivityMs = millis();
 
   delay(1000);
+  // Factory-fresh boot + a backup on the SD card -> offer to restore before
+  // anything else (the backup may re-enable WiFi, MQTT, boot check...).
+  if (settingsWereFactoryReset && sdBackupExists()) {
+    screenRestorePrompt();
+    return;                     // loop() takes over at screen 426
+  }
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
   if (screen == 424 || screen == 425) return;
@@ -741,6 +953,9 @@ void loop() {
         screen1();
         break;
       #endif
+      case 426:                 // SD settings restore prompt -> Skip
+        finishRestorePromptBoot();
+        break;
       case 431:
       screen41();
       screen44();
@@ -1438,6 +1653,10 @@ void loop() {
         if (otaHasUpdate()) otaInstallLatest();
         break;
       #endif
+      case 426:                 // SD settings restore prompt -> Restore
+        screenRestoreDone(restoreFromSdBackup());
+        finishRestorePromptBoot();
+        break;
       case 441:
         advancedOptionsSelect();
         break;

@@ -1007,6 +1007,56 @@ void handleApiConfigSave() {
   }
 }
 
+// GET /api/config/backup -> the full settings backup as a downloadable file.
+// Web-control-gated: the backup contains the MQTT password.
+void handleApiConfigBackupGet() {
+  if (rejectIfWebControlOff()) return;
+  server.sendHeader("Content-Disposition", "attachment; filename=tinymaker-backup.json");
+  server.send(200, "application/json", buildConfigBackupJson());
+}
+
+// POST /api/config/backup/sd -> write the backup file onto the SD card, so a
+// future full USB reflash can offer to restore it at first boot.
+void handleApiConfigBackupSd() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+  if (!sdCardReady()) {
+    sendApiError(409, "SD card not ready");
+    return;
+  }
+  if (!writeBackupToSd()) {
+    sendApiError(500, "could not write the backup to SD");
+    return;
+  }
+  sendApiOk("\"message\":\"Backup saved to SD (tinymaker-backup.json).\"");
+}
+
+// POST /api/config/restore (raw JSON body) -> apply an uploaded backup.
+void handleApiConfigRestore() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+  String body = server.arg("plain");
+  if (body.length() < 10 || backupNum(body, "backupVersion", 0) < 1) {
+    sendApiError(400, "not a TinyMaker backup file");
+    return;
+  }
+  bool wifiWasEnabled = wifiEnabled;
+  applyConfigBackup(body);
+  mqttClient.disconnect();
+  mqttDiscoverySent = false;
+  sendApiOk(configJson());
+  if (wifiWasEnabled && !wifiEnabled) {
+    delay(700); // same as the config-save path: reboot to shut the radio down
+    ESP.restart();
+  }
+}
+
 void resetWebConfigToDefaults() {
   resetSettingsToDefault();
   uiTimeoutSecs = 0;
@@ -1734,6 +1784,14 @@ void handleRootPage() {
   </form>
   <button id='configDefaultsButton' class='button secondary' type='button'>Reset to defaults</button>
   <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
+  <div class='label' style='margin-top:16px'>Backup &amp; restore</div>
+  <div class='actions'>
+    <button id='backupDownloadButton' class='button secondary' type='button'>Download backup</button>
+    <button id='backupSdButton' class='button secondary' type='button'>Backup to SD</button>
+    <button id='restoreButton' class='button secondary' type='button'>Restore from file</button>
+  </div>
+  <input id='restoreFile' type='file' accept='.json,application/json' class='hidden'>
+  <div id='backupHint' class='hint'>The backup holds every setting and the lifetime counters. With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.</div>
   <div id='configHint' class='hint'>Config locks automatically while printing.</div>
 </section>
 
@@ -2132,7 +2190,7 @@ const tickLocalStatus=()=>{
   }
 };
 
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton').forEach(e=>e.disabled=disabled);};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton').forEach(e=>e.disabled=disabled);};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=e=>{
@@ -2170,6 +2228,10 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:new FormData(e.target)});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('MQTT')>=0;if(!confirm(keep?'Reset config to defaults and keep MQTT settings?':'Reset config to defaults?'))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. MQTT settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!confirm('Reset MQTT settings?'))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
+$('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
+$('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');}catch(e){msg(e.message,true);}});
+$('restoreButton').addEventListener('click',()=>$('restoreFile').click());
+$('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!confirm('Restore all settings from '+f.name+'? Current settings will be overwritten.'))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!confirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('vatRefillButton').addEventListener('click',async()=>{if(!confirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});msg('VAT marked as refilled ('+r.vatRemainingMl+' ml).');refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
@@ -2539,6 +2601,9 @@ void network_setup() {
   server.on("/api/config", HTTP_POST, handleApiConfigSave);
   server.on("/api/config/defaults", HTTP_POST, handleApiConfigDefaults);
   server.on("/api/config/mqtt/defaults", HTTP_POST, handleApiConfigMqttDefaults);
+  server.on("/api/config/backup", HTTP_GET, handleApiConfigBackupGet);
+  server.on("/api/config/backup/sd", HTTP_POST, handleApiConfigBackupSd);
+  server.on("/api/config/restore", HTTP_POST, handleApiConfigRestore);
   server.on("/api/config/dry-run", HTTP_POST, handleApiConfigDryRun);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);

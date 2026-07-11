@@ -603,6 +603,34 @@ void screenBootUpdateDisablePrompt(){
 #endif
 
 /**
+ * Screen 426: offer to restore settings from the SD backup right after a
+ * factory-fresh boot (full USB reflash wiped EEPROM+NVS; the SD survives).
+ * Compiled unconditionally - restore must work in the network-free build too.
+ */
+void screenRestorePrompt(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 21);
+  gfx2->print("Restore settings");
+  gfx2->setCursor(8, 43);
+  gfx2->print("from SD backup?");
+  uiButtons("Skip", "Restore", 0x879F);
+  screen = 426;
+}
+
+void screenRestoreDone(bool ok){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 34);
+  gfx2->print(ok ? "Settings restored" : "Restore failed");
+  delay(1200);
+}
+
+/**
  * @brief Screen 421: Firmware update - installed vs latest, self-update.
  * Shows the installed version, checks GitHub Pages for the latest, and
  * offers "Install" (self-update, no PC). UP ("Local") opens screen 422 to
