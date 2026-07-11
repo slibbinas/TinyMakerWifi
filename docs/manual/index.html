@@ -338,23 +338,25 @@
 
   <h3>Exposure calibration test</h3>
   <p>Exposure time is the single most important resin parameter — and every resin (even every color) cures differently. The test finds <i>your</i> resin’s time in one go: the printer cures an <b>8-bar strip</b> straight from its masking LCD, each bar with a different exposure. No slicer, no SD file.</p>
-  <p>The bars step in 2 s around your current <i>Regular exposure</i> (R): left to right they get <b>R−6, R−4, R−2, R, R+2, R+4, R+6, R+8</b> seconds — so your current setting is always the <b>4th bar</b>. (With the default 14 s: 8 → 22 s.)</p>
+  <p>The bars step in 2 s around your current <i>Regular exposure</i> (R): from the shortest <b>R−6</b> to the longest <b>R+8</b> seconds, so your current setting is always the <b>4th bar from the short end</b>. (With the default 14 s: 8 → 22 s.)</p>
+  <div class="warn">⚠️ <b>Don’t trust left/right.</b> Depending on which side you view the strip from (in the vat, or peeled and flipped), the order can be mirrored. The reliable tell: the <b>thinnest, weakest, fuzziest bar marks the short-exposure end</b> — count from there. (v0.14.1 adds dot markers on each bar so counting becomes foolproof.)</div>
   <ol class="steps">
     <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> — the strip cures directly on the vat film. Make sure Dry run is off.</li>
     <li><b>Run:</b> System → Advanced → <b>Exposure test</b> → Start. A progress bar runs for the longest bar’s time (~half a minute); Back cancels.</li>
     <li><b>Peel &amp; rinse:</b> gloves on, lift the strip off the film with a soft plastic scraper, rinse in IPA, dry.</li>
     <li><b>Judge the bars</b> against the light:
       <ul>
-        <li><i>Under-exposed</i> (left side): thin, rubbery, fuzzy edges, breaks or partly stuck to the film.</li>
-        <li><i>Right:</i> sturdy, <b>sharp clean edges</b>, even thickness.</li>
-        <li><i>Over-exposed</i> (right side): fatter than its neighbours, bloated edges, a thin parasitic film around it (light bleed).</li>
+        <li><i>Under-exposed</i> (short end): thin, rubbery, fuzzy edges, breaks or partly stuck to the film.</li>
+        <li><i>Just right:</i> sturdy, <b>sharp clean edges</b>, even thickness.</li>
+        <li><i>Over-exposed</i> (long end): fatter than its neighbours, bloated edges, a thin parasitic film around it (light bleed).</li>
+        <li><i>All bars nearly identical?</i> Your resin cures faster than the shortest step — lower <i>Regular exposure</i> (e.g. to 8 s) and run the test again. Note: a fresh, unwashed strip always feels rubbery; judge after an IPA rinse, and flexible resins (ABS-like) stay bendy by design.</li>
       </ul>
     </li>
-    <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Count from the left: bar 1 = R−6, each next +2 s. Keep <b>Base exposure</b> at roughly 2.5× the new Regular — it’s about first-layer adhesion, not detail.</li>
+    <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Count from the weak/thin end: bar 1 = R−6, each next +2 s. Keep <b>Base exposure</b> at roughly 2.5× the new Regular — it’s about first-layer adhesion, not detail.</li>
   </ol>
   <figure style="margin:16px 0 6px">
     <img class="shot" src="images/exposure-test-vat.jpg" alt="A real exposure test strip cured in the vat: eight bars, the rightmost area showing over-exposure light bleed">
-    <figcaption>A real test strip in the vat. Bars 1–7 formed cleanly; the wide translucent patch on the right is classic over-exposure light bleed — that time is too long for this resin.</figcaption>
+    <figcaption>A real test strip in the vat. Seven bars formed fully; the thin translucent patch at one end marks the short-exposure side — that bar didn’t cure through. Note the order here is mirrored vs. what you might expect: count from the weak end, don’t trust left/right.</figcaption>
   </figure>
   <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 </section>
