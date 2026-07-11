@@ -1917,7 +1917,8 @@ const applyStatus=s=>{
     setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
-    setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',s.remainingTime);
+    const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+    setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime);
     setText('vatValue',s.vatLow?s.vatText+' (low!)':s.vatText); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
@@ -2647,6 +2648,11 @@ void network_setup() {
     screen1();
   });
   ArduinoOTA.begin();
+
+  // Background SNTP sync (UTC, non-blocking). The dashboard computes the
+  // print-ETA in the browser's own timezone, so nothing here depends on
+  // this succeeding - it seeds on-device time for future features.
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
   String ip = "IP: " + WiFi.localIP().toString();
   netMessage("WiFi connected", ip.c_str());
