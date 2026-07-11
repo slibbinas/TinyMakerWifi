@@ -303,11 +303,11 @@
   <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in three tabs styled to match the printer.</p>
   <img class="shot" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard: live status, controls and SD manager">
   <p>On a larger screen it spreads into two columns:</p>
-  <img class="shot" src="images/dashboard-desktop-idle.png" alt="The dashboard on a desktop screen: two-column layout with status and SD manager">
+  <img class="shot" src="images/dashboard-idle-0140.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
 
   <h3>3D preview &amp; live print progress</h3>
   <p>Open a model’s details and press <b>Preview 3D</b>: your browser rebuilds the shape from the sliced layers and draws it inside the build-volume box — so you can tell models apart without printing them. Start a print and the same view becomes a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
-  <img class="shot" src="images/dashboard-printing-3d.png" alt="The dashboard while printing, showing the live 3D print-progress render">
+  <img class="shot" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
 </section>
 
 <section>
@@ -352,6 +352,10 @@
     </li>
     <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Count from the left: bar 1 = R−6, each next +2 s. Keep <b>Base exposure</b> at roughly 2.5× the new Regular — it’s about first-layer adhesion, not detail.</li>
   </ol>
+  <figure style="margin:16px 0 6px">
+    <img class="shot" src="images/exposure-test-vat.jpg" alt="A real exposure test strip cured in the vat: eight bars, the rightmost area showing over-exposure light bleed">
+    <figcaption>A real test strip in the vat. Bars 1–7 formed cleanly; the wide translucent patch on the right is classic over-exposure light bleed — that time is too long for this resin.</figcaption>
+  </figure>
   <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 </section>
 
@@ -376,6 +380,7 @@
     <li><b>Restore from file</b> — applies an uploaded backup at any time.</li>
   </ul>
   <div class="note">💡 WiFi credentials are managed separately (by the WiFi setup portal) and are <b>not</b> in the backup — after a full USB reflash you reconnect to WiFi once, everything else restores. The backup includes your MQTT password, so treat the file accordingly.</div>
+  <img class="shot" src="images/settings-backup.png" alt="The Settings tab with the Backup &amp; restore buttons: Download backup, Backup to SD, Restore from file">
 </section>
 
 <section>
