@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TinyMakerWifi — User Manual</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#5d626c;
+    --border:#e4e6ea; --accent:#f07a1a; --accent2:#0d99a8; --code-bg:#f0f1f3;
+    --note:#fff7ed; --note-bd:#f0c48a; --warn:#fff1f0; --warn-bd:#f0a9a2;
+    --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+    --maxw:820px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab;
+      --border:#2b2f38; --accent:#ff9740; --accent2:#38c4d4; --code-bg:#23262e;
+      --note:#2a2210; --note-bd:#6b5322; --warn:#2c1614; --warn-bd:#6e332d;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#5d626c;
+    --border:#e4e6ea; --accent:#f07a1a; --accent2:#0d99a8; --code-bg:#f0f1f3;
+    --note:#fff7ed; --note-bd:#f0c48a; --warn:#fff1f0; --warn-bd:#f0a9a2;
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab;
+    --border:#2b2f38; --accent:#ff9740; --accent2:#38c4d4; --code-bg:#23262e;
+    --note:#2a2210; --note-bd:#6b5322; --warn:#2c1614; --warn-bd:#6e332d;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent2); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px 80px}
+
+  header.hero{
+    max-width:var(--maxw); margin:0 auto; padding:40px 20px 8px; text-align:center;
+  }
+  header.hero .badge{
+    display:inline-block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; border:1px solid var(--border);
+    border-radius:999px; padding:4px 12px; background:var(--card);
+  }
+  header.hero h1{font-size:2.1rem; margin:.5rem 0 .2rem; letter-spacing:-.02em}
+  header.hero p.tag{color:var(--muted); font-size:1.05rem; margin:.2rem 0 .45rem}
+  header.hero p.author{color:var(--muted); font-size:.92rem; margin:0 0 1.2rem}
+  header.hero p.author b{color:var(--text)}
+  header.hero img{width:100%; max-width:520px; border-radius:14px; box-shadow:var(--shadow)}
+
+  nav.toc{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:18px 22px; margin:26px 0 8px; box-shadow:var(--shadow);
+  }
+  nav.toc h2{font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px}
+  nav.toc ol{margin:0; padding-left:1.2em; columns:2; column-gap:32px}
+  @media(max-width:560px){nav.toc ol{columns:1}}
+  nav.toc li{margin:3px 0; break-inside:avoid}
+
+  section{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:6px 26px 24px; margin:22px 0; box-shadow:var(--shadow);
+  }
+  h2.sec{
+    font-size:1.5rem; margin:26px 0 4px; padding-top:14px; letter-spacing:-.01em;
+    scroll-margin-top:16px;
+  }
+  h2.sec .num{color:var(--accent); font-weight:700; margin-right:.4em}
+  h3{font-size:1.15rem; margin:1.5em 0 .3em}
+  p{margin:.7em 0}
+  ul,ol{padding-left:1.4em} li{margin:.32em 0}
+  img.shot{
+    display:block; max-width:100%; height:auto; border-radius:10px;
+    border:1px solid var(--border); margin:16px auto; box-shadow:var(--shadow);
+  }
+  img.phone{max-width:250px}
+  .row{display:flex; gap:16px; flex-wrap:wrap; justify-content:center; align-items:flex-start}
+  .row img{flex:1 1 280px; max-width:340px}
+  figcaption{text-align:center; color:var(--muted); font-size:.86rem; margin:-6px 0 6px}
+
+  code{background:var(--code-bg); border-radius:5px; padding:.1em .4em; font-size:.9em;
+    font-family:"SF Mono",SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace}
+  kbd{
+    background:var(--code-bg); border:1px solid var(--border); border-bottom-width:2px;
+    border-radius:6px; padding:.05em .5em; font-size:.85em; font-weight:600;
+    font-family:inherit; white-space:nowrap;
+  }
+  .table-scroll{overflow-x:auto; margin:16px 0}
+  table{border-collapse:collapse; width:100%; font-size:.94rem; min-width:440px}
+  th,td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--code-bg); font-weight:600}
+
+  .note,.warn{
+    border-radius:10px; padding:12px 16px; margin:16px 0; border:1px solid;
+    font-size:.95rem;
+  }
+  .note{background:var(--note); border-color:var(--note-bd)}
+  .warn{background:var(--warn); border-color:var(--warn-bd)}
+  .note b,.warn b{color:var(--text)}
+
+  .steps{counter-reset:step; list-style:none; padding-left:0}
+  .steps>li{position:relative; padding-left:44px; margin:14px 0}
+  .steps>li::before{
+    counter-increment:step; content:counter(step);
+    position:absolute; left:0; top:0; width:30px; height:30px; border-radius:50%;
+    background:var(--accent); color:#fff; font-weight:700; font-size:.95rem;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  footer{max-width:var(--maxw); margin:0 auto; padding:20px; text-align:center; color:var(--muted); font-size:.9rem}
+
+  .toggle-theme{
+    position:fixed; top:14px; right:14px; z-index:10; cursor:pointer;
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
+  }
+
+  @media print{
+    body{background:#fff; color:#000}
+    .toggle-theme,nav.toc{display:none}
+    section,header.hero img{box-shadow:none}
+    section{border:none; padding:0; margin:14px 0}
+    h2.sec{page-break-after:avoid}
+    img.shot{page-break-inside:avoid}
+    a{color:#000; text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<button class="toggle-theme" onclick="(function(){var r=document.documentElement;var d=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);r.setAttribute('data-theme',d?'light':'dark');})()">◐ Theme</button>
+
+<header class="hero">
+  <span class="badge">User Manual · v0.13.5</span>
+  <h1>TinyMakerWifi</h1>
+  <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
+  <p class="author">by <b>Viktoras Sidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a></p>
+  <img src="images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer">
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#intro">What this firmware adds</a></li>
+    <li><a href="#quickstart">Quick start</a></li>
+    <li><a href="#install">Installing the firmware</a></li>
+    <li><a href="#wifi">Connecting to WiFi</a></li>
+    <li><a href="#screens">The printer screens</a></li>
+    <li><a href="#print-prusa">Printing from PrusaSlicer</a></li>
+    <li><a href="#print-sd">Printing from the SD card</a></li>
+    <li><a href="#manage">Starting &amp; deleting models</a></li>
+    <li><a href="#resin">Resin estimate &amp; refills</a></li>
+    <li><a href="#dashboard">The web dashboard</a></li>
+    <li><a href="#advanced">Advanced menu &amp; switches</a></li>
+    <li><a href="#update">Updating the firmware</a></li>
+    <li><a href="#mqtt">Home Assistant (MQTT)</a></li>
+    <li><a href="#faq">Troubleshooting &amp; FAQ</a></li>
+    <li><a href="#credits">Credits</a></li>
+  </ol>
+</nav>
+
+<section>
+  <h2 class="sec" id="intro"><span class="num">1</span>What this firmware adds</h2>
+  <p>TinyMakerWifi is a modified firmware for the open-source <a href="https://tinymaker3d.com/"><b>TinyMaker</b></a> MSLA (resin) 3D printer. It keeps everything the original firmware does and adds a wireless layer on top — so you can send models straight from your slicer and update the printer without ever touching the SD card or a USB cable.</p>
+  <ul>
+    <li><b>WiFi</b>, set up from your phone on first boot — no credentials in code.</li>
+    <li><b>Direct upload from PrusaSlicer</b> with the “Send to printer” button.</li>
+    <li><b>Import <code>.sl1</code>/<code>.zip</code> from the SD card</b> — no network needed.</li>
+    <li><b>A web dashboard</b> — print status, controls, SD manager and a 3D preview in any browser.</li>
+    <li><b>Over-the-air firmware updates</b> — the printer updates itself over WiFi.</li>
+    <li><b>Resin estimation &amp; level tracking</b> — how much resin a model needs, and how much is left in the VAT.</li>
+    <li><b>Home Assistant / MQTT</b> integration (optional).</li>
+  </ul>
+  <p>Everything wireless can be switched off right on the printer (<b>System → Advanced</b>), so you can always fall back to plain, offline SD-card printing.</p>
+  <div class="note">💡 <b>Already have a printer running this firmware?</b> Jump to <a href="#wifi">Connecting to WiFi</a>. If you are installing it for the first time, start at <a href="#install">Installing the firmware</a>.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="quickstart"><span class="num">2</span>Quick start</h2>
+  <ol class="steps">
+    <li><b>Power on.</b> On first boot the printer opens a <code>TinyMaker-Setup</code> WiFi hotspot.</li>
+    <li><b>Join it from your phone</b> and pick your home WiFi in the little page that pops up. The printer reboots and connects (~5&nbsp;s).</li>
+    <li><b>Find the printer’s address</b> under <b>System → WiFi Info</b> (or use <code>tinymaker.local</code>).</li>
+    <li><b>Send a model</b> from PrusaSlicer (“Send to printer”), or copy an <code>.sl1</code>/<code>.zip</code> onto the SD card.</li>
+    <li><b>Print.</b> Pick the model in the <b>Print</b> menu and press OK — or start it from the web dashboard.</li>
+  </ol>
+</section>
+
+<section>
+  <h2 class="sec" id="install"><span class="num">3</span>Installing the firmware (first time)</h2>
+  <p>This one-time step is done over USB. <b>After it, every future update is wireless</b> (see <a href="#update">Updating the firmware</a>). If your printer already runs TinyMakerWifi, skip this section.</p>
+
+  <h3>Which file?</h3>
+  <p>Releases contain two files — they are <b>not</b> interchangeable:</p>
+  <div class="table-scroll">
+  <table>
+    <tr><th>File</th><th>Used for</th><th>How</th></tr>
+    <tr><td><code>firmware-full.bin</code></td><td><b>First-time USB flashing</b></td><td>flash at address <code>0x0</code></td></tr>
+    <tr><td><code>firmware.bin</code></td><td>Wireless updates <b>only</b>, later</td><td>browser, <code>http://tinymaker.local/update</code></td></tr>
+  </table>
+  </div>
+  <div class="warn">⚠️ For the USB flash you need <b><code>firmware-full.bin</code></b>. Flashing <code>firmware.bin</code> over USB leaves the printer unable to boot — it has no bootloader or partition table.</div>
+
+  <h3>Flash it — easiest way (browser, nothing to install)</h3>
+  <ol class="steps">
+    <li>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page.</li>
+    <li>Open <a href="https://esptool.spacehuhn.com/">esptool.spacehuhn.com</a> in Chrome or Edge, plug in the printer via USB and click <b>Connect</b>.</li>
+    <li>Remove any pre-filled rows, click <b>ADD</b>, choose <code>firmware-full.bin</code>, and set its address to <code>0</code>.</li>
+    <li>Click <b>Program</b>, wait for it to finish, then power-cycle the printer.</li>
+  </ol>
+  <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again. The official Espressif Flash Download Tool is an alternative — see the project README for its exact settings (SPI 40&nbsp;MHz / DIO / 4&nbsp;MB, file at <code>0x0</code>).</div>
+  <p>The first boot after flashing takes a few extra seconds and starts the <code>TinyMaker-Setup</code> hotspot. Printer settings (exposure, layer height…) return to factory defaults.</p>
+</section>
+
+<section>
+  <h2 class="sec" id="wifi"><span class="num">4</span>Connecting to WiFi</h2>
+  <ol class="steps">
+    <li>Power on the printer. On first boot it starts a <code>TinyMaker-Setup</code> access point.</li>
+    <li>Connect to it with your phone — a setup page opens automatically (or browse to <code>http://192.168.4.1</code>).</li>
+    <li>Choose your home WiFi network and enter the password.</li>
+    <li>The printer connects and briefly shows its IP address. Credentials are stored, so later boots connect on their own in about 5&nbsp;seconds.</li>
+  </ol>
+  <img class="shot phone" src="images/wifi-setup-phone.png" alt="The TinyMaker-Setup captive portal as seen on a phone">
+  <p>If the saved network can’t be reached, the printer simply boots offline after 15&nbsp;s — printing from the SD card works as always. WiFi status, signal strength and IP are always under <b>System → WiFi Info</b>.</p>
+
+  <h3>Resetting WiFi</h3>
+  <p>To move the printer to another network, erase the stored credentials:</p>
+  <ul>
+    <li><b>From the menu:</b> System → WiFi Info → press <kbd>OK</kbd> → confirm. The printer reboots into the <code>TinyMaker-Setup</code> portal.</li>
+    <li><b>Emergency reset:</b> hold the <kbd>BACK</kbd> button while powering the printer on — use this if it keeps trying an old network and you can’t reach the menu.</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="sec" id="screens"><span class="num">5</span>The printer screens</h2>
+  <p>The small status display drives the whole on-printer interface — WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
+  <img class="shot" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer UI screens">
+  <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles), <b>Update</b> (firmware) and <b>About</b> (version and lifetime print hours).</p>
+</section>
+
+<section>
+  <h2 class="sec" id="print-prusa"><span class="num">6</span>Printing from PrusaSlicer</h2>
+  <p>The printer emulates the Prusa SL1 network protocol, so PrusaSlicer’s “Send to printer” works out of the box.</p>
+  <ol class="steps">
+    <li>Import the TinyMaker printer profile (<code>TinyMaker.ini</code>, in the repo) via <b>File → Import → Import Config</b>.</li>
+    <li>Add a <b>physical printer</b>: click the cog next to the printer profile → <b>Add physical printer</b>. Set <b>Hostname</b> to <code>tinymaker.local</code> (or the IP from System → WiFi Info); the API key can be any text.</li>
+    <li>Click <b>Test</b> — it should report success (the printer must be on and on WiFi).</li>
+    <li>Slice, then press <b>Send to printer</b>. The printer shows <i>Receiving → Unpacking → Model ready</i>, and the model appears in the <b>Print</b> menu.</li>
+  </ol>
+  <div class="row">
+    <img class="shot" src="images/prusaslicer-physical-printer.png" alt="PrusaSlicer: adding a physical printer pointing at tinymaker.local">
+    <img class="shot" src="images/prusaslicer-send-to-printer.png" alt="PrusaSlicer: the Send to printer button">
+  </div>
+  <div class="warn">⚠️ <b>Always slice with the 0.05&nbsp;mm profile.</b> The firmware expects 0.05&nbsp;mm source layers (at a 0.10&nbsp;mm printer setting it uses every other image). Maximum model size: 1200 layers = 60&nbsp;mm.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="print-sd"><span class="num">7</span>Printing from the SD card (no network)</h2>
+  <p>No WiFi? Copy an <code>.sl1</code> or <code>.zip</code> (exported by PrusaSlicer or UVtools) into the <b>root</b> of the SD card. It appears in the <b>Print</b> menu in <b>blue</b>, among the models.</p>
+  <ul>
+    <li>Press <kbd>OK</kbd> on a blue entry to convert it into a printable model (progress is shown). When done, the model appears in the list and the archive is deleted from the card.</li>
+    <li>Long-press <kbd>OK</kbd> on a blue entry to delete the archive without importing.</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="sec" id="manage"><span class="num">8</span>Starting &amp; deleting models</h2>
+  <p>In the <b>Print</b> menu:</p>
+  <ul>
+    <li><b>Start a print:</b> select a model and give <kbd>OK</kbd> a short press. The preview shows Layers / Height / Time; press <kbd>Up</kbd> there to estimate resin (see below), or <kbd>OK</kbd> to start.</li>
+    <li><b>Delete a model:</b> press and <b>hold</b> <kbd>OK</kbd> for ~1.5&nbsp;s. A <i>Delete model?</i> confirmation appears — release, then <kbd>OK</kbd> = delete, <kbd>Back</kbd> = keep. Large models take a moment (hundreds of layer files).</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="sec" id="resin"><span class="num">9</span>Resin estimate &amp; level tracking</h2>
+  <p>The printer has no resin sensor — instead it <b>keeps count</b>. Every printed layer’s cured volume is subtracted from the VAT level, and the estimate survives reboots and firmware updates.</p>
+
+  <h3>Estimate before printing</h3>
+  <p>On a model’s print preview, press <kbd>Up</kbd> to estimate the resin it needs. It is shown in ml <i>and</i> in vat fills — e.g. <code>12.4 ml = 0.8 VAT</code>. Your VAT size is adjustable (10–40&nbsp;ml, default 15) in Settings. Live ml is shown while printing.</p>
+
+  <h3>Level tracking &amp; refills</h3>
+  <ul>
+    <li><b>“Resin left (est.)”</b> is shown on the dashboard (and as a Home Assistant sensor with a low-resin alert).</li>
+    <li><b>After refilling</b>, tell the printer: <b>System → Advanced → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
+    <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT refilled?”</i> question so the estimate stays honest. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
+    <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
+    <li><b>Low resin pause</b> (optional, default Off): mid-print, when the level hits the threshold, the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> — top up, press VAT refilled or resume.</li>
+  </ul>
+  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. Refills you don’t confirm won’t be counted.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="dashboard"><span class="num">10</span>The web dashboard</h2>
+  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in three tabs styled to match the printer.</p>
+  <img class="shot" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard: live status, controls and SD manager">
+  <p>On a larger screen it spreads into two columns:</p>
+  <img class="shot" src="images/dashboard-desktop-idle.png" alt="The dashboard on a desktop screen: two-column layout with status and SD manager">
+
+  <h3>3D preview &amp; live print progress</h3>
+  <p>Open a model’s details and press <b>Preview 3D</b>: your browser rebuilds the shape from the sliced layers and draws it inside the build-volume box — so you can tell models apart without printing them. Start a print and the same view becomes a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
+  <img class="shot" src="images/dashboard-printing-3d.png" alt="The dashboard while printing, showing the live 3D print-progress render">
+</section>
+
+<section>
+  <h2 class="sec" id="advanced"><span class="num">11</span>Advanced menu &amp; switches</h2>
+  <p><b>System → Advanced</b> on the printer holds the device toggles — <kbd>OK</kbd> changes a value, <kbd>Back</kbd> returns:</p>
+  <div class="table-scroll">
+  <table>
+    <tr><th>Item</th><th>What it does</th></tr>
+    <tr><td>Screen timeout</td><td>Blank the status screen after 30&nbsp;s…10&nbsp;min of inactivity (Off = never).</td></tr>
+    <tr><td>Dry run</td><td>Test prints without UV — motion and display only.</td></tr>
+    <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
+    <tr><td>Low resin pause</td><td>On = the print pauses for a refill when the estimate runs low.</td></tr>
+    <tr><td>Low resin warn</td><td>The warning/pause threshold, 1–3&nbsp;ml (OK cycles).</td></tr>
+    <tr><td>Ask refill</td><td>On = every print starts with a “VAT refilled?” question.</td></tr>
+    <tr><td><b>WiFi</b></td><td><b>On/Off — the whole network</b> (web, PrusaSlicer upload, MQTT, self-update).</td></tr>
+    <tr><td>Web control</td><td>On/Off — browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
+    <tr><td>MQTT</td><td>On/Off (shown once MQTT is configured in the dashboard).</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>WiFi Off</b> makes the printer fully offline, like the original firmware. Toggling it asks <i>“Reboot now?”</i>. Turn it back on right here — no reflash or reset needed.</li>
+    <li><b>Web control Off</b> makes the dashboard <b>view-only</b>: people can watch the print, but every action is disabled. Turn it back on on the printer (the settings form is one of the things it locks).</li>
+    <li>If WiFi is off and you open <b>System → Update</b>, the printer offers to enable WiFi temporarily just for the update.</li>
+  </ul>
+  <p>Both switches default to <b>On</b> and stay On after upgrading from an older version — nothing changes until you change it.</p>
+</section>
+
+<section>
+  <h2 class="sec" id="update"><span class="num">12</span>Updating the firmware</h2>
+  <div class="note">🔒 Firmware flashing is <b>blocked while printing</b>, and the web paths need <b>Web control</b> on. (PrusaSlicer upload is separate and works any time.)</div>
+  <p>Three ways to update:</p>
+  <ul>
+    <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up — press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
+    <li><b>From the dashboard — the Update tab:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
+    <li><b>For developers:</b> PlatformIO OTA via the <code>tinymaker-ota</code> environment (open System → Update on the printer first — that path keeps the strict gate).</li>
+  </ul>
+  <img class="shot" src="images/firmware-update-page.png" alt="The dashboard Update tab: installed vs latest, install latest, version picker and file upload">
+  <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="mqtt"><span class="num">13</span>Home Assistant (MQTT)</h2>
+  <p>Optional. Configure an MQTT broker in the dashboard’s Settings tab and the printer publishes itself to Home Assistant with auto-discovery: print state, current layer, resin used, <b>resin left</b> + a <b>low-resin alert</b>, and run/remaining time — all as HA sensors you can put on dashboards or automate notifications on.</p>
+</section>
+
+<section>
+  <h2 class="sec" id="faq"><span class="num">14</span>Troubleshooting &amp; FAQ</h2>
+
+  <h3>The printer won’t connect to WiFi</h3>
+  <p>After 15&nbsp;s it boots offline — SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
+
+  <h3>PrusaSlicer “Test” fails</h3>
+  <p>Check the printer is on and shows a green dot / an IP under System → WiFi Info. Use that IP if <code>tinymaker.local</code> doesn’t resolve on your network. The API key value doesn’t matter.</p>
+
+  <h3>The dashboard opens but every button is disabled</h3>
+  <p><b>Web control</b> is off. Turn it back on on the printer: System → Advanced → Web control. (Slicer upload and MQTT are unaffected by this switch.)</p>
+
+  <h3>My print looks half-height / wrong</h3>
+  <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design.</p>
+
+  <h3>“Resin left” looks wrong</h3>
+  <p>It’s an estimate that only counts confirmed refills. Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so it stays honest.</p>
+
+  <h3>A firmware update failed</h3>
+  <p>The dual OTA partition keeps the previous firmware, so the printer should still boot. Try again from System → Update, or upload a <code>firmware.bin</code> from the dashboard’s Update tab.</p>
+
+  <h3>How do I go fully offline?</h3>
+  <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
+</section>
+
+<section>
+  <h2 class="sec" id="credits">Credits</h2>
+  <p><b>TinyMakerWifi</b> — the WiFi, wireless-upload and over-the-air-update firmware described in this manual — is created and maintained by <b>Viktoras Sidlauskas</b> (<a href="https://github.com/slibbinas">@slibbinas</a>): the WiFi stack, wireless upload, OTA self-update, the 3D model preview &amp; live print progress, and the resin estimation &amp; VAT tracking.</p>
+  <ul>
+    <li><b>The initial web dashboard and the Advanced menu</b> (WiFi &amp; Web-control switches) — contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
+    <li><b>Original TinyMaker firmware &amp; printer</b> — by the <a href="https://tinymaker3d.com/">TinyMaker3D Team</a>.</li>
+    <li>Additional fixes, testing and ideas from the TinyMaker community.</li>
+  </ul>
+  <p>The firmware is MIT-licensed; the TinyMaker hardware is CC BY-NC-SA 4.0. If TinyMakerWifi is useful to you, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy me a coffee</a> — thank you!</p>
+</section>
+
+</div>
+
+<footer>
+  <p>TinyMakerWifi · User Manual · v0.13.5 · by Viktoras Sidlauskas<br>
+  Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
+</footer>
+</body>
+</html>
