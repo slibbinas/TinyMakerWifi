@@ -317,7 +317,7 @@
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
     <tr><td>Screen timeout</td><td>Blank the status screen after 30&nbsp;s…10&nbsp;min of inactivity (Off = never).</td></tr>
-    <tr><td>Dry run</td><td>Test prints without UV — motion and display only.</td></tr>
+    <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test below.</td></tr>
     <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
     <tr><td>Low resin pause</td><td>On = the print pauses for a refill when the estimate runs low.</td></tr>
     <tr><td>Low resin warn</td><td>The warning/pause threshold, 1–3&nbsp;ml (OK cycles).</td></tr>
@@ -335,6 +335,24 @@
     <li>If WiFi is off and you open <b>System → Update</b>, the printer offers to enable WiFi temporarily just for the update.</li>
   </ul>
   <p>Both switches default to <b>On</b> and stay On after upgrading from an older version — nothing changes until you change it.</p>
+
+  <h3>Exposure calibration test</h3>
+  <p>Exposure time is the single most important resin parameter — and every resin (even every color) cures differently. The test finds <i>your</i> resin’s time in one go: the printer cures an <b>8-bar strip</b> straight from its masking LCD, each bar with a different exposure. No slicer, no SD file.</p>
+  <p>The bars step in 2 s around your current <i>Regular exposure</i> (R): left to right they get <b>R−6, R−4, R−2, R, R+2, R+4, R+6, R+8</b> seconds — so your current setting is always the <b>4th bar</b>. (With the default 14 s: 8 → 22 s.)</p>
+  <ol class="steps">
+    <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> — the strip cures directly on the vat film. Make sure Dry run is off.</li>
+    <li><b>Run:</b> System → Advanced → <b>Exposure test</b> → Start. A progress bar runs for the longest bar’s time (~half a minute); Back cancels.</li>
+    <li><b>Peel &amp; rinse:</b> gloves on, lift the strip off the film with a soft plastic scraper, rinse in IPA, dry.</li>
+    <li><b>Judge the bars</b> against the light:
+      <ul>
+        <li><i>Under-exposed</i> (left side): thin, rubbery, fuzzy edges, breaks or partly stuck to the film.</li>
+        <li><i>Right:</i> sturdy, <b>sharp clean edges</b>, even thickness.</li>
+        <li><i>Over-exposed</i> (right side): fatter than its neighbours, bloated edges, a thin parasitic film around it (light bleed).</li>
+      </ul>
+    </li>
+    <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Count from the left: bar 1 = R−6, each next +2 s. Keep <b>Base exposure</b> at roughly 2.5× the new Regular — it’s about first-layer adhesion, not detail.</li>
+  </ol>
+  <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 </section>
 
 <section>
