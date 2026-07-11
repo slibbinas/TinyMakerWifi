@@ -339,6 +339,7 @@
   <h3>Exposure calibration test</h3>
   <p>Exposure time is the single most important resin parameter — and every resin (even every color) cures differently. The test finds <i>your</i> resin’s time in one go: the printer cures an <b>8-bar strip</b> straight from its masking LCD, each bar with a different exposure. No slicer, no SD file.</p>
   <p>The bars step in 2 s around your current <i>Regular exposure</i> (R): from the shortest <b>R−6</b> to the longest <b>R+8</b> seconds, so your current setting is always the <b>4th bar from the short end</b>. (With the default 14 s: 8 → 22 s.)</p>
+  <p><b>The ladder follows your setting automatically.</b> To test shorter (or longer) times, just change <i>Regular exposure</i> in one place — dashboard → Settings → <i>Regular exposure</i> → Save, or the printer’s Settings menu — and the test range recalculates itself; the Advanced menu row shows the current range (e.g. “2-16s strip”). After the test, set the winning bar’s time as your final value.</p>
   <div class="warn">⚠️ <b>Don’t trust left/right.</b> Depending on which side you view the strip from (in the vat, or peeled and flipped), the order can be mirrored. The reliable tell: the <b>thinnest, weakest, fuzziest bar marks the short-exposure end</b> — count from there. (v0.14.1 adds dot markers on each bar so counting becomes foolproof.)</div>
   <ol class="steps">
     <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> — the strip cures directly on the vat film. Make sure Dry run is off.</li>
