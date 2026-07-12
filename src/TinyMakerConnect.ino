@@ -242,8 +242,11 @@ String tinymakerConnectConfigJson() {
   out += jsonEscape(connectPrinterPublicId);
   out += "\",\"connectTokenSet\":";
   out += connectPublishToken.length() > 0 ? "true" : "false";
+  // The publish token authorizes share/manage/import calls - hand it to the
+  // browser only while Web control is on; a view-only dashboard gets none
+  // (same rule as the MQTT password and the Telegram bot token).
   out += ",\"connectPublishToken\":\"";
-  out += jsonEscape(connectPublishToken);
+  out += webDashboardRuntimeEnabled() ? jsonEscape(connectPublishToken) : String("");
   out += "\",\"connectLastStatus\":\"";
   out += jsonEscape(connectLastStatus);
   out += "\"";
@@ -274,6 +277,12 @@ void handleApiConnectRegister() {
 
 void handleApiConnectTest() {
   if (rejectIfWebControlOff()) return;
+  if (printerBusy()) {
+    // The health check is a blocking TLS request (up to 8 s) - never let it
+    // stall the print loop's narrow network windows.
+    sendApiError(409, "printer busy");
+    return;
+  }
 
   String response;
   String error;
