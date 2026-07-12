@@ -1537,6 +1537,10 @@ void handleApiStatus() {
 #else
   out += "unknown";
 #endif
+  out += "\",\"firmwareBuild\":\"";
+#ifdef GIT_REV
+  out += jsonEscape(GIT_REV);
+#endif
   out += "\",\"busy\":";
   out += busy ? "true" : "false";
   out += ",\"paused\":";
@@ -1703,6 +1707,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".modalCard{background:#1c1c1e;border:1px solid #3a3a3f;border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}"
     ".modalText{color:#eee;font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}"
     ".modalBtns{display:flex;gap:10px}.modalBtns button{margin-top:0;flex:1;width:auto}"
+    ".fwbuild{color:#777;font-size:11px;font-family:monospace}.fwbuild:empty{display:none}"
     ".updSpin{width:34px;height:34px;border:4px solid #3c3c42;border-top-color:#e8720c;border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}"
     ".warn{color:#ffb15f}"
     ".hidden{display:none}"
@@ -1741,7 +1746,7 @@ void handleRootPage() {
 #endif
   static const char rootBodyBeforeFw[] PROGMEM = R"SPA(
 <div class='head'><div><h1>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'>)SPA";
-  static const char rootBodyAfterFw[] PROGMEM = R"SPA(</span> · <a href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a></div></div></div>
+  static const char rootBodyAfterFw[] PROGMEM = R"SPA(</span><span id='fwBuild' class='fwbuild'></span> · <a href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a></div></div></div>
 
 <section id='dryRunBanner' class='card banner hidden'>
   <strong>Dry run mode enabled.</strong>
@@ -2091,6 +2096,7 @@ const openView=view=>{
 
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
+    setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
