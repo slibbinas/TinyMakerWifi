@@ -1699,7 +1699,9 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".warn{color:#ffb15f}"
     ".hidden{display:none}"
     ".hint{font-size:13px;color:#aaa;margin:10px 0 0;line-height:1.4}"
+    "#statusMsg{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92%;z-index:60;margin:0;background:#2a2a2e;color:#eee;border:1px solid #4a4a50;border-radius:8px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:13px;line-height:1.4}"
     "#statusMsg:empty{display:none}"
+    "#statusMsg.warn{border-color:#7b2f2f;color:#ffb15f}"
     ".configGrid .hint{grid-column:1/-1}"
     "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
