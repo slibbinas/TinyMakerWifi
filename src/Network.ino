@@ -1073,6 +1073,37 @@ void handleApiConfigRestore() {
   }
 }
 
+// POST /api/config/restore/sd -> apply the backup stored on the SD card
+// (tinymaker-backup.json), the same file the first-boot prompt offers after a
+// full USB reflash. Lets a user restore without keeping the file on a computer.
+void handleApiConfigRestoreSd() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+  if (!sdCardReady()) {
+    sendApiError(409, "SD card not ready");
+    return;
+  }
+  if (!sdBackupExists()) {
+    sendApiError(404, "no backup on the SD card (tinymaker-backup.json)");
+    return;
+  }
+  bool wifiWasEnabled = wifiEnabled;
+  if (!restoreFromSdBackup()) {
+    sendApiError(500, "could not read the backup from SD");
+    return;
+  }
+  mqttClient.disconnect();
+  mqttDiscoverySent = false;
+  sendApiOk(configJson());
+  if (wifiWasEnabled && !wifiEnabled) {
+    delay(700); // same as the config-save path: reboot to shut the radio down
+    ESP.restart();
+  }
+}
+
 void resetWebConfigToDefaults() {
   resetSettingsToDefault();
   uiTimeoutSecs = 0;
@@ -1904,6 +1935,7 @@ void handleRootPage() {
     <button id='backupDownloadButton' class='button secondary' type='button'>Download backup</button>
     <button id='backupSdButton' class='button secondary' type='button'>Backup to SD</button>
     <button id='restoreButton' class='button secondary' type='button'>Restore from file</button>
+    <button id='restoreSdButton' class='button secondary' type='button'>Restore from SD</button>
   </div>
   <input id='restoreFile' type='file' accept='.json,application/json' class='hidden'>
   <div id='backupHint' class='hint'>The backup holds every setting and the lifetime counters. With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.</div>
@@ -2482,7 +2514,7 @@ const tickLocalStatus=()=>{
   }
 };
 
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton').forEach(e=>e.disabled=disabled);};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=e=>{
@@ -2558,6 +2590,7 @@ $('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
 $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');}catch(e){msg(e.message,true);}});
 $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
+$('restoreSdButton').addEventListener('click',async()=>{if(!confirm('Restore all settings from the SD card backup? Current settings will be overwritten.'))return;try{await api('/api/config/restore/sd',{method:'POST'});msg('Settings restored from SD backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!confirm('Restore all settings from '+f.name+'? Current settings will be overwritten.'))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!confirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('vatRefillButton').addEventListener('click',async()=>{if(!confirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});msg('VAT marked as refilled ('+r.vatRemainingMl+' ml).');refreshStatus();}catch(e){msg(e.message,true);}});
@@ -2950,6 +2983,7 @@ void network_setup() {
   server.on("/api/config/backup", HTTP_GET, handleApiConfigBackupGet);
   server.on("/api/config/backup/sd", HTTP_POST, handleApiConfigBackupSd);
   server.on("/api/config/restore", HTTP_POST, handleApiConfigRestore);
+  server.on("/api/config/restore/sd", HTTP_POST, handleApiConfigRestoreSd);
   server.on("/api/config/dry-run", HTTP_POST, handleApiConfigDryRun);
   server.on("/api/connect/test", HTTP_POST, handleApiConnectTest);
   server.on("/api/connect/register", HTTP_POST, handleApiConnectRegister);
