@@ -2175,7 +2175,7 @@ const selectBootAnim=async name=>{
   catch(e){msg(e.message,true);}
 };
 const deleteBootAnim=async(name,display)=>{
-  if(!confirm('Delete "'+display+'" from the printer?'))return;
+  if(!await uiConfirm('Delete "'+display+'" from the printer?',{danger:true}))return;
   try{await api('/api/boot-anim/delete',{method:'POST',body:new URLSearchParams({name})});
     msg('Deleted "'+display+'".');loadBootAnims();}
   catch(e){msg(e.message,true);}
@@ -3090,9 +3090,17 @@ void handleApiBootAnimInstall() {
   uint8_t buf[1024];
   uint32_t waitStart = millis();
   int first = 0;
-  while (first < 4 && millis() - waitStart < 12000) {
-    if (stream->available()) { first = stream->readBytes(buf, sizeof(buf)); break; }
-    delay(2);
+  // Accumulate until we have the full 12-byte header (or time out): a slow server
+  // can deliver the magic across several small segments, and breaking after the
+  // first read would false-reject a valid TMB1 file.
+  while (first < 12 && millis() - waitStart < 12000) {
+    size_t avail = stream->available();
+    if (avail) {
+      int n = stream->readBytes(buf + first, avail > sizeof(buf) - first ? sizeof(buf) - first : avail);
+      if (n > 0) first += n;
+    } else {
+      delay(2);
+    }
   }
   if (first < 12 || buf[0] != 'T' || buf[1] != 'M' || buf[2] != 'B' || buf[3] != '1') {
     http.end();
@@ -3108,6 +3116,8 @@ void handleApiBootAnimInstall() {
   File out = SD.open(savePath.c_str(), FILE_WRITE);
   if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); screen1(); return; }
 
+  const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
+  bool tooBig = false;
   size_t total = 0;
   out.write(buf, first);
   total += first;
@@ -3121,6 +3131,7 @@ void handleApiBootAnimInstall() {
       if (n <= 0) break;
       out.write(buf, n);
       total += n;
+      if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
       if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
       if (millis() - lastDraw > 120) {       // size may be unknown; bar wraps every 256 KB
         lastDraw = millis();
@@ -3135,6 +3146,14 @@ void handleApiBootAnimInstall() {
   }
   out.close();
   http.end();
+
+  if (tooBig) {
+    SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
+    sendApiError(413, "animation too large");
+    netMessage("Boot animation", "file too large");
+    delay(1200); screen1();
+    return;
+  }
 
   bootAnimName = slug;          // installed animation becomes the active one
   saveDeviceConfig();

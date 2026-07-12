@@ -208,10 +208,19 @@ bool playBootAnimFromSd() {
   int frameDelay = fps > 0 ? (1000 / fps) : 80;
   int16_t ox = (160 - w) / 2, oy = (80 - h) / 2;
   gfx2->fillScreen(BLACK);
-  for (uint16_t i = 0; i < n; i++) {
+  // These files can arrive from a community site, so frameCount (uint16, up to
+  // 65535) is untrusted: cap total frames and elapsed time so a corrupt/oversized
+  // animation can't hold boot hostage, and let Back skip it immediately.
+  const uint16_t MAX_FRAMES = 250;
+  const uint32_t MAX_MS     = 10000;
+  uint16_t limit = n < MAX_FRAMES ? n : MAX_FRAMES;
+  uint32_t animStart = millis();
+  for (uint16_t i = 0; i < limit; i++) {
     if (f.read((uint8_t *)frame, frameBytes) != (int)frameBytes) break;
     gfx2->draw16bitRGBBitmap(ox, oy, frame, w, h);
     delay(frameDelay);
+    if (digitalRead(buttonBack) == LOW) break;   // user skip
+    if (millis() - animStart > MAX_MS) break;     // hard time budget
   }
   free(frame);
   f.close();
