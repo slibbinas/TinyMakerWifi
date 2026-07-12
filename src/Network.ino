@@ -1938,7 +1938,7 @@ void handleRootPage() {
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
   </div>
-  <button type='submit'>Save config</button>
+  <button type='submit' style='margin-top:14px'>Save config</button>
   </div>
   <div class='card'>
   <h2>Network &amp; integrations</h2>
@@ -1979,11 +1979,13 @@ void handleRootPage() {
         <label class='spanAll'><span>Chat ID</span><input name='tg_chat' id='cfgTgChat' type='text' maxlength='32' placeholder='123456789'></label>
       </div>
       <div id='tgHint' class='hint'>Messages you when a print finishes, pauses for low resin, or is canceled.</div>
-      <button id='tgHelpButton' class='button secondary small' type='button'>? How to get the token &amp; chat ID</button>
-      <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
+      <div class='actions'>
+        <button id='tgHelpButton' class='button secondary' type='button'>? How to get the token &amp; chat ID</button>
+        <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
+      </div>
     </div>
   </div>
-  <button id='configSaveButton' type='submit'>Save config</button>
+  <button id='configSaveButton' type='submit' style='margin-top:14px'>Save config</button>
   </div>
   </form>
   <div class='card'>
