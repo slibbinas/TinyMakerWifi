@@ -2068,6 +2068,7 @@ const uploadWithProgress=(fd,hintEl)=>{
 };
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
+const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
 const pageFirmwareVersion=()=>$('fwVersion').textContent.trim();
 const reloadIfFirmwareChanged=s=>{
   const live=String(s.firmwareVersion||'').trim(),page=pageFirmwareVersion();
@@ -2707,7 +2708,11 @@ const installFirmware=async v=>{
   let warn='Install '+(v||'the latest firmware')+'? The printer reboots when done.';
   if(v&&updInstalledVer&&cmpVer(v,updInstalledVer)<0)warn='Downgrade to '+v+'? The older firmware may ignore or reset newer settings.\nThe printer reboots when done.';
   if(!await uiConfirm(warn))return;
-  try{await api('/api/update/install'+(v?'?version='+v:''),{method:'POST'},20000);msg('Updating... the printer reboots when done.');showUpdLock();}catch(e){msg(e.message,true);}
+  showUpdLock();   // immediate feedback - the download+flash takes a while
+  try{await api('/api/update/install'+(v?'?version='+v:''),{method:'POST'},20000);msg('Updating... the printer reboots when done.');showUpdLock();}
+  // On timeout keep the overlay: the printer is likely mid-flash and cannot
+  // answer; the 90s watchdog clears it if the update never actually started.
+  catch(e){if(e.message!=='timeout'){hideUpdLock();msg(e.message,true);}}
 };
 $('updInstallLatest').addEventListener('click',()=>installFirmware(''));
 $('updInstallSelected').addEventListener('click',()=>installFirmware($('updVersionSelect').value));
@@ -2716,11 +2721,12 @@ $('updUploadForm').addEventListener('submit',async e=>{
   e.preventDefault();
   if(!await uiConfirm('Flash the selected firmware.bin? The printer reboots when done.'))return;
   $('updUploadButton').disabled=true;
+  showUpdLock();   // immediate feedback - the upload+flash takes a while
   try{
     const r=await fetch('/update',{method:'POST',body:new FormData(e.target)});
     if(!r.ok)throw new Error('update rejected (HTTP '+r.status+')');
     msg('Firmware flashed. The printer is rebooting...');showUpdLock();
-  }catch(err){msg(err.message,true);}
+  }catch(err){hideUpdLock();msg(err.message,true);}
   $('updUploadButton').disabled=false;
 });
 $('updFile').addEventListener('change',()=>$('updUploadButton').classList.toggle('secondary',!$('updFile').files.length));
