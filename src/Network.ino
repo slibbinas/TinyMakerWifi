@@ -1653,7 +1653,7 @@ void handleRootPage() {
 #endif
   static const char rootBodyBeforeFw[] PROGMEM = R"SPA(
 <div class='head'><div><h1>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'>)SPA";
-  static const char rootBodyAfterFw[] PROGMEM = R"SPA(</span> · <a href='https://slibbinas.github.io/TinyMakerWifi/manual/' target='_blank' rel='noopener'>Manual</a></div></div></div>
+  static const char rootBodyAfterFw[] PROGMEM = R"SPA(</span> · <a href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a></div></div></div>
 
 <section id='dryRunBanner' class='card banner hidden'>
   <strong>Dry run mode enabled.</strong>
@@ -1918,7 +1918,7 @@ const applyStatus=s=>{
     if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
-    setText('layerValue',s.layerText); setText('resinValue',s.resinText); setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime);
+    setText('layerValue',s.layerText); setText('resinValue',s.resinText); if(!s.busy)setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime); tickLocalStatus();
     setText('vatValue',s.vatLow?s.vatText+' (low!)':s.vatText); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
@@ -2185,9 +2185,10 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!confirm('Delete this SD item?'))return;try{await api('/api/files/delete?name='+enc(name),{method:'POST'});msg('Deleted '+name+'.');loadFiles();}catch(e){msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!confirm(confirmText))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
+const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 const tickLocalStatus=()=>{
   if(statusData&&statusData.busy&&localPrintStartedAt){
-    setText('runValue',formatShortTime(Date.now()-localPrintStartedAt));
+    setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
   }
 };
 
@@ -2721,6 +2722,12 @@ void wifiInfoValues() {
     gfx2->print(r);
     gfx2->print(" dBm ");
     gfx2->print(r > -60 ? "(Good)" : (r > -75 ? "(OK)" : "(Weak)"));
+    // Same green strength bars as the main-menu badge/dashboard: RSSI
+    // > -60 = 3 bars, > -75 = 2, else 1; unlit bars stay dark grey.
+    int n = r > -60 ? 3 : (r > -75 ? 2 : 1);
+    gfx2->fillRect(142, 31, 3, 4,  n >= 1 ? GREEN : DARKGREY);
+    gfx2->fillRect(147, 27, 3, 8,  n >= 2 ? GREEN : DARKGREY);
+    gfx2->fillRect(152, 23, 3, 12, n >= 3 ? GREEN : DARKGREY);
     gfx2->setCursor(5, 55);
     gfx2->print("IP: ");
     gfx2->print(WiFi.localIP());

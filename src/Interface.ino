@@ -1835,8 +1835,13 @@ void screen23111(){
  * (bar 1 shortest, bar 8 longest); the user picks the bar that cured crisply
  * and dials that time into Settings.
  */
+// Proportional ladder (0.14.1): fixed multipliers of the Regular setting,
+// bar 5 = 100% = your current value. A fast resin (cures in 3 s) and a slow
+// one (25 s) both get a meaningful spread - fixed +-seconds steps did not
+// (first real strip saturated: every bar past ~8 s looked identical).
 int expTestBarSecs(int bar) {          // bar 1..8 -> seconds
-  int t = Regular_Exposure - 8 + bar * 2;
+  static const uint8_t pct[8] = {40, 55, 70, 85, 100, 115, 135, 160};
+  int t = ((int)Regular_Exposure * pct[bar - 1] + 50) / 100;
   return t < 2 ? 2 : t;
 }
 
@@ -1877,8 +1882,16 @@ void runExpTest(){
   int slot = W / 8, gap = slot / 6, bw = slot - 2 * gap;
   int by = H / 6, bh = H - 2 * (H / 6);
   gfx1->fillScreen(BLACK);
-  for (int i = 0; i < 8; i++)
-    gfx1->fillRect(i * slot + gap, by, bw, bh, WHITE);
+  // Bar N carries N holes (dots) near its top, so a peeled strip stays
+  // identifiable no matter how it is flipped - count dots, not sides.
+  int r = bh / 60;
+  if (r < 4) r = 4;
+  for (int i = 0; i < 8; i++) {
+    int x0 = i * slot + gap;
+    gfx1->fillRect(x0, by, bw, bh, WHITE);
+    for (int k = 0; k <= i; k++)
+      gfx1->fillCircle(x0 + bw / 2, by + 3 * r + k * 3 * r, r, BLACK);
+  }
 
   long maxMs = (long)expTestBarSecs(8) * 1000L;
   int blanked = 0;
@@ -1914,7 +1927,7 @@ void runExpTest(){
   if (!canceled){
     gfx2->setTextColor(0x879F);
     gfx2->setCursor(8, 34);
-    gfx2->print(String("Bars L to R: ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
+    gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
     gfx2->setCursor(8, 48);
     gfx2->print("Set crispest in Settings");
   }

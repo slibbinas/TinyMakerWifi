@@ -151,7 +151,11 @@ def main():
         # Beta window: printers self-update only from version.txt + firmware.bin,
         # so leaving both untouched keeps the fleet on the previous release while
         # the picker (versions.txt) already offers the new one to testers.
-        print(f"   beta: version.txt/firmware.bin untouched - promote later")
+        # version-beta.txt is the beta channel pointer (firmware's Stable/Beta
+        # update-channel switch reads it) - points at the versioned bin.
+        (GHPAGES_WORKTREE / "version-beta.txt").write_text(
+            f"{version}\n{PAGES_URL}/firmware-{version}.bin\n", newline="\n")
+        print(f"   beta: version.txt/firmware.bin untouched; version-beta.txt -> {version}")
     else:
         (GHPAGES_WORKTREE / "firmware.bin").write_bytes(data)
         (GHPAGES_WORKTREE / "version.txt").write_text(
