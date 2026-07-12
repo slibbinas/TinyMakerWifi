@@ -1622,6 +1622,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".warn{color:#ffb15f}"
     ".hidden{display:none}"
     ".hint{font-size:13px;color:#aaa;margin:10px 0 0;line-height:1.4}"
+    "#statusMsg:empty{display:none}"
     ".configGrid .hint{grid-column:1/-1}"
     "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
@@ -1674,6 +1675,8 @@ void handleRootPage() {
   <button id='updateViewButton' type='button'>Update</button>
 </div>
 
+<div id='statusMsg' class='hint'></div>
+
 <div id='homeView'>
   <section class='card'>
     <div class='grid'>
@@ -1689,7 +1692,6 @@ void handleRootPage() {
       <div id='printRunBox' class='hidden'><div class='label'>Running time</div><div id='runValue' class='value'>-</div></div>
       <div id='printRemainingBox' class='hidden'><div class='label'>Remaining time</div><div id='remainingValue' class='value'>-</div></div>
     </div>
-    <div id='statusMsg' class='hint'></div>
     <div id='debugValue' class='meta'></div>
     <button id='vatRefillButton' class='button secondary' type='button'>VAT refilled</button>
   </section>
