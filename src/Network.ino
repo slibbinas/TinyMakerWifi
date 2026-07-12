@@ -2045,8 +2045,16 @@ const api=async(path,opt,timeoutMs)=>{
   finally{if(timer)clearTimeout(timer);}
 };
 // Top-center snackbar. Info messages auto-hide; warnings stay until replaced.
+// The toast anchors just below the user's last click/tap, so pressing a button
+// at the bottom of a long page shows the feedback right there, not off at the
+// top of the viewport. No pointer yet (poll errors at load) -> top fallback.
+document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
 const msg=(t,warn)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
-  if(t){e.style.animation='none';void e.offsetWidth;e.style.animation='';} // restart the slide-in on every message
+  if(t){
+    const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
+    e.style.top=y+'px';
+    e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
+  }
   clearTimeout(msg._t);if(t&&!warn)msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},5000);};
 // Styled replacement for window.confirm() - returns a Promise<bool>. Matches
 // the dashboard instead of the browser's native (unstyleable) dialog.
