@@ -984,10 +984,12 @@ void applyConfigRequest() {
   }
   mqttTopic = formString("mqtt_topic", mqttTopic, 64);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
-  // Connect settings live on the Connect tab (own form + /api/config/connect):
-  // this form no longer carries them, and hasArg semantics would otherwise
-  // turn Connect off on every Settings save. Only the WiFi-off guard remains.
+  connectEnabled = server.hasArg("connect_enabled");
   if (!wifiEnabled) connectEnabled = false;
+  connectBaseUrl = connectNormalizeBaseUrl(formString("connect_base_url", connectBaseUrl, 128));
+  connectPrinterName = formString("connect_printer_name", connectPrinterName, 64);
+  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
+  connectLeaderboardOptIn = connectEnabled && server.hasArg("connect_leaderboard");
   tgEnabled = server.hasArg("tg_enabled");
   if (!wifiEnabled) tgEnabled = false;
   // Token is a secret: only overwrite when a new one is supplied, so a blank
@@ -1159,23 +1161,6 @@ void handleApiConfigMqttDefaults() {
   resetMqttConfigToDefaults();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
-  sendApiOk(configJson());
-}
-
-// POST /api/config/connect -> save the Connect-tab form. Separate from the
-// main Settings save so a partial form cannot wipe unrelated checkboxes.
-void handleApiConfigConnectSave() {
-  if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
-  connectEnabled = wifiEnabled && server.hasArg("connect_enabled");
-  connectBaseUrl = connectNormalizeBaseUrl(formString("connect_base_url", connectBaseUrl, 128));
-  connectPrinterName = formString("connect_printer_name", connectPrinterName, 64);
-  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
-  connectLeaderboardOptIn = connectEnabled && server.hasArg("connect_leaderboard");
-  saveDeviceConfig();
   sendApiOk(configJson());
 }
 
@@ -1800,7 +1785,7 @@ void handleRootPage() {
 
 <div class='toolbar'>
   <button id='homeViewButton' type='button' class='active'>Dashboard</button>
-  <button id='connectViewButton' type='button'>Connect</button>
+  <button id='connectViewButton' type='button' class='hidden'>Connect</button>
   <button id='configViewButton' type='button'>Settings</button>
   <button id='updateViewButton' type='button'>Update</button>
 </div>
@@ -1924,22 +1909,6 @@ void handleRootPage() {
     <div id='connectSetupHint' class='hint'>Setup uses the default TinyMaker Connect server. You can change the server URL before registering.</div>
     <button id='connectSetupButton' type='button'>Set up TinyMaker Connect</button>
   </div>
-  <form id='connectForm' style='margin-top:14px'>
-    <h2>Connect settings</h2>
-    <label class='check'><input name='connect_enabled' id='cfgConnectEnabled' type='checkbox' value='1'><span>Enable TinyMaker Connect</span></label>
-    <div id='connectFields' class='hidden'>
-      <div class='configGrid'>
-        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://tinymaker.inductie.nu'></label>
-        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='TinyMaker'></label>
-        <label class='check'><input name='connect_leaderboard' id='cfgConnectLeaderboard' type='checkbox' value='1'><span>Share printer stats on leaderboard</span></label>
-      </div>
-      <div id='connectHint' class='hint'>Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.</div>
-      <button id='connectTestButton' class='button secondary' type='button'>Test Connect server</button>
-      <button id='connectRegisterButton' class='button secondary' type='button'>Register TinyMaker Connect</button>
-      <button id='configConnectResetButton' class='button secondary hidden' type='button'>Reset TinyMaker Connect</button>
-    </div>
-    <button id='connectSaveButton' type='submit'>Save Connect settings</button>
-  </form>
 </section>
 
 <section id='configView' class='card hidden'>
@@ -1974,6 +1943,18 @@ void handleRootPage() {
         <label class='spanAll'><span>MQTT topic prefix</span><input name='mqtt_topic' id='cfgMqttTopic' type='text' maxlength='64' placeholder='TinyMaker'></label>
       </div>
       <div id='mqttHint' class='hint'>MQTT publishing will use these settings in the SmartHome integration step.</div>
+    </div>
+    <label class='check spanAll'><input name='connect_enabled' id='cfgConnectEnabled' type='checkbox' value='1'><span>Enable TinyMaker Connect</span></label>
+    <div id='connectFields' class='spanAll hidden'>
+      <div class='configGrid'>
+        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://tinymaker.inductie.nu'></label>
+        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='TinyMaker'></label>
+        <label class='check'><input name='connect_leaderboard' id='cfgConnectLeaderboard' type='checkbox' value='1'><span>Share printer stats on leaderboard</span></label>
+      </div>
+      <div id='connectHint' class='hint'>Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.</div>
+      <button id='connectTestButton' class='button secondary' type='button'>Test Connect server</button>
+      <button id='connectRegisterButton' class='button secondary' type='button'>Register TinyMaker Connect</button>
+      <button id='configConnectResetButton' class='button secondary hidden' type='button'>Reset TinyMaker Connect</button>
     </div>
     <label class='check spanAll'><input name='tg_enabled' id='cfgTgEnabled' type='checkbox' value='1'><span>Telegram notifications</span></label>
     <div id='tgFields' class='spanAll hidden'>
@@ -2586,7 +2567,7 @@ const tickLocalStatus=()=>{
   }
 };
 
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#connectForm input,#connectForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
@@ -2639,6 +2620,10 @@ const loadConfig=async()=>{
     updateNetworkFields();updateMqttFields();updateConnectFields();updateTgFields();
     show('configMqttResetButton',!!c.mqttConfigured);
     show('configConnectResetButton',!!c.connectConfigured);
+    // The Connect tab exists only while Connect is enabled in Settings -
+    // otherwise it dead-ends on a lone unchecked "Enable" box and confuses.
+    show('connectViewButton',!!c.connectEnabled);
+    if(!c.connectEnabled&&!$('connectView').classList.contains('hidden'))openView('home');
     $('configDefaultsButton').textContent=(c.mqttConfigured||c.connectConfigured)?'Reset to defaults (Excluding integrations)':'Reset to defaults';
     const noWc=!c.webDashboardEnabled;
     const locked=!!c.locked||configIsLocallyLocked()||noWc;
@@ -2660,9 +2645,8 @@ $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});msg('TinyMaker Connect settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
-$('connectForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config/connect',{method:'POST',body:new FormData(e.target)});msg('Connect settings saved.');loadConfig();}catch(err){msg(err.message,true);}});
-$('connectTestButton').addEventListener('click',async()=>{try{await api('/api/config/connect',{method:'POST',body:new FormData($('connectForm'))});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;try{await api('/api/config/connect',{method:'POST',body:new FormData($('connectForm'))});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectTestButton').addEventListener('click',async()=>{try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
 $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');loadConfig();}catch(e){msg(e.message,true);}});
 $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
@@ -2685,16 +2669,18 @@ $('connectViewButton').addEventListener('click',()=>openView('connect'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
 $('updateViewButton').addEventListener('click',()=>openView('update'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
-$('connectSetupButton').addEventListener('click',()=>{
+$('connectSetupButton').addEventListener('click',async()=>{
+  openView('config');
+  await loadConfig();
   if(configIsLocallyLocked()||(statusData&&statusData.webControl===false))return;
   $('cfgConnectEnabled').checked=true;
   updateConnectFields();
   if(!$('cfgConnectBaseUrl').value)$('cfgConnectBaseUrl').value='https://tinymaker.inductie.nu';
-  $('connectForm').scrollIntoView({behavior:'smooth',block:'start'});
+  $('connectFields').scrollIntoView({behavior:'smooth',block:'start'});
   $('cfgConnectBaseUrl').focus();
   msg('Check the Connect settings, then test the server and register.');
 });
-$('connectSettingsButton').addEventListener('click',()=>{$('connectForm').scrollIntoView({behavior:'smooth',block:'start'});});
+$('connectSettingsButton').addEventListener('click',async()=>{openView('config');await loadConfig();updateConnectFields();const t=$('connectFields').classList.contains('hidden')?$('cfgConnectEnabled').parentElement:$('connectFields');t.scrollIntoView({behavior:'smooth',block:'center'});});
 
 let updInstalledVer='';
 const cmpVer=(a,b)=>{const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);for(let i=0;i<3;i++){if((pa[i]||0)!==(pb[i]||0))return(pa[i]||0)-(pb[i]||0);}return 0;};
@@ -3062,7 +3048,6 @@ void network_setup() {
   server.on("/api/config", HTTP_POST, handleApiConfigSave);
   server.on("/api/config/defaults", HTTP_POST, handleApiConfigDefaults);
   server.on("/api/config/mqtt/defaults", HTTP_POST, handleApiConfigMqttDefaults);
-  server.on("/api/config/connect", HTTP_POST, handleApiConfigConnectSave);
   server.on("/api/config/connect/defaults", HTTP_POST, handleApiConfigConnectDefaults);
   server.on("/api/config/backup", HTTP_GET, handleApiConfigBackupGet);
   server.on("/api/config/backup/sd", HTTP_POST, handleApiConfigBackupSd);
