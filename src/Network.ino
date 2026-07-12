@@ -1931,7 +1931,13 @@ void handleRootPage() {
         <label class='check spanAll'><input id='cfgTgTokenShow' type='checkbox'><span>Show token</span></label>
         <label class='spanAll'><span>Chat ID</span><input name='tg_chat' id='cfgTgChat' type='text' maxlength='32' placeholder='123456789'></label>
       </div>
-      <div id='tgHint' class='hint'>Messages you when a print finishes, pauses for low resin, or is canceled. Create a bot with @BotFather for the token; get your chat ID from @userinfobot.</div>
+      <div id='tgHint' class='hint'>Messages you when a print finishes, pauses for low resin, or is canceled.</div>
+      <ol class='hint' style='margin:8px 0 0;padding-left:20px;line-height:1.6'>
+        <li>In Telegram, message <b>@BotFather</b>, send <b>/newbot</b>, follow the prompts and paste the token it gives into <b>Bot token</b> above.</li>
+        <li>Open your new bot and press <b>Start</b> (or send it any message) - a bot cannot message you until you do.</li>
+        <li>Message <b>@userinfobot</b>; it replies with your numeric <b>Id</b> - that is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to it and use the negative id it prints.)</li>
+        <li>Press <b>Save config</b>, then <b>Send test message</b> - if it arrives, you are done.</li>
+      </ol>
       <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
     </div>
     <button id='configSaveButton' class='spanAll' type='submit'>Save config</button>
