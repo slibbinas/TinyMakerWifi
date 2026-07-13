@@ -118,11 +118,13 @@ String mqttPass = "";
 String mqttTopic = "TinyMaker";
 bool connectEnabled = false;        // TinyMaker Connect web-service integration
 String connectBaseUrl = "https://tinymaker.inductie.nu";
-String connectPrinterName = "TinyMaker";
+String connectPrinterName = "";
 bool connectLeaderboardOptIn = false;
 String connectPrinterPublicId = "";
 String connectPublishToken = "";
 String connectLastStatus = "";
+bool connectAutoBackup = false;
+uint32_t connectBackupEpoch = 0;
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
@@ -164,10 +166,12 @@ void loadDeviceConfig() {
   mqttTopic = sysPrefs.getString("mqttTopic", "TinyMaker");
   connectEnabled = sysPrefs.getBool("tmcEnabled", false);
   connectBaseUrl = sysPrefs.getString("tmcUrl", "https://tinymaker.inductie.nu");
-  connectPrinterName = sysPrefs.getString("tmcName", "TinyMaker");
+  connectPrinterName = sysPrefs.getString("tmcName", "");
   connectLeaderboardOptIn = sysPrefs.getBool("tmcLeaderboard", false);
   connectPrinterPublicId = sysPrefs.getString("tmcPublicId", "");
   connectPublishToken = sysPrefs.getString("tmcToken", "");
+  connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
+  connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -200,6 +204,8 @@ void saveDeviceConfig() {
   sysPrefs.putBool("tmcLeaderboard", connectLeaderboardOptIn);
   sysPrefs.putString("tmcPublicId", connectPrinterPublicId);
   sysPrefs.putString("tmcToken", connectPublishToken);
+  sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
+  sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
@@ -494,7 +500,11 @@ String buildConfigBackupJson() {
   out += backupEscape(connectPrinterPublicId);
   out += "\",\"connectToken\":\"";
   out += backupEscape(connectPublishToken);
-  out += "\",\"printSecs\":";
+  out += "\",\"connectAutoBackup\":";
+  out += connectAutoBackup ? "true" : "false";
+  out += ",\"connectBackupEpoch\":";
+  out += String(connectBackupEpoch);
+  out += ",\"printSecs\":";
   out += String(totalPrintSecs);
   out += ",\"uvLedSecs\":";
   out += String(totalUvLedSecs);
@@ -581,10 +591,11 @@ void applyConfigBackup(const String &j) {
   connectEnabled = wifiEnabled && backupBool(j, "connectEnabled", connectEnabled);
   connectBaseUrl = backupStr(j, "connectBaseUrl", connectBaseUrl);
   connectPrinterName = backupStr(j, "connectPrinterName", connectPrinterName);
-  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
   connectLeaderboardOptIn = connectEnabled && backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
   connectPrinterPublicId = backupStr(j, "connectPublicId", connectPrinterPublicId);
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
+  connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
+  connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
   totalUvLedSecs = (uint32_t)backupNum(j, "uvLedSecs", totalUvLedSecs);
   vatRemainingMl = (float)backupNum(j, "vatRemainingMl", vatRemainingMl);
@@ -1650,6 +1661,12 @@ void loop() {
         else                                   tgNotifyFinished();
         #endif
         screen1();
+        #if ENABLE_NETWORK
+        {
+          String connectBackupMessage;
+          tinymakerConnectBackupSettings(connectBackupMessage);
+        }
+        #endif
       }
         break;
       

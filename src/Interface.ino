@@ -598,6 +598,12 @@ void advancedOptionsSelect() {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
+  #if ENABLE_NETWORK
+  if (advanced_item != 7) {
+    String connectBackupMessage;
+    tinymakerConnectBackupSettings(connectBackupMessage);
+  }
+  #endif
   if (advanced_item == 7) {
     // WiFi state only changes at boot (network_setup has no runtime
     // teardown/bring-up path), so offer a reboot to apply it now.
