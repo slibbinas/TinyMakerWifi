@@ -772,6 +772,31 @@ void screenRestoreDone(bool ok){
  * offers "Install" (self-update, no PC). UP ("Local") opens screen 422 to
  * install a specific/older version from a file via the browser.
  */
+// Screen 4211: confirmation before the on-device self-update Install -
+// guards against an accidental OK on the Update screen (the dashboard
+// already confirms downgrades; the LCD Install used to flash immediately).
+void screenUpdateConfirm(){
+#if ENABLE_NETWORK
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print("Install update?");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  gfx2->print(String("v") + otaLatestVerStr());
+#ifdef FIRMWARE_VERSION
+  gfx2->print(String("  (now v") + FIRMWARE_VERSION + ")");
+#endif
+  gfx2->setCursor(8, 52);
+  gfx2->print("Downloads and reboots");
+  gfx2->setTextColor(WHITE);
+  uiButtons("Cancel", "Install", 0x879F);
+  screen = 4211;
+#endif
+}
+
 void screen421(){
   gfx2->fillScreen(BLACK);
   uiTitle("Firmware update");
@@ -2060,10 +2085,68 @@ void runExpTest(){
     gfx2->setCursor(8, 34);
     gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
     gfx2->setCursor(8, 48);
-    gfx2->print("Set crispest in Settings");
+    gfx2->print("Rinse, then pick best bar");
+    uiButtons("Skip", "Pick", 0x879F);
+  } else {
+    uiButtons("Back", "OK", 0x879F);
   }
-  uiButtons("Back", "OK", 0x879F);
-  screen = 2321;
+  screen = canceled ? 23211 : 2321;
+}
+
+// Post-test result entry (screen 2322): the user counts the dots on the best
+// bar and the printer sets Regular exposure itself - no manual Settings trip.
+// Positions 9/10 shift the whole ladder down/up for a re-run when no bar was
+// right (every bar fat -> shorter; every bar soft/rubbery -> longer).
+// Kept behind functions: globals in later .ino tabs are not visible from
+// TinyMaker.ino's button handlers (only functions get auto-prototypes).
+int expTestPick = 5;
+
+void expTestPickStart(){ expTestPick = 5; screenExpTestPick(); }
+void expTestPickNext(){ expTestPick = expTestPick % 10 + 1; screenExpTestPick(); }
+
+void screenExpTestPick(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print("Best bar (count dots)");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  if (expTestPick <= 8) {
+    gfx2->print(String(expTestPick) + " dots -> " + expTestBarSecs(expTestPick) + "s");
+    if (expTestBarSecs(expTestPick) == (int)Regular_Exposure) gfx2->print(" (now)");
+  } else if (expTestPick == 9) {
+    gfx2->print(String("All fat -> ") + expTestBarSecs(1) + "s");
+  } else {
+    gfx2->print(String("All soft -> ") + expTestBarSecs(8) + "s");
+  }
+  gfx2->setCursor(8, 52);
+  gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (shift, retest)");
+  gfx2->setTextColor(WHITE);
+  uiButtons("Skip", "Set", 0x879F);
+  screen = 2322;
+}
+
+void expTestApplyPick(){
+  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));
+  if (t < 1) t = 1;
+  if (t > 30) t = 30;
+  Regular_Exposure = t;
+  savePrintSettings();
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print(expTestPick <= 8 ? "Exposure set" : "Ladder shifted");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  gfx2->print(String("Regular exposure = ") + t + "s");
+  gfx2->setCursor(8, 52);
+  gfx2->print(expTestPick <= 8 ? "Base ~2.5x is a good rule" : "Run the test again");
+  delay(2000);
+  screenAdvancedOptions();
 }
 
 

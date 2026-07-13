@@ -1032,6 +1032,7 @@ void loop() {
         break;
       #if ENABLE_NETWORK
       case 422:                 // install-from-file screen -> back to Update
+      case 4211:                // install confirmation -> Cancel, back to Update
       screen421();
         break;
       case 423:                 // temporary WiFi prompt -> cancel, back to System > Update
@@ -1048,7 +1049,9 @@ void loop() {
         finishRestorePromptBoot();
         break;
       case 232:                 // exposure test intro -> back to Advanced
-      case 2321:                // exposure test result -> back to Advanced
+      case 2321:                // exposure test result -> Skip (no pick)
+      case 23211:               // exposure test canceled -> back to Advanced
+      case 2322:                // best-bar picker -> Skip (keep current)
         screenAdvancedOptions();
         break;
       case 431:
@@ -1127,6 +1130,9 @@ void loop() {
         break;
       case 42:
       screen41();
+        break;
+      case 2322:                // UP on best-bar picker -> next option (1..8, shift-, shift+)
+        expTestPickNext();
         break;
       #if ENABLE_NETWORK
       case 421:                 // UP on Update screen -> install from file
@@ -1757,8 +1763,11 @@ void loop() {
         saveDeviceConfig();
         screen1();
         break;
-      case 421:                 // Update screen -> install latest (self-update)
-        if (otaHasUpdate()) otaInstallLatest();
+      case 421:                 // Update screen -> confirm before installing
+        if (otaHasUpdate()) screenUpdateConfirm();
+        break;
+      case 4211:                // install confirmation -> Install
+        otaInstallLatest();
         break;
       #endif
       case 426:                 // SD settings restore prompt -> Restore
@@ -1768,8 +1777,14 @@ void loop() {
       case 232:                 // exposure test intro -> Start
         runExpTest();
         break;
-      case 2321:                // exposure test result -> back to Advanced
+      case 2321:                // exposure test result -> Pick best bar
+        expTestPickStart();
+        break;
+      case 23211:               // exposure test canceled -> back to Advanced
         screenAdvancedOptions();
+        break;
+      case 2322:                // best-bar picker -> Set (apply the pick)
+        expTestApplyPick();
         break;
       case 441:
         advancedOptionsSelect();

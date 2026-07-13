@@ -16,11 +16,24 @@ unless noted. Community contributors are tagged inline.
 ## [Unreleased] — `experimental` branch
 
 ### Added
+- **Exposure test result entry** — after the test strip, the printer asks
+  *"Best bar (count dots)?"*: cycle to the number of dots on the crispest bar
+  and it sets *Regular exposure* itself — no manual Settings trip. Two extra
+  positions shift the whole ladder shorter/longer for a re-run when no bar
+  was right.
+- **Install confirmation on the printer** — the on-device self-update now asks
+  *"Install update?"* (with versions) before flashing, so a stray OK on the
+  Update screen can't start it.
 - **Anonymous usage ping** — once per firmware version (the first boot after a
   flash) the printer sends a hash of its factory MAC, the firmware version and
   the lifetime print hours, so we know how many printers are out there and
   which versions they run. Nothing else is sent, ever; switch it off in
   Settings (*Anonymous usage ping*).
+- **Project logo** — the dashboard favicon is now the layer-stack + WiFi mark,
+  and the Update tab shows a community counter (*N printers running
+  TinyMakerWifi*) fed by the anonymous ping.
+- The manual gained an advanced section on deriving your resin's **working
+  curve (Jacobs)** from the test strip with calipers.
 
 ## [0.14.3] — 2026-07-13
 

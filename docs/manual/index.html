@@ -376,6 +376,16 @@
   </figure>
   <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 
+  <h3 id="jacobs">Advanced: your resin’s working curve (Jacobs)</h3>
+  <p>The test strip holds more data than “which bar looks best”. Cure depth grows with the <b>logarithm</b> of exposure time — that’s why doubling the time doesn’t double the thickness, and why you judge bars by <b>edges and holes</b>, not by how thick they feel. If you want numbers:</p>
+  <ol class="steps">
+    <li><b>Measure</b> the thickness of at least 3–4 bars with calipers (skip broken ones).</li>
+    <li><b>Plot</b> thickness against <code>ln(seconds)</code> (any spreadsheet; use the bar times from the table above). The points form a straight line — that’s the resin’s <i>working curve</i>.</li>
+    <li>The <b>slope</b> is D<sub>p</sub> (how deep light penetrates); where the line crosses zero thickness is E<sub>c</sub> (the minimum exposure that cures anything). Together: <code>depth = D<sub>p</sub> · ln(t / E<sub>c</sub>)</code>.</li>
+    <li><b>Read your time:</b> for reliable layer bonding you want the cure depth around <b>2× your layer height</b> (0.1 mm for 0.05 mm layers) — find where the line reaches that thickness and use that time as <i>Regular exposure</i>.</li>
+  </ol>
+  <div class="note">💡 This is the same method resin manufacturers use to publish D<sub>p</sub>/E<sub>c</sub> — with a caliper and a strip you can characterize any unknown resin in one test.</div>
+
   <h3 id="bootanim">Boot animations</h3>
   <p>The printer can play a short animation on its screen at power-on — and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
   <ul>
