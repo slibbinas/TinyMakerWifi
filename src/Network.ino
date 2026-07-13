@@ -2193,6 +2193,7 @@ void handleRootPage() {
       <div class='configGrid'>
         <label><span>Model name</span><input id='shareModelName' type='text' maxlength='120'></label>
         <label><span>Original credits</span><input id='shareCredits' type='text' maxlength='255'></label>
+        <label><span>License</span><input id='shareLicense' type='text' maxlength='32' value='CC-BY-NC'></label>
       </div>
       <canvas id='connectPreviewCanvas' class='hidden' style='width:100%;border:1px solid #3a3a3f;border-radius:8px;background:#151517;margin-top:10px'></canvas>
       <div id='shareSteps' class='hint'></div>
@@ -3241,7 +3242,7 @@ const shareModel=async name=>{
   if(!connectIsReady()){msg('Configure TinyMaker Connect first.',true);openView('connect');return;}
   setConnectTab('models');
   openView('connect');show('connectPublishBox',true);$('shareUploadButton').classList.add('hidden');$('shareUploadButton').disabled=true;
-  $('shareModelName').value=name;$('shareCredits').value='';
+  $('shareModelName').value=name;$('shareCredits').value='';$('shareLicense').value='CC-BY-NC';
   shareState={sdName:name,details:null,archive:null,preview:null};
   try{
     shareSet('1. Calculating ml...',10);
@@ -3266,6 +3267,7 @@ const uploadSharedModel=async()=>{
   const d=shareState.details,fd=new FormData();
   fd.append('publish_token',connectConfig.connectPublishToken);
   fd.append('model_name',modelName);fd.append('original_credits',$('shareCredits').value.trim());
+  fd.append('license',$('shareLicense').value.trim()||'CC-BY-NC');
   fd.append('layers',d.layers);fd.append('height_mm',d.heightMm);if(d.resinEstimated)fd.append('resin_ml',d.resinMl);
   fd.append('archive',shareState.archive,modelName.replace(/[^A-Za-z0-9_.-]/g,'_')+'.zip');
   if(shareState.preview)fd.append('preview',shareState.preview,'preview.png');
