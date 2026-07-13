@@ -2580,6 +2580,11 @@ const uploadPreviewFromUrl=async(name,url,type)=>{
     return true;
   }finally{URL.revokeObjectURL(obj);}
 };
+const localPreviewBlob=async(name,type)=>{
+  const r=await fetch('/api/files/model/preview?name='+enc(name)+'&type='+enc(type)+'&r='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error('saved preview '+type+' failed to load');
+  return await r.blob();
+};
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
@@ -3291,6 +3296,15 @@ const shareSet=(text,pct)=>{
   show('shareProgress',pct!==null&&pct!==undefined);
   if(pct!==null&&pct!==undefined)$('shareProgressFill').style.width=Math.max(0,Math.min(100,pct))+'%';
 };
+const makeSharePreview=async(name,type,layers,modelH,pct)=>{
+  const mode=type==='05'?'source05':'print1';
+  shareSet('2. Making '+(type==='05'?'0.05':'0.10')+' mm preview...',pct);
+  await fetchSlices(name,layers,modelH,null,mode);
+  show('connectPreviewCanvas',true);drawIso($('connectPreviewCanvas'),1);
+  const blob=await canvasBlob($('connectPreviewCanvas'));
+  await uploadModelPreview(name,blob,type);
+  return blob;
+};
 const shareModel=async name=>{
   if(!connectIsReady()){msg('Configure TinyMaker Connect first.',true);openView('connect');return;}
   setConnectTab('models');
@@ -3298,23 +3312,31 @@ const shareModel=async name=>{
   $('shareModelName').value=name;$('shareCredits').value='';$('shareLicense').value='CC-BY-NC';
   shareState={sdName:name,details:null,archive:null,preview:null,preview05:null,preview1:null};
   try{
-    shareSet('1. Calculating ml...',10);
-    const d=await api('/api/files/model?name='+enc(name)+'&estimate=1',null,120000);
+    shareSet('1. Checking model details...',8);
+    let d=await api('/api/files/model?name='+enc(name),null,30000);
+    if(!d.resinEstimated){
+      shareSet('1. Calculating ml...',10);
+      d=await api('/api/files/model?name='+enc(name)+'&estimate=1',null,120000);
+    } else {
+      shareSet('1. Using saved ml estimate...',14);
+    }
     shareState.details=d;
     const sourceLayers=Number(d.sourceLayers)||Number(d.layers)||0;
     if(!sourceLayers)throw new Error('model has no source layers');
     const printLayers1=Math.max(1,Math.floor(sourceLayers/2));
-    shareSet('2. Making 0.05 mm preview...',20);
     const modelH05=sourceLayers*0.05;
-    await fetchSlices(name,sourceLayers,modelH05,null,'source05');
-    show('connectPreviewCanvas',true);drawIso($('connectPreviewCanvas'),1);
-    shareState.preview05=await canvasBlob($('connectPreviewCanvas'));
-    await uploadModelPreview(name,shareState.preview05,'05');
-    shareSet('2. Making 0.10 mm preview...',28);
-    await fetchSlices(name,printLayers1,printLayers1*0.1,null,'print1');
-    drawIso($('connectPreviewCanvas'),1);
-    shareState.preview1=await canvasBlob($('connectPreviewCanvas'));
-    await uploadModelPreview(name,shareState.preview1,'1');
+    if(d.preview05){
+      shareSet('2. Using saved 0.05 mm preview...',20);
+      shareState.preview05=await localPreviewBlob(name,'05');
+    } else {
+      shareState.preview05=await makeSharePreview(name,'05',sourceLayers,modelH05,20);
+    }
+    if(d.preview1){
+      shareSet('2. Using saved 0.10 mm preview...',28);
+      shareState.preview1=await localPreviewBlob(name,'1');
+    } else {
+      shareState.preview1=await makeSharePreview(name,'1',printLayers1,printLayers1*0.1,28);
+    }
     shareState.preview=(statusData&&Number(statusData.layerHeight)>0.06)?shareState.preview1:shareState.preview05;
     shareSet('3. Preparing model for upload...',35);
     shareState.archive=await zipModelLayers(name,sourceLayers,(i,n)=>shareSet('3. Preparing model for upload... '+i+' / '+n,35+Math.round(55*i/n)),'source05');
