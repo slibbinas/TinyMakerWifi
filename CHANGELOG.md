@@ -13,6 +13,15 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased] — `experimental` branch
+
+### Added
+- **Anonymous usage ping** — once per firmware version (the first boot after a
+  flash) the printer sends a hash of its factory MAC, the firmware version and
+  the lifetime print hours, so we know how many printers are out there and
+  which versions they run. Nothing else is sent, ever; switch it off in
+  Settings (*Anonymous usage ping*).
+
 ## [0.14.3] — 2026-07-13
 
 ### Added

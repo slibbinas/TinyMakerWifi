@@ -124,6 +124,7 @@ String connectLastStatus = "";
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
+bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 
@@ -153,6 +154,7 @@ void loadDeviceConfig() {
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
+  statsPingEnabled = sysPrefs.getBool("statsPing", true);
   bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
@@ -185,6 +187,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("wifiEnabled", wifiEnabled);
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
+  sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
   sysPrefs.putString("mqttHost", mqttHost);
@@ -492,7 +495,9 @@ String buildConfigBackupJson() {
   out += backupEscape(connectPrinterPublicId);
   out += "\",\"connectToken\":\"";
   out += backupEscape(connectPublishToken);
-  out += "\",\"printSecs\":";
+  out += "\",\"statsPing\":";
+  out += statsPingEnabled ? "true" : "false";
+  out += ",\"printSecs\":";
   out += String(totalPrintSecs);
   out += ",\"uvLedSecs\":";
   out += String(totalUvLedSecs);
@@ -583,6 +588,7 @@ void applyConfigBackup(const String &j) {
   connectLeaderboardOptIn = connectEnabled && backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
   connectPrinterPublicId = backupStr(j, "connectPublicId", connectPrinterPublicId);
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
+  statsPingEnabled = backupBool(j, "statsPing", statsPingEnabled);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
   totalUvLedSecs = (uint32_t)backupNum(j, "uvLedSecs", totalUvLedSecs);
   vatRemainingMl = (float)backupNum(j, "vatRemainingMl", vatRemainingMl);

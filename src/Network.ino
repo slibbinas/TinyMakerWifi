@@ -42,6 +42,7 @@
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
 #include <PubSubClient.h>
+#include "mbedtls/sha256.h" // anonymous stats id (hash of the efuse MAC)
 
 bool networkRuntimeEnabled() {
   return wifiEnabled || wifiTemporarilyEnabled;
@@ -65,6 +66,7 @@ bool rejectIfWebControlOff() {
 // version.txt must contain two lines: (1) the latest version, e.g. "0.7.0",
 // (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
 #define OTA_VERSION_URL "https://slibbinas.github.io/TinyMakerWifi/version.txt"
+#define STATS_PING_URL  "https://tinymaker-stats.slibbinas.workers.dev/ping"
 
 WebServer server(80);
 Preferences netPrefs;
@@ -928,6 +930,8 @@ String configJson() {
   out += webDashboardEnabled ? "true" : "false";
   out += ",\"bootUpdateCheck\":";
   out += bootUpdateCheckEnabled ? "true" : "false";
+  out += ",\"statsPing\":";
+  out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
   out += mqttEnabled ? "true" : "false";
   out += ",\"mqttConfigured\":";
@@ -974,6 +978,7 @@ void applyConfigRequest() {
   wifiEnabled = server.hasArg("wifi_enabled");
   webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
   bootUpdateCheckEnabled = server.hasArg("boot_update_check");
+  statsPingEnabled = server.hasArg("stats_ping");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
   mqttHost = formString("mqtt_host", mqttHost, 80);
@@ -1945,6 +1950,7 @@ void handleRootPage() {
     <label class='check'><input name='wifi_enabled' id='cfgWifiEnabled' type='checkbox' value='1'><span>WiFi</span></label>
     <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web control (browser actions)</span></label>
     <label class='check spanAll'><input name='boot_update_check' id='cfgBootUpdateCheck' type='checkbox' value='1'><span>Boot update check</span></label>
+    <label class='check spanAll'><input name='stats_ping' id='cfgStatsPing' type='checkbox' value='1'><span>Anonymous usage ping (version + print hours, once per update)</span></label>
     <div class='subhead'>Smart home - MQTT</div>
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT</span></label>
     <div id='mqttFields' class='spanAll hidden'>
@@ -2710,7 +2716,7 @@ const loadConfig=async()=>{
     const c=await api('/api/config');
     connectConfig=c;
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://tinymaker.inductie.nu'; $('cfgConnectPrinterName').value=c.connectPrinterName||'TinyMaker'; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
@@ -2953,6 +2959,48 @@ void otaBootCheckMaybePrompt() {
   if (!bootUpdateCheckEnabled || WiFi.status() != WL_CONNECTED) return;
   otaCheckLatest(2500);
   if (otaHasUpdate()) screenBootUpdatePrompt();
+}
+
+// ---- Anonymous install stats ----------------------------------------------
+// Once per firmware version (the first boot with WiFi after a flash) the
+// printer sends ONE anonymous ping: a SHA-256 hash of the factory MAC, the
+// firmware version and the lifetime print hours. Nothing else is sent or
+// stored (see the manual). Switchable in Settings; a failed ping is silent
+// and retried on the next boot.
+String statsHardwareHash() {
+  String seed = "TinyMakerWiFi:" + connectHardwareId();
+  unsigned char digest[32];
+  mbedtls_sha256_ret((const unsigned char *)seed.c_str(), seed.length(), digest, 0);
+  char hex[65];
+  for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", digest[i]);
+  hex[64] = 0;
+  return String(hex);
+}
+
+void statsPingMaybe() {
+  if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
+  String cur = connectFirmwareVersion();
+  sysPrefs.begin("tinymaker", true);
+  String pinged = sysPrefs.getString("statsPingVer", "");
+  sysPrefs.end();
+  if (pinged == cur) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, STATS_PING_URL)) return;
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  String body = "{\"id\":\"" + statsHardwareHash() + "\",\"version\":\"" + cur +
+                "\",\"hours\":" + String(totalPrintSecs / 3600.0, 1) + "}";
+  int code = http.POST(body);
+  http.end();
+  if (code >= 200 && code < 300) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putString("statsPingVer", cur);
+    sysPrefs.end();
+    DBGLN("Stats ping sent");
+  }
 }
 
 // Download a firmware image over HTTPS and flash it. Shows progress on the
@@ -3390,6 +3438,7 @@ void network_setup() {
   String ip = "IP: " + WiFi.localIP().toString();
   netMessage("WiFi connected", ip.c_str());
   delay(700);
+  statsPingMaybe();
   otaBootCheckMaybePrompt();
   if (screen == 424) return;
   delay(800);
