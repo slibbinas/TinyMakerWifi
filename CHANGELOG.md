@@ -13,10 +13,7 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased] — `experimental` branch
-
-Work validated on hardware and heading to `main` as **0.14.3** after a quiet
-window. Flash from the `experimental` branch to try it early.
+## [0.14.3] — 2026-07-13
 
 ### Added
 - **Telegram notifications** — the printer messages you when a print
@@ -29,8 +26,12 @@ window. Flash from the `experimental` branch to try it early.
   animations you can pick on the printer or in the dashboard, and install
   straight from the community site. *(contributed by [@Tann2019](https://github.com/Tann2019))*
 - **Build tag in the dashboard header** — experimental builds show their git
-  commit next to the version (`Firmware 0.14.2 (abc1234)`), so you can tell
+  commit next to the version (`Firmware 0.14.3 (abc1234)`), so you can tell
   exactly which build is flashed.
+- **TinyMaker Connect (early preview)** — an opt-in link to the community
+  model-sharing service being built by [@Briadark](https://github.com/Briadark).
+  Off by default; when enabled in Settings, a Connect tab shows your shared-model
+  activity. The service itself is still in testing — more when it opens up.
 
 ### Changed
 - **Dashboard styling pass:** native browser confirm dialogs replaced with a
