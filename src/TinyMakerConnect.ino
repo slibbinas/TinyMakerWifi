@@ -16,6 +16,9 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 
+bool connectBackupPending = false;
+unsigned long connectBackupDueMs = 0;
+
 String connectNormalizeBaseUrl(String url) {
   url.trim();
   while (url.endsWith("/")) url.remove(url.length() - 1);
@@ -440,6 +443,21 @@ bool tinymakerConnectBackupSettings(String &message) {
   saveDeviceConfig();
   message = connectLastStatus;
   return true;
+}
+
+void tinymakerConnectScheduleBackup() {
+  if (connectEnabled && connectAutoBackup && connectPublishToken.length() > 0) {
+    connectBackupPending = true;
+    connectBackupDueMs = millis() + 3000UL;
+  }
+}
+
+void tinymakerConnectLoop() {
+  if (!connectBackupPending || printerBusy()) return;
+  if ((long)(millis() - connectBackupDueMs) < 0) return;
+  connectBackupPending = false;
+  String message;
+  tinymakerConnectBackupSettings(message);
 }
 
 bool tinymakerConnectFetchBackup(String &backupJson, uint32_t &epoch, String &message) {

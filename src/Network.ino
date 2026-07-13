@@ -1299,8 +1299,7 @@ void handleApiConfigSave() {
 
   bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
   sendApiOk(configJson());
@@ -4221,6 +4220,7 @@ void network_loop() {
   // (same safety gate as the web /update flasher).
   if (otaMenuOpen()) ArduinoOTA.handle();
   mqtt_loop();
+  tinymakerConnectLoop();
 
   // Live refresh of the WiFi info screen (312): redraw values every 2 s
   // while the screen is open. 'screen' global is defined in the main .ino
