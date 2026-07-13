@@ -6,6 +6,8 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 📖 **[Illustrated user manual](https://slibbinas.github.io/TinyMakerWifi/manual/)** — step by step from the first flash to Home Assistant, with screenshots and an FAQ. Also one tap away from the printer's dashboard (the *Manual* link in the header).
 
+📝 **[Changelog](CHANGELOG.md)** — what each version added and who contributed it, in plain language.
+
 ## Features
 
 * **WiFi setup via captive portal** — no credentials in code, configured from your phone on first boot
