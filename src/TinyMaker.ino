@@ -92,6 +92,7 @@ float resinNeedForModelMl = -1;     // fresh full-model estimate for the selecte
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
+void cleanupManagedSdTemps();
 
 // Total print time, persisted in NVS (survives firmware re-flash, unlike the
 // EEPROM settings area). Written rarely - only at print end/cancel - to spare
@@ -122,6 +123,7 @@ String connectPrinterName = "";
 bool connectLeaderboardOptIn = false;
 String connectPrinterPublicId = "";
 String connectPublishToken = "";
+String connectRecoveryCode = "";
 String connectLastStatus = "";
 bool connectAutoBackup = false;
 uint32_t connectBackupEpoch = 0;
@@ -170,6 +172,7 @@ void loadDeviceConfig() {
   connectLeaderboardOptIn = sysPrefs.getBool("tmcLeaderboard", false);
   connectPrinterPublicId = sysPrefs.getString("tmcPublicId", "");
   connectPublishToken = sysPrefs.getString("tmcToken", "");
+  connectRecoveryCode = sysPrefs.getString("tmcRecovery", "");
   connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
   connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
@@ -204,6 +207,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("tmcLeaderboard", connectLeaderboardOptIn);
   sysPrefs.putString("tmcPublicId", connectPrinterPublicId);
   sysPrefs.putString("tmcToken", connectPublishToken);
+  sysPrefs.putString("tmcRecovery", connectRecoveryCode);
   sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
   sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
   sysPrefs.putBool("tgEnabled", tgEnabled);
@@ -417,7 +421,7 @@ String backupEscape(const String &v) {
   return out;
 }
 
-String buildConfigBackupJson() {
+String buildConfigBackupJson(bool includeSecrets = true) {
   String out = "{\"backupVersion\":1,\"firmware\":\"";
 #ifdef FIRMWARE_VERSION
   out += FIRMWARE_VERSION;
@@ -478,15 +482,19 @@ String buildConfigBackupJson() {
   out += String(mqttPort);
   out += ",\"mqttUser\":\"";
   out += backupEscape(mqttUser);
-  out += "\",\"mqttPass\":\"";
-  out += backupEscape(mqttPass);
+  if (includeSecrets) {
+    out += "\",\"mqttPass\":\"";
+    out += backupEscape(mqttPass);
+  }
   out += "\",\"mqttTopic\":\"";
   out += backupEscape(mqttTopic);
   out += "\",\"tgEnabled\":";
   out += tgEnabled ? "true" : "false";
-  out += ",\"tgToken\":\"";
-  out += backupEscape(tgToken);
-  out += "\",\"tgChat\":\"";
+  if (includeSecrets) {
+    out += ",\"tgToken\":\"";
+    out += backupEscape(tgToken);
+  }
+  out += ",\"tgChat\":\"";
   out += backupEscape(tgChat);
   out += "\",\"connectEnabled\":";
   out += connectEnabled ? "true" : "false";
@@ -498,8 +506,12 @@ String buildConfigBackupJson() {
   out += connectLeaderboardOptIn ? "true" : "false";
   out += ",\"connectPublicId\":\"";
   out += backupEscape(connectPrinterPublicId);
-  out += "\",\"connectToken\":\"";
-  out += backupEscape(connectPublishToken);
+  if (includeSecrets) {
+    out += "\",\"connectToken\":\"";
+    out += backupEscape(connectPublishToken);
+    out += "\",\"connectRecoveryCode\":\"";
+    out += backupEscape(connectRecoveryCode);
+  }
   out += "\",\"connectAutoBackup\":";
   out += connectAutoBackup ? "true" : "false";
   out += ",\"connectBackupEpoch\":";
@@ -582,6 +594,8 @@ void applyConfigBackup(const String &j) {
   mqttHost = backupStr(j, "mqttHost", mqttHost);
   mqttPort = backupClamp(backupNum(j, "mqttPort", mqttPort), 1, 65535);
   mqttUser = backupStr(j, "mqttUser", mqttUser);
+  // Secret fields are optional in Connect backups. If omitted, keep the
+  // locally stored value instead of blanking the credential on restore.
   mqttPass = backupStr(j, "mqttPass", mqttPass);
   mqttTopic = backupStr(j, "mqttTopic", mqttTopic);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
@@ -594,6 +608,7 @@ void applyConfigBackup(const String &j) {
   connectLeaderboardOptIn = connectEnabled && backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
   connectPrinterPublicId = backupStr(j, "connectPublicId", connectPrinterPublicId);
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
+  connectRecoveryCode = backupStr(j, "connectRecoveryCode", connectRecoveryCode);
   connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
   connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
@@ -779,7 +794,9 @@ void setup() {
   // SD Card Initialization / SD 卡初始化
   // -----------------------------------------------------------------------------------
   // Initialize SD card using the dedicated Chip Select pin and a safe SPI frequency (16MHz) 
-  SD.begin(SDCS, SD_SCK_MHZ(16));
+  if (SD.begin(SDCS, SD_SCK_MHZ(16))) {
+    cleanupManagedSdTemps();
+  }
     
   // -----------------------------------------------------------------------------------
   // Displays Initialization / 显示屏初始化
@@ -1662,10 +1679,7 @@ void loop() {
         #endif
         screen1();
         #if ENABLE_NETWORK
-        {
-          String connectBackupMessage;
-          tinymakerConnectBackupSettings(connectBackupMessage);
-        }
+        tinymakerConnectScheduleBackup();
         #endif
       }
         break;

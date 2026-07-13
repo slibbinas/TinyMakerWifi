@@ -239,6 +239,9 @@ void finishUpload() {
     bool existingPath = sdPathExists(dest);
     bool existingModel = existingPath && validPrintableModel(modelName);
     String action = limitedUploadArg("action", 16);
+    if (server.uri() == "/api/files/local" && action.length() == 0) {
+      action = "replace";
+    }
 
     if (existingPath && action != "replace" && action != "rename") {
       String out = "{\"ok\":false,\"error\":\"model already exists\",\"conflict\":true,\"name\":\"";
@@ -374,10 +377,6 @@ void finishPreviewUpload() {
 }
 
 void handleApiFileModelPreview() {
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1367,8 +1366,7 @@ void handleApiConfigRestore() {
   applyConfigBackup(body);
   mqttClient.disconnect();
   mqttDiscoverySent = false;
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
@@ -1400,8 +1398,7 @@ void handleApiConfigRestoreSd() {
   }
   mqttClient.disconnect();
   mqttDiscoverySent = false;
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
@@ -1436,6 +1433,7 @@ void resetConnectConfigToDefaults() {
   connectLeaderboardOptIn = false;
   connectPrinterPublicId = "";
   connectPublishToken = "";
+  connectRecoveryCode = "";
   connectLastStatus = "";
   connectAutoBackup = false;
   connectBackupEpoch = 0;
@@ -1450,8 +1448,7 @@ void handleApiConfigDefaults() {
   }
 
   resetWebConfigToDefaults();
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -1465,8 +1462,7 @@ void handleApiConfigMqttDefaults() {
   resetMqttConfigToDefaults();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -1493,8 +1489,7 @@ void handleApiConfigDryRun() {
                  server.arg("enabled") != "false";
   uvLedEnabled = !enabled;
   saveDeviceConfig();
-  String connectBackupMessage;
-  tinymakerConnectBackupSettings(connectBackupMessage);
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -2939,7 +2934,8 @@ const modelPreview=async()=>{
       await fetchSlices(selectedModel,layers,modelH,btn);
     drawIso($('modelPreviewCanvas'),1);
     const blob=await canvasBlob($('modelPreviewCanvas'));
-    await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
+    try{await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+    catch(e){msg('Preview shown, but saving it failed: '+e.message,true);}
   }catch(e){msg(e.message,true);show('previewWrap',false);}
   btn.disabled=false;btn.textContent='Preview 3D';
 };
@@ -2947,8 +2943,9 @@ const modelPreview=async()=>{
 const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectPublishToken);
 const connectBase=()=>String((connectConfig&&connectConfig.connectBaseUrl)||'https://tinymaker.inductie.nu').replace(/\/+$/,'');
 const connectApiUrl=path=>connectBase()+path;
-const connectFetchJson=async path=>{
-  const r=await fetch(connectApiUrl(path),{cache:'no-store'});
+const connectAuthHeaders=()=>connectConfig&&connectConfig.connectPublishToken?{'X-TinyMaker-Token':connectConfig.connectPublishToken}:{};
+const connectFetchJson=async(path,auth)=>{
+  const r=await fetch(connectApiUrl(path),{cache:'no-store',headers:auth?connectAuthHeaders():{}});
   let j={};try{j=await r.json();}catch(e){}
   if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));
   return j;
@@ -2964,6 +2961,7 @@ const setConnectPreviewMode=mode=>{
 const connectPostForm=(path,fd,progressCb)=>new Promise((resolve,reject)=>{
   const xhr=new XMLHttpRequest();
   xhr.open('POST',connectApiUrl(path));
+  if(connectConfig&&connectConfig.connectPublishToken)xhr.setRequestHeader('X-TinyMaker-Token',connectConfig.connectPublishToken);
   xhr.upload.onprogress=e=>{if(progressCb&&e.lengthComputable)progressCb(e.loaded,e.total);};
   xhr.onload=()=>{let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){} if(xhr.status>=200&&xhr.status<300&&j.ok!==false)resolve(j);else reject(new Error(j.error||('HTTP '+xhr.status)));};
   xhr.onerror=()=>reject(new Error('upload failed'));
@@ -3020,7 +3018,7 @@ const loadConnectModels=async(refreshLocal)=>{
     $('connectModelsList').innerHTML=items.length?'<div class="connectTiles">'+items.slice(0,20).map(m=>connectModelHtml(m,false)).join('')+'</div>':'<div class="hint">No shared models yet.</div>';
   }catch(e){$('connectModelsList').innerHTML='<div class="hint warn">'+esc(e.message)+'</div>';}
   try{
-    const mine=await connectFetchJson('/api/printers/me/models?publish_token='+enc(connectConfig.connectPublishToken));
+    const mine=await connectFetchJson('/api/printers/me/models',true);
     const items=mine.items||[];
     $('connectMineList').innerHTML=items.length?'<div class="connectTiles">'+items.map(m=>connectModelHtml(m,true)).join('')+'</div>':'<div class="hint">This printer has not shared models yet.</div>';
   }catch(e){$('connectMineList').innerHTML='<div class="hint warn">'+esc(e.message)+'</div>';}
@@ -3154,7 +3152,6 @@ const connectInstallBootAnim=async(downloadUrl,installName,publicId,animationNam
   if(!downloadUrl){msg('Animation download URL missing.',true);return;}
   if(!await uiConfirm('Install this boot animation on the printer?'))return;
   let url=downloadUrl.indexOf('http')===0?downloadUrl:connectBase()+downloadUrl;
-  url+=(url.indexOf('?')>=0?'&':'?')+'publish_token='+enc(connectConfig.connectPublishToken);
   const fd=new URLSearchParams();fd.append('url',url);fd.append('name',installName);
   if(publicId){fd.append('public_id',publicId);fd.append('connect_url',connectBase()+'/api/boot-animations/'+enc(publicId)+'/download');}
   if(animationName)fd.append('animation_name',animationName);
@@ -3206,7 +3203,7 @@ const setConnectTab=tab=>{
 const connectModelAction=async(id,action)=>{
   id=decodeURIComponent(id);
   if(action==='removed'&&!await uiConfirm('Remove this shared model from TinyMaker Connect?',{danger:true}))return;
-  const fd=new FormData();fd.append('publish_token',connectConfig.connectPublishToken);
+  const fd=new FormData();
   if(action==='removed')fd.append('_method','DELETE');else{fd.append('_method','PATCH');fd.append('status',action);}
   try{await connectPostForm('/api/models/'+enc(id),fd,null);loadConnectModels();}catch(e){msg(e.message,true);}
 };
@@ -3218,10 +3215,10 @@ const connectImportModel=async(id,name,downloadUrl,credits,licenseName,preview05
   if(statusData&&statusData.busy){msg('Printer is busy. Import when idle.',true);return;}
   if(statusData&&statusData.sdReady===false){msg('Insert an SD card before importing models.',true);return;}
   if(!await uiConfirm('Import '+name+' to the printer SD card?'))return;
-  const url=connectBase()+downloadUrl+(downloadUrl.indexOf('?')>=0?'&':'?')+'publish_token='+enc(connectConfig.connectPublishToken);
+  const url=connectBase()+downloadUrl;
   try{
     msg('Downloading '+name+' from TinyMaker Connect...');
-    const r=await fetch(url,{cache:'no-store'});
+    const r=await fetch(url,{cache:'no-store',headers:connectAuthHeaders()});
     if(!r.ok)throw new Error('download failed (HTTP '+r.status+')');
     const blob=await r.blob();
     if(!checkUploadFits(blob.size,$('statusMsg')))return;
@@ -3349,7 +3346,6 @@ const uploadSharedModel=async()=>{
   const modelName=$('shareModelName').value.trim();
   if(!modelName){msg('Model name is required.',true);return;}
   const d=shareState.details,fd=new FormData();
-  fd.append('publish_token',connectConfig.connectPublishToken);
   fd.append('model_name',modelName);fd.append('original_credits',$('shareCredits').value.trim());
   const sourceLayers=Number(d.sourceLayers)||Number(d.layers)||0;
   fd.append('license',$('shareLicense').value.trim()||'CC-BY-NC');
@@ -3480,7 +3476,7 @@ const loadConfig=async()=>{
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://tinymaker.inductie.nu'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
     const connectId=c.connectPrinterPublicId||''; const reclaim=!!c.connectReclaimRequired&&!connectId; $('connectHint').textContent=connectId?('Registered as '+connectId+'. Publish token stored'+(c.connectTokenTail?(' (ends in '+c.connectTokenTail+')'):'')+'. '+(c.connectLeaderboardOptIn?'Leaderboard sharing on.':'Leaderboard sharing off.')):(reclaim?'This printer has been connected before. Enter the recovery code or set it up as a new printer.':(c.connectLastStatus||'Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.'));$('connectRegisterButton').textContent=connectId?'Update TinyMaker Connect':'Register TinyMaker Connect';
     show('connectReclaimBox',reclaim);
-    show('connectRecoveryCodeBox',!!connectId&&!!c.connectTokenSet);
+    show('connectRecoveryCodeBox',!!connectId&&!!c.connectRecoveryCodeSet);
     $('connectRecoveryCodeValue').value='';
     $('connectRecoveryCodeValue').type='password';
     $('connectCopyRecoveryButton').disabled=true;
@@ -3505,7 +3501,7 @@ const loadConfig=async()=>{
     show('connectBackupTools',!!c.connectEnabled);
     $('connectAutoBackupButton').textContent=c.connectAutoBackup?'Disable Auto backup to Connect':'Enable Auto backup to Connect';
     $('connectAutoBackupButton').classList.toggle('danger',!!c.connectAutoBackup);
-    $('connectBackupHint').textContent=(c.connectAutoBackup?'Connect auto backup is on. ':'Connect auto backup is off. ')+(c.connectBackupEpoch?('Last Connect backup: '+fmt24(c.connectBackupEpoch)+'. '):'No Connect backup has been saved yet. ')+(c.connectTokenSet?'':'Register TinyMaker Connect first.');
+    $('connectBackupHint').textContent=(c.connectAutoBackup?'Connect auto backup is on. ':'Connect auto backup is off. ')+(c.connectBackupEpoch?('Last Connect backup: '+fmt24(c.connectBackupEpoch)+'. '):'No Connect backup has been saved yet. ')+'Connect backups do not include stored MQTT, Telegram or Connect tokens. '+(c.connectTokenSet?'':'Register TinyMaker Connect first.');
     $('connectAutoBackupButton').disabled=locked||!c.connectTokenSet;
     $('connectBackupDownloadButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
     $('connectBackupRestoreButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
@@ -3521,7 +3517,7 @@ $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();f
 
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
-$('connectAutoBackupButton').addEventListener('click',async()=>{const enabled=!!(connectConfig&&connectConfig.connectAutoBackup);const next=!enabled;const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'}))return;try{await api('/api/config',{method:'POST',body:configFormData(next)},12000);msg(next?'Connect auto backup enabled.':'Connect auto backup disabled.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectAutoBackupButton').addEventListener('click',async()=>{const enabled=!!(connectConfig&&connectConfig.connectAutoBackup);const next=!enabled;const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints. Stored MQTT, Telegram and Connect tokens are not included.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'}))return;try{await api('/api/config',{method:'POST',body:configFormData(next)},12000);msg(next?'Connect auto backup enabled.':'Connect auto backup disabled.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('connectBackupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/connect/backup',{cache:'no-store'});if(!r.ok){let j={};try{j=await r.json();}catch(e){}throw new Error(j.error||('backup failed (HTTP '+r.status+')'));}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-connect-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Connect backup downloaded.');}catch(e){msg(e.message,true);loadConfig();}});
 $('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
@@ -3946,6 +3942,10 @@ void handleApiBootAnimInstall() {
 
   http.setTimeout(12000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  if (connectPublishToken.length() > 0 &&
+      url.startsWith(connectNormalizeBaseUrl(connectBaseUrl) + "/")) {
+    http.addHeader("X-TinyMaker-Token", connectPublishToken);
+  }
   int code = http.GET();
   if (code != HTTP_CODE_OK) {
     http.end();

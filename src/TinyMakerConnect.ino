@@ -206,8 +206,6 @@ bool connectPostJson(const String &path, const String &body, String &response, S
   }
 
   String url = base + path;
-  url += path.indexOf('?') >= 0 ? "&" : "?";
-  url += "publish_token=" + connectUrlEncode(connectPublishToken);
   HTTPClient http;
   WiFiClient plain;
   WiFiClientSecure secure;
@@ -307,8 +305,6 @@ bool connectGetAuthorized(const String &path, String &response, String &error) {
   }
 
   String url = base + path;
-  url += path.indexOf('?') >= 0 ? "&" : "?";
-  url += "publish_token=" + connectUrlEncode(connectPublishToken);
   HTTPClient http;
   WiFiClient plain;
   WiFiClientSecure secure;
@@ -391,6 +387,7 @@ bool tinymakerConnectRegister(String &message, const String &recoveryCode = "", 
 
   String publicId = connectJsonString(response, "printer_public_id");
   String token = connectJsonString(response, "publish_token");
+  String recovery = connectJsonString(response, "recovery_code");
   if (publicId.length() == 0 || token.length() == 0) {
     connectLastStatus = "bad register response";
     message = connectLastStatus;
@@ -399,6 +396,7 @@ bool tinymakerConnectRegister(String &message, const String &recoveryCode = "", 
 
   connectPrinterPublicId = publicId;
   connectPublishToken = token;
+  if (recovery.length() > 0) connectRecoveryCode = recovery;
   {
     String backupResponse;
     String backupError;
@@ -425,7 +423,7 @@ bool tinymakerConnectBackupSettings(String &message) {
 
   String response;
   String error;
-  if (!connectPostJson("/api/printers/me/backup", buildConfigBackupJson(), response, error)) {
+  if (!connectPostJson("/api/printers/me/backup", buildConfigBackupJson(false), response, error)) {
     connectLastStatus = error;
     message = error;
     saveDeviceConfig();
@@ -514,6 +512,8 @@ String tinymakerConnectConfigJson() {
   out += jsonEscape(connectPrinterPublicId);
   out += "\",\"connectTokenSet\":";
   out += connectPublishToken.length() > 0 ? "true" : "false";
+  out += ",\"connectRecoveryCodeSet\":";
+  out += connectRecoveryCode.length() > 0 ? "true" : "false";
   // Last 4 chars only, for a "token is stored" hint without echoing the secret.
   out += ",\"connectTokenTail\":\"";
   out += jsonEscape(connectPublishToken.length() > 4 ? connectPublishToken.substring(connectPublishToken.length() - 4) : "");
@@ -558,13 +558,13 @@ void handleApiConnectRegister() {
 
 void handleApiConnectRecoveryCode() {
   if (rejectIfWebControlOff()) return;
-  if (connectPublishToken.length() == 0) {
+  if (connectRecoveryCode.length() == 0) {
     sendApiError(404, "recovery code is not available");
     return;
   }
 
   String out = "\"recoveryCode\":\"";
-  out += jsonEscape(connectPublishToken);
+  out += jsonEscape(connectRecoveryCode);
   out += "\"";
   sendApiOk(out);
 }

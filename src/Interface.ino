@@ -600,8 +600,7 @@ void advancedOptionsSelect() {
   saveDeviceConfig();
   #if ENABLE_NETWORK
   if (advanced_item != 7) {
-    String connectBackupMessage;
-    tinymakerConnectBackupSettings(connectBackupMessage);
+    tinymakerConnectScheduleBackup();
   }
   #endif
   if (advanced_item == 7) {
