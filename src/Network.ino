@@ -1703,11 +1703,15 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".storageBar{height:10px;border:1px solid #555;border-radius:999px;overflow:hidden;background:#1c1c1e;margin-top:8px}"
     ".storageBar span{display:block;height:100%;width:0;background:#e8720c;transition:width .2s ease}"
     "@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}"
-    "button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:#e8720c;color:#fff;padding:12px 14px;"
+    // Every standalone button gets a top gap so it never sticks to the content
+    // above it (primary buttons used to lack this - secondary had it inline).
+    // Buttons laid out in rows/grids zero it below; those containers own spacing.
+    "button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:#e8720c;color:#fff;padding:12px 14px;margin-top:10px;"
     "font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}"
     ".small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:#7b2f2f}.secondaryBtn{background:#3c3c42}"
     "button:disabled{background:#555;color:#aaa;cursor:not-allowed}"
-    ".button.secondary{background:#3c3c42;margin-top:10px}"
+    ".button.secondary{background:#3c3c42}"
+    ".grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}"
     // Full-page lock while a firmware update is in flight; cleared by the
     // automatic reload once the printer answers status polls again.
     ".updOverlay{position:fixed;inset:0;z-index:99;background:rgba(20,20,22,.93);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}"
@@ -1939,7 +1943,7 @@ void handleRootPage() {
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
     <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
   </div>
-  <button type='submit' style='margin-top:14px'>Save config</button>
+  <button type='submit'>Save config</button>
   </div>
   <div class='card'>
   <h2>Network &amp; integrations</h2>
@@ -1986,7 +1990,7 @@ void handleRootPage() {
       </div>
     </div>
   </div>
-  <button id='configSaveButton' type='submit' style='margin-top:14px'>Save config</button>
+  <button id='configSaveButton' type='submit'>Save config</button>
   </div>
   </form>
   <div class='card'>
@@ -2217,7 +2221,10 @@ const refreshStatus=async()=>{
   if(statusInFlight)return;
   statusInFlight=true;
   try{
-    const s=await api('/api/status',null,30000);
+    // While the update overlay is up the printer is rebooting: a poll on the
+    // old connection can hang the full 30s and, via statusInFlight, block the
+    // reload from firing. Short timeout so recovery is caught within seconds.
+    const s=await api('/api/status',null,updLock?4000:30000);
     if(reloadIfFirmwareChanged(s))return;
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
