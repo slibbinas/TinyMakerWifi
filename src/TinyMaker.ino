@@ -105,6 +105,7 @@ bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
 bool webDashboardEnabled = true;
 bool bootUpdateCheckEnabled = true;
+String bootAnimName = "";      // "" = built-in splash; else a basename in /bootanim/
 bool wifiTemporarilyEnabled = false;
 bool webDashboardTemporarilyEnabled = false;
 bool mqttEnabled = false;           // Smart Home / MQTT integration scaffold
@@ -152,6 +153,7 @@ void loadDeviceConfig() {
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
+  bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
   mqttPort = sysPrefs.getUShort("mqttPort", 1883);
@@ -183,6 +185,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("wifiEnabled", wifiEnabled);
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
+  sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
   sysPrefs.putString("mqttHost", mqttHost);
   sysPrefs.putUShort("mqttPort", mqttPort);
@@ -456,6 +459,9 @@ String buildConfigBackupJson() {
   out += webDashboardEnabled ? "true" : "false";
   out += ",\"bootUpdateCheck\":";
   out += bootUpdateCheckEnabled ? "true" : "false";
+  out += ",\"bootAnim\":\"";
+  out += backupEscape(bootAnimName);
+  out += "\"";
   out += ",\"mqttEnabled\":";
   out += mqttEnabled ? "true" : "false";
   out += ",\"mqttHost\":\"";
@@ -559,6 +565,7 @@ void applyConfigBackup(const String &j) {
   wifiEnabled = backupBool(j, "wifiEnabled", wifiEnabled);
   webDashboardEnabled = wifiEnabled && backupBool(j, "webDashboardEnabled", webDashboardEnabled);
   bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
+  bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
   mqttPort = backupClamp(backupNum(j, "mqttPort", mqttPort), 1, 65535);

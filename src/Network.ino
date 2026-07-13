@@ -2009,6 +2009,12 @@ void handleRootPage() {
   <div id='configHint' class='hint'>Config locks automatically while printing.</div>
 </section>
 
+<section id='bootAnimView' class='card hidden'>
+  <h2>Boot animation</h2>
+  <div id='bootAnimList'></div>
+  <div id='bootAnimHint' class='hint'>Choose which animation plays at power-on. Send more from the community site; Delete removes one from the SD card.</div>
+</section>
+
 <section id='updateView' class='card hidden'>
   <h2>Firmware update</h2>
   <div class='grid'>
@@ -2132,11 +2138,69 @@ const reloadIfFirmwareChanged=s=>{
   location.replace('/?fw='+encodeURIComponent(live)+'&r='+Date.now());
   return true;
 };
+const loadBootAnims=async()=>{
+  const wrap=$('bootAnimList');
+  try{
+    const d=await api('/api/boot-anim');
+    const sel=d.selected||'';
+    wrap.innerHTML='';
+    wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px';
+    const rows=[{name:'',display:'Default (built-in)'}].concat(d.animations||[]);
+    rows.forEach(a=>{
+      const active=sel===a.name;
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px'+(active?';background:rgba(255,138,30,.09)':'');
+
+      const pick=document.createElement('button');
+      pick.type='button';
+      pick.style.cssText='flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:0;margin:0;text-align:left';
+
+      const dot=document.createElement('span');
+      dot.style.cssText='flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid '+(active?'#ff8a1e':'#6a6a72')+';background:'+(active?'#ff8a1e':'transparent')+';box-shadow:'+(active?'inset 0 0 0 2px #1e1e23':'none');
+
+      const label=document.createElement('span');
+      label.style.cssText='min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(active?'#ff8a1e':'#e9e9ec')+';font-weight:'+(active?'600':'500');
+      label.textContent=a.display;
+
+      pick.appendChild(dot);pick.appendChild(label);
+      if(a.name){
+        const meta=document.createElement('span');
+        meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
+        meta.textContent=formatBytes(a.sizeBytes);
+        pick.appendChild(meta);
+      }
+      pick.addEventListener('click',()=>selectBootAnim(a.name));
+      row.appendChild(pick);
+
+      if(a.name){
+        const del=document.createElement('button');
+        del.type='button';
+        del.style.cssText='flex:0 0 auto;width:auto;white-space:nowrap;margin:0;padding:5px 13px;font-size:12.5px;background:transparent;border:1px solid #44343a;color:#e08a92;border-radius:7px;cursor:pointer';
+        del.textContent='Delete';
+        del.addEventListener('click',()=>deleteBootAnim(a.name,a.display));
+        row.appendChild(del);
+      }
+      wrap.appendChild(row);
+    });
+  }catch(e){$('bootAnimHint').textContent=e.message;}
+};
+const selectBootAnim=async name=>{
+  try{await api('/api/boot-anim/select',{method:'POST',body:new URLSearchParams({name})});
+    msg(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.');loadBootAnims();}
+  catch(e){msg(e.message,true);}
+};
+const deleteBootAnim=async(name,display)=>{
+  if(!await uiConfirm('Delete "'+display+'" from the printer?',{danger:true}))return;
+  try{await api('/api/boot-anim/delete',{method:'POST',body:new URLSearchParams({name})});
+    msg('Deleted "'+display+'".');loadBootAnims();}
+  catch(e){msg(e.message,true);}
+};
 const openView=view=>{
   show('homeView',view==='home');
   show('modelPanel',view==='model');
   show('connectView',view==='connect');
   show('configView',view==='config');
+  show('bootAnimView',view==='config');
   show('updateView',view==='update');
   $('homeViewButton').classList.toggle('active',view==='home'||view==='model');
   $('connectViewButton').classList.toggle('active',view==='connect');
@@ -2144,7 +2208,7 @@ const openView=view=>{
   $('updateViewButton').classList.toggle('active',view==='update');
   if(view==='home')loadFiles();
   if(view==='connect')loadConfig().then(()=>loadConnectModels());
-  if(view==='config')loadConfig();
+  if(view==='config'){loadConfig();loadBootAnims();}
   if(view==='update')loadUpdate();
 };
 
@@ -3005,6 +3069,175 @@ void drawWifiBadge() {
   gfx2->fillRect(154, 2, 2, 9, c);   // tall bar (ends 2 px from the edge)
 }
 
+// Boot-animation install: the printer pulls a TMB1 file from a community URL and
+// stores it in the /bootanim library, then makes it the active boot animation.
+// CORS header so the cross-origin "Send to printer" page can read our reply.
+//   POST /api/boot-anim/install   body: url=<http/https .tmb url>&name=<slug>
+void handleApiBootAnimInstall() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+
+  if (rejectIfWebControlOff()) return;                       // 403 when web control off
+  if (printerBusy())   { sendApiError(409, "printer busy"); return; }
+  if (!sdCardReady())  { sendApiError(503, "sd card unavailable"); return; }
+  if (WiFi.status() != WL_CONNECTED) { sendApiError(503, "wifi not connected"); return; }
+
+  String url = server.arg("url");
+  url.trim();
+  if (!(url.startsWith("http://") || url.startsWith("https://"))) {
+    sendApiError(400, "missing or invalid url");
+    return;
+  }
+
+  String slug = sanitizeAnimName(server.arg("name"));
+
+  netProgressStart("Boot animation:", "downloading");
+
+  HTTPClient http;
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  bool ok;
+  if (url.startsWith("https://")) { secure.setInsecure(); ok = http.begin(secure, url); }
+  else                            { ok = http.begin(plain, url); }
+  if (!ok) { sendApiError(502, "could not start download"); netMessage("Boot animation", "download failed"); delay(1200); screen1(); return; }
+
+  http.setTimeout(12000);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    http.end();
+    sendApiError(502, (String("download HTTP ") + code).c_str());
+    netMessage("Boot animation", "download failed");
+    delay(1200); screen1();
+    return;
+  }
+
+  WiFiClient *stream = http.getStreamPtr();
+  int remaining = http.getSize();  // -1 when the length is unknown (chunked)
+
+  // Read the first chunk and verify the TMB1 magic BEFORE we open the target file,
+  // so a bad download can't clobber an existing animation of the same name.
+  uint8_t buf[1024];
+  uint32_t waitStart = millis();
+  int first = 0;
+  // Accumulate until we have the full 12-byte header (or time out): a slow server
+  // can deliver the magic across several small segments, and breaking after the
+  // first read would false-reject a valid TMB1 file.
+  while (first < 12 && millis() - waitStart < 12000) {
+    size_t avail = stream->available();
+    if (avail) {
+      int n = stream->readBytes(buf + first, avail > sizeof(buf) - first ? sizeof(buf) - first : avail);
+      if (n > 0) first += n;
+    } else {
+      delay(2);
+    }
+  }
+  if (first < 12 || buf[0] != 'T' || buf[1] != 'M' || buf[2] != 'B' || buf[3] != '1') {
+    http.end();
+    sendApiError(422, "not a TMB1 animation");
+    netMessage("Boot animation", "invalid file");
+    delay(1200); screen1();
+    return;
+  }
+
+  SD.mkdir(BOOTANIM_DIR);
+  String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
+  SD.remove(savePath.c_str());
+  File out = SD.open(savePath.c_str(), FILE_WRITE);
+  if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); screen1(); return; }
+
+  const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
+  bool tooBig = false;
+  size_t total = 0;
+  out.write(buf, first);
+  total += first;
+  if (remaining > 0) remaining -= first;
+
+  uint32_t lastDraw = 0;
+  while (http.connected() && remaining != 0) {
+    size_t avail = stream->available();
+    if (avail) {
+      int n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
+      if (n <= 0) break;
+      out.write(buf, n);
+      total += n;
+      if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
+      if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
+      if (millis() - lastDraw > 120) {       // size may be unknown; bar wraps every 256 KB
+        lastDraw = millis();
+        int w = (int)((total % 262144L) * 136L / 262144L);
+        gfx2->fillRect(12, 50, 136, 12, BLACK);
+        gfx2->fillRect(12, 50, w, 12, ORANGE);
+      }
+    } else {
+      if (!http.connected()) break;
+      delay(2);
+    }
+  }
+  out.close();
+  http.end();
+
+  if (tooBig) {
+    SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
+    sendApiError(413, "animation too large");
+    netMessage("Boot animation", "file too large");
+    delay(1200); screen1();
+    return;
+  }
+
+  bootAnimName = slug;          // installed animation becomes the active one
+  saveDeviceConfig();
+  sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
+  netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
+  delay(1200);
+  screen1();
+}
+
+// GET /api/boot-anim - list installed animations + which one is active.
+void handleApiBootAnimList() {
+  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String names[24];
+  int n = listBootAnims(names, 24);
+  String out = "{\"selected\":\"" + jsonEscape(bootAnimName) + "\",\"animations\":[";
+  for (int i = 0; i < n; i++) {
+    if (i) out += ",";
+    String path = String(BOOTANIM_DIR) + "/" + names[i] + ".tmb";
+    File f = SD.open(path.c_str());
+    long sz = f ? (long)f.size() : 0;
+    if (f) f.close();
+    out += "{\"name\":\"" + jsonEscape(names[i]) + "\",\"display\":\"" +
+           jsonEscape(bootAnimDisplay(names[i])) + "\",\"sizeBytes\":" + String(sz) + "}";
+  }
+  out += "]}";
+  server.send(200, "application/json", out);
+}
+
+// POST /api/boot-anim/select  body: name=<slug|empty>  ("" = built-in Default)
+void handleApiBootAnimSelect() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy()) { sendApiError(409, "printer busy"); return; }
+  String name = server.arg("name");
+  name.trim();
+  if (name.length() > 0 && !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
+  bootAnimName = name;
+  saveDeviceConfig();
+  sendApiOk("\"selected\":\"" + jsonEscape(bootAnimName) + "\"");
+}
+
+// POST /api/boot-anim/delete  body: name=<slug>
+void handleApiBootAnimDelete() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = server.arg("name");
+  name.trim();
+  if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
+  String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
+  SD.remove(path.c_str());
+  if (bootAnimName == name) { bootAnimName = ""; saveDeviceConfig(); }  // fall back to Default
+  sendApiOk("");
+}
+
 void network_setup() {
   if (!networkRuntimeEnabled()) {
     WiFi.mode(WIFI_OFF);
@@ -3116,6 +3349,16 @@ void network_setup() {
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
   server.on("/api/print/resume", HTTP_POST, handleApiPrintResume);
   server.on("/api/print/stop", HTTP_POST, handleApiPrintStop);
+  server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
+  server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
+  server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
+  server.on("/api/boot-anim/install", HTTP_POST, handleApiBootAnimInstall);
+  server.on("/api/boot-anim/install", HTTP_OPTIONS, []() {   // CORS preflight
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.send(204);
+  });
   server.on("/api/files/local", HTTP_POST, finishUpload, handleUploadData);
 
   // Plain endpoint for curl / UVtools testing:

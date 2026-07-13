@@ -104,11 +104,137 @@ void netProgressBar(int step, int total) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ---- Boot-animation library (/bootanim/*.tmb) -----------------------------
+// The printer keeps a folder of named TMB1 animations; bootAnimName selects the
+// active one ("" = built-in splash). Kept out of the ENABLE_NETWORK block so the
+// on-device menu + playback work in the network-free build too; the /api/boot-anim
+// endpoints and dashboard card live in Network.ino.
+#define BOOTANIM_DIR "/bootanim"
+
+// Keep only [a-z0-9-_], lowercase, <=40 chars; never empty (used as a filename).
+String sanitizeAnimName(const String &in) {
+  String out;
+  for (size_t i = 0; i < in.length() && out.length() < 40; i++) {
+    char c = in[i];
+    if (c >= 'A' && c <= 'Z') c += 32;
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') out += c;
+  }
+  return out.length() ? out : String("downloaded");
+}
+
+// Fill out[] with the .tmb basenames (no extension) in /bootanim; returns count.
+int listBootAnims(String out[], int maxN) {
+  int count = 0;
+  File dir = SD.open(BOOTANIM_DIR);
+  if (!dir) return 0;
+  File e;
+  while (count < maxN && (e = dir.openNextFile())) {
+    char nm[64];
+    e.getName(nm, sizeof(nm));
+    bool isDir = e.isDirectory();
+    e.close();
+    if (isDir) continue;
+    String s = nm, lower = nm;
+    lower.toLowerCase();
+    if (!lower.endsWith(".tmb")) continue;
+    out[count++] = s.substring(0, s.length() - 4);
+  }
+  dir.close();
+  return count;
+}
+
+bool bootAnimExists(const String &name) {
+  if (name.length() == 0) return false;
+  String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
+  File f = SD.open(path.c_str());
+  bool ok = (bool)f;
+  if (f) f.close();
+  return ok;
+}
+
+// "cure-line" -> "Cure Line" for the menu value / dashboard label.
+String bootAnimDisplay(const String &name) {
+  if (name.length() == 0) return "Default";
+  String out;
+  bool up = true;
+  for (size_t i = 0; i < name.length(); i++) {
+    char c = name[i];
+    if (c == '-' || c == '_') { out += ' '; up = true; }
+    else if (up) { out += (char)toupper(c); up = false; }
+    else out += c;
+  }
+  return out;
+}
+
+// Advanced-menu cycle order: Default ("") -> each file -> back to Default.
+String nextBootAnim(const String &current) {
+  String names[24];
+  int n = listBootAnims(names, 24);
+  if (current.length() == 0) return n > 0 ? names[0] : String("");
+  for (int i = 0; i < n; i++)
+    if (names[i] == current) return (i + 1 < n) ? names[i + 1] : String("");
+  return "";  // current was deleted -> back to Default
+}
+
+// Play the selected boot animation from the /bootanim library. Returns true if
+// it played, false to fall back to the built-in splash. Reads the selection
+// directly because loadDeviceConfig() runs after screen0() at boot.
+bool playBootAnimFromSd() {
+  sysPrefs.begin("tinymaker", true);
+  String name = sysPrefs.getString("bootAnimName", "");
+  sysPrefs.end();
+  if (name.length() == 0) return false;
+
+  String path = "/bootanim/" + name + ".tmb";
+  File f = SD.open(path.c_str());
+  if (!f) return false;
+
+  uint8_t hdr[12];
+  if (f.read(hdr, 12) != 12 ||
+      hdr[0] != 'T' || hdr[1] != 'M' || hdr[2] != 'B' || hdr[3] != '1') {
+    f.close();
+    return false;
+  }
+  uint16_t w   = hdr[4]  | (hdr[5]  << 8);
+  uint16_t h   = hdr[6]  | (hdr[7]  << 8);
+  uint16_t n   = hdr[8]  | (hdr[9]  << 8);
+  uint16_t fps = hdr[10] | (hdr[11] << 8);
+  if (w == 0 || w > 160 || h == 0 || h > 80 || n == 0) { f.close(); return false; }
+
+  size_t frameBytes = (size_t)w * h * 2;
+  uint16_t *frame = (uint16_t *)malloc(frameBytes);
+  if (!frame) { f.close(); return false; }
+
+  int frameDelay = fps > 0 ? (1000 / fps) : 80;
+  int16_t ox = (160 - w) / 2, oy = (80 - h) / 2;
+  gfx2->fillScreen(BLACK);
+  // These files can arrive from a community site, so frameCount (uint16, up to
+  // 65535) is untrusted: cap total frames and elapsed time so a corrupt/oversized
+  // animation can't hold boot hostage, and let Back skip it immediately.
+  const uint16_t MAX_FRAMES = 250;
+  const uint32_t MAX_MS     = 10000;
+  uint16_t limit = n < MAX_FRAMES ? n : MAX_FRAMES;
+  uint32_t animStart = millis();
+  for (uint16_t i = 0; i < limit; i++) {
+    if (f.read((uint8_t *)frame, frameBytes) != (int)frameBytes) break;
+    gfx2->draw16bitRGBBitmap(ox, oy, frame, w, h);
+    delay(frameDelay);
+    if (digitalRead(buttonBack) == LOW) break;   // user skip
+    if (millis() - animStart > MAX_MS) break;     // hard time budget
+  }
+  free(frame);
+  f.close();
+  return true;
+}
+
 /**
- * @brief Screen 0: Welcome Screen
- * Displays "Hello, World!" message on startup.
+ * @brief Screen 0: Boot splash
+ * Plays the selected animation from the /bootanim library when one is chosen in
+ * Advanced; otherwise the built-in rising "Tiny Maker" wordmark.
  */
 void screen0(){
+  if (playBootAnimFromSd()) return;
+
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setCursor(5, 74);
@@ -122,7 +248,7 @@ void screen0(){
   for (int i = 0; i < 40; i++) {
     gfx2->setCursor(40, i);
     gfx2->setTextColor(ORANGE);
-    gfx2->println("Tiny Maker"); 
+    gfx2->println("Tiny Maker");
     delay(30);
     gfx2->setCursor(40, i);
     gfx2->setTextColor(BLACK);
@@ -130,7 +256,7 @@ void screen0(){
   }
   gfx2->setCursor(40, 40);
   gfx2->setTextColor(ORANGE);
-  gfx2->println("Tiny Maker"); 
+  gfx2->println("Tiny Maker");
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -335,7 +461,7 @@ bool advancedMqttConfigured() {
 }
 
 int advancedOptionCount() {
-  int count = 9; // timeout, dry run, VAT refilled, pause, warn, ask, WiFi, boot update, exposure test
+  int count = 10; // ...exposure test, boot animation
   if (wifiEnabled) count++; // web control
   if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
   return count;
@@ -351,8 +477,9 @@ String advancedLabel(int item) {
   if (item == 7) return "WiFi";
   if (item == 8) return "Boot update";
   if (item == 9) return "Exposure test";
-  if (wifiEnabled && item == 10) return "Web control";
-  if (wifiEnabled && advancedMqttConfigured() && item == 11) return "MQTT";
+  if (item == 10) return "Boot animation";
+  if (wifiEnabled && item == 11) return "Web control";
+  if (wifiEnabled && advancedMqttConfigured() && item == 12) return "MQTT";
   return "";
 }
 
@@ -369,8 +496,10 @@ String advancedValue(int item) {
   if (item == 7) return wifiEnabled ? "On" : "Off";
   if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
   if (item == 9) return String(expTestBarSecs(1)) + "-" + String(expTestBarSecs(8)) + "s strip";
-  if (wifiEnabled && item == 10) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 11) return mqttEnabled ? "On" : "Off";
+  if (item == 10) return bootAnimName.length() == 0 ? "Default"
+    : (bootAnimExists(bootAnimName) ? bootAnimDisplay(bootAnimName) : bootAnimDisplay(bootAnimName) + " (missing)");
+  if (wifiEnabled && item == 11) return webDashboardEnabled ? "On" : "Off";
+  if (wifiEnabled && advancedMqttConfigured() && item == 12) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
@@ -441,9 +570,11 @@ void advancedOptionsSelect() {
   } else if (advanced_item == 9) {
     screenExpTestIntro();       // action item: opens the exposure test flow
     return;
-  } else if (wifiEnabled && advanced_item == 10) {
+  } else if (advanced_item == 10) {
+    bootAnimName = nextBootAnim(bootAnimName);  // cycle Default -> each installed animation
+  } else if (wifiEnabled && advanced_item == 11) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 11) {
+  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 12) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
