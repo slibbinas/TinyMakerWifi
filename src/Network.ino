@@ -1826,9 +1826,17 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // margins (user finding). Connect goes full width (its tiles auto-fill);
     // the rest widen to 900 with three-column form fields, and the model
     // panel splits info | 3D preview once the preview is open.
-    "#configView,#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
+    // Settings spans the full frame width like the dashboard; the other
+    // views stay a comfortable 900px band.
+    "#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
     ".configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}"
-    "#cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px}#cfgPair .card{margin:12px 0 0}"
+    // Print settings are exactly 16 fields -> a clean 4x4 block; grids inside
+    // the half-width paired cards drop back to two columns.
+    ".configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}"
+    ".cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}"
+    ".cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}"
+    // Full-width backup card: the four backup/restore buttons fit one row.
+    "#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}"
     "#modelPanel:has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}"
     "#modelPanel:has(#previewWrap:not(.hidden)) #modelBackButton,#modelPanel:has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}"
     "#modelPanel:has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:3/span 6;margin-top:0}}"
@@ -2014,7 +2022,7 @@ void handleRootPage() {
   <form id='configForm'>
   <div class='card'>
   <h2>Print settings</h2>
-  <div class='configGrid'>
+  <div class='configGrid grid4'>
     <label><span>Layer height (mm)<a href='#' class='qHelp' data-help='layer'>?</a></span><input name='layer_height' id='cfgLayerHeight' type='number' min='0.05' max='0.10' step='0.05'></label>
     <label><span>Base exposure (s)</span><input name='base_exposure' id='cfgBaseExposure' type='number' min='10' max='60' step='1'></label>
     <label><span>Regular exposure (s) <a href='#' id='undoRegExp' class='hidden'></a></span><input name='regular_exposure' id='cfgRegularExposure' type='number' min='1' max='30' step='1'></label>
@@ -2034,6 +2042,7 @@ void handleRootPage() {
   </div>
   <button type='submit'>Save config</button>
   </div>
+  <div class='cfgPair'>
   <div class='card'>
   <h2>Network &amp; integrations</h2>
   <div class='configGrid'>
@@ -2066,7 +2075,13 @@ void handleRootPage() {
       <button id='connectRegisterButton' class='button secondary' type='button'>Register TinyMaker Connect</button>
       <button id='configConnectResetButton' class='button secondary hidden' type='button'>Reset TinyMaker Connect</button>
     </div>
-    <div class='subhead'>Phone notifications</div>
+  </div>
+  <button id='configSaveButton' type='submit'>Save config</button>
+  </div>
+  <div>
+  <div class='card'>
+  <h2>Phone notifications</h2>
+  <div class='configGrid'>
     <div class='spanAll' style='display:flex;gap:18px;flex-wrap:wrap'>
       <label class='check'><input type='radio' name='notify_channel' id='ntfNone' value='none'><span>Off</span></label>
       <label class='check'><input type='radio' name='notify_channel' id='ntfTg' value='tg'><span>Telegram<a href='#' class='qHelp' data-help='tg'>?</a></span></label>
@@ -2095,16 +2110,17 @@ void handleRootPage() {
       <button id='dcTestButton' class='button secondary' type='button'>Send test message</button>
     </div>
   </div>
-  <button id='configSaveButton' type='submit'>Save config</button>
+  <button type='submit'>Save config</button>
   </div>
-  </form>
-  <div id='cfgPair'>
   <div class='card'>
   <h2>Boot animation</h2>
   <div id='bootAnimList'></div>
   <div id='bootAnimHint' class='hint'>Choose which animation plays at power-on. Send more from the community site; Delete removes one from the SD card.</div>
   </div>
-  <div class='card'>
+  </div>
+  </div>
+  </form>
+  <div id='backupCard' class='card'>
   <h2>Backup &amp; restore<a href='#' class='qHelp' data-help='backup'>?</a></h2>
   <div class='actions'>
     <button id='backupDownloadButton' class='button secondary' type='button'>Download backup</button>
@@ -2116,7 +2132,6 @@ void handleRootPage() {
   <div id='backupHint' class='hint'>The backup holds every setting and the lifetime counters. With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.</div>
   <button id='configDefaultsButton' class='button secondary' type='button'>Reset to defaults</button>
   <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
-  </div>
   </div>
   <div id='configHint' class='hint'>Config locks automatically while printing.</div>
 </section>
@@ -2155,10 +2170,24 @@ const api=async(path,opt,timeoutMs)=>{
   const o=Object.assign({cache:'no-store'},opt||{});let timer=null,ctrl=null;
   if(timeoutMs&&typeof AbortController!=='undefined'){ctrl=new AbortController();o.signal=ctrl.signal;timer=setTimeout(()=>ctrl.abort(),timeoutMs);}
   try{
-    const r=await fetch(path,o);let j={};try{j=await r.json();}catch(e){}
+    let r;
+    try{r=await fetch(path,o);}
+    catch(e){
+      // The browser reuses keep-alive sockets the printer has already closed;
+      // such an attempt dies before reaching the printer (POSTs are not
+      // auto-retried like GETs), so one fresh-connection retry is safe.
+      if(e.name==='AbortError')throw e;
+      await new Promise(res=>setTimeout(res,300));
+      r=await fetch(path,o);
+    }
+    let j={};try{j=await r.json();}catch(e){}
     if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));
     return j;
-  }catch(e){if(e.name==='AbortError')throw new Error('timeout');throw e;}
+  }catch(e){
+    if(e.name==='AbortError')throw new Error('timeout');
+    if(e instanceof TypeError)throw new Error('Printer unreachable - check the connection and try again.');
+    throw e;
+  }
   finally{if(timer)clearTimeout(timer);}
 };
 // Top-center snackbar. Info messages auto-hide; warnings stay until replaced.
@@ -3567,6 +3596,11 @@ void network_setup() {
     delay(1200);
     return;
   }
+
+  // Modem sleep (the default) delays the first request after an idle spell by
+  // seconds and drops the multicast packets mDNS lives on - tinymaker.local
+  // would die minutes after boot. Mains-powered device: keep the radio awake.
+  WiFi.setSleep(false);
 
   MDNS.begin("tinymaker"); // http://tinymaker.local
 
