@@ -1809,6 +1809,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // views stay a comfortable single column, centered.
     "@media(min-width:1000px){.wrap{max-width:1100px}"
     "#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}"
+    "#gsCard{grid-column:1/-1}"
+    // Left column stacks status/controls/3D; the SD manager owns the right
+    // column full-height (cards used to auto-flow and overlap oddly mid-print).
+    "#homeLeft{display:grid;gap:14px}"
     "#homeView .card{margin:0}"
     "#modelPanel,#connectView,#configView,#updateView,#dryRunBanner,#webControlBanner{max-width:760px;margin-left:auto;margin-right:auto}}"
     "</style></head><body><main class='wrap'>"));
@@ -1874,6 +1878,7 @@ void handleRootPage() {
     <div class='hint'>Circles are steps to do - the printer ticks some off by itself, click the rest when done. Reopen this guide any time with the ? next to Manual.</div>
     <button id='gsHide' class='button secondary' type='button'>Hide this guide</button>
   </section>
+  <div id='homeLeft'>
   <section class='card'>
     <div class='grid'>
       <div><div class='label'>State</div><div id='stateValue' class='value'>Loading</div></div>
@@ -1903,9 +1908,10 @@ void handleRootPage() {
 
   <section id='printPreviewCard' class='card hidden'>
     <h2>Print progress 3D</h2>
-    <canvas id='printPreviewCanvas' style='width:100%;border:1px solid #3a3a3f;border-radius:8px;background:#151517'></canvas>
+    <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
   </section>
+  </div>
 
   <section id='sdSection' class='card'>
     <h2>SD manager</h2>
@@ -2381,7 +2387,8 @@ const refreshStatus=async()=>{
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
-    if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
+    if(deleteBusy)msg('Deleting - the printer is busy removing files...');
+    else if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
     else msg('Status unavailable: '+e.message,true);
   }finally{statusInFlight=false;}
 };
@@ -2748,7 +2755,11 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
   msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;try{await api('/api/files/delete?name='+enc(name),{method:'POST'});msg('Deleted '+name+'.');loadFiles();}catch(e){msg(e.message,true);}};
+// Deleting a big model removes hundreds of layer files and blocks the printer
+// for a while - keep a persistent "deleting" toast and silence the status-poll
+// timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
+let deleteBusy=false;
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 const tickLocalStatus=()=>{
