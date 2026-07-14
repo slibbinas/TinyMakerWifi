@@ -58,29 +58,33 @@ footer a{color:var(--muted2);text-decoration:underline}
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
     <a class="btn sec" id="openPrinter" href="http://tinymaker.local" target="_blank" rel="noopener" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
   </div>
-  <div style="margin-top:10px;font-size:13px;color:var(--muted2)"><span id="ipRow">If <code>tinymaker.local</code> doesn't open, enter your printer's IP (System &gt; WiFi Info): <input id="ipBox" placeholder="192.168.1.23" style="width:130px;background:var(--input);border:1px solid var(--line2);border-radius:6px;color:var(--text);padding:4px 8px;font-size:13px"> <a href="#" id="ipGo">open</a></span></div>
+  <div style="margin-top:10px;font-size:13px"><a href="#" id="ipEdit" style="color:var(--muted2);text-decoration:underline">printer address</a></div>
   <div id="printerModal" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(20,20,22,.6);align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:22px;max-width:420px;text-align:left">
       <b>Opening your printer's dashboard</b>
-      <p style="margin:10px 0 16px;font-size:14px;color:var(--muted)">This works when the printer is <b>powered on</b> and this device is on the <b>same WiFi</b>. If the page doesn't load, come back and enter the printer's IP (shown under System &gt; WiFi Info).</p>
-      <div style="display:flex;gap:10px"><a class="btn" id="printerGo" style="flex:1" href="http://tinymaker.local" target="_blank" rel="noopener">Open</a><a class="btn sec" id="printerCancel" style="flex:1" href="#">Cancel</a></div>
+      <p style="margin:10px 0 14px;font-size:14px;color:var(--muted)">Works when the printer is <b>powered on</b> and this device is on the <b>same WiFi</b>.</p>
+      <a class="btn" id="printerGo" style="width:100%" href="http://tinymaker.local" target="_blank" rel="noopener">Open tinymaker.local</a>
+      <p style="margin:14px 0 6px;font-size:13px;color:var(--muted)">If that doesn't load, enter the printer's IP (System &gt; WiFi Info):</p>
+      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" style="flex:0 0 auto">Open</a></div>
+      <a href="#" id="printerCancel" style="display:block;margin-top:14px;font-size:13px;color:var(--muted2);text-align:center">Cancel</a>
     </div>
   </div>
   <script>
   (function(){
-    var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter'),modal=document.getElementById('printerModal'),go=document.getElementById('printerGo');
-    try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;btn.href='http://'+s;go.href=btn.href;btn.textContent='Open my printer ('+s+')';}}catch(e){}
-    // First click explains the same-WiFi requirement in a popup (Brian's
-    // idea); after that the button opens the dashboard directly.
-    btn.addEventListener('click',function(e){
-      var seen=false;try{seen=localStorage.getItem('tmPrinterHintSeen')==='1';}catch(err){}
-      if(seen)return; // default: opens in a new tab
-      e.preventDefault();go.href=btn.href;modal.style.display='flex';
-    });
-    go.addEventListener('click',function(){try{localStorage.setItem('tmPrinterHintSeen','1');}catch(err){}modal.style.display='none';});
+    var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter'),modal=document.getElementById('printerModal');
+    var applyIp=function(){try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;btn.href='http://'+s;btn.textContent='Open my printer ('+s+')';}}catch(e){}};
+    applyIp();
+    // The popup (Brian's idea) explains the same-WiFi requirement and holds
+    // the IP fallback. It shows until one of the open paths succeeds (local
+    // link used or an IP saved); after that the button opens directly and
+    // the small "printer address" link brings the popup back.
+    var opened=function(){try{return localStorage.getItem('tmPrinterHintSeen')==='1'||!!localStorage.getItem('tmPrinterIp');}catch(e){return false;}};
+    btn.addEventListener('click',function(e){if(opened())return;e.preventDefault();modal.style.display='flex';});
+    document.getElementById('ipEdit').addEventListener('click',function(e){e.preventDefault();modal.style.display='flex';});
+    document.getElementById('printerGo').addEventListener('click',function(){try{localStorage.setItem('tmPrinterHintSeen','1');}catch(err){}modal.style.display='none';});
     document.getElementById('printerCancel').addEventListener('click',function(e){e.preventDefault();modal.style.display='none';});
     modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
-    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}btn.href='http://'+v;go.href=btn.href;btn.textContent='Open my printer ('+v+')';window.open('http://'+v,'_blank');});
+    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}applyIp();modal.style.display='none';window.open('http://'+v,'_blank');});
     // Theme toggle (shared localStorage key with the printer dashboard) +
     // manual links open the manual in the matching theme.
     var applyManual=function(){
