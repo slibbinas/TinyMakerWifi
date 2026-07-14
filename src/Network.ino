@@ -2970,10 +2970,12 @@ const modelDetails=async(nameEnc,estimate)=>{
     selectedModelConnectPublicId='';
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
     setText('modelPrintLayers','-');
-    show('modelPrintLayersBox',false); show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
+    show('modelPrintLayersBox',false); show('modelResinBox',false); show('modelProgress',false);
     // No button dance (user finding): the whole action row stays hidden while
-    // the details load and appears ONCE in its final state below.
+    // the details load and appears ONCE in its final state below. The preview
+    // block is always there - an empty build-volume box until a render lands.
     show('modelActions',false);
+    show('previewWrap',true); show('prevSpin',false); drawVolumeBox($('modelPreviewCanvas'));
   } else {
     $('modelMlButton').disabled=true;
     $('modelMlButton').textContent='Calculating...';
@@ -3000,7 +3002,7 @@ const modelDetails=async(nameEnc,estimate)=>{
       pb.disabled=!!hasVoxel;
       if(hasVoxel){
         try{await loadSavedPreview(name);}
-        catch(e){show('previewWrap',false);pb.disabled=false;}
+        catch(e){drawVolumeBox($('modelPreviewCanvas'));pb.disabled=false;}
       }
     }
   }catch(e){msg(e.message,true);}
@@ -3047,8 +3049,9 @@ const loadSavedPreview=async name=>{
   ctx.filter='none';
   show('previewWrap',true);
 };
-const drawIso=(cv,doneFrac)=>{
-  const {slices,gw,gh,modelH}=slicesCache;
+// Just the build-volume box - shown as a placeholder in details before any
+// model is rendered, and reused by drawIso underneath the voxels.
+const drawVolumeBox=cv=>{
   cv.width=PREV_W;cv.height=PREV_H;
   const ctx=cv.getContext('2d');ctx.clearRect(0,0,PREV_W,PREV_H);
   const MX=40.8,MY=30.6,MZ=68;
@@ -3058,6 +3061,12 @@ const drawIso=(cv,doneFrac)=>{
     const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);
     ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();
   });
+  return ctx;
+};
+const drawIso=(cv,doneFrac)=>{
+  const {slices,gw,gh,modelH}=slicesCache;
+  const ctx=drawVolumeBox(cv);
+  const MX=40.8,MY=30.6;
   const N=slices.length;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
@@ -3108,6 +3117,7 @@ const fetchSlices=async(name,layers,modelH,btn,mode)=>{
   const mySeq=++fetchSlicesSeq;
   mode=mode||'current';
   const N=Math.min(36,layers),gw=80,gh=60,slices=[];
+  let whiteSum=0; // for the quick resin estimate below
   const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
   const octx=oc.getContext('2d',{willReadFrequently:true});
   for(let k=0;k<N;k++){
@@ -3124,11 +3134,17 @@ const fetchSlices=async(name,layers,modelH,btn,mode)=>{
     octx.drawImage(img,0,0,gw,gh);
     const d=octx.getImageData(0,0,gw,gh).data;
     const s=new Uint8Array(gw*gh);
-    for(let p=0;p<gw*gh;p++)s[p]=d[p*4]>96?1:0;
+    let white=0;
+    for(let p=0;p<gw*gh;p++){const v=d[p*4]>96?1:0;s[p]=v;white+=v;}
+    whiteSum+=white/(gw*gh);
     slices.push(s);
     if(btn)btn.textContent='Loading '+Math.round(100*(k+1)/N)+'%';
   }
-  slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers};
+  // Quick resin estimate straight from the sampled slices: mean white area x
+  // plate area x model height. Coarse (36 samples, 80x60 grid) but instant -
+  // the exact printer-side scan stays behind Calculate ml.
+  const mlEst=N?(whiteSum/N)*40.8*30.6*modelH/1000:0;
+  slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers,mlEst:mlEst};
   saveSlicesToStorage();
 };
 const modelPreview=async()=>{
@@ -3142,11 +3158,17 @@ const modelPreview=async()=>{
     if(slicesCache.name!==selectedModel||slicesCache.mode!=='current'||!slicesCache.slices.length)
       await fetchSlices(selectedModel,layers,modelH,btn);
     drawIso($('modelPreviewCanvas'),1);
+    // Free byproduct of the render: a quick resin estimate from the slices,
+    // shown while the exact value is not calculated yet ("~" marks it rough).
+    if($('modelResinBox').classList.contains('hidden')&&slicesCache.mlEst){
+      setText('modelResin','~'+slicesCache.mlEst.toFixed(1)+' ml (quick)');
+      show('modelResinBox',true);
+    }
     const blob=await canvasBlob($('modelPreviewCanvas'));
     try{await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
     catch(e){msg('Preview shown, but saving it failed: '+e.message,true);}
     btn.textContent='Preview 3D';   // success: preview shown, button stays disabled
-  }catch(e){msg(e.message,true);show('previewWrap',false);btn.disabled=false;btn.textContent='Preview 3D';}
+  }catch(e){msg(e.message,true);drawVolumeBox($('modelPreviewCanvas'));btn.disabled=false;btn.textContent='Preview 3D';}
   show('prevSpin',false);
 };
 
