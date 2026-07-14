@@ -280,11 +280,12 @@ void screen0(){
 #else
   gfx2->println("1.0.2");
 #endif
-  for (int i = 0; i < 40; i++) {
+  // 2 px per step, ~0.6 s total - the 1.2 s original dragged the boot out.
+  for (int i = 0; i < 40; i += 2) {
     gfx2->setCursor(40, i);
     gfx2->setTextColor(ORANGE);
     gfx2->println("Tiny Maker");
-    delay(30);
+    delay(28);
     gfx2->setCursor(40, i);
     gfx2->setTextColor(BLACK);
     gfx2->println("Tiny Maker");
