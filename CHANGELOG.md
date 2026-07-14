@@ -51,8 +51,67 @@ unless noted. Community contributors are tagged inline.
 - **Project logo** — the dashboard favicon is now the layer-stack + WiFi mark,
   and the Update tab shows a community counter (*N printers running
   TinyMakerWifi*) fed by the anonymous ping.
+- **Web flasher** — the easiest first-time install ever:
+  [connect.tinymakerwifi.com/flash.php](https://connect.tinymakerwifi.com/flash.php)
+  flashes the latest release straight from a Chrome/Edge browser over USB —
+  nothing to download or install. *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Safe model imports** — uploads unpack into a temporary folder and only
+  replace the old model once the new one has unpacked successfully; uploading
+  a name that already exists asks *Replace / Rename / Cancel* (a PrusaSlicer
+  re-upload just replaces, as before). Each model now carries a `model.json`
+  with its metadata, so the resin estimate and details survive without
+  re-scanning, and previews are cached on the SD card.
+  *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Connect auto-backup & recovery** — an *Auto backup settings to Connect*
+  checkbox (Settings → Network → TinyMaker Connect, with a confirmation on
+  toggle) keeps a settings backup on the Connect server after changes and
+  prints; a per-printer **recovery code** (Retrieve / Copy buttons) lets you
+  reclaim your Connect profile after a reset. The Connect tab itself is now
+  **loaded from the Connect server** (only once registered), so it can grow
+  without costing printer flash. *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Boot animations rework** — picking an animation is now staged and applied
+  with *Save config*; a **Show** button plays any installed animation on the
+  printer's screen (idle only); a **Default library** hosted on the project's
+  GitHub Pages offers one-click **Install**; and a **Shuffle** option plays a
+  random installed animation each boot *(Shuffle by [@Briadark](https://github.com/Briadark);
+  boot animations base by [@Tann2019](https://github.com/Tann2019))*.
+  Installing no longer auto-selects. Recommended animation length is 2–4 s —
+  the firmware hard-caps playback at 250 frames / 10 s, and Back skips it.
+- **Model preview in the dashboard** — every SD model row now has
+  *Preview | Start | Delete*; Preview renders the model into the dashboard's
+  **Model preview** card (the former *Print progress 3D* card) with a live %
+  progress bar, a compact info line (layers · height · time · resin) and a
+  *Share model* button. Starting a print takes the card over automatically.
+- **Quick resin estimate** — the preview render now yields a free `~X ml
+  (quick)` estimate when the exact value isn't known yet; clicking the `~`
+  value runs the exact printer-side scan (confirmed first — it decodes every
+  layer and takes about a minute per 100 layers).
 - The manual gained an advanced section on deriving your resin's **working
   curve (Jacobs)** from the test strip with calipers.
+
+### Changed
+- **Settings got second-level tabs** — *Print / Network / Notifications /
+  Boot animation / Backup*, one section at a time, each with its own *Save
+  config* (saving from any section preserves the others' values). The Backup
+  section keeps only actions; the Connect auto-backup switch lives under
+  Network. The Connect tab's sub-tabs share the same underline style, with the
+  registration status shown at the bottom.
+- **WiFi boot** — while connecting, the printer shows animated signal bars
+  (they turn green on success) instead of a progress bar; the separate
+  *"WiFi connected / IP"* screen is gone, **except** after first-time portal
+  setup, where the IP is still shown. The IP is always available under
+  System → WiFi Info.
+- The old separate model-details view is no longer reachable from the
+  dashboard — the Model preview card replaces it (Connect deep-links still
+  use it).
+
+### Fixed
+- **mDNS stability** — WiFi modem sleep is disabled, so `tinymaker.local`
+  resolves reliably instead of timing out when the printer naps.
+- Dashboard requests get a single fresh-connection retry, the status toast
+  only appears after repeated failures (not one hiccup), and settings forms
+  refuse to post until the settings have actually loaded — no more
+  accidentally saving a blank form over your config.
 
 ## [0.14.3] — 2026-07-13
 
