@@ -43,6 +43,8 @@
 #include "FreeSans8pt7b.h"       // Custom font
 #include <PNGdec.h>              // PNG decoder library for reading print layers
 #include <SdFat.h>               // SD card file system library
+#include <esp_system.h>          // hardware random for boot-animation shuffle
+#include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
 #include <WiFi.h>
@@ -90,6 +92,7 @@ float resinNeedForModelMl = -1;     // fresh full-model estimate for the selecte
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
+void cleanupManagedSdTemps();
 
 // Total print time, persisted in NVS (survives firmware re-flash, unlike the
 // EEPROM settings area). Written rarely - only at print end/cancel - to spare
@@ -115,12 +118,15 @@ String mqttUser = "";
 String mqttPass = "";
 String mqttTopic = "TinyMaker";
 bool connectEnabled = false;        // TinyMaker Connect web-service integration
-String connectBaseUrl = "https://tinymaker.inductie.nu";
-String connectPrinterName = "TinyMaker";
+String connectBaseUrl = "https://connect.tinymakerwifi.com";
+String connectPrinterName = "";
 bool connectLeaderboardOptIn = false;
 String connectPrinterPublicId = "";
 String connectPublishToken = "";
+String connectRecoveryCode = "";
 String connectLastStatus = "";
+bool connectAutoBackup = false;
+uint32_t connectBackupEpoch = 0;
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
@@ -170,11 +176,17 @@ void loadDeviceConfig() {
   mqttPass = sysPrefs.getString("mqttPass", "");
   mqttTopic = sysPrefs.getString("mqttTopic", "TinyMaker");
   connectEnabled = sysPrefs.getBool("tmcEnabled", false);
-  connectBaseUrl = sysPrefs.getString("tmcUrl", "https://tinymaker.inductie.nu");
-  connectPrinterName = sysPrefs.getString("tmcName", "TinyMaker");
+  connectBaseUrl = sysPrefs.getString("tmcUrl", "https://connect.tinymakerwifi.com");
+  if (connectBaseUrl == "https://tinymaker.inductie.nu") {
+    connectBaseUrl = "https://connect.tinymakerwifi.com";
+  }
+  connectPrinterName = sysPrefs.getString("tmcName", "");
   connectLeaderboardOptIn = sysPrefs.getBool("tmcLeaderboard", false);
   connectPrinterPublicId = sysPrefs.getString("tmcPublicId", "");
   connectPublishToken = sysPrefs.getString("tmcToken", "");
+  connectRecoveryCode = sysPrefs.getString("tmcRecovery", "");
+  connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
+  connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -215,6 +227,9 @@ void saveDeviceConfig() {
   sysPrefs.putBool("tmcLeaderboard", connectLeaderboardOptIn);
   sysPrefs.putString("tmcPublicId", connectPrinterPublicId);
   sysPrefs.putString("tmcToken", connectPublishToken);
+  sysPrefs.putString("tmcRecovery", connectRecoveryCode);
+  sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
+  sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
@@ -443,7 +458,7 @@ String backupEscape(const String &v) {
   return out;
 }
 
-String buildConfigBackupJson() {
+String buildConfigBackupJson(bool includeSecrets = true) {
   String out = "{\"backupVersion\":1,\"firmware\":\"";
 #ifdef FIRMWARE_VERSION
   out += FIRMWARE_VERSION;
@@ -504,15 +519,20 @@ String buildConfigBackupJson() {
   out += String(mqttPort);
   out += ",\"mqttUser\":\"";
   out += backupEscape(mqttUser);
-  out += "\",\"mqttPass\":\"";
-  out += backupEscape(mqttPass);
+  if (includeSecrets) {
+    out += "\",\"mqttPass\":\"";
+    out += backupEscape(mqttPass);
+  }
   out += "\",\"mqttTopic\":\"";
   out += backupEscape(mqttTopic);
   out += "\",\"tgEnabled\":";
   out += tgEnabled ? "true" : "false";
-  out += ",\"tgToken\":\"";
-  out += backupEscape(tgToken);
-  out += "\",\"tgChat\":\"";
+  if (includeSecrets) {
+    out += ",\"tgToken\":\"";
+    out += backupEscape(tgToken);
+    out += "\"";
+  }
+  out += ",\"tgChat\":\"";
   out += backupEscape(tgChat);
   out += "\",\"waEnabled\":";
   out += waEnabled ? "true" : "false";
@@ -534,9 +554,19 @@ String buildConfigBackupJson() {
   out += connectLeaderboardOptIn ? "true" : "false";
   out += ",\"connectPublicId\":\"";
   out += backupEscape(connectPrinterPublicId);
-  out += "\",\"connectToken\":\"";
-  out += backupEscape(connectPublishToken);
-  out += "\",\"statsPing\":";
+  out += "\"";
+  if (includeSecrets) {
+    out += ",\"connectToken\":\"";
+    out += backupEscape(connectPublishToken);
+    out += "\",\"connectRecoveryCode\":\"";
+    out += backupEscape(connectRecoveryCode);
+    out += "\"";
+  }
+  out += ",\"connectAutoBackup\":";
+  out += connectAutoBackup ? "true" : "false";
+  out += ",\"connectBackupEpoch\":";
+  out += String(connectBackupEpoch);
+  out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"printSecs\":";
   out += String(totalPrintSecs);
@@ -616,6 +646,8 @@ void applyConfigBackup(const String &j) {
   mqttHost = backupStr(j, "mqttHost", mqttHost);
   mqttPort = backupClamp(backupNum(j, "mqttPort", mqttPort), 1, 65535);
   mqttUser = backupStr(j, "mqttUser", mqttUser);
+  // Secret fields are optional in Connect backups. If omitted, keep the
+  // locally stored value instead of blanking the credential on restore.
   mqttPass = backupStr(j, "mqttPass", mqttPass);
   mqttTopic = backupStr(j, "mqttTopic", mqttTopic);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
@@ -632,10 +664,14 @@ void applyConfigBackup(const String &j) {
   connectEnabled = wifiEnabled && backupBool(j, "connectEnabled", connectEnabled);
   connectBaseUrl = backupStr(j, "connectBaseUrl", connectBaseUrl);
   connectPrinterName = backupStr(j, "connectPrinterName", connectPrinterName);
-  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
-  connectLeaderboardOptIn = connectEnabled && backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
+  if (connectEnabled) {
+    connectLeaderboardOptIn = backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
+  }
   connectPrinterPublicId = backupStr(j, "connectPublicId", connectPrinterPublicId);
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
+  connectRecoveryCode = backupStr(j, "connectRecoveryCode", connectRecoveryCode);
+  connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
+  connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
   statsPingEnabled = backupBool(j, "statsPing", statsPingEnabled);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
   totalUvLedSecs = (uint32_t)backupNum(j, "uvLedSecs", totalUvLedSecs);
@@ -820,7 +856,9 @@ void setup() {
   // SD Card Initialization / SD 卡初始化
   // -----------------------------------------------------------------------------------
   // Initialize SD card using the dedicated Chip Select pin and a safe SPI frequency (16MHz) 
-  SD.begin(SDCS, SD_SCK_MHZ(16));
+  if (SD.begin(SDCS, SD_SCK_MHZ(16))) {
+    cleanupManagedSdTemps();
+  }
     
   // -----------------------------------------------------------------------------------
   // Displays Initialization / 显示屏初始化
@@ -1708,6 +1746,9 @@ void loop() {
         else                                   tgNotifyFinished();
         #endif
         screen1();
+        #if ENABLE_NETWORK
+        tinymakerConnectSchedulePrintSync();
+        #endif
       }
         break;
       

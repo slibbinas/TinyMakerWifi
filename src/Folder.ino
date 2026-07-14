@@ -7,6 +7,8 @@
 bool listEntryValid(File &entry) {
   char name[101];
   entry.getName(name, sizeof(name));
+  String n = String(name);
+  if (n.startsWith(".tm_")) return false;
   if (entry.isDirectory()) {
     FileName = name;
     FileName += "/1.png";
@@ -16,7 +18,6 @@ bool listEntryValid(File &entry) {
     selIsArchive = false;
     return true;
   }
-  String n = String(name);
   n.toLowerCase();
   if (n.endsWith(".sl1") || n.endsWith(".zip")) {
     selIsArchive = true;
@@ -156,6 +157,31 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
   }
   dir.close();
   return SD.rmdir(path);
+}
+
+/**
+ * @brief Remove interrupted dashboard/import temp files from the SD root.
+ *
+ * A power loss during safe unpack can leave /.tm_unpack_* or /.tm_upload_*
+ * behind. They are internal staging paths, never user models.
+ */
+void cleanupManagedSdTemps() {
+  File dir = SD.open("/");
+  if (!dir) return;
+  while (true) {
+    File entry = dir.openNextFile();
+    if (!entry) break;
+    char name[101];
+    entry.getName(name, sizeof(name));
+    bool isDir = entry.isDirectory();
+    entry.close();
+    String n = String(name);
+    if (!n.startsWith(".tm_")) continue;
+    String path = "/" + n;
+    if (isDir) deleteModelFolder(path.c_str(), false);
+    else SD.remove(path.c_str());
+  }
+  dir.close();
 }
 
 /**

@@ -75,7 +75,7 @@ PubSubClient mqttClient(mqttNet);
 // NOTE: no global 'UNZIP zip;' here! The UNZIP object is ~40 KB - declared
 // globally it lands in static .bss and overflows WROOM's DRAM segment
 // (verified: "region dram0_0_seg overflowed"). It is heap-allocated inside
-// unpackModel() only for the duration of unpacking.
+// unpackModelToEmptyDir() only for the duration of unpacking.
 
 // Upload state
 File uploadFile;
@@ -83,6 +83,12 @@ String uploadPath;      // e.g. "/Benchy.sl1"
 String modelName;       // e.g. "Benchy"
 bool uploadOk = false;
 bool uploadRejected = false;
+File previewUploadFile;
+String previewUploadName;
+String previewUploadPath;
+String previewUploadTmpPath;
+bool previewUploadOk = false;
+bool previewUploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
 unsigned long mqttLastAttemptMs = 0;
 unsigned long mqttLastPublishMs = 0;
@@ -98,7 +104,7 @@ int32_t mySeek(PNGFILE *handle, int32_t position);
 void PNGDraw(PNGDRAW *pDraw);
 
 // The ZIP/SL1 conversion pipeline (zip callbacks, layerIndexFromEntry,
-// safeModelName, unpackModel) lives in Import.ino - outside the network
+// safeModelName, importZipModel) lives in Import.ino - outside the network
 // guard - so the on-device "import from SD" flow works with
 // ENABLE_NETWORK=0. The upload handlers below reuse it.
 
@@ -144,6 +150,13 @@ bool sdCardUsage(uint64_t &totalBytes, uint64_t &freeBytes) {
   return totalBytes > 0;
 }
 
+String limitedUploadArg(const char *name, uint16_t maxLen) {
+  String v = server.arg(name);
+  v.trim();
+  if (v.length() > maxLen) v = v.substring(0, maxLen);
+  return v;
+}
+
 // SD-backup presence cache for /api/config (see configJson).
 bool sdBackupCacheValid = false;
 bool sdBackupCachePresent = false;
@@ -161,7 +174,7 @@ void handleUploadData() {
 
   if (up.status == UPLOAD_FILE_START) {
     modelName = safeModelName(up.filename);
-    uploadPath = "/" + modelName + ".zip";
+    uploadPath = "/.tm_upload_" + String((uint32_t)millis()) + ".zip";
     uploadOk = false;
     uploadRejected = false;
     otaShownBytes = 0;
@@ -233,18 +246,72 @@ void finishUpload() {
   }
 
   bool ok = false;
+  String error = "unpack failed";
+  ModelImportResult result;
   if (uploadOk) {
     String dest = "/" + modelName;
-    ok = unpackModel(uploadPath.c_str(), dest.c_str());
+    bool existingPath = sdPathExists(dest);
+    bool existingModel = existingPath && validPrintableModel(modelName);
+    String action = limitedUploadArg("action", 16);
+    if (server.uri() == "/api/files/local" && action.length() == 0) {
+      action = "replace";
+    }
+
+    if (existingPath && action != "replace" && action != "rename") {
+      String out = "{\"ok\":false,\"error\":\"model already exists\",\"conflict\":true,\"name\":\"";
+      out += jsonEscape(modelName);
+      out += "\",";
+      if (existingModel) appendModelCompareJson(out, "existing", modelName);
+      else out += "\"existing\":null";
+      out += ",";
+      appendZipCompareJson(out, "incoming", uploadPath.c_str());
+      out += "}";
+      SD.remove(uploadPath.c_str());
+      uploadOk = false;
+      server.send(409, "application/json", out);
+      netMessage("Upload blocked", "Model exists");
+      delay(1500);
+      screen1();
+      return;
+    }
+
+    ModelImportOptions options;
+    options.replace = action == "replace";
+    options.autoRename = action == "rename";
+    options.source = limitedUploadArg("source", 24);
+    if (options.source.length() == 0) options.source = "dashboard_upload";
+    options.connectPublicId = limitedUploadArg("connect_public_id", 32);
+    options.connectUrl = limitedUploadArg("connect_url", 160);
+    options.originalCredits = limitedUploadArg("original_credits", 160);
+    options.licenseName = limitedUploadArg("license", 32);
+    if (server.hasArg("resin_ml")) {
+      options.resinKnown = true;
+      options.resinMl = server.arg("resin_ml").toDouble();
+    }
+
+    ok = importZipModel(uploadPath.c_str(), modelName, options, result, error);
     SD.remove(uploadPath.c_str()); // free SD space, keep browser list clean
   }
   if (ok) {
-    server.send(201, "application/json", "{\"done\":true}");
-    netMessage("Model ready:", modelName.c_str());
+    String out = "{\"ok\":true,\"done\":true,\"name\":\"";
+    out += jsonEscape(result.finalName);
+    out += "\",\"renamed\":";
+    out += result.renamed ? "true" : "false";
+    out += ",\"sourceLayers\":";
+    out += String(result.summary.sourceLayers);
+    out += ",\"layers\":";
+    out += String(result.summary.sourceLayers);
+    out += ",\"printLayers\":";
+    out += String(result.summary.printLayers);
+    out += ",\"heightMm\":";
+    out += String(result.summary.heightMm, 2);
+    out += "}";
+    server.send(201, "application/json", out);
+    netMessage("Model ready:", result.finalName.c_str());
     delay(1500);
   } else {
     DBGLN("Unpack FAILED");
-    server.send(500, "application/json", "{\"error\":\"unpack failed\"}");
+    server.send(500, "application/json", "{\"error\":\"" + jsonEscape(error) + "\"}");
     netMessage("Upload FAILED", modelName.c_str());
     delay(1500);
   }
@@ -252,6 +319,126 @@ void finishUpload() {
   // Returning to the main menu keeps the 'screen' state machine consistent;
   // the new model appears in Print menu (folder list is re-read on entry).
   screen1();
+}
+
+void handlePreviewUploadData() {
+  HTTPUpload &up = server.upload();
+
+  if (up.status == UPLOAD_FILE_START) {
+    previewUploadName = server.arg("name");
+    String previewType = server.arg("type");
+    if (previewType == "05") previewUploadPath = "/" + previewUploadName + "/preview05.png";
+    else if (previewType == "1") previewUploadPath = "/" + previewUploadName + "/preview1.png";
+    else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    previewUploadTmpPath = previewUploadPath + ".tmp";
+    previewUploadOk = false;
+    previewUploadRejected = false;
+
+    if (printerBusy() || !webDashboardRuntimeEnabled() || !sdCardReady() ||
+        !validPrintableModel(previewUploadName)) {
+      previewUploadRejected = true;
+      return;
+    }
+
+    SD.remove(previewUploadTmpPath.c_str());
+    previewUploadFile = SD.open(previewUploadTmpPath.c_str(), FILE_WRITE);
+    if (!previewUploadFile) {
+      previewUploadRejected = true;
+      return;
+    }
+  }
+  else if (up.status == UPLOAD_FILE_WRITE) {
+    if (previewUploadRejected) return;
+    if (up.totalSize > 524288) {
+      previewUploadRejected = true;
+      if (previewUploadFile) previewUploadFile.close();
+      SD.remove(previewUploadTmpPath.c_str());
+      return;
+    }
+    if (previewUploadFile) previewUploadFile.write(up.buf, up.currentSize);
+  }
+  else if (up.status == UPLOAD_FILE_END) {
+    if (previewUploadRejected) return;
+    if (previewUploadFile) {
+      previewUploadFile.close();
+      String backupPath = previewUploadPath + ".bak";
+      SD.remove(backupPath.c_str());
+      bool hadPreview = SD.exists(previewUploadPath.c_str());
+      if (hadPreview && !SD.rename(previewUploadPath.c_str(), backupPath.c_str())) {
+        SD.remove(previewUploadTmpPath.c_str());
+        previewUploadRejected = true;
+        return;
+      }
+      previewUploadOk = SD.rename(previewUploadTmpPath.c_str(), previewUploadPath.c_str());
+      if (previewUploadOk) {
+        if (hadPreview) SD.remove(backupPath.c_str());
+      } else {
+        if (hadPreview) SD.rename(backupPath.c_str(), previewUploadPath.c_str());
+        SD.remove(previewUploadTmpPath.c_str());
+        previewUploadRejected = true;
+      }
+    }
+  }
+  else if (up.status == UPLOAD_FILE_ABORTED) {
+    if (previewUploadFile) previewUploadFile.close();
+    SD.remove(previewUploadTmpPath.c_str());
+  }
+}
+
+void finishPreviewUpload() {
+  if (previewUploadRejected) {
+    previewUploadRejected = false;
+    previewUploadOk = false;
+    if (printerBusy()) sendApiError(409, "printer busy");
+    else if (!webDashboardRuntimeEnabled()) sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
+    else if (!sdCardReady()) sendApiError(503, "sd card unavailable");
+    else if (!validPrintableModel(previewUploadName)) sendApiError(404, "model not found");
+    else sendApiError(400, "preview upload failed");
+    return;
+  }
+
+  if (!previewUploadOk) {
+    sendApiError(400, "preview upload failed");
+    return;
+  }
+
+  previewUploadOk = false;
+  sendApiOk("\"preview\":true");
+}
+
+void handleApiFileModelPreview() {
+  if (!sdCardReady()) {
+    sendApiError(503, "sd card unavailable");
+    return;
+  }
+
+  String name = server.arg("name");
+  if (!validPrintableModel(name)) {
+    sendApiError(404, "model not found");
+    return;
+  }
+
+  String previewType = server.arg("type");
+  String path;
+  if (previewType == "05") path = "/" + name + "/preview05.png";
+  else if (previewType == "1") path = "/" + name + "/preview1.png";
+  else path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
+
+  File f = SD.open(path.c_str());
+  if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
+  if (!f) {
+    sendApiError(404, "preview not found");
+    return;
+  }
+
+  server.sendHeader("Cache-Control", "max-age=86400");
+  server.setContentLength(f.size());
+  server.send(200, "image/png", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  f.close();
 }
 
 // ===================================================================================
@@ -509,27 +696,17 @@ int countModelSourceLayers(const String &name) {
   return count;
 }
 
-bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t &timeSecs) {
+bool modelSummaryForModel(const String &name, ModelSummary &summary) {
   int sourceLayers = countModelSourceLayers(name);
-  if (sourceLayers <= 0 || sourceLayers > MAX_LAYER_FILES) return false;
+  return modelSummaryFromSourceLayers(sourceLayers, summary);
+}
 
-  get_motor_updown_time();
-  printLayers = sourceLayers;
-  if (Layer_Height < 0.09) {
-    heightMm = sourceLayers * 0.05;
-  }
-  if (Layer_Height > 0.06) {
-    printLayers = sourceLayers / 2;
-    heightMm = 0.1 * printLayers;
-  }
-
-  long exposureLayers = printLayers - Base_Layer;
-  if (exposureLayers < 0) exposureLayers = 0;
-  long movementLayers = printLayers - 1;
-  if (movementLayers < 0) movementLayers = 0;
-  timeSecs = (Base_Layer * Base_Exposure) +
-             (exposureLayers * Regular_Exposure) +
-             (uint32_t)(motor_updown_time * movementLayers);
+bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t &timeSecs) {
+  ModelSummary summary;
+  if (!modelSummaryForModel(name, summary)) return false;
+  printLayers = summary.printLayers;
+  heightMm = summary.heightMm;
+  timeSecs = summary.estimatedSecs;
   return true;
 }
 
@@ -557,6 +734,73 @@ bool estimateModelResin(const String &name, int printLayers, double &ml) {
   countPixelsMode = false;
   ml = volMm3 / 1000.0;
   return true;
+}
+
+uint64_t sdEntrySizeRecursive(const String &path) {
+  File entry = SD.open(path.c_str());
+  if (!entry) return 0;
+  if (!entry.isDirectory()) {
+    uint64_t size = (uint64_t)entry.size();
+    entry.close();
+    return size;
+  }
+
+  uint64_t total = 0;
+  while (true) {
+    File child = entry.openNextFile();
+    if (!child) break;
+    char name[101];
+    child.getName(name, sizeof(name));
+    bool isDir = child.isDirectory();
+    uint64_t size = (uint64_t)child.size();
+    child.close();
+    String childPath = path + "/" + String(name);
+    total += isDir ? sdEntrySizeRecursive(childPath) : size;
+  }
+  entry.close();
+  return total;
+}
+
+void appendSummaryObjectJson(String &out, const ModelSummary &summary, uint64_t sizeBytes) {
+  out += "{\"sourceLayers\":";
+  out += String(summary.sourceLayers);
+  out += ",\"layers\":";
+  out += String(summary.sourceLayers);
+  out += ",\"printLayers\":";
+  out += String(summary.printLayers);
+  out += ",\"heightMm\":";
+  out += String(summary.heightMm, 2);
+  out += ",\"estimatedSecs\":";
+  out += String(summary.estimatedSecs);
+  out += ",\"estimatedTime\":\"";
+  out += formatDuration(summary.estimatedSecs);
+  out += "\",\"sizeBytes\":\"";
+  out += uint64Json(sizeBytes);
+  out += "\"}";
+}
+
+void appendModelCompareJson(String &out, const char *key, const String &name) {
+  out += "\"";
+  out += key;
+  out += "\":";
+  ModelSummary summary;
+  if (!modelSummaryForModel(name, summary)) {
+    out += "null";
+    return;
+  }
+  appendSummaryObjectJson(out, summary, sdEntrySizeRecursive("/" + name));
+}
+
+void appendZipCompareJson(String &out, const char *key, const char *zipPath) {
+  ModelSummary summary;
+  out += "\"";
+  out += key;
+  out += "\":";
+  if (!scanZipModel(zipPath, summary)) {
+    out += "null";
+    return;
+  }
+  appendSummaryObjectJson(out, summary, summary.sizeBytes);
 }
 
 long formLong(const char *name, long fallback, long minVal, long maxVal) {
@@ -600,6 +844,7 @@ bool safeRootName(const String &name) {
 
 bool rootEntryManaged(const String &name, bool isDir) {
   if (!safeRootName(name)) return false;
+  if (name.startsWith(".tm_")) return false;
   if (isDir) {
     File probe = SD.open(("/" + name + "/1.png").c_str());
     if (!probe) return false;
@@ -694,6 +939,14 @@ void handleApiFiles() {
     out += "\"";
     out += uint64Json(bytes);
     out += "\"";
+    if (isDir) {
+      String publicId;
+      if (getModelMetadataConnectPublicId(name, publicId)) {
+        out += ",\"connectPublicId\":\"";
+        out += jsonEscape(publicId);
+        out += "\"";
+      }
+    }
     out += "}";
     shown++;
   }
@@ -724,39 +977,95 @@ void handleApiFileModel() {
     return;
   }
 
-  int printLayers = 0;
-  float heightMm = 0;
-  uint32_t timeSecs = 0;
-  if (!modelStats(name, printLayers, heightMm, timeSecs)) {
+  ModelSummary summary;
+  if (!modelSummaryForModel(name, summary)) {
     sendApiError(400, "model is not printable");
     return;
   }
 
   String out = "{\"ok\":true,\"name\":\"";
   out += jsonEscape(name);
-  out += "\",\"layers\":";
-  out += String(printLayers);
+  out += "\",\"sourceLayers\":";
+  out += String(summary.sourceLayers);
+  out += ",\"layers\":";
+  out += String(summary.sourceLayers);
+  out += ",\"printLayers\":";
+  out += String(summary.printLayers);
   out += ",\"heightMm\":";
-  out += String(heightMm, 2);
+  out += String(summary.heightMm, 2);
   out += ",\"estimatedSecs\":";
-  out += String(timeSecs);
+  out += String(summary.estimatedSecs);
   out += ",\"estimatedTime\":\"";
-  out += formatDuration(timeSecs);
-  out += "\"";
+  out += formatDuration(summary.estimatedSecs);
+  out += "\",\"preview\":";
+  bool preview05 = sdPathExists("/" + name + "/preview05.png");
+  bool preview1 = sdPathExists("/" + name + "/preview1.png");
+  bool previewLegacy = sdPathExists("/" + name + "/preview.png");
+  bool previewExists = (Layer_Height > 0.06 ? preview1 : preview05) || previewLegacy;
+  out += previewExists ? "true" : "false";
+  out += ",\"preview05\":";
+  out += preview05 ? "true" : "false";
+  out += ",\"preview1\":";
+  out += preview1 ? "true" : "false";
 
-  if (server.hasArg("estimate")) {
-    double ml = 0;
-    bool ok = estimateModelResin(name, printLayers, ml);
-    out += ",\"resinEstimated\":";
-    out += ok ? "true" : "false";
-    if (ok) {
-      out += ",\"resinMl\":";
-      out += String(ml, 1);
-    }
+  String connectPublicId;
+  if (getModelMetadataConnectPublicId(name, connectPublicId)) {
+    out += ",\"connectPublicId\":\"";
+    out += jsonEscape(connectPublicId);
+    out += "\"";
+  }
+
+  double ml = 0;
+  bool resinKnown = getModelMetadataResin(name, ml);
+  bool resinOk = resinKnown;
+  if (!resinKnown && server.hasArg("estimate")) {
+    resinOk = estimateModelResin(name, summary.printLayers, ml);
+    if (resinOk) setModelMetadataResin(name, ml);
+  }
+  out += ",\"resinEstimated\":";
+  out += resinOk ? "true" : "false";
+  if (resinOk) {
+    out += ",\"resinMl\":";
+    out += String(ml, 1);
   }
 
   out += "}";
   server.send(200, "application/json", out);
+}
+
+void handleApiFileModelMetadata() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
+  if (!sdCardReady()) {
+    sendApiError(503, "sd card unavailable");
+    return;
+  }
+
+  String name = formString("name", "", 100);
+  if (!validPrintableModel(name)) {
+    sendApiError(404, "model not found");
+    return;
+  }
+
+  ModelImportOptions options;
+  options.connectPublicId = formString("connect_public_id", "", 32);
+  options.connectUrl = formString("connect_url", "", 160);
+  options.originalCredits = formString("original_credits", "", 160);
+  options.licenseName = formString("license", "", 32);
+  if (server.hasArg("resin_ml")) {
+    options.resinKnown = true;
+    options.resinMl = server.arg("resin_ml").toDouble();
+  }
+  String sharedModelName = formString("shared_model_name", "", 120);
+
+  if (!updateModelMetadataConnectShare(name, options, sharedModelName)) {
+    sendApiError(500, "metadata update failed");
+    return;
+  }
+  sendApiOk("\"metadata\":true");
 }
 
 bool deleteSdItem(const String &requestedName, String &error) {
@@ -823,7 +1132,9 @@ void handleApiFileLayer() {
     sendApiError(400, "bad layer index");
     return;
   }
-  long fileIdx = (Layer_Height > 0.06) ? (2 * i - 1) : i;
+  bool rawSource = server.hasArg("source") && server.arg("source") == "1";
+  float layerHeight = server.hasArg("layer_height") ? server.arg("layer_height").toFloat() : Layer_Height;
+  long fileIdx = rawSource ? i : ((layerHeight > 0.06) ? (2 * i - 1) : i);
   String path = "/" + name + "/" + String(fileIdx) + ".png";
   File f = SD.open(path.c_str());
   if (!f) {
@@ -1020,8 +1331,12 @@ void applyConfigRequest() {
   if (!wifiEnabled) connectEnabled = false;
   connectBaseUrl = connectNormalizeBaseUrl(formString("connect_base_url", connectBaseUrl, 128));
   connectPrinterName = formString("connect_printer_name", connectPrinterName, 64);
-  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
-  connectLeaderboardOptIn = connectEnabled && server.hasArg("connect_leaderboard");
+  if (connectEnabled) {
+    connectLeaderboardOptIn = server.hasArg("connect_leaderboard");
+  }
+  if (server.hasArg("connect_auto_backup_set")) {
+    connectAutoBackup = server.hasArg("connect_auto_backup");
+  }
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
   String ntf = formString("notify_channel", tgEnabled ? "tg" : (waEnabled ? "wa" : (dcEnabled ? "dc" : "none")), 8);
@@ -1060,6 +1375,7 @@ void handleApiConfigSave() {
 
   bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
+  tinymakerConnectScheduleBackup();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
   sendApiOk(configJson());
@@ -1116,6 +1432,7 @@ void handleApiConfigRestore() {
   applyConfigBackup(body);
   mqttClient.disconnect();
   mqttDiscoverySent = false;
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
@@ -1147,6 +1464,7 @@ void handleApiConfigRestoreSd() {
   }
   mqttClient.disconnect();
   mqttDiscoverySent = false;
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
@@ -1176,12 +1494,15 @@ void resetMqttConfigToDefaults() {
 
 void resetConnectConfigToDefaults() {
   connectEnabled = false;
-  connectBaseUrl = "https://tinymaker.inductie.nu";
-  connectPrinterName = "TinyMaker";
+  connectBaseUrl = "https://connect.tinymakerwifi.com";
+  connectPrinterName = "";
   connectLeaderboardOptIn = false;
   connectPrinterPublicId = "";
   connectPublishToken = "";
+  connectRecoveryCode = "";
   connectLastStatus = "";
+  connectAutoBackup = false;
+  connectBackupEpoch = 0;
   saveDeviceConfig();
 }
 
@@ -1193,6 +1514,7 @@ void handleApiConfigDefaults() {
   }
 
   resetWebConfigToDefaults();
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -1206,6 +1528,7 @@ void handleApiConfigMqttDefaults() {
   resetMqttConfigToDefaults();
   mqttClient.disconnect();
   mqttDiscoverySent = false;
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -1232,6 +1555,7 @@ void handleApiConfigDryRun() {
                  server.arg("enabled") != "false";
   uvLedEnabled = !enabled;
   saveDeviceConfig();
+  tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
 }
 
@@ -1608,6 +1932,8 @@ void handleApiStatus() {
   out += jsonEscape(printerStateText());
   out += "\",\"stateCode\":";
   out += String(current_state);
+  out += ",\"layerHeight\":";
+  out += String(Layer_Height, 2);
   out += ",\"wifiRssi\":";
   out += connected ? String(WiFi.RSSI()) : String(0);
   out += ",\"wifiText\":\"";
@@ -1683,24 +2009,30 @@ void handleApiStatus() {
   server.send(200, "application/json", out);
 }
 
-// The ETag must include GIT_REV: experimental builds share one SemVer, and a
-// version-only tag made the browser 304 into a stale page after every reflash.
+// Include GIT_REV when available: experimental builds often share one SemVer,
+// and a version-only tag can make the browser keep stale dashboard HTML.
+String pageEtag() {
+  String etag = "\"";
 #ifdef FIRMWARE_VERSION
-#ifdef GIT_REV
-#define PAGE_ETAG "\"" FIRMWARE_VERSION "-" GIT_REV "\""
+  etag += FIRMWARE_VERSION;
 #else
-#define PAGE_ETAG "\"" FIRMWARE_VERSION "\""
+  etag += "dev";
 #endif
+#ifdef GIT_REV
+  etag += "-";
+  etag += GIT_REV;
 #endif
+  etag += "\"";
+  return etag;
+}
 
 void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
-#ifdef PAGE_ETAG
+  String etag = pageEtag();
   // The page only changes with the firmware: let the browser cache it and
   // revalidate with a tiny 304. Crucial mid-print, when the network is only
   // serviced in short windows and a ~70 KB page reload would crawl.
-  server.sendHeader("ETag", PAGE_ETAG);
+  server.sendHeader("ETag", etag);
   server.sendHeader("Cache-Control", "no-cache");
-#endif
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, "text/html", "");
   server.sendContent_P(PSTR(
@@ -1751,12 +2083,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
     ".meta{font-size:12px;color:var(--muted2);margin-top:3px}"
-    ".connectTiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}"
-    ".connectTile{background:var(--tile);border:1px solid var(--line);border-radius:8px;padding:12px;text-decoration:none;color:var(--text)}.connectTile>a{display:block;color:inherit;text-decoration:none}"
-    ".connectTile:hover{border-color:var(--accent);text-decoration:none}.connectPreview{aspect-ratio:4/3;background:var(--pv);border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:10px}"
-    ".connectPreview img{width:100%;height:100%;object-fit:contain}.connectStats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}"
-    ".connectStat{border-top:1px solid var(--line);padding-top:7px}.pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.pill{border:1px solid var(--line);border-radius:999px;padding:3px 8px;color:var(--muted);font-size:12px}"
-    ".connectActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}"
+    ".connectTabs{display:flex;gap:8px;margin-top:14px}.connectTabs button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.connectTabs button.active{background:var(--accent);color:#fff}"
     "a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}"
     "input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}"
     "label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}"
@@ -1784,6 +2111,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}.secondaryBtn{background:var(--btnsec);color:var(--btnsec-t)}"
     "button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}"
     ".button.secondary{background:var(--btnsec);color:var(--btnsec-t)}"
+    ".button.danger{background:var(--danger);color:#fff}"
     ".grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}"
     // Full-page lock while a firmware update is in flight; cleared by the
     // automatic reload once the printer answers status polls again.
@@ -1811,7 +2139,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}"
     "#statusMsg:empty{display:none}"
     ".configGrid .hint{grid-column:1/-1}"
-    "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}}"
+    "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.connectTabs{flex-direction:column}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
     // columns (status | controls, progress 3D | SD manager). The other
     // views stay a comfortable single column, centered.
@@ -1837,9 +2165,9 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}"
     // Full-width backup card: the four backup/restore buttons fit one row.
     "#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}"
-    "#modelPanel:has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}"
-    "#modelPanel:has(#previewWrap:not(.hidden)) #modelBackButton,#modelPanel:has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}"
-    "#modelPanel:has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:3/span 6;margin-top:0}}"
+    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}"
+    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelBackButton,#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}"
+    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:3/span 6;margin-top:0}}"
     "</style></head><body><main class='wrap'>"));
   server.sendContent_P(bodyBeforeFw);
   server.sendContent(fw);
@@ -1848,12 +2176,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
 }
 
 void handleRootPage() {
-#ifdef PAGE_ETAG
-  if (server.header("If-None-Match") == PAGE_ETAG) {
+  if (server.header("If-None-Match") == pageEtag()) {
     server.send(304, "text/html", "");
     return;
   }
-#endif
   const char *fw =
 #ifdef FIRMWARE_VERSION
     FIRMWARE_VERSION;
@@ -1883,7 +2209,7 @@ void handleRootPage() {
 
 <div id='updOverlay' class='updOverlay'><div class='updSpin'></div><h2>Updating firmware</h2><div class='hint'>Do not power off the printer.<br>This page reloads automatically when it is back.</div></div>
 
-<div id='confirmModal' class='modal hidden'><div class='modalCard'><div id='confirmText' class='modalText'></div><div class='modalBtns'><button id='confirmCancel' class='button secondary' type='button'>Cancel</button><button id='confirmOk' type='button'>OK</button></div></div></div>
+<div id='confirmModal' class='modal hidden'><div class='modalCard'><div id='confirmText' class='modalText'></div><div id='confirmButtons' class='modalBtns'></div></div></div>
 
 <div id='helpModal' class='modal hidden'><div class='modalCard'><div id='helpBody' style='color:var(--text);font-size:15px;line-height:1.5;margin-bottom:18px'></div><div class='modalBtns'><button id='helpClose' type='button'>Close</button></div></div></div>
 
@@ -1960,6 +2286,7 @@ void handleRootPage() {
   <h2 id='modelTitle'>Model</h2>
   <div class='grid'>
     <div><div class='label'>Layers</div><div id='modelLayers' class='value'>-</div></div>
+    <div id='modelPrintLayersBox' class='hidden'><div class='label'>Print layers</div><div id='modelPrintLayers' class='value'>-</div></div>
     <div><div class='label'>Height</div><div id='modelHeight' class='value'>-</div></div>
     <div><div class='label'>Estimated time</div><div id='modelTime' class='value'>-</div></div>
     <div id='modelResinBox' class='hidden'><div class='label'>Resin needed</div><div id='modelResin' class='value'>-</div></div>
@@ -1979,42 +2306,9 @@ void handleRootPage() {
 </section>
 
 <section id='connectView' class='card hidden'>
-  <h2>TinyMaker Connect</h2>
-  <div id='connectReadyBox' class='hidden'>
-    <div class='hint' style='margin-top:0'>Registered as <b id='connectPrinterIdValue'>-</b> &middot; <a href='#' id='connectSettingsButton'>Connect settings</a></div>
-    <div id='connectReadyHint' class='hint'>This printer is ready to publish and manage TinyMaker Connect models.</div>
-  </div>
-  <div id='connectPublishBox' class='hidden' style='margin-top:14px'>
-    <h2>Share model</h2>
-    <div class='configGrid'>
-      <label><span>Model name</span><input id='shareModelName' type='text' maxlength='120'></label>
-      <label><span>Original credits</span><input id='shareCredits' type='text' maxlength='255'></label>
-    </div>
-    <canvas id='connectPreviewCanvas' class='hidden' style='width:100%;border:1px solid #3a3a3f;border-radius:8px;background:#151517;margin-top:10px'></canvas>
-    <div id='shareSteps' class='hint'></div>
-    <div id='shareProgress' class='storageBar hidden'><span id='shareProgressFill'></span></div>
-    <button id='shareUploadButton' class='hidden' type='button'>Upload model</button>
-  </div>
-  <div id='connectBrowserBox' class='hidden' style='margin-top:14px'>
-    <h2>Models</h2>
-    <div class='hint'>Shared models can be downloaded from TinyMaker Connect. To publish one of your own models, open SD manager, press Details, then Share model.</div>
-    <div id='connectModelsList' class='files' style='margin-top:10px'></div>
-  </div>
-  <div id='connectManagerBox' class='hidden' style='margin-top:14px'>
-    <h2>Manager</h2>
-    <div class='hint'>Models shared by this printer can be hidden, republished, or removed here.</div>
-    <div id='connectMineList' class='files' style='margin-top:10px'></div>
-  </div>
-  <div id='connectSetupBox'>
-    <div class='hint'>TinyMaker Connect is not configured on this printer yet.</div>
-    <div class='grid' style='margin-top:12px'>
-      <div><div class='label'>Step 1</div><div class='value'>Enable Connect</div></div>
-      <div><div class='label'>Step 2</div><div class='value'>Test server</div></div>
-      <div><div class='label'>Step 3</div><div class='value'>Register printer</div></div>
-      <div><div class='label'>Optional</div><div class='value'>Leaderboard sharing</div></div>
-    </div>
-    <div id='connectSetupHint' class='hint'>Setup uses the default TinyMaker Connect server. You can change the server URL before registering.</div>
-    <button id='connectSetupButton' type='button'>Set up TinyMaker Connect</button>
+  <div id='connectHostedRoot'>
+    <h2>TinyMaker Connect</h2>
+    <div id='connectHostedStatus' class='hint'>Loading Connect from the configured server...</div>
   </div>
 </section>
 
@@ -2066,11 +2360,28 @@ void handleRootPage() {
     <label class='check spanAll'><input name='connect_enabled' id='cfgConnectEnabled' type='checkbox' value='1'><span>Enable TinyMaker Connect</span></label>
     <div id='connectFields' class='spanAll hidden'>
       <div class='configGrid'>
-        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://tinymaker.inductie.nu'></label>
-        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='TinyMaker'></label>
+        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://connect.tinymakerwifi.com'></label>
+        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='My printer'></label>
         <label class='check'><input name='connect_leaderboard' id='cfgConnectLeaderboard' type='checkbox' value='1'><span>Share printer stats on leaderboard</span></label>
       </div>
       <div id='connectHint' class='hint'>Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.</div>
+      <div id='connectReclaimBox' class='hidden'>
+        <div class='hint'><b>This printer has been connected before.</b><br>Insert your recovery code to access your old profile.</div>
+        <label><span>Recovery code</span><input id='cfgConnectRecoveryCode' type='password' maxlength='80' autocomplete='off'></label>
+        <div class='actions'>
+          <button id='connectReclaimButton' class='button secondary' type='button'>Access old profile</button>
+          <button id='connectNewProfileButton' class='button secondary' type='button'>Setup as a new printer</button>
+        </div>
+      </div>
+      <div id='connectRecoveryCodeBox' class='hidden'>
+        <div class='subhead'>TinyMaker Connect Recovery code</div>
+        <div class='hint'>Please save this somewhere safe to restore your Connect profile if you ever reset your printer and don't have a backup.</div>
+        <div class='actions'>
+          <button id='connectRevealRecoveryButton' class='button secondary' type='button'>Retrieve</button>
+          <button id='connectCopyRecoveryButton' class='button secondary' type='button' disabled>Copy</button>
+        </div>
+        <input id='connectRecoveryCodeValue' type='password' readonly value=''>
+      </div>
       <button id='connectTestButton' class='button secondary' type='button'>Test Connect server</button>
       <button id='connectRegisterButton' class='button secondary' type='button'>Register TinyMaker Connect</button>
       <button id='configConnectResetButton' class='button secondary hidden' type='button'>Reset TinyMaker Connect</button>
@@ -2123,6 +2434,14 @@ void handleRootPage() {
   </form>
   <div id='backupCard' class='card'>
   <h2>Backup &amp; restore<a href='#' class='qHelp' data-help='backup'>?</a></h2>
+  <div id='connectBackupTools' class='hidden'>
+    <button id='connectAutoBackupButton' class='button' type='button'>Enable Auto backup to Connect</button>
+    <div class='actions'>
+      <button id='connectBackupDownloadButton' class='button secondary' type='button'>Download from Connect</button>
+      <button id='connectBackupRestoreButton' class='button secondary' type='button'>Restore from Connect</button>
+    </div>
+    <div id='connectBackupHint' class='hint'>Requires TinyMaker Connect registration.</div>
+  </div>
   <div class='actions'>
     <button id='backupDownloadButton' class='button secondary' type='button'>Download backup</button>
     <button id='backupSdButton' class='button secondary' type='button'>Backup to SD</button>
@@ -2162,7 +2481,7 @@ void handleRootPage() {
 
 <script>
 const $=id=>document.getElementById(id);
-let statusData=null,selectedModel='',sdFreeBytes=0,sdTotalBytes=0,connectConfig=null,shareState=null;
+let statusData=null,selectedModel='',selectedModelConnectPublicId='',sdFreeBytes=0,sdTotalBytes=0,connectConfig=null,connectTab='models';
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
 const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
@@ -2203,15 +2522,29 @@ const msg=(t,warn)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.togg
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   clearTimeout(msg._t);if(t&&!warn)msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},5000);};
-// Styled replacement for window.confirm() - returns a Promise<bool>. Matches
-// the dashboard instead of the browser's native (unstyleable) dialog.
+// Styled replacement for window.confirm() - returns a Promise. Matches the
+// dashboard instead of the browser's native (unstyleable) dialog.
 let uiConfirmRes=null;
-const uiConfirm=(message,opts)=>{opts=opts||{};$('confirmText').textContent=message;$('confirmOk').textContent=opts.ok||'OK';$('confirmCancel').textContent=opts.cancel||'Cancel';$('confirmOk').classList.toggle('delete',!!opts.danger);show('confirmModal',true);$('confirmOk').focus();return new Promise(r=>{uiConfirmRes=r;});};
+const uiChoice=(message,choices)=>{
+  $('confirmText').textContent=message;
+  const box=$('confirmButtons');box.innerHTML='';
+  choices.forEach(ch=>{
+    const b=document.createElement('button');
+    b.type='button';b.textContent=ch.label;
+    if(ch.secondary)b.className='button secondary';
+    if(ch.danger)b.classList.add('delete');
+    b.addEventListener('click',()=>uiConfirmClose(ch.value));
+    box.appendChild(b);
+  });
+  show('confirmModal',true);
+  const focus=box.querySelector('button:not(.secondary)')||box.querySelector('button');
+  if(focus)focus.focus();
+  return new Promise(r=>{uiConfirmRes=r;});
+};
+const uiConfirm=(message,opts)=>{opts=opts||{};return uiChoice(message,[{label:opts.cancel||'Cancel',value:false,secondary:true},{label:opts.ok||'OK',value:true,danger:!!opts.danger}]);};
 const uiConfirmClose=v=>{if(!uiConfirmRes)return;show('confirmModal',false);const r=uiConfirmRes;uiConfirmRes=null;r(v);};
-$('confirmOk').addEventListener('click',()=>uiConfirmClose(true));
-$('confirmCancel').addEventListener('click',()=>uiConfirmClose(false));
 $('confirmModal').addEventListener('click',e=>{if(e.target===$('confirmModal'))uiConfirmClose(false);});
-document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();uiConfirmClose(document.activeElement!==$('confirmCancel'));}}});
+document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();const b=document.activeElement;if(b&&b.tagName==='BUTTON')b.click();}}});
 const bytesNum=v=>Number(v||0)||0;
 const formatBytes=v=>{
   let n=bytesNum(v),u=['B','KB','MB','GB'],i=0;
@@ -2256,13 +2589,79 @@ const uploadWithProgress=(fd,hintEl)=>{
       clearInterval(timer);
       let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){}
       if(xhr.status>=200&&xhr.status<300&&j.ok!==false)resolve(j);
-      else reject(new Error(j.error||('HTTP '+xhr.status)));
+      else {const err=new Error(j.error||('HTTP '+xhr.status));err.status=xhr.status;err.data=j;reject(err);}
     };
     xhr.onerror=()=>{clearInterval(timer);reject(new Error('upload failed'));};
     xhr.onabort=()=>{clearInterval(timer);reject(new Error('upload cancelled'));};
     render();
     xhr.send(fd);
   });
+};
+const uploadSummary=t=>{
+  if(!t)return 'unknown';
+  let p=[];
+  if(t.layers!==undefined)p.push(t.layers+' layers');
+  if(t.printLayers!==undefined&&t.layers!==undefined&&Number(t.printLayers)!==Number(t.layers))p.push(t.printLayers+' print layers');
+  if(t.heightMm!==undefined)p.push(Number(t.heightMm).toFixed(2)+' mm');
+  if(t.sizeBytes!==undefined)p.push(formatBytes(t.sizeBytes));
+  if(t.estimatedTime)p.push(t.estimatedTime);
+  return p.length?p.join(' - '):'unknown';
+};
+const uploadConflictChoice=async d=>{
+  const text='A model named "'+(d.name||'Model')+'" already exists.\n\nExisting: '+uploadSummary(d.existing)+'\nIncoming: '+uploadSummary(d.incoming)+'\n\nReplace keeps the old model until the new one has unpacked successfully. Rename imports this as a new model.';
+  return uiChoice(text,[{label:'Cancel',value:'cancel',secondary:true},{label:'Rename',value:'rename',secondary:true},{label:'Replace',value:'replace',danger:true}]);
+};
+const modelUploadFd=(blob,filename,action,meta)=>{
+  const fd=new FormData();meta=meta||{};
+  if(action)fd.append('action',action);
+  fd.append('source',meta.source||'dashboard_upload');
+  ['connect_public_id','connect_url','original_credits','license','resin_ml'].forEach(k=>{if(meta[k]!==undefined&&meta[k]!==null&&String(meta[k]).length)fd.append(k,meta[k]);});
+  fd.append('file',blob,filename);
+  return fd;
+};
+const uploadModelPayload=async(blob,filename,hintEl,meta)=>{
+  const send=action=>uploadWithProgress(modelUploadFd(blob,filename,action,meta),hintEl);
+  try{return await send('');}
+  catch(e){
+    if(e.status!==409||!e.data||!e.data.conflict)throw e;
+    const choice=await uploadConflictChoice(e.data);
+    if(choice!=='replace'&&choice!=='rename')throw new Error('Upload cancelled');
+    return await send(choice);
+  }
+};
+const uploadModelPreview=async(name,blob,type)=>{
+  if(!name||!blob)return false;
+  const fd=new FormData();
+  const suffix=type==='05'?'05':(type==='1'?'1':'');
+  fd.append('preview',blob,'preview'+suffix+'.png');
+  await api('/api/files/model/preview?name='+enc(name)+(type?'&type='+enc(type):''),{method:'POST',body:fd},30000);
+  return true;
+};
+const uploadPreviewFromUrl=async(name,url,type)=>{
+  if(!name||!url)return false;
+  const r=await fetch(url,{cache:'no-store'});
+  if(!r.ok)throw new Error('preview download failed (HTTP '+r.status+')');
+  const blob=await r.blob();
+  const img=new Image();
+  const obj=URL.createObjectURL(blob);
+  try{
+    img.src=obj;
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('preview image failed to load'));});
+    const cv=document.createElement('canvas');
+    cv.width=PREV_W;cv.height=PREV_H;
+    const ctx=cv.getContext('2d');
+    ctx.fillStyle='#151517';ctx.fillRect(0,0,cv.width,cv.height);
+    const scale=Math.min(cv.width/img.naturalWidth,cv.height/img.naturalHeight);
+    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
+    ctx.drawImage(img,Math.round((cv.width-w)/2),Math.round((cv.height-h)/2),w,h);
+    await uploadModelPreview(name,await canvasBlob(cv),type);
+    return true;
+  }finally{URL.revokeObjectURL(obj);}
+};
+const localPreviewBlob=async(name,type)=>{
+  const r=await fetch('/api/files/model/preview?name='+enc(name)+'&type='+enc(type)+'&r='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error('saved preview '+type+' failed to load');
+  return await r.blob();
 };
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
@@ -2294,7 +2693,11 @@ const renderBootAnims=()=>{
   wrap.innerHTML='';
   wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px;max-height:320px;overflow-y:auto';
   const shown=bootAnimPending===null?bootAnimSel:bootAnimPending;
-  const rows=[{name:'',display:'Default (built-in)'}].concat(bootAnimSd);
+  // __shuffle: Brian's pseudo-entry - the firmware picks a random installed
+  // animation at boot. Offered once there is more than one to shuffle.
+  const rows=[{name:'',display:'Default (built-in)'}]
+    .concat(bootAnimSd.length>1?[{name:'__shuffle',display:'Shuffle installed animations'}]:[])
+    .concat(bootAnimSd);
   rows.forEach(a=>{
     const active=shown===a.name;
     const row=document.createElement('div');
@@ -2315,13 +2718,13 @@ const renderBootAnims=()=>{
     if(a.name){
       const meta=document.createElement('span');
       meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
-      meta.textContent=formatBytes(a.sizeBytes);
+      meta.textContent=a.name==='__shuffle'?'random':formatBytes(a.sizeBytes);
       pick.appendChild(meta);
     }
     pick.addEventListener('click',()=>{bootAnimPending=(a.name===bootAnimSel)?null:a.name;renderBootAnims();});
     row.appendChild(pick);
 
-    if(a.name){
+    if(a.name&&a.name!=='__shuffle'){
       const show=smallBtn('Show');
       show.addEventListener('click',()=>previewBootAnim(a.name,show));
       row.appendChild(show);
@@ -2398,10 +2801,11 @@ $('bootAnimSaveButton').addEventListener('click',async()=>{
   const name=bootAnimPending;
   try{await api('/api/boot-anim/select',{method:'POST',body:new URLSearchParams({name})});
     bootAnimPending=null;
-    msg(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.');loadBootAnims();}
+    msg(name==='__shuffle'?'Shuffle enabled. Reboot to see a random installed animation.':(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.'));loadBootAnims();}
   catch(e){msg(e.message,true);}
 });
 const openView=view=>{
+  if(view!=='connect'||connectTab!=='boot')clearBootAnimPreviews();
   show('homeView',view==='home');
   show('modelPanel',view==='model');
   show('connectView',view==='connect');
@@ -2412,7 +2816,7 @@ const openView=view=>{
   $('configViewButton').classList.toggle('active',view==='config');
   $('updateViewButton').classList.toggle('active',view==='update');
   if(view==='home')loadFiles();
-  if(view==='connect')loadConfig().then(()=>loadConnectModels());
+  if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
   if(view==='update')loadUpdate();
 };
@@ -2512,7 +2916,7 @@ const refreshStatus=async()=>{
   }finally{statusInFlight=false;}
 };
 
-let filesItems=[],filesHidden=0,filesPage=0,filesQuery='';
+let filesItems=[],filesHidden=0,filesPage=0,filesQuery='',connectLocalModels={},localBootAnims={},activeBootAnim='';
 const FILES_PER_PAGE=12;
 const renderFiles=()=>{
   const list=$('filesList');
@@ -2549,6 +2953,8 @@ const loadFiles=async()=>{
     const d=await api('/api/files');
     updateSdUsage(d);
     filesItems=d.items;filesHidden=d.hiddenCount||0;
+    connectLocalModels={};
+    filesItems.forEach(it=>{if(it.type==='model'&&it.connectPublicId)connectLocalModels[it.connectPublicId]=it.name;});
     show('filesFilter',filesItems.length>FILES_PER_PAGE);
     renderFiles();
     if(typeof renderGs==='function')renderGs(); // auto-tick "model on SD"
@@ -2558,8 +2964,11 @@ const loadFiles=async()=>{
 const modelDetails=async(nameEnc,estimate)=>{
   const name=decodeURIComponent(nameEnc); selectedModel=name; openView('model');
   if(!estimate){
+    selectedModelConnectPublicId='';
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
-    show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
+    setText('modelPrintLayers','-');
+    show('modelPrintLayersBox',false); show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
+    show('modelMlButton',true); show('modelPreviewButton',true);
     show('modelShareButton',connectIsReady());
   } else {
     $('modelMlButton').disabled=true;
@@ -2568,8 +2977,17 @@ const modelDetails=async(nameEnc,estimate)=>{
   }
   try{
     const d=await api('/api/files/model?name='+enc(name)+(estimate?'&estimate=1':''));
+    selectedModelConnectPublicId=d.connectPublicId||'';
     setText('modelTitle',d.name); setText('modelLayers',d.layers); setText('modelHeight',Number(d.heightMm).toFixed(2)+' mm'); setText('modelTime',d.estimatedTime);
+    const showPrint=d.printLayers!==undefined&&Number(d.printLayers)!==Number(d.layers);
+    show('modelPrintLayersBox',showPrint); if(showPrint)setText('modelPrintLayers',d.printLayers);
     show('modelResinBox',!!d.resinEstimated); if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
+    show('modelMlButton',!d.resinEstimated);
+    show('modelShareButton',connectIsReady()&&!selectedModelConnectPublicId);
+    if(d.preview&&!estimate){
+      try{show('modelPreviewButton',false);await loadSavedPreview(name);}
+      catch(e){show('previewWrap',false);show('modelPreviewButton',true);}
+    }
   }catch(e){msg(e.message,true);}
   finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
 };
@@ -2580,8 +2998,17 @@ const modelDetails=async(nameEnc,estimate)=>{
 // printer traffic while printing.
 const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
-let slicesCache={name:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
+const loadSavedPreview=async name=>{
+  const cv=$('modelPreviewCanvas'),ctx=cv.getContext('2d'),img=new Image();
+  img.src='/api/files/model/preview?name='+enc(name)+'&r='+Date.now();
+  await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('saved preview failed to load'));});
+  cv.width=PREV_W;cv.height=PREV_H;
+  ctx.clearRect(0,0,PREV_W,PREV_H);
+  ctx.drawImage(img,0,0,PREV_W,PREV_H);
+  show('previewWrap',true);
+};
 const drawIso=(cv,doneFrac)=>{
   const {slices,gw,gh,modelH}=slicesCache;
   cv.width=PREV_W;cv.height=PREV_H;
@@ -2622,7 +3049,7 @@ const drawIso=(cv,doneFrac)=>{
 const saveSlicesToStorage=()=>{
   try{
     const data=slicesCache.slices.map(s=>{let b='';for(let i=0;i<s.length;i++)b+=String.fromCharCode(s[i]);return btoa(b);});
-    localStorage.setItem('tmSlices',JSON.stringify({name:slicesCache.name,gw:slicesCache.gw,gh:slicesCache.gh,modelH:slicesCache.modelH,layers:slicesCache.layers,data:data}));
+    localStorage.setItem('tmSlices',JSON.stringify({name:slicesCache.name,mode:slicesCache.mode,gw:slicesCache.gw,gh:slicesCache.gh,modelH:slicesCache.modelH,layers:slicesCache.layers,data:data}));
   }catch(e){}
 };
 const restoreSlicesFromStorage=name=>{
@@ -2630,18 +3057,22 @@ const restoreSlicesFromStorage=name=>{
     const o=JSON.parse(localStorage.getItem('tmSlices')||'null');
     if(!o||o.name!==name||!o.data||!o.data.length)return false;
     const slices=o.data.map(b64=>{const b=atob(b64);const s=new Uint8Array(b.length);for(let i=0;i<b.length;i++)s[i]=b.charCodeAt(i);return s;});
-    slicesCache={name:o.name,slices:slices,gw:o.gw,gh:o.gh,modelH:o.modelH,layers:o.layers};
+    slicesCache={name:o.name,mode:o.mode||'',slices:slices,gw:o.gw,gh:o.gh,modelH:o.modelH,layers:o.layers};
     return true;
   }catch(e){return false;}
 };
-const fetchSlices=async(name,layers,modelH,btn)=>{
+const fetchSlices=async(name,layers,modelH,btn,mode)=>{
+  mode=mode||'current';
   const N=Math.min(36,layers),gw=80,gh=60,slices=[];
   const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
   const octx=oc.getContext('2d',{willReadFrequently:true});
   for(let k=0;k<N;k++){
     const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
     const img=new Image();
-    img.src='/api/files/layer?name='+enc(name)+'&i='+li;
+    let url='/api/files/layer?name='+enc(name)+'&i='+li;
+    if(mode==='source05')url+='&source=1';
+    else if(mode==='print1')url+='&layer_height=0.10';
+    img.src=url;
     // A hung request used to stall the preview forever with no way out -
     // give every layer fetch a hard timeout (user finding, 0.14.3).
     await new Promise((res,rej)=>{const t=setTimeout(()=>{img.src='';rej(new Error('layer '+li+' timed out - try again'));},20000);img.onload=()=>{clearTimeout(t);res();};img.onerror=()=>{clearTimeout(t);rej(new Error('layer '+li+' failed to load'));};});
@@ -2652,195 +3083,71 @@ const fetchSlices=async(name,layers,modelH,btn)=>{
     slices.push(s);
     if(btn)btn.textContent='Loading '+Math.round(100*(k+1)/N)+'%';
   }
-  slicesCache={name:name,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers};
+  slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers};
   saveSlicesToStorage();
 };
 const modelPreview=async()=>{
   if(!selectedModel)return;
-  const layers=parseInt($('modelLayers').textContent)||0;
+  const layers=parseInt($('modelPrintLayers').textContent)||parseInt($('modelLayers').textContent)||0;
   if(!layers){msg('Model details are still loading - try again.',true);return;}
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   const btn=$('modelPreviewButton');btn.disabled=true;
   show('previewWrap',true);show('prevSpin',true);
   try{
-    if(slicesCache.name!==selectedModel||!slicesCache.slices.length)
+    if(slicesCache.name!==selectedModel||slicesCache.mode!=='current'||!slicesCache.slices.length)
       await fetchSlices(selectedModel,layers,modelH,btn);
     drawIso($('modelPreviewCanvas'),1);
+    const blob=await canvasBlob($('modelPreviewCanvas'));
+    try{await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+    catch(e){msg('Preview shown, but saving it failed: '+e.message,true);}
   }catch(e){msg(e.message,true);show('previewWrap',false);}
   show('prevSpin',false);
   btn.disabled=false;btn.textContent='Preview 3D';
 };
 
-const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectPublishToken);
-const connectBase=()=>String((connectConfig&&connectConfig.connectBaseUrl)||'https://tinymaker.inductie.nu').replace(/\/+$/,'');
-const connectApiUrl=path=>connectBase()+path;
-// api() with a timeout - a hung Connect server used to spin "Loading" forever.
-const connectFetchJson=path=>api(connectApiUrl(path),null,15000);
-const connectPostForm=(path,fd,progressCb)=>new Promise((resolve,reject)=>{
-  const xhr=new XMLHttpRequest();
-  xhr.open('POST',connectApiUrl(path));
-  xhr.upload.onprogress=e=>{if(progressCb&&e.lengthComputable)progressCb(e.loaded,e.total);};
-  xhr.onload=()=>{let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){} if(xhr.status>=200&&xhr.status<300&&j.ok!==false)resolve(j);else reject(new Error(j.error||('HTTP '+xhr.status)));};
-  xhr.onerror=()=>reject(new Error('upload failed'));
-  xhr.send(fd);
-});
-const connectModelHtml=(m,mine)=>{
-  const detail=connectBase()+'/model/'+enc(m.public_id);
-  const preview=m.preview_url?connectBase()+m.preview_url:'';
-  const resin=(m.resin_ml===null||m.resin_ml===undefined)?'-':Number(m.resin_ml).toFixed(2)+' ml';
-  const rating=m.rating_count>0?(Number(m.rating_average||0).toFixed(1)+'/5'):'No ratings';
-  let h='<div class="connectTile">';
-  h+='<a href="'+esc(detail)+'" target="_blank" rel="noopener">';
-  h+='<div class="connectPreview">'+(preview?'<img src="'+esc(preview)+'" alt="">':'<span class="meta">No preview</span>')+'</div>';
-  h+='<h2>'+esc(m.model_name)+'</h2>';
-  h+='<div class="meta">'+esc(m.original_credits||'')+'</div>';
-  h+='<div class="connectStats">';
-  h+='<div class="connectStat"><div class="label">Layers</div><div class="value">'+esc(m.layers||0)+'</div></div>';
-  h+='<div class="connectStat"><div class="label">Height</div><div class="value">'+Number(m.height_mm||0).toFixed(2)+' mm</div></div>';
-  h+='<div class="connectStat"><div class="label">Resin</div><div class="value">'+esc(resin)+'</div></div>';
-  h+='</div><div class="pills">';
-  h+='<span class="pill">'+esc(m.download_count||0)+' downloads</span>';
-  h+='<span class="pill">'+esc(rating)+'</span>';
-  if(m.bookmark_count)h+='<span class="pill">'+esc(m.bookmark_count)+' bookmarks</span>';
-  if(mine&&m.status)h+='<span class="pill">'+esc(m.status)+'</span>';
-  h+='</div></a>';
-  h+='<div class="connectActions">';
-  h+='<button class="small secondaryBtn" onclick="connectImportModel(\''+enc(m.public_id)+'\',\''+enc(m.model_name||'Model')+'\',\''+enc(m.download_url)+'\')">Import</button>';
-  if(mine){
-    // enc(), not esc(): the HTML parser decodes entities inside onclick before
-    // the JS runs, so an HTML-escaped quote in server data would still break
-    // out of the string (script injection). URI-encoding survives both parses;
-    // the handler decodeURIComponent()s it back - same scheme as Import above.
-    if(m.status==='hidden')h+='<button class="small secondaryBtn" onclick="connectModelAction(\''+enc(m.public_id)+'\',\'published\')">Publish</button>';
-    else h+='<button class="small secondaryBtn" onclick="connectModelAction(\''+enc(m.public_id)+'\',\'hidden\')">Hide</button>';
-    h+='<button class="delete" onclick="connectModelAction(\''+enc(m.public_id)+'\',\'removed\')">Remove</button>';
+const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectTokenSet);
+const connectBase=()=>String((connectConfig&&connectConfig.connectBaseUrl)||'https://connect.tinymakerwifi.com').replace(/\/+$/,'');
+let connectAppPromise=null;
+const loadConnectApp=()=>{
+  if(!connectIsReady()){
+    const root=$('connectHostedRoot');
+    if(root)root.innerHTML='<h2>TinyMaker Connect</h2><div class="hint">Enable and register TinyMaker Connect in Settings before loading the hosted Connect app.</div>';
+    return Promise.reject(new Error('TinyMaker Connect is not registered.'));
   }
-  h+='</div></div>';
-  return h;
+  if(window.TinyMakerConnectHostedReady)return Promise.resolve();
+  if(connectAppPromise)return connectAppPromise;
+  const root=$('connectHostedRoot');
+  if(root)root.innerHTML='<h2>TinyMaker Connect</h2><div class="hint">Loading Connect from '+esc(connectBase())+'...</div>';
+  connectAppPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=connectBase()+'/assets/printer-connect.js?v=)SPA"
+#ifdef FIRMWARE_VERSION
+    FIRMWARE_VERSION
+#else
+    "dev"
+#endif
+    R"SPA(';
+    s.async=true;
+    s.onload=()=>window.TinyMakerConnectHostedReady?resolve():reject(new Error('Connect app did not initialize'));
+    s.onerror=()=>reject(new Error('Connect app failed to load from '+connectBase()));
+    document.head.appendChild(s);
+  }).catch(e=>{connectAppPromise=null;const r=$('connectHostedRoot');if(r)r.innerHTML='<h2>TinyMaker Connect</h2><div class="hint warn">'+esc(e.message)+'</div><button type="button" onclick="loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).catch(err=>msg(err.message,true))">Retry</button>';throw e;});
+  return connectAppPromise;
 };
-const loadConnectModels=async()=>{
-  if(!connectIsReady())return;
-  $('connectModelsList').innerHTML='<div class="hint">Loading models...</div>';
-  $('connectMineList').innerHTML='<div class="hint">Loading your shared models...</div>';
-  try{
-    const all=await connectFetchJson('/api/models');
-    const items=all.items||[];
-    $('connectModelsList').innerHTML=items.length?'<div class="connectTiles">'+items.slice(0,20).map(m=>connectModelHtml(m,false)).join('')+'</div>':'<div class="hint">No shared models yet.</div>';
-  }catch(e){$('connectModelsList').innerHTML='<div class="hint warn">'+esc(e.message)+'</div>';}
-  try{
-    const mine=await connectFetchJson('/api/printers/me/models?publish_token='+enc(connectConfig.connectPublishToken));
-    const items=mine.items||[];
-    $('connectMineList').innerHTML=items.length?'<div class="connectTiles">'+items.map(m=>connectModelHtml(m,true)).join('')+'</div>':'<div class="hint">This printer has not shared models yet.</div>';
-  }catch(e){$('connectMineList').innerHTML='<div class="hint warn">'+esc(e.message)+'</div>';}
-};
-const connectModelAction=async(id,action)=>{
-  id=decodeURIComponent(id);
-  if(action==='removed'&&!await uiConfirm('Remove this shared model from TinyMaker Connect?',{danger:true}))return;
-  const fd=new FormData();fd.append('publish_token',connectConfig.connectPublishToken);
-  if(action==='removed')fd.append('_method','DELETE');else{fd.append('_method','PATCH');fd.append('status',action);}
-  try{await connectPostForm('/api/models/'+enc(id),fd,null);loadConnectModels();}catch(e){msg(e.message,true);}
-};
-window.connectModelAction=connectModelAction;
-const connectImportModel=async(id,name,downloadUrl)=>{
-  id=decodeURIComponent(id);name=decodeURIComponent(name);downloadUrl=decodeURIComponent(downloadUrl);
-  if(statusData&&statusData.busy){msg('Printer is busy. Import when idle.',true);return;}
-  if(statusData&&statusData.sdReady===false){msg('Insert an SD card before importing models.',true);return;}
-  if(!await uiConfirm('Import '+name+' to the printer SD card?'))return;
-  const url=connectBase()+downloadUrl+(downloadUrl.indexOf('?')>=0?'&':'?')+'publish_token='+enc(connectConfig.connectPublishToken);
-  try{
-    msg('Downloading '+name+' from TinyMaker Connect...');
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok)throw new Error('download failed (HTTP '+r.status+')');
-    const blob=await r.blob();
-    if(!checkUploadFits(blob.size,$('statusMsg')))return;
-    const fd=new FormData();
-    fd.append('file',blob,name.replace(/[^A-Za-z0-9_.-]/g,'_')+'.zip');
-    uploadBusy=true;
-    msg('Importing '+name+' to SD...');
-    await uploadWithProgress(fd,$('statusMsg'));
-    msg('Imported '+name+' to SD.');
-    uploadBusy=false;
-    refreshStatus();loadFiles();loadConnectModels();
-  }catch(e){uploadBusy=false;msg(e.message,true);}
-};
-window.connectImportModel=connectImportModel;
+window.loadConnectApp=loadConnectApp;
+const clearBootAnimPreviews=()=>{if(window.TinyMakerConnectClearBootAnimPreviews)window.TinyMakerConnectClearBootAnimPreviews();};
+const loadConnectTab=async()=>{if(window.TinyMakerConnectLoadTab)return window.TinyMakerConnectLoadTab();};
+const setConnectTab=tab=>{if(window.TinyMakerConnectSetTab)return window.TinyMakerConnectSetTab(tab);connectTab=tab;};
 
-let crcTable=null;
-const crc32=buf=>{
-  if(!crcTable){crcTable=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);crcTable[n]=c>>>0;}}
-  let c=0xffffffff;const b=new Uint8Array(buf);
-  for(let i=0;i<b.length;i++)c=crcTable[(c^b[i])&255]^(c>>>8);
-  return (c^0xffffffff)>>>0;
-};
-const zipU16=(a,v)=>{a.push(v&255,(v>>>8)&255);};
-const zipU32=(a,v)=>{a.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255);};
-const zipHeader=(sig,fn,crc,size,offset,central)=>{
-  const a=[];zipU32(a,sig);
-  if(central){zipU16(a,20);zipU16(a,20);}else zipU16(a,20);
-  zipU16(a,0);zipU16(a,0);zipU16(a,0);zipU16(a,0);zipU32(a,crc);zipU32(a,size);zipU32(a,size);zipU16(a,fn.length);zipU16(a,0);
-  if(central){zipU16(a,0);zipU16(a,0);zipU16(a,0);zipU32(a,0);zipU32(a,offset);}
-  return new Uint8Array(a);
-};
-const zipModelLayers=async(name,layers,progressCb)=>{
-  const encText=new TextEncoder(),parts=[],central=[];let offset=0,centralSize=0;
-  for(let i=1;i<=layers;i++){
-    const r=await fetch('/api/files/layer?name='+enc(name)+'&i='+i,{cache:'no-store'});
-    if(!r.ok)throw new Error('layer '+i+' failed');
-    const data=await r.arrayBuffer(),fn=encText.encode(i+'.png'),crc=crc32(data),size=data.byteLength;
-    const local=zipHeader(0x04034b50,fn,crc,size,offset,false);
-    parts.push(local,fn,data);offset+=local.length+fn.length+size;
-    const cd=zipHeader(0x02014b50,fn,crc,size,offset-local.length-fn.length-size,true);
-    central.push(cd,fn);centralSize+=cd.length+fn.length;
-    if(progressCb)progressCb(i,layers);
-  }
-  const centralStart=offset;central.forEach(p=>parts.push(p));
-  const end=[];zipU32(end,0x06054b50);zipU16(end,0);zipU16(end,0);zipU16(end,layers);zipU16(end,layers);zipU32(end,centralSize);zipU32(end,centralStart);zipU16(end,0);parts.push(new Uint8Array(end));
-  return new Blob(parts,{type:'application/zip'});
-};
 const canvasBlob=cv=>new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
-const shareSet=(text,pct)=>{
-  $('shareSteps').textContent=text;
-  show('shareProgress',pct!==null&&pct!==undefined);
-  if(pct!==null&&pct!==undefined)$('shareProgressFill').style.width=Math.max(0,Math.min(100,pct))+'%';
-};
 const shareModel=async name=>{
-  if(!connectIsReady()){msg('Configure TinyMaker Connect first.',true);openView('connect');return;}
-  openView('connect');show('connectPublishBox',true);$('shareUploadButton').classList.add('hidden');$('shareUploadButton').disabled=true;
-  $('shareModelName').value=name;$('shareCredits').value='';
-  shareState={sdName:name,details:null,archive:null,preview:null};
   try{
-    shareSet('1. Calculating ml...',10);
-    const d=await api('/api/files/model?name='+enc(name)+'&estimate=1',null,120000);
-    shareState.details=d;
-    shareSet('2. Making preview image...',25);
-    const modelH=Number(d.heightMm)||d.layers*0.05;
-    if(slicesCache.name!==name||!slicesCache.slices.length)await fetchSlices(name,d.layers,modelH,null);
-    show('connectPreviewCanvas',true);drawIso($('connectPreviewCanvas'),1);
-    shareState.preview=await canvasBlob($('connectPreviewCanvas'));
-    shareSet('3. Preparing model for upload...',35);
-    shareState.archive=await zipModelLayers(name,d.layers,(i,n)=>shareSet('3. Preparing model for upload... '+i+' / '+n,35+Math.round(55*i/n)));
-    shareSet('4. Done. Review the details, then upload.',100);
-    $('shareUploadButton').classList.remove('hidden');$('shareUploadButton').disabled=false;
-  }catch(e){shareSet(e.message,null);msg(e.message,true);}
+    await loadConnectApp();
+    if(window.TinyMakerConnectShareModel)return window.TinyMakerConnectShareModel(name);
+    throw new Error('Connect app did not expose sharing');
+  }catch(e){msg(e.message,true);}
 };
-const uploadSharedModel=async()=>{
-  if(!shareState||!shareState.archive||!shareState.details)return;
-  const modelName=$('shareModelName').value.trim();
-  if(!modelName){msg('Model name is required.',true);return;}
-  const d=shareState.details,fd=new FormData();
-  fd.append('publish_token',connectConfig.connectPublishToken);
-  fd.append('model_name',modelName);fd.append('original_credits',$('shareCredits').value.trim());
-  fd.append('layers',d.layers);fd.append('height_mm',d.heightMm);if(d.resinEstimated)fd.append('resin_ml',d.resinMl);
-  fd.append('archive',shareState.archive,modelName.replace(/[^A-Za-z0-9_.-]/g,'_')+'.zip');
-  if(shareState.preview)fd.append('preview',shareState.preview,'preview.png');
-  $('shareUploadButton').disabled=true;
-  try{
-    shareSet('6. Uploading...',0);
-    await connectPostForm('/api/models',fd,(l,t)=>shareSet('6. Uploading... '+Math.round(100*l/t)+'%',Math.round(100*l/t)));
-    shareSet('7. Model uploaded.',100);loadConnectModels();
-  }catch(e){shareSet(e.message,null);msg(e.message,true);$('shareUploadButton').disabled=false;}
-};
-window.shareModel=name=>shareModel(decodeURIComponent(name));
+window.shareModel=shareModel;
 
 const applyPendingPrintUi=()=>{
   if(!pendingPrintCmd)return;
@@ -2875,7 +3182,8 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
       if(slicesCache.name!==name||!slicesCache.slices.length){
         msg('Preparing 3D progress preview...');
         const d=await api('/api/files/model?name='+enc(name));
-        await fetchSlices(name,d.layers,Number(d.heightMm)||d.layers*0.05,null);
+        const layers=Number(d.printLayers)||Number(d.layers)||0;
+        await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,null);
       }
     }catch(e){}
   }
@@ -2899,7 +3207,8 @@ const tickLocalStatus=()=>{
 let sdBackupPresent=false; // from /api/config; part of the restoreSdButton gate below
 // restoreSdButton's disabled state is owned HERE (lock + backup-present) - the
 // 2s status poll re-runs this, so a per-button override elsewhere gets wiped.
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectAutoBackupButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
+const configFormData=autoBackupOverride=>{const fd=new URLSearchParams(new FormData($('configForm')));const auto=typeof autoBackupOverride==='boolean'?autoBackupOverride:!!(connectConfig&&connectConfig.connectAutoBackup);fd.append('connect_auto_backup_set','1');if(auto)fd.append('connect_auto_backup','1');return fd;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
@@ -2918,20 +3227,9 @@ const updateConnectFields=()=>show('connectFields',$('cfgConnectEnabled').checke
 const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);show('dcFields',$('ntfDc').checked);};
 const updateConnectView=c=>{
   c=c||connectConfig||{};
-  const id=c.connectPrinterPublicId||'';
-  const registered=!!id;
-  show('connectReadyBox',registered);
-  show('connectBrowserBox',registered);
-  show('connectManagerBox',registered);
-  show('connectSetupBox',!registered);
-  if(registered){
-    setText('connectPrinterIdValue',id);
-    $('connectReadyHint').textContent=c.connectEnabled?'This printer is ready to publish and manage TinyMaker Connect models.':'Connect is disabled in Settings - enable it to publish or sync.';
-  }else{
-    $('connectSetupHint').textContent=c.connectLastStatus?('Last status: '+c.connectLastStatus):'Setup uses the default TinyMaker Connect server. You can change the server URL before registering.';
-  }
-  $('connectSetupButton').disabled=!!(statusData&&statusData.busy)||!!(statusData&&statusData.webControl===false);
-  show('modelShareButton',connectIsReady()&&!!selectedModel);
+  if(window.TinyMakerConnectHostedUpdate)window.TinyMakerConnectHostedUpdate(c);
+  else if($('connectHostedRoot'))$('connectHostedRoot').innerHTML=connectIsReady()?'<h2>TinyMaker Connect</h2><div class="hint">Connect UI is loaded from '+esc(connectBase())+'.</div>':'<h2>TinyMaker Connect</h2><div class="hint">Enable and register TinyMaker Connect in Settings before loading the hosted Connect app.</div>';
+  show('modelShareButton',connectIsReady()&&!!selectedModel&&!selectedModelConnectPublicId);
 };
 const loadConfig=async()=>{
   if(!connectConfig)$('configHint').textContent='Loading settings...';
@@ -2947,8 +3245,13 @@ const loadConfig=async()=>{
     $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
-    $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://tinymaker.inductie.nu'; $('cfgConnectPrinterName').value=c.connectPrinterName||'TinyMaker'; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
-    const connectId=c.connectPrinterPublicId||''; $('connectHint').textContent=connectId?('Registered as '+connectId+'. Publish token stored'+(c.connectTokenTail?(' (ends in '+c.connectTokenTail+')'):'')+' - cannot be viewed. '+(c.connectLeaderboardOptIn?'Leaderboard sharing on.':'Leaderboard sharing off.')):(c.connectLastStatus||'Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.');$('connectRegisterButton').textContent=connectId?'Update TinyMaker Connect':'Register TinyMaker Connect';
+    $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://connect.tinymakerwifi.com'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
+    const connectId=c.connectPrinterPublicId||''; const reclaim=!!c.connectReclaimRequired&&!connectId; $('connectHint').textContent=connectId?(c.connectTokenSet?('Registered as '+connectId+'. Publish token stored'+(c.connectTokenTail?(' (ends in '+c.connectTokenTail+')'):'')+'. '+(c.connectLeaderboardOptIn?'Leaderboard sharing on.':'Leaderboard sharing off.')):('Registered as '+connectId+', but the local publish token is missing. Reclaim this printer with your recovery code or set it up as a new printer.')):(reclaim?'This printer has been connected before. Enter the recovery code or set it up as a new printer.':(c.connectLastStatus||'Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.'));$('connectRegisterButton').textContent=connectId?'Update TinyMaker Connect':'Register TinyMaker Connect';
+    show('connectReclaimBox',reclaim);
+    show('connectRecoveryCodeBox',!!connectId&&!!c.connectTokenSet);
+    $('connectRecoveryCodeValue').value='';
+    $('connectRecoveryCodeValue').type='password';
+    $('connectCopyRecoveryButton').disabled=true;
     $('ntfTg').checked=!!c.tgEnabled; $('ntfWa').checked=!!c.waEnabled; $('ntfDc').checked=!!c.dcEnabled; $('ntfNone').checked=!c.tgEnabled&&!c.waEnabled&&!c.dcEnabled;
     $('cfgWaPhone').value=c.waPhone||''; $('cfgWaKey').value='';
     $('cfgWaKey').placeholder=c.waKeySet?('Saved key: ****'+(c.waKeyTail||'')+' - type a new one to replace it'):'Key from the CallMeBot activation reply';
@@ -2961,10 +3264,10 @@ const loadConfig=async()=>{
     updateNetworkFields();updateMqttFields();updateConnectFields();updateTgFields();
     show('configMqttResetButton',!!c.mqttConfigured);
     show('configConnectResetButton',!!c.connectConfigured);
-    // The Connect tab exists only while Connect is enabled in Settings -
-    // otherwise it dead-ends on a lone unchecked "Enable" box and confuses.
-    show('connectViewButton',!!c.connectEnabled);
-    if(!c.connectEnabled&&!$('connectView').classList.contains('hidden'))openView('home');
+    // The hosted Connect tab exists only after registration, so an
+    // unconfigured printer never injects remote Connect JavaScript.
+    show('connectViewButton',connectIsReady());
+    if(!connectIsReady()&&!$('connectView').classList.contains('hidden'))openView('home');
     $('configDefaultsButton').textContent=(c.mqttConfigured||c.connectConfigured)?'Reset to defaults (Excluding integrations)':'Reset to defaults';
     const noWc=!c.webDashboardEnabled;
     const locked=!!c.locked||configIsLocallyLocked()||noWc;
@@ -2972,6 +3275,13 @@ const loadConfig=async()=>{
     sdBackupPresent=!!c.sdBackupPresent; $('restoreSdButton').disabled=locked||!sdBackupPresent; $('restoreSdButton').title=sdBackupPresent?'':'No backup found on the SD card';
     const fmt24=e=>{const d=new Date(e*1000),p=n=>('0'+n).slice(-2);return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());};
     $('backupHint').textContent=(c.sdBackupPresent?('Backup on SD: '+(c.sdBackupEpoch?fmt24(c.sdBackupEpoch):'date unknown')+'. '):'No backup on the SD card yet. ')+'With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.';
+    show('connectBackupTools',!!c.connectEnabled);
+    $('connectAutoBackupButton').textContent=c.connectAutoBackup?'Disable Auto backup to Connect':'Enable Auto backup to Connect';
+    $('connectAutoBackupButton').classList.toggle('danger',!!c.connectAutoBackup);
+    $('connectBackupHint').textContent=(c.connectAutoBackup?'Connect auto backup is on. ':'Connect auto backup is off. ')+(c.connectBackupEpoch?('Last Connect backup: '+fmt24(c.connectBackupEpoch)+'. '):'No Connect backup has been saved yet. ')+'Connect backups do not include stored MQTT, Telegram or Connect tokens. '+(c.connectTokenSet?'':'Register TinyMaker Connect first.');
+    $('connectAutoBackupButton').disabled=locked||!c.connectTokenSet;
+    $('connectBackupDownloadButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
+    $('connectBackupRestoreButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
     return c;
   }catch(e){const locked=configIsLocallyLocked();setConfigDisabled(locked);updateConnectView(null);$('configHint').textContent=locked?'Config is locked while printing.':e.message;return null;}
 };
@@ -2982,13 +3292,20 @@ window.deleteFile=deleteFile;
 window.filesNav=d=>{filesPage+=d;renderFiles();};
 $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
 
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;const fd=new FormData();fd.append('file',f);uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{await uploadWithProgress(fd,$('uploadHint'));$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent='Upload complete in '+formatShortTime(Date.now()-started)+'.';loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
-$('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:new FormData(e.target)});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
+$('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
+$('connectAutoBackupButton').addEventListener('click',async()=>{const enabled=!!(connectConfig&&connectConfig.connectAutoBackup);const next=!enabled;const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints. Stored MQTT, Telegram and Connect tokens are not included.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'}))return;try{await api('/api/config',{method:'POST',body:configFormData(next)},12000);msg(next?'Connect auto backup enabled.':'Connect auto backup disabled.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectBackupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/connect/backup',{cache:'no-store'});if(!r.ok){let j={};try{j=await r.json();}catch(e){}throw new Error(j.error||('backup failed (HTTP '+r.status+')'));}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-connect-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Connect backup downloaded.');}catch(e){msg(e.message,true);loadConfig();}});
+$('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});msg('TinyMaker Connect settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
-$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;msg(updating?'Updating the Connect registration...':'Registering with TinyMaker Connect...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectPrinterName').value.trim()===''){msg('Enter a printer display name first.',true);$('cfgConnectPrinterName').focus();return;}if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;msg(updating?'Updating the Connect registration...':'Registering with TinyMaker Connect...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectReclaimButton').addEventListener('click',async()=>{const code=$('cfgConnectRecoveryCode').value.trim();if(!code){msg('Enter your recovery code first.',true);$('cfgConnectRecoveryCode').focus();return;}try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('recovery_code',code);const r=await api('/api/connect/register',{method:'POST',body:fd},12000);$('cfgConnectRecoveryCode').value='';msg(r.message||'TinyMaker Connect profile restored.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectNewProfileButton').addEventListener('click',async()=>{if(!await uiConfirm('Setup as a new TinyMaker Connect printer? The old Connect profile will stay on the server and this printer will receive a new recovery code.'))return;try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('new_profile','1');const r=await api('/api/connect/register',{method:'POST',body:fd},12000);msg(r.message||'New TinyMaker Connect profile created.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectRevealRecoveryButton').addEventListener('click',async()=>{try{const r=await api('/api/connect/recovery-code',null,12000);$('connectRecoveryCodeValue').value=r.recoveryCode||'';$('connectRecoveryCodeValue').type='text';$('connectCopyRecoveryButton').disabled=!$('connectRecoveryCodeValue').value;msg('Recovery code retrieved.');}catch(e){msg(e.message,true);}});
+$('connectCopyRecoveryButton').addEventListener('click',async()=>{const v=$('connectRecoveryCodeValue').value;if(!v)return;try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(v);}else{$('connectRecoveryCodeValue').select();document.execCommand('copy');}msg('Recovery code copied.');}catch(e){msg('Could not copy recovery code.',true);}});
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
 $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');loadConfig();}catch(e){msg(e.message,true);}});
 $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
@@ -3000,13 +3317,13 @@ $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
-$('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
+$('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);
-$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('ntfDc').addEventListener('change',updateTgFields);
-$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type=i.type==='password'?'text':'password';});
 // Contextual help: one modal, content picked by key (.qHelp marks + Telegram).
 const HELP={
@@ -3049,24 +3366,12 @@ $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=docu
 applyThemeLink();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));
 $('helpModal').addEventListener('click',e=>{if(e.target===$('helpModal'))show('helpModal',false);});
-$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('connectViewButton').addEventListener('click',()=>openView('connect'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
 $('updateViewButton').addEventListener('click',()=>openView('update'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
-$('connectSetupButton').addEventListener('click',async()=>{
-  openView('config');
-  await loadConfig();
-  if(configIsLocallyLocked()||(statusData&&statusData.webControl===false))return;
-  $('cfgConnectEnabled').checked=true;
-  updateConnectFields();
-  if(!$('cfgConnectBaseUrl').value)$('cfgConnectBaseUrl').value='https://tinymaker.inductie.nu';
-  $('connectFields').scrollIntoView({behavior:'smooth',block:'start'});
-  $('cfgConnectBaseUrl').focus();
-  msg('Check the Connect settings, then test the server and register.');
-});
-$('connectSettingsButton').addEventListener('click',async e=>{e.preventDefault();openView('config');await loadConfig();updateConnectFields();const t=$('connectFields').classList.contains('hidden')?$('cfgConnectEnabled').parentElement:$('connectFields');t.scrollIntoView({behavior:'smooth',block:'center'});});
 
 let updInstalledVer='';
 const cmpVer=(a,b)=>{const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);for(let i=0;i<3;i++){if((pa[i]||0)!==(pb[i]||0))return(pa[i]||0)-(pb[i]||0);}return 0;};
@@ -3157,7 +3462,6 @@ $('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),
 $('modelPreviewButton').addEventListener('click',modelPreview);
 $('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
-$('shareUploadButton').addEventListener('click',uploadSharedModel);
 
 openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
@@ -3383,6 +3687,14 @@ void handleApiUpdateInstall() {
 void drawWifiBadge() {
   // Bars end at y10; the menu boxes start at y13, so a clear
   // row always separates the badge from the System-box outline.
+  gfx2->fillRect(122, 1, 36, 11, BLACK);
+  if (connectEnabled) {
+    uint16_t cloudColor = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
+    gfx2->fillCircle(127, 8, 3, cloudColor);
+    gfx2->fillCircle(132, 7, 4, cloudColor);
+    gfx2->fillCircle(136, 8, 3, cloudColor);
+    gfx2->fillRect(126, 8, 12, 3, cloudColor);
+  }
   uint16_t c = (WiFi.status() == WL_CONNECTED) ? GREEN : DARKGREY;
   gfx2->fillRect(148, 8, 2, 3, c);   // short bar
   gfx2->fillRect(151, 5, 2, 6, c);   // medium bar
@@ -3393,6 +3705,73 @@ void drawWifiBadge() {
 // stores it in the /bootanim library, then makes it the active boot animation.
 // CORS header so the cross-origin "Send to printer" page can read our reply.
 //   POST /api/boot-anim/install   body: url=<http/https .tmb url>&name=<slug>
+String bootAnimMetadataPath(const String &name) {
+  return String(BOOTANIM_DIR) + "/" + name + ".json";
+}
+
+bool readBootAnimMetadataJson(const String &name, String &json) {
+  File f = SD.open(bootAnimMetadataPath(name).c_str());
+  if (!f) return false;
+  json = "";
+  uint32_t sz = f.size();
+  json.reserve((sz < 2048 ? sz : 2047) + 1);
+  while (f.available() && json.length() < 2048) json += (char)f.read();
+  f.close();
+  return json.length() > 0 && json.length() < 2048;
+}
+
+void appendBootAnimMetadataString(String &out, const String &json, const char *jsonKey, const char *apiKey) {
+  String v;
+  if (!readJsonStringField(json, jsonKey, v)) return;
+  out += ",\"";
+  out += apiKey;
+  out += "\":\"";
+  out += jsonEscape(v);
+  out += "\"";
+}
+
+void appendBootAnimMetadataFields(String &out, const String &name) {
+  String json;
+  if (!readBootAnimMetadataJson(name, json)) return;
+  appendBootAnimMetadataString(out, json, "source", "source");
+  appendBootAnimMetadataString(out, json, "connect_public_id", "connectPublicId");
+  appendBootAnimMetadataString(out, json, "connect_url", "connectUrl");
+  appendBootAnimMetadataString(out, json, "animation_name", "animationName");
+  appendBootAnimMetadataString(out, json, "version", "version");
+  appendBootAnimMetadataString(out, json, "checksum_sha256", "checksumSha256");
+  appendBootAnimMetadataString(out, json, "original_credits", "originalCredits");
+  appendBootAnimMetadataString(out, json, "license", "license");
+}
+
+bool writeBootAnimMetadataFile(const String &slug) {
+  String publicId = formString("public_id", "", 32);
+  String connectUrl = formString("connect_url", "", 160);
+  String version = formString("version", "", 32);
+  String checksum = formString("checksum_sha256", "", 80);
+  String animationName = formString("animation_name", "", 120);
+  String credits = formString("original_credits", "", 160);
+  String licenseName = formString("license", "", 32);
+  SD.remove(bootAnimMetadataPath(slug).c_str());
+  if (!publicId.length() && !connectUrl.length() && !version.length() && !checksum.length() &&
+      !animationName.length() && !credits.length() && !licenseName.length()) return true;
+
+  File f = SD.open(bootAnimMetadataPath(slug).c_str(), FILE_WRITE);
+  if (!f) return false;
+  f.print("{\n  \"format_version\": 1,\n  \"source\": \"connect\",\n  \"install_name\": \"");
+  f.print(jsonEscape(slug));
+  f.print("\"");
+  if (publicId.length()) { f.print(",\n  \"connect_public_id\": \""); f.print(jsonEscape(publicId)); f.print("\""); }
+  if (connectUrl.length()) { f.print(",\n  \"connect_url\": \""); f.print(jsonEscape(connectUrl)); f.print("\""); }
+  if (animationName.length()) { f.print(",\n  \"animation_name\": \""); f.print(jsonEscape(animationName)); f.print("\""); }
+  if (version.length()) { f.print(",\n  \"version\": \""); f.print(jsonEscape(version)); f.print("\""); }
+  if (checksum.length()) { f.print(",\n  \"checksum_sha256\": \""); f.print(jsonEscape(checksum)); f.print("\""); }
+  if (credits.length()) { f.print(",\n  \"original_credits\": \""); f.print(jsonEscape(credits)); f.print("\""); }
+  if (licenseName.length()) { f.print(",\n  \"license\": \""); f.print(jsonEscape(licenseName)); f.print("\""); }
+  f.print("\n}\n");
+  f.close();
+  return true;
+}
+
 void handleApiBootAnimInstall() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
 
@@ -3422,6 +3801,10 @@ void handleApiBootAnimInstall() {
 
   http.setTimeout(12000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  if (connectPublishToken.length() > 0 &&
+      url.startsWith(connectNormalizeBaseUrl(connectBaseUrl) + "/")) {
+    http.addHeader("X-TinyMaker-Token", connectPublishToken);
+  }
   int code = http.GET();
   if (code != HTTP_CODE_OK) {
     http.end();
@@ -3507,6 +3890,7 @@ void handleApiBootAnimInstall() {
   // Install only downloads: the active choice stays whatever it was, picking
   // is an explicit act (dashboard pick + Save config, or the printer menu).
   // Auto-selecting here silently overrode the user's choice on every install.
+  writeBootAnimMetadataFile(slug);
   sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
   netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
   delay(1200);
@@ -3519,7 +3903,9 @@ void handleApiBootAnimList() {
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String names[24];
   int n = listBootAnims(names, 24);
-  String out = "{\"selected\":\"" + jsonEscape(bootAnimName) + "\",\"animations\":[";
+  String selected = bootAnimName;
+  if (bootAnimShuffleSelected(selected) && n < 2) selected = "";
+  String out = "{\"selected\":\"" + jsonEscape(selected) + "\",\"animations\":[";
   for (int i = 0; i < n; i++) {
     if (i) out += ",";
     String path = String(BOOTANIM_DIR) + "/" + names[i] + ".tmb";
@@ -3527,10 +3913,34 @@ void handleApiBootAnimList() {
     long sz = f ? (long)f.size() : 0;
     if (f) f.close();
     out += "{\"name\":\"" + jsonEscape(names[i]) + "\",\"display\":\"" +
-           jsonEscape(bootAnimDisplay(names[i])) + "\",\"sizeBytes\":" + String(sz) + "}";
+           jsonEscape(bootAnimDisplay(names[i])) + "\",\"sizeBytes\":" + String(sz);
+    appendBootAnimMetadataFields(out, names[i]);
+    out += "}";
   }
   out += "]}";
   server.send(200, "application/json", out);
+}
+
+// GET /api/boot-anim/file?name=<slug> - stream an installed TMB1 animation for
+// browser preview. Read-only, but still blocked while printing because SD is busy.
+void handleApiBootAnimFile() {
+  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = sanitizeAnimName(server.arg("name"));
+  if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
+
+  String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
+  File f = SD.open(path.c_str());
+  if (!f) { sendApiError(404, "animation not found"); return; }
+
+  server.sendHeader("Cache-Control", "max-age=86400");
+  server.setContentLength(f.size());
+  server.send(200, "application/octet-stream", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  f.close();
 }
 
 // POST /api/boot-anim/select  body: name=<slug|empty>  ("" = built-in Default)
@@ -3539,7 +3949,12 @@ void handleApiBootAnimSelect() {
   if (printerBusy()) { sendApiError(409, "printer busy"); return; }
   String name = server.arg("name");
   name.trim();
-  if (name.length() > 0 && !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
+  if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeAnimName(name);
+  if (bootAnimShuffleSelected(name)) {
+    String names[2];
+    if (listBootAnims(names, 2) < 2) { sendApiError(409, "shuffle needs at least two animations"); return; }
+  }
+  if (name.length() > 0 && !bootAnimShuffleSelected(name) && !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
   bootAnimName = name;
   saveDeviceConfig();
   sendApiOk("\"selected\":\"" + jsonEscape(bootAnimName) + "\"");
@@ -3552,10 +3967,16 @@ void handleApiBootAnimDelete() {
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
+  name = sanitizeAnimName(name);
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   SD.remove(path.c_str());
-  if (bootAnimName == name) { bootAnimName = ""; saveDeviceConfig(); }  // fall back to Default
+  SD.remove(bootAnimMetadataPath(name).c_str());
+  String names[2];
+  if (bootAnimName == name || (bootAnimShuffleSelected(bootAnimName) && listBootAnims(names, 2) < 2)) {
+    bootAnimName = "";
+    saveDeviceConfig();
+  }  // fall back to Default
   sendApiOk("");
 }
 
@@ -3701,6 +4122,9 @@ void network_setup() {
   server.on("/api/status", HTTP_GET, handleApiStatus);
   server.on("/api/files", HTTP_GET, handleApiFiles);
   server.on("/api/files/model", HTTP_GET, handleApiFileModel);
+  server.on("/api/files/model/metadata", HTTP_POST, handleApiFileModelMetadata);
+  server.on("/api/files/model/preview", HTTP_GET, handleApiFileModelPreview);
+  server.on("/api/files/model/preview", HTTP_POST, finishPreviewUpload, handlePreviewUploadData);
   server.on("/api/files/layer", HTTP_GET, handleApiFileLayer);
   server.on("/api/files/delete", HTTP_POST, handleApiFileDelete);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
@@ -3715,6 +4139,10 @@ void network_setup() {
   server.on("/api/config/dry-run", HTTP_POST, handleApiConfigDryRun);
   server.on("/api/connect/test", HTTP_POST, handleApiConnectTest);
   server.on("/api/connect/register", HTTP_POST, handleApiConnectRegister);
+  server.on("/api/connect/recovery-code", HTTP_GET, handleApiConnectRecoveryCode);
+  server.on("/api/connect/backup", HTTP_GET, handleApiConnectBackup);
+  server.on("/api/connect/backup", HTTP_POST, handleApiConnectBackup);
+  server.on("/api/connect/restore", HTTP_POST, handleApiConnectRestore);
   server.on("/api/telegram/test", HTTP_POST, handleApiTelegramTest);
   server.on("/api/whatsapp/test", HTTP_POST, handleApiWhatsAppTest);
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
@@ -3726,6 +4154,7 @@ void network_setup() {
   server.on("/api/print/resume", HTTP_POST, handleApiPrintResume);
   server.on("/api/print/stop", HTTP_POST, handleApiPrintStop);
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
+  server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
@@ -3809,6 +4238,7 @@ void network_loop() {
   // (same safety gate as the web /update flasher).
   if (otaMenuOpen()) ArduinoOTA.handle();
   mqtt_loop();
+  tinymakerConnectLoop();
 
   // Live refresh of the WiFi info screen (312): redraw values every 2 s
   // while the screen is open. 'screen' global is defined in the main .ino

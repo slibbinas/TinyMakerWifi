@@ -99,6 +99,40 @@ void print_next_png(){
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Show the resin estimate result and wait for Start or Back.
+ */
+bool showResinEstimateResult() {
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(12, 22);
+  gfx2->print("Resin needed");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 44);
+  gfx2->print(resinEstimateMl, 1);
+  gfx2->print(" ml = ");
+  gfx2->print(resinEstimateMl / (double)Vat_Capacity_Ml, 1);
+  gfx2->print(" VAT");
+  gfx2->setTextColor(WHITE);
+  uiButtons("Back", "Start", 0x879F);
+
+  while (digitalRead(buttonUp) == LOW) delay(10);
+  delay(150);
+  while (true) {
+    if (digitalRead(buttonOK) == LOW) {
+      while (digitalRead(buttonOK) == LOW) delay(10);
+      return true;
+    }
+    if (digitalRead(buttonBack) == LOW) {
+      while (digitalRead(buttonBack) == LOW) delay(10);
+      return false;
+    }
+    delay(10);
+  }
+}
+
+/**
  * @brief Estimate total resin for the selected model by decoding every layer
  * PNG and counting white pixels (no drawing). Shows a progress bar with %.
  * Result in ml -> resinEstimateMl. Then shows the result with Back / Start
@@ -106,6 +140,12 @@ void print_next_png(){
  * @return true if the user pressed Start (begin printing), false for Back.
  */
 bool estimateResin(){
+  double cachedMl = 0;
+  if (getModelMetadataResin(String(foldersel_long), cachedMl)) {
+    resinEstimateMl = cachedMl;
+    return showResinEstimateResult();
+  }
+
   netProgressStart("Estimating resin ml", "");
 
   int total = layer_counter;              // already halved for 0.1 mm by screen111
@@ -142,35 +182,6 @@ bool estimateResin(){
 
   countPixelsMode = false;
   resinEstimateMl = volMm3 / 1000.0;
-
-  // Show result with Back / Start buttons (same layout as screen111 preview)
-  uiFrame(ORANGE);
-  gfx2->setFont(&FreeSans8pt7b);
-  gfx2->setTextColor(WHITE);
-  gfx2->setTextSize(1);
-  gfx2->setCursor(12, 22);
-  gfx2->print("Resin needed");
-  gfx2->setTextColor(0x879F);
-  gfx2->setCursor(8, 44);
-  gfx2->print(resinEstimateMl, 1);
-  gfx2->print(" ml = ");
-  gfx2->print(resinEstimateMl / (double)Vat_Capacity_Ml, 1);
-  gfx2->print(" VAT");
-  gfx2->setTextColor(WHITE);
-  uiButtons("Back", "Start", 0x879F);
-
-  // Wait for release of UP (which triggered this), then Start (OK) or Back.
-  while (digitalRead(buttonUp) == LOW) delay(10);
-  delay(150);
-  while (true) {
-    if (digitalRead(buttonOK) == LOW) {                 // Start
-      while (digitalRead(buttonOK) == LOW) delay(10);
-      return true;
-    }
-    if (digitalRead(buttonBack) == LOW) {               // Back
-      while (digitalRead(buttonBack) == LOW) delay(10);
-      return false;
-    }
-    delay(10);
-  }
+  setModelMetadataResin(String(foldersel_long), resinEstimateMl);
+  return showResinEstimateResult();
 }
