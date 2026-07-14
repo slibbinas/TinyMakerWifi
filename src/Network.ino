@@ -3075,16 +3075,17 @@ const drawVolumeBox=cv=>{
 };
 // Loading state painted straight onto a preview canvas: big percentage in the
 // box plus an orange progress bar underneath - the usual "image loading" look.
-// frac=null -> plain white label, no bar (quick PNG download); a number ->
-// brand-orange percentage with the progress bar (slice-by-slice render).
+// White label everywhere; the brand orange is reserved for the progress bar
+// itself (drawn only when frac is a number - the slice-by-slice render).
 const paintPreviewProgress=(cv,label,frac)=>{
   const ctx=drawVolumeBox(cv);
-  ctx.fillStyle=frac===null?'#e9e9ec':'#e8720c';
+  ctx.fillStyle='#e9e9ec';
   ctx.font='bold 34px sans-serif';ctx.textAlign='center';
   ctx.fillText(label,PREV_CX,PREV_CY-16);ctx.textAlign='left';
   if(frac===null)return;
   const bw=PREV_W-160;
   ctx.strokeStyle='#4a4a52';ctx.strokeRect(80,PREV_H-26,bw,10);
+  ctx.fillStyle='#e8720c';
   if(frac>0)ctx.fillRect(81,PREV_H-25,Math.max(2,(bw-2)*Math.min(frac,1)),8);
 };
 const drawIso=(cv,doneFrac)=>{
