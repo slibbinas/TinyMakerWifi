@@ -2954,9 +2954,13 @@ const renderFiles=()=>{
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
   const nModels=items.filter(it=>it.type==='model').length,nArch=items.length-nModels;
-  if(items.length>3)h+='<div class="meta" style="margin-top:10px">'+nModels+' model'+(nModels===1?'':'s')+(nArch?' · '+nArch+' archive'+(nArch===1?'':'s'):'')+'</div>';
+  // Counts and the hidden-items note share one row (left | right) - stacked
+  // they stretched the card for nothing (user finding).
+  let foot='';
+  if(items.length>3)foot+='<span class="meta">'+nModels+' model'+(nModels===1?'':'s')+(nArch?' · '+nArch+' archive'+(nArch===1?'':'s'):'')+'</span>';
+  if(filesHidden>0)foot+='<span class="meta">'+filesHidden+' other SD item(s) hidden</span>';
+  if(foot)h+='<div style="display:flex;justify-content:space-between;gap:10px;margin-top:10px">'+foot+'</div>';
   if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small secondaryBtn"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small secondaryBtn"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
-  if(filesHidden>0)h+='<div class="hint">'+filesHidden+' other SD item(s) hidden.</div>';
   list.innerHTML=h;
 };
 const loadFiles=async()=>{
