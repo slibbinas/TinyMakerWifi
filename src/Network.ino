@@ -2854,7 +2854,7 @@ const openView=view=>{
   $('configViewButton').classList.toggle('active',view==='config');
   $('updateViewButton').classList.toggle('active',view==='update');
   if(view==='home')loadFiles();
-  if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).catch(e=>msg(e.message,true));
+  if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
   if(view==='update')loadUpdate();
 };
@@ -3327,6 +3327,24 @@ const loadConnectApp=()=>{
   return connectAppPromise;
 };
 window.loadConnectApp=loadConnectApp;
+// Working area first (user decision): the hosted app renders title + status
+// hints above its tabs - move them into a footer below everything. Node MOVES
+// keep Brian's element references alive, so his updates keep working.
+const tidyConnectHosted=()=>{
+  const root=$('connectHostedRoot');if(!root)return;
+  const tabs=root.querySelector('.connectTabs');if(!tabs)return;
+  let foot=$('connectHostedFoot');
+  if(!foot){
+    foot=document.createElement('div');
+    foot.id='connectHostedFoot';
+    foot.style.cssText='margin-top:22px;border-top:1px solid var(--line);padding-top:12px';
+    root.appendChild(foot);
+  }
+  const h2=root.querySelector(':scope > h2');
+  [...tabs.parentElement.querySelectorAll(':scope > .hint')].forEach(x=>foot.appendChild(x));
+  if(h2){h2.style.fontSize='15px';h2.style.margin='0 0 6px';foot.insertBefore(h2,foot.firstChild);}
+  root.appendChild(foot);  // stay last even if the app appends panes later
+};
 const clearBootAnimPreviews=()=>{if(window.TinyMakerConnectClearBootAnimPreviews)window.TinyMakerConnectClearBootAnimPreviews();};
 const loadConnectTab=async()=>{if(window.TinyMakerConnectLoadTab)return window.TinyMakerConnectLoadTab();};
 const setConnectTab=tab=>{if(window.TinyMakerConnectSetTab)return window.TinyMakerConnectSetTab(tab);connectTab=tab;};
@@ -3448,7 +3466,7 @@ const updateConnectFields=()=>show('connectFields',$('cfgConnectEnabled').checke
 const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);show('dcFields',$('ntfDc').checked);};
 const updateConnectView=c=>{
   c=c||connectConfig||{};
-  if(window.TinyMakerConnectHostedUpdate)window.TinyMakerConnectHostedUpdate(c);
+  if(window.TinyMakerConnectHostedUpdate){window.TinyMakerConnectHostedUpdate(c);try{tidyConnectHosted();}catch(_){}}
   else if($('connectHostedRoot'))$('connectHostedRoot').innerHTML=connectIsReady()?'<h2>TinyMaker Connect</h2><div class="hint">Connect UI is loaded from '+esc(connectBase())+'.</div>':'<h2>TinyMaker Connect</h2><div class="hint">Enable and register TinyMaker Connect in Settings before loading the hosted Connect app.</div>';
   show('modelShareButton',connectIsReady()&&!!selectedModel&&!selectedModelConnectPublicId);
 };
