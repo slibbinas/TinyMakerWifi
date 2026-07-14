@@ -2987,9 +2987,19 @@ const modelDetails=async(nameEnc,estimate)=>{
     show('modelResinBox',!!d.resinEstimated); if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
     show('modelMlButton',!d.resinEstimated);
     show('modelShareButton',connectIsReady()&&!selectedModelConnectPublicId);
-    if(d.preview&&!estimate){
-      try{show('modelPreviewButton',false);await loadSavedPreview(name);}
-      catch(e){show('previewWrap',false);show('modelPreviewButton',true);}
+    if(!estimate){
+      // One look everywhere (user decision): details always show OUR voxel
+      // render. If it is cached for the current layer height - load it; if
+      // not - render it now (the button stays visible, shows Loading % and
+      // ends up disabled instead of vanishing - it used to pop in and out).
+      const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
+      const hasVoxel=lh1?d.preview1:d.preview05;
+      show('modelPreviewButton',true);
+      if(hasVoxel){
+        const pb=$('modelPreviewButton');pb.disabled=true;
+        try{await loadSavedPreview(name);}
+        catch(e){show('previewWrap',false);pb.disabled=false;}
+      }else modelPreview();
     }
   }catch(e){msg(e.message,true);}
   finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
@@ -3127,9 +3137,9 @@ const modelPreview=async()=>{
     const blob=await canvasBlob($('modelPreviewCanvas'));
     try{await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
     catch(e){msg('Preview shown, but saving it failed: '+e.message,true);}
-  }catch(e){msg(e.message,true);show('previewWrap',false);}
+    btn.textContent='Preview 3D';   // success: preview shown, button stays disabled
+  }catch(e){msg(e.message,true);show('previewWrap',false);btn.disabled=false;btn.textContent='Preview 3D';}
   show('prevSpin',false);
-  btn.disabled=false;btn.textContent='Preview 3D';
 };
 
 const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectTokenSet);
