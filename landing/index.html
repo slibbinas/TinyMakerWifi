@@ -45,7 +45,16 @@ footer a{color:#8a8a92;text-decoration:underline}
     <a class="btn" href="https://github.com/slibbinas/TinyMakerWifi/releases">Download firmware</a>
     <a class="btn sec" href="https://slibbinas.github.io/TinyMakerWifi/manual/">Read the manual</a>
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
+    <a class="btn sec" id="openPrinter" href="http://tinymaker.local">Open my printer</a>
   </div>
+  <div style="margin-top:10px;font-size:13px;color:#8a8a92">Printer on the same WiFi? <span id="ipRow">If <code>tinymaker.local</code> doesn't open, enter its IP (System &gt; WiFi Info): <input id="ipBox" placeholder="192.168.1.23" style="width:130px;background:#1d1d20;border:1px solid #3a3a3f;border-radius:6px;color:#eee;padding:4px 8px;font-size:13px"> <a href="#" id="ipGo">open</a></span></div>
+  <script>
+  (function(){
+    var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter');
+    try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;btn.href='http://'+s;btn.textContent='Open my printer ('+s+')';}}catch(e){}
+    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}location.href='http://'+v;});
+  })();
+  </script>
   <img class="shot" src="https://slibbinas.github.io/TinyMakerWifi/manual/images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer">
 </div>
 
