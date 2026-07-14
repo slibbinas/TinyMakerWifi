@@ -3005,8 +3005,30 @@ const loadSavedPreview=async name=>{
   img.src='/api/files/model/preview?name='+enc(name)+'&r='+Date.now();
   await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('saved preview failed to load'));});
   cv.width=PREV_W;cv.height=PREV_H;
+  // Slicer thumbnails ship in their own palette (PrusaSlicer teal etc.):
+  // rotate the image's dominant hue onto the brand orange so every preview
+  // matches the dashboard. Our own renders are already orange -> rotation ~0.
+  // Grays (the floor grid) carry no hue, so they are untouched.
+  let rot=0;
+  try{
+    const tc=document.createElement('canvas');tc.width=64;tc.height=48;
+    const tx=tc.getContext('2d',{willReadFrequently:true});
+    tx.drawImage(img,0,0,64,48);
+    const px=tx.getImageData(0,0,64,48).data;
+    let sx=0,sy=0;
+    for(let p=0;p<px.length;p+=4){
+      const r=px[p],g=px[p+1],b=px[p+2],mx=Math.max(r,g,b),d=mx-Math.min(r,g,b);
+      if(d<30||px[p+3]<200)continue;
+      let h=mx===r?((g-b)/d)%6:(mx===g?(b-r)/d+2:(r-g)/d+4);
+      h*=60;if(h<0)h+=360;
+      sx+=Math.cos(h*Math.PI/180);sy+=Math.sin(h*Math.PI/180);
+    }
+    if(sx||sy){const H=Math.atan2(sy,sx)*180/Math.PI;rot=Math.round(25-H);if(Math.abs(rot)<15)rot=0;}
+  }catch(e){}
   ctx.clearRect(0,0,PREV_W,PREV_H);
+  if(rot)ctx.filter='hue-rotate('+rot+'deg)';
   ctx.drawImage(img,0,0,PREV_W,PREV_H);
+  ctx.filter='none';
   show('previewWrap',true);
 };
 const drawIso=(cv,doneFrac)=>{
