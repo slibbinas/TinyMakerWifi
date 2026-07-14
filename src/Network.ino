@@ -2292,7 +2292,7 @@ const smallBtn=(txt,danger)=>{
 const renderBootAnims=()=>{
   const wrap=$('bootAnimList');
   wrap.innerHTML='';
-  wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px';
+  wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px;max-height:320px;overflow-y:auto';
   const shown=bootAnimPending===null?bootAnimSel:bootAnimPending;
   const rows=[{name:'',display:'Default (built-in)'}].concat(bootAnimSd);
   rows.forEach(a=>{
