@@ -152,6 +152,20 @@ def draw_update_page(installed, latest):
     return img
 
 
+def add_connect_cloud(img, d):
+    """Main-menu tile: Connect cloud badge left of the WiFi bars (drawWifiBadge
+    draws it when connectEnabled; color 0x879F). Bars sit at x1266-1291,
+    y105-133 in the collage (~3.2x the 160x80 LCD); the cloud mirrors the
+    firmware's three circles + base rect at that scale."""
+    CLOUD = (132, 240, 248)
+    bg = img.getpixel((1200, 112))
+    d.rectangle((1180, 100, 1248, 136), fill=bg)
+    d.ellipse((1189, 114, 1209, 134), fill=CLOUD)   # left lobe  (127,8 r3)
+    d.ellipse((1202, 108, 1228, 134), fill=CLOUD)   # center lobe (132,7 r4)
+    d.ellipse((1217, 114, 1237, 134), fill=CLOUD)   # right lobe (136,8 r3)
+    d.rectangle((1195, 124, 1234, 134), fill=CLOUD)  # base (126,8 12x3)
+
+
 def extend_printer_screens():
     """Append a 5th row to the printer-screens collage: Advanced menu,
     low-resin warning and the ask-refill screens (added in 0.10-0.12).
@@ -437,6 +451,7 @@ def main():
     # WiFi-info tile, small gray line
     patch(img, d, (1464, 1705, 1724, 1741),
           [(0, f"FW v{latest}", mono26, (170, 170, 170))], (1800, 1705))
+    add_connect_cloud(img, d)
     img.save(p)
     print(f"  {p.name} ok")
     extend_printer_screens()
