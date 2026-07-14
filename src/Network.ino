@@ -2995,11 +2995,14 @@ const modelDetails=async(nameEnc,estimate)=>{
       const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
       const hasVoxel=lh1?d.preview1:d.preview05;
       show('modelPreviewButton',true);
+      const pb=$('modelPreviewButton');
       if(hasVoxel){
-        const pb=$('modelPreviewButton');pb.disabled=true;
+        pb.disabled=true;
         try{await loadSavedPreview(name);}
         catch(e){show('previewWrap',false);pb.disabled=false;}
-      }else modelPreview();
+      }else pb.disabled=false; // render on demand - auto-rendering stacked
+                               // slice fetches when browsing between models
+                               // and starved the status polls (timeouts).
     }
   }catch(e){msg(e.message,true);}
   finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
@@ -3098,12 +3101,17 @@ const restoreSlicesFromStorage=name=>{
     return true;
   }catch(e){return false;}
 };
+let fetchSlicesSeq=0;
 const fetchSlices=async(name,layers,modelH,btn,mode)=>{
+  // Only one slice run at a time: a second run (another model opened, Start
+  // pressed) supersedes this one - two loops in parallel starve the printer.
+  const mySeq=++fetchSlicesSeq;
   mode=mode||'current';
   const N=Math.min(36,layers),gw=80,gh=60,slices=[];
   const oc=document.createElement('canvas');oc.width=gw;oc.height=gh;
   const octx=oc.getContext('2d',{willReadFrequently:true});
   for(let k=0;k<N;k++){
+    if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');
     const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
     const img=new Image();
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
