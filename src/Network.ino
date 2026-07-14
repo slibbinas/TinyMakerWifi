@@ -2236,6 +2236,7 @@ const reloadIfFirmwareChanged=s=>{
 };
 const loadBootAnims=async()=>{
   const wrap=$('bootAnimList');
+  if(!wrap.childElementCount)wrap.innerHTML='<div class="hint">Loading animations...</div>';
   try{
     const d=await api('/api/boot-anim');
     const sel=d.selected||'';
@@ -2434,6 +2435,7 @@ const renderFiles=()=>{
 const loadFiles=async()=>{
   const list=$('filesList');
   if(statusData&&statusData.busy){renderFiles();show('filesFilter',false);return;} // no SD reads mid-print; show the cached list, locked
+  if(!filesItems.length)list.innerHTML='<div class="hint">Loading the SD card...</div>';
   try{
     const d=await api('/api/files');
     updateSdUsage(d);
@@ -2823,6 +2825,7 @@ const updateConnectView=c=>{
   show('modelShareButton',connectIsReady()&&!!selectedModel);
 };
 const loadConfig=async()=>{
+  if(!connectConfig)$('configHint').textContent='Loading settings...';
   try{
     const c=await api('/api/config');
     connectConfig=c;
