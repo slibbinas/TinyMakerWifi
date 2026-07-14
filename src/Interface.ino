@@ -176,16 +176,13 @@ String nextBootAnim(const String &current) {
   return "";  // current was deleted -> back to Default
 }
 
-// Play the selected boot animation from the /bootanim library. Returns true if
-// it played, false to fall back to the built-in splash. Reads the selection
-// directly because loadDeviceConfig() runs after screen0() at boot.
-bool playBootAnimFromSd() {
-  sysPrefs.begin("tinymaker", true);
-  String name = sysPrefs.getString("bootAnimName", "");
-  sysPrefs.end();
+// Play /bootanim/<name>.tmb on the little screen. Returns false when the file
+// is missing or invalid. Shared by the boot splash and the dashboard's "Show"
+// preview (Network.ino), which draws over the current screen and restores it.
+bool playTmbByName(const String &name) {
   if (name.length() == 0) return false;
 
-  String path = "/bootanim/" + name + ".tmb";
+  String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   File f = SD.open(path.c_str());
   if (!f) return false;
 
@@ -225,6 +222,16 @@ bool playBootAnimFromSd() {
   free(frame);
   f.close();
   return true;
+}
+
+// Play the selected boot animation from the /bootanim library. Returns true if
+// it played, false to fall back to the built-in splash. Reads the selection
+// directly because loadDeviceConfig() runs after screen0() at boot.
+bool playBootAnimFromSd() {
+  sysPrefs.begin("tinymaker", true);
+  String name = sysPrefs.getString("bootAnimName", "");
+  sysPrefs.end();
+  return playTmbByName(name);
 }
 
 /**

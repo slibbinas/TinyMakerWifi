@@ -2115,7 +2115,8 @@ void handleRootPage() {
   <div class='card'>
   <h2>Boot animation</h2>
   <div id='bootAnimList'></div>
-  <div id='bootAnimHint' class='hint'>Choose which animation plays at power-on. Send more from the community site; Delete removes one from the SD card.</div>
+  <div id='bootAnimHint' class='hint'>Pick which animation plays at power-on and press Save config. Show plays it on the printer's screen (idle only) - check the printer. Delete removes the file from the SD card.</div>
+  <button id='bootAnimSaveButton' type='button' disabled>Save config</button>
   </div>
   </div>
   </div>
@@ -2274,64 +2275,132 @@ const reloadIfFirmwareChanged=s=>{
   location.replace('/?fw='+encodeURIComponent(live)+'&r='+Date.now());
   return true;
 };
+// Selection is staged: picking a row only marks it, bootAnimSaveButton applies.
+// The "Default library" below the SD list comes from the project's gh-pages
+// (same host as self-update) - picking Install pulls the .tmb onto the SD card.
+let bootAnimSel='';        // selection as saved on the printer
+let bootAnimPending=null;  // staged pick (null = nothing staged)
+let bootAnimSd=[];         // animations currently on the SD card
+let bootAnimLib=null;      // gh-pages manifest cache (null until fetched)
+const BOOTANIM_LIB='https://slibbinas.github.io/TinyMakerWifi/bootanims/';
+const smallBtn=(txt,danger)=>{
+  const b=document.createElement('button');
+  b.type='button';b.textContent=txt;
+  b.style.cssText='flex:0 0 auto;width:auto;white-space:nowrap;margin:0;padding:5px 13px;font-size:12.5px;background:transparent;border:1px solid '+(danger?'#44343a':'#3a3a3f')+';color:'+(danger?'#e08a92':'#c9c9ce')+';border-radius:7px;cursor:pointer';
+  return b;
+};
+const renderBootAnims=()=>{
+  const wrap=$('bootAnimList');
+  wrap.innerHTML='';
+  wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px';
+  const shown=bootAnimPending===null?bootAnimSel:bootAnimPending;
+  const rows=[{name:'',display:'Default (built-in)'}].concat(bootAnimSd);
+  rows.forEach(a=>{
+    const active=shown===a.name;
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px'+(active?';background:rgba(255,138,30,.09)':'');
+
+    const pick=document.createElement('button');
+    pick.type='button';
+    pick.style.cssText='flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:0;margin:0;text-align:left';
+
+    const dot=document.createElement('span');
+    dot.style.cssText='flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid '+(active?'#ff8a1e':'#6a6a72')+';background:'+(active?'#ff8a1e':'transparent')+';box-shadow:'+(active?'inset 0 0 0 2px #1e1e23':'none');
+
+    const label=document.createElement('span');
+    label.style.cssText='min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(active?'#ff8a1e':'#e9e9ec')+';font-weight:'+(active?'600':'500');
+    label.textContent=a.display;
+
+    pick.appendChild(dot);pick.appendChild(label);
+    if(a.name){
+      const meta=document.createElement('span');
+      meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
+      meta.textContent=formatBytes(a.sizeBytes);
+      pick.appendChild(meta);
+    }
+    pick.addEventListener('click',()=>{bootAnimPending=(a.name===bootAnimSel)?null:a.name;renderBootAnims();});
+    row.appendChild(pick);
+
+    if(a.name){
+      const show=smallBtn('Show');
+      show.addEventListener('click',()=>previewBootAnim(a.name,show));
+      row.appendChild(show);
+      const del=smallBtn('Delete',true);
+      del.addEventListener('click',()=>deleteBootAnim(a.name,a.display));
+      row.appendChild(del);
+    }
+    wrap.appendChild(row);
+  });
+  $('bootAnimSaveButton').disabled=bootAnimPending===null;
+  // Default library entries not yet on the SD card
+  if(bootAnimLib&&bootAnimLib.length){
+    const missing=bootAnimLib.filter(e=>!bootAnimSd.some(a=>a.name===e.name));
+    if(missing.length){
+      const head=document.createElement('div');
+      head.className='subhead';head.textContent='Default library';
+      wrap.appendChild(head);
+      missing.forEach(e=>{
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px';
+        const label=document.createElement('span');
+        label.style.cssText='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9c9ce';
+        label.textContent=e.display;
+        const meta=document.createElement('span');
+        meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
+        meta.textContent=formatBytes(e.sizeBytes);
+        const inst=smallBtn('Install');
+        inst.addEventListener('click',()=>installBootAnim(e,inst));
+        row.appendChild(label);row.appendChild(meta);row.appendChild(inst);
+        wrap.appendChild(row);
+      });
+    }
+  }
+};
 const loadBootAnims=async()=>{
   const wrap=$('bootAnimList');
   if(!wrap.childElementCount)wrap.innerHTML='<div class="hint">Loading animations...</div>';
   try{
     const d=await api('/api/boot-anim');
-    const sel=d.selected||'';
-    wrap.innerHTML='';
-    wrap.style.cssText='display:flex;flex-direction:column;gap:2px;margin:8px 0 4px';
-    const rows=[{name:'',display:'Default (built-in)'}].concat(d.animations||[]);
-    rows.forEach(a=>{
-      const active=sel===a.name;
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px'+(active?';background:rgba(255,138,30,.09)':'');
-
-      const pick=document.createElement('button');
-      pick.type='button';
-      pick.style.cssText='flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:0;margin:0;text-align:left';
-
-      const dot=document.createElement('span');
-      dot.style.cssText='flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid '+(active?'#ff8a1e':'#6a6a72')+';background:'+(active?'#ff8a1e':'transparent')+';box-shadow:'+(active?'inset 0 0 0 2px #1e1e23':'none');
-
-      const label=document.createElement('span');
-      label.style.cssText='min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(active?'#ff8a1e':'#e9e9ec')+';font-weight:'+(active?'600':'500');
-      label.textContent=a.display;
-
-      pick.appendChild(dot);pick.appendChild(label);
-      if(a.name){
-        const meta=document.createElement('span');
-        meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
-        meta.textContent=formatBytes(a.sizeBytes);
-        pick.appendChild(meta);
-      }
-      pick.addEventListener('click',()=>selectBootAnim(a.name));
-      row.appendChild(pick);
-
-      if(a.name){
-        const del=document.createElement('button');
-        del.type='button';
-        del.style.cssText='flex:0 0 auto;width:auto;white-space:nowrap;margin:0;padding:5px 13px;font-size:12.5px;background:transparent;border:1px solid #44343a;color:#e08a92;border-radius:7px;cursor:pointer';
-        del.textContent='Delete';
-        del.addEventListener('click',()=>deleteBootAnim(a.name,a.display));
-        row.appendChild(del);
-      }
-      wrap.appendChild(row);
-    });
-  }catch(e){$('bootAnimHint').textContent=e.message;}
+    bootAnimSel=d.selected||'';
+    if(bootAnimPending===bootAnimSel)bootAnimPending=null;
+    bootAnimSd=d.animations||[];
+    renderBootAnims();
+  }catch(e){$('bootAnimHint').textContent=e.message;return;}
+  if(bootAnimLib===null){
+    try{const r=await fetch(BOOTANIM_LIB+'manifest.json',{cache:'no-store'});
+      bootAnimLib=r.ok?(await r.json()).animations||[]:[];}
+    catch(e){bootAnimLib=[];}
+    renderBootAnims();
+  }
 };
-const selectBootAnim=async name=>{
-  try{await api('/api/boot-anim/select',{method:'POST',body:new URLSearchParams({name})});
-    msg(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.');loadBootAnims();}
+const previewBootAnim=async(name,btn)=>{
+  btn.disabled=true;
+  try{await api('/api/boot-anim/preview',{method:'POST',body:new URLSearchParams({name})},12000);
+    msg('Playing on the printer - check its screen.');}
   catch(e){msg(e.message,true);}
+  setTimeout(()=>{btn.disabled=false;},1500);
+};
+const installBootAnim=async(e,btn)=>{
+  btn.disabled=true;btn.textContent='Installing...';
+  try{await api('/api/boot-anim/install',{method:'POST',body:new URLSearchParams({url:BOOTANIM_LIB+e.file,name:e.name})},90000);
+    msg('Installed "'+e.display+'".');loadBootAnims();}
+  catch(err){msg(err.message,true);btn.disabled=false;btn.textContent='Install';}
 };
 const deleteBootAnim=async(name,display)=>{
   if(!await uiConfirm('Delete "'+display+'" from the printer?',{danger:true}))return;
   try{await api('/api/boot-anim/delete',{method:'POST',body:new URLSearchParams({name})});
+    if(bootAnimPending===name)bootAnimPending=null;
     msg('Deleted "'+display+'".');loadBootAnims();}
   catch(e){msg(e.message,true);}
 };
+$('bootAnimSaveButton').addEventListener('click',async()=>{
+  if(bootAnimPending===null)return;
+  const name=bootAnimPending;
+  try{await api('/api/boot-anim/select',{method:'POST',body:new URLSearchParams({name})});
+    bootAnimPending=null;
+    msg(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.');loadBootAnims();}
+  catch(e){msg(e.message,true);}
+});
 const openView=view=>{
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -3489,6 +3558,22 @@ void handleApiBootAnimDelete() {
   sendApiOk("");
 }
 
+// POST /api/boot-anim/preview  body: name=<slug> - plays the animation on the
+// printer's screen right away (idle only, same frame budget as the boot play).
+// The HTTP reply goes out BEFORE the playback: a full 10 s animation would
+// otherwise time the browser call out while the loop is busy drawing.
+void handleApiBootAnimPreview() {
+  if (rejectIfWebControlOff()) return;
+  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = server.arg("name");
+  name.trim();
+  if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
+  sendApiOk("");
+  playTmbByName(name);
+  screen1();
+}
+
 void network_setup() {
   if (!networkRuntimeEnabled()) {
     WiFi.mode(WIFI_OFF);
@@ -3642,6 +3727,7 @@ void network_setup() {
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
+  server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
   server.on("/api/boot-anim/install", HTTP_POST, handleApiBootAnimInstall);
   server.on("/api/boot-anim/install", HTTP_OPTIONS, []() {   // CORS preflight
     server.sendHeader("Access-Control-Allow-Origin", "*");
