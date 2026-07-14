@@ -3449,7 +3449,11 @@ document.querySelectorAll('#cfgNav a').forEach(a=>a.addEventListener('click',e=>
 const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
 // The auto-backup choice is a regular form checkbox now (Network > Connect);
 // the set-flag tells the firmware the field was intentionally present.
-const configFormData=()=>{const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');return fd;};
+// GUARD: an unloaded form serializes every checkbox as OFF - posting it once
+// wiped the printer's settings (2026-07-14 incident). Refuse until loaded.
+const configFormData=()=>{
+  if(!connectConfig)throw new Error('Settings have not loaded yet - wait a moment and try again.');
+  const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');return fd;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
