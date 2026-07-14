@@ -4248,6 +4248,7 @@ void handleApiBootAnimPreview() {
   name.trim();
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
   sendApiOk("");
+  uiWakeScreen();               // display may be blanked by the UI timeout
   playTmbByName(name);
   screen1();
 }
