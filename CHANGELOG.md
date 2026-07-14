@@ -16,6 +16,13 @@ unless noted. Community contributors are tagged inline.
 ## [Unreleased] — `experimental` branch
 
 ### Added
+- **Always-on Model preview card** — the dashboard's 3D card no longer hides:
+  idle shows a pick-a-model hint, the last previewed model is remembered and
+  restored from the saved preview after a page reload, and a print started on
+  the printer itself replaces a stale preview with a note instead of showing
+  the wrong model.
+- **Home-screen app (PWA manifest)** — *Add to Home screen* now pins the
+  dashboard with the project icon; on iPhone it opens fullscreen like an app.
 - **WhatsApp and Discord notifications** — same three messages as Telegram
   (finished / low-resin pause / canceled): WhatsApp through the free CallMeBot
   gateway (one-time activation, inline help), Discord through a channel
@@ -106,6 +113,9 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- Boot-animation **Show** now wakes a screen blanked by the UI timeout —
+  it used to play onto a switched-off display, which looked like nothing
+  happened.
 - **mDNS stability** — WiFi modem sleep is disabled, so `tinymaker.local`
   resolves reliably instead of timing out when the printer naps.
 - Dashboard requests get a single fresh-connection retry, the status toast
