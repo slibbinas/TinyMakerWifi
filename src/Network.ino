@@ -2393,6 +2393,7 @@ void handleRootPage() {
         <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://connect.tinymakerwifi.com'></label>
         <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='My printer'></label>
         <label class='check'><input name='connect_leaderboard' id='cfgConnectLeaderboard' type='checkbox' value='1'><span>Share printer stats on leaderboard</span></label>
+        <label class='check'><input name='connect_auto_backup' id='cfgConnectAutoBackup' type='checkbox' value='1'><span>Auto backup settings to Connect</span></label>
       </div>
       <div id='connectHint' class='hint'>Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.</div>
       <div id='connectReclaimBox' class='hidden'>
@@ -2468,7 +2469,6 @@ void handleRootPage() {
   <div id='backupCard' class='card'>
   <h2>Backup &amp; restore<a href='#' class='qHelp' data-help='backup'>?</a></h2>
   <div id='connectBackupTools' class='hidden'>
-    <button id='connectAutoBackupButton' class='button' type='button'>Enable Auto backup to Connect</button>
     <div class='actions'>
       <button id='connectBackupDownloadButton' class='button secondary' type='button'>Download from Connect</button>
       <button id='connectBackupRestoreButton' class='button secondary' type='button'>Restore from Connect</button>
@@ -3446,8 +3446,10 @@ const setCfgPane=p=>{
   CFG_PANES.forEach(x=>show('pane-'+x,x===p));
 };
 document.querySelectorAll('#cfgNav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();setCfgPane(a.dataset.pane);}));
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectAutoBackupButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
-const configFormData=autoBackupOverride=>{const fd=new URLSearchParams(new FormData($('configForm')));const auto=typeof autoBackupOverride==='boolean'?autoBackupOverride:!!(connectConfig&&connectConfig.connectAutoBackup);fd.append('connect_auto_backup_set','1');if(auto)fd.append('connect_auto_backup','1');return fd;};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
+// The auto-backup choice is a regular form checkbox now (Network > Connect);
+// the set-flag tells the firmware the field was intentionally present.
+const configFormData=()=>{const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');return fd;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
@@ -3515,10 +3517,13 @@ const loadConfig=async()=>{
     const fmt24=e=>{const d=new Date(e*1000),p=n=>('0'+n).slice(-2);return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());};
     $('backupHint').textContent=(c.sdBackupPresent?('Backup on SD: '+(c.sdBackupEpoch?fmt24(c.sdBackupEpoch):'date unknown')+'. '):'No backup on the SD card yet. ')+'With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.';
     show('connectBackupTools',!!c.connectEnabled);
-    $('connectAutoBackupButton').textContent=c.connectAutoBackup?'Disable Auto backup to Connect':'Enable Auto backup to Connect';
-    $('connectAutoBackupButton').classList.toggle('danger',!!c.connectAutoBackup);
+    $('cfgConnectAutoBackup').checked=!!c.connectAutoBackup;
+    $('cfgConnectAutoBackup').disabled=locked||!c.connectTokenSet;
     $('connectBackupHint').textContent=(c.connectAutoBackup?'Connect auto backup is on. ':'Connect auto backup is off. ')+(c.connectBackupEpoch?('Last Connect backup: '+fmt24(c.connectBackupEpoch)+'. '):'No Connect backup has been saved yet. ')+'Connect backups do not include stored MQTT, Telegram or Connect tokens. '+(c.connectTokenSet?'':'Register TinyMaker Connect first.');
-    $('connectAutoBackupButton').disabled=locked||!c.connectTokenSet;
+    // Direct #connect page-load races the config fetch - retry the hosted app
+    // once the config (and the registration gate) is actually known.
+    if(!$('connectView').classList.contains('hidden')&&!window.TinyMakerConnectHostedReady&&connectIsReady())
+      loadConnectApp().then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(()=>{});
     $('connectBackupDownloadButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
     $('connectBackupRestoreButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
     return c;
@@ -3533,7 +3538,11 @@ $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();f
 
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
-$('connectAutoBackupButton').addEventListener('click',async()=>{const enabled=!!(connectConfig&&connectConfig.connectAutoBackup);const next=!enabled;const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints. Stored MQTT, Telegram and Connect tokens are not included.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'}))return;try{await api('/api/config',{method:'POST',body:configFormData(next)},12000);msg(next?'Connect auto backup enabled.':'Connect auto backup disabled.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('cfgConnectAutoBackup').addEventListener('change',async()=>{
+  const el=$('cfgConnectAutoBackup'),next=el.checked;
+  const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints. Stored MQTT, Telegram and Connect tokens are not included.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';
+  if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'})){el.checked=!next;return;}
+});
 $('connectBackupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/connect/backup',{cache:'no-store'});if(!r.ok){let j={};try{j=await r.json();}catch(e){}throw new Error(j.error||('backup failed (HTTP '+r.status+')'));}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-connect-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Connect backup downloaded.');}catch(e){msg(e.message,true);loadConfig();}});
 $('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
