@@ -422,13 +422,12 @@ void handleApiFileModelPreview() {
   String path;
   if (previewType == "05") path = "/" + name + "/preview05.png";
   else if (previewType == "1") path = "/" + name + "/preview1.png";
-  else path = "/" + name + "/preview.png"; // archive/slicer render first - the
-                                           // prettiest source; canvas caches
-                                           // are the fallback (user finding:
-                                           // Preview 3D used to shadow it).
+  // One consistent look (user decision): our voxel render everywhere; the
+  // archive/slicer thumbnail is only the fallback when no render is cached
+  // yet - it is big (slow off the SD), soft when scaled, and off-style.
+  else path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
   File f = SD.open(path.c_str());
-  if (!f && previewType.length() == 0)
-    f = SD.open((Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png").c_str());
+  if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
   if (!f) {
     sendApiError(404, "preview not found");
     return;
@@ -3212,7 +3211,12 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         const layers=Number(d.printLayers)||Number(d.layers)||0;
         // Big models take tens of seconds here and it looked like a hang
         // (user finding): feed fetchSlices' per-layer progress into the toast.
-        const prog={set textContent(v){msg('Preparing 3D progress preview - '+v.replace('Loading ','')+' (the print starts right after)');}};
+        // Progress updates rewrite the text directly - calling msg() each time
+        // restarts the slide-in animation and the toast flickers (user finding).
+        const progTxt=v=>'Preparing 3D progress preview - '+v.replace('Loading ','')+' (the print starts right after)';
+        const prog={set textContent(v){const e=$('statusMsg');
+          if(e.textContent.indexOf('Preparing 3D')===0){e.textContent=progTxt(v);clearTimeout(msg._t);}
+          else msg(progTxt(v));}};
         await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);
       }
     }catch(e){}
