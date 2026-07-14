@@ -20,10 +20,10 @@ h1{margin:10px 0 6px;font-size:38px;color:var(--accent)}
 .tag{font-size:18px;color:var(--tag);max-width:640px;margin:0 auto}
 .cta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:520px;margin:26px auto 0}
 @media(min-width:760px){.cta{grid-template-columns:repeat(4,minmax(0,1fr));max-width:860px}}
-.shots{display:grid;grid-template-columns:1fr;gap:18px;max-width:960px;margin:34px auto 0;align-items:center}
+.shots{display:grid;grid-template-columns:1fr;gap:18px;max-width:960px;margin:34px auto 0;align-items:stretch}
 @media(min-width:760px){.shots{grid-template-columns:1fr 1fr}}
-.shots figure{margin:0}
-.shots img{width:100%;border-radius:14px;border:2px solid var(--accent);display:block}
+.shots figure{margin:0;display:flex;flex-direction:column;height:100%}
+.shots img{width:100%;border-radius:14px;border:2px solid var(--accent);display:block;flex:1 1 auto;min-height:0;object-fit:cover}
 .shots figcaption{font-size:13px;color:var(--muted2);margin-top:8px;text-align:center}
 .btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;padding:13px 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn:hover{background:#c95f06;text-decoration:none}
@@ -102,7 +102,7 @@ footer a{color:var(--muted2);text-decoration:underline}
   </script>
   <div class="shots">
     <figure><img src="https://slibbinas.github.io/TinyMakerWifi/manual/images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer"><figcaption>The printer — palm-sized, open source</figcaption></figure>
-    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/manual/images/printing-eta.png" alt="The web dashboard during a print: live status, finish-time estimate and a real-time 3D render of the print"><figcaption>The dashboard mid-print — live 3D progress, controls, SD manager</figcaption></figure>
+    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/manual/images/web-dashboard.png" alt="The web dashboard: live print status, controls and SD manager"><figcaption>The dashboard — live status, 3D print progress, SD manager</figcaption></figure>
   </div>
 </div>
 
