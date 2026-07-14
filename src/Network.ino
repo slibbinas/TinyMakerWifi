@@ -2394,7 +2394,7 @@ const deleteBootAnim=async(name,display)=>{
   catch(e){msg(e.message,true);}
 };
 $('bootAnimSaveButton').addEventListener('click',async()=>{
-  if(bootAnimPending===null)return;
+  if(bootAnimPending===null){msg('Pick an animation first - the current one is already saved.');return;}
   const name=bootAnimPending;
   try{await api('/api/boot-anim/select',{method:'POST',body:new URLSearchParams({name})});
     bootAnimPending=null;
@@ -2899,7 +2899,7 @@ const tickLocalStatus=()=>{
 let sdBackupPresent=false; // from /api/config; part of the restoreSdButton gate below
 // restoreSdButton's disabled state is owned HERE (lock + backup-present) - the
 // 2s status poll re-runs this, so a per-button override elsewhere gets wiped.
-const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
