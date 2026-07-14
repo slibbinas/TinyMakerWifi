@@ -2091,7 +2091,13 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
     ".meta{font-size:12px;color:var(--muted2);margin-top:3px}"
-    ".connectTabs{display:flex;gap:8px;margin-top:14px}.connectTabs button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.connectTabs button.active{background:var(--accent);color:#fff}"
+    // Connect sub-tabs (markup comes from Brian's hosted app, style is ours):
+    // same underline language as the Settings section tabs - one 2nd-level
+    // navigation look across the product.
+    ".connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}"
+    ".connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}"
+    ".connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}"
+    ".connectTabs button:hover{background:none;color:var(--text)}"
     "a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}"
     "input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}"
     "label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}"
@@ -2154,7 +2160,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}"
     ".cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}"
     ".cfgNav a:hover{color:var(--text);text-decoration:none}"
-    "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.connectTabs{flex-direction:column}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
+    "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
     // columns (status | controls, progress 3D | SD manager). The other
     // views stay a comfortable single column, centered.
@@ -2169,7 +2175,9 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // margins (user finding). Connect goes full width (its tiles auto-fill);
     // the rest widen to 900 with three-column form fields, and the model
     // panel splits info | 3D preview once the preview is open.
-    "#configView,#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
+    // Settings spans the full frame width (aligned with the view-tab row,
+    // user decision); the other views stay a comfortable 900px band.
+    "#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
     ".configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}"
     // Print settings are exactly 16 fields -> a clean 4x4 block; grids inside
     // the half-width paired cards drop back to two columns.
