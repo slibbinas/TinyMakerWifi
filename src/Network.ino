@@ -2294,9 +2294,7 @@ void handleRootPage() {
   </div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div id='modelActions' class='actions'>
-    <button id='modelPreviewButton' type='button'>Preview 3D</button>
-    <button id='modelBackButton' class='button secondary' type='button'>Back to dashboard</button>
-    <button id='modelMlButton' class='spanAll' type='button'>Calculate ml</button>
+    <button id='modelBackButton' class='button secondary spanAll' type='button'>Back to dashboard</button>
     <button id='modelShareButton' class='secondaryBtn spanAll hidden' type='button'>Share model</button>
     <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
   </div>
@@ -2808,6 +2806,9 @@ $('bootAnimSaveButton').addEventListener('click',async()=>{
   catch(e){msg(e.message,true);}
 });
 const openView=view=>{
+  // Leaving the model view cancels an in-flight slice run (fetchSlices checks
+  // the sequence each layer) - it must not keep loading behind another view.
+  if(view!=='model')fetchSlicesSeq++;
   if(view!=='connect'||connectTab!=='boot')clearBootAnimPreviews();
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -2840,10 +2841,6 @@ const applyStatus=s=>{
     show('webControlBanner',!wc);
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
     $('modelStartButton').disabled=!wc;
-    // estimate scan occupies the printer -> action; keep disabled while running
-    $('modelMlButton').disabled=!wc||$('modelMlButton').textContent!=='Calculate ml';
-    // preview is read-only (allowed with Web control off) but needs the SD idle
-    $('modelPreviewButton').disabled=!!s.busy||$('modelPreviewButton').textContent!=='Preview 3D';
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     $('uploadButton').disabled=!wc||uploadBusy;
     $('uploadFile').disabled=!wc;
@@ -2977,8 +2974,7 @@ const modelDetails=async(nameEnc,estimate)=>{
     show('modelActions',false);
     show('previewWrap',true); show('prevSpin',false); drawVolumeBox($('modelPreviewCanvas'));
   } else {
-    $('modelMlButton').disabled=true;
-    $('modelMlButton').textContent='Calculating...';
+    setText('modelResin','Calculating exact...');show('modelResinBox',true);
     show('modelProgress',true);
   }
   try{
@@ -2987,27 +2983,27 @@ const modelDetails=async(nameEnc,estimate)=>{
     setText('modelTitle',d.name); setText('modelLayers',d.layers); setText('modelHeight',Number(d.heightMm).toFixed(2)+' mm'); setText('modelTime',d.estimatedTime);
     const showPrint=d.printLayers!==undefined&&Number(d.printLayers)!==Number(d.layers);
     show('modelPrintLayersBox',showPrint); if(showPrint)setText('modelPrintLayers',d.printLayers);
-    show('modelResinBox',!!d.resinEstimated); if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
-    show('modelMlButton',!d.resinEstimated);
+    // Resin box is always there: exact value when known, otherwise the quick
+    // estimate lands with the auto preview render below ("Estimating...").
+    show('modelResinBox',true);
+    if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
+    else if(!estimate)setText('modelResin','Estimating...');
     show('modelShareButton',connectIsReady()&&!selectedModelConnectPublicId);
     if(!estimate){
-      // One look everywhere (user decision): details show OUR voxel render -
-      // instantly when cached for the current layer height, on demand via the
-      // button otherwise (auto-render used to stack slice fetches and starve
-      // the printer when browsing between models).
+      // No buttons (user decision): the preview renders itself. Cached PNG is
+      // used only when the exact resin is also known - otherwise we need the
+      // slices anyway for the quick estimate. Runs are sequenced, so browsing
+      // to another model or leaving the view supersedes this one.
       const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
       const hasVoxel=lh1?d.preview1:d.preview05;
-      show('modelPreviewButton',true);
-      const pb=$('modelPreviewButton');
-      pb.disabled=!!hasVoxel;
-      if(hasVoxel){
+      if(hasVoxel&&d.resinEstimated){
         try{await loadSavedPreview(name);}
-        catch(e){drawVolumeBox($('modelPreviewCanvas'));pb.disabled=false;}
-      }
+        catch(e){modelPreview();}
+      }else modelPreview(); // not awaited - the action row appears right away
     }
   }catch(e){msg(e.message,true);}
   // Reveal the action row in one shot (Back stays reachable on errors too).
-  finally{show('modelActions',true);$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
+  finally{show('modelActions',true);show('modelProgress',false);}
 };
 
 // --- 3D preview: fetch every Nth sliced layer, render an isometric stack
@@ -3147,29 +3143,40 @@ const fetchSlices=async(name,layers,modelH,btn,mode)=>{
   slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers,mlEst:mlEst};
   saveSlicesToStorage();
 };
+// Renders the voxel preview into the always-visible box: progress is painted
+// straight onto the canvas, the quick resin estimate fills "Estimating...",
+// and the result is cached to the SD. No buttons - details trigger this.
 const modelPreview=async()=>{
   if(!selectedModel)return;
+  const name=selectedModel;
   const layers=parseInt($('modelPrintLayers').textContent)||parseInt($('modelLayers').textContent)||0;
-  if(!layers){msg('Model details are still loading - try again.',true);return;}
+  if(!layers)return;
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
-  const btn=$('modelPreviewButton');btn.disabled=true;
-  show('previewWrap',true);show('prevSpin',true);
+  show('previewWrap',true);show('prevSpin',false);
+  const paint=txt=>{const cv=$('modelPreviewCanvas'),ctx=drawVolumeBox(cv);
+    ctx.fillStyle='#aaa';ctx.font='15px sans-serif';ctx.fillText(txt,PREV_CX-64,PREV_CY-30);};
   try{
-    if(slicesCache.name!==selectedModel||slicesCache.mode!=='current'||!slicesCache.slices.length)
-      await fetchSlices(selectedModel,layers,modelH,btn);
+    if(slicesCache.name!==name||slicesCache.mode!=='current'||!slicesCache.slices.length){
+      paint('Loading preview...');
+      await fetchSlices(name,layers,modelH,{set textContent(v){paint(v.replace('Loading','Loading preview'));}});
+    }
+    if(selectedModel!==name)return;  // user opened another model meanwhile
     drawIso($('modelPreviewCanvas'),1);
-    // Free byproduct of the render: a quick resin estimate from the slices,
-    // shown while the exact value is not calculated yet ("~" marks it rough).
-    if($('modelResinBox').classList.contains('hidden')&&slicesCache.mlEst){
+    // Free byproduct of the render: the quick resin estimate ("~" = rough;
+    // clicking the value runs the exact printer-side scan).
+    if(slicesCache.mlEst&&$('modelResin').textContent.indexOf(' ml')<0){
       setText('modelResin','~'+slicesCache.mlEst.toFixed(1)+' ml (quick)');
-      show('modelResinBox',true);
+      $('modelResin').title='Click to run the exact scan on the printer (takes minutes)';
+      $('modelResin').style.cursor='pointer';
     }
     const blob=await canvasBlob($('modelPreviewCanvas'));
-    try{await uploadModelPreview(selectedModel,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
-    catch(e){msg('Preview shown, but saving it failed: '+e.message,true);}
-    btn.textContent='Preview 3D';   // success: preview shown, button stays disabled
-  }catch(e){msg(e.message,true);drawVolumeBox($('modelPreviewCanvas'));btn.disabled=false;btn.textContent='Preview 3D';}
-  show('prevSpin',false);
+    try{await uploadModelPreview(name,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+    catch(e){}  // cache write is best effort
+  }catch(e){
+    if(e.message==='preview superseded')return;  // navigated away - stay quiet
+    msg(e.message,true);
+    if(selectedModel===name)drawVolumeBox($('modelPreviewCanvas'));
+  }
 };
 
 const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectTokenSet);
@@ -3533,8 +3540,11 @@ $('uploadFile').addEventListener('change',()=>$('uploadButton').classList.toggle
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
-$('modelMlButton').addEventListener('click',()=>modelDetails(enc(selectedModel),true));
-$('modelPreviewButton').addEventListener('click',modelPreview);
+$('modelResin').addEventListener('click',async()=>{
+  if($('modelResin').textContent.indexOf('~')!==0)return;
+  if(!await uiConfirm('Run the exact resin scan on the printer? It decodes every layer and can take minutes.'))return;
+  modelDetails(enc(selectedModel),true);
+});
 $('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
