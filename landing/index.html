@@ -58,7 +58,6 @@ footer a{color:var(--muted2);text-decoration:underline}
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
     <a class="btn sec" id="openPrinter" href="http://tinymaker.local" target="_blank" rel="noopener" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
   </div>
-  <div style="margin-top:10px;font-size:13px"><a href="#" id="ipEdit" style="color:var(--muted2);text-decoration:underline">printer address</a></div>
   <div id="printerModal" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(20,20,22,.6);align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:22px;max-width:420px;text-align:left">
       <b>Opening your printer's dashboard</b>
@@ -72,16 +71,15 @@ footer a{color:var(--muted2);text-decoration:underline}
   <script>
   (function(){
     var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter'),modal=document.getElementById('printerModal');
-    var applyIp=function(){try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;btn.href='http://'+s;btn.textContent='Open my printer ('+s+')';}}catch(e){}};
+    var go=document.getElementById('printerGo');
+    var applyIp=function(){try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;go.href='http://'+s;go.textContent='Open '+s;}}catch(e){}};
     applyIp();
     // The popup (Brian's idea) explains the same-WiFi requirement and holds
     // the IP fallback. It shows until one of the open paths succeeds (local
     // link used or an IP saved); after that the button opens directly and
     // the small "printer address" link brings the popup back.
-    var opened=function(){try{return localStorage.getItem('tmPrinterHintSeen')==='1'||!!localStorage.getItem('tmPrinterIp');}catch(e){return false;}};
-    btn.addEventListener('click',function(e){if(opened())return;e.preventDefault();modal.style.display='flex';});
-    document.getElementById('ipEdit').addEventListener('click',function(e){e.preventDefault();modal.style.display='flex';});
-    document.getElementById('printerGo').addEventListener('click',function(){try{localStorage.setItem('tmPrinterHintSeen','1');}catch(err){}modal.style.display='none';});
+    btn.addEventListener('click',function(e){e.preventDefault();modal.style.display='flex';});
+    document.getElementById('printerGo').addEventListener('click',function(){modal.style.display='none';});
     document.getElementById('printerCancel').addEventListener('click',function(e){e.preventDefault();modal.style.display='none';});
     modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
     document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}applyIp();modal.style.display='none';window.open('http://'+v,'_blank');});
@@ -118,7 +116,7 @@ footer a{color:var(--muted2);text-decoration:underline}
     <div class="card"><b>Web dashboard</b><p>Live print status with pause/stop and a real-time 3D render of the print, SD manager, settings, backups — in any browser, light or dark.</p></div>
     <div class="card"><b>Updates over WiFi</b><p>The printer checks for new firmware and installs it itself — from its own screen or the dashboard. Dual-partition safe.</p></div>
     <div class="card"><b>Resin tracking</b><p>Estimates how much resin a model needs and how much is left in the VAT, warns before a print that won't fit, can pause for a refill.</p></div>
-    <div class="card"><b>Phone notifications</b><p>Telegram or WhatsApp message when a print finishes, pauses for resin or is canceled. Home Assistant via MQTT with auto-discovery.</p></div>
+    <div class="card"><b>Phone notifications</b><p>Telegram, WhatsApp or Discord message when a print finishes, pauses for resin or is canceled. Home Assistant via MQTT with auto-discovery.</p></div>
     <div class="card"><b>Exposure calibration</b><p>Cures an 8-bar test strip straight from the printer, then sets the exposure from the bar you pick — no slicer, no guesswork.</p></div>
     <div class="card"><b>Boot animations</b><p>Pick the animation your printer plays at power-on, install new ones from the community with one click.</p></div>
   </div>
