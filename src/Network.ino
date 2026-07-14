@@ -2963,6 +2963,9 @@ const loadFiles=async()=>{
 
 const modelDetails=async(nameEnc,estimate)=>{
   const name=decodeURIComponent(nameEnc); selectedModel=name; openView('model');
+  // Cancel a previous model's slice run RIGHT AWAY: it hogs the printer and
+  // would keep this model's details request (and its parameters) waiting.
+  fetchSlicesSeq++;
   if(!estimate){
     selectedModelConnectPublicId='';
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
