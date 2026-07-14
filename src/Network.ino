@@ -3070,6 +3070,16 @@ const drawVolumeBox=cv=>{
   });
   return ctx;
 };
+// Loading state painted straight onto a preview canvas: big percentage in the
+// box plus an orange progress bar underneath - the usual "image loading" look.
+const paintPreviewProgress=(cv,label,frac)=>{
+  const ctx=drawVolumeBox(cv);
+  ctx.fillStyle='#e8720c';ctx.font='bold 34px sans-serif';ctx.textAlign='center';
+  ctx.fillText(label,PREV_CX,PREV_CY-16);ctx.textAlign='left';
+  const bw=PREV_W-160;
+  ctx.strokeStyle='#4a4a52';ctx.strokeRect(80,PREV_H-26,bw,10);
+  if(frac>0)ctx.fillRect(81,PREV_H-25,Math.max(2,(bw-2)*Math.min(frac,1)),8);
+};
 const drawIso=(cv,doneFrac)=>{
   const {slices,gw,gh,modelH}=slicesCache;
   const ctx=drawVolumeBox(cv);
@@ -3164,13 +3174,13 @@ const modelPreview=async()=>{
   if(!layers)return;
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   show('previewWrap',true);show('prevSpin',false);
-  const paint=txt=>{const cv=$('modelPreviewCanvas'),ctx=drawVolumeBox(cv);
-    ctx.fillStyle='#e8720c';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
-    ctx.fillText(txt,PREV_CX,PREV_CY-16);ctx.textAlign='left';};
   try{
     if(slicesCache.name!==name||slicesCache.mode!=='current'||!slicesCache.slices.length){
-      paint('Loading preview...');
-      await fetchSlices(name,layers,modelH,{set textContent(v){paint(v.replace('Loading','Loading preview'));}});
+      paintPreviewProgress($('modelPreviewCanvas'),'Loading preview...',0);
+      await fetchSlices(name,layers,modelH,{set textContent(v){
+        const p=parseInt(v.replace(/\D/g,''))||0;
+        paintPreviewProgress($('modelPreviewCanvas'),'Loading preview '+p+'%',p/100);
+      }});
     }
     if(selectedModel!==name)return;  // user opened another model meanwhile
     // Slices restored from an older localStorage format have no estimate yet -
@@ -3282,7 +3292,13 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         const progTxt=v=>'Preparing 3D progress preview - '+v.replace('Loading ','')+' (the print starts right after)';
         const prog={set textContent(v){const e=$('statusMsg');
           if(e.textContent.indexOf('Preparing 3D')===0){e.textContent=progTxt(v);clearTimeout(msg._t);}
-          else msg(progTxt(v));}};
+          else msg(progTxt(v));
+          // Starting from the SD row keeps the dashboard visible - mirror the
+          // progress onto the Print progress 3D box there.
+          const p=parseInt(v.replace(/\D/g,''))||0;
+          try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview '+p+'%',p/100);}catch(_){}
+        }};
+        try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
         await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);
       }
     }catch(e){}
