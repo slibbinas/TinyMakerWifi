@@ -210,7 +210,7 @@ void handleUploadData() {
   else if (up.status == UPLOAD_FILE_WRITE) {
     if (uploadRejected) return;
     if (uploadFile) uploadFile.write(up.buf, up.currentSize);
-    if (up.totalSize - otaShownBytes >= 65536) { // redraw every 64 KB
+    if (up.totalSize - otaShownBytes >= 262144) { // redraw every 256 KB - drawing while flash/SD writes run corrupts SPI pixels (orange streaks, user finding)
       otaShownBytes = up.totalSize;
       int w = (int)((up.totalSize % 1048576L) * 136L / 1048576L); // wraps each 1 MB
       gfx2->fillRect(12, 50, 136, 12, BLACK);
@@ -566,7 +566,7 @@ void handleUpdateUpload() {
   else if (up.status == UPLOAD_FILE_WRITE) {
     if (otaBlocked) return;
     Update.write(up.buf, up.currentSize);
-    if (up.totalSize - otaShownBytes >= 131072) { // redraw every 128 KB
+    if (up.totalSize - otaShownBytes >= 524288) { // redraw every 512 KB - see the upload handler note on SPI streaks
       otaShownBytes = up.totalSize;
       String p = String(up.totalSize / 1024) + " KB";
       netMessage("Firmware update", p.c_str());
