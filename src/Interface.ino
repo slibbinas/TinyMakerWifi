@@ -101,6 +101,34 @@ void netProgressBar(int step, int total) {
   if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
 }
 
+// Boot WiFi-connect indicator: four growing signal bars instead of a progress
+// bar (a connect attempt has no meaningful % anyway). Orange bars fill up in a
+// cycle while trying; all four turn green on success - same look as the mini
+// badge on the main screen, so the state reads consistently.
+void netWifiBarsStart(const char *title) {
+  uiWakeScreen();
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 18);
+  gfx2->print(title);
+}
+
+void netWifiBarsPhase(int lit, bool connected) {
+  const int bw = 10, gap = 8, base = 72;
+  const int x0 = 80 - (4 * bw + 3 * gap) / 2;
+  gfx2->fillRect(x0 - 2, base - 42, 4 * bw + 3 * gap + 4, 44, BLACK);
+  for (int i = 0; i < 4; i++) {
+    int h = 12 + i * 10;                 // 12, 22, 32, 42 px
+    int x = x0 + i * (bw + gap);
+    bool on = connected || i < lit;
+    uint16_t c = connected ? GREEN : ORANGE;
+    if (on) gfx2->fillRoundRect(x, base - h, bw, h, 2, c);
+    else gfx2->drawRoundRect(x, base - h, bw, h, 2, DARKGREY);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

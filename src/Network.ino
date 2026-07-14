@@ -3615,11 +3615,11 @@ void network_setup() {
     // simply be away from its home network; boot into offline mode instead.
     WiFi.mode(WIFI_STA);
     WiFi.begin();
-    const int steps = 30; // 30 x 500 ms = 15 s
-    netProgressStart("WiFi connecting...", "");
-    for (int i = 1; i <= steps && WiFi.status() != WL_CONNECTED; i++) {
-      delay(500);
-      netProgressBar(i, steps);
+    netWifiBarsStart("WiFi connecting...");
+    const int steps = 60; // 60 x 250 ms = 15 s
+    for (int i = 0; i < steps && WiFi.status() != WL_CONNECTED; i++) {
+      netWifiBarsPhase(1 + (i % 4), false);
+      delay(250);
     }
   } else {
     // No credentials yet (first boot / after Reset WiFi): captive portal
@@ -3776,13 +3776,22 @@ void network_setup() {
   // this succeeding - it seeds on-device time for future features.
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
-  String ip = "IP: " + WiFi.localIP().toString();
-  netMessage("WiFi connected", ip.c_str());
-  delay(700);
+  if (saved) {
+    // Routine boot: the bars just turn green - the separate "WiFi connected"
+    // screen (and its 1.5 s of delays) is gone, the main screen's badge
+    // carries the state from here.
+    netWifiBarsPhase(4, true);
+    delay(400);
+  } else {
+    // First-time setup via the portal: the portal page promises the printer
+    // "shows its address", and this is the one moment the user needs it.
+    String ip = "IP: " + WiFi.localIP().toString();
+    netMessage("WiFi connected", ip.c_str());
+    delay(1800);
+  }
   statsPingMaybe();
   otaBootCheckMaybePrompt();
   if (screen == 424) return;
-  delay(800);
 }
 
 // ===================================================================================
