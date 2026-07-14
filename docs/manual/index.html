@@ -141,11 +141,14 @@
 // Light by default; ?theme=dark (the printer dashboard's Manual link) opens
 // dark to match the dashboard. The toggle button still flips either way.
 (function(){var p=new URLSearchParams(location.search).get('theme');document.documentElement.setAttribute('data-theme',p==='dark'?'dark':'light');})();
+// Site links carry the current theme over (different origin - no shared storage).
+window.tmSyncSite=function(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.querySelectorAll("a[href^='https://tinymakerwifi.com']").forEach(function(a){a.href='https://tinymakerwifi.com/?theme='+(d?'dark':'light');});};
+window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </script>
 <div class="topBar">
   <a class="toggle-theme" href="https://tinymakerwifi.com">tinymakerwifi.com</a>
   <a class="toggle-theme" href="#toc">Contents</a>
-  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');})()">◐ Theme</button>
+  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');window.tmSyncSite();})()">◐ Theme</button>
 </div>
 
 <header class="hero">
