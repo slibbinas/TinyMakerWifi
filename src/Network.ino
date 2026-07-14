@@ -2971,7 +2971,9 @@ const modelDetails=async(nameEnc,estimate)=>{
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
     setText('modelPrintLayers','-');
     show('modelPrintLayersBox',false); show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
-    show('modelMlButton',true); show('modelPreviewButton',true);
+    // Buttons appear only once the details response says which apply -
+    // showing them upfront made Calculate ml flash and vanish (user finding).
+    show('modelMlButton',false); show('modelPreviewButton',true);
     show('modelShareButton',connectIsReady());
   } else {
     $('modelMlButton').disabled=true;
