@@ -2147,6 +2147,13 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}"
     "#statusMsg:empty{display:none}"
     ".configGrid .hint{grid-column:1/-1}"
+    // Settings section tabs: 2nd navigation level uses a DIFFERENT shape
+    // language than the view pills - plain text with an orange underline -
+    // so the two levels never read as one (user decision, 07-14 prototype).
+    ".cfgNav{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 0 16px;overflow-x:auto}"
+    ".cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}"
+    ".cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}"
+    ".cfgNav a:hover{color:var(--text);text-decoration:none}"
     "@media(max-width:520px){.grid,.configGrid,.actions{grid-template-columns:1fr}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.connectTabs{flex-direction:column}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
     // columns (status | controls, progress 3D | SD manager). The other
@@ -2162,9 +2169,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // margins (user finding). Connect goes full width (its tiles auto-fill);
     // the rest widen to 900 with three-column form fields, and the model
     // panel splits info | 3D preview once the preview is open.
-    // Settings spans the full frame width like the dashboard; the other
-    // views stay a comfortable 900px band.
-    "#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
+    "#configView,#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
     ".configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}"
     // Print settings are exactly 16 fields -> a clean 4x4 block; grids inside
     // the half-width paired cards drop back to two columns.
@@ -2321,7 +2326,15 @@ void handleRootPage() {
 </section>
 
 <section id='configView' class='hidden'>
+  <nav class='cfgNav' id='cfgNav'>
+    <a href='#' data-pane='print' class='on'>Print</a>
+    <a href='#' data-pane='network'>Network</a>
+    <a href='#' data-pane='notif'>Notifications</a>
+    <a href='#' data-pane='boot'>Boot animation</a>
+    <a href='#' data-pane='backup'>Backup</a>
+  </nav>
   <form id='configForm'>
+  <div id='pane-print' class='cfgPane'>
   <div class='card'>
   <h2>Print settings</h2>
   <div class='configGrid grid4'>
@@ -2344,7 +2357,8 @@ void handleRootPage() {
   </div>
   <button type='submit'>Save config</button>
   </div>
-  <div class='cfgPair'>
+  </div>
+  <div id='pane-network' class='cfgPane hidden'>
   <div class='card'>
   <h2>Network &amp; integrations</h2>
   <div class='configGrid'>
@@ -2397,7 +2411,8 @@ void handleRootPage() {
   </div>
   <button id='configSaveButton' type='submit'>Save config</button>
   </div>
-  <div>
+  </div>
+  <div id='pane-notif' class='cfgPane hidden'>
   <div class='card'>
   <h2>Phone notifications</h2>
   <div class='configGrid'>
@@ -2431,6 +2446,9 @@ void handleRootPage() {
   </div>
   <button type='submit'>Save config</button>
   </div>
+  </div>
+  </form>
+  <div id='pane-boot' class='cfgPane hidden'>
   <div class='card'>
   <h2>Boot animation</h2>
   <div id='bootAnimList'></div>
@@ -2438,8 +2456,7 @@ void handleRootPage() {
   <button id='bootAnimSaveButton' type='button' disabled>Save config</button>
   </div>
   </div>
-  </div>
-  </form>
+  <div id='pane-backup' class='cfgPane hidden'>
   <div id='backupCard' class='card'>
   <h2>Backup &amp; restore<a href='#' class='qHelp' data-help='backup'>?</a></h2>
   <div id='connectBackupTools' class='hidden'>
@@ -2460,6 +2477,7 @@ void handleRootPage() {
   <div id='backupHint' class='hint'>The backup holds every setting and the lifetime counters. With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.</div>
   <button id='configDefaultsButton' class='button secondary' type='button'>Reset to defaults</button>
   <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
+  </div>
   </div>
   <div id='configHint' class='hint'>Config locks automatically while printing.</div>
 </section>
@@ -3393,6 +3411,15 @@ const tickLocalStatus=()=>{
 let sdBackupPresent=false; // from /api/config; part of the restoreSdButton gate below
 // restoreSdButton's disabled state is owned HERE (lock + backup-present) - the
 // 2s status poll re-runs this, so a per-button override elsewhere gets wiped.
+// Settings section panes: one visible at a time, same interaction as the
+// Connect sub-tabs. Hidden panes stay in the form, so any Save posts the
+// full config - no fields are lost by saving from another section.
+const CFG_PANES=['print','network','notif','boot','backup'];
+const setCfgPane=p=>{
+  document.querySelectorAll('#cfgNav a').forEach(a=>a.classList.toggle('on',a.dataset.pane===p));
+  CFG_PANES.forEach(x=>show('pane-'+x,x===p));
+};
+document.querySelectorAll('#cfgNav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();setCfgPane(a.dataset.pane);}));
 const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectAutoBackupButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
 const configFormData=autoBackupOverride=>{const fd=new URLSearchParams(new FormData($('configForm')));const auto=typeof autoBackupOverride==='boolean'?autoBackupOverride:!!(connectConfig&&connectConfig.connectAutoBackup);fd.append('connect_auto_backup_set','1');if(auto)fd.append('connect_auto_backup','1');return fd;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
