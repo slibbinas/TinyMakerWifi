@@ -422,10 +422,13 @@ void handleApiFileModelPreview() {
   String path;
   if (previewType == "05") path = "/" + name + "/preview05.png";
   else if (previewType == "1") path = "/" + name + "/preview1.png";
-  else path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
-
+  else path = "/" + name + "/preview.png"; // archive/slicer render first - the
+                                           // prettiest source; canvas caches
+                                           // are the fallback (user finding:
+                                           // Preview 3D used to shadow it).
   File f = SD.open(path.c_str());
-  if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
+  if (!f && previewType.length() == 0)
+    f = SD.open((Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png").c_str());
   if (!f) {
     sendApiError(404, "preview not found");
     return;
@@ -3045,7 +3048,9 @@ const drawIso=(cv,doneFrac)=>{
   const N=slices.length;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
-    const s=slices[k],solid=t<=doneFrac;
+    // Strict boundary: at 0% nothing is printed yet - the old t<=doneFrac
+    // painted the whole first slice solid before the print even started.
+    const s=slices[k],solid=doneFrac>0&&t<=doneFrac;
     for(let j=gh-1;j>=0;j--)for(let i=0;i<gw;i++){
       if(!s[j*gw+i])continue;
       // model edge (any empty 4-neighbour) -> darker: silhouette lines
