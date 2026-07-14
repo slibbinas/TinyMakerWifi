@@ -2305,16 +2305,6 @@ void handleRootPage() {
 </section>
 
 <section id='configView' class='hidden'>
-  <div class='card'>
-  <h2>Settings</h2>
-  <div class='connectTabs'>
-    <button id='settingsPrintTabButton' type='button' class='active'>Print</button>
-    <button id='settingsDeviceTabButton' type='button'>Device</button>
-    <button id='settingsNetworkTabButton' type='button'>Network</button>
-    <button id='settingsBootTabButton' type='button'>Boot animation</button>
-    <button id='settingsBackupTabButton' type='button'>Backup</button>
-  </div>
-  </div>
   <form id='configForm'>
   <div id='settingsPrintPane' class='settingsPane card'>
   <h2>Print settings</h2>
@@ -2336,7 +2326,7 @@ void handleRootPage() {
   </div>
   <button type='submit'>Save config</button>
   </div>
-  <div id='settingsDevicePane' class='settingsPane card hidden'>
+  <div id='settingsDevicePane' class='settingsPane card'>
   <h2>Device</h2>
   <div class='configGrid'>
     <label><span>UI timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
@@ -2345,7 +2335,7 @@ void handleRootPage() {
   </div>
   <button type='submit'>Save config</button>
   </div>
-  <div id='settingsNetworkPane' class='settingsPane card hidden'>
+  <div id='settingsNetworkPane' class='settingsPane card'>
   <h2>Network &amp; integrations</h2>
   <div class='configGrid'>
     <label class='check'><input name='wifi_enabled' id='cfgWifiEnabled' type='checkbox' value='1'><span>WiFi</span></label>
@@ -2425,12 +2415,12 @@ void handleRootPage() {
   <button id='configSaveButton' type='submit'>Save config</button>
   </div>
   </form>
-  <div id='settingsBootPane' class='settingsPane card hidden'>
+  <div id='settingsBootPane' class='settingsPane card'>
   <h2>Boot animation</h2>
   <div id='bootAnimList'></div>
   <div id='bootAnimHint' class='hint'>Choose which animation plays at power-on. Send more from the community site; Delete removes one from the SD card.</div>
   </div>
-  <div id='settingsBackupPane' class='settingsPane card hidden'>
+  <div id='settingsBackupPane' class='settingsPane card'>
   <h2>Backup &amp; restore<a href='#' class='qHelp' data-help='backup'>?</a></h2>
   <div id='connectBackupTools' class='hidden'>
     <button id='connectAutoBackupButton' class='button' type='button'>Enable Auto backup to Connect</button>
@@ -3143,8 +3133,8 @@ const confirmNetworkToggle=async e=>{
 };
 const updateMqttFields=()=>show('mqttFields',$('cfgMqttEnabled').checked);
 const updateConnectFields=()=>show('connectFields',$('cfgConnectEnabled').checked);
-const settingsTabs=['print','device','network','boot','backup'];
-const setSettingsTab=t=>{if(settingsTabs.indexOf(t)<0)t='print';settingsTabs.forEach(x=>{const id=x[0].toUpperCase()+x.slice(1);show('settings'+id+'Pane',x===t);$('settings'+id+'TabButton').classList.toggle('active',x===t);});};
+const settingsPaneIds={print:'settingsPrintPane',device:'settingsDevicePane',network:'settingsNetworkPane',boot:'settingsBootPane',backup:'settingsBackupPane'};
+const setSettingsTab=t=>{const el=$(settingsPaneIds[t]||'settingsPrintPane');if(el&&!$('configView').classList.contains('hidden'))el.scrollIntoView({behavior:'smooth',block:'start'});};
 const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);show('dcFields',$('ntfDc').checked);};
 const updateConnectView=c=>{
   c=c||connectConfig||{};
@@ -3238,7 +3228,6 @@ $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
-settingsTabs.forEach(t=>{$('settings'+t[0].toUpperCase()+t.slice(1)+'TabButton').addEventListener('click',()=>setSettingsTab(t));});
 $('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
