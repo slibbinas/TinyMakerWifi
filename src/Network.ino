@@ -2618,8 +2618,11 @@ const updateSdUsage=d=>{
 };
 const uploadWithProgress=(fd,hintEl)=>{
   const started=Date.now();
-  let lastLoaded=0,total=0;
+  let lastLoaded=0,total=0,sentAt=0;
   const render=()=>{
+    // Body fully sent = the printer is unpacking the archive to SD (big
+    // models take minutes) - say so instead of a frozen "Uploading 100%".
+    if(sentAt){hintEl.textContent='Unpacking on the printer... '+formatShortTime(Date.now()-sentAt);return;}
     const elapsed=Date.now()-started, pct=total?Math.round(lastLoaded*100/total):0;
     const speed=elapsed>0?formatBytes(lastLoaded/(elapsed/1000))+'/s':'-';
     hintEl.textContent='Uploading'+(total?' '+pct+'%':'')+' - '+formatShortTime(elapsed)+' - '+speed;
@@ -2629,6 +2632,7 @@ const uploadWithProgress=(fd,hintEl)=>{
     const timer=setInterval(render,500);
     xhr.open('POST','/upload');
     xhr.upload.onprogress=e=>{lastLoaded=e.loaded||lastLoaded;total=e.lengthComputable?e.total:total;render();};
+    xhr.upload.onload=()=>{sentAt=Date.now();render();};
     xhr.onload=()=>{
       clearInterval(timer);
       let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){}

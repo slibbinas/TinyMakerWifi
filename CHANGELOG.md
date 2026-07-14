@@ -113,6 +113,10 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- Model uploads no longer look stuck at *"Uploading 100%"* while the printer
+  unpacks the archive — the indicator now says *Unpacking on the printer…*
+  with a running timer (applies to the SD manager upload and Connect Import
+  alike).
 - Boot-animation **Show** now wakes a screen blanked by the UI timeout —
   it used to play onto a switched-off display, which looked like nothing
   happened.
