@@ -2055,6 +2055,15 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // page and the manual, which share the same base logo.
     "<circle cx='47' cy='46' r='16' fill='%232fbf4f'/>"
     "<text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>\">"
+    // PWA: manifest + iOS fallbacks. On plain-HTTP LAN Chrome offers "Add to
+    // Home screen" as a shortcut (manifest name/icon apply); iOS honors the
+    // apple-* tags for a standalone fullscreen launch.
+    "<link rel='manifest' href='/manifest.json'>"
+    "<meta name='theme-color' content='#1c1c1e'>"
+    "<meta name='mobile-web-app-capable' content='yes'>"
+    "<meta name='apple-mobile-web-app-capable' content='yes'>"
+    "<meta name='apple-mobile-web-app-status-bar-style' content='black'>"
+    "<link rel='apple-touch-icon' href='/pwa-icon-192.png'>"
     // Theme boot: apply the saved choice to <html> BEFORE the stylesheet
     // parses, so a light-theme reload never flashes dark (manual does the same).
     "<script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script>"
@@ -4296,6 +4305,11 @@ void handleApiBootAnimPreview() {
   screen1();
 }
 
+// PWA icon bytes live in PwaIcon.ino, which the Arduino builder concatenates
+// AFTER this file - forward-declare them for the /pwa-icon-192.png route.
+extern const uint8_t PWA_ICON_192[];
+extern const size_t PWA_ICON_192_LEN;
+
 void network_setup() {
   if (!networkRuntimeEnabled()) {
     WiFi.mode(WIFI_OFF);
@@ -4422,6 +4436,18 @@ void network_setup() {
   server.on("/api/status", HTTP_GET, handleApiStatus);
   server.on("/api/files", HTTP_GET, handleApiFiles);
   server.on("/api/files/model", HTTP_GET, handleApiFileModel);
+  // PWA: manifest + home-screen icon (bytes in PwaIcon.ino, declared below)
+  server.on("/manifest.json", HTTP_GET, []() {
+    server.sendHeader("Cache-Control", "max-age=86400");
+    server.send(200, "application/manifest+json", PSTR(
+      "{\"name\":\"TinyMaker\",\"short_name\":\"TinyMaker\",\"start_url\":\"/\",\"scope\":\"/\","
+      "\"display\":\"standalone\",\"background_color\":\"#1c1c1e\",\"theme_color\":\"#1c1c1e\","
+      "\"icons\":[{\"src\":\"/pwa-icon-192.png\",\"sizes\":\"192x192\",\"type\":\"image/png\",\"purpose\":\"any\"}]}"));
+  });
+  server.on("/pwa-icon-192.png", HTTP_GET, []() {
+    server.sendHeader("Cache-Control", "max-age=86400");
+    server.send_P(200, "image/png", (const char *)PWA_ICON_192, PWA_ICON_192_LEN);
+  });
   server.on("/api/files/model/metadata", HTTP_POST, handleApiFileModelMetadata);
   server.on("/api/files/model/preview", HTTP_GET, handleApiFileModelPreview);
   server.on("/api/files/model/preview", HTTP_POST, finishPreviewUpload, handlePreviewUploadData);
