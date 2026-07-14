@@ -2168,8 +2168,8 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // Full-width backup card: the four backup/restore buttons fit one row.
     "#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}"
     "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}"
-    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelBackButton,#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}"
-    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:3/span 6;margin-top:0}}"
+    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}"
+    "#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}"
     "</style></head><body><main class='wrap'>"));
   server.sendContent_P(bodyBeforeFw);
   server.sendContent(fw);
@@ -2284,7 +2284,6 @@ void handleRootPage() {
 </div>
 
 <section id='modelPanel' class='card hidden'>
-  <button id='modelBackButton' class='button secondary' type='button'>Back to dashboard</button>
   <h2 id='modelTitle'>Model</h2>
   <div class='grid'>
     <div><div class='label'>Layers</div><div id='modelLayers' class='value'>-</div></div>
@@ -2296,7 +2295,8 @@ void handleRootPage() {
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div class='actions'>
     <button id='modelPreviewButton' type='button'>Preview 3D</button>
-    <button id='modelMlButton' type='button'>Calculate ml</button>
+    <button id='modelBackButton' class='button secondary' type='button'>Back to dashboard</button>
+    <button id='modelMlButton' class='spanAll' type='button'>Calculate ml</button>
     <button id='modelShareButton' class='secondaryBtn spanAll hidden' type='button'>Share model</button>
     <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
   </div>
