@@ -2278,8 +2278,8 @@ void handleRootPage() {
     </div>
   </section>
 
-  <section id='printPreviewCard' class='card hidden'>
-    <h2 id='printPreviewTitle'>Print progress 3D</h2>
+  <section id='printPreviewCard' class='card'>
+    <h2 id='printPreviewTitle'>Model preview</h2>
     <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
     <div id='dashModelInfo' class='hint hidden'></div>
@@ -2900,9 +2900,19 @@ const applyStatus=s=>{
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
       if(Math.abs(frac-lastPrevFrac)>=0.004){lastPrevFrac=frac;drawIso($('printPreviewCanvas'),frac);}
     }else{
-      // Idle: the card stays up when a model preview is being shown in it.
-      show('printPreviewCard',!s.busy&&!!dashPreviewName);
-      if(!s.busy)lastPrevFrac=-1;
+      // The card is always up now (like the SD manager). Idle: placeholder
+      // when nothing is previewed. Busy without slices (print started on the
+      // printer): drop a stale idle preview instead of showing a wrong model.
+      show('printPreviewCard',true);
+      if(!s.busy){
+        if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
+        lastPrevFrac=-1;
+      }else if(!slicesPrefetching&&dashPreviewName){
+        dashPreviewName='';
+        $('printPreviewTitle').textContent='Print progress 3D';
+        show('dashModelInfo',false);show('dashShareButton',false);
+        paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+      }
     }
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
@@ -3256,8 +3266,38 @@ const modelPreview=async()=>{
   }
 };
 // Dashboard preview: the SD row's Preview button renders straight into the
-// Print progress 3D card (retitled Model preview while idle) - no view change.
-let dashPreviewName='';
+// always-visible Model preview card (Print progress 3D while printing).
+let dashPreviewName='',slicesPrefetching=false;
+const dashPreviewPlaceholder=()=>{
+  dashPreviewName='';
+  $('printPreviewTitle').textContent='Model preview';
+  $('printPreviewBarFill').style.width='0%';
+  show('dashModelInfo',false);show('dashShareButton',false);
+  paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
+};
+// Boot restore: bring the last previewed model back, but only from the saved
+// preview cache (one PNG off the SD) - never a full slice render on page load.
+const restoreDashPreview=async()=>{
+  const name=localStorage.getItem('dashPreviewModel')||'';
+  if(!name)return dashPreviewPlaceholder();
+  try{
+    const d=await api('/api/files/model?name='+enc(name));
+    if((statusData&&statusData.busy)||dashPreviewName)return;
+    const hasVoxel=(statusData?Number(statusData.layerHeight)>0.06:!!d.preview1)?d.preview1:d.preview05;
+    if(!hasVoxel||!d.resinEstimated)return dashPreviewPlaceholder();
+    dashPreviewName=name;
+    $('printPreviewTitle').textContent='Model preview';
+    $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
+      Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+' · '+Number(d.resinMl).toFixed(1)+' ml';
+    show('dashModelInfo',true);
+    await loadSavedPreviewTo($('printPreviewCanvas'),name);
+    if(dashPreviewName!==name)return;
+    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
+  }catch(_){
+    localStorage.removeItem('dashPreviewModel');
+    if(!dashPreviewName)dashPreviewPlaceholder();
+  }
+};
 const dashPreview=async nameEnc=>{
   const name=decodeURIComponent(nameEnc);
   if(statusData&&statusData.busy)return;   // the print progress owns the card
@@ -3289,6 +3329,7 @@ const dashPreview=async nameEnc=>{
     }
     if(dashPreviewName!==name)return;
     show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
+    localStorage.setItem('dashPreviewModel',name);
   }catch(e){
     if(e.message==='preview superseded')return;
     msg(e.message,true);
@@ -3413,7 +3454,9 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         show('dashModelInfo',false);show('dashShareButton',false);
         show('printPreviewCard',true);
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
-        await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);
+        slicesPrefetching=true;
+        try{await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);}
+        finally{slicesPrefetching=false;}
       }
     }catch(e){}
   }
@@ -3425,7 +3468,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(dashPreviewName===name){dashPreviewName='';show('printPreviewCard',false);}loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 const tickLocalStatus=()=>{
@@ -3719,7 +3762,7 @@ $('modelResin').addEventListener('click',async()=>{
 $('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
-openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus();loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus();loadConfig();restoreDashPreview();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
 )SPA";
   sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
