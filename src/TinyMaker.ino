@@ -127,6 +127,8 @@ String tgChat = "";                 // chat id to notify
 bool waEnabled = false;             // WhatsApp notifications via CallMeBot (one channel at a time)
 String waPhone = "";                // phone with country code
 String waApiKey = "";               // CallMeBot key (secret - never echoed to browser)
+bool dcEnabled = false;             // Discord notifications via a channel webhook
+String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
 uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
@@ -179,7 +181,10 @@ void loadDeviceConfig() {
   waEnabled = sysPrefs.getBool("waEnabled", false);
   waPhone = sysPrefs.getString("waPhone", "");
   waApiKey = sysPrefs.getString("waApiKey", "");
-  if (tgEnabled && waEnabled) waEnabled = false;  // one channel at a time
+  dcEnabled = sysPrefs.getBool("dcEnabled", false);
+  dcWebhook = sysPrefs.getString("dcWebhook", "");
+  if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
+  else if (waEnabled) dcEnabled = false;
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
   lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
   lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
@@ -216,6 +221,8 @@ void saveDeviceConfig() {
   sysPrefs.putBool("waEnabled", waEnabled);
   sysPrefs.putString("waPhone", waPhone);
   sysPrefs.putString("waApiKey", waApiKey);
+  sysPrefs.putBool("dcEnabled", dcEnabled);
+  sysPrefs.putString("dcWebhook", dcWebhook);
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
   sysPrefs.putBool("askRefill", askRefillEnabled);
@@ -513,6 +520,10 @@ String buildConfigBackupJson() {
   out += backupEscape(waPhone);
   out += "\",\"waApiKey\":\"";
   out += backupEscape(waApiKey);
+  out += "\",\"dcEnabled\":";
+  out += dcEnabled ? "true" : "false";
+  out += ",\"dcWebhook\":\"";
+  out += backupEscape(dcWebhook);
   out += "\",\"connectEnabled\":";
   out += connectEnabled ? "true" : "false";
   out += ",\"connectBaseUrl\":\"";
@@ -614,7 +625,10 @@ void applyConfigBackup(const String &j) {
   waEnabled = wifiEnabled && backupBool(j, "waEnabled", waEnabled);
   waPhone = backupStr(j, "waPhone", waPhone);
   waApiKey = backupStr(j, "waApiKey", waApiKey);
-  if (tgEnabled && waEnabled) waEnabled = false;  // one channel at a time
+  dcEnabled = wifiEnabled && backupBool(j, "dcEnabled", dcEnabled);
+  dcWebhook = backupStr(j, "dcWebhook", dcWebhook);
+  if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
+  else if (waEnabled) dcEnabled = false;
   connectEnabled = wifiEnabled && backupBool(j, "connectEnabled", connectEnabled);
   connectBaseUrl = backupStr(j, "connectBaseUrl", connectBaseUrl);
   connectPrinterName = backupStr(j, "connectPrinterName", connectPrinterName);

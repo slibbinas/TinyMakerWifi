@@ -974,6 +974,7 @@ String configJson() {
   out += tinymakerConnectConfigJson();
   out += tinymakerTelegramConfigJson();
   out += tinymakerWhatsAppConfigJson();
+  out += tinymakerDiscordConfigJson();
   return out;
 }
 
@@ -1019,9 +1020,10 @@ void applyConfigRequest() {
   connectLeaderboardOptIn = connectEnabled && server.hasArg("connect_leaderboard");
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
-  String ntf = formString("notify_channel", tgEnabled ? "tg" : (waEnabled ? "wa" : "none"), 8);
+  String ntf = formString("notify_channel", tgEnabled ? "tg" : (waEnabled ? "wa" : (dcEnabled ? "dc" : "none")), 8);
   tgEnabled = wifiEnabled && ntf == "tg";
   waEnabled = wifiEnabled && ntf == "wa";
+  dcEnabled = wifiEnabled && ntf == "dc";
   // Token is a secret: only overwrite when a new one is supplied, so a blank
   // field keeps the stored value (same rule as the MQTT password).
   if (server.hasArg("tg_token") && server.arg("tg_token").length() > 0) {
@@ -1031,6 +1033,10 @@ void applyConfigRequest() {
   waPhone = formString("wa_phone", waPhone, 20);
   if (server.hasArg("wa_apikey") && server.arg("wa_apikey").length() > 0) {
     waApiKey = formString("wa_apikey", waApiKey, 16);
+  }
+  if (server.hasArg("dc_webhook") && server.arg("dc_webhook").length() > 0) {
+    dcWebhook = formString("dc_webhook", dcWebhook, 200);
+    dcWebhook.trim();
   }
 
   savePrintSettings();
@@ -2041,6 +2047,7 @@ void handleRootPage() {
       <label class='check'><input type='radio' name='notify_channel' id='ntfNone' value='none'><span>Off</span></label>
       <label class='check'><input type='radio' name='notify_channel' id='ntfTg' value='tg'><span>Telegram<a href='#' class='qHelp' data-help='tg'>?</a></span></label>
       <label class='check'><input type='radio' name='notify_channel' id='ntfWa' value='wa'><span>WhatsApp<a href='#' class='qHelp' data-help='wa'>?</a></span></label>
+      <label class='check'><input type='radio' name='notify_channel' id='ntfDc' value='dc'><span>Discord<a href='#' class='qHelp' data-help='dc'>?</a></span></label>
     </div>
     <div id='tgFields' class='spanAll hidden'>
       <div class='configGrid'>
@@ -2057,6 +2064,11 @@ void handleRootPage() {
       </div>
       <div id='waHint' class='hint'>Messages go through the free CallMeBot gateway - press ? above for the one-time activation.</div>
       <button id='waTestButton' class='button secondary' type='button'>Send test message</button>
+    </div>
+    <div id='dcFields' class='spanAll hidden'>
+      <label class='spanAll'><span>Webhook URL</span><input name='dc_webhook' id='cfgDcWebhook' type='password' maxlength='200' autocomplete='off' placeholder='https://discord.com/api/webhooks/...'></label>
+      <div id='dcHint' class='hint'>Create one in your Discord server: Server Settings &gt; Integrations &gt; Webhooks.</div>
+      <button id='dcTestButton' class='button secondary' type='button'>Send test message</button>
     </div>
   </div>
   <button id='configSaveButton' type='submit'>Save config</button>
@@ -2764,7 +2776,7 @@ const confirmNetworkToggle=async e=>{
 };
 const updateMqttFields=()=>show('mqttFields',$('cfgMqttEnabled').checked);
 const updateConnectFields=()=>show('connectFields',$('cfgConnectEnabled').checked);
-const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);};
+const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);show('dcFields',$('ntfDc').checked);};
 const updateConnectView=c=>{
   c=c||connectConfig||{};
   const id=c.connectPrinterPublicId||'';
@@ -2797,9 +2809,11 @@ const loadConfig=async()=>{
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://tinymaker.inductie.nu'; $('cfgConnectPrinterName').value=c.connectPrinterName||'TinyMaker'; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
     const connectId=c.connectPrinterPublicId||''; $('connectHint').textContent=connectId?('Registered as '+connectId+'. Publish token stored'+(c.connectTokenTail?(' (ends in '+c.connectTokenTail+')'):'')+' - cannot be viewed. '+(c.connectLeaderboardOptIn?'Leaderboard sharing on.':'Leaderboard sharing off.')):(c.connectLastStatus||'Registering stores a printer token for publishing models, ratings and bookmarks. Leaderboard sharing is optional.');$('connectRegisterButton').textContent=connectId?'Update TinyMaker Connect':'Register TinyMaker Connect';
-    $('ntfTg').checked=!!c.tgEnabled; $('ntfWa').checked=!!c.waEnabled; $('ntfNone').checked=!c.tgEnabled&&!c.waEnabled;
+    $('ntfTg').checked=!!c.tgEnabled; $('ntfWa').checked=!!c.waEnabled; $('ntfDc').checked=!!c.dcEnabled; $('ntfNone').checked=!c.tgEnabled&&!c.waEnabled&&!c.dcEnabled;
     $('cfgWaPhone').value=c.waPhone||''; $('cfgWaKey').value='';
     $('cfgWaKey').placeholder=c.waKeySet?('Saved key: ****'+(c.waKeyTail||'')+' - type a new one to replace it'):'Key from the CallMeBot activation reply';
+    $('cfgDcWebhook').value='';
+    $('cfgDcWebhook').placeholder=c.dcHookSet?('Saved webhook: ****'+(c.dcHookTail||'')+' - paste a new one to replace it'):'https://discord.com/api/webhooks/...';
     $('cfgTgToken').value=''; $('cfgTgToken').type='password'; $('cfgTgChat').value=c.tgChat||'';
     $('cfgTgToken').placeholder=c.tgTokenSet?('Saved token: ********'+(c.tgTokenTail||'')+' (hidden) - type a new one to replace it'):'Paste the token from @BotFather';
     $('tgHint').textContent=(c.tgTokenSet?('Bot token saved (last 4 chars: '+(c.tgTokenTail||'?')+' - check they match your token). '):'Bot token is not set. ')+'Messages you when a print finishes, pauses for low resin, or is canceled.';
@@ -2851,6 +2865,8 @@ $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);
 $('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('ntfDc').addEventListener('change',updateTgFields);
+$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:new FormData($('configForm'))});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type=i.type==='password'?'text':'password';});
 // Contextual help: one modal, content picked by key (.qHelp marks + Telegram).
 const HELP={
@@ -2859,7 +2875,8 @@ const HELP={
  resin:"<b>Resin tracking</b><p>The printer has no resin sensor - it counts down an estimate from a full VAT (this size). Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so the estimate stays honest. It warns before a print that will not fit and can pause mid-print when low.</p>",
  web:"<b>Web control</b><p>Off = this dashboard turns view-only: anyone can watch, but print control, uploads, settings and firmware updates are disabled. Turn it back on at the printer (System &gt; Advanced). Slicer upload and MQTT keep working.</p>",
  backup:"<b>Backup &amp; restore</b><p>One file holds every setting plus the lifetime counters. <b>Backup to SD</b> before a full USB reflash - the printer offers to restore it on first boot. The file contains your MQTT password and tokens, so treat it like a secret.</p>",
- wa:"<b>WhatsApp setup (CallMeBot)</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>Open <b>callmebot.com</b> &gt; <i>WhatsApp text messages</i> and add the bot's current phone number to your contacts.</li><li>Send it the message <b>I allow callmebot to send me messages</b> from your WhatsApp.</li><li>It replies with your personal <b>API key</b> - enter it here with your phone number (with country code).</li><li><b>Save config</b>, then <b>Send test message</b>.</li></ol><p class='hint'>Messages travel through the free CallMeBot gateway (a third-party service) - unlike Telegram, which the printer talks to directly.</p>"};
+ wa:"<b>WhatsApp setup (CallMeBot)</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>Open <b>callmebot.com</b> &gt; <i>WhatsApp text messages</i> and add the bot's current phone number to your contacts.</li><li>Send it the message <b>I allow callmebot to send me messages</b> from your WhatsApp.</li><li>It replies with your personal <b>API key</b> - enter it here with your phone number (with country code).</li><li><b>Save config</b>, then <b>Send test message</b>.</li></ol><p class='hint'>Messages travel through the free CallMeBot gateway (a third-party service) - unlike Telegram, which the printer talks to directly.</p>",
+ dc:"<b>Discord setup (webhook)</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>In your Discord server open <b>Server Settings &gt; Integrations &gt; Webhooks</b>.</li><li><b>New Webhook</b> - pick the channel the printer should post to, then <b>Copy Webhook URL</b>.</li><li>Paste the URL here, <b>Save config</b>, then <b>Send test message</b>.</li></ol><p class='hint'>The webhook URL is a secret - anyone holding it can post to that channel. The printer talks to Discord directly.</p>"};
 const showHelp=k=>{$('helpBody').innerHTML=HELP[k]||'';show('helpModal',true);};
 document.addEventListener('click',e=>{const q=e.target.closest('.qHelp');if(q){e.preventDefault();showHelp(q.dataset.help);}});
 // Getting started: dismissible first-steps checklist. Some steps tick
@@ -3534,6 +3551,7 @@ void network_setup() {
   server.on("/api/connect/register", HTTP_POST, handleApiConnectRegister);
   server.on("/api/telegram/test", HTTP_POST, handleApiTelegramTest);
   server.on("/api/whatsapp/test", HTTP_POST, handleApiWhatsAppTest);
+  server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);

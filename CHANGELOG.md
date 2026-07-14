@@ -16,10 +16,15 @@ unless noted. Community contributors are tagged inline.
 ## [Unreleased] — `experimental` branch
 
 ### Added
-- **WhatsApp notifications** — same three messages as Telegram (finished /
-  low-resin pause / canceled), delivered through the free CallMeBot gateway
-  (one-time activation from your WhatsApp, inline help included). Settings now
-  has a single *Phone notifications* choice: Off / Telegram / WhatsApp.
+- **WhatsApp and Discord notifications** — same three messages as Telegram
+  (finished / low-resin pause / canceled): WhatsApp through the free CallMeBot
+  gateway (one-time activation, inline help), Discord through a channel
+  webhook (no bot needed). Settings has one *Phone notifications* choice:
+  Off / Telegram / WhatsApp / Discord.
+- **Exposure undo** — when the exposure test (or a config save) replaces your
+  Regular exposure, the old value is remembered and an *Undo (Xs)* link
+  appears next to the field.
+- The dashboard header links the project site, **tinymakerwifi.com**.
 - **Light theme** — the dashboard gets a light/dark toggle (the crescent next
   to *Manual*); your choice sticks per browser. Same orange, no flash on load.
 - **Branded WiFi setup** — the `TinyMaker-Setup` portal now shows the project

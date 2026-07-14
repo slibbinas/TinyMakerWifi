@@ -78,10 +78,11 @@ void telegramNotify(const String &text) {
   String error;
   if (tgEnabled) telegramSendMessage(text, error);
   else if (waEnabled) whatsappSendMessage(text, error);
+  else if (dcEnabled) discordSendMessage(text, error);
 }
 
 void tgNotifyFinished() {
-  if (!tgEnabled && !waEnabled) return;
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
   // savePrintTime() folds printStartMs into the lifetime total but leaves the
   // variable set, so the elapsed time is still valid at this exit point.
   uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
