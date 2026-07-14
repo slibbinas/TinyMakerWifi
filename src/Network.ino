@@ -3154,13 +3154,20 @@ const modelPreview=async()=>{
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   show('previewWrap',true);show('prevSpin',false);
   const paint=txt=>{const cv=$('modelPreviewCanvas'),ctx=drawVolumeBox(cv);
-    ctx.fillStyle='#aaa';ctx.font='15px sans-serif';ctx.fillText(txt,PREV_CX-64,PREV_CY-30);};
+    ctx.fillStyle='#e8720c';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
+    ctx.fillText(txt,PREV_CX,PREV_CY-16);ctx.textAlign='left';};
   try{
     if(slicesCache.name!==name||slicesCache.mode!=='current'||!slicesCache.slices.length){
       paint('Loading preview...');
       await fetchSlices(name,layers,modelH,{set textContent(v){paint(v.replace('Loading','Loading preview'));}});
     }
     if(selectedModel!==name)return;  // user opened another model meanwhile
+    // Slices restored from an older localStorage format have no estimate yet -
+    // it is cheap to derive from the slices we already hold.
+    if(!slicesCache.mlEst&&slicesCache.slices.length){
+      let w=0;for(const s of slicesCache.slices){let n=0;for(let p=0;p<s.length;p++)n+=s[p];w+=n/s.length;}
+      slicesCache.mlEst=(w/slicesCache.slices.length)*40.8*30.6*slicesCache.modelH/1000;
+    }
     drawIso($('modelPreviewCanvas'),1);
     // Free byproduct of the render: the quick resin estimate ("~" = rough;
     // clicking the value runs the exact printer-side scan).
