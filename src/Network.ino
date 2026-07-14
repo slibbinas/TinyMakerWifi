@@ -2293,7 +2293,7 @@ void handleRootPage() {
     <div id='modelResinBox' class='hidden'><div class='label'>Resin needed</div><div id='modelResin' class='value'>-</div></div>
   </div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
-  <div class='actions'>
+  <div id='modelActions' class='actions'>
     <button id='modelPreviewButton' type='button'>Preview 3D</button>
     <button id='modelBackButton' class='button secondary' type='button'>Back to dashboard</button>
     <button id='modelMlButton' class='spanAll' type='button'>Calculate ml</button>
@@ -2971,10 +2971,9 @@ const modelDetails=async(nameEnc,estimate)=>{
     setText('modelTitle',name); setText('modelLayers','Loading'); setText('modelHeight','-'); setText('modelTime','-');
     setText('modelPrintLayers','-');
     show('modelPrintLayersBox',false); show('modelResinBox',false); show('modelProgress',false); show('previewWrap',false);
-    // Buttons appear only once the details response says which apply -
-    // showing them upfront made Calculate ml flash and vanish (user finding).
-    show('modelMlButton',false); show('modelPreviewButton',true);
-    show('modelShareButton',connectIsReady());
+    // No button dance (user finding): the whole action row stays hidden while
+    // the details load and appears ONCE in its final state below.
+    show('modelActions',false);
   } else {
     $('modelMlButton').disabled=true;
     $('modelMlButton').textContent='Calculating...';
@@ -2990,24 +2989,23 @@ const modelDetails=async(nameEnc,estimate)=>{
     show('modelMlButton',!d.resinEstimated);
     show('modelShareButton',connectIsReady()&&!selectedModelConnectPublicId);
     if(!estimate){
-      // One look everywhere (user decision): details always show OUR voxel
-      // render. If it is cached for the current layer height - load it; if
-      // not - render it now (the button stays visible, shows Loading % and
-      // ends up disabled instead of vanishing - it used to pop in and out).
+      // One look everywhere (user decision): details show OUR voxel render -
+      // instantly when cached for the current layer height, on demand via the
+      // button otherwise (auto-render used to stack slice fetches and starve
+      // the printer when browsing between models).
       const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
       const hasVoxel=lh1?d.preview1:d.preview05;
       show('modelPreviewButton',true);
       const pb=$('modelPreviewButton');
+      pb.disabled=!!hasVoxel;
       if(hasVoxel){
-        pb.disabled=true;
         try{await loadSavedPreview(name);}
         catch(e){show('previewWrap',false);pb.disabled=false;}
-      }else pb.disabled=false; // render on demand - auto-rendering stacked
-                               // slice fetches when browsing between models
-                               // and starved the status polls (timeouts).
+      }
     }
   }catch(e){msg(e.message,true);}
-  finally{$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
+  // Reveal the action row in one shot (Back stays reachable on errors too).
+  finally{show('modelActions',true);$('modelMlButton').disabled=false;$('modelMlButton').textContent='Calculate ml';show('modelProgress',false);}
 };
 
 // --- 3D preview: fetch every Nth sliced layer, render an isometric stack
