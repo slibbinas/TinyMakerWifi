@@ -2918,7 +2918,9 @@ const refreshStatus=async()=>{
     if(updLock)updSawDown=true;
     if(deleteBusy)msg('Deleting - the printer is busy removing files...');
     else if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
-    else msg('Status unavailable: '+e.message,true);
+    // A single missed poll is routine while the printer does SD-heavy work
+    // (scans, slice streaming) - only speak up when it keeps failing.
+    else if(statusFailCount>=3)msg('Status unavailable: '+e.message,true);
   }finally{statusInFlight=false;}
 };
 
