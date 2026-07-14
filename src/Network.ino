@@ -699,7 +699,13 @@ int countModelSourceLayers(const String &name) {
 }
 
 bool modelSummaryForModel(const String &name, ModelSummary &summary) {
-  int sourceLayers = countModelSourceLayers(name);
+  // Layer count from model.json when available - the directory scan below
+  // costs seconds on 1000+ layer models (user finding: details sat empty).
+  int sourceLayers = 0;
+  if (!getModelMetadataSourceLayers(name, sourceLayers)) {
+    sourceLayers = countModelSourceLayers(name);
+    backfillModelMetadataLayers(name, sourceLayers);  // pay the scan once
+  }
   return modelSummaryFromSourceLayers(sourceLayers, summary);
 }
 

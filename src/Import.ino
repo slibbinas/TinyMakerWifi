@@ -395,6 +395,29 @@ bool writeModelMetadataJson(const String &name, const String &json) {
   return true;
 }
 
+bool getModelMetadataSourceLayers(const String &name, int &layers) {
+  String json;
+  if (!readModelMetadataJson(name, json)) return false;
+  double v = 0;
+  if (!readJsonNumberField(json, "source_layers", v) || v < 1) return false;
+  layers = (int)v;
+  return true;
+}
+
+// Create model.json for a pre-metadata model so the next details open reads
+// the layer count instead of re-scanning the folder (a 1000+ layer directory
+// costs seconds per scan on SdFat).
+void backfillModelMetadataLayers(const String &name, int sourceLayers) {
+  if (sourceLayers < 1) return;
+  String json;
+  if (readModelMetadataJson(name, json)) return;  // already has metadata
+  ModelSummary summary;
+  if (!modelSummaryFromSourceLayers(sourceLayers, summary)) return;
+  ModelImportOptions createOptions;
+  createOptions.source = "unknown";
+  writeModelMetadataFile("/" + name, name, summary, createOptions);
+}
+
 bool getModelMetadataResin(const String &name, double &resinMl) {
   String json;
   if (!readModelMetadataJson(name, json)) return false;
