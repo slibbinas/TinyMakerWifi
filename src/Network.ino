@@ -3504,8 +3504,9 @@ void handleApiBootAnimInstall() {
     return;
   }
 
-  bootAnimName = slug;          // installed animation becomes the active one
-  saveDeviceConfig();
+  // Install only downloads: the active choice stays whatever it was, picking
+  // is an explicit act (dashboard pick + Save config, or the printer menu).
+  // Auto-selecting here silently overrode the user's choice on every install.
   sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
   netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
   delay(1200);
