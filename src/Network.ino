@@ -3027,6 +3027,9 @@ let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
 const loadSavedPreview=async name=>{
   const cv=$('modelPreviewCanvas'),ctx=cv.getContext('2d'),img=new Image();
+  // The cached PNG is ~100 KB off the ESP (~2-3 s) - say so instead of an
+  // empty box (user finding; no % here, it is one file, not slices).
+  paintPreviewProgress(cv,'Loading preview...',0);
   img.src='/api/files/model/preview?name='+enc(name)+'&r='+Date.now();
   await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('saved preview failed to load'));});
   cv.width=PREV_W;cv.height=PREV_H;
