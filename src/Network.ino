@@ -2019,7 +2019,7 @@ void handleRootPage() {
     <div class='subhead'>Phone notifications</div>
     <div class='spanAll' style='display:flex;gap:18px;flex-wrap:wrap'>
       <label class='check'><input type='radio' name='notify_channel' id='ntfNone' value='none'><span>Off</span></label>
-      <label class='check'><input type='radio' name='notify_channel' id='ntfTg' value='tg'><span>Telegram</span></label>
+      <label class='check'><input type='radio' name='notify_channel' id='ntfTg' value='tg'><span>Telegram<a href='#' class='qHelp' data-help='tg'>?</a></span></label>
       <label class='check'><input type='radio' name='notify_channel' id='ntfWa' value='wa'><span>WhatsApp<a href='#' class='qHelp' data-help='wa'>?</a></span></label>
     </div>
     <div id='tgFields' class='spanAll hidden'>
@@ -2028,10 +2028,7 @@ void handleRootPage() {
         <label class='spanAll'><span>Chat ID</span><input name='tg_chat' id='cfgTgChat' type='text' maxlength='32' placeholder='123456789'></label>
       </div>
       <div id='tgHint' class='hint'>Messages you when a print finishes, pauses for low resin, or is canceled.</div>
-      <div class='actions'>
-        <button id='tgHelpButton' class='button secondary' type='button'>? How to get the token &amp; chat ID</button>
-        <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
-      </div>
+      <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
     </div>
     <div id='waFields' class='spanAll hidden'>
       <div class='configGrid'>
@@ -2866,7 +2863,6 @@ $('gsList').addEventListener('click',e=>{const m=e.target.closest('.gsMark');if(
 $('gsHide').addEventListener('click',()=>{localStorage.setItem('tmGsHidden','1');renderGs();});
 $('gsBtn').addEventListener('click',e=>{e.preventDefault();localStorage.setItem('tmGsHidden','0');openView('home');renderGs();$('gsCard').scrollIntoView({behavior:'smooth',block:'start'});});
 renderGs();
-$('tgHelpButton').addEventListener('click',()=>showHelp('tg'));
 // Light/dark toggle: flips the html data-theme attribute the boot script set,
 // persists to localStorage and keeps the Manual link's theme param in sync.
 const applyThemeLink=()=>{const l=document.documentElement.getAttribute('data-theme')==='light';$('manualLink').href='https://slibbinas.github.io/TinyMakerWifi/manual/'+(l?'':'?theme=dark');};
