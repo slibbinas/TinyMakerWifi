@@ -2479,6 +2479,7 @@ void handleRootPage() {
     <button id='updUploadButton' class='button secondary' type='submit' disabled>Upload &amp; flash</button>
   </form>
   <div class='hint'>Updates are blocked while printing. Do not power off during an update - the printer reboots by itself when done.</div>
+  <div class='hint'>Need a full USB reflash or recovery? Use the <a href='https://connect.tinymakerwifi.com/flash.php' target='_blank' rel='noopener'>browser flasher</a> (Chrome/Edge + USB cable).</div>
 </section>
 
 <script>
