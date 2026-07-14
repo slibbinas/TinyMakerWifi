@@ -378,6 +378,8 @@ bool readModelMetadataJson(const String &name, String &json) {
   File f = SD.open(path.c_str());
   if (!f) return false;
   json = "";
+  uint32_t sz = f.size();
+  json.reserve((sz < 4096 ? sz : 4095) + 1);
   while (f.available() && json.length() < 4096) json += (char)f.read();
   f.close();
   return json.length() > 0 && json.length() < 4096;
@@ -598,17 +600,6 @@ bool importZipModel(const char *zipPath, const String &requestedName,
   return true;
 }
 
-bool unpackModel(const char *zipPath, const char *destDir) {
-  String name = String(destDir);
-  if (name.startsWith("/")) name.remove(0, 1);
-
-  ModelImportOptions options;
-  options.source = "sd_import";
-  ModelImportResult result;
-  String error;
-  return importZipModel(zipPath, name, options, result, error);
-}
-
 // ===================================================================================
 // On-device import: OK on a .sl1/.zip entry in the Print list
 // ===================================================================================
@@ -617,7 +608,7 @@ bool unpackModel(const char *zipPath, const char *destDir) {
  * @brief Convert the selected archive from the SD root into a printable
  * model folder (same pipeline as a network upload). Deletes the archive on
  * success so files don't pile up; on failure the partial model folder is
- * already removed by unpackModel().
+ * already removed by the temp-dir import pipeline.
  */
 void importSelectedArchive() {
   String src = "/" + String(foldersel_long);

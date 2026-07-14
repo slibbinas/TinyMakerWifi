@@ -75,7 +75,7 @@ PubSubClient mqttClient(mqttNet);
 // NOTE: no global 'UNZIP zip;' here! The UNZIP object is ~40 KB - declared
 // globally it lands in static .bss and overflows WROOM's DRAM segment
 // (verified: "region dram0_0_seg overflowed"). It is heap-allocated inside
-// unpackModel() only for the duration of unpacking.
+// unpackModelToEmptyDir() only for the duration of unpacking.
 
 // Upload state
 File uploadFile;
@@ -86,6 +86,7 @@ bool uploadRejected = false;
 File previewUploadFile;
 String previewUploadName;
 String previewUploadPath;
+String previewUploadTmpPath;
 bool previewUploadOk = false;
 bool previewUploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
@@ -103,7 +104,7 @@ int32_t mySeek(PNGFILE *handle, int32_t position);
 void PNGDraw(PNGDRAW *pDraw);
 
 // The ZIP/SL1 conversion pipeline (zip callbacks, layerIndexFromEntry,
-// safeModelName, unpackModel) lives in Import.ino - outside the network
+// safeModelName, importZipModel) lives in Import.ino - outside the network
 // guard - so the on-device "import from SD" flow works with
 // ENABLE_NETWORK=0. The upload handlers below reuse it.
 
@@ -329,6 +330,7 @@ void handlePreviewUploadData() {
     if (previewType == "05") previewUploadPath = "/" + previewUploadName + "/preview05.png";
     else if (previewType == "1") previewUploadPath = "/" + previewUploadName + "/preview1.png";
     else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    previewUploadTmpPath = previewUploadPath + ".tmp";
     previewUploadOk = false;
     previewUploadRejected = false;
 
@@ -338,8 +340,8 @@ void handlePreviewUploadData() {
       return;
     }
 
-    SD.remove(previewUploadPath.c_str());
-    previewUploadFile = SD.open(previewUploadPath.c_str(), FILE_WRITE);
+    SD.remove(previewUploadTmpPath.c_str());
+    previewUploadFile = SD.open(previewUploadTmpPath.c_str(), FILE_WRITE);
     if (!previewUploadFile) {
       previewUploadRejected = true;
       return;
@@ -350,7 +352,7 @@ void handlePreviewUploadData() {
     if (up.totalSize > 524288) {
       previewUploadRejected = true;
       if (previewUploadFile) previewUploadFile.close();
-      SD.remove(previewUploadPath.c_str());
+      SD.remove(previewUploadTmpPath.c_str());
       return;
     }
     if (previewUploadFile) previewUploadFile.write(up.buf, up.currentSize);
@@ -359,12 +361,27 @@ void handlePreviewUploadData() {
     if (previewUploadRejected) return;
     if (previewUploadFile) {
       previewUploadFile.close();
-      previewUploadOk = true;
+      String backupPath = previewUploadPath + ".bak";
+      SD.remove(backupPath.c_str());
+      bool hadPreview = SD.exists(previewUploadPath.c_str());
+      if (hadPreview && !SD.rename(previewUploadPath.c_str(), backupPath.c_str())) {
+        SD.remove(previewUploadTmpPath.c_str());
+        previewUploadRejected = true;
+        return;
+      }
+      previewUploadOk = SD.rename(previewUploadTmpPath.c_str(), previewUploadPath.c_str());
+      if (previewUploadOk) {
+        if (hadPreview) SD.remove(backupPath.c_str());
+      } else {
+        if (hadPreview) SD.rename(backupPath.c_str(), previewUploadPath.c_str());
+        SD.remove(previewUploadTmpPath.c_str());
+        previewUploadRejected = true;
+      }
     }
   }
   else if (up.status == UPLOAD_FILE_ABORTED) {
     if (previewUploadFile) previewUploadFile.close();
-    SD.remove(previewUploadPath.c_str());
+    SD.remove(previewUploadTmpPath.c_str());
   }
 }
 
@@ -3618,6 +3635,8 @@ bool readBootAnimMetadataJson(const String &name, String &json) {
   File f = SD.open(bootAnimMetadataPath(name).c_str());
   if (!f) return false;
   json = "";
+  uint32_t sz = f.size();
+  json.reserve((sz < 2048 ? sz : 2047) + 1);
   while (f.available() && json.length() < 2048) json += (char)f.read();
   f.close();
   return json.length() > 0 && json.length() < 2048;

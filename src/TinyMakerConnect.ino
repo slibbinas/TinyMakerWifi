@@ -503,12 +503,18 @@ void tinymakerConnectLoop() {
   if ((long)(millis() - connectBackupDueMs) < 0) return;
   String message;
   if (connectBackupPending) {
-    connectBackupPending = false;
-    connectProfilePending = false;
-    tinymakerConnectBackupSettings(message);
+    if (tinymakerConnectBackupSettings(message)) {
+      connectBackupPending = false;
+      connectProfilePending = false;
+    } else {
+      connectBackupDueMs = millis() + 30000UL;
+    }
   } else {
-    connectProfilePending = false;
-    tinymakerConnectSyncProfile(message);
+    if (tinymakerConnectSyncProfile(message)) {
+      connectProfilePending = false;
+    } else {
+      connectBackupDueMs = millis() + 30000UL;
+    }
   }
 }
 
