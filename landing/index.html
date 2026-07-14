@@ -45,9 +45,9 @@ footer a{color:#8a8a92;text-decoration:underline}
     <a class="btn" href="https://github.com/slibbinas/TinyMakerWifi/releases">Download firmware</a>
     <a class="btn sec" href="https://slibbinas.github.io/TinyMakerWifi/manual/">Read the manual</a>
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
-    <a class="btn sec" id="openPrinter" href="http://tinymaker.local">Open my printer</a>
+    <a class="btn sec" id="openPrinter" href="http://tinymaker.local" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
   </div>
-  <div style="margin-top:10px;font-size:13px;color:#8a8a92">Printer on the same WiFi? <span id="ipRow">If <code>tinymaker.local</code> doesn't open, enter its IP (System &gt; WiFi Info): <input id="ipBox" placeholder="192.168.1.23" style="width:130px;background:#1d1d20;border:1px solid #3a3a3f;border-radius:6px;color:#eee;padding:4px 8px;font-size:13px"> <a href="#" id="ipGo">open</a></span></div>
+  <div style="margin-top:10px;font-size:13px;color:#8a8a92">Opens your own printer's dashboard - works when it is powered on and you are on the same WiFi.<br><span id="ipRow">If <code>tinymaker.local</code> doesn't open, enter its IP (System &gt; WiFi Info): <input id="ipBox" placeholder="192.168.1.23" style="width:130px;background:#1d1d20;border:1px solid #3a3a3f;border-radius:6px;color:#eee;padding:4px 8px;font-size:13px"> <a href="#" id="ipGo">open</a></span></div>
   <script>
   (function(){
     var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter');
