@@ -2266,9 +2266,11 @@ void handleRootPage() {
   </section>
 
   <section id='printPreviewCard' class='card hidden'>
-    <h2>Print progress 3D</h2>
+    <h2 id='printPreviewTitle'>Print progress 3D</h2>
     <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
+    <div id='dashModelInfo' class='hint hidden'></div>
+    <button id='dashShareButton' class='secondaryBtn hidden' type='button'>Share model</button>
   </section>
   </div>
 
@@ -2864,12 +2866,16 @@ const applyStatus=s=>{
     // refresh restores them from localStorage.
     if(s.busy&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
     if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
+      dashPreviewName='';  // the print takes the card over from an idle preview
+      $('printPreviewTitle').textContent='Print progress 3D';
+      show('dashModelInfo',false);show('dashShareButton',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
       if(Math.abs(frac-lastPrevFrac)>=0.004){lastPrevFrac=frac;drawIso($('printPreviewCanvas'),frac);}
     }else{
-      show('printPreviewCard',false);
+      // Idle: the card stays up when a model preview is being shown in it.
+      show('printPreviewCard',!s.busy&&!!dashPreviewName);
       if(!s.busy)lastPrevFrac=-1;
     }
     const pause=$('pauseButton'), resume=$('resumeButton');
@@ -2944,7 +2950,7 @@ const renderFiles=()=>{
   slice.forEach(it=>{
     const meta=it.type==='model'?'Model folder':'Archive - '+formatBytes(it.sizeBytes);
     h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
-    if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="modelDetails(\''+enc(it.name)+'\',false)">Details</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
+    if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
   const nModels=items.filter(it=>it.type==='model').length,nArch=items.length-nModels;
@@ -3025,8 +3031,9 @@ const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
-const loadSavedPreview=async name=>{
-  const cv=$('modelPreviewCanvas'),ctx=cv.getContext('2d'),img=new Image();
+const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
+const loadSavedPreviewTo=async(cv,name)=>{
+  const ctx=cv.getContext('2d'),img=new Image();
   // The cached PNG is ~100 KB off the ESP (~2-3 s) - say so instead of an
   // empty box (user finding; no % here, it is one file, not slices).
   paintPreviewProgress(cv,'Loading preview...',null);
@@ -3172,9 +3179,29 @@ const fetchSlices=async(name,layers,modelH,btn,mode)=>{
   slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers,mlEst:mlEst};
   saveSlicesToStorage();
 };
-// Renders the voxel preview into the always-visible box: progress is painted
-// straight onto the canvas, the quick resin estimate fills "Estimating...",
-// and the result is cached to the SD. No buttons - details trigger this.
+// Shared voxel-preview pipeline: slices (with painted % progress) -> quick
+// resin estimate -> isometric render -> SD cache. Returns the quick estimate.
+const renderVoxelPreview=async(cv,name,layers,modelH)=>{
+  if(slicesCache.name!==name||slicesCache.mode!=='current'||!slicesCache.slices.length){
+    paintPreviewProgress(cv,'Loading preview...',0);
+    await fetchSlices(name,layers,modelH,{set textContent(v){
+      const p=parseInt(v.replace(/\D/g,''))||0;
+      paintPreviewProgress(cv,'Loading preview '+p+'%',p/100);
+    }});
+  }
+  // Slices restored from an older localStorage format have no estimate yet -
+  // it is cheap to derive from the slices we already hold.
+  if(!slicesCache.mlEst&&slicesCache.slices.length){
+    let w=0;for(const s of slicesCache.slices){let n=0;for(let p=0;p<s.length;p++)n+=s[p];w+=n/s.length;}
+    slicesCache.mlEst=(w/slicesCache.slices.length)*40.8*30.6*slicesCache.modelH/1000;
+  }
+  drawIso(cv,1);
+  const blob=await canvasBlob(cv);
+  try{await uploadModelPreview(name,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+  catch(e){}  // cache write is best effort
+  return slicesCache.mlEst;
+};
+// Details-view preview (Brian's Connect app deep-links here via modelDetails).
 const modelPreview=async()=>{
   if(!selectedModel)return;
   const name=selectedModel;
@@ -3183,37 +3210,62 @@ const modelPreview=async()=>{
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   show('previewWrap',true);show('prevSpin',false);
   try{
-    if(slicesCache.name!==name||slicesCache.mode!=='current'||!slicesCache.slices.length){
-      paintPreviewProgress($('modelPreviewCanvas'),'Loading preview...',0);
-      await fetchSlices(name,layers,modelH,{set textContent(v){
-        const p=parseInt(v.replace(/\D/g,''))||0;
-        paintPreviewProgress($('modelPreviewCanvas'),'Loading preview '+p+'%',p/100);
-      }});
-    }
+    const mlEst=await renderVoxelPreview($('modelPreviewCanvas'),name,layers,modelH);
     if(selectedModel!==name)return;  // user opened another model meanwhile
-    // Slices restored from an older localStorage format have no estimate yet -
-    // it is cheap to derive from the slices we already hold.
-    if(!slicesCache.mlEst&&slicesCache.slices.length){
-      let w=0;for(const s of slicesCache.slices){let n=0;for(let p=0;p<s.length;p++)n+=s[p];w+=n/s.length;}
-      slicesCache.mlEst=(w/slicesCache.slices.length)*40.8*30.6*slicesCache.modelH/1000;
-    }
-    drawIso($('modelPreviewCanvas'),1);
     // Free byproduct of the render: the quick resin estimate ("~" = rough;
     // clicking the value runs the exact printer-side scan).
-    if(slicesCache.mlEst&&$('modelResin').textContent.indexOf(' ml')<0){
-      setText('modelResin','~'+slicesCache.mlEst.toFixed(1)+' ml (quick)');
+    if(mlEst&&$('modelResin').textContent.indexOf(' ml')<0){
+      setText('modelResin','~'+mlEst.toFixed(1)+' ml (quick)');
       $('modelResin').title='Click to run the exact scan on the printer (takes minutes)';
       $('modelResin').style.cursor='pointer';
     }
-    const blob=await canvasBlob($('modelPreviewCanvas'));
-    try{await uploadModelPreview(name,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
-    catch(e){}  // cache write is best effort
   }catch(e){
     if(e.message==='preview superseded')return;  // navigated away - stay quiet
     msg(e.message,true);
     if(selectedModel===name)drawVolumeBox($('modelPreviewCanvas'));
   }
 };
+// Dashboard preview: the SD row's Preview button renders straight into the
+// Print progress 3D card (retitled Model preview while idle) - no view change.
+let dashPreviewName='';
+const dashPreview=async nameEnc=>{
+  const name=decodeURIComponent(nameEnc);
+  if(statusData&&statusData.busy)return;   // the print progress owns the card
+  dashPreviewName=name;
+  fetchSlicesSeq++;                        // cancel a previous run right away
+  const cv=$('printPreviewCanvas');
+  $('printPreviewTitle').textContent='Model preview';
+  $('printPreviewBarFill').style.width='0%';
+  show('dashModelInfo',false);show('dashShareButton',false);
+  show('printPreviewCard',true);
+  paintPreviewProgress(cv,'Loading preview...',null);
+  try{
+    const d=await api('/api/files/model?name='+enc(name));
+    if(dashPreviewName!==name)return;
+    let resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
+    const setInfo=()=>{
+      $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
+        Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+(resin?' · '+resin:'');
+      show('dashModelInfo',true);};
+    setInfo();
+    const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
+    const hasVoxel=lh1?d.preview1:d.preview05;
+    if(hasVoxel&&d.resinEstimated)await loadSavedPreviewTo(cv,name);
+    else{
+      const layers=Number(d.printLayers)||Number(d.layers)||0;
+      const mlEst=await renderVoxelPreview(cv,name,layers,Number(d.heightMm)||layers*0.05);
+      if(dashPreviewName!==name)return;
+      if(!resin&&mlEst){resin='~'+mlEst.toFixed(1)+' ml (quick)';setInfo();}
+    }
+    if(dashPreviewName!==name)return;
+    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
+  }catch(e){
+    if(e.message==='preview superseded')return;
+    msg(e.message,true);
+    if(dashPreviewName===name)paintPreviewProgress(cv,'Preview failed',null);
+  }
+};
+window.dashPreview=dashPreview;
 
 const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectTokenSet);
 const connectBase=()=>String((connectConfig&&connectConfig.connectBaseUrl)||'https://connect.tinymakerwifi.com').replace(/\/+$/,'');
@@ -3306,6 +3358,12 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
           const p=parseInt(v.replace(/\D/g,''))||0;
           try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview '+p+'%',p/100);}catch(_){}
         }};
+        // Keep the 3D card on screen through the prefetch (starting from an
+        // SD row leaves the dashboard visible) - the busy status takes over.
+        dashPreviewName=name;
+        $('printPreviewTitle').textContent='Print progress 3D';
+        show('dashModelInfo',false);show('dashShareButton',false);
+        show('printPreviewCard',true);
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
         await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);
       }
@@ -3319,7 +3377,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(dashPreviewName===name){dashPreviewName='';show('printPreviewCard',false);}loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 const tickLocalStatus=()=>{
@@ -3582,6 +3640,7 @@ $('uploadFile').addEventListener('change',()=>$('uploadButton').classList.toggle
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
+$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName)shareModel(dashPreviewName);});
 $('modelResin').addEventListener('click',async()=>{
   if($('modelResin').textContent.indexOf('~')!==0)return;
   if(!await uiConfirm('Run the exact resin scan on the printer? It decodes every layer and can take minutes.'))return;
