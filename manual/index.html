@@ -117,15 +117,17 @@
 
   footer{max-width:var(--maxw); margin:0 auto; padding:20px; text-align:center; color:var(--muted); font-size:.9rem}
 
+  .topBar{position:fixed; top:14px; right:14px; z-index:10; display:flex; gap:8px}
   .toggle-theme{
-    position:fixed; top:14px; right:14px; z-index:10; cursor:pointer;
+    cursor:pointer; text-decoration:none;
     background:var(--card); border:1px solid var(--border); color:var(--text);
     border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
   }
+  a.toggle-theme:hover{text-decoration:none; border-color:var(--accent)}
 
   @media print{
     body{background:#fff; color:#000}
-    .toggle-theme,nav.toc{display:none}
+    .topBar,nav.toc{display:none}
     section,header.hero img{box-shadow:none}
     section{border:none; padding:0; margin:14px 0}
     h2.sec{page-break-after:avoid}
@@ -140,7 +142,11 @@
 // dark to match the dashboard. The toggle button still flips either way.
 (function(){var p=new URLSearchParams(location.search).get('theme');document.documentElement.setAttribute('data-theme',p==='dark'?'dark':'light');})();
 </script>
-<button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');})()">◐ Theme</button>
+<div class="topBar">
+  <a class="toggle-theme" href="https://tinymakerwifi.com">tinymakerwifi.com</a>
+  <a class="toggle-theme" href="#toc">Contents</a>
+  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');})()">◐ Theme</button>
+</div>
 
 <header class="hero">
   <span class="badge">User Manual · v0.14.3</span>
@@ -152,7 +158,7 @@
 
 <div class="wrap">
 
-<nav class="toc">
+<nav class="toc" id="toc">
   <h2>Contents</h2>
   <ol>
     <li><a href="#intro">What this firmware adds</a></li>
