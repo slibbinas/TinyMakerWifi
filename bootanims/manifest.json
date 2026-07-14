@@ -1,7 +1,7 @@
 {
   "animations": [
-    {"name": "bunny", "display": "Bunny (mascot)", "file": "bunny.tmb", "sizeBytes": 1075212},
-    {"name": "resin-drip", "display": "Resin Drip", "file": "resin-drip.tmb", "sizeBytes": 1331212},
-    {"name": "malfunction", "display": "Malfunction (prank)", "file": "malfunction.tmb", "sizeBytes": 2048012}
+    {"name": "bunny", "display": "Bunny (mascot)", "file": "bunny.tmb", "sizeBytes": 537612},
+    {"name": "resin-drip", "display": "Resin Drip", "file": "resin-drip.tmb", "sizeBytes": 588812},
+    {"name": "malfunction", "display": "Malfunction (prank)", "file": "malfunction.tmb", "sizeBytes": 1433612}
   ]
 }
