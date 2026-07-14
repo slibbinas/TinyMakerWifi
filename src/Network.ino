@@ -3029,7 +3029,7 @@ const loadSavedPreview=async name=>{
   const cv=$('modelPreviewCanvas'),ctx=cv.getContext('2d'),img=new Image();
   // The cached PNG is ~100 KB off the ESP (~2-3 s) - say so instead of an
   // empty box (user finding; no % here, it is one file, not slices).
-  paintPreviewProgress(cv,'Loading preview...',0);
+  paintPreviewProgress(cv,'Loading preview...',null);
   img.src='/api/files/model/preview?name='+enc(name)+'&r='+Date.now();
   await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('saved preview failed to load'));});
   cv.width=PREV_W;cv.height=PREV_H;
@@ -3075,10 +3075,14 @@ const drawVolumeBox=cv=>{
 };
 // Loading state painted straight onto a preview canvas: big percentage in the
 // box plus an orange progress bar underneath - the usual "image loading" look.
+// frac=null -> plain white label, no bar (quick PNG download); a number ->
+// brand-orange percentage with the progress bar (slice-by-slice render).
 const paintPreviewProgress=(cv,label,frac)=>{
   const ctx=drawVolumeBox(cv);
-  ctx.fillStyle='#e8720c';ctx.font='bold 34px sans-serif';ctx.textAlign='center';
+  ctx.fillStyle=frac===null?'#e9e9ec':'#e8720c';
+  ctx.font='bold 34px sans-serif';ctx.textAlign='center';
   ctx.fillText(label,PREV_CX,PREV_CY-16);ctx.textAlign='left';
+  if(frac===null)return;
   const bw=PREV_W-160;
   ctx.strokeStyle='#4a4a52';ctx.strokeRect(80,PREV_H-26,bw,10);
   if(frac>0)ctx.fillRect(81,PREV_H-25,Math.max(2,(bw-2)*Math.min(frac,1)),8);
