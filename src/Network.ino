@@ -1951,7 +1951,7 @@ void handleRootPage() {
   <div class='actions'>
     <button id='modelPreviewButton' type='button'>Preview 3D</button>
     <button id='modelMlButton' type='button'>Calculate ml</button>
-    <button id='modelShareButton' class='secondaryBtn hidden' type='button'>Share model</button>
+    <button id='modelShareButton' class='secondaryBtn spanAll hidden' type='button'>Share model</button>
     <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
   </div>
   <div id='previewWrap' class='hidden' style='margin-top:12px'>
