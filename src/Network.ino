@@ -3183,7 +3183,10 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         msg('Preparing 3D progress preview...');
         const d=await api('/api/files/model?name='+enc(name));
         const layers=Number(d.printLayers)||Number(d.layers)||0;
-        await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,null);
+        // Big models take tens of seconds here and it looked like a hang
+        // (user finding): feed fetchSlices' per-layer progress into the toast.
+        const prog={set textContent(v){msg('Preparing 3D progress preview - '+v.replace('Loading ','')+' (the print starts right after)');}};
+        await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);
       }
     }catch(e){}
   }
