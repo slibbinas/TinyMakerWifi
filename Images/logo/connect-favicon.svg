@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- TinyMaker Connect favicon: project logo (layer stack + WiFi arc) with a
+       blue cloud badge, same family as the printer dashboard's green-P badge.
+       Transparent background - works on light and dark tabs. -->
+  <rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/>
+  <rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/>
+  <rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/>
+  <path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="47" cy="46" r="16" fill="#2f7fd6"/>
+  <circle cx="41.5" cy="48" r="4" fill="#fff"/>
+  <circle cx="47" cy="45" r="5.5" fill="#fff"/>
+  <circle cx="52.5" cy="48" r="4" fill="#fff"/>
+  <rect x="39.5" y="47.5" width="15" height="4.5" rx="2" fill="#fff"/>
+</svg>
