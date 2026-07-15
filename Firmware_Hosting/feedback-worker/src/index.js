@@ -82,6 +82,11 @@ export default {
 
       const stamp = new Date().toISOString();
       const id = crypto.randomUUID().slice(0, 8);
+      // Case number: a plain KV counter. Two notes sent inside KV's ~60 s
+      // propagation window could in theory share a number - at this project's
+      // volume that beats standing up a Durable Object for a human reference.
+      const num = (Number(await env.FEEDBACK.get('seq')) || 0) + 1;
+      await env.FEEDBACK.put('seq', String(num));
       const imgKeys = [];
       for (let i = 0; i < photos.length; i++) {
         const k = 'img:' + stamp + ':' + id + ':' + i;
@@ -91,6 +96,7 @@ export default {
         imgKeys.push(k);
       }
       await env.FEEDBACK.put('fb:' + stamp + ':' + id, JSON.stringify({
+        num,
         message: msg,
         contact: str(fields.contact, 120),
         fw: str(fields.fw, 20),
@@ -99,7 +105,7 @@ export default {
         photos: imgKeys,
         at: stamp,
       }));
-      return new Response(JSON.stringify({ ok: true, photos: imgKeys.length }), {
+      return new Response(JSON.stringify({ ok: true, id: num, photos: imgKeys.length }), {
         headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
@@ -214,6 +220,7 @@ function inboxPage(notes, listKey) {
 
   const cards = notes.map((n) => `
     <article class="note${n.handled ? ' done' : ''}" data-k="${esc(n.key)}"
+             ${n.num ? `id="n${esc(n.num)}"` : ''}
              data-tag="${esc(n.tag || '')}" data-handled="${n.handled ? '1' : ''}">
       <div class="msg">${esc(n.message)}</div>
       ${(n.photoUrls || []).length ? `<div class="shots">${n.photoUrls.map((u) =>
@@ -224,6 +231,7 @@ function inboxPage(notes, listKey) {
         <button class="save" disabled>Save</button>
       </div>
       <div class="meta">
+        ${n.num ? `<a class="num" href="#n${esc(n.num)}" title="Link to this case">#${esc(n.num)}</a>` : ''}
         <time>${when(n.at)}</time>
         ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
         ${contactLink(n.contact)}
@@ -270,6 +278,9 @@ h1{font-size:1.2rem;margin:0}h1 b{color:var(--accent)}
 .pill{background:var(--pill);border-radius:999px;padding:2px 9px;font-family:ui-monospace,Consolas,monospace;font-size:.74rem}
 .pill em{opacity:.6;font-style:normal}
 .contact{color:#84bcf8;text-decoration:none}.contact:hover{text-decoration:underline}
+.num{color:var(--accent);font-weight:700;font-family:ui-monospace,Consolas,monospace;text-decoration:none;font-size:.86rem}
+.num:hover{text-decoration:underline}
+.note:target{border-color:var(--accent)}
 .tags{display:flex;gap:5px;margin-left:auto}
 .meta button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:.75rem;cursor:pointer}
 .meta .tag:hover{border-color:var(--accent);color:var(--accent)}

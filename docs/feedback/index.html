@@ -28,6 +28,8 @@ button:disabled{opacity:.6;cursor:default}
 #thumbs button.rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;margin:0;border-radius:50%;background:#b34a38;font-size:12px;line-height:1}
 #done{display:none;text-align:center;padding:30px 0}
 #done .big{font-size:2.2rem}
+.case{margin-top:16px !important;font-size:14px}
+.case b{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:16px}
 #alt{display:none;font-size:13.5px}
 a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
 </style>
@@ -51,6 +53,7 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     <div class="big">🙌</div>
     <h1>Thank you!</h1>
     <p>Your note landed safely. It genuinely shapes what gets built next.</p>
+    <p id="caseNo" class="case"></p>
   </div>
 </div>
 <script>
@@ -117,6 +120,10 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
       method:'POST',body:fd
     }).then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json().catch(function(){return {};});
+    }).then(function(d){
+      if(d&&d.id)document.getElementById('caseNo').innerHTML=
+        'Your reference: <b>#'+d.id+'</b><br>Quote it if you follow up — in the group, by mail, anywhere.';
       document.getElementById('f').style.display='none';
       document.getElementById('done').style.display='block';
     }).catch(function(){
