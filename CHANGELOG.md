@@ -117,6 +117,14 @@ unless noted. Community contributors are tagged inline.
   curve (Jacobs)** from the test strip with calipers.
 
 ### Changed
+- **The status card reads in pairs that belong together** — condition
+  (State · SD card), network (WiFi · IP), the two lifetime counters, resin;
+  while printing, resin sits next to resin and the two clocks share a row,
+  with Layer closing the card. Phones keep the two columns now instead of
+  stacking everything single-file.
+- The screen-sleep setting is called **Idle screen timeout** — it only ever
+  applied when idle, but the old name read as if the screen should sleep
+  mid-print too.
 - **Settings got second-level tabs** — *Print / Network / Notifications /
   Boot animation / Backup*, one section at a time, each with its own *Save
   config* (saving from any section preserves the others' values). The Backup
@@ -133,6 +141,21 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **Starting a print no longer flashes a false "timeout".** The printer's
+  answer can miss the browser's window when the firmware sits in a network
+  timeout, but the command has already landed — the dashboard now confirms
+  via the status and says *Print started* instead of crying failure over a
+  start that worked.
+- **Homing no longer freezes the motor and the dashboard for seconds at a
+  time.** The homing loop serviced the full network stack — including MQTT
+  and Connect sync, whose timeouts run up to ~8 s. It serves plain HTTP now.
+- **A garbled printer answer can no longer blank the SD manager** *(reported
+  through the feedback form by a beta tester — thank you!)*: the file-list
+  reply could go out truncated right after a heavy upload, and the dashboard
+  rendered it as an empty list until a page refresh. Fixed on three layers,
+  and the error state now offers a Retry link.
+- **Stop and Pause are the same size** — Stop had borrowed the small SD-row
+  delete style along with its red.
 - **A dashboard opened mid-print no longer shows the idle "pick a model"
   card** — and a temporary "printer busy" answer no longer erases the
   remembered preview, so the model comes back on its own once the print
