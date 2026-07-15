@@ -97,7 +97,10 @@ export default {
       });
     }
 
-    const keyOk = env.LIST_KEY && url.searchParams.get('key') === env.LIST_KEY;
+    // trim(): a secret typed at a Windows prompt can arrive with a stray \r,
+    // which would silently fail every key comparison.
+    const listKey = String(env.LIST_KEY || '').trim();
+    const keyOk = listKey && (url.searchParams.get('key') || '').trim() === listKey;
 
     if (path === '/feedback/list' && keyOk) {
       const list = await env.FEEDBACK.list({ prefix: 'fb:', limit: 100 });
@@ -107,7 +110,7 @@ export default {
         if (!v) continue;
         const rec = JSON.parse(v);
         rec.photoUrls = (rec.photos || []).map(
-          (p) => url.origin + '/feedback/img?key=' + encodeURIComponent(env.LIST_KEY) + '&k=' + encodeURIComponent(p));
+          (p) => url.origin + '/feedback/img?key=' + encodeURIComponent(listKey) + '&k=' + encodeURIComponent(p));
         out.push(rec);
       }
       out.reverse();  // newest first
