@@ -3862,6 +3862,9 @@ int  otaVersionState()        { return otaState; }
 bool otaHasUpdate()           { return otaState == 3 && otaBinUrl.length() > 0; }
 
 void otaBootCheckMaybePrompt() {
+  // Never hijack the boot with an update prompt while a power-loss resume is
+  // about to start the print (screen 427 -> network_setup() -> print).
+  if (resumeBootPending) return;
   if (!bootUpdateCheckEnabled || WiFi.status() != WL_CONNECTED) return;
   otaCheckLatest(2500);
   if (otaHasUpdate()) screenBootUpdatePrompt();
