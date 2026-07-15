@@ -1,3 +1,15 @@
+#include <esp_timer.h>
+
+// One-shot timer that cuts the UV LED at the exposure deadline no matter what
+// the wait loop below is doing. Everything that loop calls blocks - a button
+// press redraws the screen (~100-300 ms, since upstream 1.0.2), HTTP service
+// sends a page - and a blocked loop used to stretch that layer's exposure by
+// the blocking time. The timer makes the light's OFF edge exact; the loop's
+// own digitalWrite(LOW) stays authoritative for cancel (the timer would let a
+// canceled exposure burn to full time) and as the fallback.
+static esp_timer_handle_t uvOffTimer = nullptr;
+static void uvOffTimerCb(void *) { digitalWrite(LED, LOW); }
+
 /**
  * @brief Turn On LED (Exposure)
  * Controls the UV LED exposure for the current layer.
@@ -24,6 +36,18 @@ void turn_on_LED(){
   // Countdown bookkeeping - the dashboard shows "Curing · Ns" from these.
   phaseStartMs = startTime;
   phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+  if (uvLedEnabled && ExposureMillis > 0) {
+    if (!uvOffTimer) {
+      esp_timer_create_args_t targs = {};
+      targs.callback = uvOffTimerCb;
+      targs.name = "uvoff";
+      esp_timer_create(&targs, &uvOffTimer);
+    }
+    if (uvOffTimer) {
+      esp_timer_stop(uvOffTimer);   // may not be armed; harmless
+      esp_timer_start_once(uvOffTimer, (uint64_t)ExposureMillis * 1000ULL);
+    }
+  }
 
   while (Duration <= ExposureMillis && !print_canceled){
     Duration = millis()-startTime;
@@ -99,6 +123,7 @@ void turn_on_LED(){
       startTime2 = millis();
     }   
   }
+  if (uvOffTimer) esp_timer_stop(uvOffTimer);  // don't let it fire into the next phase
   digitalWrite(LED, LOW);
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }
