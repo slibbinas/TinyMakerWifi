@@ -2879,7 +2879,7 @@ const openView=view=>{
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
     setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
-    if(s.firmwareVersion)$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');
+    if(s.firmwareVersion){$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');applyThemeLink();}
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
@@ -3674,7 +3674,11 @@ $('gsBtn').addEventListener('click',e=>{e.preventDefault();localStorage.setItem(
 renderGs();
 // Light/dark toggle: flips the html data-theme attribute the boot script set,
 // persists to localStorage and keeps the Manual link's theme param in sync.
-const applyThemeLink=()=>{const l=document.documentElement.getAttribute('data-theme')==='light';$('manualLink').href='https://slibbinas.github.io/TinyMakerWifi/manual/'+(l?'':'?theme=dark');};
+// Hand our theme to the pages we link out to, so they open the way the
+// dashboard looks right now rather than however the OS is set.
+const applyThemeLink=()=>{const l=document.documentElement.getAttribute('data-theme')==='light';
+  $('manualLink').href='https://slibbinas.github.io/TinyMakerWifi/manual/'+(l?'':'?theme=dark');
+  const fb=$('fbLink'); if(fb){const u=new URL(fb.href); u.searchParams.set('theme',l?'light':'dark'); fb.href=u.toString();}};
 $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=document.documentElement.getAttribute('data-theme')!=='light';if(toLight)document.documentElement.setAttribute('data-theme','light');else document.documentElement.removeAttribute('data-theme');try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}applyThemeLink();});
 applyThemeLink();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));

@@ -4,10 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWifi — feedback</title>
+<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+  if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
 :root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--accent:#e8720c;--input:#141416;--ok:#2fbf4f}
 @media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#d9dbe0;--text:#1f2124;--muted:#5f6570;--input:#fff}}
+/* ?theme= wins over the OS preference: the dashboard hands its own choice
+   over, so the form doesn't flip themes under the user mid-click. */
+:root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#d9dbe0;--text:#1f2124;--muted:#5f6570;--input:#fff}
+:root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--input:#141416}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
