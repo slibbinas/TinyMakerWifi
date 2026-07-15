@@ -2503,7 +2503,7 @@ void handleRootPage() {
   <h2>Firmware update</h2>
   <div class='grid'>
     <div><div class='label'>Installed</div><div id='updInstalled' class='value'>-</div></div>
-    <div><div class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
+    <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
   </div>
   <div id='updMsg' class='hint'>Checking...</div>
   <div id='communityStats' class='hint hidden'></div>
@@ -3735,12 +3735,16 @@ const loadUpdate=async()=>{
     const u=await api('/api/update',null,30000);
     updInstalledVer=u.installed;
     setText('updInstalled',u.installed);setText('updLatest',u.latest&&u.latest.length?u.latest:'-');
+    // Beta testers run ahead of the stable channel, so "Latest" would read as
+    // "the newest firmware is older than mine" - name the channel instead.
+    const preRel=u.latest&&u.installed&&cmpVer(u.installed,u.latest)>0;
+    setText('updLatestLabel',preRel?'Stable channel':'Latest');
     $('updInstallLatest').disabled=!(u.hasUpdate&&u.allowed);
     $('updUploadButton').disabled=!u.allowed;
     $('updFile').disabled=!u.allowed;
     $('updVersionSelect').disabled=!u.allowed;
     if(u.allowed)refreshInstallSelected();else $('updInstallSelected').disabled=true;
-    $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Picked versions and file upload still work.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':'Firmware is up to date.'));
+    $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Picked versions and file upload still work.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':(preRel?'You are running a pre-release. The stable channel is at '+u.latest+' - nothing to install unless you want to go back.':'Firmware is up to date.')));
   }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
 };
 const installFirmware=async v=>{
