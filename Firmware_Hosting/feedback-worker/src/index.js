@@ -1,9 +1,11 @@
 // TinyMakerWifi feedback collector - a tiny standalone Cloudflare Worker.
 //
-//   GET  /feedback[/]           -> the form page (proxied from gh-pages)
-//   POST /feedback              -> store a note (+ up to 3 photos) in KV
-//   GET  /feedback/list?key=..  -> newest notes as JSON   (LIST_KEY secret)
+//   GET  /feedback[/]            -> the form page (proxied from gh-pages)
+//   POST /feedback               -> store a note (+ up to 3 photos) in KV
+//   GET  /feedback/inbox?key=..  -> the maintainer's reading page (HTML)
+//   GET  /feedback/list?key=..   -> the same notes as JSON  (LIST_KEY secret)
 //   GET  /feedback/img?key=..&k=img:..  -> one stored photo
+//   POST /feedback/del?key=..&k=fb:..   -> drop one note and its photos
 //
 // Photos live in KV, NOT R2: the Workers free plan simply stops accepting
 // writes past its 1 GB / 1k-writes-a-day limits, while R2 would auto-charge
@@ -102,19 +104,43 @@ export default {
     const listKey = String(env.LIST_KEY || '').trim();
     const keyOk = listKey && (url.searchParams.get('key') || '').trim() === listKey;
 
-    if (path === '/feedback/list' && keyOk) {
+    const readAll = async () => {
       const list = await env.FEEDBACK.list({ prefix: 'fb:', limit: 100 });
       const out = [];
       for (const k of list.keys) {
         const v = await env.FEEDBACK.get(k.name);
         if (!v) continue;
         const rec = JSON.parse(v);
+        rec.key = k.name;
         rec.photoUrls = (rec.photos || []).map(
           (p) => url.origin + '/feedback/img?key=' + encodeURIComponent(listKey) + '&k=' + encodeURIComponent(p));
         out.push(rec);
       }
       out.reverse();  // newest first
-      return new Response(JSON.stringify(out, null, 1), {
+      return out;
+    };
+
+    if (path === '/feedback/inbox' && keyOk) {
+      const notes = await readAll();
+      return new Response(inboxPage(notes, listKey), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    if (path === '/feedback/del' && keyOk && request.method === 'POST') {
+      const k = url.searchParams.get('k') || '';
+      if (!k.startsWith('fb:')) return new Response('bad key', { status: 400 });
+      const v = await env.FEEDBACK.get(k);
+      if (v) {
+        const rec = JSON.parse(v);
+        for (const p of rec.photos || []) await env.FEEDBACK.delete(p);
+      }
+      await env.FEEDBACK.delete(k);
+      return new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (path === '/feedback/list' && keyOk) {
+      return new Response(JSON.stringify(await readAll(), null, 1), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -132,3 +158,108 @@ export default {
     return new Response('TinyMakerWifi feedback collector', { status: 200 });
   },
 };
+
+// ---------------------------------------------------------------- inbox page
+// Every field below is user-submitted, so esc() is not optional: a note is
+// read here in a browser holding the LIST_KEY.
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+const when = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d)) return esc(iso);
+  const p = (n) => (n < 10 ? '0' : '') + n;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+};
+
+const contactLink = (c) => {
+  const t = String(c || '').trim();
+  if (!t) return '';
+  const href = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? 'mailto:' + t : null;
+  return href
+    ? `<a class="contact" href="${esc(href)}">${esc(t)}</a>`
+    : `<span class="contact">${esc(t)}</span>`;
+};
+
+function inboxPage(notes, listKey) {
+  const withPhotos = notes.filter((n) => (n.photos || []).length).length;
+  const versions = [...new Set(notes.map((n) => n.fw).filter(Boolean))].sort().reverse();
+
+  const cards = notes.map((n) => `
+    <article class="note" data-fw="${esc(n.fw || '')}">
+      <div class="msg">${esc(n.message)}</div>
+      ${(n.photoUrls || []).length ? `<div class="shots">${n.photoUrls.map((u) =>
+        `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="attached photo" loading="lazy"></a>`).join('')}</div>` : ''}
+      <div class="meta">
+        <time>${when(n.at)}</time>
+        ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
+        ${contactLink(n.contact)}
+        <button class="del" data-k="${esc(n.key)}" title="Delete this note and its photos">Delete</button>
+      </div>
+    </article>`).join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Feedback inbox — TinyMakerWifi</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--pill:#2a2a2e;--danger:#b34a38}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15.5px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 14px 60px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:2px}
+h1{font-size:1.2rem;margin:0}h1 b{color:var(--accent)}
+.counts{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters button{background:var(--pill);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:600;cursor:pointer}
+.filters button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.msg{white-space:pre-wrap;overflow-wrap:anywhere}
+.shots{display:flex;gap:8px;flex-wrap:wrap}
+.shots img{width:132px;height:132px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+.shots a:hover img{border-color:var(--accent)}
+.meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.pill{background:var(--pill);border-radius:999px;padding:2px 9px;font-family:ui-monospace,Consolas,monospace;font-size:.74rem}
+.pill em{opacity:.6;font-style:normal}
+.contact{color:#84bcf8;text-decoration:none}.contact:hover{text-decoration:underline}
+.meta .del{margin-left:auto;background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:.75rem;cursor:pointer}
+.meta .del:hover{border-color:var(--danger);color:var(--danger)}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
+.empty .big{font-size:2rem;margin-bottom:6px}
+footer{color:var(--muted);font-size:.76rem;text-align:center}
+footer a{color:#84bcf8;text-decoration:none}
+</style></head><body><div class="wrap">
+<header>
+  <h1><b>Feedback</b> inbox</h1>
+  <span class="counts">${notes.length} note${notes.length === 1 ? '' : 's'}${withPhotos ? ` · ${withPhotos} with photos` : ''}</span>
+</header>
+${versions.length > 1 ? `<div class="filters"><button class="on" data-v="">All</button>${versions.map((v) => `<button data-v="${esc(v)}">fw ${esc(v)}</button>`).join('')}</div>` : ''}
+${notes.length ? cards : `<div class="empty"><div class="big">📭</div>Nothing yet. The form is at <a href="/feedback/">tinymakerwifi.com/feedback</a>.</div>`}
+<footer>Private page · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a></footer>
+</div>
+<script>
+var KEY=${JSON.stringify(listKey)};
+document.querySelectorAll('.filters button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.filters button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var v=b.dataset.v;
+    document.querySelectorAll('.note').forEach(function(n){
+      n.style.display=(!v||n.dataset.fw===v)?'':'none';
+    });
+  });
+});
+document.querySelectorAll('.del').forEach(function(b){
+  b.addEventListener('click',function(){
+    if(!confirm('Delete this note and its photos?'))return;
+    b.disabled=true;b.textContent='Deleting...';
+    fetch('/feedback/del?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(b.dataset.k),{method:'POST'})
+      .then(function(r){if(!r.ok)throw 0;b.closest('.note').remove();})
+      .catch(function(){b.disabled=false;b.textContent='Delete failed';});
+  });
+});
+</script></body></html>`;
+}
