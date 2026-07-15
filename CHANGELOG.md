@@ -23,14 +23,17 @@ unless noted. Community contributors are tagged inline.
   idle shows a pick-a-model hint, the last previewed model is remembered and
   restored from the saved preview after a page reload, and a print started on
   the printer itself replaces a stale preview with a note instead of showing
-  the wrong model.
+  the wrong model. The SD list marks which row the preview came from — an
+  accent rail and an *In preview* chip on the model you are looking at.
 - **Home-screen app (PWA manifest)** — *Add to Home screen* now pins the
   dashboard with the project icon; on iPhone it opens fullscreen like an app.
 - **WhatsApp and Discord notifications** — same three messages as Telegram
   (finished / low-resin pause / canceled): WhatsApp through the free CallMeBot
   gateway (one-time activation, inline help), Discord through a channel
   webhook (no bot needed). Settings has one *Phone notifications* choice:
-  Off / Telegram / WhatsApp / Discord.
+  Off / Telegram / WhatsApp / Discord. **Both are shipped untested** — they
+  ride on your own CallMeBot key or channel webhook, so the only test that
+  proves anything is yours. Reports are very welcome, working or not.
 - **Exposure undo** — when the exposure test (or a config save) replaces your
   Regular exposure, the old value is remembered and an *Undo (Xs)* link
   appears next to the field.
@@ -116,6 +119,12 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **The exposure test strip works at low exposures again.** With *Regular
+  exposure* at 1 s, all eight bars rounded to the same whole second — the strip
+  burned eight identical bars that blanked at once and measured nothing, which
+  is exactly where fast resins live. Below ~5 s the ladder now steps 1 s at a
+  time instead of by percentage: eight distinct bars, each one a value you can
+  actually set. Above that, the ladder is unchanged.
 - **The printer no longer freezes for seconds at a time when GitHub is slow.**
   A failed firmware-version check wasn't remembered, so every dashboard
   request for the update state re-ran the blocking check — the web UI and the
