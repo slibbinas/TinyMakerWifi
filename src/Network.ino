@@ -2942,11 +2942,19 @@ const applyStatus=s=>{
       if(!s.busy){
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
-      }else if(!slicesPrefetching&&dashPreviewName){
-        setDashPreviewName('');
-        $('printPreviewTitle').textContent='Print progress 3D';
-        show('dashModelInfo',false);show('dashShareButton',false);
-        paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+      }else if(!slicesPrefetching){
+        // Busy without slices - a print started on the printer, or a page opened
+        // mid-print in a browser that never previewed this model. This used to
+        // require dashPreviewName, so a fresh page had nothing to convert and
+        // was left showing the idle "pick a model" placeholder over a running
+        // print (user finding). Say it plainly instead, once - the title guard
+        // keeps the 2s poll from repainting it.
+        if(dashPreviewName)setDashPreviewName('');
+        if($('printPreviewTitle').textContent!=='Print progress 3D'){
+          $('printPreviewTitle').textContent='Print progress 3D';
+          show('dashModelInfo',false);show('dashShareButton',false);
+          paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+        }
       }
     }
     const pause=$('pauseButton'), resume=$('resumeButton');
@@ -3321,6 +3329,7 @@ const dashPreviewPlaceholder=()=>{
 const restoreDashPreview=async()=>{
   const name=localStorage.getItem('dashPreviewModel')||'';
   if(!name)return dashPreviewPlaceholder();
+  if(statusData&&statusData.busy)return;   // the print owns the card; leave it alone
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if((statusData&&statusData.busy)||dashPreviewName)return;
@@ -3334,9 +3343,14 @@ const restoreDashPreview=async()=>{
     await loadSavedPreviewTo($('printPreviewCanvas'),name);
     if(dashPreviewName!==name)return;
     show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
-  }catch(_){
-    localStorage.removeItem('dashPreviewModel');
-    if(!dashPreviewName)dashPreviewPlaceholder();
+  }catch(e){
+    // Every SD read answers 409 "printer busy" while a print runs, and this
+    // catch treated any failure as "the model is gone": it wiped the remembered
+    // name, so the preview never came back even after the print finished, and
+    // dropped an idle placeholder over a running print. Only the printer saying
+    // the model is not there means it is not there.
+    if((e.message||'')==='model not found')localStorage.removeItem('dashPreviewModel');
+    if(!dashPreviewName&&!(statusData&&statusData.busy))dashPreviewPlaceholder();
   }
 };
 const dashPreview=async nameEnc=>{
@@ -3811,7 +3825,10 @@ $('modelResin').addEventListener('click',async()=>{
 $('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
-openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus();loadConfig();restoreDashPreview();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+// The preview restore has to know whether a print is running before it touches
+// the card, and both used to start at once - so on a page opened mid-print the
+// restore raced the first status and usually won, with no statusData to check.
+openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
 )SPA";
   sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
