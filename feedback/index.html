@@ -61,6 +61,7 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     <div id="thumbs"></div>
     <label for="contact">Contact (optional — only if you'd like a reply)</label>
     <input id="contact" maxlength="120" placeholder="email / GitHub / Facebook name">
+    <!--turnstile--><!-- the worker swaps this in when a site key is set -->
     <button id="send" type="submit">Send feedback</button>
     <p id="alt">Sending failed — the collector may be down. Meanwhile: <a href="https://github.com/slibbinas/TinyMakerWifi/issues">GitHub Issues</a> or the <a href="https://www.facebook.com/groups/1486879621729571">Facebook group</a>.</p>
   </form>
@@ -128,6 +129,10 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     fd.append('contact',document.getElementById('contact').value.slice(0,120));
     fd.append('fw',fw);fd.append('build',build);
     fd.append('ua',navigator.userAgent.slice(0,120));
+    // Present only when the worker injected the widget; the token rides along
+    // so the collector can tell a person from a script.
+    var ts=document.querySelector('[name="cf-turnstile-response"]');
+    if(ts&&ts.value)fd.append('cf-turnstile-response',ts.value);
     picked.forEach(function(p,i){fd.append('photo',p.blob,'photo'+(i+1)+'.jpg');});
     // Same origin: the worker owns tinymakerwifi.com/feedback* (page + POST).
     // Absolute fallback keeps the page working if opened straight off gh-pages.
