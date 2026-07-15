@@ -6,9 +6,13 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 🌐 **[tinymakerwifi.com](https://tinymakerwifi.com)** — the project site: what the firmware does, how to get started, community links and an *Open my printer* shortcut.
 
+🧪 **[Live demo](https://slibbinas.github.io/TinyMakerWifi/demo/)** — the real web dashboard driving a simulated printer: start a print, watch the 3D progress, poke through Settings. Nothing to install, no printer needed.
+
 📖 **[Illustrated user manual](https://slibbinas.github.io/TinyMakerWifi/manual/)** — step by step from the first flash to Home Assistant, with screenshots and an FAQ. Also one tap away from the printer's dashboard (the *Manual* link in the header).
 
 📝 **[Changelog](CHANGELOG.md)** — what each version added and who contributed it, in plain language.
+
+💬 **[Feedback](https://tinymakerwifi.com/feedback/)** — what works, what doesn't, what's missing. Photos welcome, no account needed; the dashboard header links it too.
 
 ## Features
 
@@ -21,19 +25,21 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Model deletion from the printer** — long-press OK on a model in the Print menu
 * **Import from SD card** — copy an `.sl1`/`.zip` onto the card and it shows up in the Print menu (in blue); press OK to convert it into a printable model. Works without any network, the archive is removed after a successful import
 * **Lifetime print-hours & UV LED hours counters** — the About screen shows total printing time and total LED-on time (the LED ages by lit time; dry runs don't count). Stored in NVS, survives firmware updates
-* **Settings backup & restore** — one file holds every setting and the lifetime counters: download it, keep it on the SD card, and after a full USB reflash the printer offers to restore everything on first boot. The dashboard shows the SD backup's date and has a one-click **Restore from SD**
+* **Settings backup & restore** — one file holds every setting and the lifetime counters: download it, keep it on the SD card, and after a full USB reflash the printer offers to restore everything on first boot. The dashboard shows the SD backup's date, has a one-click **Restore from SD**, and can optionally **auto-backup to TinyMaker Connect** *(contributed by [@Briadark](https://github.com/Briadark))*
 * **Boot update check** — shortly after WiFi connects at boot the printer checks for new firmware and offers *Install / Later* right on the screen (switchable) *(contributed by [@Briadark](https://github.com/Briadark))*
-* **Boot animations** — pick the animation the printer plays at power-on (System → Advanced → Boot animation, or in the dashboard) and install new ones straight from the community site *(contributed by [@Tann2019](https://github.com/Tann2019))*
+* **Boot animations** — pick the animation the printer plays at power-on (System → Advanced, or staged in the dashboard and applied with *Save config*), preview it with **Show** right on the printer's screen, install new ones one-click from the **Default library** or the community site, or **Shuffle** a random one each boot *(base contributed by [@Tann2019](https://github.com/Tann2019))*
 * **Exposure calibration test** — cures an 8-bar test strip straight from the printer (System → Advanced), each bar a different exposure; no slicer or SD file needed
 * **Clean Resin Vat** (Maintenance) — full-screen UV exposure cures a thin skin over the vat so debris lifts out in one piece (stock TinyMaker feature, kept and counted into LED hours)
 * **Resin usage estimate** — press UP on the print preview to estimate the resin a model needs — shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-level--refills))
-* **3D model preview in the dashboard** — open a model's details and press *Preview 3D*: the browser rebuilds the shape from the sliced layers and draws it inside the printer's build-volume box, so you can tell models apart without printing them
+* **Model preview in the dashboard** — press *Preview* on any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card, with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate — click it to run the exact scan
+* **Safe model uploads** — uploads unpack into a temporary folder and replace the old model only after unpacking succeeds; a name conflict asks *Replace / Rename / Cancel* (PrusaSlicer re-uploads just replace) *(contributed by [@Briadark](https://github.com/Briadark))*
 * **3D print progress** — while printing, the dashboard shows the same 3D view filling up in real time: the printed part in color, the rest as a ghost outline. Zero load on the printer (the browser renders from prefetched layers)
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
-* **Web dashboard** — open the printer's IP in a browser: SD manager (upload/delete/start), live print status with pause/resume/stop and finish-time estimate, device config and a dry-run test mode *(initial version contributed by [@Briadark](https://github.com/Briadark))*
+* **Web dashboard** — open the printer's IP in a browser: SD manager (upload/delete/start), live print status with pause/resume/stop and finish-time estimate, device config and a dry-run test mode — with a **light/dark theme**, a dismissible **Getting Started** checklist, contextual **?** help next to the tricky settings, an always-on **Model preview** card (remembers the last previewed model) and a **PWA manifest** so the dashboard pins to a phone's home screen with the project icon *(initial version contributed by [@Briadark](https://github.com/Briadark))*
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
-* **Telegram notifications** — the printer messages your phone when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. One On/Off switch, a bot token and a chat id — with a *Send test* button and inline setup steps right in the dashboard
+* **Telegram, WhatsApp or Discord notifications** — the printer messages you when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. Pick one channel: a Telegram bot, WhatsApp through the free CallMeBot gateway, or a Discord channel webhook — each with inline **?** setup help and a *Send test* button
+* **Anonymous usage ping** (optional) — once per firmware version the printer sends a one-way hash of its MAC address, the firmware version and the lifetime print hours, so we know how many printers are out there. Nothing else is sent, ever — switch it off under Settings → Network → *Anonymous usage ping*
 * **Firmware updates over WiFi** — self-update from the printer (System → Update) or from the dashboard's **Update tab** (install latest, pick **any version** from a list, or upload a file). PlatformIO OTA for developers. Flashing is blocked while printing.
 * Everything is switchable: WiFi and Web control can be turned off right on the printer (System → Advanced), and build switches still let developers compile the original, network-free firmware from the same code base
 
@@ -47,39 +53,41 @@ The small status display drives the whole UI — first-boot WiFi setup, wireless
 
 Stock TinyMaker electronics — **ESP32-WROOM-32E-N4** (4 MB flash, no PSRAM). No hardware modifications required; WiFi is already on the module.
 
-## Initial Firmware Installation
+## Installing the firmware
 
-If you are installing this firmware for the first time, you need to flash it via USB. After this one-time step, all future updates can be done wirelessly via your browser.
+Three ways to get the firmware onto the printer — the first is by far the easiest.
 
-### 1. Install Drivers (if needed)
-Modern browsers and Windows usually detect the CH340 USB chip automatically. If your computer does **not** recognize the printer when connected via USB, install the CH340 driver from the `Driver` folder of this repository:
-* Run `CH341SER.EXE`.
+### Method 1: Web flasher (recommended)
 
-### 2. Download the firmware
+**[connect.tinymakerwifi.com/flash.php](https://connect.tinymakerwifi.com/flash.php)** flashes the latest release straight from your browser — nothing to download or install *(contributed by [@Briadark](https://github.com/Briadark))*:
+
+1. Connect the printer to your computer via USB.
+2. Open the web flasher in **Chrome or Edge** (they support Web Serial; Firefox/Safari don't).
+3. Click **Connect** and select the printer's serial port (unsure which? unplug/replug the USB cable and watch which entry appears).
+4. Flash — the tool fetches the latest release itself. Power cycle the printer when it finishes.
+
+If your computer does **not** recognize the printer over USB, install the CH340 driver from the `Driver` folder of this repository (`CH341SER.EXE`), then try again.
+
+### Method 2: Already running TinyMakerWifi? Update over WiFi
+
+No USB needed — use `System → Update` on the printer or the dashboard's **Update tab**. See [Wireless Firmware Updates](#wireless-firmware-updates).
+
+### Method 3: Manual flashing (fallback & developers)
+
 Download the latest **`firmware-full.bin`** from the [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) section of this repository.
 
 > ⚠️ **Which file do I need?** Releases contain two files and they are NOT interchangeable:
 >
 > | File | Used for | How |
 > |---|---|---|
-> | **`firmware-full.bin`** | **First-time USB flashing** (this section) | Flash Download Tool, address **`0x0`** |
+> | **`firmware-full.bin`** | **First-time USB flashing** (this section) | USB flash tool, address **`0x0`** |
 > | `firmware.bin` | Wireless updates **only**, after this firmware is already installed | Browser, `http://tinymaker.local/update` |
 >
 > Flashing `firmware.bin` over USB will **not** work correctly: it lacks the bootloader and partition table, so the printer either won't boot (if flashed at `0x0`) or OTA updates will be broken (if flashed at `0x10000` over the stock firmware).
 
-### 3. Flash it — Option A: web tool (recommended, no install)
+**Option A: generic web esptool** — [https://esptool.spacehuhn.com/](https://esptool.spacehuhn.com/) in Chrome/Edge: click **Connect**, pick the port, **remove all pre-filled entries**, click **ADD**, upload your **`firmware-full.bin`** with its address set to **`0`**, then **Program** and power cycle.
 
-The easiest way — works straight from a Chrome/Edge browser, no drivers or software to install *(thanks to the community for the tip)*:
-
-1. Open **[https://esptool.spacehuhn.com/](https://esptool.spacehuhn.com/)** in Chrome or Edge.
-2. Click **Connect** and select your printer's serial port (if unsure which one it is, unplug and replug the USB cable and watch which entry appears).
-3. **Remove all pre-filled entries** in the list.
-4. Click **ADD**, upload your **`firmware-full.bin`**, and make sure its address field is set to **`0`**.
-5. Click **Program**, wait for it to finish, and power cycle the printer.
-
-### 3. Flash it — Option B: Espressif Flash Download Tool (Windows)
-
-If you prefer the official desktop tool:
+**Option B: Espressif Flash Download Tool (Windows)** — if you prefer the official desktop tool:
 
 1. Get **`flash_download_tool.zip`** from the `Flash_Installer` folder of this repo (or the official [Espressif Flash Download Tool](https://docs.espressif.com/projects/esp-test-tools/en/latest/esp32/production_stage/tools/flash_download_tool.html) page). **Extract the ZIP fully before running.**
 2. Run the extracted `flash_download_tool_xxx.exe`.
@@ -100,7 +108,7 @@ Note: the first boot after flashing may take a few seconds longer than usual, an
 1. Power on the printer. On first boot it starts a **`TinyMaker-Setup`** access point.
 2. Connect to it with your phone — a captive portal opens automatically (or browse to `http://192.168.4.1`).
 3. Select your home WiFi network and enter the password.
-4. The printer connects and briefly shows its IP address; credentials are stored, so next boots connect automatically (~5 s). If the saved network is unreachable, the printer simply boots in offline mode after 15 s — printing from SD works as always.
+4. The printer connects and briefly shows its IP address; credentials are stored, so next boots connect automatically (~5 s) — animated signal bars on the boot screen turn green when connected. If the saved network is unreachable, the printer simply boots in offline mode after 15 s — printing from SD works as always.
 
 <img src="Images/mockups/wifi-setup-phone.png" width="240" alt="TinyMaker-Setup captive portal as seen on a phone">
 
@@ -148,7 +156,7 @@ Open the printer's IP address in any browser for the full dashboard *(initial ve
 
 On a desktop-sized screen the dashboard spreads into two columns — here it is in real use, idle with a card full of models:
 
-<img src="Images/screenshots/dashboard-idle-0140.png" width="640" alt="Real dashboard screenshot on a desktop screen: status card with UV LED time and Manual link, SD manager with model list">
+<img src="Images/screenshots/dashboard-idle.png" width="640" alt="Real dashboard screenshot on a desktop screen: status card with UV LED time and Manual link, SD manager with model list">
 
 ### 3D preview & live print progress
 

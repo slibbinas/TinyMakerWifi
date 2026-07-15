@@ -13,3 +13,5 @@ compile_commands.json
 
 # Local Claude Code config (machine-specific)
 .claude/
+
+Firmware_Hosting/feedback-worker/.wrangler/

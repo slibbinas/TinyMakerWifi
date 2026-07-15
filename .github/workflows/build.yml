@@ -40,3 +40,12 @@ jobs:
 
       - name: Build both environments
         run: pio run
+
+      # CONTRIBUTING requires the network-free build to keep compiling; flip
+      # the switch the same way a developer would and build the USB env.
+      - name: Build the network-free firmware (ENABLE_NETWORK 0)
+        run: |
+          sed -i 's/#define ENABLE_NETWORK\([[:space:]]*\)1/#define ENABLE_NETWORK\10/' src/TinyMaker.ino
+          grep -n "define ENABLE_NETWORK" src/TinyMaker.ino
+          pio run -e tinymaker
+          git checkout -- src/TinyMaker.ino

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Backup logo idea (concept 4, 2026-07-13): resin drop with sliced layers
+       cut out. Layer cutouts assume a dark background (#1c1c1e). -->
+  <path d="M32 4 C32 4 12 28 12 41 a20 20 0 0 0 40 0 C52 28 32 4 32 4 Z" fill="#e8720c"/>
+  <rect x="22" y="34" width="20" height="4.5" rx="2" fill="#1c1c1e"/>
+  <rect x="25" y="42" width="14" height="4.5" rx="2" fill="#1c1c1e"/>
+  <rect x="28" y="50" width="8" height="4.5" rx="2" fill="#1c1c1e"/>
+</svg>

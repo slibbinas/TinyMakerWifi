@@ -1,0 +1,252 @@
+<meta charset="utf-8">
+<title>TinyMaker navigacija — 2 variantai</title>
+<style>
+:root{color-scheme:dark;
+  --bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--line:#3a3a3f;--line2:#555;
+  --text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;
+  --btnsec:#3c3c42;--pv:#151517}
+@media (prefers-color-scheme: light){:root{color-scheme:light;
+  --bg:#f2f2f4;--wrap:#fff;--card:#fafafa;--line:#dfe1e5;--line2:#c9ccd2;
+  --text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--accent:#e8720c;--link:#155fb0;
+  --btnsec:#e2e4e8;--pv:#ececef}}
+:root[data-theme=dark]{color-scheme:dark;
+  --bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--line:#3a3a3f;--line2:#555;
+  --text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;
+  --btnsec:#3c3c42;--pv:#151517}
+:root[data-theme=light]{color-scheme:light;
+  --bg:#f2f2f4;--wrap:#fff;--card:#fafafa;--line:#dfe1e5;--line2:#c9ccd2;
+  --text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--accent:#e8720c;--link:#155fb0;
+  --btnsec:#e2e4e8;--pv:#ececef}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+
+/* ---- variantų pasirinkimas ---- */
+.picker{max-width:1000px;margin:18px auto 0;padding:0 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.picker b{font-size:14px}
+.picker button{border:1px solid var(--line2);background:var(--btnsec);color:var(--text);
+  border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;cursor:pointer}
+.picker button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.picker .note{flex-basis:100%;font-size:13px;color:var(--muted)}
+
+/* ---- dashboard rėmas (kaip tikras) ---- */
+.frame{max-width:1000px;margin:14px auto 40px;background:var(--wrap);
+  border:2px solid var(--accent);border-radius:14px;padding:18px 20px 24px}
+.brand{color:var(--accent);font-size:21px;font-weight:700;margin:2px 0 0}
+.fw{font-size:12px;color:var(--muted);margin-bottom:14px}
+.fw a{color:var(--link);text-decoration:none}
+
+/* Lygis 1: pagrindiniai view PILL mygtukai (kaip dabar) */
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tabs button{flex:1;padding:10px 0;border:0;border-radius:8px;background:var(--btnsec);
+  color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer}
+.tabs button.active{background:var(--accent);color:#fff}
+
+/* Lygis 2: sekcijų UNDERLINE tab'ai (V1 + Connect) — kita forma nei pill'ai */
+.subnav{display:flex;gap:22px;border-bottom:1px solid var(--line);
+  margin:2px 0 16px;position:sticky;top:0;background:var(--wrap);z-index:5;padding-top:4px}
+.subnav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;
+  padding:7px 2px 9px;border-bottom:2px solid transparent;letter-spacing:.2px}
+.subnav a.on{color:var(--text);border-bottom-color:var(--accent)}
+.subnav a:hover{color:var(--text)}
+
+/* V2: kairysis takelis */
+.railwrap{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}
+.rail{position:sticky;top:12px;display:flex;flex-direction:column;gap:2px}
+.rail a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;
+  padding:8px 12px;border-left:2px solid var(--line);border-radius:0 7px 7px 0}
+.rail a.on{color:var(--text);border-left-color:var(--accent);background:var(--card)}
+.rail a:hover{color:var(--text)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;margin-bottom:14px}
+.card h2{font-size:16.5px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
+.f label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.f input{width:100%;background:var(--pv);border:1px solid var(--line2);color:var(--text);
+  border-radius:8px;padding:8px 10px;font-size:13px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding-top:16px}
+.save{width:100%;margin-top:12px;background:var(--accent);border:0;color:#fff;
+  border-radius:8px;padding:11px 0;font-weight:600;font-size:14px;cursor:pointer}
+.hint{font-size:12.5px;color:var(--muted2);margin-top:8px}
+.tile{background:var(--pv);border:1px solid var(--line);border-radius:8px;height:90px;
+  display:flex;align-items:center;justify-content:center;color:var(--muted2);font-size:12px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.badge{display:inline-block;background:var(--btnsec);border-radius:999px;
+  padding:2px 9px;font-size:11px;color:var(--muted);margin-left:8px;vertical-align:2px}
+.view{display:none}.view.show{display:block}
+button:focus-visible,a:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+@media (max-width:640px){
+  .grid{grid-template-columns:1fr}
+  .railwrap{grid-template-columns:1fr}
+  .rail{position:static;flex-direction:row;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .rail a{border-left:0;border-bottom:2px solid var(--line);border-radius:7px 7px 0 0;padding:6px 10px}
+  .rail a.on{border-bottom-color:var(--accent)}
+  .subnav{overflow-x:auto}
+}
+</style>
+
+<div class="picker">
+  <b>Sekcijų navigacijos variantas:</b>
+  <button id="pv1" class="on" onclick="setVariant(1)">V1 — perjungiami puslapiukai (rekomenduojama)</button>
+  <button id="pv3" onclick="setVariant(3)">V1b — tas pats, bet scroll</button>
+  <button id="pv2" onclick="setVariant(2)">V2 — kairysis takelis</button>
+  <button onclick="toggleTheme()" title="Šviesi / tamsi">◐ tema</button>
+  <div class="note" id="vnote">V1: antro lygio navigacija — plonas tekstas su oranžiniu pabraukimu, „prilipęs" viršuje.
+  Kita forma nei pill mygtukai, todėl lygiai nesimaišo. Spustelėjus — švelniai nuscrollina į sekciją; scrollinant žymeklis seka pats.
+  Tą patį stilių paveldi ir Connect vidiniai tab'ai (kontraktas Brianui).</div>
+</div>
+
+<div class="frame">
+  <div class="brand">⚙ TinyMaker</div>
+  <div class="fw">Firmware 0.15.0 <span style="color:var(--muted2)">(prototipas)</span> · <a href="#">Manual</a> · <a href="#">tinymakerwifi.com</a></div>
+
+  <!-- LYGIS 1: view pill'ai (nekeičiami — kaip dabartiniame dashboard'e) -->
+  <div class="tabs">
+    <button onclick="setView('dash')" id="t-dash">Dashboard</button>
+    <button onclick="setView('connect')" id="t-connect">Connect</button>
+    <button onclick="setView('settings')" id="t-settings" class="active">Settings</button>
+    <button onclick="setView('update')" id="t-update">Update</button>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view show" id="v-settings">
+    <!-- V1: underline scrollspy -->
+    <nav class="subnav" id="sn1">
+      <a href="#s-print" class="on">Print</a>
+      <a href="#s-network">Network</a>
+      <a href="#s-notif">Notifications</a>
+      <a href="#s-boot">Boot animation</a>
+      <a href="#s-backup">Backup</a>
+    </nav>
+    <!-- V2: kairysis takelis -->
+    <div class="railwrap" id="rw">
+      <nav class="rail" id="sn2" style="display:none">
+        <a href="#s-print" class="on">Print</a>
+        <a href="#s-network">Network</a>
+        <a href="#s-notif">Notifications</a>
+        <a href="#s-boot">Boot animation</a>
+        <a href="#s-backup">Backup</a>
+      </nav>
+      <div id="cols">
+        <div class="card" id="s-print"><h2>Print settings</h2>
+          <div class="grid">
+            <div class="f"><label>Layer height (mm)</label><input value="0.10"></div>
+            <div class="f"><label>Base exposure (s)</label><input value="35"></div>
+            <div class="f"><label>Regular exposure (s)</label><input value="14"></div>
+            <div class="f"><label>VAT size (ml)</label><input value="15"></div>
+            <div class="f"><label>UI timeout (s)</label><input value="300"></div>
+            <div class="chk"><input type="checkbox" checked> Ask refill before print</div>
+          </div><button class="save">Save config</button></div>
+        <div class="card" id="s-network"><h2>Network &amp; integrations</h2>
+          <div class="grid">
+            <div class="chk"><input type="checkbox" checked> WiFi</div>
+            <div class="chk"><input type="checkbox" checked> Web control</div>
+            <div class="chk"><input type="checkbox" checked> Boot update check</div>
+            <div class="chk"><input type="checkbox"> Enable MQTT</div>
+            <div class="chk"><input type="checkbox" checked> TinyMaker Connect</div>
+            <div class="chk"><input type="checkbox" checked> Anonymous usage ping</div>
+          </div><button class="save">Save config</button></div>
+        <div class="card" id="s-notif"><h2>Phone notifications</h2>
+          <div class="grid">
+            <div class="chk"><input type="radio" name="n"> Off</div>
+            <div class="chk"><input type="radio" name="n" checked> Telegram</div>
+            <div class="chk"><input type="radio" name="n"> WhatsApp</div>
+          </div><button class="save">Save config</button></div>
+        <div class="card" id="s-boot"><h2>Boot animation</h2>
+          <div class="hint">◉ Bunny &nbsp;·&nbsp; ○ Resin Drip &nbsp;·&nbsp; ○ Malfunction &nbsp;·&nbsp; ○ Shuffle</div>
+          <button class="save">Save config</button></div>
+        <div class="card" id="s-backup"><h2>Backup &amp; restore</h2>
+          <div class="hint">Download backup · Backup to SD · Restore from file · Restore from SD</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONNECT: Briano hosted app'as paveldi TĄ PATĮ antro lygio stilių -->
+  <div class="view" id="v-connect">
+    <nav class="subnav">
+      <a href="#" class="on" onclick="return conn(this,'Models')">Models</a>
+      <a href="#" onclick="return conn(this,'Boot animations')">Boot animations</a>
+      <a href="#" onclick="return conn(this,'Manager')">Manager</a>
+    </nav>
+    <div class="card"><h2 id="connTitle">Models <span class="badge">hosted — Brian</span></h2>
+      <div class="tiles"><div class="tile">dragonHead</div><div class="tile">kabikas</div><div class="tile">…</div></div>
+      <div class="hint">Connect vidiniai tab'ai — tas pats underline stilius kaip Settings sekcijų:
+      vartotojui viena kalba, nors turinį piešia Briano serveris. Į offload spec'ą įrašom
+      klasę/CSS kintamuosius, kuriuos hosted app'as privalo naudoti.</div></div>
+  </div>
+
+  <!-- stub'ai -->
+  <div class="view" id="v-dash"><div class="card"><h2>Dashboard</h2>
+    <div class="hint">Čia niekas nesikeičia — status, Model preview kortelė, SD manager.
+    Dashboard'ui antro lygio navigacijos nereikia.</div></div></div>
+  <div class="view" id="v-update"><div class="card"><h2>Firmware update</h2>
+    <div class="hint">Vienas ekranas — antro lygio navigacijos nereikia.</div></div></div>
+</div>
+
+<script>
+function setView(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('show'));
+  document.getElementById('v-'+v).classList.add('show');
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('t-'+v).classList.add('active');
+}
+function conn(a,t){
+  a.closest('.subnav').querySelectorAll('a').forEach(x=>x.classList.remove('on'));
+  a.classList.add('on');
+  document.getElementById('connTitle').innerHTML=t+' <span class="badge">hosted — Brian</span>';
+  return false;
+}
+let variant=1;
+const NOTES={
+  1:'V1: paspaudus sekciją matai TIK ją — lygiai kaip Connect vidiniai tab’ai, viena elgsena visame produkte. Save iš bet kurio puslapiuko saugo visą formą (paslėptos kortelės formoje lieka). Network ir Notifications — atskiri puslapiukai.',
+  3:'V1b: ta pati juosta, bet visos kortelės matomos ir spustelėjimas tik nuscrollina; scrollinant žymeklis seka. Minusas: elgsena skiriasi nuo Connect tab’ų, nors atrodo identiškai.',
+  2:'V2: sekcijų sąrašas kairiajame takelyje (desktop), mobile virsta chip’ų eile. Daugiau „aplikacijos" pojūčio, bet siaurina turinį ir mobile reikia kito pavidalo.'};
+function applyPanes(){
+  const ids=['s-print','s-network','s-notif','s-boot','s-backup'];
+  const active=document.querySelector('#sn1 a.on')?.getAttribute('href')||'#s-print';
+  ids.forEach(id=>{
+    document.getElementById(id).style.display=(variant!==1||('#'+id)===active)?'':'none';
+  });
+}
+function setVariant(v){
+  variant=v;
+  document.getElementById('pv1').classList.toggle('on',v===1);
+  document.getElementById('pv2').classList.toggle('on',v===2);
+  document.getElementById('pv3').classList.toggle('on',v===3);
+  document.getElementById('sn1').style.display=v!==2?'flex':'none';
+  document.getElementById('sn2').style.display=v===2?'flex':'none';
+  document.getElementById('rw').style.gridTemplateColumns=v===2?'':'1fr';
+  document.getElementById('vnote').textContent=NOTES[v];
+  applyPanes();
+}
+// subnav elgsena: V1 perjungia puslapiuką, V1b/V2 scrollina
+const links=()=>document.querySelectorAll(variant===2?'#sn2 a':'#sn1 a');
+document.querySelectorAll('#sn1 a, #sn2 a').forEach(a=>{
+  a.addEventListener('click',e=>{
+    e.preventDefault();
+    if(variant===1&&a.closest('#sn1')){
+      document.querySelectorAll('#sn1 a').forEach(x=>x.classList.remove('on'));
+      a.classList.add('on');
+      applyPanes();
+      return;
+    }
+    document.querySelector(a.getAttribute('href')).scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+const spy=new IntersectionObserver(es=>{
+  if(variant===1)return;   // perjungimo režime spy nereikalingas
+  es.forEach(en=>{
+    if(!en.isIntersecting)return;
+    const id='#'+en.target.id;
+    links().forEach(a=>a.classList.toggle('on',a.getAttribute('href')===id));
+  });
+},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('#cols .card').forEach(c=>spy.observe(c));
+applyPanes();
+function toggleTheme(){
+  const r=document.documentElement;
+  const dark=r.getAttribute('data-theme')!=='light';
+  r.setAttribute('data-theme',dark?'light':'dark');
+}
+</script>

@@ -1,0 +1,12 @@
+// TinyMakerWifi feedback collector - deploy with: npx wrangler deploy
+{
+  "name": "tinymaker-feedback",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "routes": [
+    { "pattern": "tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" }
+  ],
+  "kv_namespaces": [
+    { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }
+  ]
+}

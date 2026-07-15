@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- TinyMakerWifi logo: sliced-layer stack printing under a WiFi arc.
+       Orange = dashboard accent #e8720c; arc #4da3ff. Chosen 2026-07-13 (concept 1). -->
+  <rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/>
+  <rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/>
+  <rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/>
+  <path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/>
+</svg>

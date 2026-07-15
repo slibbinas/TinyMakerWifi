@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TinyMakerWifi — User Manual</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%231667c9'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>M</text></svg>">
 <style>
   :root{
     --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#5d626c;
@@ -116,15 +117,17 @@
 
   footer{max-width:var(--maxw); margin:0 auto; padding:20px; text-align:center; color:var(--muted); font-size:.9rem}
 
+  .topBar{position:fixed; top:14px; right:14px; z-index:10; display:flex; gap:8px}
   .toggle-theme{
-    position:fixed; top:14px; right:14px; z-index:10; cursor:pointer;
+    cursor:pointer; text-decoration:none;
     background:var(--card); border:1px solid var(--border); color:var(--text);
     border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
   }
+  a.toggle-theme:hover{text-decoration:none; border-color:var(--accent)}
 
   @media print{
     body{background:#fff; color:#000}
-    .toggle-theme,nav.toc{display:none}
+    .topBar,nav.toc{display:none}
     section,header.hero img{box-shadow:none}
     section{border:none; padding:0; margin:14px 0}
     h2.sec{page-break-after:avoid}
@@ -138,20 +141,27 @@
 // Light by default; ?theme=dark (the printer dashboard's Manual link) opens
 // dark to match the dashboard. The toggle button still flips either way.
 (function(){var p=new URLSearchParams(location.search).get('theme');document.documentElement.setAttribute('data-theme',p==='dark'?'dark':'light');})();
+// Site links carry the current theme over (different origin - no shared storage).
+window.tmSyncSite=function(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.querySelectorAll("a[href^='https://tinymakerwifi.com']").forEach(function(a){a.href='https://tinymakerwifi.com/?theme='+(d?'dark':'light');});};
+window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </script>
-<button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');})()">◐ Theme</button>
+<div class="topBar">
+  <a class="toggle-theme" href="https://tinymakerwifi.com">tinymakerwifi.com</a>
+  <a class="toggle-theme" href="#toc">Contents</a>
+  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');window.tmSyncSite();})()">◐ Theme</button>
+</div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.14.3</span>
+  <span class="badge">User Manual · v0.15.0</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
-  <p class="author">by <b>Viktoras Sidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a></p>
+  <p class="author">by <b>Viktoras Sidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
   <img src="images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer">
 </header>
 
 <div class="wrap">
 
-<nav class="toc">
+<nav class="toc" id="toc">
   <h2>Contents</h2>
   <ol>
     <li><a href="#intro">What this firmware adds</a></li>
@@ -166,7 +176,7 @@
     <li><a href="#dashboard">The web dashboard</a></li>
     <li><a href="#advanced">Advanced menu &amp; switches</a></li>
     <li><a href="#update">Updating the firmware</a></li>
-    <li><a href="#mqtt">Home Assistant &amp; Telegram</a></li>
+    <li><a href="#mqtt">Home Assistant &amp; notifications</a></li>
     <li><a href="#faq">Troubleshooting &amp; FAQ</a></li>
     <li><a href="#credits">Credits</a></li>
   </ol>
@@ -183,7 +193,7 @@
     <li><b>Over-the-air firmware updates</b> — the printer updates itself over WiFi.</li>
     <li><b>Resin estimation &amp; level tracking</b> — how much resin a model needs, and how much is left in the VAT.</li>
     <li><b>Home Assistant / MQTT</b> integration (optional).</li>
-    <li><b>Telegram notifications</b> — print finished / canceled / low-resin pause, straight to your phone.</li>
+    <li><b>Telegram, WhatsApp or Discord notifications</b> — print finished / canceled / low-resin pause, straight to your phone.</li>
   </ul>
   <p>Everything wireless can be switched off right on the printer (<b>System → Advanced</b>), so you can always fall back to plain, offline SD-card printing.</p>
   <div class="note">💡 <b>Already have a printer running this firmware?</b> Jump to <a href="#wifi">Connecting to WiFi</a>. If you are installing it for the first time, start at <a href="#install">Installing the firmware</a>.</div>
@@ -204,8 +214,21 @@
   <h2 class="sec" id="install"><span class="num">3</span>Installing the firmware (first time)</h2>
   <p>This one-time step is done over USB. <b>After it, every future update is wireless</b> (see <a href="#update">Updating the firmware</a>). If your printer already runs TinyMakerWifi, skip this section.</p>
 
-  <h3>Which file?</h3>
-  <p>Releases contain two files — they are <b>not</b> interchangeable:</p>
+  <h3>Method 1 — the web flasher (recommended)</h3>
+  <p><a href="https://connect.tinymakerwifi.com/flash.php"><b>connect.tinymakerwifi.com/flash.php</b></a> flashes the latest release straight from your browser — nothing to download or install:</p>
+  <ol class="steps">
+    <li>Connect the printer to your computer via USB.</li>
+    <li>Open the web flasher in <b>Chrome or Edge</b> (they support Web Serial; Firefox and Safari don’t).</li>
+    <li>Click <b>Connect</b> and pick the printer’s serial port. Unsure which one it is? Unplug and replug the USB cable and watch which entry appears.</li>
+    <li>Flash — the tool fetches the latest release by itself. Power-cycle the printer when it finishes.</li>
+  </ol>
+  <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again.</div>
+
+  <h3>Method 2 — already running TinyMakerWifi?</h3>
+  <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Update</b> tab — see <a href="#update">Updating the firmware</a>.</p>
+
+  <h3>Method 3 — manual flashing (fallback)</h3>
+  <p>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page. Releases contain two files — they are <b>not</b> interchangeable:</p>
   <div class="table-scroll">
   <table>
     <tr><th>File</th><th>Used for</th><th>How</th></tr>
@@ -214,15 +237,12 @@
   </table>
   </div>
   <div class="warn">⚠️ For the USB flash you need <b><code>firmware-full.bin</code></b>. Flashing <code>firmware.bin</code> over USB leaves the printer unable to boot — it has no bootloader or partition table.</div>
-
-  <h3>Flash it — easiest way (browser, nothing to install)</h3>
   <ol class="steps">
-    <li>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page.</li>
-    <li>Open <a href="https://esptool.spacehuhn.com/">esptool.spacehuhn.com</a> in Chrome or Edge, plug in the printer via USB and click <b>Connect</b>.</li>
+    <li>Open <a href="https://esptool.spacehuhn.com/">esptool.spacehuhn.com</a> (a generic ESP flasher) in Chrome or Edge, plug in the printer via USB and click <b>Connect</b>.</li>
     <li>Remove any pre-filled rows, click <b>ADD</b>, choose <code>firmware-full.bin</code>, and set its address to <code>0</code>.</li>
     <li>Click <b>Program</b>, wait for it to finish, then power-cycle the printer.</li>
   </ol>
-  <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again. The official Espressif Flash Download Tool is an alternative — see the project README for its exact settings (SPI 40&nbsp;MHz / DIO / 4&nbsp;MB, file at <code>0x0</code>).</div>
+  <div class="note">💡 The official Espressif Flash Download Tool is an alternative, and developers can flash a local build with esptool/PlatformIO — see the project README for the exact settings (SPI 40&nbsp;MHz / DIO / 4&nbsp;MB, file at <code>0x0</code>).</div>
   <p>The first boot after flashing takes a few extra seconds and starts the <code>TinyMaker-Setup</code> hotspot. Printer settings (exposure, layer height…) return to factory defaults — <b>unless a settings backup is on the SD card</b>: the printer then offers to restore everything on first boot (see <a href="#update">Backup &amp; restore</a>).</p>
 </section>
 
@@ -235,7 +255,8 @@
     <li>The printer connects and briefly shows its IP address. Credentials are stored, so later boots connect on their own in about 5&nbsp;seconds.</li>
   </ol>
   <img class="shot phone" src="images/wifi-setup-phone.png" alt="The TinyMaker-Setup captive portal as seen on a phone">
-  <p>If the saved network can’t be reached, the printer simply boots offline after 15&nbsp;s — printing from the SD card works as always. WiFi status, signal strength and IP are always under <b>System → WiFi Info</b>.</p>
+  <p>On every later boot the printer shows <b>animated signal bars</b> while connecting — they turn <b>green</b> when it’s on the network, and the printer goes straight to the main menu (the IP address is only shown after the first-time portal setup). Need the address later? WiFi status, signal strength and IP are always under <b>System → WiFi Info</b>.</p>
+  <p>If the saved network can’t be reached, the printer simply boots offline after 15&nbsp;s — printing from the SD card works as always.</p>
 
   <h3>Resetting WiFi</h3>
   <p>To move the printer to another network, erase the stored credentials:</p>
@@ -307,14 +328,33 @@
 
 <section>
   <h2 class="sec" id="dashboard"><span class="num">10</span>The web dashboard</h2>
-  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in tabs styled to match the printer.</p>
+  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
+  <div class="note">🧪 No printer at hand? <a href="https://slibbinas.github.io/TinyMakerWifi/demo/">Try the dashboard live</a> — the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
+  <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form — what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
   <img class="shot" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard: live status, controls and SD manager">
   <p>On a larger screen it spreads into two columns:</p>
-  <img class="shot" src="images/dashboard-idle-0140.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
+  <img class="shot" src="images/dashboard-idle.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
+  <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
+  <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear — the printer serves plain HTTP on your LAN — but the shortcut works the same.)</p>
 
-  <h3>3D preview &amp; live print progress</h3>
-  <p>Open a model’s details and press <b>Preview 3D</b>: your browser rebuilds the shape from the sliced layers and draws it inside the build-volume box — so you can tell models apart without printing them. Start a print and the same view becomes a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
+  <h3>The SD manager &amp; the Model preview card</h3>
+  <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
+  <p>Every model row in the SD manager has three buttons: <b>Preview | Start | Delete</b>. Press <b>Preview</b> and the browser rebuilds the shape from the sliced layers and renders it into the <b>Model preview</b> card, with a live percentage and progress bar while it loads, then a compact info line — layers · height · print time · resin — and a <b>Share model</b> button (when TinyMaker Connect is registered).</p>
+  <p>The card itself is always on the dashboard, like the SD manager: before anything is previewed it shows a <i>Pick a model and press Preview</i> hint, and the last previewed model is remembered — a page reload brings it straight back from the saved preview (no re-render, nothing to redo).</p>
+  <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> — it decodes every layer, so expect roughly a minute per 100 layers.</p>
+  <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
   <img class="shot" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
+
+  <h3>The Settings tab</h3>
+  <p>Settings is split into five sections, switched by underline tabs — <b>Print / Network / Notifications / Boot animation / Backup</b> — shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
+  <ul>
+    <li><b>Print</b> — layer height, exposures, lifts, VAT size and the resin-tracking options.</li>
+    <li><b>Network</b> — the WiFi / Web control / boot-update-check switches, the <a href="#faq-ping">anonymous usage ping</a>, MQTT, and <b>TinyMaker Connect</b> — including the <b>Auto backup settings to Connect</b> checkbox (it asks to confirm when toggled).</li>
+    <li><b>Notifications</b> — one choice of Telegram, WhatsApp or Discord (see <a href="#mqtt">notifications</a>).</li>
+    <li><b>Boot animation</b> — see <a href="#bootanim">Boot animations</a>.</li>
+    <li><b>Backup</b> — just the actions: download / backup to SD / restore (see <a href="#update">Backup &amp; restore</a>).</li>
+  </ul>
+  <p>The <b>Connect</b> tab (shown once TinyMaker Connect is registered) is loaded from the Connect server and uses the same underline sub-tabs; its registration status is shown at the bottom.</p>
 </section>
 
 <section>
@@ -332,7 +372,7 @@
     <tr><td><b>WiFi</b></td><td><b>On/Off — the whole network</b> (web, PrusaSlicer upload, MQTT, self-update).</td></tr>
     <tr><td>Boot update</td><td>On = the printer checks for new firmware right after WiFi connects at boot and offers <i>Install / Later</i> on the screen.</td></tr>
     <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer — each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
-    <tr><td>Boot animation</td><td>Which animation plays at power-on — OK cycles <i>Default</i> and every animation installed on the SD card (see <a href="#bootanim">Boot animations</a> below).</td></tr>
+    <tr><td>Boot animation</td><td>Which animation plays at power-on — OK cycles <i>Default</i>, <i>Shuffle</i> (with two or more installed) and every animation on the SD card (see <a href="#bootanim">Boot animations</a> below).</td></tr>
     <tr><td>Web control</td><td>On/Off — browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
     <tr><td>MQTT</td><td>On/Off (shown once MQTT is configured in the dashboard).</td></tr>
   </table>
@@ -376,18 +416,32 @@
   </figure>
   <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 
+  <h3 id="jacobs">Advanced: your resin’s working curve (Jacobs)</h3>
+  <p>The test strip holds more data than “which bar looks best”. Cure depth grows with the <b>logarithm</b> of exposure time — that’s why doubling the time doesn’t double the thickness, and why you judge bars by <b>edges and holes</b>, not by how thick they feel. If you want numbers:</p>
+  <ol class="steps">
+    <li><b>Measure</b> the thickness of at least 3–4 bars with calipers (skip broken ones).</li>
+    <li><b>Plot</b> thickness against <code>ln(seconds)</code> (any spreadsheet; use the bar times from the table above). The points form a straight line — that’s the resin’s <i>working curve</i>.</li>
+    <li>The <b>slope</b> is D<sub>p</sub> (how deep light penetrates); where the line crosses zero thickness is E<sub>c</sub> (the minimum exposure that cures anything). Together: <code>depth = D<sub>p</sub> · ln(t / E<sub>c</sub>)</code>.</li>
+    <li><b>Read your time:</b> for reliable layer bonding you want the cure depth around <b>2× your layer height</b> (0.1 mm for 0.05 mm layers) — find where the line reaches that thickness and use that time as <i>Regular exposure</i>.</li>
+  </ol>
+  <div class="note">💡 This is the same method resin manufacturers use to publish D<sub>p</sub>/E<sub>c</sub> — with a caliper and a strip you can characterize any unknown resin in one test.</div>
+
   <h3 id="bootanim">Boot animations</h3>
   <p>The printer can play a short animation on its screen at power-on — and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
   <ul>
-    <li><b>On the printer:</b> System → Advanced → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo) and every installed animation.</li>
-    <li><b>In the dashboard:</b> the <b>Boot animation</b> card in the Settings tab — pick one, or delete animations you no longer want.</li>
+    <li><b>On the printer:</b> System → Advanced → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
+    <li><b>In the dashboard:</b> Settings → the <b>Boot animation</b> tab. Picking a row only <b>stages</b> the choice — press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
   </ul>
+  <img class="shot" src="images/boot-animations.png" alt="Settings, Boot animation tab: installed animations with Show and Delete, the staged selection and Save config">
+  <p><b>Shuffle</b> (offered once two or more animations are installed) plays a random installed animation on every boot.</p>
   <p>Getting new animations onto the printer:</p>
   <ul>
-    <li><b>From the community site:</b> browse the animation library and press <i>Send to printer</i> — the printer downloads and installs it in one step (WiFi and Web control must be on).</li>
+    <li><b>Default library:</b> below the installed list, the Boot animation tab shows a small library hosted on the project’s GitHub Pages — press <b>Install</b> and the printer pulls the file onto the SD card. Installing does <b>not</b> select it — pick it and Save config when you’re ready.</li>
+    <li><b>From the community site:</b> browse the animation library in the Connect tab and install from there (WiFi and Web control must be on).</li>
     <li><b>By hand:</b> copy a <code>.tmb</code> animation file into the <code>/bootanim</code> folder on the SD card.</li>
   </ul>
-  <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>.</i></p>
+  <div class="note">💡 <b>Keep animations short — 2–4 seconds is the sweet spot.</b> The firmware hard-caps playback at 250 frames or 10 seconds (whichever comes first), and pressing <kbd>Back</kbd> skips the animation immediately.</div>
+  <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>; Shuffle by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</i></p>
 
 <section>
   <h2 class="sec" id="update"><span class="num">12</span>Updating the firmware</h2>
@@ -403,34 +457,56 @@
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
 
   <h3>Backup &amp; restore</h3>
-  <p>Everything you have configured — print settings, device toggles, MQTT, even the lifetime print and UV LED counters — fits in one backup file. In the dashboard’s <b>Settings</b> tab:</p>
+  <p>Everything you have configured — print settings, device toggles, MQTT, even the lifetime print and UV LED counters — fits in one backup file. In the dashboard’s Settings → <b>Backup</b> tab:</p>
   <ul>
     <li><b>Download backup</b> — saves <code>tinymaker-backup.json</code> to your computer.</li>
     <li><b>Backup to SD</b> — stores the file on the printer’s SD card. <b>Do this before a full USB reflash:</b> the reflash wipes all settings, but on the first boot the printer finds the backup on the SD card and asks <i>“Restore settings from SD backup?”</i> — one press and everything is back. Settings shows <b>when</b> the SD backup was made, so you can tell at a glance whether it’s fresh.</li>
     <li><b>Restore from SD</b> — applies the backup stored on the SD card at any time (the button is enabled only when one is present).</li>
     <li><b>Restore from file</b> — applies an uploaded backup at any time.</li>
   </ul>
+  <p><b>Auto backup to TinyMaker Connect</b> (optional, for registered Connect users): a checkbox under Settings → <b>Network</b> → <i>TinyMaker Connect</i> keeps a backup on the Connect server after settings changes and after prints; the Backup tab then offers <b>Download from Connect</b> and <b>Restore from Connect</b>. Connect backups do <b>not</b> include the stored MQTT, notification or Connect secrets. When you register, save the <b>recovery code</b> (Retrieve / Copy buttons in the Connect section) — it restores your Connect profile if you ever reset the printer without a backup.</p>
   <div class="note">💡 WiFi credentials are managed separately (by the WiFi setup portal) and are <b>not</b> in the backup — after a full USB reflash you reconnect to WiFi once, everything else restores. The backup includes your MQTT password, so treat the file accordingly.</div>
   <img class="shot" src="images/settings-backup.png" alt="The Settings tab with the Backup &amp; restore buttons: Download backup, Backup to SD, Restore from file">
 </section>
 
 <section>
-  <h2 class="sec" id="mqtt"><span class="num">13</span>Home Assistant (MQTT) &amp; Telegram</h2>
-  <p>Two optional ways for the printer to reach you, both configured in the dashboard’s <b>Settings</b> tab (the <i>Network &amp; integrations</i> card).</p>
+  <h2 class="sec" id="mqtt"><span class="num">13</span>Home Assistant (MQTT) &amp; notifications</h2>
+  <p>Optional ways for the printer to reach you, all configured in the dashboard’s <b>Settings</b> tab (MQTT in the <i>Network</i> section, the messaging channels in <i>Notifications</i>).</p>
 
   <h3>Home Assistant (MQTT)</h3>
   <p>Configure an MQTT broker and the printer publishes itself to Home Assistant with auto-discovery: print state, current layer, resin used, <b>resin left</b> + a <b>low-resin alert</b>, and run/remaining time — all as HA sensors you can put on dashboards or automate notifications on.</p>
 
-  <h3 id="telegram">Telegram notifications</h3>
-  <p>No Home Assistant? The printer can message your phone directly through a Telegram bot when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>.</p>
-  <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram switch):</p>
+  <h3>Phone notifications — pick a channel</h3>
+  <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice — <b>Off / Telegram / WhatsApp / Discord</b> — each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
+
+  <h3 id="telegram">Telegram</h3>
+  <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
   <ol class="steps">
     <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code> and follow the prompts. BotFather replies with a <b>bot token</b>.</li>
-    <li><b>Find your chat id:</b> message <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — it replies with your numeric <b>id</b>. Then open your new bot and press <b>Start</b> once, so it is allowed to message you.</li>
-    <li><b>Enter both in the dashboard:</b> Settings → <i>Network &amp; integrations</i> → enable <b>Telegram</b>, paste the token and the chat id, and <b>Save config</b>.</li>
-    <li><b>Press “Send test”</b> — a test message should arrive in Telegram within a few seconds.</li>
+    <li><b>Find your chat id:</b> message <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — it replies with your numeric <b>id</b>. Then open your new bot and press <b>Start</b> once, so it is allowed to message you. (For a group, add <b>@RawDataBot</b> to it and use the negative id it prints.)</li>
+    <li><b>Enter both in the dashboard:</b> Settings → <i>Notifications</i> → pick <b>Telegram</b>, paste the token and the chat id, and <b>Save config</b>.</li>
+    <li><b>Press “Send test message”</b> — it should arrive in Telegram within a few seconds.</li>
   </ol>
   <div class="note">🔒 The bot token is a secret — the dashboard never shows it back, only its last four characters (<i>ends in XXXX</i>), and it is included in your settings backup, so treat the backup file accordingly. The printer talks directly to Telegram over HTTPS; nothing goes through third-party servers.</div>
+
+  <h3 id="whatsapp">WhatsApp (via CallMeBot)</h3>
+  <p>WhatsApp messages go through the free <b>CallMeBot</b> gateway — a one-time activation from your phone:</p>
+  <ol class="steps">
+    <li>Open <b>callmebot.com</b> → <i>WhatsApp text messages</i> and add the bot’s current phone number to your contacts.</li>
+    <li>Send it the message <b>“I allow callmebot to send me messages”</b> from your WhatsApp.</li>
+    <li>It replies with your personal <b>API key</b> — enter it in Settings → <i>Notifications</i> → <b>WhatsApp</b>, together with your phone number (with country code).</li>
+    <li><b>Save config</b>, then <b>Send test message</b>.</li>
+  </ol>
+  <div class="note">💡 Unlike Telegram, WhatsApp messages travel through the CallMeBot gateway (a third-party service) — that is what makes a bot-free WhatsApp setup possible.</div>
+
+  <h3 id="discord">Discord (webhook)</h3>
+  <p>Discord needs no bot at all — just a channel webhook:</p>
+  <ol class="steps">
+    <li>In your Discord server open <b>Server Settings → Integrations → Webhooks</b>.</li>
+    <li><b>New Webhook</b> — pick the channel the printer should post to, then <b>Copy Webhook URL</b>.</li>
+    <li>Paste the URL in Settings → <i>Notifications</i> → <b>Discord</b>, <b>Save config</b>, then <b>Send test message</b>.</li>
+  </ol>
+  <div class="note">🔒 The webhook URL is a secret — anyone holding it can post to that channel. The printer talks to Discord directly.</div>
 </section>
 
 <section>
@@ -438,6 +514,9 @@
 
   <h3>The printer won’t connect to WiFi</h3>
   <p>After 15&nbsp;s it boots offline — SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
+
+  <h3>Where do I find the printer’s IP address?</h3>
+  <p><b>System → WiFi Info</b> on the printer — it always shows the connected network, signal strength and IP. (The boot screen only shows the IP after the first-time portal setup; on routine boots the signal bars just turn green.) On most networks <code>tinymaker.local</code> works instead of the IP.</p>
 
   <h3>PrusaSlicer “Test” fails</h3>
   <p>Check the printer is on and shows a green dot / an IP under System → WiFi Info. Use that IP if <code>tinymaker.local</code> doesn’t resolve on your network. The API key value doesn’t matter.</p>
@@ -459,13 +538,16 @@
 
   <h3>How do I go fully offline?</h3>
   <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
+
+  <h3 id="faq-ping">What does the “Anonymous usage ping” send?</h3>
+  <p>Once per firmware version — on the first boot after a flash — the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. Nothing else, ever — no models, no settings, no network details. It feeds the <i>“N printers running TinyMakerWifi”</i> counter. To opt out, untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
 </section>
 
 <section>
   <h2 class="sec" id="credits">Credits</h2>
   <p><b>TinyMakerWifi</b> — the WiFi, wireless-upload and over-the-air-update firmware described in this manual — is created and maintained by <b>Viktoras Sidlauskas</b> (<a href="https://github.com/slibbinas">@slibbinas</a>): the WiFi stack, wireless upload, OTA self-update, the 3D model preview &amp; live print progress, and the resin estimation &amp; VAT tracking.</p>
   <ul>
-    <li><b>The initial web dashboard and the Advanced menu</b> (WiFi &amp; Web-control switches) — contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
+    <li><b>The initial web dashboard, the Advanced menu</b> (WiFi &amp; Web-control switches), <b>the web flasher, safe model imports and TinyMaker Connect</b> (with auto-backup &amp; recovery) — contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
     <li><b>Boot animations</b> (the on-device library, playback and one-click install) — contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>.</li>
     <li><b>Original TinyMaker firmware &amp; printer</b> — by the <a href="https://tinymaker3d.com/">TinyMaker3D Team</a>.</li>
     <li>Additional fixes, testing and ideas from the TinyMaker community.</li>
@@ -476,7 +558,7 @@
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.14.3 · by Viktoras Sidlauskas<br>
+  <p>TinyMakerWifi · User Manual · v0.15.0 · by Viktoras Sidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>

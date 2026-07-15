@@ -101,6 +101,34 @@ void netProgressBar(int step, int total) {
   if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
 }
 
+// Boot WiFi-connect indicator: four growing signal bars instead of a progress
+// bar (a connect attempt has no meaningful % anyway). Orange bars fill up in a
+// cycle while trying; all four turn green on success - same look as the mini
+// badge on the main screen, so the state reads consistently.
+void netWifiBarsStart(const char *title) {
+  uiWakeScreen();
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 18);
+  gfx2->print(title);
+}
+
+void netWifiBarsPhase(int lit, bool connected) {
+  const int bw = 10, gap = 8, base = 72;
+  const int x0 = 80 - (4 * bw + 3 * gap) / 2;
+  gfx2->fillRect(x0 - 2, base - 42, 4 * bw + 3 * gap + 4, 44, BLACK);
+  for (int i = 0; i < 4; i++) {
+    int h = 12 + i * 10;                 // 12, 22, 32, 42 px
+    int x = x0 + i * (bw + gap);
+    bool on = connected || i < lit;
+    uint16_t c = connected ? GREEN : ORANGE;
+    if (on) gfx2->fillRoundRect(x, base - h, bw, h, 2, c);
+    else gfx2->drawRoundRect(x, base - h, bw, h, 2, DARKGREY);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -110,6 +138,11 @@ void netProgressBar(int step, int total) {
 // on-device menu + playback work in the network-free build too; the /api/boot-anim
 // endpoints and dashboard card live in Network.ino.
 #define BOOTANIM_DIR "/bootanim"
+#define BOOTANIM_SHUFFLE "__shuffle"
+
+bool bootAnimShuffleSelected(const String &name) {
+  return name == BOOTANIM_SHUFFLE;
+}
 
 // Keep only [a-z0-9-_], lowercase, <=40 chars; never empty (used as a filename).
 String sanitizeAnimName(const String &in) {
@@ -155,6 +188,7 @@ bool bootAnimExists(const String &name) {
 // "cure-line" -> "Cure Line" for the menu value / dashboard label.
 String bootAnimDisplay(const String &name) {
   if (name.length() == 0) return "Default";
+  if (bootAnimShuffleSelected(name)) return "Shuffle";
   String out;
   bool up = true;
   for (size_t i = 0; i < name.length(); i++) {
@@ -166,26 +200,32 @@ String bootAnimDisplay(const String &name) {
   return out;
 }
 
-// Advanced-menu cycle order: Default ("") -> each file -> back to Default.
+// Advanced-menu cycle order: Default ("") -> Shuffle (when useful) -> each file -> back to Default.
 String nextBootAnim(const String &current) {
   String names[24];
   int n = listBootAnims(names, 24);
-  if (current.length() == 0) return n > 0 ? names[0] : String("");
+  if (current.length() == 0) return n > 1 ? String(BOOTANIM_SHUFFLE) : (n > 0 ? names[0] : String(""));
+  if (bootAnimShuffleSelected(current)) return n > 0 ? names[0] : String("");
   for (int i = 0; i < n; i++)
     if (names[i] == current) return (i + 1 < n) ? names[i + 1] : String("");
   return "";  // current was deleted -> back to Default
 }
 
-// Play the selected boot animation from the /bootanim library. Returns true if
-// it played, false to fall back to the built-in splash. Reads the selection
-// directly because loadDeviceConfig() runs after screen0() at boot.
-bool playBootAnimFromSd() {
-  sysPrefs.begin("tinymaker", true);
-  String name = sysPrefs.getString("bootAnimName", "");
-  sysPrefs.end();
+String resolveBootAnimForPlayback(const String &selected) {
+  if (!bootAnimShuffleSelected(selected)) return selected;
+  String names[24];
+  int n = listBootAnims(names, 24);
+  if (n < 2) return "";
+  return names[esp_random() % n];
+}
+
+// Play /bootanim/<name>.tmb on the little screen. Returns false when the file
+// is missing or invalid. Shared by the boot splash and the dashboard's "Show"
+// preview (Network.ino), which draws over the current screen and restores it.
+bool playTmbByName(const String &name) {
   if (name.length() == 0) return false;
 
-  String path = "/bootanim/" + name + ".tmb";
+  String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   File f = SD.open(path.c_str());
   if (!f) return false;
 
@@ -215,16 +255,35 @@ bool playBootAnimFromSd() {
   const uint32_t MAX_MS     = 10000;
   uint16_t limit = n < MAX_FRAMES ? n : MAX_FRAMES;
   uint32_t animStart = millis();
+  // Pace to the header's fps instead of sleeping a full frame on top of the
+  // work: reading 25 KB off SD and pushing it over SPI costs ~46 ms, so the
+  // old delay(frameDelay) after every frame played every animation ~1.8x
+  // slower than authored (malfunction: 3.7 s of frames took 6.3 s). Sleep only
+  // the remainder of the frame's slot; if the hardware is slower than fps,
+  // skip the sleep rather than fall further behind.
+  uint32_t nextDue = millis();
   for (uint16_t i = 0; i < limit; i++) {
     if (f.read((uint8_t *)frame, frameBytes) != (int)frameBytes) break;
     gfx2->draw16bitRGBBitmap(ox, oy, frame, w, h);
-    delay(frameDelay);
+    nextDue += frameDelay;
+    int32_t slack = (int32_t)(nextDue - millis());
+    if (slack > 0) delay(slack);
     if (digitalRead(buttonBack) == LOW) break;   // user skip
     if (millis() - animStart > MAX_MS) break;     // hard time budget
   }
   free(frame);
   f.close();
   return true;
+}
+
+// Play the selected boot animation from the /bootanim library. Returns true if
+// it played, false to fall back to the built-in splash. Reads the selection
+// directly because loadDeviceConfig() runs after screen0() at boot.
+bool playBootAnimFromSd() {
+  sysPrefs.begin("tinymaker", true);
+  String name = sysPrefs.getString("bootAnimName", "");
+  sysPrefs.end();
+  return playTmbByName(resolveBootAnimForPlayback(name));
 }
 
 /**
@@ -245,11 +304,12 @@ void screen0(){
 #else
   gfx2->println("1.0.2");
 #endif
-  for (int i = 0; i < 40; i++) {
+  // 2 px per step, ~0.6 s total - the 1.2 s original dragged the boot out.
+  for (int i = 0; i < 40; i += 2) {
     gfx2->setCursor(40, i);
     gfx2->setTextColor(ORANGE);
     gfx2->println("Tiny Maker");
-    delay(30);
+    delay(28);
     gfx2->setCursor(40, i);
     gfx2->setTextColor(BLACK);
     gfx2->println("Tiny Maker");
@@ -496,8 +556,11 @@ String advancedValue(int item) {
   if (item == 7) return wifiEnabled ? "On" : "Off";
   if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
   if (item == 9) return String(expTestBarSecs(1)) + "-" + String(expTestBarSecs(8)) + "s strip";
-  if (item == 10) return bootAnimName.length() == 0 ? "Default"
-    : (bootAnimExists(bootAnimName) ? bootAnimDisplay(bootAnimName) : bootAnimDisplay(bootAnimName) + " (missing)");
+  if (item == 10) {
+    if (bootAnimName.length() == 0) return "Default";
+    if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
+    return bootAnimExists(bootAnimName) ? bootAnimDisplay(bootAnimName) : bootAnimDisplay(bootAnimName) + " (missing)";
+  }
   if (wifiEnabled && item == 11) return webDashboardEnabled ? "On" : "Off";
   if (wifiEnabled && advancedMqttConfigured() && item == 12) return mqttEnabled ? "On" : "Off";
   return "";
@@ -578,6 +641,11 @@ void advancedOptionsSelect() {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
+  #if ENABLE_NETWORK
+  if (advanced_item != 7) {
+    tinymakerConnectScheduleBackup();
+  }
+  #endif
   if (advanced_item == 7) {
     // WiFi state only changes at boot (network_setup has no runtime
     // teardown/bring-up path), so offer a reboot to apply it now.
@@ -772,6 +840,33 @@ void screenRestoreDone(bool ok){
  * offers "Install" (self-update, no PC). UP ("Local") opens screen 422 to
  * install a specific/older version from a file via the browser.
  */
+// Screen 4211: confirmation before the on-device self-update Install -
+// guards against an accidental OK on the Update screen (the dashboard
+// already confirms downgrades; the LCD Install used to flash immediately).
+void screenUpdateConfirm(){
+#if ENABLE_NETWORK
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print("Install update?");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  // "old -> new" reads in the direction it happens and, unlike the old
+  // "vNEW (now vOLD)", it still fits the 160 px line at three-digit versions.
+#ifdef FIRMWARE_VERSION
+  gfx2->print(String(FIRMWARE_VERSION) + " -> ");
+#endif
+  gfx2->print(otaLatestVerStr());
+  gfx2->setCursor(8, 52);
+  gfx2->print("Installs and reboots");
+  gfx2->setTextColor(WHITE);
+  uiButtons("Cancel", "Install", 0x879F);
+  screen = 4211;
+#endif
+}
+
 void screen421(){
   gfx2->fillScreen(BLACK);
   uiTitle("Firmware update");
@@ -1970,10 +2065,23 @@ void screen23111(){
 // bar 5 = 100% = your current value. A fast resin (cures in 3 s) and a slow
 // one (25 s) both get a meaningful spread - fixed +-seconds steps did not
 // (first real strip saturated: every bar past ~8 s looked identical).
-int expTestBarSecs(int bar) {          // bar 1..8 -> seconds
+// Whole seconds cannot hold a +-60% spread once Regular drops low: at 1 s the
+// percentages all rounded to the same value and the strip burned eight
+// identical bars that blanked at once (user finding, 0.15.0 testing). Exposure
+// is settable only in whole seconds (one EEPROM byte, 1..30), so a sub-second
+// ladder would produce bars nobody can then set. Below ~5 s the ladder
+// therefore stops being proportional and becomes a 1 s sweep - every bar stays
+// distinct and every bar maps to a value the pick can actually apply. From ~6 s
+// up the percentages already separate on their own and nothing changes here.
+int expTestBarSecs(int bar) {          // bar 1..8 -> seconds, always distinct
   static const uint8_t pct[8] = {40, 55, 70, 85, 100, 115, 135, 160};
-  int t = ((int)Regular_Exposure * pct[bar - 1] + 50) / 100;
-  return t < 2 ? 2 : t;
+  int t[8];
+  for (int i = 0; i < 8; i++) {
+    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;
+    if (t[i] < 1) t[i] = 1;                          // 1 s = the settable floor
+    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;
+  }
+  return t[bar - 1];
 }
 
 void screenExpTestIntro(){
@@ -1985,7 +2093,10 @@ void screenExpTestIntro(){
   gfx2->print("Exposure test strip");
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 34);
-  gfx2->print("Resin in vat, no plate.");
+  // gfx2 is 160 px wide and text starts at x=8, so a line has ~152 px. Arduino_GFX
+  // wraps by default, and a wrapped line lands on top of the next one - every
+  // string on these screens is measured to fit FreeSans8pt7b at its widest value.
+  gfx2->print("Resin in vat, no plate");
   gfx2->setCursor(8, 48);
   gfx2->print(String("Cures 8 bars: ") + expTestBarSecs(1) + "-" + expTestBarSecs(8) + "s");
   uiButtons("Back", "Start", 0x879F);
@@ -2060,10 +2171,70 @@ void runExpTest(){
     gfx2->setCursor(8, 34);
     gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
     gfx2->setCursor(8, 48);
-    gfx2->print("Set crispest in Settings");
+    gfx2->print("Rinse, then pick bar");
+    uiButtons("Skip", "Pick", 0x879F);
+  } else {
+    uiButtons("Back", "OK", 0x879F);
   }
-  uiButtons("Back", "OK", 0x879F);
-  screen = 2321;
+  screen = canceled ? 23211 : 2321;
+}
+
+// Post-test result entry (screen 2322): the user counts the dots on the best
+// bar and the printer sets Regular exposure itself - no manual Settings trip.
+// Positions 9/10 shift the whole ladder down/up for a re-run when no bar was
+// right (every bar fat -> shorter; every bar soft/rubbery -> longer).
+// Kept behind functions: globals in later .ino tabs are not visible from
+// TinyMaker.ino's button handlers (only functions get auto-prototypes).
+int expTestPick = 5;
+
+void expTestPickStart(){ expTestPick = 5; screenExpTestPick(); }
+void expTestPickNext(){ expTestPick = expTestPick % 10 + 1; screenExpTestPick(); }
+
+void screenExpTestPick(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print("Best bar (count dots)");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  if (expTestPick <= 8) {
+    gfx2->print(String(expTestPick) + " dots -> " + expTestBarSecs(expTestPick) + "s");
+    if (expTestBarSecs(expTestPick) == (int)Regular_Exposure) gfx2->print(" (now)");
+  } else if (expTestPick == 9) {
+    gfx2->print(String("All fat -> ") + expTestBarSecs(1) + "s");
+  } else {
+    gfx2->print(String("All soft -> ") + expTestBarSecs(8) + "s");
+  }
+  gfx2->setCursor(8, 52);
+  gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (retest)");
+  gfx2->setTextColor(WHITE);
+  uiButtons("Skip", "Set", 0x879F);
+  screen = 2322;
+}
+
+void expTestApplyPick(){
+  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));
+  if (t < 1) t = 1;
+  if (t > 30) t = 30;
+  long oldR = Regular_Exposure;
+  Regular_Exposure = t;
+  savePrintSettings();
+  rememberPrevRegularExposure(oldR);
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print(expTestPick <= 8 ? "Exposure set" : "Ladder shifted");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  gfx2->print(String("Regular exp = ") + t + "s");
+  gfx2->setCursor(8, 52);
+  gfx2->print(expTestPick <= 8 ? "Base ~2.5x is typical" : "Run the test again");
+  delay(2000);
+  screenAdvancedOptions();
 }
 
 

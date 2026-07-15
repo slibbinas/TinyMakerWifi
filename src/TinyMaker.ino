@@ -43,6 +43,8 @@
 #include "FreeSans8pt7b.h"       // Custom font
 #include <PNGdec.h>              // PNG decoder library for reading print layers
 #include <SdFat.h>               // SD card file system library
+#include <esp_system.h>          // hardware random for boot-animation shuffle
+#include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
 #include <WiFi.h>
@@ -90,6 +92,7 @@ float resinNeedForModelMl = -1;     // fresh full-model estimate for the selecte
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
+void cleanupManagedSdTemps();
 
 // Total print time, persisted in NVS (survives firmware re-flash, unlike the
 // EEPROM settings area). Written rarely - only at print end/cancel - to spare
@@ -115,15 +118,25 @@ String mqttUser = "";
 String mqttPass = "";
 String mqttTopic = "TinyMaker";
 bool connectEnabled = false;        // TinyMaker Connect web-service integration
-String connectBaseUrl = "https://tinymaker.inductie.nu";
-String connectPrinterName = "TinyMaker";
+String connectBaseUrl = "https://connect.tinymakerwifi.com";
+String connectPrinterName = "";
 bool connectLeaderboardOptIn = false;
 String connectPrinterPublicId = "";
 String connectPublishToken = "";
+String connectRecoveryCode = "";
 String connectLastStatus = "";
+bool connectAutoBackup = false;
+uint32_t connectBackupEpoch = 0;
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
+bool waEnabled = false;             // WhatsApp notifications via CallMeBot (one channel at a time)
+String waPhone = "";                // phone with country code
+String waApiKey = "";               // CallMeBot key (secret - never echoed to browser)
+bool dcEnabled = false;             // Discord notifications via a channel webhook
+String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
+bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
+uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 
@@ -153,6 +166,8 @@ void loadDeviceConfig() {
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
+  statsPingEnabled = sysPrefs.getBool("statsPing", true);
+  prevRegularExposure = sysPrefs.getUChar("prevRegExp", 0);
   bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
@@ -161,14 +176,27 @@ void loadDeviceConfig() {
   mqttPass = sysPrefs.getString("mqttPass", "");
   mqttTopic = sysPrefs.getString("mqttTopic", "TinyMaker");
   connectEnabled = sysPrefs.getBool("tmcEnabled", false);
-  connectBaseUrl = sysPrefs.getString("tmcUrl", "https://tinymaker.inductie.nu");
-  connectPrinterName = sysPrefs.getString("tmcName", "TinyMaker");
+  connectBaseUrl = sysPrefs.getString("tmcUrl", "https://connect.tinymakerwifi.com");
+  if (connectBaseUrl == "https://tinymaker.inductie.nu") {
+    connectBaseUrl = "https://connect.tinymakerwifi.com";
+  }
+  connectPrinterName = sysPrefs.getString("tmcName", "");
   connectLeaderboardOptIn = sysPrefs.getBool("tmcLeaderboard", false);
   connectPrinterPublicId = sysPrefs.getString("tmcPublicId", "");
   connectPublishToken = sysPrefs.getString("tmcToken", "");
+  connectRecoveryCode = sysPrefs.getString("tmcRecovery", "");
+  connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
+  connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
+  waEnabled = sysPrefs.getBool("waEnabled", false);
+  waPhone = sysPrefs.getString("waPhone", "");
+  waApiKey = sysPrefs.getString("waApiKey", "");
+  dcEnabled = sysPrefs.getBool("dcEnabled", false);
+  dcWebhook = sysPrefs.getString("dcWebhook", "");
+  if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
+  else if (waEnabled) dcEnabled = false;
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
   lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
   lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
@@ -185,6 +213,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("wifiEnabled", wifiEnabled);
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
+  sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
   sysPrefs.putString("mqttHost", mqttHost);
@@ -198,9 +227,17 @@ void saveDeviceConfig() {
   sysPrefs.putBool("tmcLeaderboard", connectLeaderboardOptIn);
   sysPrefs.putString("tmcPublicId", connectPrinterPublicId);
   sysPrefs.putString("tmcToken", connectPublishToken);
+  sysPrefs.putString("tmcRecovery", connectRecoveryCode);
+  sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
+  sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
+  sysPrefs.putBool("waEnabled", waEnabled);
+  sysPrefs.putString("waPhone", waPhone);
+  sysPrefs.putString("waApiKey", waApiKey);
+  sysPrefs.putBool("dcEnabled", dcEnabled);
+  sysPrefs.putString("dcWebhook", dcWebhook);
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
   sysPrefs.putBool("askRefill", askRefillEnabled);
@@ -390,6 +427,18 @@ void savePrintSettings() {
   EEPROM.commit();
 }
 
+// Safety net for a bad calibration: whenever Regular exposure is REPLACED
+// (exposure-test pick or a dashboard config save - not the +-1 LCD steps),
+// the old value is remembered so the dashboard can offer a one-click Undo.
+// Undo goes through the same path, so undo-of-undo swaps back.
+void rememberPrevRegularExposure(long oldVal) {
+  if (oldVal <= 0 || oldVal > 30 || oldVal == Regular_Exposure) return;
+  prevRegularExposure = (uint8_t)oldVal;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUChar("prevRegExp", prevRegularExposure);
+  sysPrefs.end();
+}
+
 // ===================================================================================
 // Settings backup & restore (flat JSON, on SD or via the dashboard)
 // ===================================================================================
@@ -409,7 +458,7 @@ String backupEscape(const String &v) {
   return out;
 }
 
-String buildConfigBackupJson() {
+String buildConfigBackupJson(bool includeSecrets = true) {
   String out = "{\"backupVersion\":1,\"firmware\":\"";
 #ifdef FIRMWARE_VERSION
   out += FIRMWARE_VERSION;
@@ -470,16 +519,31 @@ String buildConfigBackupJson() {
   out += String(mqttPort);
   out += ",\"mqttUser\":\"";
   out += backupEscape(mqttUser);
-  out += "\",\"mqttPass\":\"";
-  out += backupEscape(mqttPass);
+  if (includeSecrets) {
+    out += "\",\"mqttPass\":\"";
+    out += backupEscape(mqttPass);
+  }
   out += "\",\"mqttTopic\":\"";
   out += backupEscape(mqttTopic);
   out += "\",\"tgEnabled\":";
   out += tgEnabled ? "true" : "false";
-  out += ",\"tgToken\":\"";
-  out += backupEscape(tgToken);
-  out += "\",\"tgChat\":\"";
+  if (includeSecrets) {
+    out += ",\"tgToken\":\"";
+    out += backupEscape(tgToken);
+    out += "\"";
+  }
+  out += ",\"tgChat\":\"";
   out += backupEscape(tgChat);
+  out += "\",\"waEnabled\":";
+  out += waEnabled ? "true" : "false";
+  out += ",\"waPhone\":\"";
+  out += backupEscape(waPhone);
+  out += "\",\"waApiKey\":\"";
+  out += backupEscape(waApiKey);
+  out += "\",\"dcEnabled\":";
+  out += dcEnabled ? "true" : "false";
+  out += ",\"dcWebhook\":\"";
+  out += backupEscape(dcWebhook);
   out += "\",\"connectEnabled\":";
   out += connectEnabled ? "true" : "false";
   out += ",\"connectBaseUrl\":\"";
@@ -490,9 +554,21 @@ String buildConfigBackupJson() {
   out += connectLeaderboardOptIn ? "true" : "false";
   out += ",\"connectPublicId\":\"";
   out += backupEscape(connectPrinterPublicId);
-  out += "\",\"connectToken\":\"";
-  out += backupEscape(connectPublishToken);
-  out += "\",\"printSecs\":";
+  out += "\"";
+  if (includeSecrets) {
+    out += ",\"connectToken\":\"";
+    out += backupEscape(connectPublishToken);
+    out += "\",\"connectRecoveryCode\":\"";
+    out += backupEscape(connectRecoveryCode);
+    out += "\"";
+  }
+  out += ",\"connectAutoBackup\":";
+  out += connectAutoBackup ? "true" : "false";
+  out += ",\"connectBackupEpoch\":";
+  out += String(connectBackupEpoch);
+  out += ",\"statsPing\":";
+  out += statsPingEnabled ? "true" : "false";
+  out += ",\"printSecs\":";
   out += String(totalPrintSecs);
   out += ",\"uvLedSecs\":";
   out += String(totalUvLedSecs);
@@ -570,19 +646,33 @@ void applyConfigBackup(const String &j) {
   mqttHost = backupStr(j, "mqttHost", mqttHost);
   mqttPort = backupClamp(backupNum(j, "mqttPort", mqttPort), 1, 65535);
   mqttUser = backupStr(j, "mqttUser", mqttUser);
+  // Secret fields are optional in Connect backups. If omitted, keep the
+  // locally stored value instead of blanking the credential on restore.
   mqttPass = backupStr(j, "mqttPass", mqttPass);
   mqttTopic = backupStr(j, "mqttTopic", mqttTopic);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
   tgEnabled = wifiEnabled && backupBool(j, "tgEnabled", tgEnabled);
   tgToken = backupStr(j, "tgToken", tgToken);
   tgChat = backupStr(j, "tgChat", tgChat);
+  waEnabled = wifiEnabled && backupBool(j, "waEnabled", waEnabled);
+  waPhone = backupStr(j, "waPhone", waPhone);
+  waApiKey = backupStr(j, "waApiKey", waApiKey);
+  dcEnabled = wifiEnabled && backupBool(j, "dcEnabled", dcEnabled);
+  dcWebhook = backupStr(j, "dcWebhook", dcWebhook);
+  if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
+  else if (waEnabled) dcEnabled = false;
   connectEnabled = wifiEnabled && backupBool(j, "connectEnabled", connectEnabled);
   connectBaseUrl = backupStr(j, "connectBaseUrl", connectBaseUrl);
   connectPrinterName = backupStr(j, "connectPrinterName", connectPrinterName);
-  if (connectPrinterName.length() == 0) connectPrinterName = "TinyMaker";
-  connectLeaderboardOptIn = connectEnabled && backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
+  if (connectEnabled) {
+    connectLeaderboardOptIn = backupBool(j, "connectLeaderboard", connectLeaderboardOptIn);
+  }
   connectPrinterPublicId = backupStr(j, "connectPublicId", connectPrinterPublicId);
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
+  connectRecoveryCode = backupStr(j, "connectRecoveryCode", connectRecoveryCode);
+  connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
+  connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
+  statsPingEnabled = backupBool(j, "statsPing", statsPingEnabled);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
   totalUvLedSecs = (uint32_t)backupNum(j, "uvLedSecs", totalUvLedSecs);
   vatRemainingMl = (float)backupNum(j, "vatRemainingMl", vatRemainingMl);
@@ -766,7 +856,9 @@ void setup() {
   // SD Card Initialization / SD 卡初始化
   // -----------------------------------------------------------------------------------
   // Initialize SD card using the dedicated Chip Select pin and a safe SPI frequency (16MHz) 
-  SD.begin(SDCS, SD_SCK_MHZ(16));
+  if (SD.begin(SDCS, SD_SCK_MHZ(16))) {
+    cleanupManagedSdTemps();
+  }
     
   // -----------------------------------------------------------------------------------
   // Displays Initialization / 显示屏初始化
@@ -1026,6 +1118,7 @@ void loop() {
         break;
       #if ENABLE_NETWORK
       case 422:                 // install-from-file screen -> back to Update
+      case 4211:                // install confirmation -> Cancel, back to Update
       screen421();
         break;
       case 423:                 // temporary WiFi prompt -> cancel, back to System > Update
@@ -1042,7 +1135,9 @@ void loop() {
         finishRestorePromptBoot();
         break;
       case 232:                 // exposure test intro -> back to Advanced
-      case 2321:                // exposure test result -> back to Advanced
+      case 2321:                // exposure test result -> Skip (no pick)
+      case 23211:               // exposure test canceled -> back to Advanced
+      case 2322:                // best-bar picker -> Skip (keep current)
         screenAdvancedOptions();
         break;
       case 431:
@@ -1121,6 +1216,9 @@ void loop() {
         break;
       case 42:
       screen41();
+        break;
+      case 2322:                // UP on best-bar picker -> next option (1..8, shift-, shift+)
+        expTestPickNext();
         break;
       #if ENABLE_NETWORK
       case 421:                 // UP on Update screen -> install from file
@@ -1624,6 +1722,13 @@ void loop() {
             #endif
           }           
         } 
+        #if ENABLE_NETWORK
+        // Canceled: tell the phone NOW - the decision is final and the run
+        // time is known, while the lift below takes tens of seconds. Finished
+        // stays after the lift: that message means "come peel the print".
+        bool cancelNotified = false;
+        if (print_canceled || homing_canceled) { tgNotifyCanceled(); cancelNotified = true; }
+        #endif
         if (!homing_canceled){
           if (!print_canceled){
             current_state = 8;
@@ -1643,11 +1748,15 @@ void loop() {
         saveVatRemaining();
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
-        // it must never read as a finished print on the user's phone.
-        if (print_canceled || homing_canceled) tgNotifyCanceled();
+        // it must never read as a finished print on the user's phone. A cancel
+        // pressed DURING the final lift lands here un-notified - catch it.
+        if (print_canceled || homing_canceled) { if (!cancelNotified) tgNotifyCanceled(); }
         else                                   tgNotifyFinished();
         #endif
         screen1();
+        #if ENABLE_NETWORK
+        tinymakerConnectSchedulePrintSync();
+        #endif
       }
         break;
       
@@ -1751,8 +1860,11 @@ void loop() {
         saveDeviceConfig();
         screen1();
         break;
-      case 421:                 // Update screen -> install latest (self-update)
-        if (otaHasUpdate()) otaInstallLatest();
+      case 421:                 // Update screen -> confirm before installing
+        if (otaHasUpdate()) screenUpdateConfirm();
+        break;
+      case 4211:                // install confirmation -> Install
+        otaInstallLatest();
         break;
       #endif
       case 426:                 // SD settings restore prompt -> Restore
@@ -1762,8 +1874,14 @@ void loop() {
       case 232:                 // exposure test intro -> Start
         runExpTest();
         break;
-      case 2321:                // exposure test result -> back to Advanced
+      case 2321:                // exposure test result -> Pick best bar
+        expTestPickStart();
+        break;
+      case 23211:               // exposure test canceled -> back to Advanced
         screenAdvancedOptions();
+        break;
+      case 2322:                // best-bar picker -> Set (apply the pick)
+        expTestApplyPick();
         break;
       case 441:
         advancedOptionsSelect();

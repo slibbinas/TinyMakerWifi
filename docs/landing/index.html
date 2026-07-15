@@ -5,8 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWifi — WiFi firmware for the TinyMaker resin 3D printer</title>
 <meta name="description" content="Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker MSLA resin printer.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TinyMakerWifi">
+<meta property="og:title" content="TinyMakerWifi — WiFi firmware for the TinyMaker resin 3D printer">
+<meta property="og:description" content="Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker.">
+<meta property="og:url" content="https://tinymakerwifi.com/">
+<meta property="og:image" content="https://tinymakerwifi.com/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TinyMakerWifi — logo and the web dashboard during a print">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
-<script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script>
+<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);if((p||localStorage.getItem('tmTheme'))==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script>
 <style>
 :root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20}
 [data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff}
@@ -18,11 +28,19 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .hero svg{width:72px;height:72px}
 h1{margin:10px 0 6px;font-size:38px;color:var(--accent)}
 .tag{font-size:18px;color:var(--tag);max-width:640px;margin:0 auto}
-.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
-.btn{display:inline-block;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;padding:13px 22px}
+.cta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:520px;margin:26px auto 0}
+@media(min-width:760px){.cta{grid-template-columns:repeat(4,minmax(0,1fr));max-width:860px}}
+.shots{display:grid;grid-template-columns:1fr;gap:18px;max-width:520px;margin:34px auto 0;align-items:start;justify-items:center}
+@media(min-width:760px){.shots{grid-template-columns:1fr 1fr;max-width:860px}}
+.shots figure{margin:0}
+.shots img{width:100%;border-radius:14px;border:2px solid var(--accent);display:block}
+.shots figcaption{font-size:13px;color:var(--muted2);margin-top:8px;text-align:center}
+.btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;padding:13px 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn:hover{background:#c95f06;text-decoration:none}
 .btn.sec{background:var(--btnsec);color:var(--btnsec-t)}
 .btn.sec:hover{background:var(--btnsec-h)}
+.btn.demo{grid-column:1/-1;background:transparent;border:1.5px solid var(--accent);color:var(--accent);white-space:normal}
+.btn.demo:hover{background:var(--accent);color:#fff}
 .shot{display:block;max-width:420px;width:90%;margin:34px auto 0;border-radius:14px;border:2px solid var(--accent)}
 section{padding:34px 0;border-top:1px solid var(--line)}
 h2{color:var(--accent);font-size:24px;margin:0 0 18px}
@@ -46,18 +64,39 @@ footer a{color:var(--muted2);text-decoration:underline}
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
   <h1>TinyMakerWifi</h1>
   <p class="tag">Open-source firmware that puts the palm-sized <b>TinyMaker</b> resin 3D printer on your WiFi — send models straight from the slicer, watch prints from any browser, and never touch the SD card again.</p>
+  <p id="commCount" style="display:none;font-size:14.5px;color:var(--muted2);margin:14px 0 0"><span style="color:#2fbf4f">●</span> <b id="commN" style="color:var(--text)"></b> <span id="commWord">printers</span> running TinyMakerWifi worldwide</p>
   <div class="cta">
+    <a class="btn demo" href="https://slibbinas.github.io/TinyMakerWifi/demo/" title="The real dashboard driving a simulated printer - start a print, watch the 3D progress, nothing to install">🧪 Try it live — the dashboard with a simulated printer</a>
     <a class="btn" href="https://github.com/slibbinas/TinyMakerWifi/releases">Download firmware</a>
     <a class="btn sec manualLink" href="https://slibbinas.github.io/TinyMakerWifi/manual/">Read the manual</a>
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
-    <a class="btn sec" id="openPrinter" href="http://tinymaker.local" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
+    <a class="btn sec" id="openPrinter" href="http://tinymaker.local" target="_blank" rel="noopener" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
   </div>
-  <div style="margin-top:10px;font-size:13px;color:#8a8a92">Opens your own printer's dashboard - works when it is powered on and you are on the same WiFi.<br><span id="ipRow">If <code>tinymaker.local</code> doesn't open, enter its IP (System &gt; WiFi Info): <input id="ipBox" placeholder="192.168.1.23" style="width:130px;background:var(--input);border:1px solid var(--line2);border-radius:6px;color:var(--text);padding:4px 8px;font-size:13px"> <a href="#" id="ipGo">open</a></span></div>
+  <div id="printerModal" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(20,20,22,.6);align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:22px;max-width:420px;text-align:left">
+      <b>Opening your printer's dashboard</b>
+      <p style="margin:10px 0 14px;font-size:14px;color:var(--muted)">Works when the printer is <b>powered on</b> and this device is on the <b>same WiFi</b>.</p>
+      <a class="btn" id="printerGo" style="width:100%" href="http://tinymaker.local" target="_blank" rel="noopener">Open tinymaker.local</a>
+      <p style="margin:14px 0 6px;font-size:13px;color:var(--muted)">If that doesn't load, enter the printer's IP (System &gt; WiFi Info):</p>
+      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" style="flex:0 0 auto">Open</a></div>
+      <a href="#" id="printerCancel" style="display:block;margin-top:14px;font-size:13px;color:var(--muted2);text-align:center">Cancel</a>
+    </div>
+  </div>
   <script>
   (function(){
-    var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter');
-    try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;btn.href='http://'+s;btn.textContent='Open my printer ('+s+')';}}catch(e){}
-    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}location.href='http://'+v;});
+    var box=document.getElementById('ipBox'),btn=document.getElementById('openPrinter'),modal=document.getElementById('printerModal');
+    var go=document.getElementById('printerGo');
+    var applyIp=function(){try{var s=localStorage.getItem('tmPrinterIp');if(s){box.value=s;go.href='http://'+s;go.textContent='Open '+s;}}catch(e){}};
+    applyIp();
+    // The popup (Brian's idea) explains the same-WiFi requirement and holds
+    // the IP fallback. It shows until one of the open paths succeeds (local
+    // link used or an IP saved); after that the button opens directly and
+    // the small "printer address" link brings the popup back.
+    btn.addEventListener('click',function(e){e.preventDefault();modal.style.display='flex';});
+    document.getElementById('printerGo').addEventListener('click',function(){modal.style.display='none';});
+    document.getElementById('printerCancel').addEventListener('click',function(e){e.preventDefault();modal.style.display='none';});
+    modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
+    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}applyIp();modal.style.display='none';window.open('http://'+v,'_blank');});
     // Theme toggle (shared localStorage key with the printer dashboard) +
     // manual links open the manual in the matching theme.
     var applyManual=function(){
@@ -75,9 +114,20 @@ footer a{color:var(--muted2);text-decoration:underline}
       applyManual();
     });
     applyManual();
+    // Live community counter from the anonymous usage pings (shown from 2 up -
+    // a lone "1" reads worse than nothing while the community is young).
+    fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(function(r){return r.json();}).then(function(s){
+      if(!s||!s.printers||s.printers<2)return;
+      document.getElementById('commN').textContent=s.printers;
+      if(s.printers===1)document.getElementById('commWord').textContent='printer';
+      document.getElementById('commCount').style.display='';
+    }).catch(function(){});
   })();
   </script>
-  <img class="shot" src="https://slibbinas.github.io/TinyMakerWifi/manual/images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer">
+  <div class="shots">
+    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/manual/images/Palm_Sized.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer"><figcaption>The printer — palm-sized, open source</figcaption></figure>
+    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/dashboard-print.png" alt="The web dashboard during a print: live status, print controls and a real-time 3D render of the print"><figcaption>The dashboard mid-print — live 3D progress, controls, SD manager</figcaption></figure>
+  </div>
 </div>
 
 <section><div class="wrap">
@@ -88,16 +138,20 @@ footer a{color:var(--muted2);text-decoration:underline}
     <div class="card"><b>Web dashboard</b><p>Live print status with pause/stop and a real-time 3D render of the print, SD manager, settings, backups — in any browser, light or dark.</p></div>
     <div class="card"><b>Updates over WiFi</b><p>The printer checks for new firmware and installs it itself — from its own screen or the dashboard. Dual-partition safe.</p></div>
     <div class="card"><b>Resin tracking</b><p>Estimates how much resin a model needs and how much is left in the VAT, warns before a print that won't fit, can pause for a refill.</p></div>
-    <div class="card"><b>Phone notifications</b><p>Telegram or WhatsApp message when a print finishes, pauses for resin or is canceled. Home Assistant via MQTT with auto-discovery.</p></div>
+    <div class="card"><b>Phone notifications</b><p>Telegram, WhatsApp or Discord message when a print finishes, pauses for resin or is canceled. Home Assistant via MQTT with auto-discovery.</p></div>
     <div class="card"><b>Exposure calibration</b><p>Cures an 8-bar test strip straight from the printer, then sets the exposure from the bar you pick — no slicer, no guesswork.</p></div>
     <div class="card"><b>Boot animations</b><p>Pick the animation your printer plays at power-on, install new ones from the community with one click.</p></div>
+    <div class="card"><b>Lifetime counters</b><p>Total print hours and UV LED on-time (the LED ages by lit time) on the About screen and the dashboard — they survive updates and reflashes.</p></div>
+    <div class="card"><b>Backup &amp; restore</b><p>Every setting and counter in one file. Keep it on the SD card and the printer offers to restore everything after a full reflash.</p></div>
+    <div class="card"><b>Offline first</b><p>Everything wireless can be switched off right on the printer — it then behaves exactly like the original, SD-card-only firmware.</p></div>
+    <div class="card"><b>Guided start</b><p>A getting-started checklist that ticks itself off, ? explanations at the tricky settings, light and dark themes, and an illustrated manual.</p></div>
   </div>
 </div></section>
 
 <section><div class="wrap">
   <h2>Get started</h2>
   <div class="steps">
-    <div class="step"><div><b>Flash once over USB.</b> Download <code>firmware-full.bin</code> from <a href="https://github.com/slibbinas/TinyMakerWifi/releases">Releases</a> and flash it from your browser — the <a href="https://slibbinas.github.io/TinyMakerWifi/manual/#install">manual</a> walks you through it.</div></div>
+    <div class="step"><div><b>Flash once over USB — straight from your browser.</b> Plug the printer in and open the <a href="https://connect.tinymakerwifi.com/flash.php">web flasher</a> (Chrome/Edge) — it fetches the latest firmware and flashes it, nothing to install. Prefer doing it by hand? <code>firmware-full.bin</code> is on <a href="https://github.com/slibbinas/TinyMakerWifi/releases">Releases</a> and the <a href="https://slibbinas.github.io/TinyMakerWifi/manual/#install">manual</a> walks you through it.</div></div>
     <div class="step"><div><b>Join the <code>TinyMaker-Setup</code> hotspot</b> from your phone and pick your home WiFi.</div></div>
     <div class="step"><div><b>Print.</b> Send a model from PrusaSlicer or open <code>tinymaker.local</code> in a browser. Every later update installs wirelessly.</div></div>
   </div>
@@ -110,6 +164,8 @@ footer a{color:var(--muted2);text-decoration:underline}
     <div class="card"><b>Facebook group</b><p><a href="https://www.facebook.com/groups/1486879621729571">TinyMaker — Open source community</a> — help, print results and firmware announcements.</p></div>
     <div class="card"><b>Development</b><p><a href="https://github.com/slibbinas/TinyMakerWifi">Source on GitHub</a> · <a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md">changelog</a> — contributions welcome.</p></div>
     <div class="card"><b>The printer itself</b><p>TinyMaker is an open-source MSLA printer by <a href="https://tinymaker3d.com/">TinyMaker3D</a> (<a href="https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer">hardware &amp; original firmware</a>).</p></div>
+    <div class="card"><b>Bugs &amp; ideas</b><p>Found a bug or want a feature? <a href="https://github.com/slibbinas/TinyMakerWifi/issues">Open a GitHub issue</a> — or just post in the Facebook group, we read everything.</p></div>
+    <div class="card"><b>Support the project</b><p>TinyMakerWifi is free and open source. If it makes your printing nicer, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy the maintainer a coffee</a>.</p></div>
   </div>
 </div></section>
 

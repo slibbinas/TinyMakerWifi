@@ -71,16 +71,18 @@ bool telegramSendMessage(const String &text, String &error) {
   return true;
 }
 
-// Best-effort notification: only when enabled, failures are swallowed (a print
-// must never stall because a chat message could not be delivered).
+// Best-effort notification routed to the active channel (Telegram or
+// WhatsApp - one at a time, picked in Settings). Failures are swallowed:
+// a print must never stall because a chat message could not be delivered.
 void telegramNotify(const String &text) {
-  if (!tgEnabled) return;
   String error;
-  telegramSendMessage(text, error);
+  if (tgEnabled) telegramSendMessage(text, error);
+  else if (waEnabled) whatsappSendMessage(text, error);
+  else if (dcEnabled) discordSendMessage(text, error);
 }
 
 void tgNotifyFinished() {
-  if (!tgEnabled) return;
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
   // savePrintTime() folds printStartMs into the lifetime total but leaves the
   // variable set, so the elapsed time is still valid at this exit point.
   uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
@@ -94,7 +96,12 @@ void tgNotifyLowResin() {
 }
 
 void tgNotifyCanceled() {
-  telegramNotify("Print canceled.");
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
+  String msg = "Print canceled";
+  if (secs) msg += " after " + formatDuration(secs);
+  msg += ".";
+  telegramNotify(msg);
 }
 
 // Appended to configJson(). The token itself is never sent to the browser.

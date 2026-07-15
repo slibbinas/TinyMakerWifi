@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TinyMakerWifi — feedback</title>
+<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+  if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--accent:#e8720c;--input:#141416;--ok:#2fbf4f}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#d9dbe0;--text:#1f2124;--muted:#5f6570;--input:#fff}}
+/* ?theme= wins over the OS preference: the dashboard hands its own choice
+   over, so the form doesn't flip themes under the user mid-click. */
+:root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#d9dbe0;--text:#1f2124;--muted:#5f6570;--input:#fff}
+:root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--input:#141416}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
+/* The name carries the context, the heading carries the invitation - opened
+   from a bare link, "Tell us how it's going" alone says nothing. */
+.brand{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:18px}
+.brand svg{width:30px;height:30px;display:block}
+.brand span{font-size:1.05rem;font-weight:700;color:var(--accent);letter-spacing:-.01em}
+h1{font-size:1.25rem;margin:0 0 4px;color:var(--text)}
+p{margin:.4em 0;color:var(--muted);font-size:14.5px}
+label{display:block;font-size:13px;color:var(--muted);margin:16px 0 6px}
+textarea,input{width:100%;background:var(--input);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit;font-size:14.5px}
+textarea{min-height:140px;resize:vertical}
+input[type=file]{padding:8px;font-size:13px}
+button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+button:hover{background:#c95f06}
+button:disabled{opacity:.6;cursor:default}
+.fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+#thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#thumbs figure{margin:0;position:relative}
+#thumbs img{width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+#thumbs figcaption{font-size:11px;color:var(--muted);text-align:center;margin-top:3px}
+#thumbs button.rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;margin:0;border-radius:50%;background:#b34a38;font-size:12px;line-height:1}
+#done{display:none;text-align:center;padding:30px 0}
+#done .big{font-size:2.2rem}
+.case{margin-top:16px !important;font-size:14px}
+.case b{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:16px}
+#alt{display:none;font-size:13.5px}
+a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+    <span>TinyMakerWifi</span>
+  </div>
+  <form id="f">
+    <h1>Tell us how it's going</h1>
+    <p>What works, what doesn't, what's missing — anything helps. It goes straight to the people building the firmware. No account, ~30 seconds. <span id="fwLine" class="fw"></span></p>
+    <label for="msg">Your feedback</label>
+    <textarea id="msg" required maxlength="4000" placeholder="e.g. The exposure test saved me an evening... / Upload fails when..."></textarea>
+    <label for="pics">Photos (optional, up to 3) — a failed print says more than a paragraph</label>
+    <input id="pics" type="file" accept="image/*" multiple>
+    <div id="thumbs"></div>
+    <label for="contact">Contact (optional — only if you'd like a reply)</label>
+    <input id="contact" maxlength="120" placeholder="email / GitHub / Facebook name">
+    <!--turnstile--><!-- the worker swaps this in when a site key is set -->
+    <button id="send" type="submit">Send feedback</button>
+    <p id="alt">Sending failed — the collector may be down. Meanwhile: <a href="https://github.com/slibbinas/TinyMakerWifi/issues">GitHub Issues</a> or the <a href="https://www.facebook.com/groups/1486879621729571">Facebook group</a>.</p>
+  </form>
+  <div id="done">
+    <div class="big">🙌</div>
+    <h1>Thank you!</h1>
+    <p>Your note landed safely. It genuinely shapes what gets built next.</p>
+    <p id="caseNo" class="case"></p>
+  </div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var fw=(q.get('fw')||'').slice(0,20),build=(q.get('build')||'').slice(0,20);
+  if(fw)document.getElementById('fwLine').textContent='Firmware '+fw+(build?' ('+build+')':'')+' - attached automatically.';
+
+  // Photos are downscaled here, in the browser: phone shots are 3-8 MB and
+  // the collector keeps them in Workers KV (1 GB, free). 1600 px / q0.8
+  // lands around 200-400 KB and still shows a layer line.
+  var MAX=3, picked=[];
+  var shrink=function(file){
+    return new Promise(function(res,rej){
+      var img=new Image(), url=URL.createObjectURL(file);
+      img.onload=function(){
+        var s=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight));
+        var cv=document.createElement('canvas');
+        cv.width=Math.round(img.naturalWidth*s);cv.height=Math.round(img.naturalHeight*s);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function(b){b?res(b):rej(new Error('resize failed'));},'image/jpeg',0.8);
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('not an image'));};
+      img.src=url;
+    });
+  };
+  var render=function(){
+    var box=document.getElementById('thumbs');box.innerHTML='';
+    picked.forEach(function(p,i){
+      var fig=document.createElement('figure');
+      var im=document.createElement('img');im.src=URL.createObjectURL(p.blob);
+      var cap=document.createElement('figcaption');cap.textContent=Math.round(p.blob.size/1024)+' KB';
+      var rm=document.createElement('button');rm.type='button';rm.className='rm';rm.textContent='×';
+      rm.title='Remove';
+      rm.addEventListener('click',function(){picked.splice(i,1);render();});
+      fig.appendChild(im);fig.appendChild(cap);fig.appendChild(rm);box.appendChild(fig);
+    });
+  };
+  document.getElementById('pics').addEventListener('change',function(ev){
+    var files=[].slice.call(ev.target.files||[]);
+    ev.target.value='';
+    files.slice(0,MAX-picked.length).forEach(function(file){
+      shrink(file).then(function(blob){
+        if(picked.length>=MAX)return;
+        picked.push({blob:blob,name:file.name});render();
+      }).catch(function(){});
+    });
+  });
+
+  document.getElementById('f').addEventListener('submit',function(ev){
+    ev.preventDefault();
+    var btn=document.getElementById('send');
+    btn.disabled=true;btn.textContent=picked.length?'Sending photos...':'Sending...';
+    var fd=new FormData();
+    fd.append('message',document.getElementById('msg').value.slice(0,4000));
+    fd.append('contact',document.getElementById('contact').value.slice(0,120));
+    fd.append('fw',fw);fd.append('build',build);
+    fd.append('ua',navigator.userAgent.slice(0,120));
+    // Present only when the worker injected the widget; the token rides along
+    // so the collector can tell a person from a script.
+    var ts=document.querySelector('[name="cf-turnstile-response"]');
+    if(ts&&ts.value)fd.append('cf-turnstile-response',ts.value);
+    picked.forEach(function(p,i){fd.append('photo',p.blob,'photo'+(i+1)+'.jpg');});
+    // Same origin: the worker owns tinymakerwifi.com/feedback* (page + POST).
+    // Absolute fallback keeps the page working if opened straight off gh-pages.
+    fetch(location.hostname==='tinymakerwifi.com'?'/feedback':'https://tinymakerwifi.com/feedback',{
+      method:'POST',body:fd
+    }).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json().catch(function(){return {};});
+    }).then(function(d){
+      if(d&&d.id)document.getElementById('caseNo').innerHTML=
+        'Your reference: <b>#'+d.id+'</b><br>Quote it if you follow up — in the group, by mail, anywhere.';
+      document.getElementById('f').style.display='none';
+      document.getElementById('done').style.display='block';
+    }).catch(function(){
+      btn.disabled=false;btn.textContent='Send feedback';
+      document.getElementById('alt').style.display='block';
+    });
+  });
+})();
+</script>
+</body>
+</html>

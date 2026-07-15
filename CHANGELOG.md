@@ -13,6 +13,152 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased] — `experimental` branch
+
+### Added
+- **Feedback link** — the dashboard header links a 30-second feedback form
+  (firmware version attached automatically), so impressions and problems can
+  land with the maintainer without a GitHub or Facebook account.
+- **Always-on Model preview card** — the dashboard's 3D card no longer hides:
+  idle shows a pick-a-model hint, the last previewed model is remembered and
+  restored from the saved preview after a page reload, and a print started on
+  the printer itself replaces a stale preview with a note instead of showing
+  the wrong model. The SD list marks which row the preview came from — an
+  accent rail and an *In preview* chip on the model you are looking at.
+- **Home-screen app (PWA manifest)** — *Add to Home screen* now pins the
+  dashboard with the project icon; on iPhone it opens fullscreen like an app.
+- **WhatsApp and Discord notifications** — same three messages as Telegram
+  (finished / low-resin pause / canceled): WhatsApp through the free CallMeBot
+  gateway (one-time activation, inline help), Discord through a channel
+  webhook (no bot needed). Settings has one *Phone notifications* choice:
+  Off / Telegram / WhatsApp / Discord. **Both are shipped untested** — they
+  ride on your own CallMeBot key or channel webhook, so the only test that
+  proves anything is yours. Reports are very welcome, working or not.
+- **Exposure undo** — when the exposure test (or a config save) replaces your
+  Regular exposure, the old value is remembered and an *Undo (Xs)* link
+  appears next to the field.
+- The dashboard header links the project site, **tinymakerwifi.com**.
+- **Light theme** — the dashboard gets a light/dark toggle (the crescent next
+  to *Manual*); your choice sticks per browser. Same orange, no flash on load.
+- **Branded WiFi setup** — the `TinyMaker-Setup` portal now shows the project
+  logo, firmware version and where to find the manual, styled to match the
+  dashboard.
+- **Getting started guide** — a dismissible first-steps checklist on the
+  dashboard (WiFi → slicer → first model → first print → exposure →
+  integrations); the printer ticks steps off by itself where it can. Small
+  **?** marks next to tricky settings (layer height, resin tracking, web
+  control, backup) open short explanations.
+- **Exposure test result entry** — after the test strip, the printer asks
+  *"Best bar (count dots)?"*: cycle to the number of dots on the crispest bar
+  and it sets *Regular exposure* itself — no manual Settings trip. Two extra
+  positions shift the whole ladder shorter/longer for a re-run when no bar
+  was right.
+- **Install confirmation on the printer** — the on-device self-update now asks
+  *"Install update?"* (with versions) before flashing, so a stray OK on the
+  Update screen can't start it.
+- **Anonymous usage ping** — once per firmware version (the first boot after a
+  flash) the printer sends a hash of its factory MAC, the firmware version and
+  the lifetime print hours, so we know how many printers are out there and
+  which versions they run. Nothing else is sent, ever; switch it off in
+  Settings (*Anonymous usage ping*).
+- **Project logo** — the dashboard favicon is now the layer-stack + WiFi mark,
+  and the Update tab shows a community counter (*N printers running
+  TinyMakerWifi*) fed by the anonymous ping.
+- **Web flasher** — the easiest first-time install ever:
+  [connect.tinymakerwifi.com/flash.php](https://connect.tinymakerwifi.com/flash.php)
+  flashes the latest release straight from a Chrome/Edge browser over USB —
+  nothing to download or install. *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Safe model imports** — uploads unpack into a temporary folder and only
+  replace the old model once the new one has unpacked successfully; uploading
+  a name that already exists asks *Replace / Rename / Cancel* (a PrusaSlicer
+  re-upload just replaces, as before). Each model now carries a `model.json`
+  with its metadata, so the resin estimate and details survive without
+  re-scanning, and previews are cached on the SD card.
+  *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Connect auto-backup & recovery** — an *Auto backup settings to Connect*
+  checkbox (Settings → Network → TinyMaker Connect, with a confirmation on
+  toggle) keeps a settings backup on the Connect server after changes and
+  prints; a per-printer **recovery code** (Retrieve / Copy buttons) lets you
+  reclaim your Connect profile after a reset. The Connect tab itself is now
+  **loaded from the Connect server** (only once registered), so it can grow
+  without costing printer flash. *(contributed by [@Briadark](https://github.com/Briadark))*
+- **Boot animations rework** — picking an animation is now staged and applied
+  with *Save config*; a **Show** button plays any installed animation on the
+  printer's screen (idle only); a **Default library** hosted on the project's
+  GitHub Pages offers one-click **Install**; and a **Shuffle** option plays a
+  random installed animation each boot *(Shuffle by [@Briadark](https://github.com/Briadark);
+  boot animations base by [@Tann2019](https://github.com/Tann2019))*.
+  Installing no longer auto-selects. Recommended animation length is 2–4 s —
+  the firmware hard-caps playback at 250 frames / 10 s, and Back skips it.
+- **Model preview in the dashboard** — every SD model row now has
+  *Preview | Start | Delete*; Preview renders the model into the dashboard's
+  **Model preview** card (the former *Print progress 3D* card) with a live %
+  progress bar, a compact info line (layers · height · time · resin) and a
+  *Share model* button. Starting a print takes the card over automatically.
+- **Quick resin estimate** — the preview render now yields a free `~X ml
+  (quick)` estimate when the exact value isn't known yet; clicking the `~`
+  value runs the exact printer-side scan (confirmed first — it decodes every
+  layer and takes about a minute per 100 layers).
+- The manual gained an advanced section on deriving your resin's **working
+  curve (Jacobs)** from the test strip with calipers.
+
+### Changed
+- **Settings got second-level tabs** — *Print / Network / Notifications /
+  Boot animation / Backup*, one section at a time, each with its own *Save
+  config* (saving from any section preserves the others' values). The Backup
+  section keeps only actions; the Connect auto-backup switch lives under
+  Network. The Connect tab's sub-tabs share the same underline style, with the
+  registration status shown at the bottom.
+- **WiFi boot** — while connecting, the printer shows animated signal bars
+  (they turn green on success) instead of a progress bar; the separate
+  *"WiFi connected / IP"* screen is gone, **except** after first-time portal
+  setup, where the IP is still shown. The IP is always available under
+  System → WiFi Info.
+- The old separate model-details view is no longer reachable from the
+  dashboard — the Model preview card replaces it (Connect deep-links still
+  use it).
+
+### Fixed
+- **Boot animations play at the speed they were drawn.** The player slept a
+  full frame delay *on top of* the time it takes to read each frame off the SD
+  card, so everything ran about 1.8× slow — the *Malfunction* animation dragged
+  on for 6.3 s. It now paces frames to the `fps` the animation was authored at.
+  *Malfunction* was also the longest in the library by a wide margin, so it was
+  re-timed to 24 fps: 6.3 s → 2.3 s. Install it again from the Connect tab to
+  get the shorter version; the animation itself is unchanged.
+- **The exposure test strip works at low exposures again.** With *Regular
+  exposure* at 1 s, all eight bars rounded to the same whole second — the strip
+  burned eight identical bars that blanked at once and measured nothing, which
+  is exactly where fast resins live. Below ~5 s the ladder now steps 1 s at a
+  time instead of by percentage: eight distinct bars, each one a value you can
+  actually set. Above that, the ladder is unchanged.
+- **The printer no longer freezes for seconds at a time when GitHub is slow.**
+  A failed firmware-version check wasn't remembered, so every dashboard
+  request for the update state re-ran the blocking check — the web UI and the
+  screen stalled with it. Failures are now cached for a minute, successes for
+  five as before.
+- The **print-canceled phone notification** is sent the moment the cancel is
+  final (with the run time), instead of after the final lift finishes — it
+  used to arrive up to a minute late.
+- **Connect sync retries back off exponentially** (30 s → … → 30 min) and give
+  up after repeated failures — an unreachable Connect server no longer
+  freezes the printer for 8 s every 30 s indefinitely.
+- Model uploads now **fail with a clear message after 10 minutes** of printer
+  silence instead of waiting forever.
+- Model uploads no longer look stuck at *"Uploading 100%"* while the printer
+  unpacks the archive — the indicator now says *Unpacking on the printer…*
+  with a running timer (applies to the SD manager upload and Connect Import
+  alike).
+- Boot-animation **Show** now wakes a screen blanked by the UI timeout —
+  it used to play onto a switched-off display, which looked like nothing
+  happened.
+- **mDNS stability** — WiFi modem sleep is disabled, so `tinymaker.local`
+  resolves reliably instead of timing out when the printer naps.
+- Dashboard requests get a single fresh-connection retry, the status toast
+  only appears after repeated failures (not one hiccup), and settings forms
+  refuse to post until the settings have actually loaded — no more
+  accidentally saving a blank form over your config.
+
 ## [0.14.3] — 2026-07-13
 
 ### Added
