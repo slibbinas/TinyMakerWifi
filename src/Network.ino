@@ -906,6 +906,11 @@ void handleApiFiles() {
   int usagePct = (usageOk && totalBytes > 0) ? (int)((usedBytes * 100ULL) / totalBytes) : 0;
 
   String out = "{\"ok\":true,\"sdReady\":true";
+  // One upfront allocation instead of a realloc per append: right after a big
+  // upload+unpack the heap is fragmented, and a failed String append is SILENT
+  // - the list went out truncated and the dashboard's SD manager "disappeared"
+  // (external beta report, feedback #4).
+  out.reserve(12288);
   out += ",\"usageKnown\":";
   out += usageOk ? "true" : "false";
   out += ",\"totalBytes\":\"";
@@ -1915,7 +1920,10 @@ void handleApiStatus() {
   int statusTotalLayers = busy ? layer_counter : 0;
   double statusResinMl = busy ? resinUsedMl : 0.0;
 
-  String out = "{";
+  // "ok":true is the browser's integrity mark: api() rejects a 200 whose JSON
+  // lacks it as a truncated/garbled body. Status and the boot-anim list were
+  // the two JSON answers built without it.
+  String out = "{\"ok\":true,";
   out += "\"firmwareVersion\":\"";
 #ifdef FIRMWARE_VERSION
   out += jsonEscape(FIRMWARE_VERSION);
@@ -2582,6 +2590,11 @@ const api=async(path,opt,timeoutMs)=>{
     }
     let j={};try{j=await r.json();}catch(e){}
     if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));
+    // Every JSON endpoint answers with an "ok" field; a 200 without one means
+    // the answer arrived garbled (a truncated body from a memory-tight
+    // printer). Returning {} here let undefined fields cascade into broken
+    // rendering downstream (feedback #4) - a clear error beats that.
+    if(j.ok===undefined)throw new Error('garbled answer from the printer - try again');
     return j;
   }catch(e){
     if(e.name==='AbortError')throw new Error('timeout');
@@ -3074,13 +3087,16 @@ const loadFiles=async()=>{
   try{
     const d=await api('/api/files');
     updateSdUsage(d);
-    filesItems=d.items;filesHidden=d.hiddenCount||0;
+    filesItems=d.items||[];filesHidden=d.hiddenCount||0;
     connectLocalModels={};
     filesItems.forEach(it=>{if(it.type==='model'&&it.connectPublicId)connectLocalModels[it.connectPublicId]=it.name;});
     show('filesFilter',filesItems.length>FILES_PER_PAGE);
     renderFiles();
     if(typeof renderGs==='function')renderGs(); // auto-tick "model on SD"
-  }catch(e){updateSdUsage(null);list.innerHTML='<div class="hint warn">'+e.message+'</div>';}
+  }catch(e){updateSdUsage(null);
+    // Leave the user a way back that isn't F5 (feedback #4: the list "was
+    // gone" until a page refresh).
+    list.innerHTML='<div class="hint warn">'+esc(e.message)+' <a href="#" onclick="loadFiles();return false">Retry</a></div>';}
 };
 
 const modelDetails=async(nameEnc,estimate)=>{
@@ -4361,7 +4377,7 @@ void handleApiBootAnimList() {
   int n = listBootAnims(names, 24);
   String selected = bootAnimName;
   if (bootAnimShuffleSelected(selected) && n < 2) selected = "";
-  String out = "{\"selected\":\"" + jsonEscape(selected) + "\",\"animations\":[";
+  String out = "{\"ok\":true,\"selected\":\"" + jsonEscape(selected) + "\",\"animations\":[";
   for (int i = 0; i < n; i++) {
     if (i) out += ",";
     String path = String(BOOTANIM_DIR) + "/" + names[i] + ".tmb";
