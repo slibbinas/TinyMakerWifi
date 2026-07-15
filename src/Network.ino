@@ -2100,6 +2100,14 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
     ".meta{font-size:12px;color:var(--muted2);margin-top:3px}"
+    // The row whose model sits in the preview card. Left rail + a worded chip:
+    // colour alone would not survive a colour-blind eye, and colour on the
+    // Preview button would read as "this button does something else".
+    // The padding is on every row so switching rows shifts nothing.
+    ".files .file{padding-left:9px}"
+    ".file.active{box-shadow:inset 3px 0 0 var(--accent)}"
+    ".inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;"
+    "background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}"
     // Connect sub-tabs (markup comes from Brian's hosted app, style is ours):
     // same underline language as the Settings section tabs - one 2nd-level
     // navigation look across the product.
@@ -2919,7 +2927,7 @@ const applyStatus=s=>{
     // refresh restores them from localStorage.
     if(s.busy&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
     if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
-      dashPreviewName='';  // the print takes the card over from an idle preview
+      setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
       show('dashModelInfo',false);show('dashShareButton',false);
       show('printPreviewCard',true);
@@ -2935,7 +2943,7 @@ const applyStatus=s=>{
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
       }else if(!slicesPrefetching&&dashPreviewName){
-        dashPreviewName='';
+        setDashPreviewName('');
         $('printPreviewTitle').textContent='Print progress 3D';
         show('dashModelInfo',false);show('dashShareButton',false);
         paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
@@ -3012,7 +3020,9 @@ const renderFiles=()=>{
   if(!slice.length)h+='<div class="hint">'+(q?'No models match the filter.':(busy?'SD contents load after the print finishes.':'No printable model folders or SL1/ZIP archives found.'))+'</div>';
   slice.forEach(it=>{
     const meta=it.type==='model'?'Model folder':'Archive - '+formatBytes(it.sizeBytes);
-    h+='<div class="file"><div><strong>'+esc(it.name)+'</strong><div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
+    const inPv=it.type==='model'&&it.name===dashPreviewName;
+    h+='<div class="file'+(inPv?' active':'')+'"><div><strong>'+esc(it.name)+'</strong>'+
+      (inPv?'<span class="inPv">In preview</span>':'')+'<div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
     if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
@@ -3295,8 +3305,12 @@ const modelPreview=async()=>{
 // Dashboard preview: the SD row's Preview button renders straight into the
 // always-visible Model preview card (Print progress 3D while printing).
 let dashPreviewName='',slicesPrefetching=false;
+// Single door for the previewed-model name: the SD list marks that row, so the
+// two must never drift apart. Re-renders only on a real change - the status
+// poll writes this every 2s while printing.
+const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();};
 const dashPreviewPlaceholder=()=>{
-  dashPreviewName='';
+  setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
   show('dashModelInfo',false);show('dashShareButton',false);
@@ -3312,7 +3326,7 @@ const restoreDashPreview=async()=>{
     if((statusData&&statusData.busy)||dashPreviewName)return;
     const hasVoxel=(statusData?Number(statusData.layerHeight)>0.06:!!d.preview1)?d.preview1:d.preview05;
     if(!hasVoxel||!d.resinEstimated)return dashPreviewPlaceholder();
-    dashPreviewName=name;
+    setDashPreviewName(name);
     $('printPreviewTitle').textContent='Model preview';
     $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
       Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+' · '+Number(d.resinMl).toFixed(1)+' ml';
@@ -3328,7 +3342,7 @@ const restoreDashPreview=async()=>{
 const dashPreview=async nameEnc=>{
   const name=decodeURIComponent(nameEnc);
   if(statusData&&statusData.busy)return;   // the print progress owns the card
-  dashPreviewName=name;
+  setDashPreviewName(name);
   fetchSlicesSeq++;                        // cancel a previous run right away
   const cv=$('printPreviewCanvas');
   $('printPreviewTitle').textContent='Model preview';
@@ -3476,7 +3490,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         }};
         // Keep the 3D card on screen through the prefetch (starting from an
         // SD row leaves the dashboard visible) - the busy status takes over.
-        dashPreviewName=name;
+        setDashPreviewName(name);
         $('printPreviewTitle').textContent='Print progress 3D';
         show('dashModelInfo',false);show('dashShareButton',false);
         show('printPreviewCard',true);
