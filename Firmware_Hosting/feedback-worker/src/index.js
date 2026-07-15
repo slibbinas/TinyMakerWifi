@@ -37,6 +37,16 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is th
 
 const PAGE = 25;                            // notes fetched in full per view
 
+// Flood limits. The real risk is not money (KV never charges) but silence:
+// the free plan stops accepting writes at ~1000/day, and every note costs
+// ~3 of them plus one per photo. One bored person at one note a minute would
+// burn the day's budget in about seven hours and real feedback would then
+// fail with nobody noticing. These caps keep the worst case at ~60 notes
+// (~500 writes) while sitting far above any honest volume this project sees.
+const MAX_PER_IP_DAY = 5;
+const MAX_PER_DAY = 60;
+const DAY_TTL = 172800;                     // counters self-clean after 48 h
+
 const str = (v, n) => String(v || '').slice(0, n);
 
 // The subset of a record that lives in KV metadata (see the header note).
@@ -55,6 +65,18 @@ export default {
 
     if (request.method === 'GET' && path === '/feedback') {
       const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 300 } });
+      // The widget is injected here rather than baked into the page: the form
+      // lives on gh-pages, and this keeps the site key (and whether the check
+      // runs at all) a worker setting instead of a commit.
+      if (env.TURNSTILE_SITEKEY) {
+        const html = (await r.text()).replace('<!--turnstile-->',
+          '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' +
+          `<div class="cf-turnstile" data-sitekey="${env.TURNSTILE_SITEKEY}" data-size="flexible"></div>`);
+        return new Response(html, {
+          status: r.status,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
+        });
+      }
       return new Response(r.body, {
         status: r.status,
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
@@ -91,11 +113,45 @@ export default {
           return new Response('photos only', { status: 415, headers: CORS });
       }
 
-      // 1 message / 60 s / IP - crude anti-spam (KV's minimum TTL is 60 s)
+      // Turnstile, when it is configured: stops scripted floods at the door
+      // and costs a human nothing. Without the secret the check is skipped, so
+      // the code can ship before the keys exist.
+      if (env.TURNSTILE_SECRET) {
+        const ver = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            secret: env.TURNSTILE_SECRET,
+            response: str(fields['cf-turnstile-response'], 2048),
+            remoteip: request.headers.get('CF-Connecting-IP') || undefined,
+          }),
+        }).then((r) => r.json()).catch(() => ({ success: false }));
+        if (!ver.success)
+          return new Response('bot check failed - reload and try again', { status: 403, headers: CORS });
+      }
+
+      // 1 message / 60 s / IP - burst guard (KV's minimum TTL is 60 s)
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await env.FEEDBACK.get('gate:' + ip))
         return new Response('slow down', { status: 429, headers: CORS });
+
+      // Daily caps: the slow-drip flood the 60 s gate happily lets through.
+      // Rejections only read, so being hammered costs reads (100k/day), not
+      // the scarce writes.
+      const day = new Date().toISOString().slice(0, 10);
+      const ipKey = `day:${day}:${ip}`, allKey = `day:${day}`;
+      const [ipUsed, allUsed] = await Promise.all([
+        env.FEEDBACK.get(ipKey).then((v) => Number(v) || 0),
+        env.FEEDBACK.get(allKey).then((v) => Number(v) || 0),
+      ]);
+      if (ipUsed >= MAX_PER_IP_DAY)
+        return new Response('that is a lot of feedback for one day - mail slibbinas@gmail.com instead', { status: 429, headers: CORS });
+      if (allUsed >= MAX_PER_DAY)
+        return new Response('the form is over its daily limit - try tomorrow, or open a GitHub issue', { status: 503, headers: CORS });
+
       await env.FEEDBACK.put('gate:' + ip, '1', { expirationTtl: 60 });
+      await env.FEEDBACK.put(ipKey, String(ipUsed + 1), { expirationTtl: DAY_TTL });
+      await env.FEEDBACK.put(allKey, String(allUsed + 1), { expirationTtl: DAY_TTL });
 
       const stamp = new Date().toISOString();
       const id = crypto.randomUUID().slice(0, 8);
@@ -119,6 +175,10 @@ export default {
         fw: str(fields.fw, 20),
         build: str(fields.build, 20),
         ua: str(fields.ua, 120),
+        // Came through a printer's dashboard link (it carries fw/build) rather
+        // than off the open site. A signal for reading the note, never a gate:
+        // the person whose printer will not boot is exactly who must get through.
+        src: fields.fw ? 'printer' : 'site',
         photos: imgKeys,
         at: stamp,
       };
@@ -312,6 +372,7 @@ function inboxPage(notes, listKey, view) {
         ${n.num ? `<a class="num" href="#n${esc(n.num)}" title="Link to this case">#${esc(n.num)}</a>` : ''}
         <time>${when(n.at)}</time>
         ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
+        ${n.src === 'printer' ? '<span class="pill src" title="Sent from a printer dashboard, not the open site">🖨 from a printer</span>' : ''}
         ${contactLink(n.contact)}
         <span class="tags">${TAGS.map(([v, label]) =>
           `<button class="tag${n.tag === v ? ' on' : ''}" data-tag="${v}">${label}</button>`).join('')}</span>
@@ -380,6 +441,7 @@ h1 .mark{width:24px;height:24px;flex:none}
 .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
 .pill{background:var(--pill);border-radius:999px;padding:2px 9px;font-family:ui-monospace,Consolas,monospace;font-size:.74rem}
 .pill em{opacity:.6;font-style:normal}
+.pill.src{font-family:inherit;color:var(--ok);border:1px solid var(--ok);background:none}
 .contact{color:#84bcf8;text-decoration:none}.contact:hover{text-decoration:underline}
 .num{color:var(--accent);font-weight:700;font-family:ui-monospace,Consolas,monospace;text-decoration:none;font-size:.86rem}
 .num:hover{text-decoration:underline}
