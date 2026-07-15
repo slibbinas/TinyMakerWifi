@@ -40,11 +40,14 @@ unless noted. Community contributors are tagged inline.
 - **Phase countdown** — the status card counts the current phase down next to
   its name: *Curing · 9s*, *Lifting · 4s*. Curing is exact; lifting and
   dropping use the previous layer's measured duration, so the first layer
-  shows no number.
+  shows no number. The ride to the top after Stop or a finished print counts
+  down the same way (*Canceling · 25s*) — that wait finally has a number.
 - **The dashboard answers mid-print** — refreshing (or first opening) the page
   used to stall until the printer's next between-phase window, up to a full
-  base exposure (~35 s). HTTP is now served during the exposure and during
-  homing. The UV LED is switched off by a hardware one-shot timer at the exact
+  base exposure (~35 s). HTTP is now served during the exposure, during homing
+  and during the final lift after Stop or a finished print — only the peel
+  moves stay silent, where a service pause could mark the part. The UV LED is
+  switched off by a hardware one-shot timer at the exact
   deadline, so serving a page can never lengthen an exposure — that timer also
   removes a small overrun that button presses have caused since the original
   firmware.
