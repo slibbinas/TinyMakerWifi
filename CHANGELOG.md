@@ -116,6 +116,11 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **The printer no longer freezes for seconds at a time when GitHub is slow.**
+  A failed firmware-version check wasn't remembered, so every dashboard
+  request for the update state re-ran the blocking check — the web UI and the
+  screen stalled with it. Failures are now cached for a minute, successes for
+  five as before.
 - The **print-canceled phone notification** is sent the moment the cancel is
   final (with the run time), instead of after the final lift finishes — it
   used to arrive up to a minute late.

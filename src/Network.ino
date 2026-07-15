@@ -3819,9 +3819,14 @@ unsigned long otaCheckedAt = 0;   // millis() of the last successful check
 void otaCheckLatest(uint16_t timeoutMs) {
   if ((otaState == 2 || otaState == 3) && millis() - otaCheckedAt < 300000UL)
     return;                        // recent successful check - reuse it
+  // A FAILED check must be remembered too, or every /api/update GET re-runs
+  // the blocking TLS call: the single-threaded loop then stops answering the
+  // web UI and the LCD for seconds at a time whenever GitHub is slow.
+  if (otaState == 4 && millis() - otaCheckedAt < 60000UL) return;
   otaState = 1;
   otaLatestVer = "";
   otaBinUrl = "";
+  // No cache stamp here: this path is instant, so it costs nothing to retry.
   if (WiFi.status() != WL_CONNECTED) { otaState = 4; return; }
 
   WiFiClientSecure client;
@@ -3829,7 +3834,7 @@ void otaCheckLatest(uint16_t timeoutMs) {
   HTTPClient https;
   https.setConnectTimeout(timeoutMs);
   https.setTimeout(timeoutMs);
-  if (!https.begin(client, OTA_VERSION_URL)) { otaState = 4; return; }
+  if (!https.begin(client, OTA_VERSION_URL)) { otaState = 4; otaCheckedAt = millis(); return; }
 
   int code = https.GET();
   if (code == HTTP_CODE_OK) {
@@ -3851,6 +3856,7 @@ void otaCheckLatest(uint16_t timeoutMs) {
     otaCheckedAt = millis();       // cache successful result (see above)
   } else {
     otaState = 4;
+    otaCheckedAt = millis();       // and the failure, for a shorter while
   }
   https.end();
 }
