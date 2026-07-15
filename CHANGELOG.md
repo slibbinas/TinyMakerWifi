@@ -126,7 +126,6 @@ unless noted. Community contributors are tagged inline.
   *Malfunction* was also the longest in the library by a wide margin, so it was
   re-timed to 24 fps: 6.3 s → 2.3 s. Install it again from the Connect tab to
   get the shorter version; the animation itself is unchanged.
-  *(animations by [@Tann2019](https://github.com/Tann2019))*
 - **The exposure test strip works at low exposures again.** With *Regular
   exposure* at 1 s, all eight bars rounded to the same whole second — the strip
   burned eight identical bars that blanked at once and measured nothing, which
