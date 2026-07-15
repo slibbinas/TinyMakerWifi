@@ -119,6 +119,13 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **A cut-off boot-animation download is no longer installed as if it worked.**
+  If the connection dropped or stalled mid-download, the printer kept the
+  partial file, wrote its metadata and reported success — the animation then
+  simply stopped wherever the bytes ran out. On a slow link a 1.4 MB animation
+  arrived as 538 KB and still looked installed. The file's own header states
+  how big it should be, so a short download is now deleted and reported
+  instead. *(found by [@Briadark](https://github.com/Briadark))*
 - **Boot animations play at the speed they were drawn.** The player slept a
   full frame delay *on top of* the time it takes to read each frame off the SD
   card, so everything ran about 1.8× slow — the *Malfunction* animation dragged
