@@ -902,6 +902,25 @@ void setup() {
     settingsWereFactoryReset = true;   // a full reflash wiped the settings
   }
 
+  // Exposures are read raw, and the guard above only inspects Layer_Height, so
+  // a bad byte here reached the print loop unchecked. Regular_Exposure = 0
+  // makes turn_on_LED() compute 0 ms: the LED goes HIGH and LOW with no wait
+  // between, so the UV never visibly lights and the print runs on in the dark
+  // with no error anywhere - it just looks like "the UV LED is dead". Bytes
+  // left by a firmware with a different EEPROM layout land exactly here. These
+  // are the ranges the dashboard form, the backup restore and the LCD menu
+  // already agree on.
+  if (Base_Exposure < 10 || Base_Exposure > 60) {
+    Base_Exposure = 35;
+    EEPROM.write(2, (uint8_t)Base_Exposure);
+    EEPROM.commit();
+  }
+  if (Regular_Exposure < 1 || Regular_Exposure > 30) {
+    Regular_Exposure = 14;
+    EEPROM.write(3, (uint8_t)Regular_Exposure);
+    EEPROM.commit();
+  }
+
   // VAT capacity (added in 0.9.2 at EEPROM addr 11) - older installs have
   // 0xFF there; clamp to the valid 10..40 ml range or seed the default.
   Vat_Capacity_Ml = EEPROM.read(11);
