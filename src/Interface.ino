@@ -2054,10 +2054,23 @@ void screen23111(){
 // bar 5 = 100% = your current value. A fast resin (cures in 3 s) and a slow
 // one (25 s) both get a meaningful spread - fixed +-seconds steps did not
 // (first real strip saturated: every bar past ~8 s looked identical).
-int expTestBarSecs(int bar) {          // bar 1..8 -> seconds
+// Whole seconds cannot hold a +-60% spread once Regular drops low: at 1 s the
+// percentages all rounded to the same value and the strip burned eight
+// identical bars that blanked at once (user finding, 0.15.0 testing). Exposure
+// is settable only in whole seconds (one EEPROM byte, 1..30), so a sub-second
+// ladder would produce bars nobody can then set. Below ~5 s the ladder
+// therefore stops being proportional and becomes a 1 s sweep - every bar stays
+// distinct and every bar maps to a value the pick can actually apply. From ~6 s
+// up the percentages already separate on their own and nothing changes here.
+int expTestBarSecs(int bar) {          // bar 1..8 -> seconds, always distinct
   static const uint8_t pct[8] = {40, 55, 70, 85, 100, 115, 135, 160};
-  int t = ((int)Regular_Exposure * pct[bar - 1] + 50) / 100;
-  return t < 2 ? 2 : t;
+  int t[8];
+  for (int i = 0; i < 8; i++) {
+    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;
+    if (t[i] < 1) t[i] = 1;                          // 1 s = the settable floor
+    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;
+  }
+  return t[bar - 1];
 }
 
 void screenExpTestIntro(){
