@@ -528,7 +528,9 @@ int advancedOptionCount() {
 }
 
 String advancedLabel(int item) {
-  if (item == 1) return "Screen timeout";
+  if (item == 1) return "Idle timeout";   // sleeps only when idle - the old
+                                          // "Screen timeout" read as if the
+                                          // screen should sleep mid-print too
   if (item == 2) return "Dry run";
   if (item == 3) return "VAT refilled";
   if (item == 4) return "Low resin pause";
