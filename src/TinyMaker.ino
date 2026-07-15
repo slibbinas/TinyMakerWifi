@@ -1468,6 +1468,13 @@ void loop() {
         current_layer = 0;
         Position_before_pause = 0;
         Transition_Exposure = Base_Exposure;
+        // A print started from the web reaches here with the screen possibly
+        // blanked by the UI timeout - and blanked it would stay: the wake
+        // logic lives in loop(), which the print never returns to, while the
+        // in-print button reads act on an invisible panel (a blind OK is a
+        // Cancel). Blanking cannot start while busy, so waking here closes
+        // the only dark path (user finding: buttons worked, screen slept).
+        uiWakeScreen();
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
