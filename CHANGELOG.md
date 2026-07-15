@@ -37,6 +37,20 @@ unless noted. Community contributors are tagged inline.
 - **Exposure undo** — when the exposure test (or a config save) replaces your
   Regular exposure, the old value is remembered and an *Undo (Xs)* link
   appears next to the field.
+- **Phase countdown** — the status card counts the current phase down next to
+  its name: *Curing · 9s*, *Lifting · 4s*. Curing is exact; lifting and
+  dropping use the previous layer's measured duration, so the first layer
+  shows no number. The ride to the top after Stop or a finished print counts
+  down the same way (*Canceling · 25s*) — that wait finally has a number.
+- **The dashboard answers mid-print** — refreshing (or first opening) the page
+  used to stall until the printer's next between-phase window, up to a full
+  base exposure (~35 s). HTTP is now served during the exposure, during homing
+  and during the final lift after Stop or a finished print — only the peel
+  moves stay silent, where a service pause could mark the part. The UV LED is
+  switched off by a hardware one-shot timer at the exact
+  deadline, so serving a page can never lengthen an exposure — that timer also
+  removes a small overrun that button presses have caused since the original
+  firmware.
 - The dashboard header links the project site, **tinymakerwifi.com**.
 - **Light theme** — the dashboard gets a light/dark toggle (the crescent next
   to *Manual*); your choice sticks per browser. Same orange, no flash on load.
@@ -119,6 +133,20 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **A dashboard opened mid-print no longer shows the idle "pick a model"
+  card** — and a temporary "printer busy" answer no longer erases the
+  remembered preview, so the model comes back on its own once the print
+  finishes.
+- **A print started from the web wakes the printer's screen.** If the screen
+  had blanked on its timeout, a dashboard-started print used to run entirely
+  on a dark display — with the buttons still acting, invisibly.
+- **A cut-off boot-animation download is no longer installed as if it worked.**
+  If the connection dropped or stalled mid-download, the printer kept the
+  partial file, wrote its metadata and reported success — the animation then
+  simply stopped wherever the bytes ran out. On a slow link a 1.4 MB animation
+  arrived as 538 KB and still looked installed. The file's own header states
+  how big it should be, so a short download is now deleted and reported
+  instead. *(found by [@Briadark](https://github.com/Briadark))*
 - **Boot animations play at the speed they were drawn.** The player slept a
   full frame delay *on top of* the time it takes to read each frame off the SD
   card, so everything ran about 1.8× slow — the *Malfunction* animation dragged

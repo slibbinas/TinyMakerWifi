@@ -8,6 +8,9 @@ Does, in order (asking once before anything is pushed/published):
   4. gh-pages         - firmware.bin, firmware-X.Y.Z.bin, version.txt,
                         versions.txt manifest (newest first)
   5. GitHub Release   - vX.Y.Z with firmware.bin + firmware-full.bin attached
+                        (--beta marks it prerelease and not "Latest", so
+                        /releases/latest - and the web flasher behind it -
+                        keeps handing out the current stable)
 
 The version is read from FIRMWARE_VERSION in platformio.ini - bump it (both
 envs!) and commit before running. Release notes: --notes-file <path> or a
@@ -178,8 +181,15 @@ def main():
     # --- 5. GitHub Release --------------------------------------------------------
     print("-- creating GitHub Release")
     token = github_token()
+    # A beta must not become GitHub's "Latest": /releases/latest skips
+    # prereleases, and that endpoint is what the web flasher hands newcomers.
+    # Without this the fleet stayed on stable (version.txt untouched) while
+    # anyone browsing Releases - or flashing over USB - was served the beta.
+    # 0.15.0 shipped without it and had to be flipped by hand.
     rel = gh_api(token, "POST", f"https://api.github.com/repos/{GH_REPO}/releases",
-                 {"tag_name": tag, "name": tag, "body": notes})
+                 {"tag_name": tag, "name": tag, "body": notes,
+                  "prerelease": bool(args.beta),
+                  "make_latest": "false" if args.beta else "true"})
     for f in (fw, fw_full):
         print(f"   uploading {f.name}")
         gh_api(token, "POST",

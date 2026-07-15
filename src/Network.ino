@@ -1940,6 +1940,17 @@ void handleApiStatus() {
   out += jsonEscape(printerStateText());
   out += "\",\"stateCode\":";
   out += String(current_state);
+  // Phase countdown - curing/lifting/dropping mid-print, plus the final lift
+  // (state 4 Canceling / 8 Finished), whose duration the lift computes from
+  // distance and speed. Total 0 = unknown; the dashboard shows no number then.
+  {
+    bool phased = busy && phaseTotalMs > 0 &&
+                  ((current_state >= 1 && current_state <= 4) || current_state == 8);
+    out += ",\"phaseTotalMs\":";
+    out += String((unsigned long)(phased ? phaseTotalMs : 0));
+    out += ",\"phaseElapsedMs\":";
+    out += String((unsigned long)(phased ? millis() - phaseStartMs : 0));
+  }
   out += ",\"layerHeight\":";
   out += String(Layer_Height, 2);
   out += ",\"wifiRssi\":";
@@ -2900,7 +2911,8 @@ const applyStatus=s=>{
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
-    setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
+    renderStateValue(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
@@ -2942,11 +2954,19 @@ const applyStatus=s=>{
       if(!s.busy){
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
-      }else if(!slicesPrefetching&&dashPreviewName){
-        setDashPreviewName('');
-        $('printPreviewTitle').textContent='Print progress 3D';
-        show('dashModelInfo',false);show('dashShareButton',false);
-        paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+      }else if(!slicesPrefetching){
+        // Busy without slices - a print started on the printer, or a page opened
+        // mid-print in a browser that never previewed this model. This used to
+        // require dashPreviewName, so a fresh page had nothing to convert and
+        // was left showing the idle "pick a model" placeholder over a running
+        // print (user finding). Say it plainly instead, once - the title guard
+        // keeps the 2s poll from repainting it.
+        if(dashPreviewName)setDashPreviewName('');
+        if($('printPreviewTitle').textContent!=='Print progress 3D'){
+          $('printPreviewTitle').textContent='Print progress 3D';
+          show('dashModelInfo',false);show('dashShareButton',false);
+          paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+        }
       }
     }
     const pause=$('pauseButton'), resume=$('resumeButton');
@@ -3321,6 +3341,7 @@ const dashPreviewPlaceholder=()=>{
 const restoreDashPreview=async()=>{
   const name=localStorage.getItem('dashPreviewModel')||'';
   if(!name)return dashPreviewPlaceholder();
+  if(statusData&&statusData.busy)return;   // the print owns the card; leave it alone
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if((statusData&&statusData.busy)||dashPreviewName)return;
@@ -3334,9 +3355,14 @@ const restoreDashPreview=async()=>{
     await loadSavedPreviewTo($('printPreviewCanvas'),name);
     if(dashPreviewName!==name)return;
     show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
-  }catch(_){
-    localStorage.removeItem('dashPreviewModel');
-    if(!dashPreviewName)dashPreviewPlaceholder();
+  }catch(e){
+    // Every SD read answers 409 "printer busy" while a print runs, and this
+    // catch treated any failure as "the model is gone": it wiped the remembered
+    // name, so the preview never came back even after the print finished, and
+    // dropped an idle placeholder over a running print. Only the printer saying
+    // the model is not there means it is not there.
+    if((e.message||'')==='model not found')localStorage.removeItem('dashPreviewModel');
+    if(!dashPreviewName&&!(statusData&&statusData.busy))dashPreviewPlaceholder();
   }
 };
 const dashPreview=async nameEnc=>{
@@ -3512,9 +3538,24 @@ let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
+// "Curing · 9s" next to the state - the phase's remaining time, ticked locally
+// between polls: mid-print the printer answers polls only in short windows
+// between phases, so the browser does the counting from the last answer.
+let phaseRx=null;
+const renderStateValue=()=>{
+  let t=statusData?statusData.state:'-';
+  if(statusData&&statusData.busy&&phaseRx){
+    const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
+    // A little over is normal (the estimate is last layer's measurement);
+    // way over means the prediction is off - drop the number, keep the state.
+    if(rem>-1500)t+=' · '+Math.max(0,Math.ceil(rem/1000))+'s';
+  }
+  setText('stateValue',t);
+};
 const tickLocalStatus=()=>{
   if(statusData&&statusData.busy&&localPrintStartedAt){
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
+    renderStateValue();
   }
 };
 
@@ -3811,7 +3852,10 @@ $('modelResin').addEventListener('click',async()=>{
 $('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
-openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus();loadConfig();restoreDashPreview();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+// The preview restore has to know whether a print is running before it touches
+// the card, and both used to start at once - so on a page opened mid-print the
+// restore raced the first status and usually won, with no statusData to check.
+openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 </script>
 )SPA";
   sendRootStyledPage(rootBodyBeforeFw, fw, rootBodyAfterFw);
@@ -4196,6 +4240,23 @@ void handleApiBootAnimInstall() {
     return;
   }
 
+  // A TMB1 file states its own size, so we know what a complete download weighs
+  // before a byte of it lands on the card - and unlike Content-Length, the
+  // header is there even when the server sends no length at all. The dimension
+  // bounds are the player's own (playTmbByName): outside them the file could
+  // never be drawn anyway, and they keep the size below from overflowing.
+  uint16_t animW = buf[4] | (buf[5] << 8);
+  uint16_t animH = buf[6] | (buf[7] << 8);
+  uint16_t animN = buf[8] | (buf[9] << 8);
+  if (animW == 0 || animW > 160 || animH == 0 || animH > 80 || animN == 0) {
+    http.end();
+    sendApiError(422, "not a TMB1 animation");
+    netMessage("Boot animation", "invalid file");
+    delay(1200); screen1();
+    return;
+  }
+  const size_t expectedBytes = 12 + (size_t)animW * animH * 2 * animN;
+
   SD.mkdir(BOOTANIM_DIR);
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
   SD.remove(savePath.c_str());
@@ -4237,6 +4298,21 @@ void handleApiBootAnimInstall() {
     SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
     sendApiError(413, "animation too large");
     netMessage("Boot animation", "file too large");
+    delay(1200); screen1();
+    return;
+  }
+
+  // A dropped or stalled connection just ends the loop above, and until now
+  // nothing downstream noticed: the partial file was kept, metadata written and
+  // ok:true returned, so the printer announced a successful install of a file
+  // that stops halfway through playback. Reported from the field on a slow link
+  // - a 1.4 MB animation arrived as 538 KB and still looked installed.
+  if (total != expectedBytes) {
+    SD.remove(savePath.c_str());
+    String err = "download incomplete - " + String((unsigned long)total) +
+                 " of " + String((unsigned long)expectedBytes) + " bytes";
+    sendApiError(502, err.c_str());
+    netMessage("Boot animation", "download incomplete");
     delay(1200); screen1();
     return;
   }
@@ -4602,6 +4678,14 @@ void network_setup() {
 // globals defined in later .ino tabs are NOT visible earlier in the
 // combined compilation unit (functions are - prototypes are auto-generated).
 // ===================================================================================
+// HTTP only - safe inside the exposure wait loop: full network_loop() also
+// runs MQTT and the Connect sync, whose timeouts can hold the caller for
+// seconds, and during an exposure that caller is also the button poll.
+void network_service_http() {
+  if (!networkRuntimeEnabled()) return;
+  server.handleClient();
+}
+
 void network_loop() {
   if (!networkRuntimeEnabled()) return;
   server.handleClient();   // dashboard stays viewable with Web control off

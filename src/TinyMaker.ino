@@ -103,6 +103,14 @@ uint32_t totalUvLedSecs = 0;        // lifetime UV LED on-time seconds - the LED
                                     // lit time, not print time (dry runs don't count)
 unsigned long uvLedSessionMs = 0;   // this print's LED-on ms, folded in at savePrintTime
 unsigned long printStartMs = 0;     // millis() when the current print started
+// Live phase countdown for the dashboard ("Curing · 9s"): when the current
+// phase began and how long it should run. Curing is exact - the exposure
+// computed for this layer. Lifting/dropping use the previous layer's measured
+// duration: layers repeat almost perfectly, so the last cycle is the best
+// predictor the firmware has. Total 0 = unknown (first layer, pause, cancel).
+unsigned long phaseStartMs = 0;
+unsigned long phaseTotalMs = 0;
+unsigned long prevLiftMs = 0, prevDropMs = 0;
 uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
 bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
@@ -902,6 +910,25 @@ void setup() {
     settingsWereFactoryReset = true;   // a full reflash wiped the settings
   }
 
+  // Exposures are read raw, and the guard above only inspects Layer_Height, so
+  // a bad byte here reached the print loop unchecked. Regular_Exposure = 0
+  // makes turn_on_LED() compute 0 ms: the LED goes HIGH and LOW with no wait
+  // between, so the UV never visibly lights and the print runs on in the dark
+  // with no error anywhere - it just looks like "the UV LED is dead". Bytes
+  // left by a firmware with a different EEPROM layout land exactly here. These
+  // are the ranges the dashboard form, the backup restore and the LCD menu
+  // already agree on.
+  if (Base_Exposure < 10 || Base_Exposure > 60) {
+    Base_Exposure = 35;
+    EEPROM.write(2, (uint8_t)Base_Exposure);
+    EEPROM.commit();
+  }
+  if (Regular_Exposure < 1 || Regular_Exposure > 30) {
+    Regular_Exposure = 14;
+    EEPROM.write(3, (uint8_t)Regular_Exposure);
+    EEPROM.commit();
+  }
+
   // VAT capacity (added in 0.9.2 at EEPROM addr 11) - older installs have
   // 0xFF there; clamp to the valid 10..40 ml range or seed the default.
   Vat_Capacity_Ml = EEPROM.read(11);
@@ -1441,6 +1468,13 @@ void loop() {
         current_layer = 0;
         Position_before_pause = 0;
         Transition_Exposure = Base_Exposure;
+        // A print started from the web reaches here with the screen possibly
+        // blanked by the UI timeout - and blanked it would stay: the wake
+        // logic lives in loop(), which the print never returns to, while the
+        // in-print button reads act on an invisible panel (a blind OK is a
+        // Cancel). Blanking cannot start while busy, so waking here closes
+        // the only dark path (user finding: buttons worked, screen slept).
+        uiWakeScreen();
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -1587,11 +1621,19 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
-          lift_print();
-          delay(50);
+          // The service window moved from after the move to before it: a
+          // pending status poll now answers "Lifting" with the countdown
+          // ahead of it, not after the phase already ended. The measured
+          // duration includes the window - so does next layer's, so the
+          // prediction stays honest.
+          phaseStartMs = millis();
+          phaseTotalMs = prevLiftMs;
           #if ENABLE_NETWORK
           network_service_window(160);
           #endif
+          lift_print();
+          prevLiftMs = millis() - phaseStartMs;
+          delay(50);
           
           if(current_layer == layer_counter)
             break;
@@ -1716,11 +1758,14 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
-            lower_print();
+            phaseStartMs = millis();
+            phaseTotalMs = prevDropMs;
             #if ENABLE_NETWORK
             network_service_window(160);
             #endif
-          }           
+            lower_print();
+            prevDropMs = millis() - phaseStartMs;
+          }
         } 
         #if ENABLE_NETWORK
         // Canceled: tell the phone NOW - the decision is final and the run

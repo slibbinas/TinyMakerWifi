@@ -99,10 +99,23 @@ void home_machine(){
   stepper.setMaxSpeed(1200.0);
   stepper.enableOutputs();
   int initial_homing = -1;
+  unsigned long lastHttpSvc = millis();
   while(!digitalRead(end_stop)){
     stepper.moveTo(initial_homing);  // Set the position to move to
     initial_homing--;  // Decrease by 1 for next move if needed
     stepper.run();  // Start moving the stepper
+    // Homing runs for tens of seconds with no HTTP service, so a dashboard
+    // opened while a print starts sat frozen until the first layer. Serving
+    // here pauses the motor for the request's duration (a status poll is
+    // milliseconds) - steps are counted, not timed, so position and the
+    // endstop are unaffected. The mid-print peel moves stay service-free on
+    // purpose: a hitch there can mark the part.
+    if (millis() - lastHttpSvc >= 200) {
+      lastHttpSvc = millis();
+      #if ENABLE_NETWORK
+      network_service_http();
+      #endif
+    }
   }
   stepper.setCurrentPosition(0);
   DBGLN("homing Machine");
@@ -305,9 +318,34 @@ void lift_finished_print(){
   long lift_finished_print_steps = (max_height * steps_mm);
   stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
-  stepper.moveTo(lift_finished_print_steps); 
+  stepper.moveTo(lift_finished_print_steps);
+  // This lift ends BOTH a finished and a canceled print and takes tens of
+  // seconds - the dashboard's "Canceling"/"Finished" sat frozen through it
+  // (user finding). Serve HTTP like homing does, but keep the first couple
+  // of millimetres silent: that stretch is the last layer's peel, and a
+  // service pause mid-peel is the one thing kept away from parts.
+  long liftStartPos = stepper.currentPosition();
+  // Feed the dashboard countdown ("Canceling · 25s"): distance and top speed
+  // are known, so the duration is arithmetic. The accel ramp adds a moment -
+  // the browser drops the number if the estimate overruns.
+  {
+    float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
+    long stepsToGo = lift_finished_print_steps - liftStartPos;
+    if (stepsToGo > 0 && stepsPerSec > 1.0f) {
+      phaseStartMs = millis();
+      phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
+    }
+  }
+  unsigned long lastHttpSvc = millis();
   while (stepper.distanceToGo()!= 0){
     stepper.run();
+    if (stepper.currentPosition() - liftStartPos > (long)(2 * steps_mm) &&
+        millis() - lastHttpSvc >= 200) {
+      lastHttpSvc = millis();
+      #if ENABLE_NETWORK
+      network_service_http();
+      #endif
+    }
   }
   stepper.disableOutputs();
   delay(10);
