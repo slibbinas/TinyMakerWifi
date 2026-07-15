@@ -4196,6 +4196,23 @@ void handleApiBootAnimInstall() {
     return;
   }
 
+  // A TMB1 file states its own size, so we know what a complete download weighs
+  // before a byte of it lands on the card - and unlike Content-Length, the
+  // header is there even when the server sends no length at all. The dimension
+  // bounds are the player's own (playTmbByName): outside them the file could
+  // never be drawn anyway, and they keep the size below from overflowing.
+  uint16_t animW = buf[4] | (buf[5] << 8);
+  uint16_t animH = buf[6] | (buf[7] << 8);
+  uint16_t animN = buf[8] | (buf[9] << 8);
+  if (animW == 0 || animW > 160 || animH == 0 || animH > 80 || animN == 0) {
+    http.end();
+    sendApiError(422, "not a TMB1 animation");
+    netMessage("Boot animation", "invalid file");
+    delay(1200); screen1();
+    return;
+  }
+  const size_t expectedBytes = 12 + (size_t)animW * animH * 2 * animN;
+
   SD.mkdir(BOOTANIM_DIR);
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
   SD.remove(savePath.c_str());
@@ -4237,6 +4254,21 @@ void handleApiBootAnimInstall() {
     SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
     sendApiError(413, "animation too large");
     netMessage("Boot animation", "file too large");
+    delay(1200); screen1();
+    return;
+  }
+
+  // A dropped or stalled connection just ends the loop above, and until now
+  // nothing downstream noticed: the partial file was kept, metadata written and
+  // ok:true returned, so the printer announced a successful install of a file
+  // that stops halfway through playback. Reported from the field on a slow link
+  // - a 1.4 MB animation arrived as 538 KB and still looked installed.
+  if (total != expectedBytes) {
+    SD.remove(savePath.c_str());
+    String err = "download incomplete - " + String((unsigned long)total) +
+                 " of " + String((unsigned long)expectedBytes) + " bytes";
+    sendApiError(502, err.c_str());
+    netMessage("Boot animation", "download incomplete");
     delay(1200); screen1();
     return;
   }
