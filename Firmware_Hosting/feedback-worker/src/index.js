@@ -5,7 +5,12 @@
 //   GET  /feedback/inbox?key=..  -> the maintainer's reading page (HTML)
 //   GET  /feedback/list?key=..   -> the same notes as JSON  (LIST_KEY secret)
 //   GET  /feedback/img?key=..&k=img:..  -> one stored photo
+//   POST /feedback/mark?key=..&k=fb:..  -> triage: {tag, handled, verdict}
 //   POST /feedback/del?key=..&k=fb:..   -> drop one note and its photos
+//
+// Triage lives on the record itself: the maintainer tags it (submitters
+// mis-file their own notes), ticks it handled, and writes the agreed verdict
+// so the decision stays glued to what prompted it.
 //
 // Photos live in KV, NOT R2: the Workers free plan simply stops accepting
 // writes past its 1 GB / 1k-writes-a-day limits, while R2 would auto-charge
@@ -127,6 +132,24 @@ export default {
       });
     }
 
+    if (path === '/feedback/mark' && keyOk && request.method === 'POST') {
+      const k = url.searchParams.get('k') || '';
+      if (!k.startsWith('fb:')) return new Response('bad key', { status: 400 });
+      const v = await env.FEEDBACK.get(k);
+      if (!v) return new Response('not found', { status: 404 });
+      let patch = {};
+      try { patch = await request.json(); } catch (e) {}
+      const rec = JSON.parse(v);
+      if ('tag' in patch) rec.tag = ['bug', 'feature', 'other'].includes(patch.tag) ? patch.tag : '';
+      if ('handled' in patch) rec.handled = !!patch.handled;
+      if ('verdict' in patch) {
+        rec.verdict = str(patch.verdict, 2000).trim();
+        rec.verdictAt = rec.verdict ? new Date().toISOString() : '';
+      }
+      await env.FEEDBACK.put(k, JSON.stringify(rec));
+      return new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } });
+    }
+
     if (path === '/feedback/del' && keyOk && request.method === 'POST') {
       const k = url.searchParams.get('k') || '';
       if (!k.startsWith('fb:')) return new Response('bad key', { status: 400 });
@@ -182,20 +205,32 @@ const contactLink = (c) => {
     : `<span class="contact">${esc(t)}</span>`;
 };
 
+const TAGS = [['bug', 'Bug'], ['feature', 'Feature'], ['other', 'Other']];
+
 function inboxPage(notes, listKey) {
   const withPhotos = notes.filter((n) => (n.photos || []).length).length;
-  const versions = [...new Set(notes.map((n) => n.fw).filter(Boolean))].sort().reverse();
+  const open = notes.filter((n) => !n.handled).length;
+  const count = (t) => notes.filter((n) => n.tag === t).length;
 
   const cards = notes.map((n) => `
-    <article class="note" data-fw="${esc(n.fw || '')}">
+    <article class="note${n.handled ? ' done' : ''}" data-k="${esc(n.key)}"
+             data-tag="${esc(n.tag || '')}" data-handled="${n.handled ? '1' : ''}">
       <div class="msg">${esc(n.message)}</div>
       ${(n.photoUrls || []).length ? `<div class="shots">${n.photoUrls.map((u) =>
         `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="attached photo" loading="lazy"></a>`).join('')}</div>` : ''}
+      <div class="verdict${n.verdict ? '' : ' blank'}">
+        <label>Verdict — what we agreed${n.verdictAt ? ` <span class="vat">${when(n.verdictAt)}</span>` : ''}</label>
+        <textarea rows="2" placeholder="e.g. Real bug, fixed in 0.15.1 · Duplicate of the resin estimate note · Backlog #31, after 1.0.0">${esc(n.verdict)}</textarea>
+        <button class="save" disabled>Save</button>
+      </div>
       <div class="meta">
         <time>${when(n.at)}</time>
         ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
         ${contactLink(n.contact)}
-        <button class="del" data-k="${esc(n.key)}" title="Delete this note and its photos">Delete</button>
+        <span class="tags">${TAGS.map(([v, label]) =>
+          `<button class="tag${n.tag === v ? ' on' : ''}" data-tag="${v}">${label}</button>`).join('')}</span>
+        <button class="handle${n.handled ? ' on' : ''}">${n.handled ? '✓ Handled' : 'Mark handled'}</button>
+        <button class="del" title="Delete this note and its photos">Delete</button>
       </div>
     </article>`).join('');
 
@@ -205,8 +240,8 @@ function inboxPage(notes, listKey) {
 <title>Feedback inbox — TinyMakerWifi</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
-:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--pill:#2a2a2e;--danger:#b34a38}
-@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1}}
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--pill:#2a2a2e;--danger:#b34a38;--ok:#3f9f55}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1;--ok:#2f8043}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15.5px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:24px 14px 60px;display:flex;flex-direction:column;gap:14px}
@@ -217,7 +252,17 @@ h1{font-size:1.2rem;margin:0}h1 b{color:var(--accent)}
 .filters button{background:var(--pill);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:600;cursor:pointer}
 .filters button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.note.done{opacity:.62}
+.note.done .msg{color:var(--muted)}
 .msg{white-space:pre-wrap;overflow-wrap:anywhere}
+.verdict{border-left:3px solid var(--accent);padding:2px 0 2px 12px;display:flex;flex-direction:column;gap:6px}
+.verdict.blank{border-left-color:var(--line)}
+.verdict label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.verdict .vat{text-transform:none;letter-spacing:0;font-weight:400;opacity:.7}
+.verdict textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:.88rem;resize:vertical}
+.verdict textarea:focus{outline:none;border-color:var(--accent)}
+.verdict .save{align-self:flex-start;background:var(--accent);border:0;color:#fff;border-radius:7px;padding:5px 14px;font-size:.76rem;font-weight:600;cursor:pointer}
+.verdict .save:disabled{background:var(--pill);color:var(--muted);cursor:default}
 .shots{display:flex;gap:8px;flex-wrap:wrap}
 .shots img{width:132px;height:132px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
 .shots a:hover img{border-color:var(--accent)}
@@ -225,7 +270,12 @@ h1{font-size:1.2rem;margin:0}h1 b{color:var(--accent)}
 .pill{background:var(--pill);border-radius:999px;padding:2px 9px;font-family:ui-monospace,Consolas,monospace;font-size:.74rem}
 .pill em{opacity:.6;font-style:normal}
 .contact{color:#84bcf8;text-decoration:none}.contact:hover{text-decoration:underline}
-.meta .del{margin-left:auto;background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:.75rem;cursor:pointer}
+.tags{display:flex;gap:5px;margin-left:auto}
+.meta button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:3px 10px;font-size:.75rem;cursor:pointer}
+.meta .tag:hover{border-color:var(--accent);color:var(--accent)}
+.meta .tag.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.meta .handle.on{border-color:var(--ok);color:var(--ok)}
+.meta .handle:hover{border-color:var(--ok);color:var(--ok)}
 .meta .del:hover{border-color:var(--danger);color:var(--danger)}
 .empty{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
 .empty .big{font-size:2rem;margin-bottom:6px}
@@ -234,32 +284,80 @@ footer a{color:#84bcf8;text-decoration:none}
 </style></head><body><div class="wrap">
 <header>
   <h1><b>Feedback</b> inbox</h1>
-  <span class="counts">${notes.length} note${notes.length === 1 ? '' : 's'}${withPhotos ? ` · ${withPhotos} with photos` : ''}</span>
+  <span class="counts">${open} open · ${notes.length} total${withPhotos ? ` · ${withPhotos} with photos` : ''}</span>
 </header>
-${versions.length > 1 ? `<div class="filters"><button class="on" data-v="">All</button>${versions.map((v) => `<button data-v="${esc(v)}">fw ${esc(v)}</button>`).join('')}</div>` : ''}
+${notes.length ? `<div class="filters">
+  <button class="on" data-f="open">New (${open})</button>
+  ${TAGS.map(([v, label]) => `<button data-f="${v}">${label} (${count(v)})</button>`).join('')}
+  <button data-f="all">All (${notes.length})</button>
+</div>` : ''}
 ${notes.length ? cards : `<div class="empty"><div class="big">📭</div>Nothing yet. The form is at <a href="/feedback/">tinymakerwifi.com/feedback</a>.</div>`}
+<div class="empty none" style="display:none"><div class="big">✅</div>Nothing here — try another filter.</div>
 <footer>Private page · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a></footer>
 </div>
 <script>
 var KEY=${JSON.stringify(listKey)};
+var api=function(what,note,body){
+  return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
+    {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);});
+};
+var applyFilter=function(){
+  var f=(document.querySelector('.filters button.on')||{dataset:{f:'open'}}).dataset.f,shown=0;
+  document.querySelectorAll('.note').forEach(function(n){
+    var ok = f==='all' ? true
+           : f==='open' ? !n.dataset.handled
+           : n.dataset.tag===f;
+    n.style.display=ok?'':'none';
+    if(ok)shown++;
+  });
+  var none=document.querySelector('.empty.none');
+  if(none)none.style.display=(shown||!document.querySelectorAll('.note').length)?'none':'';
+};
 document.querySelectorAll('.filters button').forEach(function(b){
   b.addEventListener('click',function(){
     document.querySelectorAll('.filters button').forEach(function(x){x.classList.remove('on');});
-    b.classList.add('on');
-    var v=b.dataset.v;
-    document.querySelectorAll('.note').forEach(function(n){
-      n.style.display=(!v||n.dataset.fw===v)?'':'none';
-    });
+    b.classList.add('on');applyFilter();
   });
 });
-document.querySelectorAll('.del').forEach(function(b){
-  b.addEventListener('click',function(){
+document.querySelectorAll('.note').forEach(function(n){
+  n.querySelectorAll('.tag').forEach(function(b){
+    b.addEventListener('click',function(){
+      var next=b.classList.contains('on')?'':b.dataset.tag;   // click again to clear
+      api('mark',n,{tag:next}).then(function(){
+        n.querySelectorAll('.tag').forEach(function(x){x.classList.remove('on');});
+        if(next)b.classList.add('on');
+        n.dataset.tag=next;applyFilter();
+      }).catch(function(){b.textContent='failed';});
+    });
+  });
+  var h=n.querySelector('.handle');
+  h.addEventListener('click',function(){
+    var next=!n.dataset.handled;
+    api('mark',n,{handled:next}).then(function(){
+      n.dataset.handled=next?'1':'';
+      n.classList.toggle('done',next);
+      h.classList.toggle('on',next);
+      h.textContent=next?'✓ Handled':'Mark handled';
+      applyFilter();
+    }).catch(function(){h.textContent='failed';});
+  });
+  var ta=n.querySelector('.verdict textarea'),save=n.querySelector('.verdict .save'),was=ta.value;
+  ta.addEventListener('input',function(){save.disabled=(ta.value===was);save.textContent='Save';});
+  save.addEventListener('click',function(){
+    save.disabled=true;save.textContent='Saving...';
+    api('mark',n,{verdict:ta.value}).then(function(){
+      was=ta.value;save.textContent='Saved';
+      n.querySelector('.verdict').classList.toggle('blank',!ta.value.trim());
+    }).catch(function(){save.disabled=false;save.textContent='Save failed';});
+  });
+  n.querySelector('.del').addEventListener('click',function(){
     if(!confirm('Delete this note and its photos?'))return;
-    b.disabled=true;b.textContent='Deleting...';
-    fetch('/feedback/del?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(b.dataset.k),{method:'POST'})
-      .then(function(r){if(!r.ok)throw 0;b.closest('.note').remove();})
+    var b=n.querySelector('.del');b.disabled=true;b.textContent='Deleting...';
+    api('del',n).then(function(){n.remove();applyFilter();})
       .catch(function(){b.disabled=false;b.textContent='Delete failed';});
   });
 });
+applyFilter();
 </script></body></html>`;
 }
