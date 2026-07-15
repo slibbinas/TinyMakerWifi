@@ -39,8 +39,11 @@ h1{margin:10px 0 6px;font-size:38px;color:var(--accent)}
 .btn:hover{background:#c95f06;text-decoration:none}
 .btn.sec{background:var(--btnsec);color:var(--btnsec-t)}
 .btn.sec:hover{background:var(--btnsec-h)}
-.btn.demo{grid-column:1/-1;background:transparent;border:1.5px solid var(--accent);color:var(--accent);white-space:normal}
+.btn.demo{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
 .btn.demo:hover{background:var(--accent);color:#fff}
+.manualRow{margin:14px 0 0;font-size:14.5px;text-align:center}
+.manualRow a{color:var(--muted)}
+.manualRow a:hover{color:var(--text)}
 .shot{display:block;max-width:420px;width:90%;margin:34px auto 0;border-radius:14px;border:2px solid var(--accent)}
 section{padding:34px 0;border-top:1px solid var(--line)}
 h2{color:var(--accent);font-size:24px;margin:0 0 18px}
@@ -66,12 +69,12 @@ footer a{color:var(--muted2);text-decoration:underline}
   <p class="tag">Open-source firmware that puts the palm-sized <b>TinyMaker</b> resin 3D printer on your WiFi — send models straight from the slicer, watch prints from any browser, and never touch the SD card again.</p>
   <p id="commCount" style="display:none;font-size:14.5px;color:var(--muted2);margin:14px 0 0"><span style="color:#2fbf4f">●</span> <b id="commN" style="color:var(--text)"></b> <span id="commWord">printers</span> running TinyMakerWifi worldwide</p>
   <div class="cta">
-    <a class="btn demo" href="https://slibbinas.github.io/TinyMakerWifi/demo/" title="The real dashboard driving a simulated printer - start a print, watch the 3D progress, nothing to install">🧪 Try it live — the dashboard with a simulated printer</a>
     <a class="btn" href="https://github.com/slibbinas/TinyMakerWifi/releases">Download firmware</a>
-    <a class="btn sec manualLink" href="https://slibbinas.github.io/TinyMakerWifi/manual/">Read the manual</a>
+    <a class="btn demo" href="https://slibbinas.github.io/TinyMakerWifi/demo/" title="The real dashboard driving a simulated printer - start a print, watch the 3D progress, nothing to install">🧪 Try it live</a>
     <a class="btn sec" href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
     <a class="btn sec" id="openPrinter" href="http://tinymaker.local" target="_blank" rel="noopener" title="Works when your printer is powered on and you are on the same WiFi">Open my printer</a>
   </div>
+  <p class="manualRow"><a class="manualLink" href="https://slibbinas.github.io/TinyMakerWifi/manual/">📖 Read the manual</a></p>
   <div id="printerModal" style="display:none;position:fixed;inset:0;z-index:50;background:rgba(20,20,22,.6);align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:22px;max-width:420px;text-align:left">
       <b>Opening your printer's dashboard</b>

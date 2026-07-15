@@ -6,6 +6,8 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 🌐 **[tinymakerwifi.com](https://tinymakerwifi.com)** — the project site: what the firmware does, how to get started, community links and an *Open my printer* shortcut.
 
+🧪 **[Live demo](https://slibbinas.github.io/TinyMakerWifi/demo/)** — the real web dashboard driving a simulated printer: start a print, watch the 3D progress, poke through Settings. Nothing to install, no printer needed.
+
 📖 **[Illustrated user manual](https://slibbinas.github.io/TinyMakerWifi/manual/)** — step by step from the first flash to Home Assistant, with screenshots and an FAQ. Also one tap away from the printer's dashboard (the *Manual* link in the header).
 
 📝 **[Changelog](CHANGELOG.md)** — what each version added and who contributed it, in plain language.
