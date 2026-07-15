@@ -498,24 +498,37 @@ void tinymakerConnectSchedulePrintSync() {
   }
 }
 
+// Retry with exponential backoff. Every attempt is a blocking TLS call that
+// freezes the UI and web server for up to 8 s - a flat 30 s retry against a
+// dead server would stutter the printer forever. 30s-1m-2m-...-capped 30m,
+// and after MAX_FAILS the pending work is dropped (a fresh save/print will
+// re-schedule it anyway).
+uint8_t connectFailStreak = 0;
 void tinymakerConnectLoop() {
+  const uint8_t MAX_FAILS = 8;
   if ((!connectBackupPending && !connectProfilePending) || printerBusy()) return;
   if ((long)(millis() - connectBackupDueMs) < 0) return;
   String message;
+  bool ok;
   if (connectBackupPending) {
-    if (tinymakerConnectBackupSettings(message)) {
-      connectBackupPending = false;
-      connectProfilePending = false;
-    } else {
-      connectBackupDueMs = millis() + 30000UL;
-    }
+    ok = tinymakerConnectBackupSettings(message);
+    if (ok) { connectBackupPending = false; connectProfilePending = false; }
   } else {
-    if (tinymakerConnectSyncProfile(message)) {
-      connectProfilePending = false;
-    } else {
-      connectBackupDueMs = millis() + 30000UL;
-    }
+    ok = tinymakerConnectSyncProfile(message);
+    if (ok) connectProfilePending = false;
   }
+  if (ok) { connectFailStreak = 0; return; }
+  connectFailStreak++;
+  if (connectFailStreak >= MAX_FAILS) {
+    connectBackupPending = false;
+    connectProfilePending = false;
+    connectFailStreak = 0;
+    connectLastStatus = "Sync gave up after repeated failures: " + message;
+    return;
+  }
+  unsigned long delayMs = 30000UL << (connectFailStreak - 1);   // 30s, 1m, 2m...
+  if (delayMs > 1800000UL) delayMs = 1800000UL;                 // cap at 30 min
+  connectBackupDueMs = millis() + delayMs;
 }
 
 bool tinymakerConnectFetchBackup(String &backupJson, uint32_t &epoch, String &message) {

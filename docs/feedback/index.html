@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TinyMakerWifi — feedback</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--accent:#e8720c;--input:#141416;--ok:#2fbf4f}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#d9dbe0;--text:#1f2124;--muted:#5f6570;--input:#fff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
+h1{font-size:1.25rem;margin:0 0 4px;color:var(--accent)}
+p{margin:.4em 0;color:var(--muted);font-size:14.5px}
+label{display:block;font-size:13px;color:var(--muted);margin:16px 0 6px}
+textarea,input{width:100%;background:var(--input);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit;font-size:14.5px}
+textarea{min-height:140px;resize:vertical}
+button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+button:hover{background:#c95f06}
+button:disabled{opacity:.6;cursor:default}
+.fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+#done{display:none;text-align:center;padding:30px 0}
+#done .big{font-size:2.2rem}
+#alt{display:none;font-size:13.5px}
+a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <form id="f">
+    <h1>Tell us how it's going</h1>
+    <p>What works, what doesn't, what's missing — anything helps. No account, ~30 seconds. <span id="fwLine" class="fw"></span></p>
+    <label for="msg">Your feedback</label>
+    <textarea id="msg" required maxlength="4000" placeholder="e.g. The exposure test saved me an evening... / Upload fails when..."></textarea>
+    <label for="contact">Contact (optional — only if you'd like a reply)</label>
+    <input id="contact" maxlength="120" placeholder="email / GitHub / Facebook name">
+    <button id="send" type="submit">Send feedback</button>
+    <p id="alt">Sending failed — the collector may be down. Meanwhile: <a href="https://github.com/slibbinas/TinyMakerWifi/issues">GitHub Issues</a> or the <a href="https://www.facebook.com/groups/1486879621729571">Facebook group</a>.</p>
+  </form>
+  <div id="done">
+    <div class="big">🙌</div>
+    <h1>Thank you!</h1>
+    <p>Your note landed safely. It genuinely shapes what gets built next.</p>
+  </div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var fw=(q.get('fw')||'').slice(0,20),build=(q.get('build')||'').slice(0,20);
+  if(fw)document.getElementById('fwLine').textContent='Firmware '+fw+(build?' ('+build+')':'')+' - attached automatically.';
+  document.getElementById('f').addEventListener('submit',function(ev){
+    ev.preventDefault();
+    var btn=document.getElementById('send');
+    btn.disabled=true;btn.textContent='Sending...';
+    fetch('https://tinymaker-stats.slibbinas.workers.dev/feedback',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:document.getElementById('msg').value.slice(0,4000),
+        contact:document.getElementById('contact').value.slice(0,120),
+        fw:fw,build:build,ua:navigator.userAgent.slice(0,120)})
+    }).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      document.getElementById('f').style.display='none';
+      document.getElementById('done').style.display='block';
+    }).catch(function(){
+      btn.disabled=false;btn.textContent='Send feedback';
+      document.getElementById('alt').style.display='block';
+    });
+  });
+})();
+</script>
+</body>
+</html>

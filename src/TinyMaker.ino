@@ -1722,6 +1722,13 @@ void loop() {
             #endif
           }           
         } 
+        #if ENABLE_NETWORK
+        // Canceled: tell the phone NOW - the decision is final and the run
+        // time is known, while the lift below takes tens of seconds. Finished
+        // stays after the lift: that message means "come peel the print".
+        bool cancelNotified = false;
+        if (print_canceled || homing_canceled) { tgNotifyCanceled(); cancelNotified = true; }
+        #endif
         if (!homing_canceled){
           if (!print_canceled){
             current_state = 8;
@@ -1741,8 +1748,9 @@ void loop() {
         saveVatRemaining();
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
-        // it must never read as a finished print on the user's phone.
-        if (print_canceled || homing_canceled) tgNotifyCanceled();
+        // it must never read as a finished print on the user's phone. A cancel
+        // pressed DURING the final lift lands here un-notified - catch it.
+        if (print_canceled || homing_canceled) { if (!cancelNotified) tgNotifyCanceled(); }
         else                                   tgNotifyFinished();
         #endif
         screen1();

@@ -16,6 +16,9 @@ unless noted. Community contributors are tagged inline.
 ## [Unreleased] — `experimental` branch
 
 ### Added
+- **Feedback link** — the dashboard header links a 30-second feedback form
+  (firmware version attached automatically), so impressions and problems can
+  land with the maintainer without a GitHub or Facebook account.
 - **Always-on Model preview card** — the dashboard's 3D card no longer hides:
   idle shows a pick-a-model hint, the last previewed model is remembered and
   restored from the saved preview after a page reload, and a print started on
@@ -113,6 +116,14 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- The **print-canceled phone notification** is sent the moment the cancel is
+  final (with the run time), instead of after the final lift finishes — it
+  used to arrive up to a minute late.
+- **Connect sync retries back off exponentially** (30 s → … → 30 min) and give
+  up after repeated failures — an unreachable Connect server no longer
+  freezes the printer for 8 s every 30 s indefinitely.
+- Model uploads now **fail with a clear message after 10 minutes** of printer
+  silence instead of waiting forever.
 - Model uploads no longer look stuck at *"Uploading 100%"* while the printer
   unpacks the archive — the indicator now says *Unpacking on the printer…*
   with a running timer (applies to the SD manager upload and Connect Import

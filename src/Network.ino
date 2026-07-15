@@ -2224,7 +2224,7 @@ void handleRootPage() {
 #ifdef GIT_REV
     GIT_REV
 #endif
-    R"SPA("></span> · <a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a><a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div></div>
+    R"SPA("></span> · <a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a><a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div></div>
 
 <section id='dryRunBanner' class='card banner hidden'>
   <strong>Dry run mode enabled.</strong>
@@ -2641,6 +2641,10 @@ const uploadWithProgress=(fd,hintEl)=>{
     };
     xhr.onerror=()=>{clearInterval(timer);reject(new Error('upload failed'));};
     xhr.onabort=()=>{clearInterval(timer);reject(new Error('upload cancelled'));};
+    // Whole-request cap (send + on-printer unpack). Big models legitimately
+    // unpack for minutes; 10 min means "the printer is truly stuck".
+    xhr.timeout=600000;
+    xhr.ontimeout=()=>{clearInterval(timer);reject(new Error('upload timed out - the printer did not respond within 10 minutes'));};
     render();
     xhr.send(fd);
   });
@@ -2875,6 +2879,7 @@ const openView=view=>{
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
     setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
+    if(s.firmwareVersion)$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';

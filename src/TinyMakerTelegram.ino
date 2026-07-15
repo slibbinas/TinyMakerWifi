@@ -96,7 +96,12 @@ void tgNotifyLowResin() {
 }
 
 void tgNotifyCanceled() {
-  telegramNotify("Print canceled.");
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
+  String msg = "Print canceled";
+  if (secs) msg += " after " + formatDuration(secs);
+  msg += ".";
+  telegramNotify(msg);
 }
 
 // Appended to configJson(). The token itself is never sent to the browser.
