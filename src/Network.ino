@@ -407,6 +407,14 @@ void finishPreviewUpload() {
 }
 
 void handleApiFileModelPreview() {
+  // The one SD read that had no busy gate (audit finding). Our own UI never
+  // asks for it mid-print, but HTTP is now serviced from inside the print
+  // loops - an SD stream from in there costs motor/button latency, and the
+  // no-SD-reads-mid-print rule is only a rule if it has no exceptions.
+  if (printerBusy()) {
+    sendApiError(409, "printer busy");
+    return;
+  }
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -2153,7 +2161,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}.secondaryBtn{background:var(--btnsec);color:var(--btnsec-t)}"
     "button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}"
     ".button.secondary{background:var(--btnsec);color:var(--btnsec-t)}"
-    ".button.danger{background:var(--danger);color:#fff}"
+    // button.danger recolors WITHOUT resizing - Stop next to Pause must share
+    // the size (it borrowed .delete for the red and shrank to the SD-row
+    // button size with it; user finding on mobile).
+    ".button.danger,button.danger{background:var(--danger);color:#fff}"
     ".grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}"
     // Full-page lock while a firmware update is in flight; cleared by the
     // automatic reload once the printer answers status polls again.
@@ -2304,7 +2315,7 @@ void handleRootPage() {
     <div class='actions'>
       <button id='pauseButton' type='button'>Pause</button>
       <button id='resumeButton' type='button'>Resume</button>
-      <button id='stopButton' class='delete' type='button'>Stop</button>
+      <button id='stopButton' class='danger' type='button'>Stop</button>
     </div>
   </section>
 
@@ -3530,7 +3541,22 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
-  msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){msg(e.message,true);}};
+  msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){
+    if(e.message==='timeout'){
+      // The POST reached the printer but the answer missed the 8 s window
+      // (the main loop can sit in an MQTT/Connect timeout for that long) -
+      // the print then starts anyway, and a raw "timeout" here cried failure
+      // over a start that worked (user finding). Confirm via status instead.
+      msg('Start sent - waiting for the printer to confirm...');
+      for(let i=0;i<5;i++){
+        await new Promise(r=>setTimeout(r,2000));
+        try{const s=await api('/api/status');applyStatus(s);
+          if(s.busy){msg('Print started.');localPrintStartedAt=Date.now();lpsSynced=false;openView('home');return;}
+        }catch(_){}
+      }
+      msg('Start not confirmed - check the printer.',true);return;
+    }
+    msg(e.message,true);}};
 // Deleting a big model removes hundreds of layer files and blocks the printer
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).

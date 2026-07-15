@@ -1498,9 +1498,13 @@ void loop() {
           #if ENABLE_NETWORK
           // Homing can take minutes; without this, web Stop cannot reach the
           // printer until it finishes (the motor pauses imperceptibly).
+          // HTTP only: the full network_loop() also runs MQTT and the Connect
+          // sync, whose timeouts (up to ~8 s) froze the motor and the
+          // dashboard mid-homing - likely the "timeouts while homing" the
+          // maintainer kept seeing. Nothing needs publishing during homing.
           if (millis() - homingNetTs > 250) {
             homingNetTs = millis();
-            network_loop();
+            network_service_http();
           }
           #endif
           stepper.moveTo(initial_homing);  // Set the position to move to
