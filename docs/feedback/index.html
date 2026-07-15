@@ -16,10 +16,16 @@ p{margin:.4em 0;color:var(--muted);font-size:14.5px}
 label{display:block;font-size:13px;color:var(--muted);margin:16px 0 6px}
 textarea,input{width:100%;background:var(--input);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit;font-size:14.5px}
 textarea{min-height:140px;resize:vertical}
+input[type=file]{padding:8px;font-size:13px}
 button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 button:hover{background:#c95f06}
 button:disabled{opacity:.6;cursor:default}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
+#thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#thumbs figure{margin:0;position:relative}
+#thumbs img{width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+#thumbs figcaption{font-size:11px;color:var(--muted);text-align:center;margin-top:3px}
+#thumbs button.rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;margin:0;border-radius:50%;background:#b34a38;font-size:12px;line-height:1}
 #done{display:none;text-align:center;padding:30px 0}
 #done .big{font-size:2.2rem}
 #alt{display:none;font-size:13.5px}
@@ -33,6 +39,9 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     <p>What works, what doesn't, what's missing — anything helps. No account, ~30 seconds. <span id="fwLine" class="fw"></span></p>
     <label for="msg">Your feedback</label>
     <textarea id="msg" required maxlength="4000" placeholder="e.g. The exposure test saved me an evening... / Upload fails when..."></textarea>
+    <label for="pics">Photos (optional, up to 3) — a failed print says more than a paragraph</label>
+    <input id="pics" type="file" accept="image/*" multiple>
+    <div id="thumbs"></div>
     <label for="contact">Contact (optional — only if you'd like a reply)</label>
     <input id="contact" maxlength="120" placeholder="email / GitHub / Facebook name">
     <button id="send" type="submit">Send feedback</button>
@@ -49,16 +58,63 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
   var q=new URLSearchParams(location.search);
   var fw=(q.get('fw')||'').slice(0,20),build=(q.get('build')||'').slice(0,20);
   if(fw)document.getElementById('fwLine').textContent='Firmware '+fw+(build?' ('+build+')':'')+' - attached automatically.';
+
+  // Photos are downscaled here, in the browser: phone shots are 3-8 MB and
+  // the collector keeps them in Workers KV (1 GB, free). 1600 px / q0.8
+  // lands around 200-400 KB and still shows a layer line.
+  var MAX=3, picked=[];
+  var shrink=function(file){
+    return new Promise(function(res,rej){
+      var img=new Image(), url=URL.createObjectURL(file);
+      img.onload=function(){
+        var s=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight));
+        var cv=document.createElement('canvas');
+        cv.width=Math.round(img.naturalWidth*s);cv.height=Math.round(img.naturalHeight*s);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function(b){b?res(b):rej(new Error('resize failed'));},'image/jpeg',0.8);
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('not an image'));};
+      img.src=url;
+    });
+  };
+  var render=function(){
+    var box=document.getElementById('thumbs');box.innerHTML='';
+    picked.forEach(function(p,i){
+      var fig=document.createElement('figure');
+      var im=document.createElement('img');im.src=URL.createObjectURL(p.blob);
+      var cap=document.createElement('figcaption');cap.textContent=Math.round(p.blob.size/1024)+' KB';
+      var rm=document.createElement('button');rm.type='button';rm.className='rm';rm.textContent='×';
+      rm.title='Remove';
+      rm.addEventListener('click',function(){picked.splice(i,1);render();});
+      fig.appendChild(im);fig.appendChild(cap);fig.appendChild(rm);box.appendChild(fig);
+    });
+  };
+  document.getElementById('pics').addEventListener('change',function(ev){
+    var files=[].slice.call(ev.target.files||[]);
+    ev.target.value='';
+    files.slice(0,MAX-picked.length).forEach(function(file){
+      shrink(file).then(function(blob){
+        if(picked.length>=MAX)return;
+        picked.push({blob:blob,name:file.name});render();
+      }).catch(function(){});
+    });
+  });
+
   document.getElementById('f').addEventListener('submit',function(ev){
     ev.preventDefault();
     var btn=document.getElementById('send');
-    btn.disabled=true;btn.textContent='Sending...';
-    fetch('https://tinymaker-feedback.slibbinas.workers.dev/feedback',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        message:document.getElementById('msg').value.slice(0,4000),
-        contact:document.getElementById('contact').value.slice(0,120),
-        fw:fw,build:build,ua:navigator.userAgent.slice(0,120)})
+    btn.disabled=true;btn.textContent=picked.length?'Sending photos...':'Sending...';
+    var fd=new FormData();
+    fd.append('message',document.getElementById('msg').value.slice(0,4000));
+    fd.append('contact',document.getElementById('contact').value.slice(0,120));
+    fd.append('fw',fw);fd.append('build',build);
+    fd.append('ua',navigator.userAgent.slice(0,120));
+    picked.forEach(function(p,i){fd.append('photo',p.blob,'photo'+(i+1)+'.jpg');});
+    // Same origin: the worker owns tinymakerwifi.com/feedback* (page + POST).
+    // Absolute fallback keeps the page working if opened straight off gh-pages.
+    fetch(location.hostname==='tinymakerwifi.com'?'/feedback':'https://tinymakerwifi.com/feedback',{
+      method:'POST',body:fd
     }).then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
       document.getElementById('f').style.display='none';
