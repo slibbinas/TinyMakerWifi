@@ -53,7 +53,7 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     ev.preventDefault();
     var btn=document.getElementById('send');
     btn.disabled=true;btn.textContent='Sending...';
-    fetch('https://tinymaker-stats.slibbinas.workers.dev/feedback',{
+    fetch('https://tinymaker-feedback.slibbinas.workers.dev/feedback',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         message:document.getElementById('msg').value.slice(0,4000),
