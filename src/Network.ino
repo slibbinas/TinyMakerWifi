@@ -2306,12 +2306,15 @@ void handleRootPage() {
   <div id='homeLeft'>
   <section class='card'>
     <div class='grid'>
+      <!-- Paired by meaning (user request): condition / network / lifetime
+           counters / consumable. The print-time boxes below fill the fourth
+           row's empty cell when they appear. -->
       <div><div class='label'>State</div><div id='stateValue' class='value'>Loading</div></div>
+      <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
       <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBars' class='wbars'><i></i><i></i><i></i></span></div></div>
       <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
       <div><div class='label'>Lifetime print time</div><div id='lifetimeValue' class='value'>-</div></div>
       <div><div class='label'>UV LED time</div><div id='uvLedValue' class='value'>-</div></div>
-      <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
       <div><div class='label'>Resin left (est.)</div><div id='vatValue' class='value'>-</div></div>
       <div id='printLayerBox' class='hidden'><div class='label'>Layer</div><div id='layerValue' class='value'>-</div></div>
       <div id='printResinBox' class='hidden'><div class='label'>Resin</div><div id='resinValue' class='value'>-</div></div>
