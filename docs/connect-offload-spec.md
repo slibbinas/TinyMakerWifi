@@ -149,6 +149,12 @@ printer" — built two different ways:
 pulls a `.tmb`, and progress comes from the device that's actually working.
 Roughly half the bytes over the air, and phones stop mattering.
 
+There's a third win that only showed up while measuring. Today the unpack runs
+*inside* the `/upload` handler, so the ESP can't answer `/api/status` until it
+finishes — the browser cannot show the layer count that the printer's own
+screen is displaying at that very moment. Answer `202` first and unpack from
+`loop()`, and that number becomes readable over HTTP like any other status.
+
 Brian, you called this "might hit two birds with one stone" when we discussed
 the import indicator — this is that stone.
 
