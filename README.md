@@ -12,6 +12,8 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 📝 **[Changelog](CHANGELOG.md)** — what each version added and who contributed it, in plain language.
 
+💬 **[Feedback](https://tinymakerwifi.com/feedback/)** — what works, what doesn't, what's missing. Photos welcome, no account needed; the dashboard header links it too.
+
 ## Features
 
 * **WiFi setup via captive portal** — no credentials in code, configured from your phone on first boot

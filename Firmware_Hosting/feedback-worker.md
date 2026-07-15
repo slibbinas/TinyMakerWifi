@@ -16,8 +16,12 @@ POST'ina į **atskirą** worker'į:
 - CF dashboard → Storage & databases → Workers KV → `tinymaker-feedback`
   (raktai `fb:<ISO data>:<id>`, rikiuojasi chronologiškai), arba
 - `npx wrangler kv key list --namespace-id 4eb7904e55fc490e854f85f631e6c35e`
-- Pasirinktinai: nustačius secret'ą `LIST_KEY` (`npx wrangler secret put LIST_KEY`),
-  veikia `GET /list?key=<LIST_KEY>` — JSON sąrašas (100 naujausių).
+- **`https://tinymakerwifi.com/feedback/list?key=<LIST_KEY>`** — 100 naujausių
+  atsiliepimų JSON su `photoUrls` nuorodomis į nuotraukas. `LIST_KEY` secret'as
+  NUSTATYTAS 2026-07-15 (reikšmę žino vartotojas; CF secret'ų atgal neparodo —
+  pamiršus paleisti `npx wrangler secret put LIST_KEY` iš naujo). Blogas/nesamas
+  raktas grąžina paprastą tekstą, ne duomenis.
+- Nuotraukos: `GET /feedback/img?key=<LIST_KEY>&k=img:...` (tas pats vartas).
 
 ## Anti-spam
 
