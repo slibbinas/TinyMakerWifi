@@ -318,9 +318,23 @@ void lift_finished_print(){
   long lift_finished_print_steps = (max_height * steps_mm);
   stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
-  stepper.moveTo(lift_finished_print_steps); 
+  stepper.moveTo(lift_finished_print_steps);
+  // This lift ends BOTH a finished and a canceled print and takes tens of
+  // seconds - the dashboard's "Canceling"/"Finished" sat frozen through it
+  // (user finding). Serve HTTP like homing does, but keep the first couple
+  // of millimetres silent: that stretch is the last layer's peel, and a
+  // service pause mid-peel is the one thing kept away from parts.
+  long liftStartPos = stepper.currentPosition();
+  unsigned long lastHttpSvc = millis();
   while (stepper.distanceToGo()!= 0){
     stepper.run();
+    if (stepper.currentPosition() - liftStartPos > (long)(2 * steps_mm) &&
+        millis() - lastHttpSvc >= 200) {
+      lastHttpSvc = millis();
+      #if ENABLE_NETWORK
+      network_service_http();
+      #endif
+    }
   }
   stepper.disableOutputs();
   delay(10);
