@@ -255,10 +255,19 @@ bool playTmbByName(const String &name) {
   const uint32_t MAX_MS     = 10000;
   uint16_t limit = n < MAX_FRAMES ? n : MAX_FRAMES;
   uint32_t animStart = millis();
+  // Pace to the header's fps instead of sleeping a full frame on top of the
+  // work: reading 25 KB off SD and pushing it over SPI costs ~46 ms, so the
+  // old delay(frameDelay) after every frame played every animation ~1.8x
+  // slower than authored (malfunction: 3.7 s of frames took 6.3 s). Sleep only
+  // the remainder of the frame's slot; if the hardware is slower than fps,
+  // skip the sleep rather than fall further behind.
+  uint32_t nextDue = millis();
   for (uint16_t i = 0; i < limit; i++) {
     if (f.read((uint8_t *)frame, frameBytes) != (int)frameBytes) break;
     gfx2->draw16bitRGBBitmap(ox, oy, frame, w, h);
-    delay(frameDelay);
+    nextDue += frameDelay;
+    int32_t slack = (int32_t)(nextDue - millis());
+    if (slack > 0) delay(slack);
     if (digitalRead(buttonBack) == LOW) break;   // user skip
     if (millis() - animStart > MAX_MS) break;     // hard time budget
   }
