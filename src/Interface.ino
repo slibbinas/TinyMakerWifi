@@ -844,12 +844,14 @@ void screenUpdateConfirm(){
   gfx2->print("Install update?");
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
-  gfx2->print(String("v") + otaLatestVerStr());
+  // "old -> new" reads in the direction it happens and, unlike the old
+  // "vNEW (now vOLD)", it still fits the 160 px line at three-digit versions.
 #ifdef FIRMWARE_VERSION
-  gfx2->print(String("  (now v") + FIRMWARE_VERSION + ")");
+  gfx2->print(String(FIRMWARE_VERSION) + " -> ");
 #endif
+  gfx2->print(otaLatestVerStr());
   gfx2->setCursor(8, 52);
-  gfx2->print("Downloads and reboots");
+  gfx2->print("Installs and reboots");
   gfx2->setTextColor(WHITE);
   uiButtons("Cancel", "Install", 0x879F);
   screen = 4211;
@@ -2082,7 +2084,10 @@ void screenExpTestIntro(){
   gfx2->print("Exposure test strip");
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 34);
-  gfx2->print("Resin in vat, no plate.");
+  // gfx2 is 160 px wide and text starts at x=8, so a line has ~152 px. Arduino_GFX
+  // wraps by default, and a wrapped line lands on top of the next one - every
+  // string on these screens is measured to fit FreeSans8pt7b at its widest value.
+  gfx2->print("Resin in vat, no plate");
   gfx2->setCursor(8, 48);
   gfx2->print(String("Cures 8 bars: ") + expTestBarSecs(1) + "-" + expTestBarSecs(8) + "s");
   uiButtons("Back", "Start", 0x879F);
@@ -2157,7 +2162,7 @@ void runExpTest(){
     gfx2->setCursor(8, 34);
     gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
     gfx2->setCursor(8, 48);
-    gfx2->print("Rinse, then pick best bar");
+    gfx2->print("Rinse, then pick bar");
     uiButtons("Skip", "Pick", 0x879F);
   } else {
     uiButtons("Back", "OK", 0x879F);
@@ -2194,7 +2199,7 @@ void screenExpTestPick(){
     gfx2->print(String("All soft -> ") + expTestBarSecs(8) + "s");
   }
   gfx2->setCursor(8, 52);
-  gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (shift, retest)");
+  gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (retest)");
   gfx2->setTextColor(WHITE);
   uiButtons("Skip", "Set", 0x879F);
   screen = 2322;
@@ -2216,9 +2221,9 @@ void expTestApplyPick(){
   gfx2->print(expTestPick <= 8 ? "Exposure set" : "Ladder shifted");
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
-  gfx2->print(String("Regular exposure = ") + t + "s");
+  gfx2->print(String("Regular exp = ") + t + "s");
   gfx2->setCursor(8, 52);
-  gfx2->print(expTestPick <= 8 ? "Base ~2.5x is a good rule" : "Run the test again");
+  gfx2->print(expTestPick <= 8 ? "Base ~2.5x is typical" : "Run the test again");
   delay(2000);
   screenAdvancedOptions();
 }
