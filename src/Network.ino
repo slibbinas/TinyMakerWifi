@@ -4677,6 +4677,14 @@ void network_setup() {
 // globals defined in later .ino tabs are NOT visible earlier in the
 // combined compilation unit (functions are - prototypes are auto-generated).
 // ===================================================================================
+// HTTP only - safe inside the exposure wait loop: full network_loop() also
+// runs MQTT and the Connect sync, whose timeouts can hold the caller for
+// seconds, and during an exposure that caller is also the button poll.
+void network_service_http() {
+  if (!networkRuntimeEnabled()) return;
+  server.handleClient();
+}
+
 void network_loop() {
   if (!networkRuntimeEnabled()) return;
   server.handleClient();   // dashboard stays viewable with Web control off

@@ -21,21 +21,24 @@ void turn_on_LED(){
   Duration = 0;
   startTime2 = millis();
   digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
-  // Countdown bookkeeping + one short service window WHILE the LED burns: a
-  // pending status poll answers "Curing" with the full time ahead of it
-  // instead of after the exposure already ended. The loop below counts wall
-  // time, so servicing here costs the exposure nothing; SD stays safe because
-  // every SD-touching endpoint answers 409 while the printer is busy.
+  // Countdown bookkeeping - the dashboard shows "Curing · Ns" from these.
   phaseStartMs = startTime;
   phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
-  #if ENABLE_NETWORK
-  network_service_window(120);
-  #endif
 
   while (Duration <= ExposureMillis && !print_canceled){
     Duration = millis()-startTime;
     Duration2 = millis()-startTime2;
-    
+
+    // Service HTTP while the LED burns. The exposure counts wall time, so
+    // this costs it nothing - but without it the dashboard stalled until the
+    // next between-phase window, up to a full base exposure (~35 s), which
+    // read as "the page hung" (user finding). Same SD safety as the
+    // between-phase windows: every SD-touching endpoint answers 409 while
+    // the printer is busy.
+    #if ENABLE_NETWORK
+    network_service_http();   // HTTP only - no MQTT/Connect timeouts in here
+    #endif
+
     // Check button inputs every 500ms
     if (Duration2 >= 500 && digitalRead(buttonUp) == LOW && screen == 1111 && print_canceled == false && print_paused == false){
       screen1111UP();
