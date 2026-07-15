@@ -338,7 +338,8 @@ function inboxPage(notes, listKey, view) {
 body{margin:0;background:var(--bg);color:var(--text);font:15.5px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:24px 14px 60px;display:flex;flex-direction:column;gap:14px}
 header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:2px}
-h1{font-size:1.2rem;margin:0}h1 b{color:var(--accent)}
+h1{font-size:1.2rem;margin:0;display:flex;align-items:center;gap:8px}h1 b{color:var(--accent)}
+h1 .mark{width:24px;height:24px;flex:none}
 .counts{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
 .filters{display:flex;gap:8px;flex-wrap:wrap}
 .filters a{background:var(--pill);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:600;text-decoration:none}
@@ -396,7 +397,7 @@ footer{color:var(--muted);font-size:.76rem;text-align:center}
 footer a{color:#84bcf8;text-decoration:none}
 </style></head><body><div class="wrap">
 <header>
-  <h1><b>Feedback</b> inbox</h1>
+  <h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg><b>TinyMakerWifi</b> feedback</h1>
   <span class="counts">${open} open · ${all.length} total</span>
 </header>
 ${all.length ? `<div class="filters">
