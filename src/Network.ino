@@ -2337,7 +2337,11 @@ void handleRootPage() {
   </div>
 </section>
 
-<section id='connectView' class='card hidden'>
+<!-- No card wrapper: the hosted app frames its own tiles, and our card pushed
+     its tab strip 33px lower than the Settings one, which read as a misaligned
+     menu (user finding). Dropping it also stops us framing Brian's UI - the
+     direction the Connect offload spec is heading anyway. -->
+<section id='connectView' class='hidden'>
   <div id='connectHostedRoot'>
     <h2>TinyMaker Connect</h2>
     <div id='connectHostedStatus' class='hint'>Loading Connect from the configured server...</div>
