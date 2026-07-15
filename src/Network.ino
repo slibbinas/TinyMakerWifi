@@ -2184,9 +2184,11 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // margins (user finding). Connect goes full width (its tiles auto-fill);
     // the rest widen to 900 with three-column form fields, and the model
     // panel splits info | 3D preview once the preview is open.
-    // Settings spans the full frame width (aligned with the view-tab row,
-    // user decision); the other views stay a comfortable 900px band.
-    "#updateView,#modelPanel,#dryRunBanner,#webControlBanner{max-width:900px;margin-left:auto;margin-right:auto}"
+    // Every view tab spans the full frame width, so their cards line up with
+    // the tab row above them - a narrower Update card read as a broken frame
+    // (user finding), and a banner inset from the page looks like a mistake.
+    // The model panel keeps the 900px band: it is a reading surface, not a tab.
+    "#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}"
     ".configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}"
     // Print settings are exactly 16 fields -> a clean 4x4 block; grids inside
     // the half-width paired cards drop back to two columns.
