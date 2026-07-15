@@ -103,6 +103,14 @@ uint32_t totalUvLedSecs = 0;        // lifetime UV LED on-time seconds - the LED
                                     // lit time, not print time (dry runs don't count)
 unsigned long uvLedSessionMs = 0;   // this print's LED-on ms, folded in at savePrintTime
 unsigned long printStartMs = 0;     // millis() when the current print started
+// Live phase countdown for the dashboard ("Curing · 9s"): when the current
+// phase began and how long it should run. Curing is exact - the exposure
+// computed for this layer. Lifting/dropping use the previous layer's measured
+// duration: layers repeat almost perfectly, so the last cycle is the best
+// predictor the firmware has. Total 0 = unknown (first layer, pause, cancel).
+unsigned long phaseStartMs = 0;
+unsigned long phaseTotalMs = 0;
+unsigned long prevLiftMs = 0, prevDropMs = 0;
 uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
 bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
@@ -1606,11 +1614,19 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
-          lift_print();
-          delay(50);
+          // The service window moved from after the move to before it: a
+          // pending status poll now answers "Lifting" with the countdown
+          // ahead of it, not after the phase already ended. The measured
+          // duration includes the window - so does next layer's, so the
+          // prediction stays honest.
+          phaseStartMs = millis();
+          phaseTotalMs = prevLiftMs;
           #if ENABLE_NETWORK
           network_service_window(160);
           #endif
+          lift_print();
+          prevLiftMs = millis() - phaseStartMs;
+          delay(50);
           
           if(current_layer == layer_counter)
             break;
@@ -1735,11 +1751,14 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
-            lower_print();
+            phaseStartMs = millis();
+            phaseTotalMs = prevDropMs;
             #if ENABLE_NETWORK
             network_service_window(160);
             #endif
-          }           
+            lower_print();
+            prevDropMs = millis() - phaseStartMs;
+          }
         } 
         #if ENABLE_NETWORK
         // Canceled: tell the phone NOW - the decision is final and the run

@@ -21,7 +21,17 @@ void turn_on_LED(){
   Duration = 0;
   startTime2 = millis();
   digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
-  
+  // Countdown bookkeeping + one short service window WHILE the LED burns: a
+  // pending status poll answers "Curing" with the full time ahead of it
+  // instead of after the exposure already ended. The loop below counts wall
+  // time, so servicing here costs the exposure nothing; SD stays safe because
+  // every SD-touching endpoint answers 409 while the printer is busy.
+  phaseStartMs = startTime;
+  phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+  #if ENABLE_NETWORK
+  network_service_window(120);
+  #endif
+
   while (Duration <= ExposureMillis && !print_canceled){
     Duration = millis()-startTime;
     Duration2 = millis()-startTime2;

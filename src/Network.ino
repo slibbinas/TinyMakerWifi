@@ -1940,6 +1940,16 @@ void handleApiStatus() {
   out += jsonEscape(printerStateText());
   out += "\",\"stateCode\":";
   out += String(current_state);
+  // Phase countdown - meaningful only for curing/lifting/dropping mid-print.
+  // Total 0 = unknown (first layer has no measurement yet); the dashboard
+  // shows no countdown then.
+  {
+    bool phased = busy && current_state >= 1 && current_state <= 3 && phaseTotalMs > 0;
+    out += ",\"phaseTotalMs\":";
+    out += String((unsigned long)(phased ? phaseTotalMs : 0));
+    out += ",\"phaseElapsedMs\":";
+    out += String((unsigned long)(phased ? millis() - phaseStartMs : 0));
+  }
   out += ",\"layerHeight\":";
   out += String(Layer_Height, 2);
   out += ",\"wifiRssi\":";
@@ -2900,7 +2910,8 @@ const applyStatus=s=>{
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
-    setText('stateValue',s.state); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
+    renderStateValue(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
@@ -3526,9 +3537,24 @@ let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
+// "Curing · 9s" next to the state - the phase's remaining time, ticked locally
+// between polls: mid-print the printer answers polls only in short windows
+// between phases, so the browser does the counting from the last answer.
+let phaseRx=null;
+const renderStateValue=()=>{
+  let t=statusData?statusData.state:'-';
+  if(statusData&&statusData.busy&&phaseRx){
+    const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
+    // A little over is normal (the estimate is last layer's measurement);
+    // way over means the prediction is off - drop the number, keep the state.
+    if(rem>-1500)t+=' · '+Math.max(0,Math.ceil(rem/1000))+'s';
+  }
+  setText('stateValue',t);
+};
 const tickLocalStatus=()=>{
   if(statusData&&statusData.busy&&localPrintStartedAt){
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
+    renderStateValue();
   }
 };
 
