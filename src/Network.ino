@@ -1940,11 +1940,12 @@ void handleApiStatus() {
   out += jsonEscape(printerStateText());
   out += "\",\"stateCode\":";
   out += String(current_state);
-  // Phase countdown - meaningful only for curing/lifting/dropping mid-print.
-  // Total 0 = unknown (first layer has no measurement yet); the dashboard
-  // shows no countdown then.
+  // Phase countdown - curing/lifting/dropping mid-print, plus the final lift
+  // (state 4 Canceling / 8 Finished), whose duration the lift computes from
+  // distance and speed. Total 0 = unknown; the dashboard shows no number then.
   {
-    bool phased = busy && current_state >= 1 && current_state <= 3 && phaseTotalMs > 0;
+    bool phased = busy && phaseTotalMs > 0 &&
+                  ((current_state >= 1 && current_state <= 4) || current_state == 8);
     out += ",\"phaseTotalMs\":";
     out += String((unsigned long)(phased ? phaseTotalMs : 0));
     out += ",\"phaseElapsedMs\":";

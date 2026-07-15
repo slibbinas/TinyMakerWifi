@@ -325,6 +325,17 @@ void lift_finished_print(){
   // of millimetres silent: that stretch is the last layer's peel, and a
   // service pause mid-peel is the one thing kept away from parts.
   long liftStartPos = stepper.currentPosition();
+  // Feed the dashboard countdown ("Canceling · 25s"): distance and top speed
+  // are known, so the duration is arithmetic. The accel ramp adds a moment -
+  // the browser drops the number if the estimate overruns.
+  {
+    float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
+    long stepsToGo = lift_finished_print_steps - liftStartPos;
+    if (stepsToGo > 0 && stepsPerSec > 1.0f) {
+      phaseStartMs = millis();
+      phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
+    }
+  }
   unsigned long lastHttpSvc = millis();
   while (stepper.distanceToGo()!= 0){
     stepper.run();

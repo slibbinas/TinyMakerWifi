@@ -125,5 +125,9 @@ void turn_on_LED(){
   }
   if (uvOffTimer) esp_timer_stop(uvOffTimer);  // don't let it fire into the next phase
   digitalWrite(LED, LOW);
+  // A canceled exposure leaves its countdown mid-flight; zero it so the
+  // "Canceling" state doesn't briefly show the dead exposure's number
+  // before the final lift posts its own.
+  if (print_canceled) phaseTotalMs = 0;
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }
