@@ -3169,14 +3169,31 @@ const renderFiles=()=>{
   if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small secondaryBtn"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small secondaryBtn"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
   list.innerHTML=h;
 };
+// The SD card cannot change while a print runs - it is locked for the printer's
+// own layer reads - so a list saved from before the print is guaranteed correct
+// for its whole duration. That makes it worth keeping: a page opened or
+// reloaded mid-print used to show an empty card (nothing cached in a fresh tab,
+// and no SD reads allowed), which read as "the models are gone" (user finding).
+const FILES_LS='tmFilesCache';
+const saveFilesCache=()=>{try{localStorage.setItem(FILES_LS,JSON.stringify({items:filesItems,hidden:filesHidden}));}catch(e){}};
+const restoreFilesCache=()=>{
+  try{const c=JSON.parse(localStorage.getItem(FILES_LS)||'null');
+    if(c&&c.items&&c.items.length){filesItems=c.items;filesHidden=c.hidden||0;return true;}
+  }catch(e){}
+  return false;
+};
 const loadFiles=async()=>{
   const list=$('filesList');
-  if(statusData&&statusData.busy){renderFiles();show('filesFilter',false);return;} // no SD reads mid-print; show the cached list, locked
+  if(statusData&&statusData.busy){            // no SD reads mid-print
+    if(!filesItems.length)restoreFilesCache(); // ...but the card cannot have changed
+    renderFiles();show('filesFilter',false);return;
+  }
   if(!filesItems.length)list.innerHTML='<div class="hint">Loading the SD card...</div>';
   try{
     const d=await api('/api/files');
     updateSdUsage(d);
     filesItems=d.items||[];filesHidden=d.hiddenCount||0;
+    saveFilesCache();
     connectLocalModels={};
     filesItems.forEach(it=>{if(it.type==='model'&&it.connectPublicId)connectLocalModels[it.connectPublicId]=it.name;});
     show('filesFilter',filesItems.length>FILES_PER_PAGE);
