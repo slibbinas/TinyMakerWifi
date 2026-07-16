@@ -74,10 +74,14 @@ export default {
     // form, turning every beta user into a structured tester (checklist ->
     // Copy report -> feedback form). Nothing secret lives in it, and panels
     // are written knowing they are public. HTML lives in KV; a new one goes
-    // up per release (wrangler kv key put panel:testai). The PANEL_KEY secret
+    // up per release (wrangler kv key put panel:tests). The PANEL_KEY secret
     // stays available for a future *internal* panel route if one is needed.
-    if (request.method === 'GET' && path === '/testai') {
-      const html = await env.FEEDBACK.get('panel:testai');
+    if (path === '/testai') {   // the original Lithuanian path, kept as a redirect
+      url.pathname = '/tests';
+      return Response.redirect(url.toString(), 301);
+    }
+    if (request.method === 'GET' && path === '/tests') {
+      const html = await env.FEEDBACK.get('panel:tests');
       if (!html) return new Response('No panel uploaded yet', { status: 404 });
       return new Response(html, {
         headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },

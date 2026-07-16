@@ -2144,7 +2144,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // when the card has no models - then Upload IS the call to action; with
     // models present the row Starts own the accent.
     ".files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}"
-    "#uploadButton{width:228px}"
+    // The header Upload borrowed .small's squat padding to match the row
+    // buttons' width; it only needed the width, and next to an h2 it read as
+    // stunted (user finding). Full-height padding, same column width.
+    "#uploadButton{width:228px;padding:12px 14px;font-size:15px}"
     "#uploadButton.cta{background:var(--accent);color:#fff}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     // First row keeps the same top padding as every other row - the zero
@@ -2596,11 +2599,16 @@ void handleRootPage() {
     <div><div class='label'>Installed</div><div id='updInstalled' class='value'>-</div></div>
     <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
   </div>
-  <div id='updMsg' class='hint'>Checking...</div>
+  <!-- Status and community sat in two stacked one-line hints (user finding) -
+       same grid as the values above, so they read as one block. -->
+  <div class='grid' style='margin-top:6px'>
+    <div id='updMsg' class='hint' style='margin:0'>Checking...</div>
+    <div id='communityStats' class='hint hidden' style='margin:0'></div>
+  </div>
   <!-- Shown only on a pre-release: closes the tester loop - checklist ->
-       Copy report -> feedback form (the panel is public by design). -->
-  <div id='updBetaTests' class='hint hidden'>Running a beta? <a href='https://tinymakerwifi.com/testai?lang=en' target='_blank' rel='noopener'>Walk the test checklist</a> - its report pastes straight into the feedback form.</div>
-  <div id='communityStats' class='hint hidden'></div>
+       Send report -> feedback form (the panel is public by design). The fw
+       tag rides along so the report knows what it was run against. -->
+  <div id='updBetaTests' class='hint hidden'>Running a beta? <a id='updTestsLink' href='https://tinymakerwifi.com/tests?lang=en' target='_blank' rel='noopener'>Walk the test checklist</a> - the report goes straight into the feedback form.</div>
   <div class='actions'>
     <button id='updInstallLatest' class='spanAll' type='button' disabled>Install latest</button>
   </div>
@@ -2623,7 +2631,10 @@ void handleRootPage() {
   <form id='updUploadForm' class='hidden'>
     <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
   </form>
-  <div class='hint'>Updates are blocked while printing. Do not power off during an update - the printer reboots by itself when done.</div>
+  <!-- "Updates are blocked" already appears in updMsg when it is actually
+       true; repeating it as a standing note said the same thing twice (user
+       finding). What is left is the part that is always worth knowing. -->
+  <div class='hint'>Do not power off during an update - the printer reboots by itself when done.</div>
   <div class='hint'>Need a full USB reflash or recovery? Use the <a href='https://connect.tinymakerwifi.com/flash.php' target='_blank' rel='noopener'>browser flasher</a> (Chrome/Edge + USB cable).</div>
 </section>
 
@@ -3075,7 +3086,10 @@ const applyStatus=s=>{
     }
     updateConnectView(connectConfig);
     $('uploadButton').disabled=s.busy||!s.sdReady; $('uploadFile').disabled=s.busy||!s.sdReady;
-    if(s.busy){$('uploadHint').textContent='Uploads and SD actions are disabled while the printer is busy.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
+    // One line, not three: the card used to stack "Uploads and SD actions are
+    // disabled", "Locked while printing" and "SD contents load after the print
+    // finishes" on top of each other (user finding).
+    if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
     if(was!==s.busy){loadFiles();loadConfig();}
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
@@ -3125,8 +3139,9 @@ const renderFiles=()=>{
   const slice=items.slice(filesPage*FILES_PER_PAGE,(filesPage+1)*FILES_PER_PAGE);
   const dis=(statusData&&(statusData.webControl===false||statusData.busy))?' disabled':'';
   const busy=!!(statusData&&statusData.busy);
-  let h=busy?'<div class="hint warn">Locked while printing.</div>':'';
-  if(!slice.length)h+='<div class="hint">'+(q?'No models match the filter.':(busy?'SD contents load after the print finishes.':'No printable model folders or SL1/ZIP archives found.'))+'</div>';
+  // The busy case is already stated once, above the list (see loadConfig).
+  let h='';
+  if(!slice.length&&!busy)h+='<div class="hint">'+(q?'No models match the filter.':'No printable model folders or SL1/ZIP archives found.')+'</div>';
   slice.forEach(it=>{
     // Models are the unmarked default - "Model folder" under every row said
     // nothing six times over (user finding). Only archives keep a subtitle,
@@ -3140,7 +3155,10 @@ const renderFiles=()=>{
   });
   // No models on the card -> Upload becomes the only meaningful action and
   // earns the accent; with models present the row Starts own it.
-  $('uploadButton').classList.toggle('cta',!filesItems.some(it=>it.type==='model'));
+  // Orange only on a genuinely empty card. Mid-print the list is unknown (no
+  // SD reads), not empty - the button went orange after a reload while
+  // printing, shouting an action that is locked anyway (user finding).
+  $('uploadButton').classList.toggle('cta',!busy&&!filesItems.some(it=>it.type==='model'));
   const nModels=items.filter(it=>it.type==='model').length,nArch=items.length-nModels;
   // Counts and the hidden-items note share one row (left | right) - stacked
   // they stretched the card for nothing (user finding).
@@ -3949,6 +3967,9 @@ const loadUpdate=async()=>{
     if(u.allowed)refreshInstallSelected();else $('updInstallSelected').disabled=true;
     $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Picked versions and file upload still work.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':(preRel?'You are running a pre-release. The stable channel is at '+u.latest+' - nothing to install unless you want to go back.':'Firmware is up to date.')));
     show('updBetaTests',!!preRel);
+    // Carry version + theme into the checklist so its report is self-labelling
+    // and the page opens in the theme the user is already in.
+    if(preRel&&statusData)$('updTestsLink').href='https://tinymakerwifi.com/tests?lang=en&fw='+enc(statusData.firmwareVersion||'')+'&build='+enc(statusData.firmwareBuild||'')+'&theme='+(document.documentElement.getAttribute('data-theme')||'dark');
   }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
 };
 const installFirmware=async v=>{
