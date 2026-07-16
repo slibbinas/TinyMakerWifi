@@ -2129,6 +2129,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}"
     ".sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}"
     "#sdUsageBar.warn{background:var(--warncol)}"
+    ".cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
@@ -2353,21 +2354,23 @@ void handleRootPage() {
   </div>
 
   <section id='sdSection' class='card'>
-    <h2>SD manager</h2>
-    <!-- Ordered by how often each part is used (user finding): the model list
-         (daily) first, upload (per new model) second, storage state last as a
-         slim footer that turns amber when it matters. The old order led with
-         the least-used part; checkUploadFits() guards space anyway. -->
+    <!-- Upload lives in the card header: a fixed spot that never slides with
+         the list length (a bottom placement floated - user finding), small
+         enough not to shout at slicer users who never upload here. One click:
+         the button opens the picker, picking a file uploads it. 'required'
+         had to leave the hidden input - it fails validation as "not
+         focusable". The list (the daily part) leads; storage is a slim
+         footer that turns amber when it matters - checkUploadFits() guards
+         space at upload time anyway. -->
+    <div class='cardHead'><h2>SD manager</h2>
+      <form id='uploadForm' style='margin:0'>
+        <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
+        <button id='uploadButton' class='small secondaryBtn' type='button' style='margin-top:0'>Upload&hellip;</button>
+      </form>
+    </div>
+    <div id='uploadHint' class='hint' style='margin-top:0'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
     <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
     <div id='filesList' class='files'></div>
-    <form id='uploadForm' style='margin-top:14px'>
-      <!-- One click: the button opens the picker, picking a file uploads it.
-           The input stays for the picker + the submit handler; 'required' had
-           to go - a hidden control fails form validation as "not focusable". -->
-      <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
-      <button id='uploadButton' class='button secondary' type='button'>Upload model&hellip;</button>
-    </form>
-    <div id='uploadHint' class='hint'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
     <div id='sdUsageBox' class='hidden' style='margin-top:12px'>
       <div class='meta' style='display:flex;justify-content:space-between;margin-bottom:4px'><span>SD card</span><span id='sdUsageText'>-</span></div>
       <div class='storageBar'><span id='sdUsageBar'></span></div>
