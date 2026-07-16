@@ -32,6 +32,7 @@ const CORS = {
 };
 
 const FORM_ORIGIN = 'https://slibbinas.github.io/TinyMakerWifi/feedback/';
+const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
 
@@ -85,6 +86,21 @@ export default {
       if (!html) return new Response('No panel uploaded yet', { status: 404 });
       return new Response(html, {
         headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
+    // The demo lives on gh-pages, but the apex is not a GitHub Pages site (no
+    // CNAME - Cloudflare serves it), so tinymakerwifi.com/demo/ was a 404 while
+    // the github.io path worked. Every link we hand out should be on our own
+    // domain; proxy it rather than send people to a URL that spells out someone
+    // else's hosting.
+    if (request.method === 'GET' && (path === '/demo' || path.startsWith('/demo/'))) {
+      const r = await fetch(GHPAGES + path.replace(/^\/demo/, '/demo') + (path === '/demo' ? '/' : ''),
+                            { cf: { cacheTtl: 300 } });
+      return new Response(r.body, {
+        status: r.status,
+        headers: { 'Content-Type': r.headers.get('Content-Type') || 'text/html; charset=utf-8',
+                   'Cache-Control': 'max-age=300' },
       });
     }
 
