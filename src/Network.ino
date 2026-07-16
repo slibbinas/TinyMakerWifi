@@ -2130,6 +2130,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}"
     "#sdUsageBar.warn{background:var(--warncol)}"
     ".cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}"
+    // Model names sat at the browser's default bold - one subtitle removal
+    // later they read like card headings (user finding). Pin them a step
+    // below h2 (17px) and lighter than full bold.
+    ".files strong{font-size:14px;font-weight:600}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     // First row keeps the same top padding as every other row - the zero
     // exception dated from when the list opened the card; now a hint sits
@@ -2582,18 +2586,21 @@ void handleRootPage() {
   <div class='actions'>
     <button id='updInstallLatest' class='spanAll' type='button' disabled>Install latest</button>
   </div>
-  <div id='updPickRow' class='configGrid hidden' style='margin-top:10px'>
-    <label><span>Install a specific version</span><select id='updVersionSelect' disabled></select></label>
-    <button id='updInstallSelected' class='button secondary' type='button' disabled style='align-self:end;margin:6px 0 12px'>Install selected</button>
+  <!-- One row, three install paths (user request - the third column sat
+       empty): version picker, its button, and the file fallback with the
+       same one-click-into-a-NAMED-confirm behaviour as the SD upload. The
+       row is ALWAYS visible; the manifest fetch toggles only the picker
+       pair, so file-flash - the offline lifeline - survives GitHub being
+       unreachable. Deliberately NOT a <label> around the file button: a
+       label activates its first control, so clicking the GitHub link would
+       have "pressed" Flash. -->
+  <div id='updPickRow' class='configGrid' style='margin-top:10px'>
+    <label id='updVerLabel' class='hidden'><span>Install a specific version</span><select id='updVersionSelect' disabled></select></label>
+    <button id='updInstallSelected' class='button secondary hidden' type='button' disabled style='align-self:end;margin:6px 0 12px'>Install selected</button>
+    <div><span style='display:block;font-size:13px;color:var(--muted)'>Or a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
   </div>
-  <!-- Same one-click pattern as the SD manager's upload, but flashing is not
-       harmless - the pick leads into the existing named confirm, not straight
-       to the flasher. One compact line instead of label + input + big button;
-       deliberately NOT merged into the version-picker row (different source,
-       and the phone collapses that grid). -->
-  <form id='updUploadForm' style='margin-top:14px'>
+  <form id='updUploadForm' class='hidden'>
     <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
-    <div class='label'>Or flash a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a>: <button id='updUploadButton' class='small secondaryBtn' type='button' disabled style='margin:0 0 0 6px'>Choose &amp; flash&hellip;</button></div>
   </form>
   <div class='hint'>Updates are blocked while printing. Do not power off during an update - the printer reboots by itself when done.</div>
   <div class='hint'>Need a full USB reflash or recovery? Use the <a href='https://connect.tinymakerwifi.com/flash.php' target='_blank' rel='noopener'>browser flasher</a> (Chrome/Edge + USB cable).</div>
@@ -3881,7 +3888,9 @@ const loadUpdate=async()=>{
     const list=(await r.text()).split('\n').map(s=>s.trim()).filter(s=>/^\d+\.\d+\.\d+$/.test(s));
     const sel=$('updVersionSelect');sel.innerHTML='';
     list.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v+(cmpVer(v,updInstalledVer)===0?' (installed)':'');sel.appendChild(o);});
-    show('updPickRow',list.length>0);
+    // Only the picker pair hides without a manifest - the row itself stays,
+    // carrying the always-available file-flash fallback.
+    show('updVerLabel',list.length>0);show('updInstallSelected',list.length>0);
     // usable right away when idle (the server still enforces its own gates);
     // while printing everything stays locked from the first paint
     if(!(statusData&&statusData.busy)){
@@ -3889,7 +3898,7 @@ const loadUpdate=async()=>{
       $('updUploadButton').disabled=false;$('updFile').disabled=false;
     }
     refreshInstallSelected();
-  }catch(e){show('updPickRow',false);}
+  }catch(e){show('updVerLabel',false);show('updInstallSelected',false);}
   try{
     const u=await api('/api/update',null,30000);
     updInstalledVer=u.installed;
