@@ -2138,6 +2138,14 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // later they read like card headings (user finding). Pin them a step
     // below h2 (17px) and lighter than full bold.
     ".files strong{font-size:14px;font-weight:600}"
+    // The action column is one visual unit from the header down: the row trio
+    // splits a fixed block into equal thirds and the header's Upload takes the
+    // same width, so every right edge lines up (user request). Orange only
+    // when the card has no models - then Upload IS the call to action; with
+    // models present the row Starts own the accent.
+    ".files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}"
+    "#uploadButton{width:228px}"
+    "#uploadButton.cta{background:var(--accent);color:#fff}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     // First row keeps the same top padding as every other row - the zero
     // exception dated from when the list opened the card; now a hint sits
@@ -2229,7 +2237,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // phones - the values are short and a single column wasted half the card
     // (user finding). Only the form grids and action rows collapse: inputs
     // genuinely need the width.
-    "@media(max-width:520px){.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
+    "@media(max-width:520px){.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}"
     // Desktop: widen the frame and lay the dashboard cards out in two
     // columns (status | controls, progress 3D | SD manager). The other
     // views stay a comfortable single column, centered.
@@ -3127,6 +3135,9 @@ const renderFiles=()=>{
     if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
+  // No models on the card -> Upload becomes the only meaningful action and
+  // earns the accent; with models present the row Starts own it.
+  $('uploadButton').classList.toggle('cta',!filesItems.some(it=>it.type==='model'));
   const nModels=items.filter(it=>it.type==='model').length,nArch=items.length-nModels;
   // Counts and the hidden-items note share one row (left | right) - stacked
   // they stretched the card for nothing (user finding).
