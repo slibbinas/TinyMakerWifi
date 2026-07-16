@@ -79,6 +79,22 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
   var fw=(q.get('fw')||'').slice(0,20),build=(q.get('build')||'').slice(0,20);
   if(fw)document.getElementById('fwLine').textContent='Firmware '+fw+(build?' ('+build+')':'')+' - attached automatically.';
 
+  // Arrived from the test checklist's "Send report": it left the report in
+  // sessionStorage (same origin) rather than the URL - a wall of text in the
+  // address bar breaks on length and looks alarming. Prefill and clear, so a
+  // later visit starts blank; the cursor lands after the report for the
+  // tester's own words.
+  try{
+    var rep=sessionStorage.getItem('tm-test-report');
+    if(rep){
+      var m=document.getElementById('msg');
+      m.value=rep;
+      sessionStorage.removeItem('tm-test-report');
+      m.focus();m.setSelectionRange(m.value.length,m.value.length);
+      m.placeholder='Anything else worth knowing? (the checklist result is above)';
+    }
+  }catch(e){}
+
   // Photos are downscaled here, in the browser: phone shots are 3-8 MB and
   // the collector keeps them in Workers KV (1 GB, free). 1600 px / q0.8
   // lands around 200-400 KB and still shows a layer line.

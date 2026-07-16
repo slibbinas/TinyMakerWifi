@@ -78,7 +78,7 @@ footer a{color:var(--muted2);text-decoration:underline}
       <p style="margin:10px 0 14px;font-size:14px;color:var(--muted)">Works when the printer is <b>powered on</b> and this device is on the <b>same WiFi</b>.</p>
       <a class="btn" id="printerGo" style="width:100%" href="http://tinymaker.local" target="_blank" rel="noopener">Open tinymaker.local</a>
       <p style="margin:14px 0 6px;font-size:13px;color:var(--muted)">If that doesn't load, enter the printer's IP (System &gt; WiFi Info):</p>
-      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" style="flex:0 0 auto">Open</a></div>
+      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" target="_blank" rel="noopener" style="flex:0 0 auto">Open</a></div>
       <a href="#" id="printerCancel" style="display:block;margin-top:14px;font-size:13px;color:var(--muted2);text-align:center">Cancel</a>
     </div>
   </div>
@@ -96,7 +96,20 @@ footer a{color:var(--muted2);text-decoration:underline}
     document.getElementById('printerGo').addEventListener('click',function(){modal.style.display='none';});
     document.getElementById('printerCancel').addEventListener('click',function(e){e.preventDefault();modal.style.display='none';});
     modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
-    document.getElementById('ipGo').addEventListener('click',function(e){e.preventDefault();var v=box.value.trim();if(!v)return;try{localStorage.setItem('tmPrinterIp',v);}catch(err){}applyIp();modal.style.display='none';window.open('http://'+v,'_blank');});
+    // Open must be a REAL link click: window.open('http://LAN') from this
+    // https page was silently dropped (user finding - nothing happened at
+    // all). Keeping the href live and letting the anchor navigate is a
+    // plain user-initiated navigation, which nothing blocks.
+    var ipGo=document.getElementById('ipGo');
+    var syncIpHref=function(){var v=box.value.trim();ipGo.href=v?'http://'+v:'#';};
+    box.addEventListener('input',syncIpHref);
+    syncIpHref();
+    ipGo.addEventListener('click',function(e){
+      var v=box.value.trim();
+      if(!v){e.preventDefault();box.focus();return;}
+      try{localStorage.setItem('tmPrinterIp',v);}catch(err){}
+      applyIp();modal.style.display='none';   // the link itself does the opening
+    });
     // Theme toggle (shared localStorage key with the printer dashboard) +
     // manual links open the manual in the matching theme.
     var applyManual=function(){
