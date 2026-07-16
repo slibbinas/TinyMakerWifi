@@ -37,6 +37,13 @@ unless noted. Community contributors are tagged inline.
 - **Exposure undo** — when the exposure test (or a config save) replaces your
   Regular exposure, the old value is remembered and an *Undo (Xs)* link
   appears next to the field.
+- **The 3D preview draws a surface instead of a fog of dots.** The printed part
+  used to be a flat orange blob — harder to read than the unprinted ghost next
+  to it. Every voxel was drawn, including the 86% buried inside, and the light
+  was a gradient over the grid, so a flat top and a vertical wall came out the
+  same colour and the shape disappeared. Only the faces the camera can see are
+  drawn now, as the quads they are, shaded from a real surface normal — blocky
+  geometry that reads as round, because the eye takes curvature from light.
 - **A liveness dot next to State while printing** — green means the printer
   answered within the last few seconds; amber with *syncing* means it is
   mid-move and will answer at its next network window. Mid-print pauses stop
@@ -159,6 +166,21 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **Stop during homing brings the plate back.** Cancelling a print while it was
+  still homing left the plate hanging wherever it stood. It now retraces the
+  descent — up, and only as far as it came down. (It cannot lift to the top
+  there: mid-homing the endstop hasn't been reached, so the true height is
+  unknown, and lifting blind would drive into the top. Retracing needs no
+  reference at all.)
+- **The SD card list survives a reload mid-print** — a page opened or reloaded
+  while printing showed an empty card, because a fresh tab has nothing cached
+  and the printer won't read the SD while it feeds layers. The list is kept in
+  the browser now; it can't go stale, since the card is locked for the whole
+  print anyway.
+- **The upload button is a single gate.** Two places decided whether it was
+  enabled — one watching web control, the other the printer — and neither saw
+  the whole picture, which could leave an enabled button in front of a disabled
+  file picker: a control that silently did nothing.
 - **"Printer busy" errors say when they pass** — every action blocked during
   a print now answers *"The printer is busy printing — this unlocks when the
   print ends."* instead of the bare server text.
