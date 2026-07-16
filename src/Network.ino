@@ -2131,7 +2131,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     "#sdUsageBar.warn{background:var(--warncol)}"
     ".cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
-    "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
+    // First row keeps the same top padding as every other row - the zero
+    // exception dated from when the list opened the card; now a hint sits
+    // above it and the first name glued itself to the text (user finding).
+    "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
     ".meta{font-size:12px;color:var(--muted2);margin-top:3px}"
     // The row whose model sits in the preview card. Left rail + a worded chip:
@@ -2368,7 +2371,7 @@ void handleRootPage() {
         <button id='uploadButton' class='small secondaryBtn' type='button' style='margin-top:0'>Upload&hellip;</button>
       </form>
     </div>
-    <div id='uploadHint' class='hint' style='margin-top:0'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
+    <div id='uploadHint' class='hint' style='margin:2px 0 10px'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
     <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
     <div id='filesList' class='files'></div>
     <div id='sdUsageBox' class='hidden' style='margin-top:12px'>
