@@ -13,7 +13,34 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased] — `experimental` branch
+## [0.15.5] — 2026-07-16
+
+A screen-feedback patch: every long operation now shows live progress, and
+nothing repaints more pixels than it changes.
+
+### Fixed
+- **The unpacking screen no longer flickers.** Extracting layers repainted the
+  whole LCD every 20 layers; it now paints once and only grows a progress bar
+  and updates the layer counter in place. The firmware-flashing screen never
+  flickered for exactly this reason — now every progress screen works that way.
+- **Real progress bars where a "wrapping" bar used to loop.** Model upload and
+  boot-animation download showed a bar that swept and started over because the
+  total size was "unknown" — it was in fact available (the upload's
+  Content-Length; the animation's exact size from its own TMB header). Both now
+  fill once, left to right. Flashing firmware from the dashboard gains a real
+  bar too.
+- **Deleting a big model from the dashboard no longer looks like a crash.**
+  The printer's screen showed nothing while hundreds of layer files were being
+  removed (tens of seconds, buttons unresponsive by design), and the
+  dashboard's "deleting…" message vanished after 5 seconds with the model
+  still listed. The LCD now shows the same *Deleting* progress screen the
+  printer's own menu shows, and the dashboard message stays up until the
+  printer confirms.
+
+## [0.15.0 – 0.15.4] — 2026-07-15 / 2026-07-16
+
+One beta wave, promoted to stable as 0.15.4 on 2026-07-16 (0.15.1–0.15.4 were
+fix-ups of the 0.15.0 beta found during live testing).
 
 ### Added
 - **Feedback link** — the dashboard header links a 30-second feedback form
