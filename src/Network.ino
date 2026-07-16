@@ -3460,10 +3460,20 @@ const restoreDashPreview=async()=>{
     if(!dashPreviewName&&!(statusData&&statusData.busy))dashPreviewPlaceholder();
   }
 };
+// On the phone the preview card sits above the SD list, so a tap on Preview
+// or Start rendered into a card the user could not see - nothing seemed to
+// happen (user finding). Scroll it into view, but only when it is actually
+// out of sight: on the desktop two-column layout both cards are visible and
+// yanking the page would be worse than doing nothing.
+const scrollPreviewIntoView=()=>{
+  const r=$('printPreviewCard').getBoundingClientRect();
+  if(r.top<0||r.top>window.innerHeight*0.6)$('printPreviewCard').scrollIntoView({behavior:'smooth',block:'start'});
+};
 const dashPreview=async nameEnc=>{
   const name=decodeURIComponent(nameEnc);
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
+  scrollPreviewIntoView();
   fetchSlicesSeq++;                        // cancel a previous run right away
   const cv=$('printPreviewCanvas');
   $('printPreviewTitle').textContent='Model preview';
@@ -3615,6 +3625,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         $('printPreviewTitle').textContent='Print progress 3D';
         show('dashModelInfo',false);show('dashShareButton',false);
         show('printPreviewCard',true);
+        scrollPreviewIntoView();   // a phone Start renders above the fold otherwise
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
         slicesPrefetching=true;
         try{await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);}
@@ -3625,7 +3636,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
-  msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');refreshStatus();}catch(e){
+  msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');scrollPreviewIntoView();refreshStatus();}catch(e){
     if(e.message==='timeout'){
       // The POST reached the printer but the answer missed the 8 s window
       // (the main loop can sit in an MQTT/Connect timeout for that long) -
