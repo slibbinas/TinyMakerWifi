@@ -89,14 +89,17 @@ export default {
       });
     }
 
-    // The demo lives on gh-pages, but the apex is not a GitHub Pages site (no
-    // CNAME - Cloudflare serves it), so tinymakerwifi.com/demo/ was a 404 while
-    // the github.io path worked. Every link we hand out should be on our own
-    // domain; proxy it rather than send people to a URL that spells out someone
-    // else's hosting.
-    if (request.method === 'GET' && (path === '/demo' || path.startsWith('/demo/'))) {
-      const r = await fetch(GHPAGES + path.replace(/^\/demo/, '/demo') + (path === '/demo' ? '/' : ''),
-                            { cf: { cacheTtl: 300 } });
+    // The demo and the manual live on gh-pages, but the apex is not a GitHub
+    // Pages site (no CNAME - Cloudflare serves it), so only the paths this
+    // worker owns exist there: tinymakerwifi.com/demo/ and /manual/ were 404s
+    // while the github.io ones worked. Every link we hand out should be on our
+    // own domain rather than spelling out someone else's hosting - and the
+    // trailing images/CSS under those paths have to come along, so this proxies
+    // the subtree, not just the page.
+    if (request.method === 'GET' &&
+        /^\/(demo|manual)(\/|$)/.test(path)) {
+      const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
+      const r = await fetch(upstream.replace(/\/+$/, '/'), { cf: { cacheTtl: 300 } });
       return new Response(r.body, {
         status: r.status,
         headers: { 'Content-Type': r.headers.get('Content-Type') || 'text/html; charset=utf-8',
