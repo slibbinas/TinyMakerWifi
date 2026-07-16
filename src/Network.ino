@@ -2604,7 +2604,10 @@ void handleRootPage() {
   <div id='updPickRow' class='configGrid' style='margin-top:10px'>
     <label id='updVerLabel' class='hidden'><span>Install a specific version</span><select id='updVersionSelect' disabled></select></label>
     <button id='updInstallSelected' class='button secondary hidden' type='button' disabled style='align-self:end;margin:6px 0 12px'>Install selected</button>
-    <div id='updFileCell'><span style='display:block;font-size:13px;color:var(--muted)'>Or a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
+    <!-- "Or a firmware.bin..." dangled - its "or" pointed at a sentence two
+         columns away (user finding). Imperative, parallel to "Install a
+         specific version". -->
+    <div id='updFileCell'><span style='display:block;font-size:13px;color:var(--muted)'>Flash a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
   </div>
   <form id='updUploadForm' class='hidden'>
     <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
