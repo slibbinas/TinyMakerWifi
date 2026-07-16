@@ -6,7 +6,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 
 🌐 **[tinymakerwifi.com](https://tinymakerwifi.com)** — the project site: what the firmware does, how to get started, community links and an *Open my printer* shortcut.
 
-🧪 **[Live demo](https://slibbinas.github.io/TinyMakerWifi/demo/)** — the real web dashboard driving a simulated printer: start a print, watch the 3D progress, poke through Settings. Nothing to install, no printer needed.
+🧪 **[Live demo](https://tinymakerwifi.com/demo/)** — the real web dashboard driving a simulated printer: start a print, watch the 3D progress, poke through Settings. Nothing to install, no printer needed.
 
 📖 **[Illustrated user manual](https://slibbinas.github.io/TinyMakerWifi/manual/)** — step by step from the first flash to Home Assistant, with screenshots and an FAQ. Also one tap away from the printer's dashboard (the *Manual* link in the header).
 
@@ -38,7 +38,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
 * **Web dashboard** — open the printer's IP in a browser: SD manager (upload/delete/start), live print status with pause/resume/stop and finish-time estimate, device config and a dry-run test mode — with a **light/dark theme**, a dismissible **Getting Started** checklist, contextual **?** help next to the tricky settings, an always-on **Model preview** card (remembers the last previewed model) and a **PWA manifest** so the dashboard pins to a phone's home screen with the project icon *(initial version contributed by [@Briadark](https://github.com/Briadark))*
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
-* **Telegram, WhatsApp or Discord notifications** — the printer messages you when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. Pick one channel: a Telegram bot, WhatsApp through the free CallMeBot gateway, or a Discord channel webhook — each with inline **?** setup help and a *Send test* button
+* **Telegram, WhatsApp or Discord notifications** — the printer messages you when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. Pick one channel: a Telegram bot, WhatsApp through the free CallMeBot gateway, or a Discord channel webhook — each with inline **?** setup help and a *Send test* button. *(Telegram is tested daily; WhatsApp and Discord ship untested — they ride on your own CallMeBot key or channel webhook, so the only test that proves anything is yours. Reports welcome, working or not.)*
 * **Anonymous usage ping** (optional) — once per firmware version the printer sends a one-way hash of its MAC address, the firmware version and the lifetime print hours, so we know how many printers are out there. Nothing else is sent, ever — switch it off under Settings → Network → *Anonymous usage ping*
 * **Firmware updates over WiFi** — self-update from the printer (System → Update) or from the dashboard's **Update tab** (install latest, pick **any version** from a list, or upload a file). PlatformIO OTA for developers. Flashing is blocked while printing.
 * Everything is switchable: WiFi and Web control can be turned off right on the printer (System → Advanced), and build switches still let developers compile the original, network-free firmware from the same code base
@@ -124,6 +124,7 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 ## PrusaSlicer setup
 
 1. Import the TinyMaker printer profile (`TinyMaker.ini`, in this repo) via *File → Import → Import Config*.
+   **Then save each of the three presets** — click the floppy-disk icon next to *Print settings*, *Material* and *Printer* and accept the names. Imported presets are temporary until saved, so without this step PrusaSlicer forgets the printer every time you close it, and you start over.
 2. Add a **physical printer**: click the cog icon next to the printer profile → *Add physical printer*:
    * **Name:** anything (e.g. `TinyMaker WiFi`)
    * **Hostname, IP or URL:** `tinymaker.local` (or the printer's IP shown in System → WiFi Info)
@@ -152,6 +153,8 @@ In the **Print** menu, **press and hold OK for ~1.5 seconds** on a model — a *
 
 Open the printer's IP address in any browser for the full dashboard *(initial version contributed by [@Briadark](https://github.com/Briadark))*: live print status and controls, SD card management with one-click start/import, device settings, backups and firmware updates — all in tabs styled to match the printer's UI.
 
+While a print runs, the status card counts the current phase down next to its name — *Curing · 9s* — and a small dot says whether the printer answered just now or is mid-move. That matters on this hardware: one ESP32 drives the screen, the motor, the UV LED and the web server off a single SD card, so the dashboard is served in the gaps between layer moves. A pause of a few seconds with an amber *syncing* mark is the printer working, not the page hanging.
+
 <img src="Images/mockups/web-dashboard.png" width="420" alt="TinyMakerWiFi web dashboard: live print status, controls and SD manager">
 
 On a desktop-sized screen the dashboard spreads into two columns — here it is in real use, idle with a card full of models:
@@ -161,6 +164,8 @@ On a desktop-sized screen the dashboard spreads into two columns — here it is 
 ### 3D preview & live print progress
 
 Every model on the SD card can be previewed in 3D — the browser rebuilds the shape from the sliced layers (the printer only streams a few dozen small files) and draws it inside the build-volume box. Start the print from the dashboard and the same view turns into a **live progress render**: the printed part fills in with color, the unprinted rest stays a ghost outline. Works offline, no libraries, and costs the printer nothing while printing.
+
+There is no mesh to render — the model reaches the printer already sliced into images, so the shape is rebuilt from the layers themselves. Only the surfaces the camera can actually see are drawn, and each is shaded from a normal estimated out of its neighbourhood, which is what makes blocky voxels read as a rounded object.
 
 A real print in progress — a plate of teeth with supports, rendered live in the build-volume box:
 
