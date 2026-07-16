@@ -2597,6 +2597,9 @@ void handleRootPage() {
     <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
   </div>
   <div id='updMsg' class='hint'>Checking...</div>
+  <!-- Shown only on a pre-release: closes the tester loop - checklist ->
+       Copy report -> feedback form (the panel is public by design). -->
+  <div id='updBetaTests' class='hint hidden'>Running a beta? <a href='https://tinymakerwifi.com/testai?lang=en' target='_blank' rel='noopener'>Walk the test checklist</a> - its report pastes straight into the feedback form.</div>
   <div id='communityStats' class='hint hidden'></div>
   <div class='actions'>
     <button id='updInstallLatest' class='spanAll' type='button' disabled>Install latest</button>
@@ -3945,6 +3948,7 @@ const loadUpdate=async()=>{
     $('updVersionSelect').disabled=!u.allowed;
     if(u.allowed)refreshInstallSelected();else $('updInstallSelected').disabled=true;
     $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Picked versions and file upload still work.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':(preRel?'You are running a pre-release. The stable channel is at '+u.latest+' - nothing to install unless you want to go back.':'Firmware is up to date.')));
+    show('updBetaTests',!!preRel);
   }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
 };
 const installFirmware=async v=>{
