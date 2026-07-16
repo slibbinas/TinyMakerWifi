@@ -2129,6 +2129,10 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}"
     ".sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}"
     "#sdUsageBar.warn{background:var(--warncol)}"
+    // Two-column widths park the file-flash cell alone in a half-empty row -
+    // let it span the row there; the desktop 3-column rule pulls it back
+    // into the third column (user finding on the middle width).
+    "#updFileCell{grid-column:1/-1}"
     ".cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}"
     // Model names sat at the browser's default bold - one subtitle removal
     // later they read like card headings (user finding). Pin them a step
@@ -2246,6 +2250,9 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // The model panel keeps the 900px band: it is a reading surface, not a tab.
     "#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}"
     ".configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}"
+    // Wide layout has a real third column - the file-flash cell goes back
+    // into it (below 1000px it spans the full row, see the base rule).
+    "#updFileCell{grid-column:auto}"
     // Print settings are exactly 16 fields -> a clean 4x4 block; grids inside
     // the half-width paired cards drop back to two columns.
     ".configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}"
@@ -2597,7 +2604,7 @@ void handleRootPage() {
   <div id='updPickRow' class='configGrid' style='margin-top:10px'>
     <label id='updVerLabel' class='hidden'><span>Install a specific version</span><select id='updVersionSelect' disabled></select></label>
     <button id='updInstallSelected' class='button secondary hidden' type='button' disabled style='align-self:end;margin:6px 0 12px'>Install selected</button>
-    <div><span style='display:block;font-size:13px;color:var(--muted)'>Or a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
+    <div id='updFileCell'><span style='display:block;font-size:13px;color:var(--muted)'>Or a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
   </div>
   <form id='updUploadForm' class='hidden'>
     <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
