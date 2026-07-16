@@ -1550,7 +1550,35 @@ void loop() {
           }
         }
         delay(50);
-          
+
+        // Stop pressed during homing: retrace the descent instead of freezing
+        // where it stands (user finding: "after Stop it doesn't go back").
+        // The final lift cannot help here - it targets an absolute height, and
+        // mid-homing there is no absolute reference: position 0 only means
+        // "where the plate stood when Start was pressed", the endstop has not
+        // been reached, so the true height is unknown. Returning to 0 needs no
+        // reference at all: it is the same steps, walked backwards, to a place
+        // the plate occupied seconds ago. Only ever upwards, and only as far
+        // as it came down. A real homing failure (the endstop never arrived,
+        // homing_canceled set by the travel limit) is deliberately left where
+        // it is - that machine has a fault, not a cancelled print.
+        if (print_canceled && homing_canceled && stepper.currentPosition() < 0) {
+          stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
+          stepper.enableOutputs();
+          stepper.moveTo(0);
+          unsigned long svc = millis();
+          while (stepper.distanceToGo() != 0) {
+            stepper.run();
+            if (millis() - svc >= 200) {
+              svc = millis();
+              #if ENABLE_NETWORK
+              network_service_http();
+              #endif
+            }
+          }
+          stepper.disableOutputs();
+        }
+
         if (homing_canceled != true){
           stepper.disableOutputs();
           stepper.setCurrentPosition(0);
