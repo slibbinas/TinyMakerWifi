@@ -12,6 +12,12 @@ Does, in order (asking once before anything is pushed/published):
                         /releases/latest - and the web flasher behind it -
                         keeps handing out the current stable)
 
+--promote turns an already-published beta into the stable release: it points
+version.txt/firmware.bin at the binary already on gh-pages, clears the
+prerelease flag, and trims the picker to a window (the new stable, anything
+newer, the outgoing stable and the two versions below). It does NOT build -
+the bytes that were tested are the bytes that ship.
+
 The version is read from FIRMWARE_VERSION in platformio.ini - bump it (both
 envs!) and commit before running. Release notes: --notes-file <path> or a
 minimal default.
@@ -20,6 +26,8 @@ Usage (from the repo root):
   %USERPROFILE%\\.platformio\\penv\\Scripts\\python.exe scripts\\release.py
   ... release.py --notes-file notes.md   # richer GitHub Release body
   ... release.py --dry-run               # everything except push/publish
+  ... release.py --beta                  # publish, but leave self-update alone
+  ... release.py --promote               # make this version's beta the stable one
 
 Auth: the GitHub token is taken from the git credential helper (the same one
 `git push` uses) - nothing to configure.
@@ -85,6 +93,99 @@ def gh_api(token, method, url, payload=None, content_type="application/json"):
         return json.loads(resp.read() or b"{}")
 
 
+# The picker offered every version ever shipped and gh-pages kept every binary
+# (~1.4 MB each) - a list nobody can reason about and a folder that only grows.
+# Keep a window instead: the stable release, everything newer (the betas), and
+# the two stable releases before it, so going back a step stays one click.
+# Nothing is lost - every release keeps its own GitHub Release page with both
+# binaries, and older firmware can still be flashed from a file.
+KEEP_OLDER_STABLE = 2
+
+
+def prune_versions(worktree, versions, stable, outgoing=None):
+    def key(v):
+        return tuple(int(n) for n in v.split("."))
+    newer = [v for v in versions if key(v) > key(stable)]
+    older = [v for v in versions if key(v) < key(stable)]
+    # The outgoing stable is kept by name, not by position: the versions just
+    # below a promotion are its own betas, so a window counted purely by
+    # distance would drop the last release that ever shipped to everyone -
+    # exactly the one to fall back to if the new line turns out bad.
+    keep = set(newer + [stable] + older[:KEEP_OLDER_STABLE])
+    if outgoing and outgoing in versions:
+        keep.add(outgoing)
+    dropped = [v for v in versions if v not in keep]
+    for v in dropped:
+        b = worktree / f"firmware-{v}.bin"
+        if b.exists():
+            b.unlink()
+    if dropped:
+        print(f"   picker window: dropped {', '.join(dropped)} (still on their Release pages)")
+    return [v for v in versions if v in keep]
+
+
+def promote(version):
+    """Make an already-published beta the stable release.
+
+    Deliberately does not build: the whole point of a beta window is that the
+    tested bytes ship unchanged, so this republishes the binary that is already
+    on gh-pages rather than compiling a fresh one from a tree that may have
+    moved on.
+    """
+    tag = f"v{version}"
+    print(f"== promoting {tag} to stable ==")
+    run(["git", "fetch", "origin", "gh-pages"])
+    if not GHPAGES_WORKTREE.exists():
+        run(["git", "worktree", "add", str(GHPAGES_WORKTREE), "gh-pages"])
+    run(["git", "reset", "--hard", "origin/gh-pages"], cwd=GHPAGES_WORKTREE)
+
+    src = GHPAGES_WORKTREE / f"firmware-{version}.bin"
+    if not src.exists():
+        fail(f"{src.name} is not on gh-pages - release the beta first")
+
+    # Read before overwriting: this is the release everyone is on right now,
+    # and it stays in the picker as the way back.
+    outgoing = ""
+    vt = GHPAGES_WORKTREE / "version.txt"
+    if vt.exists():
+        outgoing = vt.read_text().splitlines()[0].strip()
+    if outgoing == version:
+        fail(f"version.txt already points at {version} - nothing to promote")
+
+    (GHPAGES_WORKTREE / "firmware.bin").write_bytes(src.read_bytes())
+    (GHPAGES_WORKTREE / "version.txt").write_text(
+        f"{version}\n{PAGES_URL}/firmware.bin\n", newline="\n")
+    # The beta pointer follows stable: with nothing newer published, a printer on
+    # the beta channel would otherwise keep being offered what it already runs.
+    (GHPAGES_WORKTREE / "version-beta.txt").write_text(
+        f"{version}\n{PAGES_URL}/firmware-{version}.bin\n", newline="\n")
+
+    manifest_path = GHPAGES_WORKTREE / "versions.txt"
+    existing = []
+    if manifest_path.exists():
+        existing = [l.strip() for l in manifest_path.read_text().splitlines()
+                    if re.fullmatch(r"\d+\.\d+\.\d+", l.strip())]
+    kept = prune_versions(GHPAGES_WORKTREE, existing, version, outgoing)
+    manifest_path.write_text("\n".join(kept) + "\n", newline="\n")
+
+    run(["git", "add", "-A"], cwd=GHPAGES_WORKTREE)
+    run(["git", "commit", "-m", f"gh-pages: promote {version} to stable"], cwd=GHPAGES_WORKTREE)
+    run(["git", "push", "origin", "gh-pages"], cwd=GHPAGES_WORKTREE)
+
+    # /releases/latest is what the web flasher hands newcomers - it skips
+    # prereleases, so this flag is the difference between a beta and the
+    # version a first-time user gets.
+    print("-- clearing the prerelease flag")
+    token = github_token()
+    rel = gh_api(token, "GET", f"https://api.github.com/repos/{GH_REPO}/releases/tags/{tag}")
+    gh_api(token, "PATCH", f"https://api.github.com/repos/{GH_REPO}/releases/{rel['id']}",
+           {"prerelease": False, "make_latest": "true"})
+
+    print(f"== {tag} is stable ==")
+    print(f"   {PAGES_URL}/version.txt -> {version}")
+    print(f"   printers on the stable channel will offer it within a minute")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--notes-file", help="markdown file with the GitHub Release body")
@@ -95,9 +196,17 @@ def main():
                     help="beta release: publish the Release, the versioned bin and the "
                          "picker manifest, but do NOT touch version.txt/firmware.bin - "
                          "self-update stays on the previous version until promotion")
+    ap.add_argument("--promote", action="store_true",
+                    help="promote the already-published beta of this version to stable: "
+                         "point version.txt/firmware.bin at it and drop the Release's "
+                         "prerelease flag. No build, no tag - the bytes that were tested "
+                         "are the bytes that ship")
     args = ap.parse_args()
 
     version = read_version()
+    if args.promote:
+        promote(version)
+        return
     tag = f"v{version}"
     print(f"== TinyMakerWiFi release {tag} ==")
 
