@@ -278,6 +278,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The printer emulates the Prusa SL1 network protocol, so PrusaSlicer’s “Send to printer” works out of the box.</p>
   <ol class="steps">
     <li>Import the TinyMaker printer profile (<code>TinyMaker.ini</code>, in the repo) via <b>File → Import → Import Config</b>.</li>
+    <li><b>Save all three presets.</b> Click the floppy-disk icon next to <i>Print settings</i>, <i>Material</i> and <i>Printer</i> and accept the names. Imported presets are temporary until saved — skip this and PrusaSlicer forgets the printer every time you close it, and you start over.</li>
     <li>Add a <b>physical printer</b>: click the cog next to the printer profile → <b>Add physical printer</b>. Set <b>Hostname</b> to <code>tinymaker.local</code> (or the IP from System → WiFi Info); the API key can be any text.</li>
     <li>Click <b>Test</b> — it should report success (the printer must be on and on WiFi).</li>
     <li>Slice, then press <b>Send to printer</b>. The printer shows <i>Receiving → Unpacking → Model ready</i>, and the model appears in the <b>Print</b> menu.</li>
@@ -286,7 +287,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <img class="shot" src="images/prusaslicer-physical-printer.png" alt="PrusaSlicer: adding a physical printer pointing at tinymaker.local">
     <img class="shot" src="images/prusaslicer-send-to-printer.png" alt="PrusaSlicer: the Send to printer button">
   </div>
-  <div class="warn">⚠️ <b>Always slice with the 0.05&nbsp;mm profile.</b> Maximum model size: 1200 layers = 60&nbsp;mm.</div>
+  <div class="warn">⚠️ <b>Always slice with the 0.05&nbsp;mm profile.</b> Maximum model size: 1200 layers = 60&nbsp;mm.<br>
+  Unlike an FDM slicer, the layer height here is set <b>on the printer</b> (Settings → Layer height), not in the file — the file is just a stack of 0.05&nbsp;mm images, and at the 0.10&nbsp;mm setting the firmware exposes every other one. Slice at anything else and the part comes out the wrong height: at 0.3&nbsp;mm it would be six times too short.</div>
   <div class="note">💡 <b>Layer height works differently than on an FDM printer.</b> The printed layer height is decided by the <b>printer’s own setting</b> (<b>Layer Height</b>, in the printer’s Settings menu or the dashboard’s Settings tab) — not by the sliced file. The file is just a stack of 0.05&nbsp;mm images: at the 0.05&nbsp;mm setting the printer uses every image, at 0.10&nbsp;mm it takes every other one. That’s why you always slice at 0.05&nbsp;mm — the printer setting then chooses the real layer height, and a file sliced at 0.10&nbsp;mm would print half-height.</div>
 </section>
 
@@ -329,9 +331,12 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 <section>
   <h2 class="sec" id="dashboard"><span class="num">10</span>The web dashboard</h2>
   <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
-  <div class="note">🧪 No printer at hand? <a href="https://slibbinas.github.io/TinyMakerWifi/demo/">Try the dashboard live</a> — the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
+  <div class="note">🧪 No printer at hand? <a href="https://tinymakerwifi.com/demo/">Try the dashboard live</a> — the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
   <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form — what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
   <img class="shot" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard: live status, controls and SD manager">
+  <h3>While a print runs</h3>
+  <p>The state line counts the current step down — <b>Curing · 9s</b>, <b>Lifting · 4s</b> — and after <b>Stop</b> or a finished print it counts the ride to the top the same way, so that wait finally has a number. Next to it a small dot says whether the printer answered just now (green) or is mid-move (amber, <i>syncing</i>).</p>
+  <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card — so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> The SD card is locked for the same reason — uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
   <p>On a larger screen it spreads into two columns:</p>
   <img class="shot" src="images/dashboard-idle.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
@@ -339,7 +344,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
   <h3>The SD manager &amp; the Model preview card</h3>
   <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
-  <p>Every model row in the SD manager has three buttons: <b>Preview | Start | Delete</b>. Press <b>Preview</b> and the browser rebuilds the shape from the sliced layers and renders it into the <b>Model preview</b> card, with a live percentage and progress bar while it loads, then a compact info line — layers · height · print time · resin — and a <b>Share model</b> button (when TinyMaker Connect is registered).</p>
+  <p>The card leads with the model list — the part you use every day. <b>Upload…</b> sits in its corner: one click opens the file picker and the file starts uploading the moment you choose it. Storage sits at the bottom as a thin bar, out of the way until it matters (it turns amber past 85%). Uploading a model that doesn't fit is refused before anything is sent, so the bar is information, not a thing to watch.</p>
+  <p>Every model row in the SD manager has three buttons: <b>Preview | Start | Delete</b>. Press <b>Preview</b> and the browser rebuilds the shape from the sliced layers and renders it into the <b>Model preview</b> card, with a live percentage and progress bar while it loads, then a compact info line — layers · height · print time · resin — and a <b>Share model</b> button (when TinyMaker Connect is registered). The row you are looking at is marked <b>In preview</b>, so a card full of models never leaves you guessing which one is on screen.</p>
   <p>The card itself is always on the dashboard, like the SD manager: before anything is previewed it shows a <i>Pick a model and press Preview</i> hint, and the last previewed model is remembered — a page reload brings it straight back from the saved preview (no re-render, nothing to redo).</p>
   <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> — it decodes every layer, so expect roughly a minute per 100 layers.</p>
   <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
@@ -478,6 +484,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
   <h3>Phone notifications — pick a channel</h3>
   <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice — <b>Off / Telegram / WhatsApp / Discord</b> — each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
+  <div class="note">Telegram is the one used daily here. <b>WhatsApp and Discord ship untested</b> — they run on your own CallMeBot key or channel webhook, so testing them with our setup would prove nothing about yours. If you try one, <a href="https://tinymakerwifi.com/feedback/">tell us how it went</a> — working or not, both are useful.</div>
 
   <h3 id="telegram">Telegram</h3>
   <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
