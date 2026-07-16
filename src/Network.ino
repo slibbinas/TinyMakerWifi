@@ -2128,6 +2128,7 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     // answer at its next service window. Turns "is it hung?" into information.
     ".sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}"
     ".sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}"
+    "#sdUsageBar.warn{background:var(--warncol)}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
@@ -2353,18 +2354,24 @@ void handleRootPage() {
 
   <section id='sdSection' class='card'>
     <h2>SD manager</h2>
-    <div id='sdUsageBox' class='hidden' style='margin-bottom:12px'>
-      <div class='label'>SD memory usage</div>
-      <div id='sdUsageText' class='value'>-</div>
-      <div class='storageBar'><span id='sdUsageBar'></span></div>
-    </div>
-    <form id='uploadForm'>
-      <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' required>
-      <button id='uploadButton' class='button secondary' type='submit'>Upload model</button>
-    </form>
-    <div id='uploadHint' class='hint'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
+    <!-- Ordered by how often each part is used (user finding): the model list
+         (daily) first, upload (per new model) second, storage state last as a
+         slim footer that turns amber when it matters. The old order led with
+         the least-used part; checkUploadFits() guards space anyway. -->
     <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
     <div id='filesList' class='files'></div>
+    <form id='uploadForm' style='margin-top:14px'>
+      <!-- One click: the button opens the picker, picking a file uploads it.
+           The input stays for the picker + the submit handler; 'required' had
+           to go - a hidden control fails form validation as "not focusable". -->
+      <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
+      <button id='uploadButton' class='button secondary' type='button'>Upload model&hellip;</button>
+    </form>
+    <div id='uploadHint' class='hint'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
+    <div id='sdUsageBox' class='hidden' style='margin-top:12px'>
+      <div class='meta' style='display:flex;justify-content:space-between;margin-bottom:4px'><span>SD card</span><span id='sdUsageText'>-</span></div>
+      <div class='storageBar'><span id='sdUsageBar'></span></div>
+    </div>
   </section>
 </div>
 
@@ -2682,6 +2689,7 @@ const updateSdUsage=d=>{
   const used=bytesNum(d.usedBytes),pct=Math.max(0,Math.min(100,Number(d.usagePct)||0));
   setText('sdUsageText',formatBytes(used)+' / '+formatBytes(sdTotalBytes)+' ('+pct+'%)');
   $('sdUsageBar').style.width=pct+'%';
+  $('sdUsageBar').classList.toggle('warn',pct>85);   // footer info until it matters
 };
 const uploadWithProgress=(fd,hintEl)=>{
   const started=Date.now();
@@ -3733,6 +3741,12 @@ window.deleteFile=deleteFile;
 window.filesNav=d=>{filesPage+=d;renderFiles();};
 $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
 
+// One-click upload: the button opens the picker, a picked file submits the
+// form. The submit handler below is untouched - same size check, same
+// Replace/Rename flow. Clearing the input on success keeps 'change' firing
+// even when the user picks the same file again.
+$('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
+$('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
@@ -3787,7 +3801,7 @@ const GS=[
  {k:'wifi',t:'Connect to WiFi',d:'Done - you are looking at the dashboard.',auto:()=>true},
  {k:'slicer',t:'Set up PrusaSlicer',d:"Import the profile, add a physical printer at tinymaker.local - <a href='https://slibbinas.github.io/TinyMakerWifi/manual/#print-prusa' target='_blank' rel='noopener'>manual</a>."},
  {k:'model',t:'Get a model onto the SD card',d:'Send from the slicer, upload in SD manager, or copy an .sl1/.zip to the card.',auto:()=>filesItems.some(i=>i.type==='model')},
- {k:'print',t:'Run your first print',d:'Pick the model in the Print menu or press Start here.',auto:()=>!!(statusData&&Number(statusData.lifetimePrintSecs)>0)},
+ {k:'print',t:'Run your first print',d:'Pick the model in the Print menu or press Start here. While it prints, this page updates in short windows between moves - a brief pause with an amber <i>syncing</i> mark is normal, not a hang.',auto:()=>!!(statusData&&Number(statusData.lifetimePrintSecs)>0)},
  {k:'expo',t:'Calibrate exposure for your resin',d:"System &gt; Advanced &gt; Exposure test - pick the best bar and the printer sets the time. <a href='https://slibbinas.github.io/TinyMakerWifi/manual/#advanced' target='_blank' rel='noopener'>Manual</a>."},
  {k:'integr',t:'Optional: integrations',d:'Telegram, Home Assistant (MQTT) and TinyMaker Connect live in Settings.'}];
 const gsDone=s=>(s.auto&&s.auto())||localStorage.getItem('tmGs_'+s.k)==='1';
