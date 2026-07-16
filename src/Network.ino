@@ -3308,29 +3308,85 @@ const paintPreviewProgress=(cv,label,frac)=>{
   ctx.fillStyle='#e8720c';
   if(frac>0)ctx.fillRect(81,PREV_H-25,Math.max(2,(bw-2)*Math.min(frac,1)),8);
 };
+// One voxel face, projected. Filled AND stroked in the same colour: canvas
+// antialiasing leaves a hairline between quads that share an edge, and on a
+// surface made of thousands of them that reads as a mesh of cracks.
+const quad=(ctx,fill,pts)=>{
+  ctx.fillStyle=fill;ctx.strokeStyle=fill;ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let n=0;n<4;n++){const p=isoPt(pts[n][0],pts[n][1],pts[n][2]);
+    if(n)ctx.lineTo(p.X,p.Y);else ctx.moveTo(p.X,p.Y);}
+  ctx.closePath();ctx.fill();ctx.stroke();
+};
 const drawIso=(cv,doneFrac)=>{
   const {slices,gw,gh,modelH}=slicesCache;
   const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
   const N=slices.length;
+  // Half-extents of one voxel cell - the quads are built around the centre.
+  const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
     // Strict boundary: at 0% nothing is printed yet - the old t<=doneFrac
     // painted the whole first slice solid before the print even started.
-    const s=slices[k],solid=doneFrac>0&&t<=doneFrac;
-    for(let j=gh-1;j>=0;j--)for(let i=0;i<gw;i++){
+    const s=slices[k],up=slices[k+1],solid=doneFrac>0&&t<=doneFrac;
+    // Back-to-front: this projection puts +x right-down and +y left-down, so
+    // near = large (i+j). Ascending order draws the far voxels first and lets
+    // the near ones cover them (the old loop ran j from the near edge back).
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
       if(!s[j*gw+i])continue;
-      // model edge (any empty 4-neighbour) -> darker: silhouette lines
-      const edge=i===0||i===gw-1||j===0||j===gh-1||!s[j*gw+i-1]||!s[j*gw+i+1]||!s[(j-1)*gw+i]||!s[(j+1)*gw+i];
+      // Only three faces can ever be seen from this camera: the top (+z), the
+      // right (+x) and the left (+y). A voxel showing none of them is buried
+      // inside the solid - it used to be drawn anyway and then painted over,
+      // which cost most of the frame and rendered a flat blob.
+      const fTop=!up||!up[j*gw+i];
+      const fRight=i===gw-1||!s[j*gw+i+1];
+      const fLeft=j===gh-1||!s[(j+1)*gw+i];
+      if(!(fTop||fRight||fLeft))continue;
+      const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
       if(solid){
-        // directional light from the front-left corner + height gradient
-        const lit=(0.55+0.45*((i/gw)+(1-j/gh))/2)*(edge?0.5:1);
-        ctx.fillStyle='rgb('+Math.round((150+105*t)*lit)+','+Math.round((80+90*t)*lit)+','+Math.round((30+50*t)*lit)+')';
+        // Shade from a real surface normal, estimated from the 3x3x3
+        // neighbourhood: the normal points away from the mass, so it turns
+        // gradually across a curve. Three fixed tones per face made a sphere
+        // read as a staircase (user finding: "like Minecraft") - the eye takes
+        // curvature from shading, not from edges, so smooth shading over blocky
+        // geometry looks round while the steps survive only in the silhouette.
+        // This is what volume renderers do (gradient shading); actually
+        // smoothing the geometry means marching cubes, which is a mesh and a
+        // different budget - see the backlog.
+        let nx=0,ny=0,nz=0;
+        for(let dk=-1;dk<=1;dk++){
+          const sk=slices[k+dk];
+          for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){
+            if(!di&&!dj&&!dk)continue;
+            const ii=i+di,jj=j+dj;
+            const inside=sk&&ii>=0&&ii<gw&&jj>=0&&jj<gh&&sk[jj*gw+ii];
+            if(!inside){nx+=di;ny+=dj;nz+=dk;}   // empty neighbour pulls the normal
+          }
+        }
+        const len=Math.hypot(nx,ny,nz)||1;
+        // Light: high, from the left-front - the two faces the camera sees get
+        // clearly different values, and the top stays brightest.
+        const lam=Math.max(0,(nx*0.25+ny*0.5+nz*0.83)/len);
+        const depth=0.85+0.15*((i/gw)+(j/gh))/2;
+        const v=(0.30+0.70*lam)*depth;
+        const fill='rgb('+Math.round(236*v)+','+Math.round((132+28*t)*v)+','+Math.round((48+22*t)*v)+')';
+        // Real faces, not splats: a 2.2 px square per voxel only looked
+        // continuous because the old code also painted the 86% buried inside;
+        // on a bare surface the squares stop touching and the model turns to
+        // dots (user finding). Faces tile exactly.
+        if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
+        if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+        if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
       }else{
-        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')'; // not-yet-printed ghost
+        // Not printed yet: keep the cheap translucent splat - overlapping
+        // slices accumulate into an x-ray that reads well, and it must not
+        // compete with the solid part.
+        const edge=i===0||j===0||fRight||fLeft;
+        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')';
+        const p=isoPt(cx,cy,z);
+        ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
       }
-      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
-      ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
     }
   }
   ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
