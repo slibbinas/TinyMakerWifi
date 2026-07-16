@@ -37,6 +37,11 @@ unless noted. Community contributors are tagged inline.
 - **Exposure undo** — when the exposure test (or a config save) replaces your
   Regular exposure, the old value is remembered and an *Undo (Xs)* link
   appears next to the field.
+- **A liveness dot next to State while printing** — green means the printer
+  answered within the last few seconds; amber with *syncing* means it is
+  mid-move and will answer at its next network window. Mid-print pauses stop
+  reading as "the page hung", and the *Getting started* first-print step now
+  explains the same thing up front.
 - **Phase countdown** — the status card counts the current phase down next to
   its name: *Curing · 9s*, *Lifting · 4s*. Curing is exact; lifting and
   dropping use the previous layer's measured duration, so the first layer
@@ -117,6 +122,19 @@ unless noted. Community contributors are tagged inline.
   curve (Jacobs)** from the test strip with calipers.
 
 ### Changed
+- **The SD manager is ordered by how often each part is used** — the model
+  list first, upload as a small one-click button in the card's header (pick a
+  file and it uploads; it turns orange only when the card has no models, when
+  it really is the call to action), and storage as a slim footer that turns
+  amber past 85%. The action column lines up from the header down, model rows
+  dropped the *Model folder* subtitle, and on phones Preview/Start scroll the
+  preview card into view — it used to render above the fold where nothing
+  seemed to happen.
+- **The Update tab installs from one row** — version picker, *Install
+  selected* and the file fallback side by side. Flashing a downloaded
+  firmware.bin is one click into a confirm that names the file and its size,
+  and the file path no longer disappears when GitHub is unreachable — it is
+  the offline lifeline, after all.
 - **The status card reads in pairs that belong together** — condition
   (State · SD card), network (WiFi · IP), the two lifetime counters, resin;
   while printing, resin sits next to resin and the two clocks share a row,
@@ -141,6 +159,9 @@ unless noted. Community contributors are tagged inline.
   use it).
 
 ### Fixed
+- **"Printer busy" errors say when they pass** — every action blocked during
+  a print now answers *"The printer is busy printing — this unlocks when the
+  print ends."* instead of the bare server text.
 - **Starting a print no longer flashes a false "timeout".** The printer's
   answer can miss the browser's window when the firmware sits in a network
   timeout, but the command has already landed — the dashboard now confirms
