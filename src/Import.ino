@@ -531,6 +531,9 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
   DBG("Unpack: %d layers (min index %d)\n", summary.sourceLayers, minN);
 
+  // Painted once; the loop below only grows the bar and rewrites the counter.
+  netProgressStart("Unpacking layers", "");
+
   if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
     delete zip; free(buf);
     return false;
@@ -555,10 +558,8 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
     if (rc < 0) { ok = false; break; }
 
     done++;
-    if (done % 20 == 0 || done == summary.sourceLayers) {
-      String p = String(done) + " / " + String(summary.sourceLayers);
-      netMessage("Unpacking layers", p.c_str());
-    }
+    if (done % 20 == 0 || done == summary.sourceLayers)
+      netProgressCount(done, summary.sourceLayers);
   } while (zip->gotoNextFile() == UNZ_OK);
   zip->closeZIP();
   delete zip;

@@ -96,9 +96,34 @@ void netProgressStart(const char *line1, const char *line2) {
 }
 
 void netProgressBar(int step, int total) {
+  if (total <= 0) return;
   int w = (int)(136L * step / total);
   if (w > 136) w = 136;
   if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
+}
+
+// Rewrites line2 of a netProgressStart() screen, clearing ONLY that row.
+//
+// This is the whole point: netMessage() called in a loop - which is what
+// unpacking used to do - repaints all of 160x80 three times per update, and with
+// no double buffer that wipe is visible. Hence the flicker on the unpacking
+// screen while the flashing bar, which only ever grows, stays perfectly still.
+void netProgressText(const char *line2) {
+  gfx2->fillRect(0, 26, 160, 17, BLACK);   // line2's row; line1 sits above at y=18
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(5, 38);
+  gfx2->print(line2);
+}
+
+// Bar + "done / total" counter. The dashboard tells uploaders to watch the layer
+// count on the printer's screen, so the number stays, not just the bar.
+void netProgressCount(int done, int total) {
+  netProgressBar(done, total);
+  char buf[24];
+  snprintf(buf, sizeof(buf), "%d / %d", done, total);
+  netProgressText(buf);
 }
 
 // Boot WiFi-connect indicator: four growing signal bars instead of a progress

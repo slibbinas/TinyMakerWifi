@@ -90,6 +90,7 @@ String previewUploadTmpPath;
 bool previewUploadOk = false;
 bool previewUploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
+long otaTotalBytes = 0;            // web OTA: Content-Length, for the progress bar
 unsigned long mqttLastAttemptMs = 0;
 unsigned long mqttLastPublishMs = 0;
 bool mqttDiscoverySent = false;
@@ -566,7 +567,11 @@ void handleUpdateUpload() {
       return;
     }
     DBG("Web OTA start: %s\n", up.filename.c_str());
-    netMessage("Firmware update", "Receiving...");
+    netProgressStart("Firmware update", "Receiving...");
+    // The multipart body is the .bin plus a boundary and a few headers - a couple
+    // hundred bytes on ~1.4 MB. Close enough for a bar, and it is the only total
+    // we get: Update.begin() is handed UPDATE_SIZE_UNKNOWN.
+    otaTotalBytes = server.clientContentLength();
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
       DBGLN("Update.begin failed");
     }
@@ -577,7 +582,8 @@ void handleUpdateUpload() {
     if (up.totalSize - otaShownBytes >= 524288) { // redraw every 512 KB - see the upload handler note on SPI streaks
       otaShownBytes = up.totalSize;
       String p = String(up.totalSize / 1024) + " KB";
-      netMessage("Firmware update", p.c_str());
+      netProgressBar(up.totalSize, otaTotalBytes);
+      netProgressText(p.c_str());
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
