@@ -2,7 +2,8 @@
 """TinyMakerWiFi release automation.
 
 Does, in order (asking once before anything is pushed/published):
-  1. sanity checks    - clean working tree, on main, version not yet tagged
+  1. sanity checks    - clean working tree, on main, version not yet tagged,
+                        manual's version strings match
   2. build            - pio run (both envs), reports RAM/Flash
   3. push + tag       - origin main + vX.Y.Z
   4. gh-pages         - firmware.bin, firmware-X.Y.Z.bin, version.txt,
@@ -67,6 +68,20 @@ def read_version():
     if len(versions) != 1:
         fail(f"expected one FIRMWARE_VERSION in platformio.ini, found: {versions or 'none'}")
     return versions.pop()
+
+
+# The manual carries the version in two hand-written spots (hero badge, footer)
+# and nothing else ever touches them: 0.15.1..0.15.4 all shipped a manual that
+# still said 0.15.0, through a docs flush that rewrote its content. Checked here
+# rather than patched, because the fix has to land in the release commit - by the
+# time gh-pages is published the tag is already pushed.
+def check_manual_version(version):
+    manual = REPO_ROOT / "docs/manual/index.html"
+    stale = set(re.findall(r"User Manual · v(\d+\.\d+\.\d+)", manual.read_text(encoding="utf-8")))
+    stale.discard(version)
+    if stale:
+        fail(f"docs/manual/index.html still says v{', v'.join(sorted(stale))} - "
+             f"set both spots (hero badge, footer) to v{version} and commit")
 
 
 def github_token():
@@ -219,6 +234,7 @@ def main():
     tags = run(["git", "tag", "-l", tag], capture=True).strip()
     if tags:
         fail(f"tag {tag} already exists - bump FIRMWARE_VERSION first")
+    check_manual_version(version)
     notes = f"Release {version}."
     if args.notes_file:
         notes = Path(args.notes_file).read_text(encoding="utf-8")
