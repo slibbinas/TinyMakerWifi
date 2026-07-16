@@ -2123,6 +2123,11 @@ void sendRootStyledPage(PGM_P bodyBeforeFw, const char *fw, PGM_P bodyAfterFw) {
     ".card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}"
     ".grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}"
     ".label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}"
+    // Liveness dot next to State while printing: green = the printer answered
+    // within the last few seconds; amber "syncing" = it is mid-move and will
+    // answer at its next service window. Turns "is it hung?" into information.
+    ".sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}"
+    ".sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}"
     ".files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;"
     "border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0;padding-top:0}"
     ".rowActions{display:flex;gap:8px;align-items:center}"
@@ -2309,7 +2314,7 @@ void handleRootPage() {
       <!-- Paired by meaning (user request): condition / network / lifetime
            counters / consumable. The print-time boxes below fill the fourth
            row's empty cell when they appear. -->
-      <div><div class='label'>State</div><div id='stateValue' class='value'>Loading</div></div>
+      <div><div class='label'>State <span id='syncDot' class='sdot hidden'></span><span id='syncNote' class='hidden'>syncing…</span></div><div id='stateValue' class='value'>Loading</div></div>
       <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
       <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBars' class='wbars'><i></i><i></i><i></i></span></div></div>
       <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
@@ -2599,7 +2604,10 @@ const api=async(path,opt,timeoutMs)=>{
       r=await fetch(path,o);
     }
     let j={};try{j=await r.json();}catch(e){}
-    if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));
+    // The server's terse "printer busy" is technically right and humanly
+    // useless - say why and when it passes.
+    if(!r.ok||j.ok===false){const em=j.error||('HTTP '+r.status);
+      throw new Error(em==='printer busy'?'The printer is busy printing - this unlocks when the print ends.':em);}
     // Every JSON endpoint answers with an "ok" field; a 200 without one means
     // the answer arrived garbled (a truncated body from a memory-tight
     // printer). Returning {} here let undefined fields cascade into broken
@@ -2940,6 +2948,7 @@ const openView=view=>{
 
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
+    if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
     setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
     if(s.firmwareVersion){$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');applyThemeLink();}
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
@@ -3604,11 +3613,18 @@ const renderStateValue=()=>{
   }
   setText('stateValue',t);
 };
+let lastPollOkAt=0;
 const tickLocalStatus=()=>{
-  if(statusData&&statusData.busy&&localPrintStartedAt){
+  const busyNow=statusData&&statusData.busy;
+  if(busyNow&&localPrintStartedAt){
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
     renderStateValue();
   }
+  // Liveness: only meaningful mid-print, where answers arrive in windows.
+  const stale=busyNow&&Date.now()-lastPollOkAt>4000;
+  show('syncDot',!!busyNow);
+  $('syncDot').classList.toggle('stale',stale);
+  show('syncNote',stale);
 };
 
 let sdBackupPresent=false; // from /api/config; part of the restoreSdButton gate below
