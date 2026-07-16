@@ -1,2 +1,2 @@
-0.14.3
+0.15.4
 https://slibbinas.github.io/TinyMakerWifi/firmware.bin
