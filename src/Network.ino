@@ -203,9 +203,11 @@ void handleUploadData() {
     }
 
     DBG("Upload start: %s\n", uploadPath.c_str());
-    // Same style as WiFi/delete/OTA: title + a sweeping progress bar.
-    // Multipart uploads don't announce total size, so the bar animates by
-    // wrapping every ~1 MB while showing the running KB count.
+    // Title + model name + a real progress bar: Content-Length covers the whole
+    // multipart body, but the boundary+headers overhead is a few hundred bytes
+    // on megabytes of .zip - close enough. Line2 keeps the model name, and a
+    // grow-only bar needs no clearing, so nothing here can flicker.
+    otaTotalBytes = server.clientContentLength();
     netProgressStart("Receiving model:", modelName.c_str());
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
@@ -213,9 +215,7 @@ void handleUploadData() {
     if (uploadFile) uploadFile.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 262144) { // redraw every 256 KB - drawing while flash/SD writes run corrupts SPI pixels (orange streaks, user finding)
       otaShownBytes = up.totalSize;
-      int w = (int)((up.totalSize % 1048576L) * 136L / 1048576L); // wraps each 1 MB
-      gfx2->fillRect(12, 50, 136, 12, BLACK);
-      gfx2->fillRect(12, 50, w, 12, ORANGE);
+      netProgressBar(up.totalSize, otaTotalBytes);
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
@@ -4526,7 +4526,11 @@ void handleApiBootAnimInstall() {
   total += first;
   if (remaining > 0) remaining -= first;
 
-  uint32_t lastDraw = 0;
+  // A real grow-only bar: the TMB header just told us the exact payload size
+  // (expectedBytes), which beats both Content-Length and the old time-driven
+  // wrapping bar - that one cleared and redrew the strip every 120 ms during SD
+  // writes (flicker + SPI streak risk). Redraw by bytes, like the other paths.
+  size_t shownBytes = 0;
   while (http.connected() && remaining != 0) {
     size_t avail = stream->available();
     if (avail) {
@@ -4536,11 +4540,9 @@ void handleApiBootAnimInstall() {
       total += n;
       if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
       if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
-      if (millis() - lastDraw > 120) {       // size may be unknown; bar wraps every 256 KB
-        lastDraw = millis();
-        int w = (int)((total % 262144L) * 136L / 262144L);
-        gfx2->fillRect(12, 50, 136, 12, BLACK);
-        gfx2->fillRect(12, 50, w, 12, ORANGE);
+      if (total - shownBytes >= 131072) {    // every 128 KB (anims are ~0.5-2 MB)
+        shownBytes = total;
+        netProgressBar(total, expectedBytes);
       }
     } else {
       if (!http.connected()) break;
