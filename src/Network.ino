@@ -3093,10 +3093,13 @@ const renderFiles=()=>{
   let h=busy?'<div class="hint warn">Locked while printing.</div>':'';
   if(!slice.length)h+='<div class="hint">'+(q?'No models match the filter.':(busy?'SD contents load after the print finishes.':'No printable model folders or SL1/ZIP archives found.'))+'</div>';
   slice.forEach(it=>{
-    const meta=it.type==='model'?'Model folder':'Archive - '+formatBytes(it.sizeBytes);
+    // Models are the unmarked default - "Model folder" under every row said
+    // nothing six times over (user finding). Only archives keep a subtitle,
+    // where it carries real information: what it is and how big.
+    const meta=it.type==='model'?'':'Archive - '+formatBytes(it.sizeBytes);
     const inPv=it.type==='model'&&it.name===dashPreviewName;
     h+='<div class="file'+(inPv?' active':'')+'"><div><strong>'+esc(it.name)+'</strong>'+
-      (inPv?'<span class="inPv">In preview</span>':'')+'<div class="meta">'+esc(meta)+'</div></div><div class="rowActions">';
+      (inPv?'<span class="inPv">In preview</span>':'')+(meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div><div class="rowActions">';
     if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
