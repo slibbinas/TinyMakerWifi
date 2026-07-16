@@ -61,6 +61,12 @@ const metaOf = (rec) => ({
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // One canonical host: www 301s to the apex (people type www out of habit,
+    // and links they then share should all look the same).
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.slice(4);
+      return Response.redirect(url.toString(), 301);
+    }
     const path = url.pathname.replace(/\/$/, '') || '/';
 
     // Test panel: the per-release physical-test checklist, PUBLIC by design -
