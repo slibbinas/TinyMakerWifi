@@ -63,6 +63,21 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '') || '/';
 
+    // Test panel: the physical-test checklist as a plain page at a stable URL
+    // (phone at the printer, no Claude login). Guarded by its OWN key - the
+    // panel link gets shared with the team, and it must not unlock the
+    // feedback inbox (LIST_KEY stays private). HTML lives in KV; Claude
+    // uploads a new one per release (wrangler kv key put panel:testai).
+    if (request.method === 'GET' && path === '/testai') {
+      if (!env.PANEL_KEY || url.searchParams.get('key') !== env.PANEL_KEY)
+        return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:testai');
+      if (!html) return new Response('No panel uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     if (request.method === 'GET' && path === '/feedback') {
       const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 300 } });
       // The widget is injected here rather than baked into the page: the form
