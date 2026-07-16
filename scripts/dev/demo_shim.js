@@ -18,7 +18,10 @@ try{window.localStorage.getItem('x');}catch(e){
 }
 
 // ---------------------------------------------------------------- demo data
-var STATUS={firmwareVersion:'0.15.0',firmwareBuild:'demo',busy:false,paused:false,
+// 'ok' is the browser's integrity mark since 0.15.3: api() rejects any 200
+// whose JSON lacks it as a truncated body, so a shim without it fails the
+// whole demo at the first poll.
+var STATUS={ok:true,firmwareVersion:'0.15.4',firmwareBuild:'demo',busy:false,paused:false,
   pausing:false,resuming:false,stopping:false,dryRun:false,canPause:false,
   canResume:false,canStop:false,state:'Idle',stateCode:0,layerHeight:0.10,
   wifiRssi:-47,wifiText:'-47 dBm',ip:'tinymaker.demo',sdReady:true,sdText:'Ready',
@@ -54,13 +57,13 @@ var MODELS={
   Tooth:[210,21.0,4900,3.9,'spike'],
   Xenomorph3:[610,61.0,14100,18.4,'bust']};
 
-var BOOTANIM={selected:'rippleboot',animations:[
+var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'rippleboot',display:'Rippleboot',sizeBytes:768012},
   {name:'bunny',display:'Bunny',sizeBytes:537612},
   {name:'malfunction',display:'Malfunction',sizeBytes:1433612},
   {name:'resin-drip',display:'Resin Drip',sizeBytes:588812}]};
 
-var UPDATE={ok:true,installed:'0.15.0',latest:'0.15.0',state:0,hasUpdate:false,allowed:true};
+var UPDATE={ok:true,installed:'0.15.4',latest:'0.15.4',state:0,hasUpdate:false,allowed:true};
 
 var uploadedSeq=0;
 var sim=null; // {name,total,startMs,pausedAt,pausedTotal,secsPerLayer,ml}

@@ -34,11 +34,21 @@ head = quoted_strings(fn_block[pstr_start:])
 raws = re.findall(r'R"SPA\((.*?)\)SPA"', text, re.S)
 assert len(raws) in (3, 4), f"expected 3-4 raw segments, got {len(raws)}"
 
+# The firmware injects its version at serve time; the demo has to stand in for
+# that. Read it from platformio.ini rather than hardcoding: a literal here was
+# frozen at 0.15.0 and quietly re-published a stale version number on every
+# rebuild, no matter how many times the demo was regenerated.
+INI = os.path.join(HERE, "..", "..", "platformio.ini")
+_vers = set(re.findall(r'FIRMWARE_VERSION=\\"(\d+\.\d+\.\d+)\\"',
+                       io.open(INI, encoding="utf-8").read()))
+assert len(_vers) == 1, f"expected one FIRMWARE_VERSION in platformio.ini, got {_vers}"
+FW = _vers.pop()
+
 body_after = raws[1] + "demo" + raws[2]
 if len(raws) == 4:
-    body_after += "0.15.0" + raws[3]
+    body_after += FW + raws[3]
 
-html = head + raws[0] + "0.15.0" + body_after + "</main></body></html>"
+html = head + raws[0] + FW + body_after + "</main></body></html>"
 
 shim = io.open(SHIM, encoding="utf-8").read()
 marker = "<title>TinyMaker</title>"
