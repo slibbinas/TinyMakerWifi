@@ -1126,7 +1126,17 @@ bool deleteSdItem(const String &requestedName, String &error) {
     return false;
   }
 
-  bool ok = isDir ? deleteModelFolder(path.c_str(), false) : SD.remove(path.c_str());
+  bool ok;
+  if (isDir) {
+    // Same screen the printer-menu delete shows. Without it a web delete left
+    // the LCD frozen on whatever was displayed, buttons dead (delete blocks
+    // loop() by design) - to anyone at the printer it looked hung, not busy.
+    netProgressStart("Deleting:", name.c_str());
+    ok = deleteModelFolder(path.c_str(), true);
+    screen1();   // the progress screen overwrote whatever was shown (upload-path precedent)
+  } else {
+    ok = SD.remove(path.c_str());   // archives are single files - near-instant
+  }
   if (!ok) {
     error = "delete failed";
     return false;
@@ -2689,13 +2699,16 @@ const api=async(path,opt,timeoutMs)=>{
 // at the bottom of a long page shows the feedback right there, not off at the
 // top of the viewport. No pointer yet (poll errors at load) -> top fallback.
 document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
-const msg=(t,warn)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
+const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
     const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
     e.style.top=y+'px';
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
-  clearTimeout(msg._t);if(t&&!warn)msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},5000);};
+  // sticky: survives the 5 s auto-clear - for operations that outlive it (a big
+  // SD delete blocks the printer for tens of seconds and no poll can re-show
+  // the message meanwhile, the server is busy deleting).
+  clearTimeout(msg._t);if(t&&!warn&&!sticky)msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},5000);};
 // Styled replacement for window.confirm() - returns a Promise. Matches the
 // dashboard instead of the browser's native (unstyleable) dialog.
 let uiConfirmRes=null;
@@ -3118,11 +3131,11 @@ const refreshStatus=async()=>{
     statusFailCount=0;
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
-    if(!pendingPrintCmd)msg('',false);
+    if(!pendingPrintCmd&&!deleteBusy)msg('',false);
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
-    if(deleteBusy)msg('Deleting - the printer is busy removing files...');
+    if(deleteBusy)msg('Deleting - the printer is busy removing files...',false,true);
     else if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing.
@@ -3756,7 +3769,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...');try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while, the printer answers when done...',false,true);try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
