@@ -2586,10 +2586,14 @@ void handleRootPage() {
     <label><span>Install a specific version</span><select id='updVersionSelect' disabled></select></label>
     <button id='updInstallSelected' class='button secondary' type='button' disabled style='align-self:end;margin:6px 0 12px'>Install selected</button>
   </div>
+  <!-- Same one-click pattern as the SD manager's upload, but flashing is not
+       harmless - the pick leads into the existing named confirm, not straight
+       to the flasher. One compact line instead of label + input + big button;
+       deliberately NOT merged into the version-picker row (different source,
+       and the phone collapses that grid). -->
   <form id='updUploadForm' style='margin-top:14px'>
-    <div class='label'>Or upload a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a>:</div>
-    <input id='updFile' type='file' name='firmware' accept='.bin' disabled required>
-    <button id='updUploadButton' class='button secondary' type='submit' disabled>Upload &amp; flash</button>
+    <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
+    <div class='label'>Or flash a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a>: <button id='updUploadButton' class='small secondaryBtn' type='button' disabled style='margin:0 0 0 6px'>Choose &amp; flash&hellip;</button></div>
   </form>
   <div class='hint'>Updates are blocked while printing. Do not power off during an update - the printer reboots by itself when done.</div>
   <div class='hint'>Need a full USB reflash or recovery? Use the <a href='https://connect.tinymakerwifi.com/flash.php' target='_blank' rel='noopener'>browser flasher</a> (Chrome/Edge + USB cable).</div>
@@ -3916,9 +3920,16 @@ const installFirmware=async v=>{
 $('updInstallLatest').addEventListener('click',()=>installFirmware(''));
 $('updInstallSelected').addEventListener('click',()=>installFirmware($('updVersionSelect').value));
 $('updVersionSelect').addEventListener('change',refreshInstallSelected);
+// One-click, but through a NAMED confirm: flashing is not a model upload, so
+// the pick shows what exactly is about to be flashed. Cancel clears the input
+// so picking the same file again still fires 'change'.
+$('updUploadButton').addEventListener('click',()=>{if(!$('updUploadButton').disabled)$('updFile').click();});
+$('updFile').addEventListener('change',()=>{if($('updFile').files[0])$('updUploadForm').requestSubmit();});
 $('updUploadForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  if(!await uiConfirm('Flash the selected firmware.bin? The printer reboots when done.'))return;
+  const f=$('updFile').files[0];
+  if(!f)return;
+  if(!await uiConfirm('Flash '+f.name+' ('+formatBytes(f.size)+')? The printer reboots when done.',{danger:true})){$('updFile').value='';return;}
   $('updUploadButton').disabled=true;
   showUpdLock();   // immediate feedback - the upload+flash takes a while
   try{
@@ -3926,10 +3937,9 @@ $('updUploadForm').addEventListener('submit',async e=>{
     if(!r.ok)throw new Error('update rejected (HTTP '+r.status+')');
     msg('Firmware flashed. The printer is rebooting...');showUpdLock();
   }catch(err){hideUpdLock();msg(err.message,true);}
+  $('updFile').value='';
   $('updUploadButton').disabled=false;
 });
-$('updFile').addEventListener('change',()=>$('updUploadButton').classList.toggle('secondary',!$('updFile').files.length));
-$('uploadFile').addEventListener('change',()=>$('uploadButton').classList.toggle('secondary',!$('uploadFile').files.length));
 
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
