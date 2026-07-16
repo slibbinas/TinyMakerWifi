@@ -2599,12 +2599,13 @@ void handleRootPage() {
     <div><div class='label'>Installed</div><div id='updInstalled' class='value'>-</div></div>
     <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
   </div>
-  <!-- Status and community sat in two stacked one-line hints (user finding) -
-       same grid as the values above, so they read as one block. -->
-  <div class='grid' style='margin-top:6px'>
-    <div id='updMsg' class='hint' style='margin:0'>Checking...</div>
-    <div id='communityStats' class='hint hidden' style='margin:0'></div>
-  </div>
+  <!-- Full width on purpose: these are sentences, not values. Tried as two
+       columns (they sit under the two-column Installed/Stable pair) and both
+       wrapped into ragged 2-3 line blocks - worse than stacked (user finding,
+       reverted). The duplicate "Updates are blocked" note is gone either way,
+       which is what actually shortened this area. -->
+  <div id='updMsg' class='hint'>Checking...</div>
+  <div id='communityStats' class='hint hidden'></div>
   <!-- Shown only on a pre-release: closes the tester loop - checklist ->
        Send report -> feedback form (the panel is public by design). The fw
        tag rides along so the report knows what it was run against. -->
@@ -3023,8 +3024,7 @@ const applyStatus=s=>{
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
     $('modelStartButton').disabled=!wc;
     // dashboard upload is UI-locked only - the slicer endpoint stays open
-    $('uploadButton').disabled=!wc||uploadBusy;
-    $('uploadFile').disabled=!wc;
+    syncUploadGate();
     show('dryRunBanner',!!s.dryRun);
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
@@ -3085,7 +3085,7 @@ const applyStatus=s=>{
       if(configIsLocallyLocked())$('configHint').textContent='Config is locked while printing.';
     }
     updateConnectView(connectConfig);
-    $('uploadButton').disabled=s.busy||!s.sdReady; $('uploadFile').disabled=s.busy||!s.sdReady;
+    syncUploadGate();
     // One line, not three: the card used to stack "Uploads and SD actions are
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
@@ -3870,13 +3870,23 @@ window.deleteFile=deleteFile;
 window.filesNav=d=>{filesPage+=d;renderFiles();};
 $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
 
+// One gate, one owner. Two places used to set this - one watching web control,
+// the other busy/sdReady - each overwriting the other and neither seeing the
+// full picture. With the input visible that only mismatched a colour; now the
+// button proxies a hidden input, and an enabled button in front of a disabled
+// input is a control that silently does nothing. The hidden input carries no
+// disabled state at all: the button is the only gate.
+const syncUploadGate=()=>{
+  const s=statusData;
+  $('uploadButton').disabled=uploadBusy||!s||!!s.busy||s.sdReady===false||s.webControl===false;
+};
 // One-click upload: the button opens the picker, a picked file submits the
 // form. The submit handler below is untouched - same size check, same
 // Replace/Rename flow. Clearing the input on success keeps 'change' firing
 // even when the user picks the same file again.
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;$('uploadButton').disabled=true;$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadButton').classList.add('secondary');$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;$('uploadButton').disabled=false;}});
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;

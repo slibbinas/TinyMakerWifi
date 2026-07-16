@@ -78,7 +78,7 @@ footer a{color:var(--muted2);text-decoration:underline}
       <p style="margin:10px 0 14px;font-size:14px;color:var(--muted)">Works when the printer is <b>powered on</b> and this device is on the <b>same WiFi</b>.</p>
       <a class="btn" id="printerGo" style="width:100%" href="http://tinymaker.local" target="_blank" rel="noopener">Open tinymaker.local</a>
       <p style="margin:14px 0 6px;font-size:13px;color:var(--muted)">If that doesn't load, enter the printer's IP (System &gt; WiFi Info):</p>
-      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" target="_blank" rel="noopener" style="flex:0 0 auto">Open</a></div>
+      <div style="display:flex;gap:10px"><input id="ipBox" placeholder="e.g. 192.168.1.23" style="flex:1;background:var(--input);border:1px solid var(--line2);border-radius:8px;color:var(--text);padding:10px;font-size:14px"><a class="btn sec" id="ipGo" href="#" target="_blank" rel="noopener" style="flex:0 0 auto">Open</a></div>
       <a href="#" id="printerCancel" style="display:block;margin-top:14px;font-size:13px;color:var(--muted2);text-align:center">Cancel</a>
     </div>
   </div>
@@ -101,7 +101,12 @@ footer a{color:var(--muted2);text-decoration:underline}
     // all). Keeping the href live and letting the anchor navigate is a
     // plain user-initiated navigation, which nothing blocks.
     var ipGo=document.getElementById('ipGo');
-    var syncIpHref=function(){var v=box.value.trim();ipGo.href=v?'http://'+v:'#';};
+    // The placeholder read as a filled-in address, so Open looked broken when
+    // it merely had nothing to open (user finding). Now it says "e.g." and the
+    // button greys out until there is something to go to - the state is
+    // visible instead of silent.
+    var syncIpHref=function(){var v=box.value.trim();ipGo.href=v?'http://'+v:'#';
+      ipGo.style.opacity=v?'':'.45';ipGo.style.cursor=v?'':'default';};
     box.addEventListener('input',syncIpHref);
     syncIpHref();
     ipGo.addEventListener('click',function(e){
