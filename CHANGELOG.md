@@ -13,6 +13,22 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.15.6] — 2026-07-20
+
+Two small screens that matter at the worst moments.
+
+### Fixed
+- **The leveling screen now leads with safety.** Before homing, the warning
+  reads *"Plate must be EMPTY. Homing goes DOWN."* — because leveling drives
+  the plate toward the film, and a user recovering from a power outage lands
+  on that screen in a panic (a real field incident prompted this). The manual
+  gets a power-outage section too: raise the plate with *Move Build Plate*,
+  never re-level with a print still attached.
+- **Boot animations no longer pretend to load forever during a print.** The
+  list said "Loading animations…" with a busy error below it; now it says
+  plainly that animations live on the SD card and are locked while printing —
+  and the list reloads by itself the moment the print ends.
+
 ## [0.15.5] — 2026-07-16
 
 A screen-feedback patch: every long operation now shows live progress, and
