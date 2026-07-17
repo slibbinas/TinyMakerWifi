@@ -1501,12 +1501,15 @@ void screen211(){
   // would press it into the FEP/LCD. A user recovering from a power outage lands
   // exactly here in a panic (field incident: feedback #8, 2026-07-17). The
   // factory-calibration nuance stays as the closing line.
+  // Three SHORT lines: five trailing caps made "...EMPTY" overflow the frame
+  // and wrap onto the next row, colliding with line 2 (field photo, 07-20).
+  // Caps are ~10 px vs ~7 px lowercase in FreeSans8pt - budget them as such.
   gfx2->setCursor(20, 16);
-  gfx2->println("Plate must be EMPTY");
+  gfx2->println("Plate must be");
   gfx2->setCursor(6, 34);
-  gfx2->println("homing goes DOWN.");
+  gfx2->println("EMPTY. Homing");
   gfx2->setCursor(6, 52);
-  gfx2->println("Factory calibrated.");
+  gfx2->println("goes DOWN.");
   
   gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
   gfx2->setCursor(24, 71);
