@@ -39,7 +39,11 @@ button:disabled{opacity:.6;cursor:default}
    body — the worker replaces the FIRST match, so a copy here in the head would
    swallow the injection into a dead CSS comment and the widget never renders
    (that bug cost an afternoon on 2026-07-18). */
-.cf-turnstile{width:410px;max-width:100%;margin:18px auto 0}
+/* 400px is the settled width: wide enough to sit under the Send button without
+   looking narrow, but below the ~410px point where Turnstile's own banner
+   starts clipping at some zoom levels. width (not max-width) is deliberate —
+   max-width alone collapses the block to 0 before the iframe loads. */
+.cf-turnstile{width:400px;max-width:100%;margin:18px auto 0}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
 #thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 #thumbs figure{margin:0;position:relative}
