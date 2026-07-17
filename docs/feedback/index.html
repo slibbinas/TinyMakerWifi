@@ -37,13 +37,12 @@ button:disabled{opacity:.6;cursor:default}
 /* Turnstile widget (worker injects it into <!--turnstile-->): breathing room
    like the other fields, and centre the fixed 300 px box under the full-width
    inputs. On narrow phones trim the card padding so the 300 px box still fits. */
-/* Explicit width, NOT max-width: max-width with no width collapses the block to
-   0 before the Turnstile iframe loads, and flexible then measures 0 and renders
-   nothing (that is why the spacing-only version worked but capping it broke it).
-   width:300px gives it a real width (renders, and never over-stretches so the
-   Cloudflare branding is not clipped on desktop); max-width:100% lets it shrink
-   on phones narrower than 300px. */
-.cf-turnstile{width:300px;max-width:100%;margin:18px auto 0}
+/* Spacing only — the known-good state. Every attempt to cap/centre the width
+   stopped the flexible widget from rendering (max-width collapses the block to
+   0 before its iframe loads). The minor Cloudflare-branding clip on wide
+   desktop is accepted; the widget works and the daily caps carry the real
+   flood protection regardless. */
+.cf-turnstile{margin-top:18px}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
 #thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 #thumbs figure{margin:0;position:relative}
