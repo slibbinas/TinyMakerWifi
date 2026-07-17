@@ -126,7 +126,10 @@ export default {
       if (env.TURNSTILE_SITEKEY) {
         const html = (await r.text()).replace('<!--turnstile-->',
           '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' +
-          `<div class="cf-turnstile" data-sitekey="${env.TURNSTILE_SITEKEY}" data-size="flexible"></div>`);
+          // Default (300px) size, not flexible: flexible shrinks below ~300 px on
+          // a narrow window and clips its own Cloudflare branding on the right
+          // (field report). The form CSS centres this fixed box.
+          `<div class="cf-turnstile" data-sitekey="${env.TURNSTILE_SITEKEY}"></div>`);
         return new Response(html, {
           status: r.status,
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },

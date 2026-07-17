@@ -17,6 +17,9 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
+/* Narrow phones: trim the page/card padding so the fixed 300 px Turnstile box
+   keeps room (covers ~360 px viewports and up). */
+@media(max-width:420px){body{padding:12px}.card{padding:24px 12px}}
 /* The name carries the context, the heading carries the invitation - opened
    from a bare link, "Tell us how it's going" alone says nothing. */
 .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:18px}
@@ -31,9 +34,10 @@ input[type=file]{padding:8px;font-size:13px}
 button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 button:hover{background:#c95f06}
 button:disabled{opacity:.6;cursor:default}
-/* Turnstile widget (worker injects it into <!--turnstile-->): give it the same
-   breathing room as the other fields so it is not glued to the contact input. */
-.cf-turnstile{margin-top:18px}
+/* Turnstile widget (worker injects it into <!--turnstile-->): breathing room
+   like the other fields, and centre the fixed 300 px box under the full-width
+   inputs. On narrow phones trim the card padding so the 300 px box still fits. */
+.cf-turnstile{margin-top:18px;display:flex;justify-content:center}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
 #thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 #thumbs figure{margin:0;position:relative}
