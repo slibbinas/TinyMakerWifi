@@ -114,12 +114,12 @@ export default {
       return new Response(r.body, {
         status: r.status,
         headers: { 'Content-Type': r.headers.get('Content-Type') || 'text/html; charset=utf-8',
-                   'Cache-Control': 'max-age=300' },
+                   'Cache-Control': 'max-age=30' },
       });
     }
 
     if (request.method === 'GET' && path === '/feedback') {
-      const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 300 } });
+      const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 30 } });
       // The widget is injected here rather than baked into the page: the form
       // lives on gh-pages, and this keeps the site key (and whether the check
       // runs at all) a worker setting instead of a commit.
@@ -133,12 +133,12 @@ export default {
           `<div class="cf-turnstile" data-sitekey="${env.TURNSTILE_SITEKEY}" data-size="flexible"></div>`);
         return new Response(html, {
           status: r.status,
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=30' },
         });
       }
       return new Response(r.body, {
         status: r.status,
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=30' },
       });
     }
 
