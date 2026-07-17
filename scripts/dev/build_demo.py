@@ -51,6 +51,15 @@ if len(raws) == 4:
 html = head + raws[0] + FW + body_after + "</main></body></html>"
 
 shim = io.open(SHIM, encoding="utf-8").read()
+# The shim's STATUS must report the SAME version the page displays: the
+# dashboard's stale-UI guard (reloadIfFirmwareChanged) compares them and on a
+# mismatch does location.replace('/') - which on the real printer re-serves
+# the dashboard, but on tinymakerwifi.com lands on the... landing page. A
+# hardcoded 0.15.4 in the shim bounced every /demo visitor back to the site
+# (user finding, 2026-07-18).
+shim, n = re.subn(r"firmwareVersion:'\d+\.\d+\.\d+'",
+                  f"firmwareVersion:'{FW}'", shim)
+assert n == 1, f"expected exactly one firmwareVersion literal in the shim, patched {n}"
 marker = "<title>TinyMaker</title>"
 assert marker in html, "title marker not found"
 html = html.replace(marker, marker + "<script>\n" + shim + "\n</script>", 1)
