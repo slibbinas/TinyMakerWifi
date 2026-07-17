@@ -34,14 +34,11 @@ input[type=file]{padding:8px;font-size:13px}
 button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 button:hover{background:#c95f06}
 button:disabled{opacity:.6;cursor:default}
-/* Turnstile widget (worker injects it into <!--turnstile-->): breathing room
-   like the other fields, and centre the fixed 300 px box under the full-width
-   inputs. On narrow phones trim the card padding so the 300 px box still fits. */
-/* Spacing only — the known-good state. Every attempt to cap/centre the width
-   stopped the flexible widget from rendering (max-width collapses the block to
-   0 before its iframe loads). The minor Cloudflare-branding clip on wide
-   desktop is accepted; the widget works and the daily caps carry the real
-   flood protection regardless. */
+/* Turnstile widget breathing room. NOTE: never write the placeholder token
+   (hyphen-comment turnstile) in this file except at its one real spot in the
+   body — the worker replaces the FIRST match, so a copy here in the head would
+   swallow the injection into a dead CSS comment and the widget never renders
+   (that bug cost an afternoon on 2026-07-18). */
 .cf-turnstile{margin-top:18px}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
 #thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
