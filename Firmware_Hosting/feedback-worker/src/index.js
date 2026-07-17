@@ -100,6 +100,18 @@ export default {
       });
     }
 
+    // eInkWeather vakarinio klausimo drabuziu deriniu paveikslai (KV raktas oi:<code>).
+    // Telegram sendPhoto atsisiunciamas per URL, tad irenginiui nereikia PNG kodavimo.
+    // Deriniai is anksto sugeneruoti (gencombos.py -> wrangler kv bulk put oi_bulk.json).
+    if (request.method === 'GET' && path.startsWith('/oi/')) {
+      const code = path.slice(4).replace(/\.png$/, '');
+      const png = await env.FEEDBACK.get('oi:' + code, 'arrayBuffer');
+      if (!png) return new Response('not found', { status: 404 });
+      return new Response(png, {
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
     // The demo and the manual live on gh-pages, but the apex is not a GitHub
     // Pages site (no CNAME - Cloudflare serves it), so only the paths this
     // worker owns exist there: tinymakerwifi.com/demo/ and /manual/ were 404s
