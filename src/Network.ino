@@ -2959,15 +2959,28 @@ const renderBootAnims=()=>{
   }
 };
 const loadBootAnims=async()=>{
-  const wrap=$('bootAnimList');
+  const wrap=$('bootAnimList'),hintEl=$('bootAnimHint');
+  if(loadBootAnims._h===undefined)loadBootAnims._h=hintEl.textContent; // the usage instructions, restored after a lock
   if(!wrap.childElementCount)wrap.innerHTML='<div class="hint">Loading animations...</div>';
   try{
     const d=await api('/api/boot-anim');
     bootAnimSel=d.selected||'';
     if(bootAnimPending===bootAnimSel)bootAnimPending=null;
     bootAnimSd=d.animations||[];
+    hintEl.textContent=loadBootAnims._h;
     renderBootAnims();
-  }catch(e){$('bootAnimHint').textContent=e.message;return;}
+  }catch(e){
+    // Mirror the SD manager's lock message: the list otherwise sat on the grey
+    // "Loading animations..." placeholder forever while printing (409), with the
+    // busy error dumped into the hint below it - two half-messages, neither
+    // saying "locked" (user finding + screenshot, 0.15.5). One message, in the
+    // list; the usage instructions hide meanwhile - Save/Show/Delete they
+    // describe are not available anyway.
+    const t=(statusData&&statusData.busy)?'Boot animations live on the SD card - not available while printing, they come back when the print ends.'
+      :(statusData&&statusData.sdReady===false)?'Insert an SD card to manage boot animations.':e.message;
+    wrap.innerHTML='<div class="hint">'+t+'</div>';
+    hintEl.textContent='';
+    return;}
   if(bootAnimLib===null){
     try{const r=await fetch(BOOTANIM_LIB+'manifest.json',{cache:'no-store'});
       bootAnimLib=r.ok?(await r.json()).animations||[]:[];}
@@ -3109,7 +3122,7 @@ const applyStatus=s=>{
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
     if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
-    if(was!==s.busy){loadFiles();loadConfig();}
+    if(was!==s.busy){loadFiles();loadConfig();loadBootAnims();}
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
   busy:true,paused:false,pausing:false,resuming:false,stopping:false,dryRun:statusData&&statusData.dryRun,

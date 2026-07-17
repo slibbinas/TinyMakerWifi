@@ -1497,12 +1497,16 @@ void screen211(){
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
+  // Safety first: leveling homes DOWNWARD - with a print still on the plate it
+  // would press it into the FEP/LCD. A user recovering from a power outage lands
+  // exactly here in a panic (field incident: feedback #8, 2026-07-17). The
+  // factory-calibration nuance stays as the closing line.
   gfx2->setCursor(20, 16);
-  gfx2->println("Factory calibrated.");
+  gfx2->println("Plate must be EMPTY");
   gfx2->setCursor(6, 34);
-  gfx2->println("Re-level only when");
+  gfx2->println("homing goes DOWN.");
   gfx2->setCursor(6, 52);
-  gfx2->println("needed.");
+  gfx2->println("Factory calibrated.");
   
   gfx2->fillRoundRect(6, 58, 72, 18, 2, ORANGE);
   gfx2->setCursor(24, 71);
