@@ -9,6 +9,7 @@
     { "pattern": "tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/demo*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/manual*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "tinymakerwifi.com/orai*", "zone_name": "tinymakerwifi.com" },
     // www would otherwise fall through to bare gh-pages: /testai 404'd and
     // /feedback served the form WITHOUT the worker (its POST would go nowhere).
     // The worker owns these paths on www too and 301s to the apex.
@@ -16,7 +17,8 @@
     { "pattern": "www.tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/demo*", "zone_name": "tinymakerwifi.com" },
-    { "pattern": "www.tinymakerwifi.com/manual*", "zone_name": "tinymakerwifi.com" }
+    { "pattern": "www.tinymakerwifi.com/manual*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "www.tinymakerwifi.com/orai*", "zone_name": "tinymakerwifi.com" }
   ],
   "kv_namespaces": [
     { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }

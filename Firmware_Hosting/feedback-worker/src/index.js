@@ -89,6 +89,17 @@ export default {
       });
     }
 
+    // eInkWeather (oru stotele) interactive prototype - same KV-panel pattern as /tests.
+    // Public by design: fake demo data only; linked from that project's README and its
+    // Telegram bot's /demo command. Update: wrangler kv key put panel:orai --path prototipas.html
+    if (request.method === 'GET' && path === '/orai') {
+      const html = await env.FEEDBACK.get('panel:orai');
+      if (!html) return new Response('No panel uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     // The demo and the manual live on gh-pages, but the apex is not a GitHub
     // Pages site (no CNAME - Cloudflare serves it), so only the paths this
     // worker owns exist there: tinymakerwifi.com/demo/ and /manual/ were 404s
