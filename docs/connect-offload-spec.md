@@ -1,6 +1,6 @@
 # TinyMaker Connect offload — spec draft
 
-Status: **draft for discussion** (V. Sidlauskas). Started 2026-07-13 after the
+Status: **draft for discussion** (V. Šidlauskas). Started 2026-07-13 after the
 team-chat agreement; rewritten 2026-07-15 once measurements settled the
 architecture. Audience: @Briadark (Connect server), @Tann2019.
 

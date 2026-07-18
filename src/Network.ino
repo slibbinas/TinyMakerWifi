@@ -2907,16 +2907,16 @@ const renderBootAnims=()=>{
     pick.style.cssText='flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:0;margin:0;text-align:left';
 
     const dot=document.createElement('span');
-    dot.style.cssText='flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid '+(active?'#ff8a1e':'#6a6a72')+';background:'+(active?'#ff8a1e':'transparent')+';box-shadow:'+(active?'inset 0 0 0 2px #1e1e23':'none');
+    dot.style.cssText='flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid '+(active?'#ff8a1e':'var(--muted)')+';background:'+(active?'#ff8a1e':'transparent')+';box-shadow:'+(active?'inset 0 0 0 2px var(--card)':'none');
 
     const label=document.createElement('span');
-    label.style.cssText='min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(active?'#ff8a1e':'#e9e9ec')+';font-weight:'+(active?'600':'500');
+    label.style.cssText='min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+(active?'#ff8a1e':'var(--text)')+';font-weight:'+(active?'600':'500');
     label.textContent=a.display;
 
     pick.appendChild(dot);pick.appendChild(label);
     if(a.name){
       const meta=document.createElement('span');
-      meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
+      meta.style.cssText='flex:0 0 auto;color:var(--muted);font-size:12px';
       meta.textContent=a.name==='__shuffle'?'random':formatBytes(a.sizeBytes);
       pick.appendChild(meta);
     }
@@ -2945,10 +2945,10 @@ const renderBootAnims=()=>{
         const row=document.createElement('div');
         row.style.cssText='display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px';
         const label=document.createElement('span');
-        label.style.cssText='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9c9ce';
+        label.style.cssText='flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)';
         label.textContent=e.display;
         const meta=document.createElement('span');
-        meta.style.cssText='flex:0 0 auto;color:#8a8a92;font-size:12px';
+        meta.style.cssText='flex:0 0 auto;color:var(--muted);font-size:12px';
         meta.textContent=formatBytes(e.sizeBytes);
         const inst=smallBtn('Install');
         inst.addEventListener('click',()=>installBootAnim(e,inst));

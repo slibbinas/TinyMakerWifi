@@ -10,8 +10,19 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 [Keep a Changelog](https://keepachangelog.com/). Full release assets are on the
 [Releases page](https://github.com/slibbinas/TinyMakerWifi/releases).
 
-Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
+Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
+
+## [0.15.8] — 2026-07-19
+
+A readability fix for the light theme.
+
+### Fixed
+- **The boot-animation list is readable in light theme again.** The animation
+  names and sizes were painted in a hardcoded near-white grey that vanished
+  against the light theme's white card — the whole list looked disabled
+  (reported by a contributor). They now use the theme's own text colours, so
+  they read clearly in both light and dark.
 
 ## [0.15.7] — 2026-07-18
 
