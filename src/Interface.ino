@@ -369,43 +369,49 @@ static const uint8_t gearBitmap[] PROGMEM = {
 void screen1(){
   gfx2->fillScreen(BLACK);
 
+  // Icons centered in their boxes (box interior y15..54, center ~y34.5) to
+  // match the gear, and the whole menu sits 2 px lower than the old layout so
+  // the WiFi/Connect badge clears the box frames (~4 px gap). Total vertical
+  // shift vs the old top-hugging layout: layers/wrench +6, sliders +7, gear +2.
+  // Title baseline y73: font descenders (g/y/p = 4 px) reach y77, 2 px clear of
+  // the 80 px screen bottom - this is the last comfortable pixel down.
   // Print icon (box 1: x0-40)
-  gfx2->fillTriangle(9, 23, 19, 18, 29, 23, ORANGE);
-  gfx2->fillTriangle(9, 23, 19, 28, 29, 23, ORANGE);
-  gfx2->drawLine(9, 27, 19, 32, ORANGE);
-  gfx2->drawLine(9, 31, 19, 36, ORANGE);
-  gfx2->drawLine(9, 35, 19, 40, ORANGE);
-  gfx2->drawLine(19, 32, 29, 27, ORANGE);
-  gfx2->drawLine(19, 36, 29, 31, ORANGE);
-  gfx2->drawLine(19, 40, 29, 35, ORANGE);
+  gfx2->fillTriangle(9, 29, 19, 24, 29, 29, ORANGE);
+  gfx2->fillTriangle(9, 29, 19, 34, 29, 29, ORANGE);
+  gfx2->drawLine(9, 33, 19, 38, ORANGE);
+  gfx2->drawLine(9, 37, 19, 42, ORANGE);
+  gfx2->drawLine(9, 41, 19, 46, ORANGE);
+  gfx2->drawLine(19, 38, 29, 33, ORANGE);
+  gfx2->drawLine(19, 42, 29, 37, ORANGE);
+  gfx2->drawLine(19, 46, 29, 41, ORANGE);
 
   // Maintenance icon (box 2: x40-80)
-  gfx2->fillCircle(52, 37, 3, ORANGE); 
-  gfx2->fillCircle(52, 37, 1, BLACK); 
-  gfx2->fillCircle(65, 24, 6, ORANGE);
-  gfx2->fillCircle(67, 22, 3, BLACK); 
-  gfx2->fillCircle(68, 21, 3, BLACK);
-  gfx2->fillTriangle(51, 34, 59, 26, 55, 38, ORANGE);
-  gfx2->fillTriangle(55, 38, 63, 30, 59, 26, ORANGE);
+  gfx2->fillCircle(52, 43, 3, ORANGE);
+  gfx2->fillCircle(52, 43, 1, BLACK);
+  gfx2->fillCircle(65, 30, 6, ORANGE);
+  gfx2->fillCircle(67, 28, 3, BLACK);
+  gfx2->fillCircle(68, 27, 3, BLACK);
+  gfx2->fillTriangle(51, 40, 59, 32, 55, 44, ORANGE);
+  gfx2->fillTriangle(55, 44, 63, 36, 59, 32, ORANGE);
 
   // Settings icon (box 3: x80-120)
-  gfx2->fillRoundRect(91, 21, 20, 2, 1, ORANGE);
   gfx2->fillRoundRect(91, 28, 20, 2, 1, ORANGE);
   gfx2->fillRoundRect(91, 35, 20, 2, 1, ORANGE);
-  gfx2->fillCircle(104, 21, 2, ORANGE);
-  gfx2->fillCircle(99, 28, 2, ORANGE);
-  gfx2->fillCircle(104, 35, 2, ORANGE);
+  gfx2->fillRoundRect(91, 42, 20, 2, 1, ORANGE);
+  gfx2->fillCircle(104, 28, 2, ORANGE);
+  gfx2->fillCircle(99, 35, 2, ORANGE);
+  gfx2->fillCircle(104, 42, 2, ORANGE);
 
   // System icon: gear (box 4: x120-160), drawn from a 1-bit 27x27 bitmap
   // (generated pixel map - 8 identical teeth, rounded tips, big hole;
   // shape approved by the maintainer). See gearBitmap above screen1().
-  gfx2->drawBitmap(127, 19, gearBitmap, 27, 27, ORANGE);
+  gfx2->drawBitmap(127, 21, gearBitmap, 27, 27, ORANGE);
 
-  gfx2->drawRoundRect(0, 13, 40, 40, 5, 0x879F);
+  gfx2->drawRoundRect(0, 15, 40, 40, 5, 0x879F);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  gfx2->setCursor(63, 71);
+  gfx2->setCursor(63, 73);
   gfx2->print("Print");
 
   #if ENABLE_NETWORK
@@ -422,12 +428,12 @@ void screen1(){
  * @brief Screen 2: Main Menu - Maintenance
  */
 void screen2(){
-  gfx2->drawRoundRect(0, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(80, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(120, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(40, 13, 40, 40, 5, 0x879F);
-  gfx2->fillRect(0, 53, 160, 27, BLACK);
-  gfx2->setCursor(31, 71);
+  gfx2->drawRoundRect(0, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 15, 40, 40, 5, 0x879F);
+  gfx2->fillRect(0, 55, 160, 25, BLACK);
+  gfx2->setCursor(31, 73);
   gfx2->print("Maintenance");
   #if ENABLE_NETWORK
   drawWifiBadge();
@@ -443,12 +449,12 @@ void screen2(){
  * @brief Screen 3: Main Menu - Setting
  */
 void screen3(){
-  gfx2->drawRoundRect(0, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(40, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(120, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(80, 13, 40, 40, 5, 0x879F);
-  gfx2->fillRect(0, 53, 160, 27, BLACK);
-  gfx2->setCursor(51, 71);
+  gfx2->drawRoundRect(0, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 15, 40, 40, 5, 0x879F);
+  gfx2->fillRect(0, 55, 160, 25, BLACK);
+  gfx2->setCursor(51, 73);
   gfx2->print("Settings");
   #if ENABLE_NETWORK
   drawWifiBadge();
@@ -459,12 +465,12 @@ void screen3(){
  * @brief Screen 4: Main Menu - System
  */
 void screen4(){
-  gfx2->drawRoundRect(0, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(40, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(80, 13, 40, 40, 5, BLACK);
-  gfx2->drawRoundRect(120, 13, 40, 40, 5, 0x879F);
-  gfx2->fillRect(0, 53, 160, 27, BLACK);
-  gfx2->setCursor(53, 71);
+  gfx2->drawRoundRect(0, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(40, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(80, 15, 40, 40, 5, BLACK);
+  gfx2->drawRoundRect(120, 15, 40, 40, 5, 0x879F);
+  gfx2->fillRect(0, 55, 160, 25, BLACK);
+  gfx2->setCursor(53, 73);
   gfx2->print("System");
   #if ENABLE_NETWORK
   drawWifiBadge();
