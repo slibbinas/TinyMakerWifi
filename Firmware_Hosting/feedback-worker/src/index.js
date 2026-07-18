@@ -429,7 +429,8 @@ function inboxPage(notes, listKey, view) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Feedback inbox — TinyMakerWifi</title>
-<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');
+  var t=(q==='light'||q==='dark')?q:localStorage.getItem('fbTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -528,10 +529,20 @@ ${hits > PAGE ? `<div class="pager">
   <span class="range">${from + 1}–${Math.min(from + PAGE, hits)} of ${hits}</span>
   ${from + PAGE < hits ? `<a href="${esc(q({ from: from + PAGE }))}">Older →</a>` : '<span></span>'}
 </div>` : ''}
-<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a></footer>
+<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" style="background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:2px 10px;font-size:.78rem;cursor:pointer;font-family:inherit">🌓 Theme</button></footer>
 </div>
 <script>
 var KEY=${JSON.stringify(listKey)};
+// Light/dark toggle: theme support already exists (data-theme + tokens); this
+// just adds a manual switch that wins over the OS preference and persists.
+(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
+  var curTheme=function(){var d=document.documentElement.getAttribute('data-theme');
+    return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
+  var label=function(){tg.textContent=curTheme()==='dark'?'☀️ Light':'🌙 Dark';};
+  label();
+  tg.addEventListener('click',function(){var next=curTheme()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    try{localStorage.setItem('fbTheme',next);}catch(e){}label();});})();
 var api=function(what,note,body){
   return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
     {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})
