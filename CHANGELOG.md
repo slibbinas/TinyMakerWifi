@@ -13,6 +13,25 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Sidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.15.7] — 2026-07-18
+
+WiFi that comes back on its own, and a tidier main menu.
+
+### Fixed
+- **The printer rejoins WiFi after a dropout.** Until now the firmware only
+  connected at boot, so if the router dropped the link mid-use the printer
+  stayed offline until a reboot — and the only recovery some users found was
+  re-entering the WiFi password (the credentials were never actually lost). It
+  now auto-reconnects in the background, with an idle watchdog that also
+  re-announces `tinymaker.local` after a reconnect. It runs entirely off the
+  print path, so exposure timing is untouched. (Reported via the feedback form.)
+
+### Changed
+- **Main-menu icons are centered and the row sits a touch lower.** Three of the
+  four icons hugged the top of their boxes; they now sit centered like the gear,
+  and the whole menu drops 2 px so the WiFi/Connect badge no longer crowds the
+  highlighted box frame.
+
 ## [0.15.6] — 2026-07-20
 
 Two small screens that matter at the worst moments.

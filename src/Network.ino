@@ -4829,6 +4829,15 @@ void network_setup() {
   // would die minutes after boot. Mains-powered device: keep the radio awake.
   WiFi.setSleep(false);
 
+  // Rejoin on our own when the AP drops us. The core's background reconnect
+  // runs in the WiFi task (not the print loop, so it never touches a curing
+  // layer), and persistent(true) keeps the stored credentials so a drop never
+  // sends the user back to WiFi setup (reported: connection drops mid-use, only
+  // recovered by re-entering the password). The idle watchdog in network_loop()
+  // is the backup nudge + mDNS re-announce.
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+
   MDNS.begin("tinymaker"); // http://tinymaker.local
 
   // OctoPrint-style API for PrusaSlicer "Send to printer".
@@ -4995,6 +5004,28 @@ void network_loop() {
   if (!uiBlanked && (screen == 1 || screen == 2 || screen == 3 || screen == 4) && millis() - badgeTs > 5000) {
     badgeTs = millis();
     drawWifiBadge();
+  }
+
+  // WiFi reconnect watchdog. Lives ONLY here in network_loop(), which the
+  // exposure path never calls (turn_on_LED services network_service_http()
+  // only), so it can never touch a curing layer. setAutoReconnect() already
+  // rejoins in the background; this is the belt-and-suspenders nudge for when
+  // the core gives up, and it re-announces mDNS - tinymaker.local dies across a
+  // reconnect - once the link is back. Non-blocking: reconnect() just kicks the
+  // WiFi task. Dormant during a print (network_loop isn't reached then); the
+  // background auto-reconnect covers that window.
+  static unsigned long wifiWatchTs = 0;
+  static bool wifiWasDown = false;
+  if (millis() - wifiWatchTs > 15000) {
+    wifiWatchTs = millis();
+    if (WiFi.status() != WL_CONNECTED) {
+      wifiWasDown = true;
+      WiFi.reconnect();
+    } else if (wifiWasDown) {
+      wifiWasDown = false;
+      MDNS.end();
+      MDNS.begin("tinymaker");
+    }
   }
 }
 
