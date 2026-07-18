@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWifi — feedback</title>
-<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');
+  if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);
+  var t=p||localStorage.getItem('tmTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -17,9 +19,6 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
-/* Narrow phones: trim the page/card padding so the fixed 300 px Turnstile box
-   keeps room (covers ~360 px viewports and up). */
-@media(max-width:420px){body{padding:12px}.card{padding:24px 12px}}
 /* The name carries the context, the heading carries the invitation - opened
    from a bare link, "Tell us how it's going" alone says nothing. */
 .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:18px}
@@ -34,16 +33,6 @@ input[type=file]{padding:8px;font-size:13px}
 button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
 button:hover{background:#c95f06}
 button:disabled{opacity:.6;cursor:default}
-/* Turnstile widget breathing room. NOTE: never write the placeholder token
-   (hyphen-comment turnstile) in this file except at its one real spot in the
-   body — the worker replaces the FIRST match, so a copy here in the head would
-   swallow the injection into a dead CSS comment and the widget never renders
-   (that bug cost an afternoon on 2026-07-18). */
-/* 400px is the settled width: wide enough to sit under the Send button without
-   looking narrow, but below the ~410px point where Turnstile's own banner
-   starts clipping at some zoom levels. width (not max-width) is deliberate —
-   max-width alone collapses the block to 0 before the iframe loads. */
-.cf-turnstile{width:400px;max-width:100%;margin:18px auto 0}
 .fw{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--muted)}
 #thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 #thumbs figure{margin:0;position:relative}
@@ -56,10 +45,25 @@ button:disabled{opacity:.6;cursor:default}
 .case b{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:16px}
 #alt{display:none;font-size:13.5px}
 a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
+.card{position:relative}
+.themeBtn{position:absolute;top:12px;right:12px;width:auto;margin:0;padding:4px 9px;background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;font-size:13px;line-height:1;cursor:pointer}
+.themeBtn:hover{background:var(--line)}
 </style>
 </head>
 <body>
+<script>
+// Light/dark toggle — shares the tmTheme key with the dashboard, inbox and
+// test checklist, so a choice made anywhere carries across the site.
+(function(){var tg;document.addEventListener('DOMContentLoaded',function(){
+  tg=document.getElementById('themeToggle');if(!tg)return;
+  var cur=function(){var d=document.documentElement.getAttribute('data-theme');
+    return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
+  tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',n);
+    try{localStorage.setItem('tmTheme',n);}catch(e){}});});})();
+</script>
 <div class="card">
+  <button type="button" id="themeToggle" class="themeBtn" title="Light / dark theme" aria-label="Toggle theme">🌓</button>
   <div class="brand">
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
     <span>TinyMakerWifi</span>
