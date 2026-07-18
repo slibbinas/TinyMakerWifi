@@ -1,6 +1,6 @@
 /**
  * @file TinyMaker-Firmware-v1-0-2.ino
- * @author Tinymaker Team (Original), Viktoras Sidlauskas (Modified)
+ * @author Tinymaker Team (Original), Viktoras Šidlauskas (Modified)
  * @version 1.0.2-vs-wifi-0.1
  * @date 2027-07-26
  * @brief Main firmware for Tinymaker MSLA 3D Printer.
