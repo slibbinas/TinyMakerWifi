@@ -94,6 +94,7 @@ unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
 long otaTotalBytes = 0;            // web OTA: Content-Length, for the progress bar
 unsigned long mqttLastAttemptMs = 0;
 unsigned long mqttLastPublishMs = 0;
+unsigned long mqttBackoffMs = 10000;   // reconnect interval; grows 10s -> 5min while the broker is down
 bool mqttDiscoverySent = false;
 
 extern unsigned long whitePixelsAccum;
@@ -1829,6 +1830,7 @@ void mqtt_loop() {
   if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) {
     if (mqttClient.connected()) mqttClient.disconnect();
     mqttDiscoverySent = false;
+    mqttBackoffMs = 10000;   // reset so re-enabling / reconnecting WiFi retries promptly
     return;
   }
 
@@ -1846,9 +1848,16 @@ void mqtt_loop() {
 
   if (!mqttClient.connected()) {
     unsigned long now = millis();
-    if (now - mqttLastAttemptMs < 10000UL) return;
+    if (now - mqttLastAttemptMs < mqttBackoffMs) return;
     mqttLastAttemptMs = now;
-    if (!mqttConnect()) return;
+    if (!mqttConnect()) {
+      // Broker down: back off 10s -> 5min. mqttConnect() blocks (~socket
+      // timeout), so hammering it every 10s briefly freezes the single loop
+      // (LCD + web + print) with no on-screen sign - the "hangs silently" bug.
+      mqttBackoffMs = min(mqttBackoffMs * 2, 300000UL);
+      return;
+    }
+    mqttBackoffMs = 10000;   // reconnected: back to a snappy retry
   }
 
   mqttClient.loop();
