@@ -1234,11 +1234,11 @@ const modelPreview=async()=>{
 };
 // Dashboard preview: the SD row's Preview button renders straight into the
 // always-visible Model preview card (Print progress 3D while printing).
-let dashPreviewName='',dashPreviewConnectId='',slicesPrefetching=false;
+let dashPreviewName='',slicesPrefetching=false;
 // Single door for the previewed-model name: the SD list marks that row, so the
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
-const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;dashPreviewConnectId='';renderFiles();};
+const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();};
 const dashPreviewPlaceholder=()=>{
   setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
@@ -1264,8 +1264,7 @@ const restoreDashPreview=async()=>{
     show('dashModelInfo',true);
     await loadSavedPreviewTo($('printPreviewCanvas'),name);
     if(dashPreviewName!==name)return;
-    dashPreviewConnectId=d.connectPublicId||'';
-    show('dashShareButton',connectIsReady()&&!dashPreviewConnectId);
+    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
   }catch(e){
     // Every SD read answers 409 "printer busy" while a print runs, and this
     // catch treated any failure as "the model is gone": it wiped the remembered
@@ -1316,8 +1315,7 @@ const dashPreview=async nameEnc=>{
       if(!resin&&mlEst){resin='~'+mlEst.toFixed(1)+' ml (quick)';setInfo();}
     }
     if(dashPreviewName!==name)return;
-    dashPreviewConnectId=d.connectPublicId||'';
-    show('dashShareButton',connectIsReady()&&!dashPreviewConnectId);
+    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
     localStorage.setItem('dashPreviewModel',name);
   }catch(e){
     if(e.message==='preview superseded')return;
@@ -1539,7 +1537,6 @@ const updateConnectView=c=>{
   if(window.TinyMakerConnectHostedUpdate){window.TinyMakerConnectHostedUpdate(c);try{tidyConnectHosted();}catch(_){}}
   else if($('connectHostedRoot'))$('connectHostedRoot').innerHTML=connectIsReady()?'<h2>TinyMaker Connect</h2><div class="hint">Connect UI is loaded from '+esc(connectBase())+'.</div>':'<h2>TinyMaker Connect</h2><div class="hint">Enable and register TinyMaker Connect in Settings before loading the hosted Connect app.</div>';
   show('modelShareButton',connectIsReady()&&!!selectedModel&&!selectedModelConnectPublicId);
-  show('dashShareButton',connectIsReady()&&!!dashPreviewName&&!dashPreviewConnectId);
 };
 const loadConfig=async()=>{
   if(!connectConfig)$('configHint').textContent='Loading settings...';
