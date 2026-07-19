@@ -8,6 +8,9 @@
 *.code-workspace
 compile_commands.json
 
+# Generated from web/dashboard.html by scripts/gen_dashboard_gz.py (pre-build)
+src/dashboard_html_gz.h
+
 # Local, private Claude skills (kept out of the public repo; backup: secret gist)
 .claude/skills/
 
