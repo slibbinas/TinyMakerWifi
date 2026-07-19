@@ -104,44 +104,53 @@
     <p>Latest stable. Boot-anim list readability, minor fixes.</p></div></div>
   <div class="tlv now"><span class="mark">🔜</span><div>
     <span class="vname">0.16</span><span class="vwhen">blocked on #11 + SUNLU resin (~Aug)</span>
-    <p>The freeze bundle below. Power-loss resume (#11) gates the package; deciseconds need the test resin.</p></div></div>
+    <p>The freeze bundle below, shipped in experimental-build stages. Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
   <div class="tlv goal"><span class="mark">🎯</span><div>
     <span class="vname">1.0.0</span><span class="vwhen">0.16 stabilized + 7 exit gates</span>
     <p>Same bytes as 0.16, promoted to stable. Wide announcement lined up with Roger's October batch.</p></div></div>
 </div>
 
 <h2>0.16 — the freeze bundle</h2>
-<p class="lede" style="margin-bottom:14px"><b>Where it stands:</b> #11 (power-loss resume) is Tanner's and it gates the raise-plate
-  step. Everything else is independent and already moving, roughly in the order below. If #11 stalls, V picks it up — with credit.</p>
+<p class="lede" style="margin-bottom:14px"><b>How we're shipping it:</b> in experimental-build stages (<b>exp-1 → exp-5</b>). Tanner's power-loss
+  resume (#11) is deliberately <b>last</b>, so everything independent moves now. If #11 stalls, V picks it up — with credit. Docs/infra run in parallel.</p>
 <div class="tblwrap"><table>
-  <tr><th>Seq</th><th>Where</th><th>What</th><th>Owner</th><th>Status</th></tr>
+  <tr><th>Stage</th><th>Where</th><th>What</th><th>Owner</th><th>Status</th></tr>
 
-  <tr class="subhead"><td colspan="5">⛔ Waiting on power-loss resume (#11)</td></tr>
-  <tr><td class="nr">0-1</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Power-loss resume</b> — remember the layer on SD, offer to continue after an outage instead of restarting. <b>Gates 0-2.</b></td>
-    <td><span class="own t">Tanner</span> · PR #11</td><td class="st">☐</td></tr>
-  <tr><td class="nr">0-2</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
-    <td class="what"><b>Raise plate after a crash</b> — safely lift the plate (up only) from the resume checkpoint, so a stuck print doesn't press into the FEP. Button on screen + dashboard. <b>Needs the 0-1 checkpoint.</b></td>
+  <tr class="subhead"><td colspan="5">exp-1 · Housekeeping + headroom — first (gzip frees flash)</td></tr>
+  <tr><td class="nr">0-10</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Gzip the dashboard</b> — SPA is 127 KB plain in PROGMEM; gzip saves ~85–90 KB of flash (74% → ~69%). Done first to free room for the rest.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-15</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Dim idle screen</b> — a dark status view instead of a fully blank screen. ~20 lines, isolated.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
-  <tr class="subhead"><td colspan="5">▶ Independent — moving now (in order, no dependency on #11)</td></tr>
-  <tr><td class="nr">① 0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). <i>(needs the SUNLU test resin, ~Aug, to validate)</i></td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
-  <tr><td class="nr">② 0-15</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Dim idle screen</b> — instead of a fully blank screen, a dark status view. Same power, still shows it's alive. ~20 lines, isolated.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
-  <tr><td class="nr">③ 0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
+  <tr class="subhead"><td colspan="5">exp-2 · Menu &amp; UI</td></tr>
+  <tr><td class="nr">0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
     <td class="what"><b>Menu regroup</b> — Advanced split into groups (Network / Resin / Display / Calibration / Reset); add About on the dashboard; keep Update visible. Manual menu-reference table after.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
-  <tr><td class="nr">④ 0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
+
+  <tr class="subhead"><td colspan="5">exp-3 · Preview &amp; web features</td></tr>
+  <tr><td class="nr">0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
     <td class="what"><b>Preview PNG to RAM</b> — cache the preview in RAM at print start so any browser sees it mid-print. Fixes the "lost progress on my phone / Prusa view" reports. Builds on Brian's PR #10 cache.</td>
     <td><span class="own c">community</span> → <span class="own v">V</span></td><td class="st">☐</td></tr>
-
-  <tr class="subhead"><td colspan="5">◇ Hygiene — in parallel, lands in 0.16.x</td></tr>
-  <tr><td class="nr">0-10</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Gzip the dashboard</b> — SPA is 127 KB plain in PROGMEM; gzip saves ~85–90 KB of flash (74% → ~69%).</td>
+  <tr><td class="nr">0-20</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Release notes at each version</b> — a "release notes ↗" link by every version number (latest / installed / picker) opening its GitHub Release. Dashboard-only.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+
+  <tr class="subhead"><td colspan="5">exp-4 · Exposure — waits for SUNLU test resin (~Aug); highest risk (EEPROM)</td></tr>
+  <tr><td class="nr">0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+
+  <tr class="subhead"><td colspan="5">exp-5 · Power-loss + raise plate — LAST (waits for #11; if it stalls, V takes it with credit)</td></tr>
+  <tr><td class="nr">0-1</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Power-loss resume</b> — remember the layer on SD, offer to continue after an outage. Gates 0-2. Moved to the end so the rest ships first.</td>
+    <td><span class="own t">Tanner</span> · PR #11</td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-2</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
+    <td class="what"><b>Raise plate after a crash</b> — safely lift the plate (up only) from the resume checkpoint, so a stuck print doesn't press into the FEP. Needs the 0-1 checkpoint.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+
+  <tr class="subhead"><td colspan="5">Parallel — no firmware build (docs / infra / audit)</td></tr>
   <tr><td class="nr">0-11</td><td><span class="kw doc">Docs</span></td>
     <td class="what"><b><code>docs/api.md</code></b> — versioned LAN API contract in the repo (promised in Issue #12). 1.0.0 gate.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
@@ -154,7 +163,7 @@
 </table></div>
 <p class="legend"><b>Where:</b> <span class="kw www">Web</span> browser dashboard · <span class="kw ptr">Printer</span> device screen ·
   <span class="kw doc">Docs</span> manual/repo · <span class="kw infra">Infra</span> server. <b>Status:</b> ☐ to do · ◐ in progress · ✓ done.
-  ①–④ = rough order of the independent work.</p>
+  <b>exp-1 → exp-5</b> = experimental firmware builds, done in that order; each flashed &amp; smoke-tested. Parallel row = no firmware build.</p>
 
 <h2>1.0.0 — exit gates (all must be green)</h2>
 <ul class="gates">
