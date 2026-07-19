@@ -1,0 +1,177 @@
+<title>TinyMakerWiFi — Roadmap</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#6b7280; --border:#e5e7eb;
+    --accent:#f07a1a; --code-bg:#f0f1f3; --ver-bg:#fdf0e4;
+    --ok:#1a9e5f; --warn:#c77d0a; --bad:#e0532b; --www:#3b82f6; --ptr:#1a9e5f; --doc:#a855f7; --infra:#8a8f99;
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab; --border:#2b2f38;
+    --accent:#ff9740; --code-bg:#242832; --ver-bg:#2a2013;
+    --ok:#3ecf8e; --warn:#e0a23a; --bad:#ff7a52; --www:#5b9bf6; --ptr:#3ecf8e; --doc:#c184f0; --infra:#9aa0ab;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.35);}}
+  :root[data-theme="dark"]{
+    --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab; --border:#2b2f38;
+    --accent:#ff9740; --code-bg:#242832; --ver-bg:#2a2013;
+    --ok:#3ecf8e; --warn:#e0a23a; --bad:#ff7a52; --www:#5b9bf6; --ptr:#3ecf8e; --doc:#c184f0; --infra:#9aa0ab;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.35);}
+  :root[data-theme="light"]{
+    --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#6b7280; --border:#e5e7eb;
+    --accent:#f07a1a; --code-bg:#f0f1f3; --ver-bg:#fdf0e4;
+    --ok:#1a9e5f; --warn:#c77d0a; --bad:#e0532b; --www:#3b82f6; --ptr:#1a9e5f; --doc:#a855f7; --infra:#8a8f99;
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.05);}
+  *{box-sizing:border-box} body{margin:0}
+  @media print{
+    :root{color-scheme:light}
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .wrap{padding:10px 6px;max-width:none}
+    .tblwrap,.tlv,.note{box-shadow:none}
+    h2{margin-top:20px}
+    table{min-width:0}
+    .tlv,tr,.note,li{break-inside:avoid}
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:30px 18px 60px;color:var(--text);background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;
+    -webkit-font-smoothing:antialiased}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  header .mark{width:34px;height:34px;flex:none}
+  h1{font-size:1.7rem;margin:0;letter-spacing:-.01em}
+  h1 b{color:var(--accent)}
+  .lede{color:var(--muted);font-size:.95rem;margin:6px 0 0;max-width:70ch}
+  .lede b{color:var(--text)}
+  .flow{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin:16px 0 4px;font-size:.85rem;color:var(--muted)}
+  .flow .step{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--text);font-weight:600}
+  .flow .arr{color:var(--accent);font-weight:700}
+
+  h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;
+    margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+  .tl{display:flex;flex-direction:column;gap:9px}
+  .tlv{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-radius:11px;border:1px solid var(--border);
+    background:var(--card);border-left:4px solid var(--muted);box-shadow:var(--shadow)}
+  .tlv.done{border-left-color:var(--ok)} .tlv.now{border-left-color:var(--accent);background:color-mix(in srgb,var(--ver-bg) 40%,var(--card))}
+  .tlv.goal{border-left-color:var(--doc)}
+  .tlv .mark{font-size:1.1rem;flex:none;line-height:1.3}
+  .tlv .vname{font-weight:800;font-size:1.02rem;margin-right:8px}
+  .tlv.done .vname{color:var(--ok)} .tlv.now .vname{color:var(--accent)} .tlv.goal .vname{color:var(--doc)}
+  .tlv .vwhen{font-size:.78rem;color:var(--muted);font-weight:600}
+  .tlv p{margin:.35em 0 0;font-size:.88rem}
+
+  .tblwrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:640px}
+  th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--code-bg)}
+  tr:last-child td{border-bottom:none}
+  td.nr{white-space:nowrap;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  td.what b{color:var(--text)}
+  .kw{display:inline-block;font-size:.64rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+    padding:1px 6px;border-radius:5px;border:1px solid currentColor;margin-right:4px;line-height:1.5;vertical-align:1px}
+  .kw.www{color:var(--www)} .kw.ptr{color:var(--ptr)} .kw.doc{color:var(--doc)} .kw.infra{color:var(--infra)}
+  .own{font-weight:700;white-space:nowrap;font-size:.82rem}
+  .own.v{color:var(--accent)} .own.t{color:var(--doc)} .own.b{color:var(--www)} .own.c{color:var(--muted)}
+  td.st{text-align:center;font-size:1rem;color:var(--muted)}
+  .subhead td{background:var(--code-bg);color:var(--muted);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:7px 13px}
+
+  ul.gates{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+  ul.gates li{position:relative;padding-left:20px;font-size:.9rem}
+  ul.gates li:before{content:"☐";position:absolute;left:0;color:var(--muted)}
+  .note{background:color-mix(in srgb,var(--ver-bg) 45%,transparent);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin-top:16px;font-size:.9rem}
+  .note b{color:var(--accent)}
+  .legend{font-size:.78rem;color:var(--muted);margin-top:10px}
+  .legend b{color:var(--text)}
+  footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+</style>
+
+<div class="wrap">
+<header>
+  <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+  <h1><b>TinyMakerWiFi</b> — Roadmap</h1>
+</header>
+<p class="lede"><b>0.16 is the feature-freeze bundle.</b> We ship these, stabilize, then promote the exact same bytes as
+  <b>1.0.0</b> — nothing new goes in after this list. Broad announcement is timed to Roger's October batch.</p>
+<div class="flow">
+  <span class="step">Freeze bundle (0.16)</span><span class="arr">→</span>
+  <span class="step">0.16.x fixes</span><span class="arr">→</span>
+  <span class="step">1.0.0 (same bytes)</span>
+</div>
+
+<h2>Timeline</h2>
+<div class="tl">
+  <div class="tlv done"><span class="mark">✅</span><div>
+    <span class="vname">0.15.8</span><span class="vwhen">shipped</span>
+    <p>Latest stable. Boot-anim list readability, minor fixes.</p></div></div>
+  <div class="tlv now"><span class="mark">🔜</span><div>
+    <span class="vname">0.16</span><span class="vwhen">blocked on #11 + SUNLU resin (~Aug)</span>
+    <p>The freeze bundle below. Power-loss resume (#11) gates the package; deciseconds need the test resin.</p></div></div>
+  <div class="tlv goal"><span class="mark">🎯</span><div>
+    <span class="vname">1.0.0</span><span class="vwhen">0.16 stabilized + 7 exit gates</span>
+    <p>Same bytes as 0.16, promoted to stable. Wide announcement lined up with Roger's October batch.</p></div></div>
+</div>
+
+<h2>0.16 — the freeze bundle</h2>
+<p class="lede" style="margin-bottom:14px"><b>Where it stands:</b> #11 (power-loss resume) is Tanner's and it gates the raise-plate
+  step. Everything else is independent and already moving, roughly in the order below. If #11 stalls, V picks it up — with credit.</p>
+<div class="tblwrap"><table>
+  <tr><th>Seq</th><th>Where</th><th>What</th><th>Owner</th><th>Status</th></tr>
+
+  <tr class="subhead"><td colspan="5">⛔ Waiting on power-loss resume (#11)</td></tr>
+  <tr><td class="nr">0-1</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Power-loss resume</b> — remember the layer on SD, offer to continue after an outage instead of restarting. <b>Gates 0-2.</b></td>
+    <td><span class="own t">Tanner</span> · PR #11</td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-2</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
+    <td class="what"><b>Raise plate after a crash</b> — safely lift the plate (up only) from the resume checkpoint, so a stuck print doesn't press into the FEP. Button on screen + dashboard. <b>Needs the 0-1 checkpoint.</b></td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+
+  <tr class="subhead"><td colspan="5">▶ Independent — moving now (in order, no dependency on #11)</td></tr>
+  <tr><td class="nr">① 0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). <i>(needs the SUNLU test resin, ~Aug, to validate)</i></td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">② 0-15</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Dim idle screen</b> — instead of a fully blank screen, a dark status view. Same power, still shows it's alive. ~20 lines, isolated.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">③ 0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
+    <td class="what"><b>Menu regroup</b> — Advanced split into groups (Network / Resin / Display / Calibration / Reset); add About on the dashboard; keep Update visible. Manual menu-reference table after.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">④ 0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
+    <td class="what"><b>Preview PNG to RAM</b> — cache the preview in RAM at print start so any browser sees it mid-print. Fixes the "lost progress on my phone / Prusa view" reports. Builds on Brian's PR #10 cache.</td>
+    <td><span class="own c">community</span> → <span class="own v">V</span></td><td class="st">☐</td></tr>
+
+  <tr class="subhead"><td colspan="5">◇ Hygiene — in parallel, lands in 0.16.x</td></tr>
+  <tr><td class="nr">0-10</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Gzip the dashboard</b> — SPA is 127 KB plain in PROGMEM; gzip saves ~85–90 KB of flash (74% → ~69%).</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-11</td><td><span class="kw doc">Docs</span></td>
+    <td class="what"><b><code>docs/api.md</code></b> — versioned LAN API contract in the repo (promised in Issue #12). 1.0.0 gate.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-12</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Security pass</b> — one systematic sweep of POST endpoints, file paths, gate consistency before 1.0.0.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-14</td><td><span class="kw doc">Docs</span></td>
+    <td class="what"><b>CONTRIBUTING + issue templates</b> — ahead of outside PRs after the 1.0.0 push.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+</table></div>
+<p class="legend"><b>Where:</b> <span class="kw www">Web</span> browser dashboard · <span class="kw ptr">Printer</span> device screen ·
+  <span class="kw doc">Docs</span> manual/repo · <span class="kw infra">Infra</span> server. <b>Status:</b> ☐ to do · ◐ in progress · ✓ done.
+  ①–④ = rough order of the independent work.</p>
+
+<h2>1.0.0 — exit gates (all must be green)</h2>
+<ul class="gates">
+  <li>Freeze bundle shipped, its regression tests green on the candidate build</li>
+  <li>Smoke backbone + self-update path (0.14.3 → candidate) green on that same build</li>
+  <li>Security pass done</li>
+  <li>14-day quiet window on the candidate — no new non-cosmetic bugs across all channels</li>
+  <li>3+ printers on the candidate actually printing &amp; reporting back</li>
+  <li>Docs = candidate: README, manual, changelog, demo, screenshots + <code>api.md</code></li>
+  <li>Announcement decoupled from the tag — the wide push follows Roger's October batch</li>
+</ul>
+
+<div class="note">
+  <b>@Tanner — no rush on #11, genuinely.</b> It gates the bundle, but there's no deadline pressure. If it's stuck and you're
+  swamped, I'm happy to take a slice of it and land it <b>with full credit to you</b> — just say the word, or leave it,
+  whichever's easier. Everything else can move in parallel.
+</div>
+
+<footer>TinyMakerWiFi firmware roadmap · updated 2026-07-19. Owners: [V] Viktoras · [T] Tanner · [B] Brian · community.</footer>
+</div>
