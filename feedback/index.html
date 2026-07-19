@@ -45,8 +45,8 @@ button:disabled{opacity:.6;cursor:default}
 .case b{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:16px}
 #alt{display:none;font-size:13.5px}
 a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
-.card{position:relative}
-.themeBtn{position:absolute;top:11px;right:11px;width:auto;margin:0;padding:2px;background:none;border:0;color:var(--muted);font-size:19px;line-height:1;cursor:pointer}
+.topbar{display:flex;justify-content:flex-end;margin:-6px -4px 2px 0}
+.themeBtn{width:auto;margin:0;padding:2px 4px;background:none;border:0;color:var(--muted);font-size:19px;line-height:1;cursor:pointer}
 .themeBtn:hover{color:var(--text)}
 </style>
 </head>
@@ -63,7 +63,7 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     try{localStorage.setItem('tmTheme',n);}catch(e){}});});})();
 </script>
 <div class="card">
-  <button type="button" id="themeToggle" class="themeBtn" title="Light / dark theme" aria-label="Toggle theme">◐</button>
+  <div class="topbar"><button type="button" id="themeToggle" class="themeBtn" title="Light / dark theme" aria-label="Toggle theme">◐</button></div>
   <div class="brand">
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
     <span>TinyMakerWifi</span>
