@@ -779,8 +779,15 @@ bool handleUiTimeout() {
   if (!(screen == 1 || screen == 2 || screen == 3 || screen == 4)) return false;
   if (millis() - lastUiActivityMs < (unsigned long)uiTimeoutSecs * 1000UL) return false;
 
+  // The backlight is hard-wired on, so displayOff() would leave a lit black
+  // panel. Draw a dim status instead (0-15): same power, but the printer looks
+  // alive and its IP stays visible. uiBlanked latches so it is drawn once.
+#if ENABLE_NETWORK
+  drawIdleScreen();
+#else
   gfx2->fillScreen(BLACK);
-  ((Arduino_TFT *)gfx2)->displayOff(); // may not cut backlight if it is hard-wired
+  ((Arduino_TFT *)gfx2)->displayOff(); // no network build: nothing useful to show
+#endif
   uiBlanked = true;
   return false;
 }
