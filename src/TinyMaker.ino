@@ -147,6 +147,8 @@ bool statsPingEnabled = true;       // anonymous install ping (MAC hash + versio
 uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
+uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
+unsigned long uiSaverLastMoveMs = 0;  // last time the idle text drifted
 
 void savePrintTime() {
   totalPrintSecs += (millis() - printStartMs) / 1000UL;
@@ -775,15 +777,31 @@ bool handleUiTimeout() {
     }
   }
 
-  if (uiTimeoutSecs == 0 || uiBlanked || printerBusy()) return false;
+  if (uiTimeoutSecs == 0 || printerBusy()) return false;
+
+  // Already idling: drift the dim text between 5 spots (4 corners + centre)
+  // every couple of seconds (0-21 screen saver) so nothing burns in.
+  if (uiBlanked) {
+#if ENABLE_NETWORK
+    if (millis() - uiSaverLastMoveMs >= 2000UL) {
+      uiSaverLastMoveMs = millis();
+      uiSaverPos = (uiSaverPos + 1) % 5;
+      drawIdleScreen(uiSaverPos);
+    }
+#endif
+    return false;
+  }
+
   if (!(screen == 1 || screen == 2 || screen == 3 || screen == 4)) return false;
   if (millis() - lastUiActivityMs < (unsigned long)uiTimeoutSecs * 1000UL) return false;
 
   // The backlight is hard-wired on, so displayOff() would leave a lit black
-  // panel. Draw a dim status instead (0-15): same power, but the printer looks
-  // alive and its IP stays visible. uiBlanked latches so it is drawn once.
+  // panel. Draw a dim status instead (0-15/0-21): same power, but the printer
+  // looks alive and its IP stays visible.
 #if ENABLE_NETWORK
-  drawIdleScreen();
+  uiSaverPos = 0;
+  uiSaverLastMoveMs = millis();
+  drawIdleScreen(uiSaverPos);
 #else
   gfx2->fillScreen(BLACK);
   ((Arduino_TFT *)gfx2)->displayOff(); // no network build: nothing useful to show

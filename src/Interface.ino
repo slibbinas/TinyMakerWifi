@@ -781,16 +781,23 @@ void screen421Buttons(bool installActive){
  * drawn once when idling starts (handleUiTimeout latches uiBlanked), redrawn
  * as the normal UI on the next key/network wake.
  */
-void drawIdleScreen(){
+void drawIdleScreen(uint8_t pos){
+  // 0-21 screen saver: place the dim block at one of 5 spots (4 corners +
+  // centre) so nothing burns in. Block = "TinyMaker" (size 2, ~108x16) with the
+  // IP on a line below; the IP is left-aligned under the wordmark so it never
+  // runs off the edge (it is narrower than the wordmark).
+  const int bw = 108, bh = 26, W = 160, H = 80, m = 6;
+  int x = (pos == 1 || pos == 3) ? (W - bw - m) : (pos == 4) ? (W - bw) / 2 : m;
+  int y = (pos == 2 || pos == 3) ? (H - bh - m) : (pos == 4) ? (H - bh) / 2 : m;
   gfx2->fillScreen(BLACK);
   gfx2->setFont(NULL);
   gfx2->setTextSize(2);
   gfx2->setTextColor(0x4208);            // dim grey wordmark
-  gfx2->setCursor(10, 16);
+  gfx2->setCursor(x, y);
   gfx2->print("TinyMaker");
   gfx2->setTextSize(1);
   gfx2->setTextColor(0x2124);            // dimmer secondary line
-  gfx2->setCursor(10, 48);
+  gfx2->setCursor(x, y + 18);
   if (WiFi.status() == WL_CONNECTED) gfx2->print(WiFi.localIP());
   else gfx2->print("Idle");
   gfx2->setTextSize(1);
