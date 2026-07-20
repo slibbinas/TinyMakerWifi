@@ -137,6 +137,9 @@
   <tr><td class="nr">0-23</td><td><span class="kw ptr">Printer</span></td>
     <td class="what"><b>Idle timeout default → 60 s</b> — fresh installs currently default to 0 (off), so the screen saver never kicks in out of the box. New default: 60 s; the menu cycle (Off/30/60/…) stays.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-30</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
+    <td class="what"><b>Reset-reason telemetry</b> — log <code>esp_reset_reason()</code> at boot plus a "print was active" flag (with the last layer), surfaced on About/dashboard as e.g. "Last boot: brownout during print at ~layer 42". Field case: a print died after the base layers with the printer found rebooted, no actual power loss — this tells us whether it's a brownout, a panic or a watchdog.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-3 · Preview &amp; web features</td></tr>
   <tr><td class="nr">0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
@@ -160,10 +163,16 @@
   <tr><td class="nr">0-27</td><td><span class="kw www">Web</span></td>
     <td class="what"><b>3D preview: printed part in orange</b> — the whole model always renders as the thin white "unprinted" silhouette; the printed-so-far portion overlays in orange with slightly bolder dots. Clear outline, clear progress line — no more mushy blob.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-28</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
+    <td class="what"><b>SD list auto-refresh (bug)</b> — a model sent from PrusaSlicer only shows up after a page reload, with no "importing" hint while the printer unpacks. Fix: an <code>sdRev</code> counter in <code>/api/status</code> (bumped on import/delete) triggers a list reload, plus a "Printer is busy importing…" indicator and a "New model imported" snackbar.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-29</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Stale estimate after settings change (bug)</b> — changing layer height 0.1 → 0.05 doesn't update the preview's print estimate until a reload. The firmware recomputes correctly; the dashboard caches the model details. Fix: re-fetch model stats after a config save (lands together with 0-26).</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-4 · Exposure — waits for SUNLU test resin (~Aug); highest risk (EEPROM)</td></tr>
   <tr><td class="nr">0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate. Also: when changing exposure in Settings, show the impact on print time ("a 1h 12m print would become ~58m") — the firmware knows all the terms.</td>
+    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate. Also: when changing exposure in Settings, show the impact on print time ("a 1h 12m print would become ~58m") — the firmware knows all the terms. And a "pick the winning bar" wizard: after the exposure test, pick the best bar [1–8] in the dashboard and it computes and offers the new Regular exposure (Confirm to apply).</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-5 · Power-loss + raise plate — LAST (waits for #11; if it stalls, V takes it with credit)</td></tr>
@@ -213,6 +222,7 @@
   <tr><td class="what"><b>Exposure engine</b> — measure resin constants once, firmware auto-recomputes exposure for any layer height.</td><td><span class="kw ptr">Printer</span></td><td><span class="own v">V</span></td><td class="st">post-1.0.0 (after deciseconds)</td></tr>
   <tr><td class="what"><b>Smooth 3D preview</b> — marching-cubes isosurface instead of the stepped silhouette.</td><td><span class="kw www">Web</span></td><td><span class="own v">V</span></td><td class="st">TBD</td></tr>
   <tr><td class="what"><b>UV power %</b> — PWM-controlled UV intensity (pure firmware, Roger confirmed the hardware).</td><td><span class="kw ptr">Printer</span></td><td><span class="own v">V</span>/<span class="own c">Roger</span></td><td class="st">post-1.0.0</td></tr>
+  <tr><td class="what"><b>AI exposure-photo judge</b> — upload a photo of the cured test strip, a vision model counts the dots, judges crispness and recommends a bar ("bar 4, 85%"). Suggestion + Confirm only, never a silent auto-set. (The no-AI "pick the winning bar" wizard ships first, in the exposure wave.)</td><td><span class="kw www">Web</span> <span class="kw infra">Infra</span></td><td><span class="own v">V</span></td><td class="st">post-1.0.0</td></tr>
 </table></div>
 
 <h2>Team notes</h2>
