@@ -132,7 +132,10 @@
     <td class="what"><b>Menu regroup</b> — Advanced split into groups (Network / Resin / Display / Calibration / Reset); add About on the dashboard; keep Update visible. Manual menu-reference table after.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
   <tr><td class="nr">0-22</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Idle screen status</b> — a follow-up to the screen saver (0-21): show the printer state instead of the IP — "Idle" when idle, live progress (percent + time left) once the saver also covers the printing state. IP stays reachable (rotated or a third line).</td>
+    <td class="what"><b>Idle screen status</b> — a follow-up to the screen saver (0-21): show the printer state instead of the IP — "Idle" when idle, live progress (percent + time left) once the saver also covers the printing state. IP stays reachable (rotated or a third line). While printing: auto-dim after the same UI timeout; any button restores brightness (that press is swallowed — no accidental pause).</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-23</td><td><span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Idle timeout default → 60 s</b> — fresh installs currently default to 0 (off), so the screen saver never kicks in out of the box. New default: 60 s; the menu cycle (Off/30/60/…) stays.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-3 · Preview &amp; web features</td></tr>
@@ -145,6 +148,9 @@
   <tr><td class="nr">0-21</td><td><span class="kw ptr">Printer</span></td>
     <td class="what"><b>Idle screen saver</b> — a follow-up to the dim idle screen (0-15): move "TinyMaker" + IP around the display (4 corners + centre) every couple of seconds so nothing sits static. Avoids burn-in, reads as alive.</td>
     <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
+  <tr><td class="nr">0-24</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>"Beta" badge on the Connect panel</b> — a small pill marking the Connect section as under active development, so it reads apart from the stable printer features (and a hiccup there isn't mistaken for a firmware bug). Suggested for the hosted Connect UI too — Brian's call.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-4 · Exposure — waits for SUNLU test resin (~Aug); highest risk (EEPROM)</td></tr>
   <tr><td class="nr">0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
@@ -189,7 +195,7 @@
 <p class="lede" style="margin-bottom:14px">Ideas we've captured but haven't committed to a version — <b>including yours</b>. "Whose" credits the idea; "Target" is a rough guess (often <b>TBD</b>). Nothing here is a promise; it's here so nobody's idea gets lost.</p>
 <div class="tblwrap"><table>
   <tr><th>Idea</th><th>Where</th><th>Whose</th><th>Target</th></tr>
-  <tr><td class="what"><b>Setup IP + QR on the display</b> — during WiFi setup, show the IP / a QR to reach the dashboard; detect when someone joins the AP.</td><td><span class="kw ptr">Printer</span></td><td><span class="own b">Brian</span>/<span class="own t">Tanner</span></td><td class="st">TBD</td></tr>
+  <tr><td class="what"><b>Setup IP + QR on the display</b> — during WiFi setup, show the IP / a QR to reach the dashboard; detect when someone joins the AP. <i>Reviewed 07-20: the IP is already always visible on the idle screen (0-15/0-21), so no separate setup screen — if we do it, it'll be a QR next to the IP on the existing Network/About screen.</i></td><td><span class="kw ptr">Printer</span></td><td><span class="own b">Brian</span>/<span class="own t">Tanner</span></td><td class="st">post-1.0.0</td></tr>
   <tr><td class="what"><b>Menu colors / themes</b> — custom colors + themes (prefs to flash, maybe via Connect).</td><td><span class="kw ptr">Printer</span></td><td><span class="own b">Brian</span>/<span class="own t">Tanner</span></td><td class="st">post-1.0.0 (flagship)</td></tr>
   <tr><td class="what"><b>Improv WiFi setup</b> — browser-over-USB first setup; drop WiFiManager (~45 KB saved).</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td><td><span class="own b">Brian</span>/<span class="own v">V</span></td><td class="st">post-1.0.0</td></tr>
   <tr><td class="what"><b>Feedback button in the dashboard</b> — auto-attaches the fw version; needs Connect storage.</td><td><span class="kw www">Web</span></td><td><span class="own b">Brian</span></td><td class="st">post-freeze + Connect</td></tr>
