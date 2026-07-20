@@ -89,6 +89,29 @@ export default {
       });
     }
 
+    // eInkWeather (oru stotele) interactive prototype - same KV-panel pattern as /tests.
+    // Public by design: fake demo data only; linked from that project's README and its
+    // Telegram bot's /demo command. Update: wrangler kv key put panel:orai --path prototipas.html
+    if (request.method === 'GET' && path === '/orai') {
+      const html = await env.FEEDBACK.get('panel:orai');
+      if (!html) return new Response('No panel uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
+    // eInkWeather vakarinio klausimo drabuziu deriniu paveikslai (KV raktas oi:<code>).
+    // Telegram sendPhoto atsisiunciamas per URL, tad irenginiui nereikia PNG kodavimo.
+    // Deriniai is anksto sugeneruoti (gencombos.py -> wrangler kv bulk put oi_bulk.json).
+    if (request.method === 'GET' && path.startsWith('/oi/')) {
+      const code = path.slice(4).replace(/\.png$/, '');
+      const png = await env.FEEDBACK.get('oi:' + code, 'arrayBuffer');
+      if (!png) return new Response('not found', { status: 404 });
+      return new Response(png, {
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
     // The demo and the manual live on gh-pages, but the apex is not a GitHub
     // Pages site (no CNAME - Cloudflare serves it), so only the paths this
     // worker owns exist there: tinymakerwifi.com/demo/ and /manual/ were 404s
@@ -103,27 +126,31 @@ export default {
       return new Response(r.body, {
         status: r.status,
         headers: { 'Content-Type': r.headers.get('Content-Type') || 'text/html; charset=utf-8',
-                   'Cache-Control': 'max-age=300' },
+                   'Cache-Control': 'max-age=30' },
       });
     }
 
     if (request.method === 'GET' && path === '/feedback') {
-      const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 300 } });
+      const r = await fetch(FORM_ORIGIN, { cf: { cacheTtl: 30 } });
       // The widget is injected here rather than baked into the page: the form
       // lives on gh-pages, and this keeps the site key (and whether the check
       // runs at all) a worker setting instead of a commit.
       if (env.TURNSTILE_SITEKEY) {
         const html = (await r.text()).replace('<!--turnstile-->',
           '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' +
+          // Flexible size renders reliably; the form CSS caps it at 300 px and
+          // centres it. Left uncapped it stretched full-width on desktop and
+          // clipped its own Cloudflare branding on the right (field report);
+          // at ~300 px it shows in full, the same as on a phone.
           `<div class="cf-turnstile" data-sitekey="${env.TURNSTILE_SITEKEY}" data-size="flexible"></div>`);
         return new Response(html, {
           status: r.status,
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=30' },
         });
       }
       return new Response(r.body, {
         status: r.status,
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=300' },
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=30' },
       });
     }
 
