@@ -774,6 +774,30 @@ void screen421Buttons(bool installActive){
 }
 
 /**
+ * @brief Dim idle screen shown after the UI timeout instead of a black
+ * displayOff(). The backlight is hard-wired on, so a blanked screen still
+ * glows - a low-key status (wordmark + IP) makes the printer look alive and
+ * keeps the dashboard URL in sight, at the same power draw. Static by design:
+ * drawn once when idling starts (handleUiTimeout latches uiBlanked), redrawn
+ * as the normal UI on the next key/network wake.
+ */
+void drawIdleScreen(){
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(NULL);
+  gfx2->setTextSize(2);
+  gfx2->setTextColor(0x4208);            // dim grey wordmark
+  gfx2->setCursor(10, 16);
+  gfx2->print("TinyMaker");
+  gfx2->setTextSize(1);
+  gfx2->setTextColor(0x2124);            // dimmer secondary line
+  gfx2->setCursor(10, 48);
+  if (WiFi.status() == WL_CONNECTED) gfx2->print(WiFi.localIP());
+  else gfx2->print("Idle");
+  gfx2->setTextSize(1);
+  gfx2->setFont(&FreeSans8pt7b);
+}
+
+/**
  * @brief Screen 422: Install from file (browser upload of a specific/older
  * version). Reached with UP from the Update screen; Back returns to 421.
  */
