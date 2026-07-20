@@ -1511,7 +1511,7 @@ void handleApiConfigRestoreSd() {
 
 void resetWebConfigToDefaults() {
   resetSettingsToDefault();
-  uiTimeoutSecs = 0;
+  uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
   uvLedEnabled = true;
   wifiEnabled = true;
   webDashboardEnabled = true;
@@ -2011,7 +2011,21 @@ void handleApiStatus() {
   out += String(currentUvLedSecs());
   out += ",\"uvLedTime\":\"";
   out += formatDuration(currentUvLedSecs());
-  out += "\",\"model\":\"";
+  // 0-30 reset-reason telemetry: why the last boot happened, and the last
+  // recorded mid-print death (null = none on record).
+  out += "\",\"bootReason\":\"";
+  out += resetReasonName((uint8_t)bootResetReason);
+  out += "\",\"lastCrash\":";
+  if (crashSeen) {
+    out += "{\"reason\":\"";
+    out += resetReasonName(crashReason);
+    out += "\",\"layer\":";
+    out += String(crashLayer);
+    out += "}";
+  } else {
+    out += "null";
+  }
+  out += ",\"model\":\"";
   out += busy ? jsonEscape(String(foldersel_long)) : String("");
   out += "\",\"currentLayer\":";
   out += String(statusCurrentLayer);
