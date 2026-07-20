@@ -154,10 +154,16 @@
   <tr><td class="nr">0-25</td><td><span class="kw www">Web</span></td>
     <td class="what"><b>Roadmap link in the dashboard header</b> — next to Manual/Feedback, pointing at <a href="https://tinymakerwifi.com/roadmap">tinymakerwifi.com/roadmap</a>. The roadmap is already public; this just makes it findable.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-26</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Model info moves to the status panel</b> — with a model loaded in Preview (idle), the status panel gains Model / Layers / Est. time / Est. resin rows; the preview card drops the duplicate info and keeps just the 3D view + name overlay.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+  <tr><td class="nr">0-27</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>3D preview: printed part in orange</b> — the whole model always renders as the thin white "unprinted" silhouette; the printed-so-far portion overlays in orange with slightly bolder dots. Clear outline, clear progress line — no more mushy blob.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-4 · Exposure — waits for SUNLU test resin (~Aug); highest risk (EEPROM)</td></tr>
   <tr><td class="nr">0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate.</td>
+    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate. Also: when changing exposure in Settings, show the impact on print time ("a 1h 12m print would become ~58m") — the firmware knows all the terms.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-5 · Power-loss + raise plate — LAST (waits for #11; if it stalls, V takes it with credit)</td></tr>
