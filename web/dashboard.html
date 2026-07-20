@@ -347,7 +347,7 @@ const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
 // nothing to share, so show a non-clickable "Shared" tag rather than hiding the
 // control (a vanishing button read as "the share is gone"). `ready` = Connect
 // usable at all; `shared` = this model already lives on Connect.
-const setShareUI=(id,ready,shared)=>{const b=$(id);if(!b)return;b.textContent=shared?'✓ Shared':'Share';b.classList.toggle('shared',shared);b.disabled=shared;show(id,ready);};
+const setShareUI=(id,ready,shared)=>{const b=$(id);if(!b)return;b.textContent=shared?'✓ Shared':'Share';b.title=shared?'Already on Connect - unshare it from the Connect tab':'Share this model to TinyMaker Connect';b.classList.toggle('shared',shared);show(id,ready);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Current theme colour for a CSS var - canvas text must follow the theme, or a
@@ -1813,13 +1813,13 @@ $('updUploadForm').addEventListener('submit',async e=>{
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
-$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName)shareModel(dashPreviewName);});
+$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName&&!$('dashShareButton').classList.contains('shared'))shareModel(dashPreviewName);});
 $('modelResin').addEventListener('click',async()=>{
   if($('modelResin').textContent.indexOf('~')!==0)return;
   if(!await uiConfirm('Run the exact resin scan on the printer? It decodes every layer and can take minutes.'))return;
   modelDetails(enc(selectedModel),true);
 });
-$('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
+$('modelShareButton').addEventListener('click',()=>{if(!$('modelShareButton').classList.contains('shared'))shareModel(selectedModel);});
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
 // The preview restore has to know whether a print is running before it touches
