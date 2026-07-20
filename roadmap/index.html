@@ -104,7 +104,7 @@
     <p>Latest stable. Boot-anim list readability, minor fixes.</p></div></div>
   <div class="tlv now"><span class="mark">🔜</span><div>
     <span class="vname">0.16</span><span class="vwhen">blocked on #11 + SUNLU resin (~Aug)</span>
-    <p>The freeze bundle below, shipped in experimental-build stages. Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
+    <p>The freeze bundle below, shipped in experimental-build stages. <b>exp-1 (housekeeping + headroom) is done &amp; tested.</b> Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
   <div class="tlv goal"><span class="mark">🎯</span><div>
     <span class="vname">1.0.0</span><span class="vwhen">0.16 stabilized + 7 exit gates</span>
     <p>Same bytes as 0.16, promoted to stable. Wide announcement lined up with Roger's October batch.</p></div></div>
@@ -116,13 +116,16 @@
 <div class="tblwrap"><table>
   <tr><th>Stage</th><th>Where</th><th>What</th><th>Owner</th><th>Status</th></tr>
 
-  <tr class="subhead"><td colspan="5">exp-1 · Housekeeping + headroom — first (gzip frees flash)</td></tr>
+  <tr class="subhead"><td colspan="5">exp-1 · Housekeeping + headroom — ✓ DONE (flashed &amp; tested)</td></tr>
   <tr><td class="nr">0-10</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Gzip the dashboard</b> — SPA is 127 KB plain in PROGMEM; gzip saves ~85–90 KB of flash (74% → ~69%). Done first to free room for the rest.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td class="what"><b>Gzip the dashboard</b> — moved out of PROGMEM into a static file, gzipped at build. <b>Flash 74% → 69% (~−96 KB).</b></td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-15</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Dim idle screen</b> — a dark status view instead of a fully blank screen. ~20 lines, isolated.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td class="what"><b>Dim idle screen</b> — a dim "TinyMaker" + IP instead of a fully blank screen.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
+  <tr><td class="nr">0-4/5/6</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
+    <td class="what"><b>Small hygiene</b> — unify button classes, MQTT reconnect backoff, Share button to the card corner + a "Shared" status, light-theme preview-text fix.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-2 · Menu &amp; UI</td></tr>
   <tr><td class="nr">0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
@@ -182,5 +185,5 @@
   whichever's easier. Everything else can move in parallel.
 </div>
 
-<footer>TinyMakerWiFi firmware roadmap · updated 2026-07-19. Owners: [V] Viktoras · [T] Tanner · [B] Brian · community.</footer>
+<footer>TinyMakerWiFi firmware roadmap · updated 2026-07-20. Owners: [V] Viktoras · [T] Tanner · [B] Brian · community.</footer>
 </div>
