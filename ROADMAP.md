@@ -36,8 +36,10 @@ The next update (**0.16**) is a batch of dashboard and workflow refinements:
 - **A print-aware screen saver**, plus smaller mobile-navigation and workflow
   fixes.
 
-It lands on the beta channel first (*Update → version picker*), with the
-automatic self-update following once early testers confirm it.
+These are still in development and not yet released — you won't see them on your
+printer yet. When 0.16 is ready it reaches the **beta** channel first (*Update →
+version picker*), and the automatic self-update follows once early testers
+confirm it.
 
 ## On the way
 
@@ -58,7 +60,14 @@ review.
 
 The community picks what comes next — a poll in the
 [Facebook group](https://www.facebook.com/groups/1486879621729571) decides the
-priorities from the idea pool.
+priorities. Software feature ideas already on the table:
+
+- A **basic / advanced** firmware mode — keep the dashboard simple, or go deep.
+- **More notification options** for print start / finish / errors.
+- **Dashboard customization** — more themes and layout choices.
+- **Smarter print helpers** — settings-mismatch warnings and better estimates.
+
+Have an idea? Vote in the group or send it through the feedback form.
 
 ## Contributing
 
