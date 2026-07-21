@@ -443,12 +443,13 @@ void capturePreviewCache() {
   if (!f) f = SD.open(("/" + name + "/preview.png").c_str());
   if (!f) return;
   size_t sz = f.size();
-  // No PSRAM on the WROOM: cap the snapshot (cached renders run ~100 KB) and
-  // keep a contiguous block big enough for a TLS handshake (~45 KB) free
-  // after the alloc, so mid-print notifications never fight the cache for
-  // heap. Too big / too tight -> silently no cache, the endpoint keeps
-  // answering 409 exactly as before.
-  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + 60 * 1024) { f.close(); return; }
+  // No PSRAM on the WROOM: cap the snapshot and require slack in the largest
+  // free block. Calibrated on hardware: real renders are 66-74 KB and idle
+  // maxAllocHeap sits ~110 KB, so a bigger slack would silently reject every
+  // preview. 30 KB is safe: print loops only service plain HTTP (no TLS),
+  // and the end-of-print TLS notify runs after freePreviewCache(). Too big /
+  // too tight -> silently no cache, the endpoint answers 409 as before.
+  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + 30 * 1024) { f.close(); return; }
   previewCacheBuf = (uint8_t *)malloc(sz);
   if (!previewCacheBuf) { f.close(); return; }
   size_t got = 0;
