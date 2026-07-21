@@ -891,27 +891,56 @@ void screen421Buttons(bool installActive){
  * drawn once when idling starts (handleUiTimeout latches uiBlanked), redrawn
  * as the normal UI on the next key/network wake.
  */
-void drawIdleScreen(uint8_t pos){
-  // 0-21 screen saver: place the dim block at one of 5 spots (4 corners +
-  // centre) so nothing burns in. Block = "TinyMaker" (size 2, ~108x16) with the
-  // IP on a line below; the IP is left-aligned under the wordmark so it never
-  // runs off the edge (it is narrower than the wordmark).
-  const int bw = 108, bh = 26, W = 160, H = 80, m = 6;
+// 0-21/0-22 screen saver core: the drifting dim block at one of 5 spots
+// (4 corners + centre). No wordmark (V 07-21) - the state IS the message:
+// line 1 big = state ("Idle"/"Printing"), line 2 big = live numbers
+// ("47% 1h23m", printing only), last line small = the IP so the dashboard
+// stays reachable.
+static void drawSaverBlock(uint8_t pos, const char *stateBig, const String &numsBig){
+  const int bw = 120, W = 160, H = 80, m = 4;
+  const bool nums = numsBig.length() > 0;
+  const int bh = nums ? 48 : 30;
   int x = (pos == 1 || pos == 3) ? (W - bw - m) : (pos == 4) ? (W - bw) / 2 : m;
   int y = (pos == 2 || pos == 3) ? (H - bh - m) : (pos == 4) ? (H - bh) / 2 : m;
   gfx2->fillScreen(BLACK);
   gfx2->setFont(NULL);
   gfx2->setTextSize(2);
-  gfx2->setTextColor(0x4208);            // dim grey wordmark
+  gfx2->setTextColor(0x4208);            // dim grey headline
   gfx2->setCursor(x, y);
-  gfx2->print("TinyMaker");
+  gfx2->print(stateBig);
+  if (nums) {
+    gfx2->setCursor(x, y + 18);
+    gfx2->print(numsBig);
+  }
   gfx2->setTextSize(1);
-  gfx2->setTextColor(0x2124);            // dimmer secondary line
-  gfx2->setCursor(x, y + 18);
-  if (WiFi.status() == WL_CONNECTED) gfx2->print(WiFi.localIP());
-  else gfx2->print("Idle");
+  gfx2->setTextColor(0x2124);            // dimmer IP line
+  if (WiFi.status() == WL_CONNECTED) {
+    gfx2->setCursor(x, y + (nums ? 40 : 22));
+    gfx2->print(WiFi.localIP());
+  }
   gfx2->setTextSize(1);
   gfx2->setFont(&FreeSans8pt7b);
+}
+
+void drawIdleScreen(uint8_t pos){
+  drawSaverBlock(pos, "Idle", "");
+}
+
+// 0-22: printing saver - "Printing" + "47% 1h23m" (percent + time left),
+// both in the big font so the state reads across the room.
+void drawPrintSaver(uint8_t pos){
+  String s = "";
+  if (layer_counter > 0) {
+    s += String((int)((long)current_layer * 100L / layer_counter));
+    s += "% ";
+  }
+  uint32_t rem = remainingPrintSecs();
+  if (rem > 0) {
+    if (rem >= 3600) { s += String(rem / 3600); s += "h"; }
+    s += String((rem % 3600) / 60);
+    s += "m";
+  }
+  drawSaverBlock(pos, "Printing", s);
 }
 
 /**
@@ -1384,6 +1413,16 @@ void screen1111(){
  * Updates the top status bar text based on `current_state`.
  */
 void screen1111_state(){
+  // 0-22: while dimmed, curing/lifting/dropping updates stay off the saver -
+  // but a cancel/pause/finish (state >= 4) must wake the screen and show.
+  if (uiDimmedPrint) {
+    if (current_state >= 4) {
+      uiDimmedPrint = false;
+      screen1111();
+    } else {
+      return;
+    }
+  }
   if (screen != 11111 && screen != 11112){
     gfx2->fillRoundRect(0, 0, 120, 20, 3, ORANGE);    
     gfx2->setFont(&FreeSans8pt7b);
