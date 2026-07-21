@@ -2100,15 +2100,15 @@ void handleApiStatus() {
 // Include GIT_REV when available: experimental builds often share one SemVer,
 // and a version-only tag can make the browser keep stale dashboard HTML.
 String pageEtag() {
+  // Content hash of the gzipped dashboard (DASHBOARD_ETAG, from
+  // gen_dashboard_gz.py) - changes iff the page changes, so it invalidates the
+  // browser cache exactly when needed, and never on a dirty rebuild that left
+  // the page untouched (same GIT_REV used to yield a stale 304).
   String etag = "\"";
-#ifdef FIRMWARE_VERSION
-  etag += FIRMWARE_VERSION;
+#ifdef DASHBOARD_ETAG
+  etag += DASHBOARD_ETAG;
 #else
   etag += "dev";
-#endif
-#ifdef GIT_REV
-  etag += "-";
-  etag += GIT_REV;
 #endif
   etag += "\"";
   return etag;

@@ -16,6 +16,7 @@ Import("env")
 import gzip
 import io
 import os
+import zlib
 
 proj = env["PROJECT_DIR"]
 src = os.path.join(proj, "web", "dashboard.html")
@@ -26,6 +27,11 @@ html = io.open(src, "rb").read()
 # blob differ on every build even when the HTML is unchanged - defeating the
 # write-only-if-changed guard below and forcing a full-TU recompile each time.
 gz = gzip.compress(html, 9, mtime=0)
+# ETag derived from the gzip bytes, so it changes iff the dashboard content
+# changes - not with FIRMWARE_VERSION/GIT_REV. Fixes stale-cache 304s on dirty
+# dev builds (same commit hash) and avoids re-sending an unchanged page when a
+# release touched only firmware. CRC32 (8 hex) is plenty for cache validation.
+etag = "%08x" % (zlib.crc32(gz) & 0xffffffff)
 
 lines = [
     "// AUTO-GENERATED from web/dashboard.html by scripts/gen_dashboard_gz.py.",
@@ -33,6 +39,7 @@ lines = [
     "#pragma once",
     "#include <pgmspace.h>",
     "const size_t DASHBOARD_HTML_GZ_LEN = %d;" % len(gz),
+    "#define DASHBOARD_ETAG \"%s\"" % etag,
     "const uint8_t DASHBOARD_HTML_GZ[] PROGMEM = {",
 ]
 lines += ["".join("0x%02x," % b for b in gz[i:i + 20]) for i in range(0, len(gz), 20)]
