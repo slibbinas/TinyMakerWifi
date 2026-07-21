@@ -1958,6 +1958,8 @@ void handleApiStatus() {
 #ifdef GIT_REV
   out += jsonEscape(GIT_REV);
 #endif
+  out += "\",\"buildDate\":\"";
+  out += __DATE__ " " __TIME__;  // compile moment - shown on Settings > About
   out += "\",\"busy\":";
   out += busy ? "true" : "false";
   out += ",\"paused\":";
@@ -2021,6 +2023,8 @@ void handleApiStatus() {
     out += resetReasonName(crashReason);
     out += "\",\"layer\":";
     out += String(crashLayer);
+    out += ",\"epoch\":";
+    out += String(crashEpoch);
     out += "}";
   } else {
     out += "null";

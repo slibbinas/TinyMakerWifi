@@ -277,6 +277,7 @@ esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 bool crashSeen = false;      // a mid-print death record exists (any boot)
 uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
+uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
 
 const char *resetReasonName(uint8_t r) {
   switch (r) {
@@ -293,10 +294,20 @@ const char *resetReasonName(uint8_t r) {
   }
 }
 
+// Wall-clock stamp for the crash record ("when did it die") - 0 while NTP
+// has never synced, and the dashboard shows no time then.
+uint32_t telemetryEpochNow() {
+  time_t nowT = time(nullptr);
+  return (uint32_t)(nowT > 1700000000 ? nowT : 0);
+}
+
 void savePrintActiveFlag(bool active) {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putBool("prActive", active);
-  if (active) sysPrefs.putUShort("prLayer", 0);
+  if (active) {
+    sysPrefs.putUShort("prLayer", 0);
+    sysPrefs.putULong("prEpoch", telemetryEpochNow());
+  }
   sysPrefs.end();
 }
 
@@ -306,15 +317,18 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
   if (sysPrefs.getBool("prActive", false)) {
     crashReason = (uint8_t)bootResetReason;
     crashLayer = sysPrefs.getUShort("prLayer", 0);
+    crashEpoch = sysPrefs.getULong("prEpoch", 0);
     sysPrefs.putBool("prActive", false);
     sysPrefs.putBool("crashSeen", true);
     sysPrefs.putUChar("crashRsn", crashReason);
     sysPrefs.putUShort("crashLyr", crashLayer);
+    sysPrefs.putULong("crashEpo", crashEpoch);
     crashSeen = true;
   } else {  // no fresh death - keep showing the last recorded one
     crashSeen = sysPrefs.getBool("crashSeen", false);
     crashReason = sysPrefs.getUChar("crashRsn", 0);
     crashLayer = sysPrefs.getUShort("crashLyr", 0);
+    crashEpoch = sysPrefs.getULong("crashEpo", 0);
   }
   sysPrefs.end();
   DBG("Boot reset reason: %s%s\n", resetReasonName((uint8_t)bootResetReason),
@@ -1714,8 +1728,9 @@ void loop() {
           if (vatRemainingMl < 0) vatRemainingMl = 0;
           if (current_layer % 25 == 0) {
             saveVatRemaining();
-            sysPrefs.begin("tinymaker", false);  // 0-30: crash-record layer checkpoint
+            sysPrefs.begin("tinymaker", false);  // 0-30: crash-record checkpoint
             sysPrefs.putUShort("prLayer", current_layer);
+            sysPrefs.putULong("prEpoch", telemetryEpochNow());  // ~time of death
             sysPrefs.end();
           }
 
