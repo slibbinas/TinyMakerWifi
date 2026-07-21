@@ -13,7 +13,10 @@ picker* and the [Releases page](https://github.com/slibbinas/TinyMakerWifi/relea
 the automatic self-update channel follows a day or two later, once early testers
 confirm the build.
 
-## Recently shipped
+## Delivered (up to 0.15.8)
+
+Everything through the current stable **0.15.8** — on your printer now via
+*System → Update*:
 
 - **WiFi that reconnects on its own** after a router dropout — no more
   re-entering the password to get back online.
@@ -21,20 +24,26 @@ confirm the build.
   downward, plus a power-outage recovery note, so a bad moment stays recoverable.
 - **Live progress on every long operation** (unpacking a model, flashing
   firmware) — no frozen or flickering screens.
-- **Readable boot-animation list** in both light and dark themes.
+- **Light and dark themes** across the dashboard.
+- **Readable boot-animation list** in both themes.
 
 Full, version-by-version history is in the
 [changelog](https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md).
 
-## Now in development
+## Now in development (0.16)
 
-The next update (**0.16**) is a batch of dashboard and workflow refinements:
+The next update bundles the workflow and reliability work in progress:
 
-- **The model list refreshes itself** when the SD card changes — a model
-  uploaded from one device shows up on every open dashboard, no reload needed.
+- **Power-loss resume** — pick a print back up after an outage instead of
+  starting over, with a guided, safe plate raise.
+- **A print-aware screen saver** — dims the idle screen and shows the printer
+  name and IP.
+- **A self-refreshing model list** — a model uploaded from one device shows up
+  on every open dashboard, no reload needed.
 - **Fresher print-time and resin estimates** right after a settings change.
-- **A print-aware screen saver**, plus smaller mobile-navigation and workflow
-  fixes.
+- **Mid-print preview from any device** — the model preview is served from the
+  printer during a print, so any browser can watch.
+- **Cleaner menus and navigation**, plus mobile fixes.
 
 These are still in development and not yet released — you won't see them on your
 printer yet. When 0.16 is ready it reaches the **beta** channel first (*Update →
@@ -43,12 +52,8 @@ confirm it.
 
 ## On the way
 
-- **Power-loss resume** — pick a print back up from an SD checkpoint after an
-  outage, instead of starting over.
 - **TinyMaker Connect** — a community platform for sharing print-ready models
   straight to the printer.
-- **More dashboard polish** — themes, a layer-height mismatch warning, and
-  print notifications.
 
 ## Toward 1.0.0
 
@@ -64,7 +69,7 @@ priorities. Software feature ideas already on the table:
 
 - A **basic / advanced** firmware mode — keep the dashboard simple, or go deep.
 - **More notification options** for print start / finish / errors.
-- **Dashboard customization** — more themes and layout choices.
+- **More dashboard customization** — extra themes and layout choices.
 - **Smarter print helpers** — settings-mismatch warnings and better estimates.
 
 Have an idea? Vote in the group or send it through the feedback form.
