@@ -1,39 +1,67 @@
 # TinyMakerWifi Roadmap
 
-*Updated: 2026-07-12*
+Where the WiFi / wireless-upload / OTA firmware for the open-source TinyMaker
+MSLA resin printer is headed. Updated at each release.
 
-## Where we are: feature freeze → road to 1.0.0
+## Where we are
 
-**v0.14.0 was the last feature release** before a stability push. From here
-until **1.0.0** the focus is bug hunting, testing and polish — small `0.14.x`
-releases only. New feature ideas are collected (see below), not implemented.
+The **0.15.x** line is a stability push toward **1.0.0**. The feature set is
+frozen — the focus is bug hunting, testing and polish, not new features.
 
-**Beta practice:** new releases start as betas — available immediately from
-GitHub Releases and the dashboard's *Update → version picker*, while the
-automatic self-update channel follows a day or two later, once early birds
-confirm the build. Findings → [GitHub Issues](https://github.com/slibbinas/TinyMakerWifi/issues).
+New builds ship first as **betas** from the dashboard's *Update → version
+picker* and the [Releases page](https://github.com/slibbinas/TinyMakerWifi/releases);
+the automatic self-update channel follows a day or two later, once early testers
+confirm the build.
 
-### 1.0.0 criteria
+## Recently shipped
 
-- Beta channel quiet (no open regressions)
-- Heap soak tests clean over multi-hour prints (`min_free_heap` telemetry)
-- Full code review repeated, open Issues resolved
+- **WiFi that reconnects on its own** after a router dropout — no more
+  re-entering the password to get back online.
+- **Safer critical screens** — the leveling screen warns before it homes
+  downward, plus a power-outage recovery note, so a bad moment stays recoverable.
+- **Live progress on every long operation** (unpacking a model, flashing
+  firmware) — no frozen or flickering screens.
+- **Readable boot-animation list** in both light and dark themes.
 
-## After 1.0.0: the community decides
+Full, version-by-version history is in the
+[changelog](https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md).
 
-We'll run a **community poll** (Facebook group) on what comes next. Already
-agreed for the post-1.0.0 era:
+## Now in development
 
-- **TinyMaker Connect** integration lands on `main` (the community
-  model-sharing platform — its firmware side already lives on the
-  `experimental` branch)
-- Basic/advanced firmware split with an update-channel switch
-- Poll winners from the idea pool (Telegram notifications, boot animations,
-  layer-height mismatch warning, dashboard themes, and more)
+The next update (**0.16**) is a batch of dashboard and workflow refinements:
 
-## How to contribute
+- **The model list refreshes itself** when the SD card changes — a model
+  uploaded from one device shows up on every open dashboard, no reload needed.
+- **Fresher print-time and resin estimates** right after a settings change.
+- **A print-aware screen saver**, plus smaller mobile-navigation and workflow
+  fixes.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md): small fixes → PRs to `main` (CI must
-be green), ambitious work → PRs to `experimental`. Beta testing counts as a
-first-class contribution — run the picker's newest version and report
-anything odd.
+It lands on the beta channel first (*Update → version picker*), with the
+automatic self-update following once early testers confirm it.
+
+## On the way
+
+- **Power-loss resume** — pick a print back up from an SD checkpoint after an
+  outage, instead of starting over.
+- **TinyMaker Connect** — a community platform for sharing print-ready models
+  straight to the printer.
+- **More dashboard polish** — themes, a layer-height mismatch warning, and
+  print notifications.
+
+## Toward 1.0.0
+
+1.0.0 is about confidence, not new features: the beta channel quiet with no
+open regressions, clean multi-hour print soak tests, and a repeated full code
+review.
+
+## After 1.0.0
+
+The community picks what comes next — a poll in the
+[Facebook group](https://www.facebook.com/groups/1486879621729571) decides the
+priorities from the idea pool.
+
+## Contributing
+
+Small fixes, beta testing and bug reports are all first-class help. See
+[CONTRIBUTING.md](CONTRIBUTING.md), or just send a note through the feedback
+form in the dashboard — 30 seconds, no account.
