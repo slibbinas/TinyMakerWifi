@@ -1608,6 +1608,11 @@ void loop() {
         current_layer = 0;
         Position_before_pause = 0;
         Transition_Exposure = Base_Exposure;
+        #if ENABLE_NETWORK
+        // 0-19: snapshot the model preview into RAM while the SD is still
+        // free - once the print loop owns the bus, browsers get this copy.
+        capturePreviewCache();
+        #endif
         // A print started from the web reaches here with the screen possibly
         // blanked by the UI timeout - and blanked it would stay: the wake
         // logic lives in loop(), which the print never returns to, while the
@@ -1985,6 +1990,9 @@ void loop() {
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
+        #if ENABLE_NETWORK
+        freePreviewCache();          // 0-19: the RAM preview lives only for the print
+        #endif
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
         // it must never read as a finished print on the user's phone. A cancel
