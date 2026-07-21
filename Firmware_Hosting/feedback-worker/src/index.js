@@ -8,10 +8,20 @@
 //   GET  /feedback/img?key=..&k=img:..  -> one stored photo
 //   POST /feedback/mark?key=..&k=fb:..  -> triage: {tag, handled, verdict}
 //   POST /feedback/del?key=..&k=fb:..   -> drop one note and its photos
+//   GET  /feedback/status?t=<token>     -> PUBLIC: the submitter's own note's
+//                                          status (ticket - 0-7)
+//   GET  /feedback/recent               -> PUBLIC: last 5 handled notes,
+//                                          number/tag/fw only (0-7)
 //
 // Triage lives on the record itself: the maintainer tags it (submitters
 // mis-file their own notes), ticks it handled, and writes the agreed verdict
 // so the decision stays glued to what prompted it.
+//
+// Verdict visibility rule (0-7, agreed 2026-07-22): notes carrying a ticket
+// token (everything submitted after this shipped) show their verdict to the
+// holder of the token - so write verdicts knowing the submitter reads them.
+// Older verdicts were written as private and are never exposed; the public
+// recent-fixed list carries no verdict text at all.
 //
 // Every record also carries {n, fw, tag, handled, ph} in its KV *metadata*.
 // KV list() hands metadata back for free, so the stats block, the filter
@@ -239,6 +249,10 @@ export default {
         });
         imgKeys.push(k);
       }
+      // 0-7 ticket: an unguessable token the submitter keeps. It buys one
+      // extra KV write per note (tok: -> fb: pointer) - accounted for in the
+      // daily-cap math, which already assumed ~3 writes plus photos.
+      const tok = crypto.randomUUID();
       const rec = {
         num,
         message: msg,
@@ -252,11 +266,61 @@ export default {
         src: fields.fw ? 'printer' : 'site',
         photos: imgKeys,
         at: stamp,
+        tok,
       };
       await env.FEEDBACK.put('fb:' + stamp + ':' + id, JSON.stringify(rec),
                              { metadata: metaOf(rec) });
-      return new Response(JSON.stringify({ ok: true, id: num, photos: imgKeys.length }), {
+      await env.FEEDBACK.put('tok:' + tok, 'fb:' + stamp + ':' + id);
+      return new Response(JSON.stringify({ ok: true, id: num, photos: imgKeys.length, token: tok }), {
         headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
+    // 0-7 PUBLIC ticket status: the token IS the authorisation - unguessable
+    // (uuid), and a wrong one answers 404 with no timing-relevant difference.
+    // Only status fields go back out - never the message or the contact (a
+    // leaked link should not leak what was written), and the verdict only for
+    // token-era notes (see the visibility rule up top).
+    if (path === '/feedback/status' && request.method === 'GET') {
+      const t = (url.searchParams.get('t') || '').trim();
+      // ACAO:* here is deliberate (unlike the key-gated routes): read-only
+      // public-by-token data, and the form's gh-pages fallback origin needs it.
+      const noStore = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store',
+                        'Access-Control-Allow-Origin': '*' };
+      const miss = () => new Response('{"error":"unknown ticket"}', { status: 404, headers: noStore });
+      if (!/^[0-9a-f-]{36}$/.test(t)) return miss();
+      const fbKey = await env.FEEDBACK.get('tok:' + t);
+      const v = fbKey && await env.FEEDBACK.get(fbKey);
+      if (!v) return miss();
+      const rec = JSON.parse(v);
+      return new Response(JSON.stringify({
+        ok: true, num: rec.num, at: rec.at, fw: rec.fw || '',
+        tag: rec.tag || '', handled: !!rec.handled,
+        verdict: rec.tok ? (rec.verdict || '') : '', verdictAt: rec.tok ? (rec.verdictAt || '') : '',
+      }), { headers: noStore });
+    }
+
+    // 0-7 PUBLIC recently-handled list: metadata only (one KV list call, no
+    // record reads, no verdict text), capped at 5 and edge-cached so the form
+    // page can show it on every load without touching the read budget.
+    if (path === '/feedback/recent' && request.method === 'GET') {
+      const rows = [];
+      let cursor;
+      do {
+        const page = await env.FEEDBACK.list({ prefix: 'fb:', limit: 1000, cursor });
+        for (const k of page.keys) rows.push({ key: k.name, m: k.metadata || {} });
+        cursor = page.list_complete ? null : page.cursor;
+      } while (cursor);
+      rows.reverse();
+      const out = [];
+      for (const e of rows) {
+        if (!e.m.handled) continue;
+        out.push({ num: e.m.n || 0, tag: e.m.tag || '', fw: e.m.fw || '', at: e.key.slice(3, 13) });
+        if (out.length >= 5) break;
+      }
+      return new Response(JSON.stringify(out), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300',
+                   'Access-Control-Allow-Origin': '*' },
       });
     }
 
@@ -435,7 +499,7 @@ function inboxPage(notes, listKey, view) {
       ${(n.photoUrls || []).length ? `<div class="shots">${n.photoUrls.map((u) =>
         `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="attached photo" loading="lazy"></a>`).join('')}</div>` : ''}
       <div class="verdict${n.verdict ? '' : ' blank'}">
-        <label>Verdict — what we agreed${n.verdictAt ? ` <span class="vat">${when(n.verdictAt)}</span>` : ''}</label>
+        <label>Verdict — what we agreed${n.tok ? ' <span class="vat" title="This note carries a ticket: its submitter reads this verdict through their status link">· visible to its submitter</span>' : ''}${n.verdictAt ? ` <span class="vat">${when(n.verdictAt)}</span>` : ''}</label>
         <textarea rows="2" placeholder="e.g. Real bug, fixed in 0.15.1 · Duplicate of the resin estimate note · Backlog #31, after 1.0.0">${esc(n.verdict)}</textarea>
         <button class="save" disabled>Save</button>
       </div>
