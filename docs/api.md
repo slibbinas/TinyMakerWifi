@@ -108,7 +108,7 @@ retries with `action`.
 |---|---|---|
 | `/api/telegram/test`, `/api/whatsapp/test`, `/api/discord/test` | POST | send a test notification with the saved credentials |
 | `/api/connect/test`, `/register`, `/recovery-code`, `/backup` (GET/POST), `/restore` | POST/GET | TinyMaker Connect pairing + settings backup |
-| `/api/boot-anim` (+ `/file`, `/select`, `/delete`, `/preview`, `/install`) | GET/POST | boot-animation management; `/install` allows CORS preflight for the web flasher |
+| `/api/boot-anim` (+ `/file`, `/select`, `/delete`, `/preview`, `/install`) | GET/POST | boot-animation management; `/install` pulls a `.tmb` only from allowlisted hosts (gh-pages library, configured Connect server) — other sources go onto the SD card by hand |
 
 ## Static
 
