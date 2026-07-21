@@ -129,17 +129,20 @@
 
   <tr class="subhead"><td colspan="5">exp-2 · Menu &amp; UI</td></tr>
   <tr><td class="nr">0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
-    <td class="what"><b>Menu regroup</b> — Advanced split into groups (Network / Resin / Display / Calibration / Reset); add About on the dashboard; keep Update visible. Manual menu-reference table after.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td class="what"><b>Menu regroup</b> — shipped: Advanced split into Network / Resin / Display groups on the printer; dashboard toolbar reworked to Dashboard / Connect / Settings / Statistics with Update under Settings (an update-available dot on the tab) and a clean Settings &gt; About. Left: the printer's System-menu pass + the manual's menu-reference table (written after).</td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--warn)">◐</td></tr>
+  <tr><td class="nr">0-31</td><td><span class="kw www">Web</span></td>
+    <td class="what"><b>Statistics view + telemetry timestamps</b> — all counters (print/UV totals, last boot, last interrupted print, community installs) as one Statistics view, with when-it-happened timestamps on the boot/crash rows and the firmware build date on About.</td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-22</td><td><span class="kw ptr">Printer</span></td>
     <td class="what"><b>Idle screen status</b> — a follow-up to the screen saver (0-21): show the printer state instead of the IP — "Idle" when idle, live progress (percent + time left) once the saver also covers the printing state. IP stays reachable (rotated or a third line). While printing: auto-dim after the same UI timeout; any button restores brightness (that press is swallowed — no accidental pause).</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
   <tr><td class="nr">0-23</td><td><span class="kw ptr">Printer</span></td>
     <td class="what"><b>Idle timeout default → 60 s</b> — fresh installs currently default to 0 (off), so the screen saver never kicks in out of the box. New default: 60 s; the menu cycle (Off/30/60/…) stays.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-30</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
     <td class="what"><b>Reset-reason telemetry</b> — log <code>esp_reset_reason()</code> at boot plus a "print was active" flag (with the last layer), surfaced on About/dashboard as e.g. "Last boot: brownout during print at ~layer 42". Field case: a print died after the base layers with the printer found rebooted, no actual power loss — this tells us whether it's a brownout, a panic or a watchdog.</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
 
   <tr class="subhead"><td colspan="5">exp-3 · Preview &amp; web features</td></tr>
   <tr><td class="nr">0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
@@ -152,7 +155,7 @@
     <td class="what"><b>Idle screen saver</b> — a follow-up to the dim idle screen (0-15): move "TinyMaker" + IP around the display (4 corners + centre) every couple of seconds so nothing sits static. Avoids burn-in, reads as alive.</td>
     <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-24</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>"Beta" badge on the Connect panel</b> — a small pill marking the Connect section as under active development, so it reads apart from the stable printer features (and a hiccup there isn't mistaken for a firmware bug). Suggested for the hosted Connect UI too — Brian's call.</td>
+    <td class="what"><b>"Preview" badge on the Connect panel</b> — a small pill marking the Connect section as under active development, so it reads apart from the stable printer features (and a hiccup there isn't mistaken for a firmware bug). Wording settled as "preview", not "beta". Suggested for the hosted Connect UI too — Brian's call.</td>
     <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
   <tr><td class="nr">0-25</td><td><span class="kw www">Web</span></td>
     <td class="what"><b>Roadmap link in the dashboard header</b> — next to Manual/Feedback, pointing at <a href="https://tinymakerwifi.com/roadmap">tinymakerwifi.com/roadmap</a>. The roadmap is already public; this just makes it findable.</td>
