@@ -1,7 +1,7 @@
 # TinyMakerWiFi LAN API (DRAFT v0 — 0-11)
 
 > Status: **draft for review** — generated from the endpoint registrations in
-> `src/Network.ino` (firmware 0.15.8 / experimental `ea1cd43`). Promised in
+> `src/Network.ino` (firmware 0.15.8, experimental branch). Promised in
 > [Issue #12](https://github.com/slibbinas/TinyMakerWifi/issues/12) as the
 > versioned contract the Connect offload spec builds on.
 
@@ -52,7 +52,10 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `bootReason`, `lastCrash{reason,layer,epoch}` | reset-reason telemetry (0-30); `lastCrash` null when none recorded |
 | `model`, `currentLayer`, `totalLayers`, `layerText` | running print identity/progress |
 | `resinUsedMl`, `resinText`, `runSecs/Time`, `remainingSecs/Time` | consumption + timing |
-| `webControl`, `askRefill`, `uiTimeoutSecs` | runtime toggles |
+| `vatRemainingMl`, `vatText`, `vatLow` | resin-in-VAT estimate + low flag |
+| `webControl`, `askRefill` | runtime toggles |
+| `sdRev` | SD content revision — bumps on any out-of-band SD change (upload/delete/boot-anim); a client reloads its file list when this changes (0-28) |
+| `freeHeap`, `minFreeHeap`, `maxAllocHeap`, `uptimeSecs` | runtime diagnostics (heap + uptime) |
 
 ## Models & SD
 
