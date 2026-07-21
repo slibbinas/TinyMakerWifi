@@ -2369,10 +2369,11 @@ void drawWifiBadge() {
   gfx2->fillRect(154, 2, 2, 9, c);   // tall bar (ends 2 px from the edge)
 }
 
-// Boot-animation install: the printer pulls a TMB1 file from a community URL and
+// Boot-animation install: the printer pulls a TMB1 file from a trusted URL and
 // stores it in the /bootanim library, then makes it the active boot animation.
-// CORS header so the cross-origin "Send to printer" page can read our reply.
-//   POST /api/boot-anim/install   body: url=<http/https .tmb url>&name=<slug>
+// The URL is allowlisted to hosts we control (gh-pages default library and the
+// configured Connect server) — anything else goes onto the SD card by hand.
+//   POST /api/boot-anim/install   body: url=<allowlisted .tmb url>&name=<slug>
 String bootAnimMetadataPath(const String &name) {
   return String(BOOTANIM_DIR) + "/" + name + ".json";
 }
@@ -2441,8 +2442,6 @@ bool writeBootAnimMetadataFile(const String &slug) {
 }
 
 void handleApiBootAnimInstall() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-
   if (rejectIfWebControlOff()) return;                       // 403 when web control off
   if (printerBusy())   { sendApiError(409, "printer busy"); return; }
   if (!sdCardReady())  { sendApiError(503, "sd card unavailable"); return; }
@@ -2452,6 +2451,14 @@ void handleApiBootAnimInstall() {
   url.trim();
   if (!(url.startsWith("http://") || url.startsWith("https://"))) {
     sendApiError(400, "missing or invalid url");
+    return;
+  }
+  // SSRF guard: only pull from hosts we control. Both are ours, so following
+  // redirects stays safe; other sources install by copying onto the SD card.
+  if (!(url.startsWith("https://slibbinas.github.io/") ||
+        (connectBaseUrl.length() > 0 &&
+         url.startsWith(connectNormalizeBaseUrl(connectBaseUrl) + "/")))) {
+    sendApiError(403, "url host not allowed");
     return;
   }
 
@@ -2890,12 +2897,6 @@ void network_setup() {
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
   server.on("/api/boot-anim/install", HTTP_POST, handleApiBootAnimInstall);
-  server.on("/api/boot-anim/install", HTTP_OPTIONS, []() {   // CORS preflight
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-    server.send(204);
-  });
   server.on("/api/files/local", HTTP_POST, finishUpload, handleUploadData);
 
   // Plain endpoint for curl / UVtools testing:
