@@ -90,7 +90,7 @@ maintainer.
 
 Software feature ideas already on the table:
 
-- A **basic / advanced** firmware mode — keep the dashboard simple, or go deep.
+- **A basic / advanced firmware mode** — keep the dashboard simple, or go deep.
 - **More notification options** for print start / finish / errors.
 - **More dashboard customization** — extra themes and layout choices.
 - **Smarter print helpers** — settings-mismatch warnings and better estimates.
