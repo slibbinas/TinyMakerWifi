@@ -47,6 +47,14 @@
       <div><div class='label'>Lifetime print time</div><div id='lifetimeValue' class='value'>-</div></div>
       <div><div class='label'>UV LED time</div><div id='uvLedValue' class='value'>-</div></div>
       <div><div class='label'>Resin left (est.)</div><div id='vatValue' class='value'>-</div></div>
+      <!-- 0-26: the previewed model's identity (idle only). It used to sit as
+           one crowded line under the preview card; the status panel already
+           has row mechanics, so it reads like everything else here. The
+           print-time boxes below take over the moment a print starts. -->
+      <div id='modelNameBox' class='hidden'><div class='label'>Model</div><div id='modelNameValue' class='value'>-</div></div>
+      <div id='modelLayersBox' class='hidden'><div class='label'>Layers</div><div id='modelLayersValue' class='value'>-</div></div>
+      <div id='modelTimeBox' class='hidden'><div class='label'>Est. time</div><div id='modelTimeValue' class='value'>-</div></div>
+      <div id='modelResinBox' class='hidden'><div class='label'>Est. resin</div><div id='modelResinValue' class='value'>-</div></div>
       <!-- Print-time boxes pair up with the rows above: Resin (this print)
            lands next to Resin left, the two clocks share a row, Layer closes
            the card (user request). -->
@@ -73,7 +81,8 @@
       <button id='dashShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
     <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
-    <div id='dashModelInfo' class='hint hidden'></div>
+    <!-- 0-26: the info line moved to the status panel rows; the card keeps
+         only the 3D view with its small name overlay. -->
   </section>
   </div>
 
@@ -867,7 +876,7 @@ const applyStatus=s=>{
     if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
-      show('dashModelInfo',false);show('dashShareButton',false);
+      setModelInfoRows(null);show('dashShareButton',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
@@ -892,7 +901,7 @@ const applyStatus=s=>{
         const pt=$('printPreviewTitle').textContent;
         if(pt!=='Print progress 3D'&&pt!=='Model preview (printing)'){
           $('printPreviewTitle').textContent='Print progress 3D';
-          show('dashModelInfo',false);show('dashShareButton',false);
+          setModelInfoRows(null);show('dashShareButton',false);
           paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
         }
         // 0-19: the firmware snapshots the model's preview PNG to RAM at print
@@ -1368,11 +1377,23 @@ let dashPreviewName='',slicesPrefetching=false;
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
 const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();};
+// 0-26: the previewed model's identity lives on the STATUS panel (it already
+// has row mechanics - State, Resin left, the print-time boxes), not squeezed
+// into one line under the preview card. null hides the rows (placeholder,
+// print start - the print-time boxes take the same grid slots).
+const setModelInfoRows=d=>{
+  ['modelNameBox','modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,!!d));
+  if(!d)return;
+  $('modelNameValue').textContent=d.name;
+  $('modelLayersValue').textContent=String(d.layers);
+  $('modelTimeValue').textContent=d.time||'-';
+  $('modelResinValue').textContent=d.resin||'-';
+};
 const dashPreviewPlaceholder=()=>{
   setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
-  show('dashModelInfo',false);show('dashShareButton',false);
+  setModelInfoRows(null);show('dashShareButton',false);
   paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
 };
 // Boot restore: bring the last previewed model back, but only from the saved
@@ -1388,9 +1409,7 @@ const restoreDashPreview=async()=>{
     if(!hasVoxel||!d.resinEstimated)return dashPreviewPlaceholder();
     setDashPreviewName(name);
     $('printPreviewTitle').textContent='Model preview';
-    $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
-      Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+' · '+Number(d.resinMl).toFixed(1)+' ml';
-    show('dashModelInfo',true);
+    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
     await loadSavedPreviewTo($('printPreviewCanvas'),name);
     if(dashPreviewName!==name)return;
     setShareUI('dashShareButton',connectIsReady(),!!(d.connectPublicId||'').length);
@@ -1423,9 +1442,7 @@ const refreshDashModelInfo=async()=>{
     const d=await api('/api/files/model?name='+enc(dashPreviewName));
     if(!d||d.name!==dashPreviewName)return;
     const resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
-    $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
-      Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+(resin?' · '+resin:'');
-    show('dashModelInfo',true);
+    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin});
   }catch(e){}
 };
 const dashPreview=async nameEnc=>{
@@ -1438,17 +1455,14 @@ const dashPreview=async nameEnc=>{
   const cv=$('printPreviewCanvas');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
-  show('dashModelInfo',false);show('dashShareButton',false);
+  setModelInfoRows(null);show('dashShareButton',false);
   show('printPreviewCard',true);
   paintPreviewProgress(cv,'Loading preview...',null);
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if(dashPreviewName!==name)return;
     let resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
-    const setInfo=()=>{
-      $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
-        Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+(resin?' · '+resin:'');
-      show('dashModelInfo',true);};
+    const setInfo=()=>setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin});
     setInfo();
     const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
     const hasVoxel=lh1?d.preview1:d.preview05;
@@ -1577,7 +1591,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         // SD row leaves the dashboard visible) - the busy status takes over.
         setDashPreviewName(name);
         $('printPreviewTitle').textContent='Print progress 3D';
-        show('dashModelInfo',false);show('dashShareButton',false);
+        setModelInfoRows(null);show('dashShareButton',false);
         show('printPreviewCard',true);
         scrollPreviewIntoView();   // a phone Start renders above the fold otherwise
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
