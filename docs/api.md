@@ -51,6 +51,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `lifetimePrintSecs/Time`, `uvLedSecs/Time` | lifetime counters |
 | `bootReason`, `lastCrash{reason,layer,epoch}` | reset-reason telemetry (0-30); `lastCrash` null when none recorded |
 | `model`, `currentLayer`, `totalLayers`, `layerText` | running print identity/progress |
+| `previewCached` | the active model's preview PNG is held in RAM and fetchable mid-print (0-19) |
 | `resinUsedMl`, `resinText`, `runSecs/Time`, `remainingSecs/Time` | consumption + timing |
 | `vatRemainingMl`, `vatText`, `vatLow` | resin-in-VAT estimate + low flag |
 | `webControl`, `askRefill` | runtime toggles |
@@ -64,7 +65,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `/api/files` | GET | SD inventory (models + archives) with sizes and free space |
 | `/api/files/model` | GET | one model's details; `name=`, optional `estimate=1` for the resin estimate |
 | `/api/files/model/metadata` | POST | update model metadata (`model.json`) |
-| `/api/files/model/preview` | GET/POST | fetch / store the cached preview PNG; `name=`, `type=05|1` |
+| `/api/files/model/preview` | GET/POST | fetch / store the cached preview PNG; `name=`, `type=05|1`. While printing, the **active** model's preview is served from a RAM snapshot taken at print start (`type` ignored — the snapshot matches the active layer height); other names, or a snapshot that did not fit in heap, answer `409` (0-19) |
 | `/api/files/layer` | GET | a single layer PNG (browser-side slicing/preview) |
 | `/api/files/delete` | POST | delete an SD item; `name=` |
 | `/upload` | POST | multipart model upload (`.sl1`/`.zip`); fields: `file`, `action=replace|rename` on a 409 name conflict, `source`, optional Connect credits fields |

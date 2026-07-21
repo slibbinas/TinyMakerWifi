@@ -417,7 +417,64 @@ void finishPreviewUpload() {
   sendApiOk("\"preview\":true");
 }
 
+// 0-19: the active model's preview PNG, snapshotted to RAM at print start so
+// a browser opened mid-print (new phone, reload) still gets an image while
+// the SD bus feeds the print. Captured from the print-arm block and freed at
+// the single print-exit point - both hooks live in TinyMaker.ino.
+uint8_t *previewCacheBuf = nullptr;
+size_t previewCacheLen = 0;
+String previewCacheModel;
+
+void freePreviewCache() {
+  if (previewCacheBuf) { free(previewCacheBuf); previewCacheBuf = nullptr; }
+  previewCacheLen = 0;
+  previewCacheModel = "";
+}
+
+void capturePreviewCache() {
+  freePreviewCache();
+  if (!sdCardReady()) return;
+  String name = String(foldersel_long);
+  if (!name.length()) return;
+  // Same pick as the serve path below: the render matching the active layer
+  // height, legacy single preview as the fallback.
+  String path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
+  File f = SD.open(path.c_str());
+  if (!f) f = SD.open(("/" + name + "/preview.png").c_str());
+  if (!f) return;
+  size_t sz = f.size();
+  // No PSRAM on the WROOM: cap the snapshot (cached renders run ~100 KB) and
+  // keep a contiguous block big enough for a TLS handshake (~45 KB) free
+  // after the alloc, so mid-print notifications never fight the cache for
+  // heap. Too big / too tight -> silently no cache, the endpoint keeps
+  // answering 409 exactly as before.
+  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + 60 * 1024) { f.close(); return; }
+  previewCacheBuf = (uint8_t *)malloc(sz);
+  if (!previewCacheBuf) { f.close(); return; }
+  size_t got = 0;
+  while (got < sz) {
+    int n = f.read(previewCacheBuf + got, sz - got > 512 ? 512 : sz - got);
+    if (n <= 0) break;
+    got += n;
+  }
+  f.close();
+  if (got != sz) { freePreviewCache(); return; }
+  previewCacheLen = sz;
+  previewCacheModel = name;
+}
+
 void handleApiFileModelPreview() {
+  // 0-19: while printing, the active model's preview is served from the RAM
+  // snapshot - no SD touch, so the no-SD-reads-mid-print rule still holds.
+  // The type arg is ignored here: the snapshot already matches the active
+  // layer height. Other models (or no snapshot) fall through to the 409.
+  if (printerBusy() && previewCacheBuf && server.arg("name") == previewCacheModel) {
+    server.sendHeader("Cache-Control", "max-age=86400");
+    server.setContentLength(previewCacheLen);
+    server.send(200, "image/png", "");
+    server.client().write(previewCacheBuf, previewCacheLen);
+    return;
+  }
   // The one SD read that had no busy gate (audit finding). Our own UI never
   // asks for it mid-print, but HTTP is now serviced from inside the print
   // loops - an SD stream from in there costs motor/button latency, and the
@@ -2042,7 +2099,9 @@ void handleApiStatus() {
   }
   out += ",\"model\":\"";
   out += busy ? jsonEscape(String(foldersel_long)) : String("");
-  out += "\",\"currentLayer\":";
+  out += "\",\"previewCached\":";   // 0-19: RAM preview available mid-print
+  out += previewCacheBuf ? "true" : "false";
+  out += ",\"currentLayer\":";
   out += String(statusCurrentLayer);
   out += ",\"totalLayers\":";
   out += String(statusTotalLayers);

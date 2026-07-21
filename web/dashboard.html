@@ -880,6 +880,7 @@ const applyStatus=s=>{
       if(!s.busy){
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
+        busyPreviewShown='';
       }else if(!slicesPrefetching){
         // Busy without slices - a print started on the printer, or a page opened
         // mid-print in a browser that never previewed this model. This used to
@@ -888,10 +889,24 @@ const applyStatus=s=>{
         // print (user finding). Say it plainly instead, once - the title guard
         // keeps the 2s poll from repainting it.
         if(dashPreviewName)setDashPreviewName('');
-        if($('printPreviewTitle').textContent!=='Print progress 3D'){
+        const pt=$('printPreviewTitle').textContent;
+        if(pt!=='Print progress 3D'&&pt!=='Model preview (printing)'){
           $('printPreviewTitle').textContent='Print progress 3D';
           show('dashModelInfo',false);show('dashShareButton',false);
           paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+        }
+        // 0-19: the firmware snapshots the model's preview PNG to RAM at print
+        // start - a page with no cached slices can still show the model image
+        // instead of the placeholder. One fetch per print; any failure quietly
+        // leaves the placeholder (the endpoint answers 409 exactly as before
+        // when the snapshot did not fit in heap).
+        if(s.previewCached&&s.model&&busyPreviewShown!==s.model){
+          busyPreviewShown=s.model;
+          loadSavedPreviewTo($('printPreviewCanvas'),s.model).then(()=>{
+            $('printPreviewTitle').textContent='Model preview (printing)';
+          }).catch(()=>{
+            paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+          });
         }
       }
     }
@@ -1095,6 +1110,7 @@ const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
+let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
 const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
 const loadSavedPreviewTo=async(cv,name)=>{
   const ctx=cv.getContext('2d'),img=new Image();
