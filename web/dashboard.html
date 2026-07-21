@@ -436,10 +436,10 @@ const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classLi
     e.style.top=y+'px';
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
-  // sticky: survives the 3 s auto-clear - for operations that outlive it (a big
+  // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
   // SD delete blocks the printer for tens of seconds and no poll can re-show
   // the message meanwhile, the server is busy deleting).
-  clearTimeout(msg._t);if(t&&!warn&&!sticky){msg._until=Date.now()+3000;msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},3000);}else{msg._until=0;}};
+  clearTimeout(msg._t);if(t&&!warn&&!sticky){msg._until=Date.now()+2000;msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},2000);}else{msg._until=0;}};
 // Styled replacement for window.confirm() - returns a Promise. Matches the
 // dashboard instead of the browser's native (unstyleable) dialog.
 let uiConfirmRes=null;
