@@ -32,18 +32,19 @@ Full, version-by-version history is in the
 
 ## Now in development (0.16)
 
-The next update bundles the workflow and reliability work in progress:
+Already built and being tested for the next update:
 
-- **Power-loss resume** — pick a print back up after an outage instead of
-  starting over, with a guided, safe plate raise.
 - **A print-aware screen saver** — dims the idle screen and shows the printer
   name and IP.
 - **A self-refreshing model list** — a model uploaded from one device shows up
   on every open dashboard, no reload needed.
 - **Fresher print-time and resin estimates** right after a settings change.
-- **Mid-print preview from any device** — the model preview is served from the
-  printer during a print, so any browser can watch.
 - **Cleaner menus and navigation**, plus mobile fixes.
+
+Also planned for 0.16, not built yet:
+
+- **Power-loss resume** — pick a print back up after an outage instead of
+  starting over, with a guided, safe plate raise.
 
 These are still in development and not yet released — you won't see them on your
 printer yet. When 0.16 is ready it reaches the **beta** channel first (*Update →
