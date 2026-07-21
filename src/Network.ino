@@ -53,6 +53,13 @@ bool webDashboardRuntimeEnabled() {
   return webDashboardEnabled || webDashboardTemporarilyEnabled;
 }
 
+// 0-28: SD content revision - bumped whenever the SD inventory changes on
+// the printer's side (upload/import finished, item deleted, boot animation
+// installed/removed). Rides along in /api/status so every open dashboard
+// notices out-of-band changes (PrusaSlicer upload, another device, the
+// printer itself) and reloads its list instead of waiting for a page reload.
+uint32_t sdRev = 0;
+
 // Web control gate (since 0.12.0 the dashboard is view-only when it is off):
 // state-changing browser/API actions - print control, SD delete, config,
 // VAT refill, firmware - return 403; viewing, status polling and the
@@ -296,6 +303,7 @@ void finishUpload() {
     SD.remove(uploadPath.c_str()); // free SD space, keep browser list clean
   }
   if (ok) {
+    sdRev++;  // 0-28: a new model landed - every dashboard refreshes its list
     String out = "{\"ok\":true,\"done\":true,\"name\":\"";
     out += jsonEscape(result.finalName);
     out += "\",\"renamed\":";
@@ -1201,6 +1209,7 @@ void handleApiFileDelete() {
     return;
   }
 
+  sdRev++;  // 0-28
   sendApiOk("\"deleted\":true");
 }
 
@@ -2005,7 +2014,9 @@ void handleApiStatus() {
   out += sdReady ? "true" : "false";
   out += ",\"sdText\":\"";
   out += busy ? String("Locked") : (sdReady ? String("Ready") : String("Missing"));
-  out += "\",\"lifetimePrintSecs\":";
+  out += "\",\"sdRev\":";   // 0-28: SD content revision (numeric, no quotes)
+  out += String(sdRev);
+  out += ",\"lifetimePrintSecs\":";
   out += String(totalPrintSecs);
   out += ",\"lifetimePrintTime\":\"";
   out += formatDuration(totalPrintSecs);
@@ -2582,6 +2593,7 @@ void handleApiBootAnimInstall() {
   // is an explicit act (dashboard pick + Save config, or the printer menu).
   // Auto-selecting here silently overrode the user's choice on every install.
   writeBootAnimMetadataFile(slug);
+  sdRev++;  // 0-28
   sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
   netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
   delay(1200);
@@ -2668,6 +2680,7 @@ void handleApiBootAnimDelete() {
     bootAnimName = "";
     saveDeviceConfig();
   }  // fall back to Default
+  sdRev++;  // 0-28
   sendApiOk("");
 }
 
