@@ -34,17 +34,36 @@ Full, version-by-version history is in the
 
 Already built and being tested for the next update:
 
-- **A print-aware screen saver** — dims the idle screen and shows the printer
-  name and IP.
+- **A print-aware screen saver** — dims the idle screen, gently moves the
+  printer name and IP around (no burn-in), shows live print progress while
+  printing, and is on by default.
+- **Reorganized menus on the printer and the dashboard** — Advanced settings
+  grouped (Network / Resin / Display), a new **Statistics** screen (print
+  hours, UV time, boot info), and Update kept visible with an
+  "update available" badge.
 - **A self-refreshing model list** — a model uploaded from one device shows up
   on every open dashboard, no reload needed.
 - **Fresher print-time and resin estimates** right after a settings change.
-- **Cleaner menus and navigation**, plus mobile fixes.
+- **"Why did it restart?" diagnostics** — after an unexpected reboot the
+  printer records the reason (and the layer, if it was printing) and shows it
+  in Statistics.
+- **Mobile-navigation and reliability fixes**, including steadier MQTT
+  reconnects.
 
 Also planned for 0.16, not built yet:
 
 - **Power-loss resume** — pick a print back up after an outage instead of
   starting over, with a guided, safe plate raise.
+- **Mid-print preview from any device** — open the dashboard mid-print from a
+  new phone or PrusaSlicer and still see the model preview.
+- **Release notes in the updater** — a link to what changed next to every
+  version.
+- **Model details in the status panel** (layers, time, resin) and a clearer 3D
+  progress view.
+- **Faster first load** of the dashboard and a "recently fixed" list in the
+  feedback form.
+- **Groundwork for finer, sub-second exposure timing** (being validated with
+  fast resins).
 
 These are still in development and not yet released — you won't see them on your
 printer yet. When 0.16 is ready it reaches the **beta** channel first (*Update →
