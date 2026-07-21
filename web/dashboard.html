@@ -1194,9 +1194,12 @@ const drawIso=(cv,doneFrac)=>{
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
-    // Strict boundary: at 0% nothing is printed yet - the old t<=doneFrac
-    // painted the whole first slice solid before the print even started.
-    const s=slices[k],up=slices[k+1],solid=doneFrac>0&&t<=doneFrac;
+    // 0-27: the solid shaded-face render is now ONLY the finished model
+    // (doneFrac 1 - the idle Preview 3D, also the frame the saved preview
+    // PNGs are captured from). A print in progress uses the dot scheme
+    // below instead - solid faces next to the ghost above them read fat
+    // and mushy (user finding).
+    const s=slices[k],up=slices[k+1],solid=doneFrac>=1;
     // Back-to-front: this projection puts +x right-down and +y left-down, so
     // near = large (i+j). Ascending order draws the far voxels first and lets
     // the near ones cover them (the old loop ran j from the near edge back).
@@ -1246,13 +1249,21 @@ const drawIso=(cv,doneFrac)=>{
         if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
         if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
       }else{
-        // Not printed yet: keep the cheap translucent splat - overlapping
-        // slices accumulate into an x-ray that reads well, and it must not
-        // compete with the solid part.
+        // 0-27 progress view: the WHOLE model is always the thin white x-ray
+        // silhouette (overlapping splats accumulate into a clear contour),
+        // and the printed lower part re-draws in orange with ~1 px fatter
+        // dots on the same silhouette - crisp shape, crisp progress line.
+        // Strict boundary: at 0% nothing is printed yet (t<=doneFrac alone
+        // painted the whole first slice before the print even started).
         const edge=i===0||j===0||fRight||fLeft;
-        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')';
         const p=isoPt(cx,cy,z);
-        ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
+        if(doneFrac>0&&t<=doneFrac){
+          ctx.fillStyle='rgba(232,114,12,'+(edge?0.75:0.14)+')';
+          ctx.fillRect(p.X-1.5,p.Y-1.5,3.2,3.2);
+        }else{
+          ctx.fillStyle='rgba(233,233,236,'+(edge?0.28:0.05)+')';
+          ctx.fillRect(p.X-1,p.Y-1,2,2);
+        }
       }
     }
   }
