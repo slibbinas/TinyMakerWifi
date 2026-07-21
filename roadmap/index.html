@@ -82,17 +82,36 @@ firmware) — no frozen or flickering screens.</li>
 <div class="card">
 <p>Already built and being tested for the next update:</p>
 <ul>
-<li><b>A print-aware screen saver</b> — dims the idle screen and shows the
-printer name and IP.</li>
+<li><b>A print-aware screen saver</b> — dims the idle screen, gently moves the
+printer name and IP around (no burn-in), shows live print progress while
+printing, and is on by default.</li>
+<li><b>Reorganized menus on the printer and the dashboard</b> — Advanced
+settings grouped (Network / Resin / Display), a new <b>Statistics</b> screen
+(print hours, UV time, boot info), and Update kept visible with an
+"update available" badge.</li>
 <li><b>A self-refreshing model list</b> — a model uploaded from one device shows
 up on every open dashboard, no reload needed.</li>
 <li><b>Fresher print-time and resin estimates</b> right after a settings change.</li>
-<li><b>Cleaner menus and navigation</b>, plus mobile fixes.</li>
+<li><b>"Why did it restart?" diagnostics</b> — after an unexpected reboot the
+printer records the reason (and the layer, if it was printing) and shows it in
+Statistics.</li>
+<li><b>Mobile-navigation and reliability fixes</b>, including steadier MQTT
+reconnects.</li>
 </ul>
 <p>Also planned for 0.16, not built yet:</p>
 <ul>
 <li><b>Power-loss resume</b> — pick a print back up after an outage instead of
 starting over, with a guided, safe plate raise.</li>
+<li><b>Mid-print preview from any device</b> — open the dashboard mid-print from
+a new phone or PrusaSlicer and still see the model preview.</li>
+<li><b>Release notes in the updater</b> — a link to what changed next to every
+version.</li>
+<li><b>Model details in the status panel</b> (layers, time, resin) and a clearer
+3D progress view.</li>
+<li><b>Faster first load</b> of the dashboard and a "recently fixed" list in the
+feedback form.</li>
+<li><b>Groundwork for finer, sub-second exposure timing</b> (being validated
+with fast resins).</li>
 </ul>
 <p class="muted">These are not released yet — you won't see them on your printer.
 When 0.16 is ready it reaches the <b>beta</b> channel first (<i>Update → version
