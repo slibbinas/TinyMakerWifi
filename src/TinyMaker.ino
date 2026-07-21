@@ -428,6 +428,7 @@ int setting_item;              // Current selected item in settings menu
 bool setting_item_updown = 1;  // Direction indicator for settings (1=up, 0=down)
 int advanced_item = 1;         // Current selected item in System -> Advanced
 int advanced_group = 1;        // 0-17a: selected Advanced group (1 Network, 2 Resin, 3 Display)
+int system_item = 1;           // 0-17b: System menu selection (one screen code 41 + index)
 bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
@@ -1223,15 +1224,15 @@ void loop() {
       screen1(); 
       screen3();
         break; 
-      case 41:
-      case 42:
-      case 43:
-      case 44:
-      screen1(); 
+      case 41:                  // System menu -> back to the main menu
+      screen1();
       screen4();
         break;
       case 411:
       screen41();
+        break;
+      case 432:                 // Statistics -> System menu (selection kept)
+      systemMenuShow();
         break;
       case 440:                 // group list -> back to System menu
       screen42();
@@ -1242,8 +1243,7 @@ void loop() {
       case 442:                 // WiFi prompt -> Cancel: nothing was changed,
       screenAdvancedOptions();  // just return to the group's items
         break;
-      case 421:
-      screen41();
+      case 421:                 // Update screen -> System menu, Update selected
       screen43();
         break;
       #if ENABLE_NETWORK
@@ -1270,8 +1270,7 @@ void loop() {
       case 2322:                // best-bar picker -> Skip (keep current)
         screenAdvancedOptions();
         break;
-      case 431:
-      screen41();
+      case 431:                 // About -> System menu (About stays selected)
       screen44();
         break;
       case 311:
@@ -1344,8 +1343,8 @@ void loop() {
       case 4:
       screen3();
         break;
-      case 42:
-      screen41();
+      case 41:                  // System menu selection up (wraps)
+      systemMenuUp();
         break;
       case 2322:                // UP on best-bar picker -> next option (1..8, shift-, shift+)
         expTestPickNext();
@@ -1355,14 +1354,6 @@ void loop() {
       screen422();
         break;
       #endif
-      case 43:
-      screen41(); 
-      screen42();
-        break;
-      case 44:
-      screen41();
-      screen43();
-        break;
       case 11:
       folderUp(root);
         break;
@@ -1423,17 +1414,8 @@ void loop() {
       case 3:
       screen4();
         break;
-      case 41:
-      screen42();
-        break;
-      case 42:
-      screen43();
-        break;
-      case 43:
-      screen44();
-        break;
-      case 44:
-      screen41();
+      case 41:                  // System menu selection down (wraps)
+      systemMenuDown();
         break;
       case 11:
       folderDown(root);
@@ -2011,31 +1993,32 @@ void loop() {
       case 4:
         screen41();
         break;
-      case 41:
-        #if ENABLE_NETWORK
-        screenWifiInfo();
-        #else
-        screen411();
-        #endif
-        break;
-      case 42:
-        advanced_group = 1;        // 0-17a: Advanced opens the group list
-        screenAdvancedGroups();
+      case 41:                     // System menu OK - dispatch by selection
+        if (system_item == 1) {
+          #if ENABLE_NETWORK
+          screenWifiInfo();
+          #else
+          screen411();
+          #endif
+        } else if (system_item == 2) {
+          advanced_group = 1;      // 0-17a: Advanced opens the group list
+          screenAdvancedGroups();
+        } else if (system_item == 3) {
+          screen432();             // Statistics (0-17b)
+        } else if (system_item == 4) {
+          #if ENABLE_NETWORK
+          if (!wifiEnabled && !wifiTemporarilyEnabled) screenUpdateWifiConfirm();
+          else screen421();
+          #else
+          screen421();
+          #endif
+        } else {
+          screen431();             // About
+        }
         break;
       case 440:                    // enter the selected group's items
         advanced_item = 1;
         screenAdvancedOptions();
-        break;
-      case 43:
-        #if ENABLE_NETWORK
-        if (!wifiEnabled && !wifiTemporarilyEnabled) screenUpdateWifiConfirm();
-        else screen421();
-        #else
-        screen421();
-        #endif
-        break;
-      case 44:
-        screen431();
         break;
       #if ENABLE_NETWORK
       case 312:                 // WiFi Info -> open Reset WiFi confirmation

@@ -478,16 +478,22 @@ void screen4(){
   screen = 4;
 }
 
+// System submenu (0-17b): 5 items, one screen code (41) + a selection index -
+// the same pattern as the Advanced groups (440). Update stays visible right
+// before About: self-update is the fix-delivery channel, never buried.
+#define SYSTEM_MENU_COUNT 5
+
 String systemLabel(int item) {
   if (item == 1) return "WiFi Info";
   if (item == 2) return "Advanced";
-  if (item == 3) return "Update";
-  if (item == 4) return "About";
+  if (item == 3) return "Statistics";
+  if (item == 4) return "Update";
+  if (item == 5) return "About";
   return "";
 }
 
 void drawSystemRow(int item, int y, bool selected) {
-  if (item > 4) item = 1;
+  if (item > SYSTEM_MENU_COUNT) item = 1;
 
   gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
   gfx2->setCursor(5, y + 25);
@@ -496,9 +502,9 @@ void drawSystemRow(int item, int y, bool selected) {
 
 void drawSystemMenu(uint8_t selected) {
   if (selected < 1) selected = 1;
-  if (selected > 4) selected = 4;
+  if (selected > SYSTEM_MENU_COUNT) selected = SYSTEM_MENU_COUNT;
 
-  int next = selected >= 4 ? 1 : selected + 1;
+  int next = selected >= SYSTEM_MENU_COUNT ? 1 : selected + 1;
 
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
@@ -509,28 +515,29 @@ void drawSystemMenu(uint8_t selected) {
   drawSystemRow(next, 41, false);
 }
 
-/**
- * @brief Screens 41-44: System submenu (WiFi Info / Advanced / Update / About)
- */
-void screen41(){
-  drawSystemMenu(1);
+void systemMenuShow() {  // redraw at the current selection (screen stays 41)
+  drawSystemMenu(system_item);
   screen = 41;
 }
 
-void screen42(){
-  drawSystemMenu(2);
-  screen = 42;
+void systemMenuUp() {
+  system_item--;
+  if (system_item < 1) system_item = SYSTEM_MENU_COUNT;
+  systemMenuShow();
 }
 
-void screen43(){
-  drawSystemMenu(3);
-  screen = 43;
+void systemMenuDown() {
+  system_item++;
+  if (system_item > SYSTEM_MENU_COUNT) system_item = 1;
+  systemMenuShow();
 }
 
-void screen44(){
-  drawSystemMenu(4);
-  screen = 44;
-}
+// Legacy entry points - callers pick a selection by MEANING (Advanced /
+// Update / About), not by position, so reordering the menu can't break them.
+void screen41(){ system_item = 1; systemMenuShow(); }   // WiFi Info
+void screen42(){ system_item = 2; systemMenuShow(); }   // Advanced
+void screen43(){ system_item = 4; systemMenuShow(); }   // Update
+void screen44(){ system_item = 5; systemMenuShow(); }   // About
 
 /**
  * @brief Screen 411: shown instead of WiFi Info when ENABLE_NETWORK = 0
@@ -1099,8 +1106,8 @@ void screen431(){
   uiTitle("TinyMaker WiFi");
   gfx2->setFont(NULL); // built-in small font for long lines
   gfx2->setTextColor(WHITE);
-  // Info block (11 px pitch), wider gap before the repo block; key labels
-  // in blue for quick scanning
+  // Pure identity info (0-17b) - the counters moved to Statistics (432),
+  // matching the dashboard's Settings > About / Statistics split.
   gfx2->setCursor(5, 24);
   gfx2->setTextColor(0x879F);
   gfx2->print("FW: ");
@@ -1115,20 +1122,9 @@ void screen431(){
   gfx2->print("Based on TinyMaker 1.0.2");
   gfx2->setCursor(5, 46);
   gfx2->setTextColor(0x879F);
-  gfx2->print("Printed: ");
+  gfx2->print("Built: ");
   gfx2->setTextColor(WHITE);
-  gfx2->print(totalPrintSecs / 3600UL);
-  gfx2->print("h ");
-  gfx2->print((totalPrintSecs % 3600UL) / 60UL);
-  gfx2->print("m");
-  gfx2->setCursor(5, 55);
-  gfx2->setTextColor(0x879F);
-  gfx2->print("UV LED: ");
-  gfx2->setTextColor(WHITE);
-  gfx2->print(totalUvLedSecs / 3600UL);
-  gfx2->print("h ");
-  gfx2->print((totalUvLedSecs % 3600UL) / 60UL);
-  gfx2->print("m");
+  gfx2->print(__DATE__);
   // Classic-font setCursor() y is the glyph TOP (7 px tall): the last row
   // must start by y=73 or it clips past the 80 px panel edge.
   gfx2->setCursor(5, 64);
@@ -1137,6 +1133,56 @@ void screen431(){
   gfx2->print("TinyMakerWifi");
   gfx2->setFont(&FreeSans8pt7b); // restore UI font
   screen = 431;
+}
+
+/**
+ * @brief Screen 432: Statistics (0-17b) - counters + reset-reason telemetry.
+ * The printer-side face of 0-30: "Boot:" is this boot's reason, "Crash:" the
+ * last recorded mid-print death (reason shortened to fit 26 small-font cols).
+ */
+void screen432(){
+  gfx2->fillScreen(BLACK);
+  uiTitle("Statistics");
+  gfx2->setFont(NULL);
+  gfx2->setTextColor(WHITE);
+  gfx2->setCursor(5, 24);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Printed: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(totalPrintSecs / 3600UL);
+  gfx2->print("h ");
+  gfx2->print((totalPrintSecs % 3600UL) / 60UL);
+  gfx2->print("m");
+  gfx2->setCursor(5, 35);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("UV LED: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(totalUvLedSecs / 3600UL);
+  gfx2->print("h ");
+  gfx2->print((totalUvLedSecs % 3600UL) / 60UL);
+  gfx2->print("m");
+  gfx2->setCursor(5, 46);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Boot: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(resetReasonName((uint8_t)bootResetReason));
+  gfx2->setCursor(5, 57);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Crash: ");
+  gfx2->setTextColor(WHITE);
+  if (crashSeen) {
+    String r = resetReasonName(crashReason);
+    int paren = r.indexOf(" (");           // "brownout (power dip)" -> "brownout"
+    if (paren > 0) r = r.substring(0, paren);
+    gfx2->print(r);
+    gfx2->setCursor(5, 68);
+    gfx2->print("  at layer ");
+    gfx2->print(crashLayer);
+  } else {
+    gfx2->print("none recorded");
+  }
+  gfx2->setFont(&FreeSans8pt7b);
+  screen = 432;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
