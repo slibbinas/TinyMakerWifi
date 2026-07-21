@@ -104,7 +104,7 @@
     <p>Latest stable. Boot-anim list readability, minor fixes.</p></div></div>
   <div class="tlv now"><span class="mark">🔜</span><div>
     <span class="vname">0.16</span><span class="vwhen">blocked on #11 + SUNLU resin (~Aug)</span>
-    <p>The freeze bundle below, shipped in experimental-build stages. <b>exp-1 (housekeeping + headroom) is done &amp; tested.</b> Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
+    <p>The freeze bundle below, shipped in experimental-build stages. <b>exp-1 (housekeeping + headroom) and exp-2 (menus &amp; UI on both sides) are done &amp; tested.</b> Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
   <div class="tlv goal"><span class="mark">🎯</span><div>
     <span class="vname">1.0.0</span><span class="vwhen">0.16 stabilized + 7 exit gates</span>
     <p>Same bytes as 0.16, promoted to stable. Wide announcement lined up with Roger's October batch.</p></div></div>
@@ -135,8 +135,8 @@
     <td class="what"><b>Statistics view + telemetry timestamps</b> — all counters (print/UV totals, last boot, last interrupted print, community installs) as one Statistics view, with when-it-happened timestamps on the boot/crash rows and the firmware build date on About.</td>
     <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-22</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Idle screen status</b> — a follow-up to the screen saver (0-21): show the printer state instead of the IP — "Idle" when idle, live progress (percent + time left) once the saver also covers the printing state. IP stays reachable (rotated or a third line). While printing: auto-dim after the same UI timeout; any button restores brightness (that press is swallowed — no accidental pause).</td>
-    <td><span class="own v">Viktoras</span></td><td class="st">☐</td></tr>
+    <td class="what"><b>Idle screen status</b> — shipped: the saver leads with the state in the big font ("Idle" / "Printing" + live "47% 1h23m"), IP small below. While printing the screen auto-dims into the saver after the UI timeout; any button wakes it and the press is swallowed — a blind press can never pause or cancel (pause/cancel/finish wake the screen themselves).</td>
+    <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
   <tr><td class="nr">0-23</td><td><span class="kw ptr">Printer</span></td>
     <td class="what"><b>Idle timeout default → 60 s</b> — fresh installs currently default to 0 (off), so the screen saver never kicks in out of the box. New default: 60 s; the menu cycle (Off/30/60/…) stays.</td>
     <td><span class="own v">Viktoras</span></td><td class="st" style="color:var(--ok)">✓</td></tr>
