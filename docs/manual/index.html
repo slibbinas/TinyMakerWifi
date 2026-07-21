@@ -489,10 +489,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3 id="telegram">Telegram</h3>
   <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
   <ol class="steps">
-    <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code> and follow the prompts. BotFather replies with a <b>bot token</b>.</li>
-    <li><b>Find your chat id:</b> message <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — it replies with your numeric <b>id</b>. Then open your new bot and press <b>Start</b> once, so it is allowed to message you. (For a group, add <b>@RawDataBot</b> to it and use the negative id it prints.)</li>
-    <li><b>Enter both in the dashboard:</b> Settings → <i>Notifications</i> → pick <b>Telegram</b>, paste the token and the chat id, and <b>Save config</b>.</li>
-    <li><b>Press “Send test message”</b> — it should arrive in Telegram within a few seconds.</li>
+    <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code>, follow the prompts, and paste the token into <b>Bot token</b> (Settings → <i>Notifications</i> → <b>Telegram</b>).</li>
+    <li><b>Open your new bot and press Start</b> (or send it any message) — a bot can’t message you until you do.</li>
+    <li><b>Get your Chat ID:</b> open a chat with <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — a <i>separate</i> bot, search “userinfobot” in Telegram — and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li>
+    <li><b>Save config</b>, then press <b>“Send test message”</b> — it should arrive within a few seconds.</li>
   </ol>
   <div class="note">🔒 The bot token is a secret — the dashboard never shows it back, only its last four characters (<i>ends in XXXX</i>), and it is included in your settings backup, so treat the backup file accordingly. The printer talks directly to Telegram over HTTPS; nothing goes through third-party servers.</div>
 

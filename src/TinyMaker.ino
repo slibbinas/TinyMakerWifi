@@ -111,7 +111,8 @@ unsigned long printStartMs = 0;     // millis() when the current print started
 unsigned long phaseStartMs = 0;
 unsigned long phaseTotalMs = 0;
 unsigned long prevLiftMs = 0, prevDropMs = 0;
-uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
+uint16_t uiTimeoutSecs = 60;        // 0 = never blank the UI screen (default 60 s so the
+                                    // screen saver works out of the box - 0-23)
 bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
 bool webDashboardEnabled = true;
@@ -171,7 +172,9 @@ void loadDeviceConfig() {
   sysPrefs.begin("tinymaker", true);
   totalPrintSecs = sysPrefs.getULong("printSecs", 0);
   totalUvLedSecs = sysPrefs.getULong("uvLedSecs", 0);
-  uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 0);
+  // Default 60 s (0-23): fresh installs get the screen saver out of the box.
+  // Anyone who explicitly chose Off has "uiTimeout" = 0 saved and keeps it.
+  uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 60);
   uvLedEnabled = sysPrefs.getBool("uvLed", true);
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
@@ -260,6 +263,76 @@ void saveVatRemaining() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putFloat("vatRemMl", vatRemainingMl);
   sysPrefs.end();
+}
+
+// ---- Reset-reason telemetry (0-30) -----------------------------------------
+// Field case: a print died after the base layers and the printer was found
+// rebooted with no model loaded - looked like a power loss, but mains never
+// went out. A "prActive" flag is set in NVS at print start (layer checkpointed
+// every 25, same cadence as the VAT estimate) and cleared at the single print
+// exit. If the flag is still set at boot, the firmware died mid-print: the
+// reset reason + last layer are persisted so the dashboard can say "brownout
+// during print at ~layer 42" instead of leaving the user guessing.
+esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
+bool crashSeen = false;      // a mid-print death record exists (any boot)
+uint8_t crashReason = 0;     // its esp_reset_reason value
+uint16_t crashLayer = 0;     // last checkpointed layer of that print
+uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
+
+const char *resetReasonName(uint8_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "power-on";
+    case ESP_RST_SW:        return "software restart";
+    case ESP_RST_PANIC:     return "crash (panic)";
+    case ESP_RST_INT_WDT:   return "interrupt watchdog";
+    case ESP_RST_TASK_WDT:  return "task watchdog";
+    case ESP_RST_WDT:       return "watchdog";
+    case ESP_RST_BROWNOUT:  return "brownout (power dip)";
+    case ESP_RST_DEEPSLEEP: return "deep-sleep wake";
+    case ESP_RST_SDIO:      return "SDIO reset";
+    default:                return "unknown";
+  }
+}
+
+// Wall-clock stamp for the crash record ("when did it die") - 0 while NTP
+// has never synced, and the dashboard shows no time then.
+uint32_t telemetryEpochNow() {
+  time_t nowT = time(nullptr);
+  return (uint32_t)(nowT > 1700000000 ? nowT : 0);
+}
+
+void savePrintActiveFlag(bool active) {
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putBool("prActive", active);
+  if (active) {
+    sysPrefs.putUShort("prLayer", 0);
+    sysPrefs.putULong("prEpoch", telemetryEpochNow());
+  }
+  sysPrefs.end();
+}
+
+void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
+  bootResetReason = esp_reset_reason();
+  sysPrefs.begin("tinymaker", false);
+  if (sysPrefs.getBool("prActive", false)) {
+    crashReason = (uint8_t)bootResetReason;
+    crashLayer = sysPrefs.getUShort("prLayer", 0);
+    crashEpoch = sysPrefs.getULong("prEpoch", 0);
+    sysPrefs.putBool("prActive", false);
+    sysPrefs.putBool("crashSeen", true);
+    sysPrefs.putUChar("crashRsn", crashReason);
+    sysPrefs.putUShort("crashLyr", crashLayer);
+    sysPrefs.putULong("crashEpo", crashEpoch);
+    crashSeen = true;
+  } else {  // no fresh death - keep showing the last recorded one
+    crashSeen = sysPrefs.getBool("crashSeen", false);
+    crashReason = sysPrefs.getUChar("crashRsn", 0);
+    crashLayer = sysPrefs.getUShort("crashLyr", 0);
+    crashEpoch = sysPrefs.getULong("crashEpo", 0);
+  }
+  sysPrefs.end();
+  DBG("Boot reset reason: %s%s\n", resetReasonName((uint8_t)bootResetReason),
+      crashSeen ? " (mid-print death on record)" : "");
 }
 
 #if ENABLE_NETWORK
@@ -354,6 +427,7 @@ float motor_updown_time_total; // Total time spent on motor movements
 int setting_item;              // Current selected item in settings menu
 bool setting_item_updown = 1;  // Direction indicator for settings (1=up, 0=down)
 int advanced_item = 1;         // Current selected item in System -> Advanced
+int advanced_group = 1;        // 0-17a: selected Advanced group (1 Network, 2 Resin, 3 Display)
 bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
@@ -965,6 +1039,7 @@ void setup() {
 
   // NVS-backed system values: lifetime print time + web/device settings.
   loadDeviceConfig();
+  readBootTelemetry();  // 0-30: reset reason + mid-print death record
   lastUiActivityMs = millis();
 
   delay(1000);
@@ -1158,11 +1233,14 @@ void loop() {
       case 411:
       screen41();
         break;
-      case 441:
+      case 440:                 // group list -> back to System menu
       screen42();
         break;
-      case 442:                 // reboot prompt -> "Later", back to Advanced
-      screenAdvancedOptions();
+      case 441:                 // item list -> back to the group list
+      screenAdvancedGroups();
+        break;
+      case 442:                 // WiFi prompt -> Cancel: nothing was changed,
+      screenAdvancedOptions();  // just return to the group's items
         break;
       case 421:
       screen41();
@@ -1321,16 +1399,19 @@ void loop() {
       case 3111:
       screen3111increase();
         break;
+      case 440:
+      advancedGroupsUp();
+        break;
       case 441:
       advancedOptionsUp();
         break;
     }
     delay(200);
-  }  
+  }
 
   // -----------------------------------------------------------------------------------
   // Down Button Handling
-  // -----------------------------------------------------------------------------------  
+  // -----------------------------------------------------------------------------------
   if (digitalRead(buttonDown) == LOW) {
     switch (screen) {
       case 1:
@@ -1390,12 +1471,15 @@ void loop() {
       case 3111:
       screen3111decrease();
         break;
+      case 440:
+      advancedGroupsDown();
+        break;
       case 441:
       advancedOptionsDown();
         break;
     }
     delay(200);
-  }  
+  }
 
   // -----------------------------------------------------------------------------------
   // OK Button Handling
@@ -1479,6 +1563,7 @@ void loop() {
         startFromResin = false;   // consume the resin-screen Start request
         webStartPrint = false;    // consume the web SD-manager Start request
         printStartMs = millis();  // print-hours accounting (incl. pauses)
+        savePrintActiveFlag(true);  // 0-30: armed until the single print exit
         uvLedSessionMs = 0;
         homing_canceled = false;
         print_paused = false;
@@ -1641,7 +1726,13 @@ void loop() {
           vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
           resinSampledMl = resinUsedMl;
           if (vatRemainingMl < 0) vatRemainingMl = 0;
-          if (current_layer % 25 == 0) saveVatRemaining();
+          if (current_layer % 25 == 0) {
+            saveVatRemaining();
+            sysPrefs.begin("tinymaker", false);  // 0-30: crash-record checkpoint
+            sysPrefs.putUShort("prLayer", current_layer);
+            sysPrefs.putULong("prEpoch", telemetryEpochNow());  // ~time of death
+            sysPrefs.end();
+          }
 
           if (screen != 11111 && screen != 11112){                
             gfx2->fillRoundRect(2, 38, 116, 40, 3, BLACK);
@@ -1847,6 +1938,7 @@ void loop() {
         }
         digitalWrite(FAN, LOW);
         savePrintTime();   // single exit point: finish, cancel and homing-abort
+        savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
@@ -1927,6 +2019,10 @@ void loop() {
         #endif
         break;
       case 42:
+        advanced_group = 1;        // 0-17a: Advanced opens the group list
+        screenAdvancedGroups();
+        break;
+      case 440:                    // enter the selected group's items
         advanced_item = 1;
         screenAdvancedOptions();
         break;
@@ -1988,8 +2084,8 @@ void loop() {
       case 441:
         advancedOptionsSelect();
         break;
-      case 442:                 // reboot prompt -> "Reboot" confirmed
-        ESP.restart();
+      case 442:                 // WiFi prompt -> Reboot: apply the toggle now
+        applyWifiToggleAndReboot();
         break;
       case 311:
       if(setting_item_updown == 1){

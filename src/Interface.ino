@@ -551,12 +551,85 @@ bool advancedMqttConfigured() {
   return mqttHost.length() > 0 || mqttUser.length() > 0 || mqttPass.length() > 0;
 }
 
-int advancedOptionCount() {
-  int count = 10; // ...exposure test, boot animation
-  if (wifiEnabled) count++; // web control
-  if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
-  return count;
+// WiFi follows the same "ask first, act on OK" pattern as every other
+// prompt (since 07-20): nothing changes until Reboot is confirmed. Flipping
+// the flag before the prompt looked harmless ("WiFi only changes at boot")
+// but network_loop() gates on it - the dashboard died the moment the prompt
+// opened (user finding: printer vanished from the browser mid-menu).
+void applyWifiToggleAndReboot() {
+  wifiEnabled = !wifiEnabled;
+  if (!wifiEnabled) {
+    webDashboardEnabled = false;
+    mqttEnabled = false;
+  } else {
+    webDashboardEnabled = true;
+  }
+  saveDeviceConfig();
+  ESP.restart();
 }
+
+// ---- Advanced menu groups (0-17a) ------------------------------------------
+// The flat 10-12 item list became hard to scan on a 2-row screen, so Advanced
+// now opens a group list (screen 440): Network / Resin / Display. OK enters
+// the group's items (screen 441, the existing mechanics); Back walks up.
+// Items keep their ORIGINAL ids (advancedLabel/Value/Select switches are
+// untouched) - advancedGroupItem() maps (group, position) to an id, so the
+// conditional Network entries (Web control, MQTT) just shorten the group.
+
+int advancedGroupCount() { return 3; }
+
+String advancedGroupLabel(int g) {
+  if (g == 1) return "Network";
+  if (g == 2) return "Resin";
+  if (g == 3) return "Display";
+  return "";
+}
+
+// Second row of a group card: a one-glance summary of its key state.
+String advancedGroupValue(int g) {
+  if (g == 1) return wifiEnabled ? "WiFi On" : "WiFi Off";
+  if (g == 2) return String(vatRemaining(), 1) + " ml left";
+  if (g == 3) {
+    if (uiTimeoutSecs == 0) return "Sleep Off";
+    return "Sleep " + String(uiTimeoutSecs) + "s";
+  }
+  return "";
+}
+
+int advancedGroupItemCount(int g) {
+  if (g == 1) {  // WiFi, [Web control], [MQTT], Boot update
+    int count = 2;
+    if (wifiEnabled) count++;
+    if (wifiEnabled && advancedMqttConfigured()) count++;
+    return count;
+  }
+  if (g == 2) return 6;  // VAT refilled, pause, warn, ask refill, exp test, dry run
+  if (g == 3) return 2;  // idle timeout, boot animation
+  return 0;
+}
+
+// (group, 1-based position) -> original item id used by advancedLabel/Value/
+// advancedOptionsSelect. Network keeps WiFi first so the toggles it gates
+// (Web control, MQTT) sit right under it.
+int advancedGroupItem(int g, int pos) {
+  if (g == 1) {
+    if (pos == 1) return 7;                                   // WiFi
+    if (wifiEnabled && pos == 2) return 11;                   // Web control
+    if (wifiEnabled && advancedMqttConfigured() && pos == 3) return 12;  // MQTT
+    return 8;                                                 // Boot update (last)
+  }
+  if (g == 2) {
+    const int items[6] = {3, 4, 5, 6, 9, 2};  // refilled, pause, warn, ask, exp test, dry run
+    if (pos >= 1 && pos <= 6) return items[pos - 1];
+  }
+  if (g == 3) {
+    if (pos == 1) return 1;   // Idle timeout
+    if (pos == 2) return 10;  // Boot animation
+  }
+  return 1;
+}
+
+int advancedOptionCount() { return advancedGroupItemCount(advanced_group); }
 
 String advancedLabel(int item) {
   if (item == 1) return "Idle timeout";   // sleeps only when idle - the old
@@ -571,8 +644,8 @@ String advancedLabel(int item) {
   if (item == 8) return "Boot update";
   if (item == 9) return "Exposure test";
   if (item == 10) return "Boot animation";
-  if (wifiEnabled && item == 11) return "Web control";
-  if (wifiEnabled && advancedMqttConfigured() && item == 12) return "MQTT";
+  if (item == 11) return "Web control";  // shown only via the Network group,
+  if (item == 12) return "MQTT";         // which gates them on wifiEnabled
   return "";
 }
 
@@ -594,18 +667,19 @@ String advancedValue(int item) {
     if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
     return bootAnimExists(bootAnimName) ? bootAnimDisplay(bootAnimName) : bootAnimDisplay(bootAnimName) + " (missing)";
   }
-  if (wifiEnabled && item == 11) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 12) return mqttEnabled ? "On" : "Off";
+  if (item == 11) return webDashboardEnabled ? "On" : "Off";
+  if (item == 12) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
-void drawAdvancedRow(int item, int y, bool selected) {
-  if (item > advancedOptionCount()) item = 1;
+void drawAdvancedRow(int pos, int y, bool selected) {
+  if (pos > advancedOptionCount()) pos = 1;
+  int id = advancedGroupItem(advanced_group, pos);
   gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
   gfx2->setCursor(5, y + 15);
-  gfx2->print(advancedLabel(item));
+  gfx2->print(advancedLabel(id));
   gfx2->setCursor(5, y + 33);
-  gfx2->print(advancedValue(item));
+  gfx2->print(advancedValue(id));
 }
 
 void screenAdvancedOptions() {
@@ -622,6 +696,42 @@ void screenAdvancedOptions() {
   screen = 441;
 }
 
+// Group list (screen 440) - same 2-row mechanics as the item list above.
+void drawAdvancedGroupRow(int g, int y, bool selected) {
+  if (g > advancedGroupCount()) g = 1;
+  gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
+  gfx2->setCursor(5, y + 15);
+  gfx2->print(advancedGroupLabel(g));
+  gfx2->setCursor(5, y + 33);
+  gfx2->print(advancedGroupValue(g));
+}
+
+void screenAdvancedGroups() {
+  int count = advancedGroupCount();
+  if (advanced_group < 1) advanced_group = 1;
+  if (advanced_group > count) advanced_group = count;
+  int next = advanced_group >= count ? 1 : advanced_group + 1;
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  drawAdvancedGroupRow(advanced_group, 0, true);
+  drawAdvancedGroupRow(next, 41, false);
+  screen = 440;
+}
+
+void advancedGroupsUp() {
+  advanced_group--;
+  if (advanced_group < 1) advanced_group = advancedGroupCount();
+  screenAdvancedGroups();
+}
+
+void advancedGroupsDown() {
+  advanced_group++;
+  if (advanced_group > advancedGroupCount()) advanced_group = 1;
+  screenAdvancedGroups();
+}
+
 void advancedOptionsUp() {
   advanced_item--;
   if (advanced_item < 1) advanced_item = advancedOptionCount();
@@ -635,56 +745,48 @@ void advancedOptionsDown() {
 }
 
 void advancedOptionsSelect() {
-  if (advanced_item == 1) {
+  // The visible position resolves to the item's original id - the switch
+  // below stayed keyed by id when the menu grew groups (0-17a).
+  int id = advancedGroupItem(advanced_group, advanced_item);
+  if (id == 1) {
     if (uiTimeoutSecs == 0) uiTimeoutSecs = 30;
     else if (uiTimeoutSecs < 60) uiTimeoutSecs = 60;
     else if (uiTimeoutSecs < 120) uiTimeoutSecs = 120;
     else if (uiTimeoutSecs < 300) uiTimeoutSecs = 300;
     else if (uiTimeoutSecs < 600) uiTimeoutSecs = 600;
     else uiTimeoutSecs = 0;
-  } else if (advanced_item == 2) {
+  } else if (id == 2) {
     uvLedEnabled = !uvLedEnabled;
-  } else if (advanced_item == 3) {
+  } else if (id == 3) {
     vatMarkRefilled();          // action item: bookkeeping restarts from full
-  } else if (advanced_item == 4) {
+  } else if (id == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
-  } else if (advanced_item == 5) {
+  } else if (id == 5) {
     lowResinThresholdMl++;      // cycle 1..3 ml
     if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
-  } else if (advanced_item == 6) {
+  } else if (id == 6) {
     askRefillEnabled = !askRefillEnabled;
-  } else if (advanced_item == 7) {
-    wifiEnabled = !wifiEnabled;
-    if (!wifiEnabled) {
-      webDashboardEnabled = false;
-      mqttEnabled = false;
-    } else {
-      webDashboardEnabled = true;
-    }
-  } else if (advanced_item == 8) {
+  } else if (id == 7) {
+    // No mutation here - the prompt asks first, and the toggle is applied
+    // only on the confirmed reboot (applyWifiToggleAndReboot).
+    screenRebootConfirm();
+    return;
+  } else if (id == 8) {
     bootUpdateCheckEnabled = !bootUpdateCheckEnabled;
-  } else if (advanced_item == 9) {
+  } else if (id == 9) {
     screenExpTestIntro();       // action item: opens the exposure test flow
     return;
-  } else if (advanced_item == 10) {
+  } else if (id == 10) {
     bootAnimName = nextBootAnim(bootAnimName);  // cycle Default -> each installed animation
-  } else if (wifiEnabled && advanced_item == 11) {
+  } else if (id == 11) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 12) {
+  } else if (id == 12) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK
-  if (advanced_item != 7) {
-    tinymakerConnectScheduleBackup();
-  }
+  tinymakerConnectScheduleBackup();
   #endif
-  if (advanced_item == 7) {
-    // WiFi state only changes at boot (network_setup has no runtime
-    // teardown/bring-up path), so offer a reboot to apply it now.
-    screenRebootConfirm();
-    return;
-  }
   screenAdvancedOptions();
 }
 
@@ -741,9 +843,10 @@ void screenRefillAsk() {
 }
 
 /**
- * @brief Screen 442: WiFi toggled in Advanced - reboot to apply.
- * OK reboots immediately; Back returns to Advanced (saved setting
- * takes effect on the next power-up).
+ * @brief Screen 442: WiFi toggle confirmation. Says WHAT will change (user
+ * finding 07-20: "Reboot required" alone didn't). Nothing has been touched
+ * yet - wifiEnabled still holds the CURRENT value, so the prompt offers its
+ * opposite. OK applies the toggle and reboots; Back leaves everything as is.
  */
 void screenRebootConfirm() {
   uiFrame(ORANGE);
@@ -751,10 +854,10 @@ void screenRebootConfirm() {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
-  gfx2->print("Reboot required");
+  gfx2->print(wifiEnabled ? "Turn WiFi Off?" : "Turn WiFi On?");
   gfx2->setCursor(8, 43);
-  gfx2->print("Reboot now?");
-  uiButtons("Later", "Reboot", 0x879F);
+  gfx2->print("Reboots to apply");
+  uiButtons("Cancel", "Reboot", 0x879F);
   screen = 442;
 }
 
