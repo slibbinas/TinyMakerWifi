@@ -150,6 +150,7 @@ unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
 unsigned long uiSaverLastMoveMs = 0;  // last time the idle text drifted
+bool uiDimmedPrint = false;           // 0-22: print screen dimmed into the saver
 
 void savePrintTime() {
   totalPrintSecs += (millis() - printStartMs) / 1000UL;
@@ -835,6 +836,53 @@ void uiWakeScreen() {
   }
   lastUiActivityMs = millis();
 }
+
+#if ENABLE_NETWORK
+// 0-22: auto-dim DURING a print, after the same UI timeout. Called from the
+// exposure wait loop (the only place buttons are polled while printing).
+// Returns true when the caller must skip its own button handlers this pass:
+// either the screen is dimmed (presses may only wake it - never pause/stop,
+// V's rule: the waking press is swallowed) or it just woke.
+bool printSaverTick() {
+  if (uiTimeoutSecs == 0) return false;
+  // Only the plain print screen dims - not the stop/pause confirm overlays,
+  // not pause/cancel states (the user is at the machine then).
+  if (!uiDimmedPrint &&
+      (screen != 1111 || print_paused || print_canceled ||
+       current_state < 1 || current_state > 3)) return false;
+
+  bool pressed = digitalRead(buttonBack) == LOW || digitalRead(buttonUp) == LOW ||
+                 digitalRead(buttonDown) == LOW || digitalRead(buttonOK) == LOW;
+
+  if (uiDimmedPrint) {
+    if (pressed) {
+      uiDimmedPrint = false;
+      lastUiActivityMs = millis();
+      screen1111();            // full bright redraw + state bar
+      screen1111_state();
+      while (digitalRead(buttonBack) == LOW || digitalRead(buttonUp) == LOW ||
+             digitalRead(buttonDown) == LOW || digitalRead(buttonOK) == LOW) {
+        delay(10);             // swallow the waking press entirely
+      }
+    } else if (millis() - uiSaverLastMoveMs >= 2000UL) {
+      uiSaverLastMoveMs = millis();
+      uiSaverPos = (uiSaverPos + 1) % 5;
+      drawPrintSaver(uiSaverPos);   // drift + refresh the live progress
+    }
+    return true;               // dimmed (or just woke): callers skip buttons
+  }
+
+  if (pressed) { lastUiActivityMs = millis(); return false; }
+  if (millis() - lastUiActivityMs >= (unsigned long)uiTimeoutSecs * 1000UL) {
+    uiDimmedPrint = true;
+    uiSaverPos = 0;
+    uiSaverLastMoveMs = millis();
+    drawPrintSaver(uiSaverPos);
+    return true;
+  }
+  return false;
+}
+#endif
 
 bool handleUiTimeout() {
   bool buttonPressed = digitalRead(buttonBack) == LOW ||
@@ -1716,7 +1764,14 @@ void loop() {
             sysPrefs.end();
           }
 
-          if (screen != 11111 && screen != 11112){                
+          #if ENABLE_NETWORK
+          if (uiDimmedPrint) {
+            // 0-22: dimmed - refresh the saver's progress line instead of
+            // repainting the bright info block over it.
+            drawPrintSaver(uiSaverPos);
+          } else
+          #endif
+          if (screen != 11111 && screen != 11112){
             gfx2->fillRoundRect(2, 38, 116, 40, 3, BLACK);
             gfx2->setFont(&FreeSans8pt7b);
             gfx2->setTextColor(WHITE);
@@ -1782,6 +1837,12 @@ void loop() {
           // Pause Handling
           // -----------------------------------------------------------------------------
           if(print_paused == true){
+            #if ENABLE_NETWORK
+            if (uiDimmedPrint) {   // 0-22: a pause (web/low-resin) wakes the screen
+              uiDimmedPrint = false;
+              screen1111();
+            }
+            #endif
             Position_before_pause = stepper.currentPosition();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
@@ -1919,6 +1980,8 @@ void loop() {
           lift_finished_print();
         }
         digitalWrite(FAN, LOW);
+        uiDimmedPrint = false;       // 0-22: never leave the saver armed past the print
+        lastUiActivityMs = millis();
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
