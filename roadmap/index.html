@@ -1,247 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWiFi — Roadmap</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
   :root{
     --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#6b7280; --border:#e5e7eb;
-    --accent:#f07a1a; --code-bg:#f0f1f3; --ver-bg:#fdf0e4;
-    --ok:#1a9e5f; --warn:#c77d0a; --bad:#e0532b; --www:#3b82f6; --ptr:#1a9e5f; --doc:#a855f7; --infra:#8a8f99;
+    --accent:#f07a1a; --ver-bg:#fdf0e4; --ok:#1a9e5f; --www:#3b82f6;
     --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.05);
   }
   @media (prefers-color-scheme:dark){:root{
     --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab; --border:#2b2f38;
-    --accent:#ff9740; --code-bg:#242832; --ver-bg:#2a2013;
-    --ok:#3ecf8e; --warn:#e0a23a; --bad:#ff7a52; --www:#5b9bf6; --ptr:#3ecf8e; --doc:#c184f0; --infra:#9aa0ab;
+    --accent:#ff9740; --ver-bg:#2a2013; --ok:#3ecf8e; --www:#5b9bf6;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.35);}}
-  :root[data-theme="dark"]{
-    --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#9aa0ab; --border:#2b2f38;
-    --accent:#ff9740; --code-bg:#242832; --ver-bg:#2a2013;
-    --ok:#3ecf8e; --warn:#e0a23a; --bad:#ff7a52; --www:#5b9bf6; --ptr:#3ecf8e; --doc:#c184f0; --infra:#9aa0ab;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.35);}
-  :root[data-theme="light"]{
-    --bg:#f7f7f8; --card:#ffffff; --text:#1d1f24; --muted:#6b7280; --border:#e5e7eb;
-    --accent:#f07a1a; --code-bg:#f0f1f3; --ver-bg:#fdf0e4;
-    --ok:#1a9e5f; --warn:#c77d0a; --bad:#e0532b; --www:#3b82f6; --ptr:#1a9e5f; --doc:#a855f7; --infra:#8a8f99;
-    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.05);}
   *{box-sizing:border-box} body{margin:0}
-  @media print{
-    :root{color-scheme:light}
-    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .wrap{padding:10px 6px;max-width:none}
-    .tblwrap,.tlv,.note{box-shadow:none}
-    h2{margin-top:20px}
-    table{min-width:0}
-    .tlv,tr,.note,li{break-inside:avoid}
-  }
-  .wrap{max-width:920px;margin:0 auto;padding:30px 18px 60px;color:var(--text);background:var(--bg);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;
+  html,body{background:var(--bg)}
+  .wrap{max-width:760px;margin:0 auto;padding:30px 18px 60px;color:var(--text);background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;
     -webkit-font-smoothing:antialiased}
   header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
-  header .mark{width:34px;height:34px;flex:none}
+  header svg{width:34px;height:34px;flex:none}
   h1{font-size:1.7rem;margin:0;letter-spacing:-.01em}
   h1 b{color:var(--accent)}
-  .lede{color:var(--muted);font-size:.95rem;margin:6px 0 0;max-width:70ch}
-  .lede b{color:var(--text)}
-  .flow{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin:16px 0 4px;font-size:.85rem;color:var(--muted)}
-  .flow .step{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--text);font-weight:600}
-  .flow .arr{color:var(--accent);font-weight:700}
-
-  h2{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;
-    margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-
-  .tl{display:flex;flex-direction:column;gap:9px}
-  .tlv{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-radius:11px;border:1px solid var(--border);
-    background:var(--card);border-left:4px solid var(--muted);box-shadow:var(--shadow)}
-  .tlv.done{border-left-color:var(--ok)} .tlv.now{border-left-color:var(--accent);background:color-mix(in srgb,var(--ver-bg) 40%,var(--card))}
-  .tlv.goal{border-left-color:var(--doc)}
-  .tlv .mark{font-size:1.1rem;flex:none;line-height:1.3}
-  .tlv .vname{font-weight:800;font-size:1.02rem;margin-right:8px}
-  .tlv.done .vname{color:var(--ok)} .tlv.now .vname{color:var(--accent)} .tlv.goal .vname{color:var(--doc)}
-  .tlv .vwhen{font-size:.78rem;color:var(--muted);font-weight:600}
-  .tlv p{margin:.35em 0 0;font-size:.88rem}
-
-  .tblwrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:var(--shadow)}
-  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:640px}
-  th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:top}
-  th{font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--code-bg)}
-  tr:last-child td{border-bottom:none}
-  td.nr{white-space:nowrap;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
-  td.what b{color:var(--text)}
-  .kw{display:inline-block;font-size:.64rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-    padding:1px 6px;border-radius:5px;border:1px solid currentColor;margin-right:4px;line-height:1.5;vertical-align:1px}
-  .kw.www{color:var(--www)} .kw.ptr{color:var(--ptr)} .kw.doc{color:var(--doc)} .kw.infra{color:var(--infra)}
-  .own{font-weight:700;white-space:nowrap;font-size:.82rem}
-  .own.v{color:var(--accent)} .own.t{color:var(--doc)} .own.b{color:var(--www)} .own.c{color:var(--muted)}
-  td.st{text-align:center;font-size:1rem;color:var(--muted)}
-  .subhead td{background:var(--code-bg);color:var(--muted);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:7px 13px}
-  .stg{font-weight:700;cursor:help;margin-right:5px}.stg.todo{color:var(--muted)}.stg.doing{color:var(--warn)}.stg.review{color:var(--www)}.stg.done{color:var(--ok)}.statlegend{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;margin:14px 0 4px;font-size:.82rem;color:var(--muted)}.statlegend b{color:var(--text)}.subhead.done td{background:color-mix(in srgb,var(--ok) 16%,var(--code-bg));color:var(--ok)}
-
-  ul.gates{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
-  ul.gates li{position:relative;padding-left:20px;font-size:.9rem}
-  ul.gates li:before{content:"☐";position:absolute;left:0;color:var(--muted)}
-  .note{background:color-mix(in srgb,var(--ver-bg) 45%,transparent);border:1px solid var(--border);border-radius:12px;
-    padding:14px 16px;margin-top:16px;font-size:.9rem}
-  .note b{color:var(--accent)}
-  .legend{font-size:.78rem;color:var(--muted);margin-top:10px}
-  .legend b{color:var(--text)}
-  footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+  .lede{color:var(--muted);font-size:.95rem;margin:6px 0 22px;max-width:70ch}
+  h2{font-size:1.15rem;margin:30px 0 10px;letter-spacing:-.01em}
+  h2 .tag{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:999px;font-size:.7rem;font-weight:600;
+    vertical-align:middle;letter-spacing:.03em}
+  .tag.ship{background:var(--ver-bg);color:var(--accent)}
+  .tag.dev{border:1px solid var(--www);color:var(--www)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;box-shadow:var(--shadow);margin:0 0 6px}
+  ul{margin:8px 0;padding-left:20px}
+  li{margin:7px 0}
+  li b{color:var(--text)}
+  p{margin:10px 0}
+  a{color:var(--www);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .muted{color:var(--muted);font-size:.9rem}
+  footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
 </style>
+</head>
+<body><div class="wrap">
 
-<div class="wrap">
 <header>
-  <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
-  <h1><b>TinyMakerWiFi</b> — Roadmap</h1>
+  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+  <h1>TinyMaker<b>WiFi</b> — Roadmap</h1>
 </header>
-<p class="lede"><b>0.16 is the feature-freeze bundle.</b> We ship these, stabilize, then promote the exact same bytes as
-  <b>1.0.0</b> — nothing new goes in after this list. Broad announcement is timed to Roger's October batch.</p>
-<div class="flow">
-  <span class="step">Freeze bundle (0.16)</span><span class="arr">→</span>
-  <span class="step">0.16.x fixes</span><span class="arr">→</span>
-  <span class="step">1.0.0 (same bytes)</span>
+<p class="lede">Where the WiFi / wireless-upload / OTA firmware for the open-source
+TinyMaker MSLA resin printer is headed. Updated at each release.</p>
+
+<h2>Where we are</h2>
+<div class="card">
+<p>The <b>0.15.x</b> line is a stability push toward <b>1.0.0</b>. The feature set
+is frozen — the focus is bug hunting, testing and polish, not new features.</p>
+<p>New builds ship first as <b>betas</b> from the dashboard's <i>Update → version
+picker</i> and the <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">Releases
+page</a>; the automatic self-update channel follows a day or two later, once
+early testers confirm the build.</p>
 </div>
 
-<h2>Timeline</h2>
-<div class="tl">
-  <div class="tlv done"><span class="mark">✅</span><div>
-    <span class="vname">0.15.8</span><span class="vwhen">shipped</span>
-    <p>Latest stable. Boot-anim list readability, minor fixes.</p></div></div>
-  <div class="tlv now"><span class="mark">🔜</span><div>
-    <span class="vname">0.16</span><span class="vwhen">blocked on #11 + SUNLU resin (~Aug)</span>
-    <p>The freeze bundle below, shipped in experimental-build stages. <b>exp-1 (housekeeping + headroom) and exp-2 (menus &amp; UI on both sides) are done &amp; tested.</b> Power-loss resume (#11) is deliberately last; deciseconds wait for the test resin.</p></div></div>
-  <div class="tlv goal"><span class="mark">🎯</span><div>
-    <span class="vname">1.0.0</span><span class="vwhen">0.16 stabilized + 7 exit gates</span>
-    <p>Same bytes as 0.16, promoted to stable. Wide announcement lined up with Roger's October batch.</p></div></div>
-</div>
-
-<h2>0.16 — the freeze bundle</h2>
-<p class="lede" style="margin-bottom:14px"><b>How we're shipping it:</b> in experimental-build stages (<b>exp-1 → exp-5</b>). Tanner's power-loss
-  resume (#11) is deliberately <b>last</b>, so everything independent moves now. If #11 stalls, V picks it up — with credit. Docs/infra run in parallel.</p>
-<div class="statlegend"><b>Status:</b> <span><span class="stg todo">☐</span>planned</span> <span><span class="stg doing">◐</span>building</span> <span><span class="stg review">◧</span>in review <span style="opacity:.7">(coded, awaiting on-printer test)</span></span> <span><span class="stg done">✓</span>done &amp; tested</span></div>
-<div class="tblwrap"><table>
-  <tr><th>#</th><th>Where</th><th>What</th><th>Owner</th></tr>
-
-  <tr class="subhead done"><td colspan="4">exp-1 · Housekeeping + headroom — ✓ DONE · flashed &amp; tested on the printer</td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-10</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Gzip the dashboard</b> — moved out of PROGMEM into a static file, gzipped at build. <b>Flash 74% → 69% (~−96 KB).</b></td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-15</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Dim idle screen</b> — a dim "TinyMaker" + IP instead of a fully blank screen.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-4/5/6</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Small hygiene</b> — unify button classes, MQTT reconnect backoff, Share button to the card corner + a "Shared" status, light-theme preview-text fix.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-
-  <tr class="subhead done"><td colspan="4">exp-2 · Menu &amp; UI (both sides) — ✓ DONE · flashed &amp; tested on the printer</td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-17</td><td><span class="kw ptr">Printer</span> <span class="kw doc">Docs</span></td>
-    <td class="what"><b>Menu regroup</b> — shipped on both sides: printer Advanced split into Network / Resin / Display groups, System menu now WiFi Info / Advanced / Statistics / Update / About (Statistics carries the counters + reset-reason telemetry; About is identity-only with the build date); dashboard mirrors it — Dashboard / Connect / Settings / Statistics toolbar, Update under Settings with an update-available dot, clean Settings &gt; About. The manual's menu-reference table lands with the docs batch before release.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-31</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Statistics view + telemetry timestamps</b> — all counters (print/UV totals, last boot, last interrupted print, community installs) as one Statistics view, with when-it-happened timestamps on the boot/crash rows and the firmware build date on About.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-22</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Idle screen status</b> — shipped: the saver leads with the state in the big font ("Idle" / "Printing" + live "47% 1h23m"), IP small below. While printing the screen auto-dims into the saver after the UI timeout; any button wakes it and the press is swallowed — a blind press can never pause or cancel (pause/cancel/finish wake the screen themselves).</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-23</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Idle timeout default → 60 s</b> — fresh installs currently default to 0 (off), so the screen saver never kicks in out of the box. New default: 60 s; the menu cycle (Off/30/60/…) stays.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-30</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
-    <td class="what"><b>Reset-reason telemetry</b> — log <code>esp_reset_reason()</code> at boot plus a "print was active" flag (with the last layer), surfaced on About/dashboard as e.g. "Last boot: brownout during print at ~layer 42". Field case: a print died after the base layers with the printer found rebooted, no actual power loss — this tells us whether it's a brownout, a panic or a watchdog.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-
-  <tr class="subhead"><td colspan="4">exp-3 · Preview &amp; web features</td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-19</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
-    <td class="what"><b>Preview PNG to RAM</b> — cache the preview in RAM at print start so any browser sees it mid-print. Fixes the "lost progress on my phone / Prusa view" reports. Builds on Brian's PR #10 cache.</td>
-    <td><span class="own c">community</span> → <span class="own v">V</span></td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-20</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Release notes at each version</b> — a "release notes ↗" link by every version number (latest / installed / picker) opening its GitHub Release. Dashboard-only.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg done" title="Verified on the printer">✓</span>0-21</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Idle screen saver</b> — a follow-up to the dim idle screen (0-15): move "TinyMaker" + IP around the display (4 corners + centre) every couple of seconds so nothing sits static. Avoids burn-in, reads as alive.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg review" title="Coded, in a PR — not yet tested on the printer">◧</span>0-24</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>"Preview" badge on the Connect panel</b> — a small pill marking the Connect section as under active development, so it reads apart from the stable printer features (and a hiccup there isn't mistaken for a firmware bug). Wording settled as "preview", not "beta". Suggested for the hosted Connect UI too — Brian's call.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg review" title="Coded, in a PR — not yet tested on the printer">◧</span>0-25</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Roadmap link in the dashboard header</b> — next to Manual/Feedback, pointing at <a href="https://tinymakerwifi.com/roadmap">tinymakerwifi.com/roadmap</a>. The roadmap is already public; this just makes it findable.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-26</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Model info moves to the status panel</b> — with a model loaded in Preview (idle), the status panel gains Model / Layers / Est. time / Est. resin rows; the preview card drops the duplicate info and keeps just the 3D view + name overlay.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-27</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>3D preview: printed part in orange</b> — the whole model always renders as the thin white "unprinted" silhouette; the printed-so-far portion overlays in orange with slightly bolder dots. Clear outline, clear progress line — no more mushy blob.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg review" title="Coded, in a PR — not yet tested on the printer">◧</span>0-28</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>SD list auto-refresh (bug)</b> — a model sent from PrusaSlicer only shows up after a page reload, with no "importing" hint while the printer unpacks. Fix: an <code>sdRev</code> counter in <code>/api/status</code> (bumped on import/delete) triggers a list reload, plus a "Printer is busy importing…" indicator and a "New model imported" snackbar.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg review" title="Coded, in a PR — not yet tested on the printer">◧</span>0-29</td><td><span class="kw www">Web</span></td>
-    <td class="what"><b>Stale estimate after settings change (bug)</b> — changing layer height 0.1 → 0.05 doesn't update the preview's print estimate until a reload. The firmware recomputes correctly; the dashboard caches the model details. Fix: re-fetch model stats after a config save (lands together with 0-26).</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-
-  <tr class="subhead"><td colspan="4">exp-4 · Exposure — waits for SUNLU test resin (~Aug); highest risk (EEPROM)</td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-3+0-16</td><td><span class="kw www">Web</span> <span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Sub-second exposure + resin presets</b> — deciseconds instead of whole seconds, plus named resin profiles that rewrite the active settings. One pass (same EEPROM/forms code). Its own build — migration risk; needs the test resin to validate. Also: when changing exposure in Settings, show the impact on print time ("a 1h 12m print would become ~58m") — the firmware knows all the terms. And a "pick the winning bar" wizard: after the exposure test, pick the best bar [1–8] in the dashboard and it computes and offers the new Regular exposure (Confirm to apply).</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-
-  <tr class="subhead"><td colspan="4">exp-5 · Power-loss + raise plate — LAST (waits for #11; if it stalls, V takes it with credit)</td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-1</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Power-loss resume</b> — remember the layer on SD, offer to continue after an outage. Gates 0-2. Moved to the end so the rest ships first.</td>
-    <td><span class="own t">Tanner</span> · PR #11</td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-2</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td>
-    <td class="what"><b>Raise plate after a crash</b> — safely lift the plate (up only) from the resume checkpoint, so a stuck print doesn't press into the FEP. Needs the 0-1 checkpoint.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-
-  <tr class="subhead"><td colspan="4">Parallel — no firmware build (docs / infra / audit)</td></tr>
-  <tr><td class="nr"><span class="stg review" title="Coded, in a PR — not yet tested on the printer">◧</span>0-11</td><td><span class="kw doc">Docs</span></td>
-    <td class="what"><b><code>docs/api.md</code></b> — versioned LAN API contract in the repo (promised in Issue #12). 1.0.0 gate.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg doing" title="In progress">◐</span>0-12</td><td><span class="kw ptr">Printer</span></td>
-    <td class="what"><b>Security pass</b> — one systematic sweep of POST endpoints, file paths, gate consistency before 1.0.0.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-  <tr><td class="nr"><span class="stg todo" title="Planned">☐</span>0-14</td><td><span class="kw doc">Docs</span></td>
-    <td class="what"><b>CONTRIBUTING + issue templates</b> — ahead of outside PRs after the 1.0.0 push.</td>
-    <td><span class="own v">Viktoras</span></td></tr>
-</table></div>
-<p class="legend"><b>Where:</b> <span class="kw www">Web</span> browser dashboard · <span class="kw ptr">Printer</span> device screen ·
-  <span class="kw doc">Docs</span> manual/repo · <span class="kw infra">Infra</span> server.
-  <b>exp-1 → exp-5</b> = experimental firmware builds, done in that order; each flashed &amp; smoke-tested. Parallel row = no firmware build.</p>
-
-<h2>1.0.0 — exit gates (all must be green)</h2>
-<ul class="gates">
-  <li>Freeze bundle shipped, its regression tests green on the candidate build</li>
-  <li>Smoke backbone + self-update path (0.14.3 → candidate) green on that same build</li>
-  <li>Security pass done</li>
-  <li>14-day quiet window on the candidate — no new non-cosmetic bugs across all channels</li>
-  <li>3+ printers on the candidate actually printing &amp; reporting back</li>
-  <li>Docs = candidate: README, manual, changelog, demo, screenshots + <code>api.md</code></li>
-  <li>Announcement decoupled from the tag — the wide push follows Roger's October batch</li>
+<h2>Delivered <span class="tag ship">up to 0.15.8</span></h2>
+<div class="card">
+<p>Everything through the current stable <b>0.15.8</b> — on your printer now via
+<i>System → Update</i>:</p>
+<ul>
+<li><b>WiFi that reconnects on its own</b> after a router dropout — no more
+re-entering the password to get back online.</li>
+<li><b>Safer critical screens</b> — the leveling screen warns before it homes
+downward, plus a power-outage recovery note.</li>
+<li><b>Live progress on every long operation</b> (unpacking a model, flashing
+firmware) — no frozen or flickering screens.</li>
+<li><b>Light and dark themes</b> across the dashboard.</li>
+<li><b>Readable boot-animation list</b> in both themes.</li>
 </ul>
-
-<h2>Ideas / backlog — not scheduled yet</h2>
-<p class="lede" style="margin-bottom:14px">Ideas we've captured but haven't committed to a version — <b>including yours</b>. "Whose" credits the idea; "Target" is a rough guess (often <b>TBD</b>). Nothing here is a promise; it's here so nobody's idea gets lost.</p>
-<div class="tblwrap"><table>
-  <tr><th>Idea</th><th>Where</th><th>Whose</th><th>Target</th></tr>
-  <tr><td class="what"><b>Setup IP + QR on the display</b> — during WiFi setup, show the IP / a QR to reach the dashboard; detect when someone joins the AP. <i>Reviewed 07-20: the IP is already always visible on the idle screen (0-15/0-21), so no separate setup screen — if we do it, it'll be a QR next to the IP on the existing Network/About screen.</i></td><td><span class="kw ptr">Printer</span></td><td><span class="own b">Brian</span>/<span class="own t">Tanner</span></td><td class="st">post-1.0.0</td></tr>
-  <tr><td class="what"><b>Menu colors / themes</b> — custom colors + themes (prefs to flash, maybe via Connect).</td><td><span class="kw ptr">Printer</span></td><td><span class="own b">Brian</span>/<span class="own t">Tanner</span></td><td class="st">post-1.0.0 (flagship)</td></tr>
-  <tr><td class="what"><b>Improv WiFi setup</b> — browser-over-USB first setup; drop WiFiManager (~45 KB saved).</td><td><span class="kw ptr">Printer</span> <span class="kw www">Web</span></td><td><span class="own b">Brian</span>/<span class="own v">V</span></td><td class="st">post-1.0.0</td></tr>
-  <tr><td class="what"><b>Feedback button in the dashboard</b> — auto-attaches the fw version; needs Connect storage.</td><td><span class="kw www">Web</span></td><td><span class="own b">Brian</span></td><td class="st">post-freeze + Connect</td></tr>
-  <tr><td class="what"><b>Settings anchor-nav</b> — a tab bar that scrolls to card sections instead of switching content.</td><td><span class="kw www">Web</span></td><td><span class="own b">Brian</span></td><td class="st">when needed</td></tr>
-  <tr><td class="what"><b>Native mobile app</b> — against the <code>tinymaker.local</code> API (PWA already ships most of it).</td><td><span class="kw www">Web</span></td><td><span class="own b">Brian</span></td><td class="st">post-1.0.0</td></tr>
-  <tr><td class="what"><b>Exposure engine</b> — measure resin constants once, firmware auto-recomputes exposure for any layer height.</td><td><span class="kw ptr">Printer</span></td><td><span class="own v">V</span></td><td class="st">post-1.0.0 (after deciseconds)</td></tr>
-  <tr><td class="what"><b>Smooth 3D preview</b> — marching-cubes isosurface instead of the stepped silhouette.</td><td><span class="kw www">Web</span></td><td><span class="own v">V</span></td><td class="st">TBD</td></tr>
-  <tr><td class="what"><b>UV power %</b> — PWM-controlled UV intensity (pure firmware, Roger confirmed the hardware).</td><td><span class="kw ptr">Printer</span></td><td><span class="own v">V</span>/<span class="own c">Roger</span></td><td class="st">post-1.0.0</td></tr>
-  <tr><td class="what"><b>AI exposure-photo judge</b> — upload a photo of the cured test strip, a vision model counts the dots, judges crispness and recommends a bar ("bar 4, 85%"). Suggestion + Confirm only, never a silent auto-set. (The no-AI "pick the winning bar" wizard ships first, in the exposure wave.)</td><td><span class="kw www">Web</span> <span class="kw infra">Infra</span></td><td><span class="own v">V</span></td><td class="st">post-1.0.0</td></tr>
-</table></div>
-
-<h2>Team notes</h2>
-<div class="note">
-  <b>@Tanner — no rush on #11, genuinely.</b> It gates the bundle, but there's no deadline pressure. If it's stuck and you're
-  swamped, I'm happy to take a slice of it and land it <b>with full credit to you</b> — just say the word, or leave it,
-  whichever's easier. Everything else can move in parallel.
-</div>
-<div class="note">
-  <b>@Brian — Connect stays yours.</b> The split holds: <b>firmware + printer side is ours, the Connect server is yours.</b> We
-  don't touch the hosted Connect UI's DOM (it'd break on your deploys) — we just flag polish/theme items as we spot them, for
-  whenever suits you. Direction remains the offload spec (<b>Issue #12</b>): the hosted UI in an iframe + a versioned bridge, so
-  it's cleanly isolated. The <code>docs/api.md</code> LAN-API contract (0-11) is coming to back that.
+<p class="muted">Full version-by-version history:
+<a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md" rel="noopener">changelog</a>.</p>
 </div>
 
-<footer>TinyMakerWiFi firmware roadmap · updated 2026-07-20. Owners: [V] Viktoras · [T] Tanner · [B] Brian · community.</footer>
+<h2>Now in development <span class="tag dev">0.16</span></h2>
+<div class="card">
+<p>Already built and being tested for the next update:</p>
+<ul>
+<li><b>A print-aware screen saver</b> — dims the idle screen and shows the
+printer name and IP.</li>
+<li><b>A self-refreshing model list</b> — a model uploaded from one device shows
+up on every open dashboard, no reload needed.</li>
+<li><b>Fresher print-time and resin estimates</b> right after a settings change.</li>
+<li><b>Cleaner menus and navigation</b>, plus mobile fixes.</li>
+</ul>
+<p>Also planned for 0.16, not built yet:</p>
+<ul>
+<li><b>Power-loss resume</b> — pick a print back up after an outage instead of
+starting over, with a guided, safe plate raise.</li>
+</ul>
+<p class="muted">These are not released yet — you won't see them on your printer.
+When 0.16 is ready it reaches the <b>beta</b> channel first (<i>Update → version
+picker</i>), and the automatic self-update follows once early testers confirm it.</p>
 </div>
+
+<h2>On the way</h2>
+<div class="card">
+<ul>
+<li><b>TinyMaker Connect</b> — a community platform for sharing print-ready
+models straight to the printer.</li>
+</ul>
+</div>
+
+<h2>Toward 1.0.0</h2>
+<div class="card">
+<p>1.0.0 is about confidence, not new features: the beta channel quiet with no
+open regressions, clean multi-hour print soak tests, and a repeated full code
+review.</p>
+</div>
+
+<h2>After 1.0.0</h2>
+<div class="card">
+<p>Once 1.0.0 lands, the community will help shape what comes next — you'll be
+able to vote on priorities in the
+<a href="https://www.facebook.com/groups/1486879621729571" rel="noopener">Facebook group</a>.
+The poll sets the direction; final calls on what actually ships stay with the
+maintainer.</p>
+<p>Software feature ideas already on the table:</p>
+<ul>
+<li>A <b>basic / advanced</b> firmware mode — keep the dashboard simple, or go deep.</li>
+<li><b>More notification options</b> for print start / finish / errors.</li>
+<li><b>More dashboard customization</b> — extra themes and layout choices.</li>
+<li><b>Smarter print helpers</b> — settings-mismatch warnings and better estimates.</li>
+</ul>
+<p class="muted">Got an idea? The vote opens with 1.0.0 — and the feedback form
+in the dashboard is open any time.</p>
+</div>
+
+<h2>Contributing</h2>
+<div class="card">
+<p>Small fixes, beta testing and bug reports are all first-class help. See
+<a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CONTRIBUTING.md" rel="noopener">CONTRIBUTING.md</a>,
+or just send a note through the feedback form in the dashboard — 30&nbsp;seconds,
+no account.</p>
+</div>
+
+<footer>
+<a href="https://tinymakerwifi.com" rel="noopener">tinymakerwifi.com</a> ·
+<a href="https://github.com/slibbinas/TinyMakerWifi" rel="noopener">GitHub</a> ·
+<a href="https://slibbinas.github.io/TinyMakerWifi/manual/" rel="noopener">Manual</a>
+</footer>
+
+</div></body>
+</html>
