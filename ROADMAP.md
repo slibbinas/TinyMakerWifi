@@ -63,16 +63,20 @@ review.
 
 ## After 1.0.0
 
-The community picks what comes next — a poll in the
-[Facebook group](https://www.facebook.com/groups/1486879621729571) decides the
-priorities. Software feature ideas already on the table:
+Once 1.0.0 lands, the community will help shape what comes next — you'll be able
+to vote on priorities in the [Facebook group](https://www.facebook.com/groups/1486879621729571).
+The poll sets the direction; final calls on what actually ships stay with the
+maintainer.
+
+Software feature ideas already on the table:
 
 - A **basic / advanced** firmware mode — keep the dashboard simple, or go deep.
 - **More notification options** for print start / finish / errors.
 - **More dashboard customization** — extra themes and layout choices.
 - **Smarter print helpers** — settings-mismatch warnings and better estimates.
 
-Have an idea? Vote in the group or send it through the feedback form.
+Got an idea? The vote opens with 1.0.0 — and the feedback form in the dashboard
+is open any time.
 
 ## Contributing
 
