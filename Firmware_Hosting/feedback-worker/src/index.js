@@ -130,7 +130,7 @@ export default {
     // trailing images/CSS under those paths have to come along, so this proxies
     // the subtree, not just the page.
     if (request.method === 'GET' &&
-        /^\/(demo|manual)(\/|$)/.test(path)) {
+        /^\/(demo|manual|roadmap)(\/|$)/.test(path)) {
       const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
       const r = await fetch(upstream.replace(/\/+$/, '/'), { cf: { cacheTtl: 300 } });
       return new Response(r.body, {

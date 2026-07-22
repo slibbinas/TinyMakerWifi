@@ -9,6 +9,7 @@
     { "pattern": "tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/demo*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/manual*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "tinymakerwifi.com/roadmap*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/orai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/oi/*", "zone_name": "tinymakerwifi.com" },
     // www would otherwise fall through to bare gh-pages: /testai 404'd and
@@ -19,6 +20,7 @@
     { "pattern": "www.tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/demo*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/manual*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "www.tinymakerwifi.com/roadmap*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/orai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/oi/*", "zone_name": "tinymakerwifi.com" }
   ],
