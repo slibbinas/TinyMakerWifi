@@ -2439,16 +2439,19 @@ void handleApiUpdateInstall() {
 void drawWifiBadge() {
   // Bars end at y10; the menu boxes start at y13, so a clear
   // row always separates the badge from the System-box outline.
-  // Cleared area starts at 104 to cover the dry-run chip slot too.
-  gfx2->fillRect(104, 1, 54, 11, BLACK);
+  // Cleared area starts at 99 to cover the dry-run chip slot too.
+  gfx2->fillRect(99, 1, 59, 11, BLACK);
   if (!uvLedEnabled) {
-    // Dry-run "DR" chip left of the cloud (V pick 07-22) - the printer had no
-    // on-device hint that the UV LED is disabled; the dashboard already has one.
-    gfx2->fillRoundRect(104, 1, 17, 11, 2, ORANGE);
+    // Dry-run "DR" chip (V pick 07-22) - the printer had no on-device hint
+    // that the UV LED is disabled. Chip ends at x116: the cloud's left edge
+    // is x124, so the gap matches the 8 px between the cloud and the bars.
+    gfx2->fillRoundRect(99, 1, 17, 11, 2, ORANGE);
     gfx2->setFont(NULL);          // built-in 6x8 font fits the 11 px row
     gfx2->setTextSize(1);
     gfx2->setTextColor(BLACK);
-    gfx2->setCursor(107, 3);
+    gfx2->setCursor(102, 3);
+    gfx2->print("DR");
+    gfx2->setCursor(103, 3);      // 1 px double-strike = faux bold
     gfx2->print("DR");
     gfx2->setTextColor(WHITE);
   }
