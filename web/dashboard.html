@@ -1613,7 +1613,15 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while, the printer answers when done...',false,true);try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
-const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();renderPrintWait();retryPendingPrintCommand();};
+const printCommand=async(cmd,confirmText)=>{
+  if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
+  pendingPrintCmd=cmd;applyPendingPrintUi();
+  // On a phone the controls sit below the fold, so the wait snackbar (which
+  // anchors to the pressed button) would pin to the top. Bring the controls
+  // into view first - instantly, so the snackbar's position reads the settled
+  // rect - and only when they are actually out of sight (desktop shows them).
+  const pc=$('printControls'); if(pc){const r=pc.getBoundingClientRect(); if(r.top<0||r.bottom>innerHeight)pc.scrollIntoView({block:'center'});}
+  renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
 // between polls: mid-print the printer answers polls only in short windows
