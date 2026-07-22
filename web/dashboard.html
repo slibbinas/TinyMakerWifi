@@ -454,7 +454,7 @@ document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
     const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
-    e.style.bottom='';e.style.top=y+'px';   // always top-anchored (the print-wait snackbar may have left a mobile bottom-anchor)
+    e.style.top=y+'px';
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
@@ -1652,22 +1652,12 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
-  // Where the wait snackbar sits, decided once at the press and reused for the
-  // whole wait (recomputing it each re-appearance re-pinned it to the top after
-  // the button scrolled away - user finding). On a phone the controls are below
-  // the fold and scroll/rect timing is unreliable, so anchor it to the BOTTOM
-  // (the standard mobile toast spot - always visible, never over the header).
-  // Only a real desktop (the >=1000px two-column layout) gets the near-button
-  // spot; every phone/tablet/narrow window - whatever innerWidth reports -
-  // gets the bottom anchor. matchMedia, not innerWidth, so it agrees with the
-  // CSS breakpoint and can't be thrown off by scrollbars/zoom (the bug: a phone
-  // read as >520 took the desktop path and pinned to the top).
-  if(!matchMedia('(min-width:1000px)').matches){ printWaitTop='bottom'; }
-  else {
-    const b=cmd==='stop'?$('stopButton'):cmd==='pause'?$('pauseButton'):$('resumeButton');
-    const br=(b&&!b.classList.contains('hidden'))?b.getBoundingClientRect():null;
-    printWaitTop=(br&&br.height)?Math.min(Math.max(br.bottom+8,14),innerHeight-80):(typeof msg._y==='number'?Math.min(Math.max(msg._y+28,14),innerHeight-80):14);
-  }
+  // Position it at the last tap, exactly like every other toast (msg._y, set on
+  // pointerdown) - the same robust mechanism Delete uses, which never had the
+  // top-pinning problem. Captured once here and reused for the whole wait so it
+  // doesn't jump. (Earlier attempts to anchor it to the button or the screen
+  // bottom by size were overkill and misfired on phones - reverted.)
+  printWaitTop=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
   renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
@@ -1710,7 +1700,6 @@ const renderPrintWait=()=>{
     if(printWaitCur){
       const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0;
       const e=$('statusMsg'); if(e.textContent===printWaitCur)e.textContent='';
-      e.style.bottom='';   // release the mobile bottom-anchor so normal toasts use their top spot
       printWaitCur='';
       // one-shot closure, transient (the wait is over)
       if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
@@ -1731,14 +1720,11 @@ const renderPrintWait=()=>{
   const firstShow=!printWaitCur;   // animate only when the wait first appears
   e.textContent=txt; e.classList.remove('warn');
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
-  // Re-assert the anchor on EVERY render, not just the first: a stray toast (or
-  // the gap re-show) can reset the element's top/bottom, and if only the text
-  // were re-asserted the snackbar kept the clobbered position - on mobile that
-  // put it back at the top (user finding). 'bottom' is the mobile anchor (fixed
-  // to the screen bottom - always visible, never over the header); a number is
-  // the desktop top captured under the pressed button.
-  if(printWaitTop==='bottom'){ e.style.top='auto'; e.style.bottom='20px'; }
-  else { e.style.bottom=''; e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px'; }
+  // Re-assert the top on EVERY render, not just the first: a stray toast (or the
+  // gap re-show) can reset the element's position, and if only the text were
+  // re-asserted the snackbar kept the clobbered spot. printWaitTop is the px the
+  // press captured (msg._y), same as any other toast.
+  e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px';
   if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
   printWaitCur=txt;
 };
