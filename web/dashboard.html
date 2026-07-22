@@ -953,12 +953,12 @@ const refreshStatus=async()=>{
     statusFailCount=0;
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
-    if(!pendingPrintCmd&&!deleteBusy&&(!msg._until||Date.now()>=msg._until))msg('',false);
+    if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&(!msg._until||Date.now()>=msg._until))msg('',false);
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
     if(deleteBusy)msg('Deleting - the printer is busy removing files...',false,true);
-    else if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
+    else if(statusData&&statusData.busy&&!printWaitCur&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
     // out-of-band import (PrusaSlicer upload) blocks the whole web server
@@ -1668,8 +1668,11 @@ const renderPrintWait=()=>{
     if(rem>-1500)secs=' · ~'+Math.max(0,Math.ceil(rem/1000))+'s';
   }
   const txt=info.v+info.tail+secs;
-  if(txt===printWaitCur)return;              // nothing changed this tick
-  const e=$('statusMsg'), firstShow=!printWaitCur;   // animate only on first appearance
+  const e=$('statusMsg');
+  // Re-assert if the text changed OR something (the poll loop's clear, another
+  // toast) wiped it from under us - that clobber-then-restore was the flicker.
+  if(txt===printWaitCur&&e.textContent===txt)return;
+  const firstShow=!printWaitCur;   // animate only when the wait first appears
   e.textContent=txt; e.classList.remove('warn'); e.style.top='14px';
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
   if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
