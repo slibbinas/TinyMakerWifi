@@ -1902,6 +1902,7 @@ void screen213(){
     current_position = stepper.currentPosition();
     if (current_position < -106799){
       stepper.disableOutputs();
+      gfx2->fillScreen(BLACK);   // full clear - the box alone left edge leftovers
       gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
       gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
       gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);

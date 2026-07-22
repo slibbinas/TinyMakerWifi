@@ -1773,6 +1773,9 @@ void loop() {
           if (current_position < -106799){
             stepper.disableOutputs();
             homing_canceled = true;
+            gfx2->fillScreen(BLACK);   // the 150x70 box left a ring of the old
+                                       // screen peeking at the edges (user
+                                       // finding: "text sticking out")
             gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
             gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
             gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
