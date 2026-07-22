@@ -184,6 +184,13 @@ bool uiBlanked = false;
 uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
 unsigned long uiSaverLastMoveMs = 0;  // last time the idle text drifted
 bool uiDimmedPrint = false;           // 0-22: print screen dimmed into the saver
+// A press during a MOVE phase reaches the move-loop button handlers, which
+// have no dim awareness - they used to scribble selection outlines onto the
+// black saver screen (user finding 07-22: "white squares around play/pause").
+// The drawing functions now queue a wake instead; the saver honours it at the
+// next safe point (the curing loop's tick - waking mid-move would stall the
+// stepper for the ~100 ms full redraw).
+bool uiSaverWakeQueued = false;
 
 void savePrintTime() {
   totalPrintSecs += (millis() - printStartMs) / 1000UL;
@@ -905,7 +912,8 @@ bool printSaverTick() {
                  digitalRead(buttonDown) == LOW || digitalRead(buttonOK) == LOW;
 
   if (uiDimmedPrint) {
-    if (pressed) {
+    if (pressed || uiSaverWakeQueued) {   // queued: a press landed mid-move
+      uiSaverWakeQueued = false;
       uiDimmedPrint = false;
       lastUiActivityMs = millis();
       screen1111();            // full bright redraw + state bar

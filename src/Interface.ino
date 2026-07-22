@@ -1051,15 +1051,11 @@ void screenResumePrompt(){
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 18);
   gfx2->print("Resume print?");
-  // UP = raise the plate, then discard (0-2). Position MEASURED from the
-  // title's real bounds - a fixed x overlapped the "?" (user finding 07-22).
-  {
-    int16_t bx, by; uint16_t bw, bh;
-    gfx2->getTextBounds("Resume print?", 8, 18, &bx, &by, &bw, &bh);
-    int hx = bx + (int)bw + 8;          // 8 px clear of the title
-    if (hx > 160 - 13 - 3 - 24) hx = 160 - 13 - 3 - 24;  // square+gap+"Lift" label
-    uiActionHint(hx, 6, "Lift");
-  }
+  // UP = raise the plate, then discard (0-2). Flush RIGHT (user pick, 07-22,
+  // from a photo): square 13 + gap 3 + "Lift" 4 chars x 6 px = 40 px total,
+  // 2 px edge margin -> x = 160-40-2 = 118. The title ends ~x106 (measured),
+  // so the hint clears the "?" by over 10 px.
+  uiActionHint(118, 6, "Lift");
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
@@ -1408,11 +1404,17 @@ void screen112(){
  * @brief Screen 1111: Printing Status
  * Shows current print progress including layer, time, and file name.
  */
+// Print-screen title bar: orange normally, the light blue during a dry run -
+// the only on-device cue that the UV LED is disabled while "printing" (B, 07-22).
+uint16_t printTitleBarColor() {
+  return uvLedEnabled ? ORANGE : 0x879F;
+}
+
 void screen1111(){
   gfx2->fillScreen(BLACK);
   gfx2->fillRoundRect(0, 0, 120, 80, 5, ORANGE);
   gfx2->fillRoundRect(2, 2, 116, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 120, 20, 3, ORANGE);    
+  gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
     
   // Icons (Pause/Cancel)    
   gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1461,7 +1463,7 @@ void screen1111_state(){
     }
   }
   if (screen != 11111 && screen != 11112){
-    gfx2->fillRoundRect(0, 0, 120, 20, 3, ORANGE);    
+    gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
@@ -1534,9 +1536,12 @@ void screen1112(){
  * Highlights the Cancel button.
  */
 void screen1111UP(){
+  // Dimmed saver: don't scribble the selection outline onto the black screen
+  // (move-phase handlers have no dim awareness) - queue a wake instead.
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }
   gfx2->drawRoundRect(128, 4, 32, 32, 3, WHITE);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, BLACK);
-  printing_item_updown = 1;  
+  printing_item_updown = 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1548,9 +1553,10 @@ void screen1111UP(){
  * Highlights the Pause button.
  */
 void screen1111DOWN(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // same as UP
   gfx2->drawRoundRect(128, 4, 32, 32, 3, BLACK);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
-  printing_item_updown = 0;  
+  printing_item_updown = 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1562,6 +1568,7 @@ void screen1111DOWN(){
  * Asks user if they are sure to cancel.
  */
 void screen11111(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // saver: wake first, no blind confirm
   gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
   gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
   gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
@@ -1591,6 +1598,7 @@ void screen11111(){
  * Asks user if they are sure to pause.
  */
 void screen11112(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // saver: wake first, no blind confirm
   gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
   gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
   gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
