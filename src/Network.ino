@@ -2050,11 +2050,13 @@ void handleApiStatus() {
   out += "\",\"stateCode\":";
   out += String(current_state);
   // Phase countdown - curing/lifting/dropping mid-print, plus the final lift
-  // (state 4 Canceling / 8 Finished), whose duration the lift computes from
-  // distance and speed. Total 0 = unknown; the dashboard shows no number then.
+  // (state 4 Canceling / 8 Finished) and the pause/resume travels (state 5
+  // Pausing / 7 Resuming), whose durations are computed from distance and
+  // speed. Total 0 = unknown; the dashboard shows no number then.
   {
     bool phased = busy && phaseTotalMs > 0 &&
-                  ((current_state >= 1 && current_state <= 4) || current_state == 8);
+                  ((current_state >= 1 && current_state <= 5) ||
+                   current_state == 7 || current_state == 8);
     out += ",\"phaseTotalMs\":";
     out += String((unsigned long)(phased ? phaseTotalMs : 0));
     out += ",\"phaseElapsedMs\":";

@@ -1854,7 +1854,18 @@ void loop() {
             if (Position_before_pause + (20 * steps_mm) <= max_height * steps_mm)
               stepper.move(20 * steps_mm);
             else
-              stepper.moveTo(max_height * steps_mm);  
+              stepper.moveTo(max_height * steps_mm);
+            #if ENABLE_NETWORK
+            // Phase countdown for the dashboard ("Pausing - ~Ns"): same
+            // stop-pattern as the resume travel below - the pause lift is a
+            // blocking move, so publish its estimated duration and answer
+            // everyone once before it starts; browsers tick down locally.
+            current_state = 5;   // pausing (a button pause arrives with the layer's phase state)
+            phaseStartMs = millis();
+            phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
+                           (Fast_Lift_Feedrate * steps_mm));
+            network_service_window(160);
+            #endif
             while (stepper.distanceToGo()!= 0) {
               stepper.run();
             }
@@ -1936,7 +1947,18 @@ void loop() {
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
-              stepper.moveTo(Position_before_pause);  
+              stepper.moveTo(Position_before_pause);
+              #if ENABLE_NETWORK
+              // Phase countdown for the dashboard ("Resuming - ~Ns"): the travel
+              // back down is a blocking move during which nothing answers, so
+              // publish its estimated duration and answer everyone once BEFORE
+              // it starts - the browsers then tick down locally, the same
+              // pattern the stop/final-lift countdown uses.
+              phaseStartMs = millis();
+              phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
+                             (Fast_Lift_Feedrate * steps_mm));
+              network_service_window(160);
+              #endif
               while (stepper.distanceToGo()!= 0) {
                 stepper.run();
               }
