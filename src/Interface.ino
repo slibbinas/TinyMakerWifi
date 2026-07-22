@@ -896,7 +896,8 @@ void screen421Buttons(bool installActive){
 // line 1 big = state ("Idle"/"Printing"), line 2 big = live numbers
 // ("47% 1h23m", printing only), last line small = the IP so the dashboard
 // stays reachable.
-static void drawSaverBlock(uint8_t pos, const char *stateBig, const String &numsBig){
+static void drawSaverBlock(uint8_t pos, const char *stateBig, const String &numsBig,
+                           const String &thirdLine){
   const int bw = 120, W = 160, H = 80, m = 4;
   const bool nums = numsBig.length() > 0;
   const int bh = nums ? 48 : 30;
@@ -913,17 +914,20 @@ static void drawSaverBlock(uint8_t pos, const char *stateBig, const String &nums
     gfx2->print(numsBig);
   }
   gfx2->setTextSize(1);
-  gfx2->setTextColor(0x2124);            // dimmer IP line
-  if (WiFi.status() == WL_CONNECTED) {
+  gfx2->setTextColor(0x2124);            // dimmest third line
+  if (thirdLine.length()) {
     gfx2->setCursor(x, y + (nums ? 40 : 22));
-    gfx2->print(WiFi.localIP());
+    gfx2->print(thirdLine);
   }
   gfx2->setTextSize(1);
   gfx2->setFont(&FreeSans8pt7b);
 }
 
 void drawIdleScreen(uint8_t pos){
-  drawSaverBlock(pos, "Idle", "");
+  // Idle keeps the IP - it is the one place a fresh user discovers where the
+  // dashboard lives. The PRINT saver shows layers instead (V pick 07-22).
+  drawSaverBlock(pos, "Idle", "",
+                 WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String(""));
 }
 
 // 0-22: printing saver - "Printing" + "47% 1h23m" (percent + time left),
@@ -940,7 +944,10 @@ void drawPrintSaver(uint8_t pos){
     s += String((rem % 3600) / 60);
     s += "m";
   }
-  drawSaverBlock(pos, "Printing", s);
+  // Third line: layers done/total instead of the IP - whoever started the
+  // print already knows the address (V pick 07-22).
+  drawSaverBlock(pos, "Printing", s,
+                 String(current_layer) + " / " + String(layer_counter));
 }
 
 /**
