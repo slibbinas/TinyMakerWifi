@@ -446,20 +446,17 @@ const api=async(path,opt,timeoutMs)=>{
   }
   finally{if(timer)clearTimeout(timer);}
 };
-// Top-center snackbar. Info messages auto-hide; warnings stay until replaced.
-// The toast anchors just below the user's last click/tap, so pressing a button
-// at the bottom of a long page shows the feedback right there, not off at the
-// top of the viewport. No pointer yet (poll errors at load) -> top fallback.
-document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
-// A snackbar with no tap to anchor to - the print-wait one (shared across
-// devices), or a msg() that fires before any tap (a poll error at load) - sits
-// dead centre of the viewport: identical on every screen, clear of the header
-// and of the mobile URL bar. Tap-anchored toasts don't use this.
+// Snackbar. Info messages auto-hide; warnings stay until replaced.
+// ONE position rule for every snackbar: dead centre of the viewport (V,
+// 07-22). The old tap-anchoring (msg._y) looked clever but caused a string of
+// positioning bugs, couldn't be shared across devices (print-wait/SD-job
+// snackbars are status-driven, shown on every browser), and made the same
+// operation jump spots (tap-anchored "Deleting..." replaced by the centred job
+// snackbar). Centre is deterministic and identical everywhere.
 const snackCentre=e=>{e.style.top=Math.round((innerHeight-e.offsetHeight)/2)+'px';};
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
-    if(typeof msg._y==='number')e.style.top=Math.min(Math.max(msg._y+28,14),innerHeight-80)+'px';
-    else snackCentre(e);   // no tap yet (poll error at load)
+    snackCentre(e);
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
@@ -1706,9 +1703,8 @@ const renderStateValue=()=>{
 // resolves. The button label stays as a secondary cue. Called after every
 // status apply and every local tick, so the countdown updates smoothly.
 // The wait snackbar mirrors PRINTER status (stopping/pausing/resuming), so every
-// connected browser shows it - a tap position (msg._y) only exists on the device
-// that pressed, so it can't be shared. With no tap to anchor to it sits centred
-// in the viewport on every device (see renderPrintWait). printWaitSent = a
+// connected browser shows it, centred like every snackbar (one position rule -
+// see msg/snackCentre). printWaitSent = a
 // command that was accepted by the printer and is
 // awaiting a status flip; it keeps the snackbar up across the gap where
 // pendingPrintCmd is already cleared (to stop re-sending) but status hasn't caught
