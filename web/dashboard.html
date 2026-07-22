@@ -454,7 +454,7 @@ document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
     const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
-    e.style.top=y+'px';
+    e.style.bottom='';e.style.top=y+'px';   // clear any bottom anchor the print-wait snackbar may have left
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
@@ -838,7 +838,12 @@ const applyStatus=s=>{
     if(s.firmwareVersion){$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');applyThemeLink();}
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
-    if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
+    // A command's wait is over once the printer's status reflects it: stop -> the
+    // transition is visible or the print is done; pause -> pausing/paused; resume
+    // -> resuming, or already printing again (some paths skip the brief flag).
+    const cmdConfirmed=c=>(c==='stop'&&(s.stopping||!s.busy))||(c==='pause'&&(s.pausing||s.paused))||(c==='resume'&&(s.resuming||(s.busy&&!s.paused)));
+    if(pendingPrintCmd&&cmdConfirmed(pendingPrintCmd))pendingPrintCmd='';
+    if(printWaitSent&&cmdConfirmed(printWaitSent))printWaitSent='';
     phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
     renderStateValue(); renderPrintWait(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     // 0-30 reset-reason telemetry: surface a NEW mid-print death once (the
@@ -1574,14 +1579,17 @@ const retryPendingPrintCommand=async()=>{
   const cmd=pendingPrintCmd;
   try{
     await api('/api/print/'+cmd,{method:'POST'},30000);
-    pendingPrintCmd='';
+    // Accepted: stop re-sending (clear pendingPrintCmd) but hand the wait over to
+    // printWaitSent so the snackbar stays up until status confirms the flip - the
+    // resume case answers instantly and would otherwise blink out here.
+    pendingPrintCmd='';printWaitSent=cmd;printWaitSentAt=Date.now();
     // No "accepted" toast: the wait snackbar (renderPrintWait) now owns this
     // feedback and keeps showing "Stopping ... ~Xs" until the printer resolves.
     refreshStatus();
   }catch(e){
     // A genuine "nothing to do" answer clears the wait; a network hiccup leaves
     // pendingPrintCmd set so the wait snackbar keeps showing "... requested".
-    if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';msg(e.message,true);}
+    if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';printWaitSent='';msg(e.message,true);}
   }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
 const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
@@ -1652,12 +1660,6 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
-  // Position it at the last tap, exactly like every other toast (msg._y, set on
-  // pointerdown) - the same robust mechanism Delete uses, which never had the
-  // top-pinning problem. Captured once here and reused for the whole wait so it
-  // doesn't jump. (Earlier attempts to anchor it to the button or the screen
-  // bottom by size were overkill and misfired on phones - reverted.)
-  printWaitTop=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
   renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
@@ -1682,28 +1684,38 @@ const renderStateValue=()=>{
 // other long operations announce themselves, and clears itself when the printer
 // resolves. The button label stays as a secondary cue. Called after every
 // status apply and every local tick, so the countdown updates smoothly.
-let printWaitCur='', printWaitTop=null;   // printWaitTop: captured once at the press (printCommand), reused
+// The wait snackbar mirrors PRINTER status (stopping/pausing/resuming), so every
+// connected browser shows it - a tap position (msg._y) only exists on the device
+// that pressed, so it can't be shared. Hence one fixed spot (bottom-centre) on
+// all devices. printWaitSent = a command that was accepted by the printer and is
+// awaiting a status flip; it keeps the snackbar up across the gap where
+// pendingPrintCmd is already cleared (to stop re-sending) but status hasn't caught
+// up yet - the resume case, which answers instantly, otherwise blinked out.
+let printWaitCur='', printWaitSent='', printWaitSentAt=0;
 const printWaitInfo=()=>{
   const s=statusData; if(!s)return null;
   if(s.busy&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
   if(s.busy&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
   if(s.busy&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
-  // Requested but the printer has not confirmed yet (it answers between layers).
-  if(pendingPrintCmd==='stop')   return {v:'Stop requested',   tail:' — waiting for the printer (it answers between layers)', count:false};
-  if(pendingPrintCmd==='pause')  return {v:'Pause requested',  tail:' — waiting for the printer (it answers between layers)', count:false};
-  if(pendingPrintCmd==='resume') return {v:'Resume requested', tail:' — waiting for the printer (it answers between layers)', count:false};
+  // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
+  // (printWaitSent) - the printer answers between layers, so hold the message.
+  const req=pendingPrintCmd||printWaitSent;
+  if(req==='stop')   return {v:'Stop requested',   tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(req==='pause')  return {v:'Pause requested',  tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(req==='resume') return {v:'Resume requested', tail:' — waiting for the printer (it answers between layers)', count:false};
   return null;
 };
 const renderPrintWait=()=>{
   const info=printWaitInfo();
   if(!info){
     if(printWaitCur){
-      const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0;
-      const e=$('statusMsg'); if(e.textContent===printWaitCur)e.textContent='';
+      const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0, wasResume=printWaitCur.indexOf('Resum')===0;
+      const e=$('statusMsg'); if(e.textContent===printWaitCur){e.textContent='';e.style.top='';e.style.bottom='';}  // release the bottom anchor
       printWaitCur='';
       // one-shot closure, transient (the wait is over)
       if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
       else if(wasPause&&statusData&&statusData.paused)msg('Print paused.');
+      else if(wasResume&&statusData&&statusData.busy&&!statusData.paused)msg('Print resumed.');
     }
     return;
   }
@@ -1720,11 +1732,13 @@ const renderPrintWait=()=>{
   const firstShow=!printWaitCur;   // animate only when the wait first appears
   e.textContent=txt; e.classList.remove('warn');
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
-  // Re-assert the top on EVERY render, not just the first: a stray toast (or the
-  // gap re-show) can reset the element's position, and if only the text were
-  // re-asserted the snackbar kept the clobbered spot. printWaitTop is the px the
-  // press captured (msg._y), same as any other toast.
-  e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px';
+  // Re-assert the anchor on EVERY render, not just the first: a stray toast (or
+  // the gap re-show) can reset the element's position, and if only the text were
+  // re-asserted the snackbar kept the clobbered spot. Fixed bottom-centre - the
+  // standard toast spot, identical on every device (see printWaitSent note): the
+  // presser, an observer and a cold refresh all show it the same place, and it
+  // never overlaps the header.
+  e.style.top='auto';e.style.bottom='24px';
   if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
   printWaitCur=txt;
 };
@@ -1735,6 +1749,9 @@ const tickLocalStatus=()=>{
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
     renderStateValue();
   }
+  // Safety: if a sent command's status flip never arrives (printer offline mid-
+  // wait), drop it after 20s so the snackbar can't hang forever.
+  if(printWaitSent&&Date.now()-printWaitSentAt>20000)printWaitSent='';
   renderPrintWait();   // tick the wait snackbar's countdown between polls
   // Liveness: only meaningful mid-print, where answers arrive in windows.
   const stale=busyNow&&Date.now()-lastPollOkAt>4000;
