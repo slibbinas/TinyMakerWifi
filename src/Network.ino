@@ -699,7 +699,7 @@ String printerStateText() {
     String prefix = uvLedEnabled ? "" : "Testing - ";
     switch (current_state) {
       case 0: return prefix + "Homing";
-      case 1: return uvLedEnabled ? "Curing" : "Testing";
+      case 1: return prefix + "Curing";   // dry run: "Testing - Curing", like the other phases (was a bare "Testing")
       case 2: return prefix + "Lifting";
       case 3: return prefix + "Dropping";
       case 4: return prefix + "Canceling";
