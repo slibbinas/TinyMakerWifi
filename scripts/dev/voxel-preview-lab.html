@@ -38,7 +38,9 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
 <h1>Voxel preview lab <span style="color:var(--muted);font-weight:400;font-size:.85rem">— dashboard 3D renderer, standalone</span></h1>
 <div class="bar">
   <div class="f"><label>Model</label>
-    <select id="model"><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="cyl">Cylinder</option><option value="pyr">Pyramid</option><option value="lantern">Lantern</option></select></div>
+    <select id="model"><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="cyl">Cylinder</option><option value="pyr">Pyramid</option><option value="lantern">Lantern</option><option value="real" disabled id="realOpt">— real model —</option></select></div>
+  <div class="f"><label>Real slices (JSON)</label>
+    <input type="file" id="loadJson" accept=".json" style="font-size:.8rem;color:var(--muted)"></div>
   <div class="f"><label>Render</label>
     <select id="mode">
       <option value="prev">preview-solid (thumbnail)</option>
@@ -57,9 +59,11 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
 <script>
 const PREV_W=720,PREV_H=440,PREV_S=4.7,PREV_CX=360,PREV_CY=286;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
-const MX=40.8,MY=30.6,modelH=40,gw=80,gh=60,N=36,LAYERS=1069;
+const MX=40.8,MY=30.6,gw=80,gh=60;
+let modelH=40,N=36,LAYERS=1069;   // mutable: a loaded real model overrides these
 let slices=[];
 function build(kind){
+  modelH=40;N=36;LAYERS=1069;
   slices=[];
   for(let k=0;k<N;k++){const s=new Uint8Array(gw*gh),tt=k/(N-1);
     for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){const dx=i-gw/2,dy=j-gh/2,rr=Math.hypot(dx,dy*1.33);
@@ -114,7 +118,19 @@ document.getElementById('tot').textContent=LAYERS;
 function paint(){const f=sld.value/1000,m=modeSel.value,df=(m==='prev'||m==='pnew')?1:f;
   render(ctx,df,m);document.getElementById('pct').textContent=Math.round(f*100)+'%';document.getElementById('lay').textContent=Math.round(f*LAYERS);}
 [sld,modeSel].forEach(el=>el.addEventListener('input',paint));
-modelSel.addEventListener('change',()=>{build(modelSel.value);paint();});
+modelSel.addEventListener('change',()=>{if(modelSel.value!=='real'){build(modelSel.value);paint();}});
+// Load a real model's slices (scripts/dev/fetch_model_slices.py output). File
+// input, not fetch: a file:// page can't fetch a sibling JSON (CORS).
+document.getElementById('loadJson').addEventListener('change',ev=>{
+  const file=ev.target.files[0];if(!file)return;const rd=new FileReader();
+  rd.onload=()=>{try{const o=JSON.parse(rd.result);
+    slices=o.slices.map(b=>{const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
+    N=o.N||slices.length;modelH=o.modelH||40;LAYERS=o.layers||1069;
+    const opt=document.getElementById('realOpt');opt.disabled=false;opt.textContent=o.name||'real model';modelSel.value='real';
+    document.getElementById('tot').textContent=LAYERS;paint();
+  }catch(e){alert('Bad slice JSON: '+e.message);}};
+  rd.readAsText(file);
+});
 let timer=null;const playBtn=document.getElementById('play');
 playBtn.addEventListener('click',function(){if(timer){clearInterval(timer);timer=null;playBtn.textContent='▶ Play';return;}
   playBtn.textContent='⏸ Stop';let v=+sld.value;if(v>=1000)v=0;
