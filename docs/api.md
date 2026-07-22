@@ -117,5 +117,56 @@ retries with `action`.
 
 ---
 
-*TODO before merging: add response examples for `/api/files` and
-`/api/update`, and settle the deprecation-window wording with Brian.*
+## Response examples
+
+### `GET /api/files` (idle only — 409 `printer busy` while printing or during an SD job)
+
+```json
+{
+  "ok": true,
+  "sdReady": true,
+  "usageKnown": true,
+  "totalBytes": "31902400512",
+  "freeBytes": "29804923904",
+  "usedBytes": "2097476608",
+  "usagePct": 6,
+  "hiddenCount": 0,
+  "items": [
+    { "name": "ScreamingEvil", "type": "model",   "printable": true,
+      "sizeBytes": "0", "connectPublicId": "pub_ab12cd34" },
+    { "name": "Benchy.sl1",    "type": "archive", "printable": false,
+      "sizeBytes": "12582912" }
+  ]
+}
+```
+
+Byte counts are JSON **strings** (they can exceed 32-bit). `type` is
+`model` (unpacked folder) or `archive` (an `.sl1`/`.zip` still in the SD
+root — OK on the printer imports it). Model folders report `sizeBytes`
+`"0"` — walking every layer file made the list O(models × layers) slow;
+archives keep their cheap single-file size. `connectPublicId` appears only
+on models imported from TinyMaker Connect. At most 64 items are listed;
+`hiddenCount` is everything skipped (unmanaged root entries + overflow).
+
+### `GET /api/update`
+
+```json
+{
+  "ok": true,
+  "installed": "0.15.8",
+  "latest": "0.15.8",
+  "state": 2,
+  "hasUpdate": false,
+  "allowed": true
+}
+```
+
+May block a few seconds while the (5-minute-cached) GitHub Pages version
+check runs; mid-print it returns the cached state immediately. `state` is
+the check's progress/outcome code; `allowed` mirrors the web-flash gate
+(idle + Web control on, or the printer's Update screen) — when it is
+`false`, `POST /api/update/install` will answer 403.
+
+---
+
+*TODO before 1.0.0: settle the deprecation-window wording with Brian.*
