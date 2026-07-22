@@ -2487,7 +2487,7 @@ void drawWifiBadge() {
   } else {
     bx = 148 - 8;
   }
-  if (tgEnabled || waEnabled || dcEnabled || true) {   // TEST BUILD: forced visible - REVERT
+  if (tgEnabled || waEnabled || dcEnabled) {
     // One speech bubble for any enabled messenger (TG/WA/Discord), colored
     // like the cloud: lit when WiFi is up, grey when not.
     uint16_t bc = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
@@ -2507,7 +2507,7 @@ void drawWifiBadge() {
     gfx2->setCursor(L + 12, 3); gfx2->print("R");
     bx = L - 8;
   }
-  if (otaHasUpdate() || true) {   // TEST BUILD: forced visible - REVERT
+  if (otaHasUpdate()) {
     // Firmware update available - a green bold NEW chip, 28 px wide.
     int L = bx - 28;
     gfx2->fillRoundRect(L, 1, 28, 11, 2, GREEN);
