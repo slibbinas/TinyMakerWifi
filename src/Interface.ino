@@ -1062,11 +1062,10 @@ void screenResumePrompt(){
   // explains WHY the prompt appeared (V pick 07-22). ~105 px - clears the
   // Lift hint at x118.
   gfx2->print("Power restored");
-  // UP = raise the plate, then discard (0-2). Flush RIGHT (user pick, 07-22,
-  // from a photo): square 13 + gap 3 + "Lift" 4 chars x 6 px = 40 px total,
-  // 2 px edge margin -> x = 160-40-2 = 118. The title ends ~x106 (measured),
-  // so the hint clears the "?" by over 10 px.
-  uiActionHint(118, 6, "Lift");
+  // UP = raise the plate, then discard (0-2). Icon only - the "Lift" label
+  // sat flush against the frame (V pick from a photo, 07-23): the up-arrow
+  // chip alone, 4 px off the right edge.
+  uiActionHint(143, 6, "");
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
