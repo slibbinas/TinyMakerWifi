@@ -1982,6 +1982,21 @@ void handleApiVatRefilled() {
   sendApiOk(out);
 }
 
+// 0-33: remote answers to the boot resume prompt. All three only queue a
+// flag consumed by loop() at screen 427 - lift moves the motor, and motor
+// moves never run inside an HTTP handler. 409 once the prompt is gone (a
+// press at the printer consumes it; remote loses by design - the presser
+// at the machine can SEE the vat, the remote user cannot).
+void handleApiResume(char action) {
+  if (rejectIfWebControlOff()) return;
+  if (screen != 427) {
+    sendApiError(409, "no pending resume - the prompt was already answered");
+    return;
+  }
+  webResumeAction = action;
+  sendApiOk("\"queued\":true");
+}
+
 void handleApiPrintPause() {
   if (rejectIfWebControlOff()) return;
   String error;
@@ -2068,6 +2083,22 @@ void handleApiStatus() {
   out += "\",\"sdJobName\":\"";
   out += jsonEscape(sdJobName);
   out += "\"";
+  // 0-33: the boot resume prompt is up - the dashboard offers the same three
+  // answers remotely. Valid ONLY while screen 427 shows (any button press at
+  // the printer consumes it - the safety rule: remote resume only while the
+  // machine is provably untouched since power-on).
+  out += ",\"resumePending\":";
+  if (screen == 427) {
+    out += "{\"model\":\"";
+    out += jsonEscape(String(resumeFolder));
+    out += "\",\"layer\":";
+    out += String(resumeLayer);
+    out += ",\"total\":";
+    out += String(resumeTotal);
+    out += "}";
+  } else {
+    out += "null";
+  }
   // Phase countdown - curing/lifting/dropping mid-print, plus the final lift
   // (state 4 Canceling / 8 Finished) and the pause/resume travels (state 5
   // Pausing / 7 Resuming), whose durations are computed from distance and
@@ -2439,24 +2470,37 @@ void handleApiUpdateInstall() {
 void drawWifiBadge() {
   // Bars end at y10; the menu boxes start at y13, so a clear
   // row always separates the badge from the System-box outline.
-  // Cleared area starts at 97 to cover the dry-run chip slot too.
-  gfx2->fillRect(97, 1, 61, 11, BLACK);
+  // 1-37 badge row V2: NEW(update) - DR(dry run) - bubble(messenger) - cloud -
+  // bars, packed right-to-left with the same 8 px rhythm, each conditional.
+  // The top strip y0-14 is free on the menu screens (boxes start at y15).
+  gfx2->fillRect(45, 1, 113, 11, BLACK);
+  gfx2->setFont(NULL);            // built-in 6x8 font fits the 11 px row
+  gfx2->setTextSize(1);
   if (!uvLedEnabled) {
-    // Dry-run "DR" chip (V pick 07-22) - the printer had no on-device hint
-    // that the UV LED is disabled. Chip ends at x115: the cloud's left edge
-    // is x124, so the gap matches the ~8 px between the cloud and the bars.
-    // Letters drawn separately: the faux-bold strike ate the built-in font's
-    // 1 px letter gap and D+R fused (V finding) - 2 px gap restores it.
-    gfx2->fillRoundRect(97, 1, 19, 11, 2, ORANGE);
-    gfx2->setFont(NULL);          // built-in 6x8 font fits the 11 px row
-    gfx2->setTextSize(1);
+    // Dry-run "DR" chip (V pick 07-22). Letters drawn separately: the
+    // faux-bold strike ate the built-in font's 1 px letter gap (V finding).
+    gfx2->fillRoundRect(77, 1, 19, 11, 2, ORANGE);
     gfx2->setTextColor(BLACK);
-    gfx2->setCursor(100, 3); gfx2->print("D");
-    gfx2->setCursor(101, 3); gfx2->print("D");   // 1 px double-strike = bold
-    gfx2->setCursor(108, 3); gfx2->print("R");
-    gfx2->setCursor(109, 3); gfx2->print("R");
-    gfx2->setTextColor(WHITE);
+    gfx2->setCursor(80, 3); gfx2->print("D");
+    gfx2->setCursor(81, 3); gfx2->print("D");    // 1 px double-strike = bold
+    gfx2->setCursor(88, 3); gfx2->print("R");
+    gfx2->setCursor(89, 3); gfx2->print("R");
   }
+  if (otaHasUpdate()) {
+    // Firmware update available - a green NEW chip (V pick: no arrows glued
+    // to the wifi bars, a labelled chip like the phone-world "NEW" badge).
+    gfx2->fillRoundRect(45, 1, 24, 11, 2, GREEN);
+    gfx2->setTextColor(BLACK);
+    gfx2->setCursor(48, 3); gfx2->print("NEW");
+  }
+  if (tgEnabled || waEnabled || dcEnabled) {
+    // One speech bubble for any enabled messenger (TG/WA/Discord), colored
+    // like the cloud: lit when WiFi is up, grey when not.
+    uint16_t bc = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
+    gfx2->fillRoundRect(104, 2, 13, 8, 3, bc);
+    gfx2->fillTriangle(107, 9, 112, 9, 107, 12, bc);
+  }
+  gfx2->setTextColor(WHITE);
   if (connectEnabled) {
     uint16_t cloudColor = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
     gfx2->fillCircle(127, 8, 3, cloudColor);
@@ -2815,6 +2859,13 @@ extern const uint8_t PWA_ICON_192[];
 extern const size_t PWA_ICON_192_LEN;
 
 void network_setup() {
+  // Idempotent (0-33): the boot now brings the network up BEFORE the resume
+  // prompt, and the prompt exits still call finishRestorePromptBoot, which
+  // calls network_setup - the second call must be a no-op. This also makes
+  // the "hold BACK at power-on = erase WiFi" check unreachable from a held
+  // prompt button (belt to the button-drain suspenders).
+  if (networkStarted) return;
+  networkStarted = true;
   if (!networkRuntimeEnabled()) {
     WiFi.mode(WIFI_OFF);
     netMessage("WiFi disabled", "");
@@ -2992,6 +3043,10 @@ void network_setup() {
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
   server.on("/api/print/resume", HTTP_POST, handleApiPrintResume);
   server.on("/api/print/stop", HTTP_POST, handleApiPrintStop);
+  // 0-33: remote answers to the boot resume prompt (valid while it shows)
+  server.on("/api/resume/accept",  HTTP_POST, []() { handleApiResume('R'); });
+  server.on("/api/resume/lift",    HTTP_POST, []() { handleApiResume('L'); });
+  server.on("/api/resume/discard", HTTP_POST, []() { handleApiResume('D'); });
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);

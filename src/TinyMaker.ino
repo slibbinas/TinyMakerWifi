@@ -93,6 +93,12 @@ uint32_t sdRev = 0;
 // print-start code in this (first) file can see them.
 bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
 bool resumeBootPending = false;     // suppresses the boot-update prompt
+bool networkStarted = false;        // network_setup ran (it is idempotent via this)
+// 0-33: the dashboard's answer to the boot resume prompt - set by the
+// /api/resume/* handlers, consumed in loop() while screen 427 is up.
+// 'R' resume, 'L' lift plate + discard, 'D' discard. Deferred to loop()
+// because lift moves the motor - never inside an HTTP handler.
+char webResumeAction = 0;
 char resumePhase = 0;               // 'S' start, 'E' exposing, 'M' moving, 'P' paused
 int resumeLayer = 0;                // fully cured layers at the checkpoint
 int resumeTotal = 0;                // total print layers
@@ -1157,15 +1163,20 @@ void setup() {
     return;                     // loop() takes over at screen 426
   }
   // Power lost mid-print: a valid checkpoint on the SD card -> offer to
-  // resume before anything else (the network can wait, the print can't).
-  if (resumeLoad()) {
+  // resume. 0-33: the network comes up FIRST (the prompt is just a screen,
+  // loop() keeps servicing HTTP behind it) so the dashboard can show the
+  // interrupted print and answer it remotely; resumeBootPending suppresses
+  // the boot-update prompt so nothing competes with the resume question.
+  bool resumePendingBoot = resumeLoad();
+  if (resumePendingBoot) resumeBootPending = true;
+  #if ENABLE_NETWORK
+  network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
+  if (!resumePendingBoot && (screen == 424 || screen == 425)) return;
+  #endif
+  if (resumePendingBoot) {
     screenResumePrompt();
     return;                     // loop() takes over at screen 427
   }
-  #if ENABLE_NETWORK
-  network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
-  if (screen == 424 || screen == 425) return;
-  #endif
   screen1(); // jumps to Main Menu
 }
 
@@ -1224,6 +1235,23 @@ void loop() {
   network_loop(); // network uploads - only serviced while printer is idle
   sdJobRun();     // deferred delete/import - ONLY here (the idle loop), never
                   // from service windows mid-print or the motor/pause loops
+  // 0-33: the dashboard answered the boot resume prompt. Only honoured while
+  // the prompt is still up (screen 427) - any button press at the printer
+  // consumes the prompt and remote answers become stale by design.
+  if (screen == 427 && webResumeAction) {
+    char wra = webResumeAction;
+    webResumeAction = 0;
+    if (wra == 'R') {
+      resumeStartPrint = true;   // picked up by the start path below
+      screen = 111;
+    } else if (wra == 'L') {
+      resumeRaisePlateAndDiscard();
+      finishRestorePromptBoot();
+    } else {                     // 'D'
+      resumeClear();
+      finishRestorePromptBoot();
+    }
+  }
   #endif
   if (handleUiTimeout()) return;
   // -----------------------------------------------------------------------------------
