@@ -1038,6 +1038,31 @@ void screenRestoreDone(bool ok){
 }
 
 /**
+ * Screen 427: power was lost mid-print and a valid checkpoint is on the SD
+ * card (resumeLoad() in Resume.ino). OK resumes at the recorded layer -
+ * without homing - Back discards the checkpoint and boots normally.
+ */
+void screenResumePrompt(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  gfx2->print("Resume lost print?");
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  gfx2->print(uiFitText(String(resumeFolder), 144));
+  gfx2->setCursor(8, 56);
+  gfx2->print("Layer ");
+  gfx2->print(resumeLayer);
+  gfx2->print(" / ");
+  gfx2->print(resumeTotal);
+  gfx2->setTextColor(WHITE);
+  uiButtons("Discard", "Resume", 0x879F);
+  screen = 427;
+}
+
+/**
  * @brief Screen 421: Firmware update - installed vs latest, self-update.
  * Shows the installed version, checks GitHub Pages for the latest, and
  * offers "Install" (self-update, no PC). UP ("Local") opens screen 422 to

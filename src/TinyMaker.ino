@@ -88,6 +88,20 @@ bool sdJobRunning = false;          // true while the job body executes (enables
 // Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.
 uint32_t sdRev = 0;
 
+// --- Power-loss resume (checkpoint file logic in Resume.ino) ---
+// Data parsed from /tinymaker-resume.txt by resumeLoad(); defined here so the
+// print-start code in this (first) file can see them.
+bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
+bool resumeBootPending = false;     // suppresses the boot-update prompt
+char resumePhase = 0;               // 'S' start, 'E' exposing, 'M' moving, 'P' paused
+int resumeLayer = 0;                // fully cured layers at the checkpoint
+int resumeTotal = 0;                // total print layers
+long resumePosSteps = 0;            // stepper position at the checkpoint
+double resumeResinMl = 0;           // resinUsedMl at the checkpoint
+uint32_t resumeElapsedSecs = 0;     // print time elapsed at the checkpoint
+uint32_t resumeUvLedSecs = 0;       // uvLedSessionMs (as secs) at the checkpoint
+char resumeFolder[101] = "";        // model folder of the interrupted print
+
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
 // listEntryValid() in Folder.ino.
@@ -831,9 +845,16 @@ bool restoreFromSdBackup() {
   return true;
 }
 
-// Continue the boot sequence after the SD-restore prompt (screen 426) -
-// the network (and its possible boot-update prompt) run only after it.
+// Continue the boot sequence after the SD-restore prompt (screen 426) or a
+// discarded resume prompt (screen 427) - the network (and its possible
+// boot-update prompt) run only after them.
 void finishRestorePromptBoot() {
+  // A restore may have just brought back the settings an interrupted print
+  // needs (layer height must match) - check for a resume checkpoint here too.
+  if (screen != 427 && resumeLoad()) {
+    screenResumePrompt();
+    return;
+  }
   #if ENABLE_NETWORK
   network_setup();
   if (screen == 424 || screen == 425) return;   // boot update prompt took over
@@ -1118,6 +1139,12 @@ void setup() {
     screenRestorePrompt();
     return;                     // loop() takes over at screen 426
   }
+  // Power lost mid-print: a valid checkpoint on the SD card -> offer to
+  // resume before anything else (the network can wait, the print can't).
+  if (resumeLoad()) {
+    screenResumePrompt();
+    return;                     // loop() takes over at screen 427
+  }
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
   if (screen == 424 || screen == 425) return;
@@ -1334,6 +1361,10 @@ void loop() {
       case 426:                 // SD settings restore prompt -> Skip
         finishRestorePromptBoot();
         break;
+      case 427:                 // power-loss resume prompt -> Discard
+        resumeClear();
+        finishRestorePromptBoot();
+        break;
       case 232:                 // exposure test intro -> back to Advanced
       case 2321:                // exposure test result -> Skip (no pick)
       case 23211:               // exposure test canceled -> back to Advanced
@@ -1535,9 +1566,13 @@ void loop() {
 
   // -----------------------------------------------------------------------------------
   // OK Button Handling
-  // (startFromResin/webStartPrint let non-OK flows start the existing print path)
+  // (startFromResin/webStartPrint/resumeStartPrint let non-OK flows start the
+  // existing print path)
   // -----------------------------------------------------------------------------------
-  if (digitalRead(buttonOK) == LOW || startFromResin || webStartPrint) {
+  if (digitalRead(buttonOK) == LOW || startFromResin || webStartPrint || resumeStartPrint) {
+    // A stray button press between the resume prompt and the print start can
+    // change the screen - drop the flag instead of firing OK on every pass.
+    if (resumeStartPrint && screen != 111) resumeStartPrint = false;
     switch (screen) {
       case 1:
       if (SD.begin(SDCS, SD_SCK_MHZ(16))){
@@ -1592,7 +1627,7 @@ void loop() {
       case 111: {
         // "VAT refilled?" ask before every print (optional, System > Advanced).
         // The web start path asks in the browser instead (see startPrint JS).
-        if (askRefillEnabled && !refillAsked && !webStartPrint) {
+        if (askRefillEnabled && !refillAsked && !webStartPrint && !resumeStartPrint) {
           startFromResin = false;
           screenRefillAsk();
           break;
@@ -1601,7 +1636,7 @@ void loop() {
         // start path (webStartPrint) confirms in the browser instead - see
         // handleApiPrintStart. A fresh model estimate (resinNeedForModelMl,
         // set by the resin screen) allows a need-vs-left comparison.
-        if (!resinWarnAccepted && !webStartPrint) {
+        if (!resinWarnAccepted && !webStartPrint && !resumeStartPrint) {
           float needMl = resinNeedForModelMl;
           if ((needMl >= 0 && needMl > vatRemaining()) ||
               vatRemaining() <= (float)lowResinThresholdMl) {
@@ -1642,6 +1677,30 @@ void loop() {
         // Cancel). Blanking cannot start while busy, so waking here closes
         // the only dark path (user finding: buttons worked, screen slept).
         uiWakeScreen();
+
+        // Power-loss resume: seed the print state from the SD checkpoint.
+        // Phase 'S' (power died during homing) restarts the print normally -
+        // nothing was cured yet, so the plain homing path below is correct.
+        bool resuming = resumeStartPrint;
+        resumeStartPrint = false;
+        resumeBootPending = false;   // boot-update check may run again later
+        if (resuming) {
+          if (resumePhase == 0) { screen1(); break; }   // nothing loaded
+          strlcpy(foldersel_long, resumeFolder, sizeof(foldersel_long));
+          foldersel = String(resumeFolder);
+          layer_counter = resumeTotal;
+          get_motor_updown_time();
+          if (resumePhase == 'S') {
+            resuming = false;               // fresh start, homing included
+          } else {
+            current_layer = resumeLayer;
+            resinUsedMl = resumeResinMl;
+            resinSampledMl = resumeResinMl; // NVS vat bookkeeping continues
+            printStartMs = millis() - resumeElapsedSecs * 1000UL;
+            uvLedSessionMs = resumeUvLedSecs * 1000UL;
+            Transition_Exposure = resumeTransitionExposureSeed(resumeLayer);
+          }
+        }
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -1653,8 +1712,20 @@ void loop() {
         #endif
 
         // -------------------------------------------------------------------------------
-        // Homing Sequence
+        // Homing Sequence (skipped on resume: homing would drive the
+        // half-printed object into the vat - Resume.ino re-trusts the
+        // checkpointed position instead)
         // -------------------------------------------------------------------------------
+        if (resuming) {
+          resumeRecoverPosition();
+          digitalWrite(FAN, HIGH);
+          if (screen != 11111){
+            gfx2->fillRect(136, 52, 6, 16, YELLOW);
+            gfx2->fillRect(146, 52, 6, 16, YELLOW);
+          }
+          resumeCheckpoint('E');   // stationary at the next layer's height
+        } else {
+        resumeWriteStart();        // 'S': a loss during homing restarts cleanly
         stepper.setCurrentPosition(0);
         stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
         stepper.enableOutputs();
@@ -1754,11 +1825,13 @@ void loop() {
             gfx2->fillRect(136, 52, 6, 16, YELLOW);
             gfx2->fillRect(146, 52, 6, 16, YELLOW);
           }
+          resumeCheckpoint('E');   // homed: at layer 1's exposure height
         }
-          
+        }
+
         // -------------------------------------------------------------------------------
         // Printing Loop
-        // -------------------------------------------------------------------------------       
+        // -------------------------------------------------------------------------------
         while(!homing_canceled && !print_canceled){            
           estimated_seconds = 0;
           estimated_hours = 0;
@@ -1833,6 +1906,9 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
+          // Layer cured, peel begins: from here until the next 'E' the plate
+          // is somewhere in [pos, pos + lift] - resume assumes the low end.
+          if (!print_canceled) resumeCheckpoint('M');
           // The service window moved from after the move to before it: a
           // pending status poll now answers "Lifting" with the countdown
           // ahead of it, not after the phase already ended. The measured
@@ -1908,6 +1984,7 @@ void loop() {
             bool lowResinNotifyPending = lowResinPauseNow;
             lowResinPauseNow = false;
             saveVatRemaining();   // checkpoint at the pause point
+            resumeCheckpoint('P');  // parked position is exact
             screen1111_state();
             gfx2->fillRect(136, 12, 16, 16, RED);
             gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
@@ -2004,6 +2081,10 @@ void loop() {
               }
               stepper.disableOutputs();
               delay(10);
+              // Back at the post-lift height; the drop to the next layer
+              // follows - same uncertainty window as a normal peel cycle.
+              resumeCheckpointAt('M', Position_before_pause -
+                  (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
               gfx2->fillRect(136, 12, 16, 16, RED);
               gfx2->fillRect(136, 52, 6, 16, YELLOW);
               gfx2->fillRect(146, 52, 6, 16, YELLOW); 
@@ -2023,8 +2104,9 @@ void loop() {
             #endif
             lower_print();
             prevDropMs = millis() - phaseStartMs;
+            resumeCheckpoint('E');  // settled at the next layer's height
           }
-        } 
+        }
         #if ENABLE_NETWORK
         // Canceled: tell the phone NOW - the decision is final and the run
         // time is known, while the lift below takes tens of seconds. Finished
@@ -2052,6 +2134,7 @@ void loop() {
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
+        resumeClear();     // the checkpoint only outlives an unfinished print
         #if ENABLE_NETWORK
         freePreviewCache();          // 0-19: the RAM preview lives only for the print
         #endif
@@ -2184,6 +2267,14 @@ void loop() {
       case 426:                 // SD settings restore prompt -> Restore
         screenRestoreDone(restoreFromSdBackup());
         finishRestorePromptBoot();
+        break;
+      case 427:                 // power-loss resume prompt -> Resume the print
+        resumeBootPending = true;   // network boots quietly (no update prompt)
+        #if ENABLE_NETWORK
+        network_setup();
+        #endif
+        resumeStartPrint = true;    // picked up by the start path below
+        screen = 111;
         break;
       case 232:                 // exposure test intro -> Start
         runExpTest();
