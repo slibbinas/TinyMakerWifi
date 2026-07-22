@@ -819,7 +819,7 @@ const applyStatus=s=>{
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
     if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
     phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
-    renderStateValue(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    renderStateValue(); renderPrintWait(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     // 0-30 reset-reason telemetry: surface a NEW mid-print death once (the
     // record persists on the printer, so remember what was already shown).
     if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
@@ -1539,12 +1539,14 @@ const retryPendingPrintCommand=async()=>{
   try{
     await api('/api/print/'+cmd,{method:'POST'},30000);
     pendingPrintCmd='';
-    msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' accepted.');
+    // No "accepted" toast: the wait snackbar (renderPrintWait) now owns this
+    // feedback and keeps showing "Stopping ... ~Xs" until the printer resolves.
     refreshStatus();
   }catch(e){
+    // A genuine "nothing to do" answer clears the wait; a network hiccup leaves
+    // pendingPrintCmd set so the wait snackbar keeps showing "... requested".
     if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';msg(e.message,true);}
-    else msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for the next safe network window...',true);
-  }finally{pendingPrintInFlight=false;applyPendingPrintUi();}
+  }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
 const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
@@ -1611,7 +1613,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while, the printer answers when done...',false,true);try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
-const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
+const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
 // between polls: mid-print the printer answers polls only in short windows
@@ -1627,6 +1629,52 @@ const renderStateValue=()=>{
   }
   setText('stateValue',t);
 };
+// A pause/stop/resume takes real time - the printer finishes the current layer
+// (and, for a stop, lifts the plate) before it acts. That used to show only as
+// a subtle button label ("Stopping...") that was easy to miss, while the wait
+// seconds sat separately on the State line. This drives one sticky snackbar for
+// the whole wait - what is happening + the live phase countdown - matching how
+// other long operations announce themselves, and clears itself when the printer
+// resolves. The button label stays as a secondary cue. Called after every
+// status apply and every local tick, so the countdown updates smoothly.
+let printWaitCur='';
+const printWaitInfo=()=>{
+  const s=statusData; if(!s)return null;
+  if(s.busy&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
+  if(s.busy&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
+  if(s.busy&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
+  // Requested but the printer has not confirmed yet (it answers between layers).
+  if(pendingPrintCmd==='stop')   return {v:'Stop requested',   tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(pendingPrintCmd==='pause')  return {v:'Pause requested',  tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(pendingPrintCmd==='resume') return {v:'Resume requested', tail:' — waiting for the printer (it answers between layers)', count:false};
+  return null;
+};
+const renderPrintWait=()=>{
+  const info=printWaitInfo();
+  if(!info){
+    if(printWaitCur){
+      const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0;
+      const e=$('statusMsg'); if(e.textContent===printWaitCur)e.textContent='';
+      printWaitCur='';
+      // one-shot closure, transient (the wait is over)
+      if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
+      else if(wasPause&&statusData&&statusData.paused)msg('Print paused.');
+    }
+    return;
+  }
+  let secs='';
+  if(info.count&&statusData&&statusData.busy&&phaseRx){
+    const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
+    if(rem>-1500)secs=' · ~'+Math.max(0,Math.ceil(rem/1000))+'s';
+  }
+  const txt=info.v+info.tail+secs;
+  if(txt===printWaitCur)return;              // nothing changed this tick
+  const e=$('statusMsg'), firstShow=!printWaitCur;   // animate only on first appearance
+  e.textContent=txt; e.classList.remove('warn'); e.style.top='14px';
+  clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
+  if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
+  printWaitCur=txt;
+};
 let lastPollOkAt=0;
 const tickLocalStatus=()=>{
   const busyNow=statusData&&statusData.busy;
@@ -1634,6 +1682,7 @@ const tickLocalStatus=()=>{
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
     renderStateValue();
   }
+  renderPrintWait();   // tick the wait snackbar's countdown between polls
   // Liveness: only meaningful mid-print, where answers arrive in windows.
   const stale=busyNow&&Date.now()-lastPollOkAt>4000;
   show('syncDot',!!busyNow);
