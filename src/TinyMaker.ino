@@ -1856,18 +1856,28 @@ void loop() {
             else
               stepper.moveTo(max_height * steps_mm);
             #if ENABLE_NETWORK
-            // Phase countdown for the dashboard ("Pausing - ~Ns"): same
-            // stop-pattern as the resume travel below - the pause lift is a
-            // blocking move, so publish its estimated duration and answer
-            // everyone once before it starts; browsers tick down locally.
+            // Phase countdown for the dashboard ("Pausing - ~Ns"): publish the
+            // lift's estimated duration; polls are answered during the move
+            // (below), so every browser picks it up and ticks it down locally.
             current_state = 5;   // pausing (a button pause arrives with the layer's phase state)
             phaseStartMs = millis();
             phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                            (Fast_Lift_Feedrate * steps_mm));
-            network_service_window(160);
             #endif
-            while (stepper.distanceToGo()!= 0) {
-              stepper.run();
+            {
+              // Answer HTTP every 200ms DURING the lift (the homing-return
+              // pattern) - one pre-move window was not enough, a 2s poll loop
+              // rarely hit it and both browsers looked frozen (user finding).
+              unsigned long svc = millis();
+              while (stepper.distanceToGo()!= 0) {
+                stepper.run();
+                if (millis() - svc >= 200) {
+                  svc = millis();
+                  #if ENABLE_NETWORK
+                  network_service_http();
+                  #endif
+                }
+              }
             }
             stepper.disableOutputs();
             delay(10); 
@@ -1949,18 +1959,26 @@ void loop() {
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);
               #if ENABLE_NETWORK
-              // Phase countdown for the dashboard ("Resuming - ~Ns"): the travel
-              // back down is a blocking move during which nothing answers, so
-              // publish its estimated duration and answer everyone once BEFORE
-              // it starts - the browsers then tick down locally, the same
-              // pattern the stop/final-lift countdown uses.
+              // Phase countdown for the dashboard ("Resuming - ~Ns"): publish
+              // the travel's estimated duration; polls are answered during the
+              // move (below), so every browser picks it up and ticks locally.
               phaseStartMs = millis();
               phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                              (Fast_Lift_Feedrate * steps_mm));
-              network_service_window(160);
               #endif
-              while (stepper.distanceToGo()!= 0) {
-                stepper.run();
+              {
+                // Same as the pause lift: answer HTTP every 200ms during the
+                // travel so the dashboards keep polling and the countdown shows.
+                unsigned long svc = millis();
+                while (stepper.distanceToGo()!= 0) {
+                  stepper.run();
+                  if (millis() - svc >= 200) {
+                    svc = millis();
+                    #if ENABLE_NETWORK
+                    network_service_http();
+                    #endif
+                  }
+                }
               }
               stepper.disableOutputs();
               delay(10);
