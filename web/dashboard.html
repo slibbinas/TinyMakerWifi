@@ -82,7 +82,11 @@
     <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
     <!-- 0-26: the info line moved to the status panel rows; the card keeps
-         only the 3D view with its small name overlay. -->
+         only the 3D view with its small name overlay.
+         prevNote: shown on a cold device mid-print - the RAM snapshot is the
+         model image, not live layer-by-layer 3D (that needs slices this
+         browser doesn't have), so say so plainly under a "Printing NN%" bar. -->
+    <div id='prevNote' class='hint hidden' style='text-align:center;margin-top:6px'></div>
   </section>
   </div>
 
@@ -884,7 +888,7 @@ const applyStatus=s=>{
     if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
-      setModelInfoRows(null);show('dashShareButton',false);
+      setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
@@ -895,35 +899,32 @@ const applyStatus=s=>{
       // printer): drop a stale idle preview instead of showing a wrong model.
       show('printPreviewCard',true);
       if(!s.busy){
+        show('prevNote',false);
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
         // Busy without slices - a print started on the printer, or a page opened
-        // mid-print in a browser that never previewed this model. This used to
-        // require dashPreviewName, so a fresh page had nothing to convert and
-        // was left showing the idle "pick a model" placeholder over a running
-        // print (user finding). Say it plainly instead, once - the title guard
-        // keeps the 2s poll from repainting it.
+        // mid-print in a browser that never previewed this model. It can't draw
+        // the live layer-by-layer 3D (no slices, and the SD is locked), so show
+        // the model snapshot (0-19 RAM preview) or a placeholder, and make clear
+        // it IS printing: a "Printing NN%" title + progress bar (the browser
+        // knows the % from the status), and a plain note that the 3D progress
+        // preview isn't available on this device (user finding: the full model
+        // looked already printed).
         if(dashPreviewName)setDashPreviewName('');
-        const pt=$('printPreviewTitle').textContent;
-        if(pt!=='Print progress 3D'&&pt!=='Model preview (printing)'){
-          $('printPreviewTitle').textContent='Print progress 3D';
-          setModelInfoRows(null);show('dashShareButton',false);
-          paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
-        }
-        // 0-19: the firmware snapshots the model's preview PNG to RAM at print
-        // start - a page with no cached slices can still show the model image
-        // instead of the placeholder. One fetch per print; any failure quietly
-        // leaves the placeholder (the endpoint answers 409 exactly as before
-        // when the snapshot did not fit in heap).
-        if(s.previewCached&&s.model&&busyPreviewShown!==s.model){
+        setModelInfoRows(null);show('dashShareButton',false);
+        const cf=s.totalLayers>0?Math.min(1,s.currentLayer/s.totalLayers):0;
+        $('printPreviewBarFill').style.width=Math.round(cf*100)+'%';
+        $('printPreviewTitle').textContent='Printing · '+Math.round(cf*100)+'%';
+        $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
+        show('prevNote',true);
+        // Fill the canvas once (guarded): the RAM snapshot if the printer kept
+        // one, otherwise a plain placeholder.
+        if(busyPreviewShown!==s.model){
           busyPreviewShown=s.model;
-          loadSavedPreviewTo($('printPreviewCanvas'),s.model).then(()=>{
-            $('printPreviewTitle').textContent='Model preview (printing)';
-          }).catch(()=>{
-            paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
-          });
+          if(s.previewCached)loadSavedPreviewTo($('printPreviewCanvas'),s.model).catch(()=>paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null));
+          else paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null);
         }
       }
     }
@@ -1414,7 +1415,7 @@ const dashPreviewPlaceholder=()=>{
   setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
-  setModelInfoRows(null);show('dashShareButton',false);
+  setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
   paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
 };
 // Boot restore: bring the last previewed model back, but only from the saved
@@ -1471,7 +1472,7 @@ const dashPreview=async nameEnc=>{
   clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
-  scrollPreviewIntoView();
+  scrollPreviewIntoView();show('prevNote',false);
   fetchSlicesSeq++;                        // cancel a previous run right away
   const cv=$('printPreviewCanvas');
   $('printPreviewTitle').textContent='Model preview';
@@ -1726,14 +1727,15 @@ const renderPrintWait=()=>{
   const firstShow=!printWaitCur;   // animate only when the wait first appears
   e.textContent=txt; e.classList.remove('warn');
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
-  if(firstShow){
-    // Reuse the position captured at the press (printWaitTop) on every
-    // re-appearance, so the requested->stopping gap can't re-pin it. 'bottom'
-    // is the mobile anchor (bottom of the screen); a number is a desktop top.
-    if(printWaitTop==='bottom'){ e.style.top='auto'; e.style.bottom='20px'; }
-    else { e.style.bottom=''; e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px'; }
-    e.style.animation='none';void e.offsetWidth;e.style.animation='';
-  }
+  // Re-assert the anchor on EVERY render, not just the first: a stray toast (or
+  // the gap re-show) can reset the element's top/bottom, and if only the text
+  // were re-asserted the snackbar kept the clobbered position - on mobile that
+  // put it back at the top (user finding). 'bottom' is the mobile anchor (fixed
+  // to the screen bottom - always visible, never over the header); a number is
+  // the desktop top captured under the pressed button.
+  if(printWaitTop==='bottom'){ e.style.top='auto'; e.style.bottom='20px'; }
+  else { e.style.bottom=''; e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px'; }
+  if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
   printWaitCur=txt;
 };
 let lastPollOkAt=0;
