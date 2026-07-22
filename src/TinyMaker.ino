@@ -855,6 +855,15 @@ void finishRestorePromptBoot() {
     screenResumePrompt();
     return;
   }
+  // The user just answered the prompt with a button press. If that finger is
+  // still down when network_setup runs, its "hold BACK at power-on = erase
+  // WiFi credentials" emergency check mistakes the held Discard press for
+  // the reset gesture and WIPES the credentials (field finding 07-22: every
+  // Discard sent the printer back to the setup portal). Wait for release.
+  while (digitalRead(buttonBack) == LOW || digitalRead(buttonOK) == LOW ||
+         digitalRead(buttonUp) == LOW || digitalRead(buttonDown) == LOW) {
+    delay(10);
+  }
   #if ENABLE_NETWORK
   network_setup();
   if (screen == 424 || screen == 425) return;   // boot update prompt took over
@@ -2274,6 +2283,12 @@ void loop() {
         break;
       case 427:                 // power-loss resume prompt -> Resume the print
         resumeBootPending = true;   // network boots quietly (no update prompt)
+        // Same guard as finishRestorePromptBoot: a still-held button must not
+        // reach network_setup's "hold BACK = erase WiFi" emergency check.
+        while (digitalRead(buttonBack) == LOW || digitalRead(buttonOK) == LOW ||
+               digitalRead(buttonUp) == LOW || digitalRead(buttonDown) == LOW) {
+          delay(10);
+        }
         #if ENABLE_NETWORK
         network_setup();
         #endif
