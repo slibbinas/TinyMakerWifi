@@ -451,10 +451,15 @@ const api=async(path,opt,timeoutMs)=>{
 // at the bottom of a long page shows the feedback right there, not off at the
 // top of the viewport. No pointer yet (poll errors at load) -> top fallback.
 document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
+// A snackbar with no tap to anchor to - the print-wait one (shared across
+// devices), or a msg() that fires before any tap (a poll error at load) - hangs
+// a sensible ~5cm below the top: clear of the header on every device, clamped on
+// very short (landscape) viewports.
+const snackDrop=()=>Math.min(180,Math.round(innerHeight*0.28));
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
-    const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
-    e.style.bottom='';e.style.top=y+'px';   // clear any bottom anchor the print-wait snackbar may have left
+    const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):snackDrop();
+    e.style.top=y+'px';
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
@@ -1686,8 +1691,9 @@ const renderStateValue=()=>{
 // status apply and every local tick, so the countdown updates smoothly.
 // The wait snackbar mirrors PRINTER status (stopping/pausing/resuming), so every
 // connected browser shows it - a tap position (msg._y) only exists on the device
-// that pressed, so it can't be shared. Hence one fixed spot (bottom-centre) on
-// all devices. printWaitSent = a command that was accepted by the printer and is
+// that pressed, so it can't be shared. With no tap to anchor to it hangs a fixed
+// ~5cm below the top on every device (see renderPrintWait). printWaitSent = a
+// command that was accepted by the printer and is
 // awaiting a status flip; it keeps the snackbar up across the gap where
 // pendingPrintCmd is already cleared (to stop re-sending) but status hasn't caught
 // up yet - the resume case, which answers instantly, otherwise blinked out.
@@ -1710,7 +1716,7 @@ const renderPrintWait=()=>{
   if(!info){
     if(printWaitCur){
       const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0, wasResume=printWaitCur.indexOf('Resum')===0;
-      const e=$('statusMsg'); if(e.textContent===printWaitCur){e.textContent='';e.style.top='';e.style.bottom='';}  // release the bottom anchor
+      const e=$('statusMsg'); if(e.textContent===printWaitCur){e.textContent='';e.style.top='';}  // release the drop, back to the CSS default
       printWaitCur='';
       // one-shot closure, transient (the wait is over)
       if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
@@ -1734,11 +1740,11 @@ const renderPrintWait=()=>{
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
   // Re-assert the anchor on EVERY render, not just the first: a stray toast (or
   // the gap re-show) can reset the element's position, and if only the text were
-  // re-asserted the snackbar kept the clobbered spot. Fixed bottom-centre - the
-  // standard toast spot, identical on every device (see printWaitSent note): the
-  // presser, an observer and a cold refresh all show it the same place, and it
-  // never overlaps the header.
-  e.style.top='auto';e.style.bottom='24px';
+  // re-asserted the snackbar kept the clobbered spot. No tap to anchor to (see
+  // printWaitSent note) -> the shared coordinate-less drop: identical for the
+  // presser, an observer and a cold refresh, and top-anchored so it doesn't jump
+  // with the mobile URL bar the way a bottom anchor does.
+  e.style.top=snackDrop()+'px';
   if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
   printWaitCur=txt;
 };
