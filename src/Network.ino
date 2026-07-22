@@ -2486,14 +2486,14 @@ void drawWifiBadge() {
     gfx2->setCursor(88, 3); gfx2->print("R");
     gfx2->setCursor(89, 3); gfx2->print("R");
   }
-  if (otaHasUpdate()) {
+  if (otaHasUpdate() || true) {   // TEST BUILD: forced visible for V's on-screen review - REVERT
     // Firmware update available - a green NEW chip (V pick: no arrows glued
     // to the wifi bars, a labelled chip like the phone-world "NEW" badge).
     gfx2->fillRoundRect(45, 1, 24, 11, 2, GREEN);
     gfx2->setTextColor(BLACK);
     gfx2->setCursor(48, 3); gfx2->print("NEW");
   }
-  if (tgEnabled || waEnabled || dcEnabled) {
+  if (tgEnabled || waEnabled || dcEnabled || true) {   // TEST BUILD: forced visible - REVERT
     // One speech bubble for any enabled messenger (TG/WA/Discord), colored
     // like the cloud: lit when WiFi is up, grey when not.
     uint16_t bc = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
