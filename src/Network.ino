@@ -2470,35 +2470,54 @@ void handleApiUpdateInstall() {
 void drawWifiBadge() {
   // Bars end at y10; the menu boxes start at y13, so a clear
   // row always separates the badge from the System-box outline.
-  // 1-37 badge row V2: NEW(update) - DR(dry run) - bubble(messenger) - cloud -
-  // bars, packed right-to-left with the same 8 px rhythm, each conditional.
+  // 1-37 badge row V2: [NEW] [DR] [bubble] [cloud] [bars], packed right-to-
+  // left with an 8 px rhythm and NO gaps for absent icons (V pick 07-23:
+  // dynamic flow, not static slots). Bold chip letters drawn individually
+  // with a 1 px double-strike (a strike over a whole word fuses the built-in
+  // font's 1 px letter gaps - earlier finding).
   // The top strip y0-14 is free on the menu screens (boxes start at y15).
-  gfx2->fillRect(45, 1, 113, 11, BLACK);
+  gfx2->fillRect(40, 1, 118, 11, BLACK);
   gfx2->setFont(NULL);            // built-in 6x8 font fits the 11 px row
   gfx2->setTextSize(1);
-  if (!uvLedEnabled) {
-    // Dry-run "DR" chip (V pick 07-22). Letters drawn separately: the
-    // faux-bold strike ate the built-in font's 1 px letter gap (V finding).
-    gfx2->fillRoundRect(77, 1, 19, 11, 2, ORANGE);
-    gfx2->setTextColor(BLACK);
-    gfx2->setCursor(80, 3); gfx2->print("D");
-    gfx2->setCursor(81, 3); gfx2->print("D");    // 1 px double-strike = bold
-    gfx2->setCursor(88, 3); gfx2->print("R");
-    gfx2->setCursor(89, 3); gfx2->print("R");
-  }
-  if (otaHasUpdate() || true) {   // TEST BUILD: forced visible for V's on-screen review - REVERT
-    // Firmware update available - a green NEW chip (V pick: no arrows glued
-    // to the wifi bars, a labelled chip like the phone-world "NEW" badge).
-    gfx2->fillRoundRect(45, 1, 24, 11, 2, GREEN);
-    gfx2->setTextColor(BLACK);
-    gfx2->setCursor(48, 3); gfx2->print("NEW");
+  int bx = 148;                   // right-edge cursor; wifi bars sit at 148..156
+  if (connectEnabled) {
+    // (cloud drawn below by the existing block at fixed 123..140; when it is
+    // shown the cursor continues from its left edge)
+    bx = 124 - 8;
+  } else {
+    bx = 148 - 8;
   }
   if (tgEnabled || waEnabled || dcEnabled || true) {   // TEST BUILD: forced visible - REVERT
     // One speech bubble for any enabled messenger (TG/WA/Discord), colored
     // like the cloud: lit when WiFi is up, grey when not.
     uint16_t bc = (WiFi.status() == WL_CONNECTED) ? 0x879F : DARKGREY;
-    gfx2->fillRoundRect(104, 2, 13, 8, 3, bc);
-    gfx2->fillTriangle(107, 9, 112, 9, 107, 12, bc);
+    int L = bx - 13;              // bubble body is 13 px wide
+    gfx2->fillRoundRect(L, 2, 13, 8, 3, bc);
+    gfx2->fillTriangle(L + 3, 9, L + 8, 9, L + 3, 12, bc);
+    bx = L - 8;
+  }
+  if (!uvLedEnabled) {
+    // Dry-run "DR" chip (V pick 07-22), 19 px wide.
+    int L = bx - 19;
+    gfx2->fillRoundRect(L, 1, 19, 11, 2, ORANGE);
+    gfx2->setTextColor(BLACK);
+    gfx2->setCursor(L + 3, 3); gfx2->print("D");
+    gfx2->setCursor(L + 4, 3); gfx2->print("D");
+    gfx2->setCursor(L + 11, 3); gfx2->print("R");
+    gfx2->setCursor(L + 12, 3); gfx2->print("R");
+    bx = L - 8;
+  }
+  if (otaHasUpdate() || true) {   // TEST BUILD: forced visible - REVERT
+    // Firmware update available - a green bold NEW chip, 28 px wide.
+    int L = bx - 28;
+    gfx2->fillRoundRect(L, 1, 28, 11, 2, GREEN);
+    gfx2->setTextColor(BLACK);
+    gfx2->setCursor(L + 3, 3);  gfx2->print("N");
+    gfx2->setCursor(L + 4, 3);  gfx2->print("N");
+    gfx2->setCursor(L + 11, 3); gfx2->print("E");
+    gfx2->setCursor(L + 12, 3); gfx2->print("E");
+    gfx2->setCursor(L + 19, 3); gfx2->print("W");
+    gfx2->setCursor(L + 20, 3); gfx2->print("W");
   }
   gfx2->setTextColor(WHITE);
   if (connectEnabled) {
