@@ -1194,9 +1194,18 @@ const drawIso=(cv,doneFrac)=>{
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
-    // Strict boundary: at 0% nothing is printed yet - the old t<=doneFrac
-    // painted the whole first slice solid before the print even started.
-    const s=slices[k],up=slices[k+1],solid=doneFrac>0&&t<=doneFrac;
+    // One solid style everywhere (== the idle Preview and the finished print),
+    // but the printed/unprinted boundary interpolates. The render samples only
+    // ~36 slices of a 1000+ layer print, so a hard t<=doneFrac moved the front
+    // a whole slice (~30 layers) at a time and read as frozen (user finding).
+    // `a` = how printed this slice is: 1 solid, 0 ghost, between = the front
+    // slice fading in so progress climbs smoothly. A slice is fully solid once
+    // the front reaches its height (doneFrac>=t) and fades in over the step
+    // below it (the +1); at doneFrac 1 every a is 1, so preview and print-end
+    // render identically. The doneFrac>0 guard keeps 0% fully un-printed.
+    const s=slices[k],up=slices[k+1];
+    const aStep=1/Math.max(N-1,1);
+    const a=doneFrac>0?Math.max(0,Math.min(1,(doneFrac-t)/aStep+1)):0;
     // Back-to-front: this projection puts +x right-down and +y left-down, so
     // near = large (i+j). Ascending order draws the far voxels first and lets
     // the near ones cover them (the old loop ran j from the near edge back).
@@ -1211,7 +1220,15 @@ const drawIso=(cv,doneFrac)=>{
       const fLeft=j===gh-1||!s[(j+1)*gw+i];
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
-      if(solid){
+      const edge0=i===0||j===0||fRight||fLeft;
+      // grey ghost for the un-printed part - also drawn under the fading front
+      // slice so the boundary blends into the ghost instead of popping.
+      if(a<1){
+        ctx.fillStyle='rgba(150,150,165,'+(edge0?0.20:0.05)+')';
+        const gp=isoPt(cx,cy,z);
+        ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
+      }
+      if(a>0){
         // Shade from a real surface normal, estimated from the 3x3x3
         // neighbourhood: the normal points away from the mass, so it turns
         // gradually across a curve. Three fixed tones per face made a sphere
@@ -1242,17 +1259,13 @@ const drawIso=(cv,doneFrac)=>{
         // continuous because the old code also painted the 86% buried inside;
         // on a bare surface the squares stop touching and the model turns to
         // dots (user finding). Faces tile exactly.
+        // The front (partly-printed) slice fades in via globalAlpha so it
+        // climbs smoothly; fully-printed slices draw at full opacity.
+        if(a<1){ctx.save();ctx.globalAlpha=a;}
         if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
         if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
         if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
-      }else{
-        // Not printed yet: keep the cheap translucent splat - overlapping
-        // slices accumulate into an x-ray that reads well, and it must not
-        // compete with the solid part.
-        const edge=i===0||j===0||fRight||fLeft;
-        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')';
-        const p=isoPt(cx,cy,z);
-        ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
+        if(a<1)ctx.restore();
       }
     }
   }
