@@ -1657,8 +1657,12 @@ const printCommand=async(cmd,confirmText)=>{
   // the button scrolled away - user finding). On a phone the controls are below
   // the fold and scroll/rect timing is unreliable, so anchor it to the BOTTOM
   // (the standard mobile toast spot - always visible, never over the header).
-  // On desktop, put it just under the pressed button, where you acted.
-  if(innerWidth<=520){ printWaitTop='bottom'; }
+  // Only a real desktop (the >=1000px two-column layout) gets the near-button
+  // spot; every phone/tablet/narrow window - whatever innerWidth reports -
+  // gets the bottom anchor. matchMedia, not innerWidth, so it agrees with the
+  // CSS breakpoint and can't be thrown off by scrollbars/zoom (the bug: a phone
+  // read as >520 took the desktop path and pinned to the top).
+  if(!matchMedia('(min-width:1000px)').matches){ printWaitTop='bottom'; }
   else {
     const b=cmd==='stop'?$('stopButton'):cmd==='pause'?$('pauseButton'):$('resumeButton');
     const br=(b&&!b.classList.contains('hidden'))?b.getBoundingClientRect():null;
