@@ -1050,7 +1050,11 @@ void screenResumePrompt(){
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 18);
-  gfx2->print("Resume print?");
+  // A statement, not a question: "Resume print?" biased toward one of the
+  // three actions (Discard / Resume / UP=Lift), and "Power restored" also
+  // explains WHY the prompt appeared (V pick 07-22). ~105 px - clears the
+  // Lift hint at x118.
+  gfx2->print("Power restored");
   // UP = raise the plate, then discard (0-2). Flush RIGHT (user pick, 07-22,
   // from a photo): square 13 + gap 3 + "Lift" 4 chars x 6 px = 40 px total,
   // 2 px edge margin -> x = 160-40-2 = 118. The title ends ~x106 (measured),
