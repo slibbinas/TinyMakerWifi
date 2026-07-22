@@ -105,25 +105,46 @@ printer records the reason (and the layer, if it was printing) and shows it in
 Statistics.</li>
 <li><b>Mobile-navigation and reliability fixes</b>, including steadier MQTT
 reconnects.</li>
+<li><b>Mid-print preview from any device</b> — open the dashboard mid-print from
+a new phone and still see the model and live progress.</li>
+<li><b>Release notes in the updater</b> — a link to what changed next to every
+version.</li>
+<li><b>Model details in the status panel</b> (layers, time, resin) and a
+smoother 3D progress view.</li>
+<li><b>Clear live feedback on Stop / Pause / Resume</b> — one message with a
+live countdown ("Stopping — finishing the current layer · ~18s"), shown on
+every open dashboard, not just the device that pressed the button.</li>
+<li><b>SD work runs in the background</b> — deleting a model or importing an
+upload no longer freezes the dashboard; every connected device sees what the
+printer is doing and when it finished.</li>
 </ul>
 <p>Also planned for 0.16, not built yet:</p>
 <ul>
 <li><b>Power-loss resume</b> — pick a print back up after an outage instead of
 starting over, with a guided, safe plate raise.</li>
-<li><b>Mid-print preview from any device</b> — open the dashboard mid-print from
-a new phone or PrusaSlicer and still see the model preview.</li>
-<li><b>Release notes in the updater</b> — a link to what changed next to every
-version.</li>
-<li><b>Model details in the status panel</b> (layers, time, resin) and a clearer
-3D progress view.</li>
-<li><b>Faster first load</b> of the dashboard and a "recently fixed" list in the
-feedback form.</li>
-<li><b>Groundwork for finer, sub-second exposure timing</b> (being validated
-with fast resins).</li>
+<li><b>A "recently fixed" list</b> in the feedback form, and a status page for
+your own reports.</li>
 </ul>
 <p class="muted">These are not released yet — you won't see them on your printer.
 When 0.16 is ready it reaches the <b>beta</b> channel first (<i>Update → version
 picker</i>), and the automatic self-update follows once early testers confirm it.</p>
+</div>
+
+<h2>Next after 0.16 <span class="tag dev">0.17</span></h2>
+<div class="card">
+<p>The exposure work moved into its own release so 0.16 doesn't have to wait
+for test materials:</p>
+<ul>
+<li><b>Sub-second exposure timing</b> — set exposure in tenths of a second
+instead of whole seconds (needed for fast resins).</li>
+<li><b>Named resin profiles</b> — switch resins and the right settings follow.</li>
+<li><b>Print-time impact preview</b> — change an exposure setting and see what
+it does to a print's duration before saving.</li>
+<li><b>"Pick the winning bar" helper</b> — run the exposure test, tap the best
+bar in the dashboard, and it computes and offers the new exposure time.</li>
+</ul>
+<p class="muted">0.17 is validated with a fast test resin (arriving ~August)
+together with whatever 0.16 field feedback surfaces.</p>
 </div>
 
 <h2>On the way</h2>
@@ -136,7 +157,7 @@ models straight to the printer.</li>
 
 <h2>Toward 1.0.0</h2>
 <div class="card">
-<p>1.0.0 is about confidence, not new features: the beta channel quiet with no
+<p>1.0.0 is 0.17, promoted once it has proven itself: the beta channel quiet with no
 open regressions, clean multi-hour print soak tests, and a repeated full code
 review.</p>
 </div>
