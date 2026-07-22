@@ -164,6 +164,52 @@ float resumeTransitionExposureSeed(int curedLayers) {
 }
 
 /**
+ * 0-2: third choice on the boot resume prompt (UP) - the user does NOT want
+ * to continue the print, but the plate is parked down on a possibly
+ * FEP-stuck object and must come up WITHOUT homing (homing would drive it
+ * into the vat - the Simon Fell "stuck down, will not raise" case).
+ * Trust the checkpoint like a resume would: seed the position ('M' records
+ * the pre-lift LOW height, so an error can only lift HIGHER than intended -
+ * the safe direction), peel free with the slow lift, then continue up to a
+ * pause-style +20mm park and discard the checkpoint. Runs from the boot
+ * prompt, before network_setup - plain blocking moves are fine here.
+ * A power loss mid-raise leaves the old checkpoint with the plate higher
+ * than recorded - the next boot's recovery errs upward, still safe.
+ */
+void resumeRaisePlateAndDiscard() {
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 44);
+  gfx2->print("Raising plate...");
+
+  stepper.setCurrentPosition(resumePosSteps);
+  stepper.enableOutputs();
+
+  // Peel the last (possibly half-cured) layer off the FEP at the slow lift
+  // speed - the same first move a normal layer cycle or a resume would make.
+  long liftSteps = (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm);
+  stepper.setMaxSpeed(Slow_Lift_Feedrate * steps_mm / 60);
+  stepper.move(liftSteps);
+  while (stepper.distanceToGo() != 0) stepper.run();
+  delay(50);
+
+  // Then up to the pause-style park: +20mm over the checkpoint, clamped.
+  long maxSteps = (long)(max_height * steps_mm);
+  long target = resumePosSteps + (long)(20 * steps_mm);
+  if (target > maxSteps) target = maxSteps;
+  if (target > stepper.currentPosition()) {
+    stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
+    stepper.moveTo(target);
+    while (stepper.distanceToGo() != 0) stepper.run();
+  }
+  stepper.disableOutputs();
+  delay(200);
+  resumeClear();
+}
+
+/**
  * Re-establish Z after a power loss WITHOUT homing (the print would hit the
  * vat before the endstop). Trusts the checkpointed position, peels the last
  * (possibly half-cured, FEP-stuck) layer free, and settles the plate at the

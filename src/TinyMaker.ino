@@ -1438,6 +1438,10 @@ void loop() {
       startFromResin = true;    // re-run the start path (recheck passes now,
       screen = 111;             // unless the model needs more than a full VAT)
         break;
+      case 427:                 // UP on resume prompt -> lift plate only (0-2)
+      resumeRaisePlateAndDiscard();
+      finishRestorePromptBoot();   // continue the normal boot (network etc.)
+        break;
       case 3:
       screen2();
         break;
