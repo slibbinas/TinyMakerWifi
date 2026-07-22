@@ -450,7 +450,7 @@ document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
     const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
-    e.style.top=y+'px';
+    e.style.bottom='';e.style.top=y+'px';   // always top-anchored (the print-wait snackbar may have left a mobile bottom-anchor)
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
@@ -1651,16 +1651,18 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
-  // On a phone the controls sit below the fold. Bring them into view (instantly,
-  // only when actually off-screen so desktop is untouched), then capture the
-  // snackbar position from the just-pressed button - once, while it is on
-  // screen - and reuse it for the whole wait. Recomputing it each time the
-  // snackbar re-appeared (after the brief requested->stopping gap) re-pinned it
-  // to the top once the button had scrolled away (user finding).
-  const pc=$('printControls'); if(pc){const r=pc.getBoundingClientRect(); if(r.top<0||r.bottom>innerHeight)pc.scrollIntoView({block:'center'});}
-  const b=cmd==='stop'?$('stopButton'):cmd==='pause'?$('pauseButton'):$('resumeButton');
-  const br=(b&&!b.classList.contains('hidden'))?b.getBoundingClientRect():null;
-  printWaitTop=(br&&br.height)?Math.min(Math.max(br.bottom+8,14),innerHeight-80):(typeof msg._y==='number'?Math.min(Math.max(msg._y+28,14),innerHeight-80):14);
+  // Where the wait snackbar sits, decided once at the press and reused for the
+  // whole wait (recomputing it each re-appearance re-pinned it to the top after
+  // the button scrolled away - user finding). On a phone the controls are below
+  // the fold and scroll/rect timing is unreliable, so anchor it to the BOTTOM
+  // (the standard mobile toast spot - always visible, never over the header).
+  // On desktop, put it just under the pressed button, where you acted.
+  if(innerWidth<=520){ printWaitTop='bottom'; }
+  else {
+    const b=cmd==='stop'?$('stopButton'):cmd==='pause'?$('pauseButton'):$('resumeButton');
+    const br=(b&&!b.classList.contains('hidden'))?b.getBoundingClientRect():null;
+    printWaitTop=(br&&br.height)?Math.min(Math.max(br.bottom+8,14),innerHeight-80):(typeof msg._y==='number'?Math.min(Math.max(msg._y+28,14),innerHeight-80):14);
+  }
   renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
@@ -1703,6 +1705,7 @@ const renderPrintWait=()=>{
     if(printWaitCur){
       const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0;
       const e=$('statusMsg'); if(e.textContent===printWaitCur)e.textContent='';
+      e.style.bottom='';   // release the mobile bottom-anchor so normal toasts use their top spot
       printWaitCur='';
       // one-shot closure, transient (the wait is over)
       if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
@@ -1724,12 +1727,11 @@ const renderPrintWait=()=>{
   e.textContent=txt; e.classList.remove('warn');
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
   if(firstShow){
-    // Show it where the press captured (printWaitTop, set in printCommand from
-    // the on-screen button). Reuse that fixed value on every re-appearance so
-    // the requested->stopping gap can't re-pin it to the top after the button
-    // has scrolled away (user finding). Fall back to the top only if the press
-    // never captured a position (e.g. a wait not started from a button press).
-    e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px';
+    // Reuse the position captured at the press (printWaitTop) on every
+    // re-appearance, so the requested->stopping gap can't re-pin it. 'bottom'
+    // is the mobile anchor (bottom of the screen); a number is a desktop top.
+    if(printWaitTop==='bottom'){ e.style.top='auto'; e.style.bottom='20px'; }
+    else { e.style.bottom=''; e.style.top=(typeof printWaitTop==='number'?printWaitTop:14)+'px'; }
     e.style.animation='none';void e.offsetWidth;e.style.animation='';
   }
   printWaitCur=txt;
