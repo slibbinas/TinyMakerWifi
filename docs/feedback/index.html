@@ -56,6 +56,19 @@ button:disabled{opacity:.6;cursor:default}
 .case b{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:16px}
 #alt{display:none;font-size:13.5px}
 a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
+/* 0-7: the submitter's own ticket status (opened via the saved ?t= link). */
+#ticket{display:none;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:18px}
+#ticket h2{font-size:1rem;margin:0 0 4px}
+#ticket .st{font-weight:600}
+#ticket .st.open{color:var(--accent)}
+#ticket .st.done{color:var(--ok)}
+#ticket .vd{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;margin-top:6px;color:var(--text)}
+/* 0-7: the last handled notes - proof the box is read, not a black hole. */
+#recent{display:none;margin-top:22px;border-top:1px solid var(--line);padding-top:12px}
+#recent h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 6px}
+#recent ul{list-style:none;margin:0;padding:0;font-size:13px;color:var(--muted)}
+#recent li{padding:2px 0}
+#recent b{color:var(--accent);font-family:ui-monospace,Consolas,monospace}
 </style>
 </head>
 <body>
@@ -64,6 +77,7 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
     <span>TinyMakerWifi</span>
   </div>
+  <div id="ticket"></div>
   <form id="f">
     <h1>Tell us how it's going</h1>
     <p>What works, what doesn't, what's missing — anything helps. It goes straight to the people building the firmware. No account, ~30 seconds. <span id="fwLine" class="fw"></span></p>
@@ -85,12 +99,57 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
     <p>Your note landed safely. It genuinely shapes what gets built next.</p>
     <p id="caseNo" class="case"></p>
   </div>
+  <div id="recent"></div>
 </div>
 <script>
 (function(){
   var q=new URLSearchParams(location.search);
   var fw=(q.get('fw')||'').slice(0,20),build=(q.get('build')||'').slice(0,20);
   if(fw)document.getElementById('fwLine').textContent='Firmware '+fw+(build?' ('+build+')':'')+' - attached automatically.';
+  // Same origin normally; absolute fallback keeps the page working if opened
+  // straight off gh-pages (same rule as the submit fetch below).
+  var API=location.hostname==='tinymakerwifi.com'?'':'https://tinymakerwifi.com';
+
+  // 0-7 ticket status: the saved ?t= link shows the submitter their own
+  // note's state. Built with textContent - the verdict is maintainer text,
+  // but nothing here should ever be interpreted as HTML.
+  var tok=(q.get('t')||'').trim();
+  if(/^[0-9a-f-]{36}$/.test(tok)){
+    fetch(API+'/feedback/status?t='+encodeURIComponent(tok))
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(s){
+        if(!s||!s.ok)return;
+        var box=document.getElementById('ticket');
+        var h=document.createElement('h2');h.textContent='Your note #'+s.num;
+        var st=document.createElement('div');st.className='st '+(s.handled?'done':'open');
+        st.textContent=s.handled?'✓ Handled':'Open - in the queue';
+        var meta=document.createElement('div');meta.style.cssText='font-size:12.5px;color:var(--muted)';
+        meta.textContent=(s.tag?s.tag+' · ':'')+(s.fw?'fw '+s.fw+' · ':'')+String(s.at||'').slice(0,10);
+        box.appendChild(h);box.appendChild(st);box.appendChild(meta);
+        if(s.verdict){var vd=document.createElement('div');vd.className='vd';vd.textContent=s.verdict;box.appendChild(vd);}
+        box.style.display='block';
+      }).catch(function(){});
+  }
+
+  // 0-7 recently handled: proof the box is read. Empty or failed fetch just
+  // leaves the section hidden - the form must never wait on it.
+  fetch(API+'/feedback/recent')
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(list){
+      if(!list||!list.length)return;
+      var box=document.getElementById('recent');
+      var h=document.createElement('h2');h.textContent='Recently handled';
+      var ul=document.createElement('ul');
+      list.forEach(function(it){
+        var li=document.createElement('li');
+        var b=document.createElement('b');b.textContent='#'+it.num;
+        li.appendChild(b);
+        li.appendChild(document.createTextNode(' · '+(it.tag||'note')+(it.fw?' · fw '+it.fw:'')+(it.at?' · '+it.at:'')));
+        ul.appendChild(li);
+      });
+      box.appendChild(h);box.appendChild(ul);
+      box.style.display='block';
+    }).catch(function(){});
 
   // Arrived from the test checklist's "Send report": it left the report in
   // sessionStorage (same origin) rather than the URL - a wall of text in the
@@ -172,8 +231,22 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
       if(!r.ok)throw new Error('HTTP '+r.status);
       return r.json().catch(function(){return {};});
     }).then(function(d){
-      if(d&&d.id)document.getElementById('caseNo').innerHTML=
-        'Your reference: <b>#'+d.id+'</b><br>Quote it if you follow up — in the group, by mail, anywhere.';
+      if(d&&d.id){
+        var c=document.getElementById('caseNo');
+        c.innerHTML='Your reference: <b>#'+d.id+'</b><br>Quote it if you follow up — in the group, by mail, anywhere.';
+        // 0-7: the status link is the only copy of the token - the server
+        // never shows it again. d.id and d.token both come from our own
+        // worker, but build the link safely anyway.
+        if(d.token&&/^[0-9a-f-]{36}$/.test(d.token)){
+          var a=document.createElement('a');
+          a.href='https://tinymakerwifi.com/feedback/?t='+encodeURIComponent(d.token);
+          a.textContent='Check its status any time with this link';
+          var p=document.createElement('p');p.className='case';
+          p.appendChild(a);
+          p.appendChild(document.createTextNode(' — bookmark it; it also shows our verdict once the note is handled.'));
+          c.parentNode.insertBefore(p,c.nextSibling);
+        }
+      }
       document.getElementById('f').style.display='none';
       document.getElementById('done').style.display='block';
     }).catch(function(){
