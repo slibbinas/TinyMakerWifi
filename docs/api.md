@@ -81,6 +81,7 @@ retries with `action`.
 |---|---|---|
 | `/api/print/start` | POST | start a model (`name=`); a low-resin state answers `{"warning":"low_resin",...}` first — confirm and retry with `force=1` |
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags) |
+| `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |
 
 ## Settings, backup, restore
