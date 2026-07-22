@@ -1768,9 +1768,13 @@ void loop() {
             gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
             gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
             gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
-            gfx2->fillRoundRect(16, 11, 5, 10, 1, RED); 
-            gfx2->fillCircle(18, 25, 2, RED); 
+            gfx2->fillRoundRect(16, 11, 5, 10, 1, RED);
+            gfx2->fillCircle(18, 25, 2, RED);
             gfx2->setTextColor(WHITE);
+            // Pin the font: this box inherits whatever the interrupted screen
+            // used - a larger/other font pushed the text out of the frame
+            // (user finding 07-22).
+            gfx2->setFont(&FreeSans8pt7b);
             gfx2->setTextSize(1);
             gfx2->setCursor(27, 23);
             gfx2->println("Homing error,");

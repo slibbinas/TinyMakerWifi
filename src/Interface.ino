@@ -1051,7 +1051,15 @@ void screenResumePrompt(){
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 18);
   gfx2->print("Resume print?");
-  uiActionHint(110, 6, "Lift");   // UP = raise the plate, then discard (0-2)
+  // UP = raise the plate, then discard (0-2). Position MEASURED from the
+  // title's real bounds - a fixed x overlapped the "?" (user finding 07-22).
+  {
+    int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds("Resume print?", 8, 18, &bx, &by, &bw, &bh);
+    int hx = bx + (int)bw + 8;          // 8 px clear of the title
+    if (hx > 160 - 13 - 3 - 24) hx = 160 - 13 - 3 - 24;  // square+gap+"Lift" label
+    uiActionHint(hx, 6, "Lift");
+  }
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
@@ -1885,9 +1893,10 @@ void screen213(){
       gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
       gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
       gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
-      gfx2->fillRoundRect(16, 11, 5, 10, 1, RED); 
-      gfx2->fillCircle(18, 25, 2, RED); 
+      gfx2->fillRoundRect(16, 11, 5, 10, 1, RED);
+      gfx2->fillCircle(18, 25, 2, RED);
       gfx2->setTextColor(WHITE);
+      gfx2->setFont(&FreeSans8pt7b);   // pin the font (inherited one overflowed the frame)
       gfx2->setTextSize(1);
       gfx2->setCursor(27, 23);
       gfx2->println("Homing error,");
