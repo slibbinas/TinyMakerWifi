@@ -2439,20 +2439,22 @@ void handleApiUpdateInstall() {
 void drawWifiBadge() {
   // Bars end at y10; the menu boxes start at y13, so a clear
   // row always separates the badge from the System-box outline.
-  // Cleared area starts at 99 to cover the dry-run chip slot too.
-  gfx2->fillRect(99, 1, 59, 11, BLACK);
+  // Cleared area starts at 97 to cover the dry-run chip slot too.
+  gfx2->fillRect(97, 1, 61, 11, BLACK);
   if (!uvLedEnabled) {
     // Dry-run "DR" chip (V pick 07-22) - the printer had no on-device hint
-    // that the UV LED is disabled. Chip ends at x116: the cloud's left edge
-    // is x124, so the gap matches the 8 px between the cloud and the bars.
-    gfx2->fillRoundRect(99, 1, 17, 11, 2, ORANGE);
+    // that the UV LED is disabled. Chip ends at x115: the cloud's left edge
+    // is x124, so the gap matches the ~8 px between the cloud and the bars.
+    // Letters drawn separately: the faux-bold strike ate the built-in font's
+    // 1 px letter gap and D+R fused (V finding) - 2 px gap restores it.
+    gfx2->fillRoundRect(97, 1, 19, 11, 2, ORANGE);
     gfx2->setFont(NULL);          // built-in 6x8 font fits the 11 px row
     gfx2->setTextSize(1);
     gfx2->setTextColor(BLACK);
-    gfx2->setCursor(102, 3);
-    gfx2->print("DR");
-    gfx2->setCursor(103, 3);      // 1 px double-strike = faux bold
-    gfx2->print("DR");
+    gfx2->setCursor(100, 3); gfx2->print("D");
+    gfx2->setCursor(101, 3); gfx2->print("D");   // 1 px double-strike = bold
+    gfx2->setCursor(108, 3); gfx2->print("R");
+    gfx2->setCursor(109, 3); gfx2->print("R");
     gfx2->setTextColor(WHITE);
   }
   if (connectEnabled) {
