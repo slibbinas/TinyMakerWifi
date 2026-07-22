@@ -148,6 +148,9 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
     String full = String(path) + "/" + String(name);
     if (isDir) SD.rmdir(full.c_str());
     else SD.remove(full.c_str());
+    #if ENABLE_NETWORK
+    sdJobService();   // keep answering status polls during a long delete (1-32)
+    #endif
     done++;
     if (showProgress && (done % 10 == 0 || done == total)) {
       int w = (int)(136L * done / total);
@@ -219,9 +222,19 @@ void deleteSelectedModel(){
   gfx2->print(foldersel);
   gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
   String path = "/" + String(foldersel_long);
-  // Archives are single files; models are whole layer folders
+  // Archives are single files; models are whole layer folders.
+  // The job flags make the web reject SD-touching requests meanwhile
+  // (printerBusy) and let the delete loop answer status polls (1-32) -
+  // this runs in loop() context, so servicing HTTP here is safe.
+  #if ENABLE_NETWORK
+  sdJobKind = "delete"; sdJobName = String(foldersel_long); sdJobRunning = true;
+  #endif
   bool ok = selIsArchive ? SD.remove(path.c_str())
                          : deleteModelFolder(path.c_str());
+  #if ENABLE_NETWORK
+  sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
+  #endif
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);

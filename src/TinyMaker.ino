@@ -69,6 +69,25 @@ bool startFromResin = false;        // set when Start pressed on resin screen
 bool webStartPrint = false;         // set by the web SD manager after preview validation
 bool webResumePrint = false;        // set by the web dashboard while paused
 
+// Deferred SD jobs (1-32/1-33): a long delete or model import queued by an HTTP
+// handler and executed from loop() (sdJobRun in Network.ino). The single-
+// threaded WebServer cannot answer other clients from inside a handler, so
+// running the work there froze every other browser for the whole operation;
+// from loop() context the job's inner loops can service HTTP (sdJobService).
+// sdJobKind doubles as the busy gate: printerBusy() is true while it is set,
+// so every existing "printer busy" rejection protects the SD job for free.
+// The printer's own menu delete/import set these too - same protection, and
+// the dashboards see what the printer is doing instead of timeouts.
+String sdJobKind = "";              // "" | "delete" | "import"
+String sdJobName = "";              // model the job works on (shown in /api/status)
+String sdJobZipPath = "";           // import: uploaded archive waiting to be unpacked
+ModelImportOptions sdJobImportOptions;  // import: options captured from the upload request
+bool sdJobRunning = false;          // true while the job body executes (enables servicing)
+// 0-28: SD content revision - bumped after any unpack/delete/import so every
+// dashboard reloads its SD list. Defined here (not Network.ino) because
+// Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.
+uint32_t sdRev = 0;
+
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
 // listEntryValid() in Folder.ino.
@@ -823,6 +842,7 @@ void finishRestorePromptBoot() {
 }
 
 bool printerBusy() {
+  if (sdJobKind.length() > 0) return true;   // a deferred delete/import owns the SD
   return screen == 1111 || screen == 1112 || screen == 11111 ||
          screen == 11112 || screen == 11113;
 }
@@ -1155,9 +1175,11 @@ bool prepareSelectedPrintPreview() {
  * @brief Main Loop
  * Handles button inputs and UI state transitions continuously.
  */
-void loop() {  
+void loop() {
   #if ENABLE_NETWORK
   network_loop(); // network uploads - only serviced while printer is idle
+  sdJobRun();     // deferred delete/import - ONLY here (the idle loop), never
+                  // from service windows mid-print or the motor/pause loops
   #endif
   if (handleUiTimeout()) return;
   // -----------------------------------------------------------------------------------

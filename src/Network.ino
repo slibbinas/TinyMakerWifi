@@ -58,7 +58,8 @@ bool webDashboardRuntimeEnabled() {
 // installed/removed). Rides along in /api/status so every open dashboard
 // notices out-of-band changes (PrusaSlicer upload, another device, the
 // printer itself) and reloads its list instead of waiting for a page reload.
-uint32_t sdRev = 0;
+// (sdRev itself lives in TinyMaker.ino - Folder.ino bumps it too, and the
+// .ino concatenation order is TinyMaker, Folder, ..., Network.)
 
 // Web control gate (since 0.12.0 the dashboard is view-only when it is off):
 // state-changing browser/API actions - print control, SD delete, config,
@@ -255,9 +256,6 @@ void finishUpload() {
     return;
   }
 
-  bool ok = false;
-  String error = "unpack failed";
-  ModelImportResult result;
   if (uploadOk) {
     String dest = "/" + modelName;
     bool existingPath = sdPathExists(dest);
@@ -299,36 +297,29 @@ void finishUpload() {
       options.resinMl = server.arg("resin_ml").toDouble();
     }
 
-    ok = importZipModel(uploadPath.c_str(), modelName, options, result, error);
-    SD.remove(uploadPath.c_str()); // free SD space, keep browser list clean
-  }
-  if (ok) {
-    sdRev++;  // 0-28: a new model landed - every dashboard refreshes its list
-    String out = "{\"ok\":true,\"done\":true,\"name\":\"";
-    out += jsonEscape(result.finalName);
-    out += "\",\"renamed\":";
-    out += result.renamed ? "true" : "false";
-    out += ",\"sourceLayers\":";
-    out += String(result.summary.sourceLayers);
-    out += ",\"layers\":";
-    out += String(result.summary.sourceLayers);
-    out += ",\"printLayers\":";
-    out += String(result.summary.printLayers);
-    out += ",\"heightMm\":";
-    out += String(result.summary.heightMm, 2);
-    out += "}";
+    // Deferred (1-33): the unpack takes minutes and used to run right here,
+    // inside the handler - freezing every other browser and leaving the
+    // uploader guessing from timeouts. Queue it for the idle loop (sdJobRun):
+    // answer the client now, dashboards follow via /api/status sdJob and the
+    // finished model announces itself through sdRev (0-28). The slicer's
+    // "sent" therefore appears while the printer is still unpacking - the
+    // model shows up in the list when the import lands.
+    sdJobImportOptions = options;
+    sdJobZipPath = uploadPath;
+    sdJobName = modelName;
+    sdJobKind = "import";   // set last - this flips printerBusy() on
+    uploadOk = false;
+    String out = "{\"ok\":true,\"queued\":true,\"name\":\"";
+    out += jsonEscape(modelName);
+    out += "\"}";
     server.send(201, "application/json", out);
-    netMessage("Model ready:", result.finalName.c_str());
-    delay(1500);
-  } else {
-    DBGLN("Unpack FAILED");
-    server.send(500, "application/json", "{\"error\":\"" + jsonEscape(error) + "\"}");
-    netMessage("Upload FAILED", modelName.c_str());
-    delay(1500);
+    return;   // no screen1() - the job draws its progress and restores the UI
   }
+  DBGLN("Upload finished with nothing to import");
+  server.send(500, "application/json", "{\"error\":\"upload failed\"}");
+  netMessage("Upload FAILED", modelName.c_str());
+  delay(1500);
   // Redraw UI - upload messages overwrote whatever screen was shown.
-  // Returning to the main menu keeps the 'screen' state machine consistent;
-  // the new model appears in Print menu (folder list is re-read on entry).
   screen1();
 }
 
@@ -695,6 +686,8 @@ void handleUpdateFinish() {
 // ===================================================================================
 
 String printerStateText() {
+  if (sdJobKind == "delete") return "Deleting model";
+  if (sdJobKind == "import") return "Importing model";
   if (screen == 1111 || screen == 1112 || screen == 11111 || screen == 11112 || screen == 11113) {
     String prefix = uvLedEnabled ? "" : "Testing - ";
     switch (current_state) {
@@ -1194,12 +1187,14 @@ bool deleteSdItem(const String &requestedName, String &error) {
 
   bool ok;
   if (isDir) {
-    // Same screen the printer-menu delete shows. Without it a web delete left
-    // the LCD frozen on whatever was displayed, buttons dead (delete blocks
-    // loop() by design) - to anyone at the printer it looked hung, not busy.
-    netProgressStart("Deleting:", name.c_str());
-    ok = deleteModelFolder(path.c_str(), true);
-    screen1();   // the progress screen overwrote whatever was shown (upload-path precedent)
+    // Deferred (1-32): a folder delete takes tens of seconds and used to run
+    // right here, inside the handler - freezing every other browser (the
+    // single-threaded server can't answer anyone mid-handler). Queue it for
+    // the idle loop instead (sdJobRun): the handler answers now, the
+    // dashboards follow the job via /api/status sdJob fields.
+    sdJobName = name;
+    sdJobKind = "delete";   // set last - this flips printerBusy() on
+    return true;
   } else {
     ok = SD.remove(path.c_str());   // archives are single files - near-instant
   }
@@ -1267,7 +1262,12 @@ void handleApiFileDelete() {
     return;
   }
 
-  sdRev++;  // 0-28
+  if (sdJobKind == "delete") {
+    // Folder queued for the idle loop - the dashboard tracks it via status.
+    sendApiOk("\"queued\":true");
+    return;
+  }
+  sdRev++;  // 0-28 (single-file path completed synchronously above)
   sendApiOk("\"deleted\":true");
 }
 
@@ -1664,6 +1664,10 @@ void handleApiConfigDryRun() {
 }
 
 bool requestPrintPause(String &error) {
+  if (sdJobKind.length() > 0) {   // "busy" here is an SD job, not a print
+    error = "printer is not printing";
+    return false;
+  }
   if (!printerBusy()) {
     error = "printer is not printing";
     return false;
@@ -1689,6 +1693,10 @@ bool requestPrintPause(String &error) {
 }
 
 bool requestPrintResume(String &error) {
+  if (sdJobKind.length() > 0) {   // "busy" here is an SD job, not a print
+    error = "printer is not paused";
+    return false;
+  }
   if (printerBusy() && current_state == 7) {
     return true;
   }
@@ -1704,6 +1712,10 @@ bool requestPrintResume(String &error) {
 }
 
 bool requestPrintStop(String &error) {
+  if (sdJobKind.length() > 0) {   // "busy" here is an SD job, not a print
+    error = "printer is not printing";
+    return false;
+  }
   if (!printerBusy()) {
     error = "printer is not printing";
     return false;
@@ -2049,6 +2061,13 @@ void handleApiStatus() {
   out += jsonEscape(printerStateText());
   out += "\",\"stateCode\":";
   out += String(current_state);
+  // 1-32/1-33: what the SD job (if any) is doing - lets EVERY dashboard show
+  // "Deleting/Importing X" instead of the presser knowing and observers guessing.
+  out += ",\"sdJob\":\"";
+  out += sdJobKind;
+  out += "\",\"sdJobName\":\"";
+  out += jsonEscape(sdJobName);
+  out += "\"";
   // Phase countdown - curing/lifting/dropping mid-print, plus the final lift
   // (state 4 Canceling / 8 Finished) and the pause/resume travels (state 5
   // Pausing / 7 Resuming), whose durations are computed from distance and
@@ -3030,6 +3049,58 @@ void network_setup() {
 void network_service_http() {
   if (!networkRuntimeEnabled()) return;
   server.handleClient();
+}
+
+// Deferred-SD-job HTTP servicing (1-32/1-33): called from the delete/unpack
+// inner loops so other browsers keep getting status answers during a long SD
+// job. Gated on sdJobRunning - the flag is set only in loop()-context callers
+// (sdJobRun, the printer's own menu delete/import), never inside an HTTP
+// handler, where nested handleClient would corrupt the pending response.
+// While it runs, printerBusy() is true (sdJobKind set), so every SD-touching
+// endpoint answers its usual 409 instead of racing the job.
+void sdJobService() {
+  if (!sdJobRunning) return;
+  static unsigned long svcAt = 0;
+  if (millis() - svcAt < 200) return;
+  svcAt = millis();
+  network_service_http();
+}
+
+// Executes a queued web delete/import. Called ONLY from the idle loop() -
+// never from service windows mid-print or the motor/pause loops - so a job
+// can't interleave with printing or manual moves. The job still blocks the
+// printer UI like the old in-handler version did (by design - the SD must
+// not be shared), but HTTP stays answered via sdJobService above.
+void sdJobRun() {
+  if (sdJobKind.length() == 0 || sdJobRunning) return;
+  uiWakeScreen();   // web-started work must be visible on the printer
+  sdJobRunning = true;
+  if (sdJobKind == "delete") {
+    String path = "/" + sdJobName;
+    // Same screen the printer-menu delete shows - without it the LCD looked
+    // frozen to anyone at the printer (delete blocks the UI by design).
+    netProgressStart("Deleting:", sdJobName.c_str());
+    bool ok = deleteModelFolder(path.c_str(), true);
+    if (ok) sdRev++;  // 0-28
+    DBG("SD job delete %s: %s\n", sdJobName.c_str(), ok ? "ok" : "FAILED");
+  } else if (sdJobKind == "import") {
+    ModelImportResult result;
+    String error;
+    bool ok = importZipModel(sdJobZipPath.c_str(), sdJobName, sdJobImportOptions,
+                             result, error);
+    SD.remove(sdJobZipPath.c_str());  // free SD space, keep browser list clean
+    if (ok) {
+      sdRev++;  // 0-28: every dashboard refreshes its list and names the model
+      netMessage("Model ready:", result.finalName.c_str());
+    } else {
+      DBGLN("SD job import FAILED");
+      netMessage("Import FAILED", sdJobName.c_str());
+    }
+    delay(1500);
+  }
+  sdJobRunning = false;
+  sdJobKind = ""; sdJobName = ""; sdJobZipPath = "";
+  screen1();   // the progress screen overwrote whatever was shown
 }
 
 void network_loop() {

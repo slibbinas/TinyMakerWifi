@@ -627,6 +627,9 @@ const reloadIfFirmwareChanged=s=>{
   const live=String(s.firmwareVersion||'').trim(),page=pageFirmwareVersion();
   const liveB=String(s.firmwareBuild||'').trim(),pageB=($('fwBuild').dataset.build||'').trim();
   if((!live||!page||live===page)&&(!liveB||!pageB||liveB===pageB))return false;
+  // 1-35: an OBSERVER device lands here too (someone else flashed the
+  // printer) - leave a note for the fresh page so the reload explains itself.
+  try{sessionStorage.setItem('tmFwUpd',live+(liveB?' ('+liveB+')':''));}catch(err){}
   location.replace('/?fw='+encodeURIComponent(live)+'&r='+Date.now());
   return true;
 };
@@ -835,6 +838,9 @@ const openView=view=>{
 
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
+    // 1-32/1-33: busy may mean an SD job (delete/import), not a print - the
+    // print UI must not appear then (its Stop/Pause would target nothing).
+    const sdJob=s.sdJob||'', busyPrint=!!s.busy&&!sdJob;
     if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
     // Page ships version-agnostic (gzipped static shell); fill header from status.
     if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
@@ -850,7 +856,12 @@ const applyStatus=s=>{
     if(pendingPrintCmd&&cmdConfirmed(pendingPrintCmd))pendingPrintCmd='';
     if(printWaitSent&&cmdConfirmed(printWaitSent))printWaitSent='';
     phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
-    renderStateValue(); renderPrintWait(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    renderStateValue(); renderPrintWait(); renderSdJob(s);
+    // 1-34: the low-resin auto-pause deserves a loud one-shot, not just the
+    // State line - the printer is waiting for a human with a resin bottle.
+    if(s.stateCode===10&&applyStatus._sc!==10)msg('Print paused - refill the resin vat, then press Resume.',true);
+    applyStatus._sc=s.stateCode;
+    setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
     // 0-30 reset-reason telemetry: surface a NEW mid-print death once (the
     // record persists on the printer, so remember what was already shown).
     if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
@@ -885,7 +896,7 @@ const applyStatus=s=>{
     show('dryRunBanner',!!s.dryRun);
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
-    ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,s.busy));
+    ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,busyPrint));
     // Keep the SD manager card visible mid-print (user preference over the
     // 0.13.4 hide): the last-known list stays on screen, locked - no fresh
     // /api/files calls while printing (SD is busy feeding layers).
@@ -894,8 +905,8 @@ const applyStatus=s=>{
     // 3D print progress: reuses slices prefetched before the start (or by an
     // earlier Preview 3D) - zero printer traffic while printing. A page
     // refresh restores them from localStorage.
-    if(s.busy&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
-    if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
+    if(busyPrint&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
+    if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
@@ -908,7 +919,7 @@ const applyStatus=s=>{
       // when nothing is previewed. Busy without slices (print started on the
       // printer): drop a stale idle preview instead of showing a wrong model.
       show('printPreviewCard',true);
-      if(!s.busy){
+      if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
         show('prevNote',false);
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
@@ -958,8 +969,8 @@ const applyStatus=s=>{
     // One line, not three: the card used to stack "Uploads and SD actions are
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
-    if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
-    if(was!==s.busy){loadFiles();loadConfig();loadBootAnims();}
+    if(sdJob){$('uploadHint').textContent=(sdJob==='delete'?'The printer is deleting a model':'The printer is importing a model')+' - SD actions come back when it finishes.';} else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
+    if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
   busy:true,paused:false,pausing:false,resuming:false,stopping:false,dryRun:statusData&&statusData.dryRun,
@@ -981,12 +992,12 @@ const refreshStatus=async()=>{
     statusFailCount=0;
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
-    if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&(!msg._until||Date.now()>=msg._until))msg('',false);
+    if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&!sdJobCur&&(!msg._until||Date.now()>=msg._until))msg('',false);
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
     if(deleteBusy)msg('Deleting - the printer is busy removing files...',false,true);
-    else if(statusData&&statusData.busy&&!printWaitCur&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
+    else if(statusData&&statusData.busy&&!printWaitCur&&!sdJobCur&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
     // out-of-band import (PrusaSlicer upload) blocks the whole web server
@@ -1661,7 +1672,12 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while, the printer answers when done...',false,true);try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...',false,true);try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
+  // Folders come back "queued" (1-32): the printer deletes from its idle loop
+  // and the status-driven job snackbar (renderSdJob) takes over on every
+  // device; its closure announces "Deleted X." and refreshes the list.
+  if(r&&r.queued){refreshStatus();return;}
+  msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
@@ -1747,6 +1763,45 @@ const renderPrintWait=()=>{
   snackCentre(e);
   if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
   printWaitCur=txt;
+};
+// 1-32/1-33: the printer's long SD work (a web delete, a model import - from
+// any device or the slicer) is announced by STATUS, so every connected browser
+// shows the same sticky snackbar - the presser, observers and a cold refresh
+// alike - at the shared coordinate-less centre spot. Clears itself and
+// announces the result when the job ends.
+let sdJobCur='',sdJobLast='',sdJobLastName='';
+const renderSdJob=s=>{
+  const job=(s&&s.sdJob)||'',name=(s&&s.sdJobName)||'';
+  const e=$('statusMsg');
+  if(!job){
+    if(sdJobCur){
+      if(e.textContent===sdJobCur){e.textContent='';e.style.top='';}
+      sdJobCur='';
+      // one-shot closure - the job just finished
+      if(sdJobLast==='delete'){
+        msg('Deleted '+sdJobLastName+'.');
+        if(localStorage.getItem('dashPreviewModel')===sdJobLastName)localStorage.removeItem('dashPreviewModel');
+        if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
+        loadFiles();
+      }else if(sdJobLast==='import'){
+        msg('Model imported: '+sdJobLastName+'.');
+        loadFiles();
+      }
+      sdJobLast='';sdJobLastName='';
+    }
+    return;
+  }
+  sdJobLast=job;sdJobLastName=name;
+  const txt=job==='delete'
+    ?('Deleting '+name+' - the printer is busy removing files, other SD actions wait...')
+    :('Importing '+name+' - unpacking to the SD card can take a few minutes...');
+  if(txt===sdJobCur&&e.textContent===txt)return;
+  const firstShow=!sdJobCur;
+  e.textContent=txt;e.classList.remove('warn');
+  clearTimeout(msg._t);msg._until=0;   // sticky while the job runs
+  snackCentre(e);
+  if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
+  sdJobCur=txt;
 };
 let lastPollOkAt=0;
 const tickLocalStatus=()=>{
@@ -1890,7 +1945,12 @@ const syncUploadGate=()=>{
 // even when the user picks the same file again.
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
+  // "queued" (1-33): the upload landed and the printer imports it from its idle
+  // loop - the status-driven snackbar covers the wait, the finished model
+  // announces itself via sdRev. Older sync answers keep the previous handling.
+  if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is importing it now.';}
+  else{$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
@@ -2104,5 +2164,7 @@ $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)
 // the card, and both used to start at once - so on a page opened mid-print the
 // restore raced the first status and usually won, with no statusData to check.
 openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();checkPublishedVersion();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+// 1-35: the pre-reload page left a note that the firmware changed under us.
+try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.removeItem('tmFwUpd');msg('Firmware updated - now running '+fwUpd+'.');}}catch(err){}
 </script>
 </main></body></html>
