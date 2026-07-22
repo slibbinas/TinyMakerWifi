@@ -1673,9 +1673,19 @@ const renderPrintWait=()=>{
   // toast) wiped it from under us - that clobber-then-restore was the flicker.
   if(txt===printWaitCur&&e.textContent===txt)return;
   const firstShow=!printWaitCur;   // animate only when the wait first appears
-  e.textContent=txt; e.classList.remove('warn'); e.style.top='14px';
+  e.textContent=txt; e.classList.remove('warn');
   clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
-  if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
+  if(firstShow){
+    // Show it by the button that triggered it, not pinned to the window top -
+    // the app's convention (toasts appear where you acted). Position once, on
+    // first appearance, so the countdown updates don't make it jump; clamp to
+    // the viewport, and fall back to the last-click Y if the button is off it.
+    const bid=info.v.slice(0,3)==='Sto'?'stopButton':info.v.slice(0,3)==='Pau'?'pauseButton':'resumeButton';
+    const b=$(bid), r=(b&&!b.classList.contains('hidden'))?b.getBoundingClientRect():null;
+    const y=(r&&r.height)?r.bottom+8:(typeof msg._y==='number'?msg._y+28:14);
+    e.style.top=Math.min(Math.max(y,14),innerHeight-80)+'px';
+    e.style.animation='none';void e.offsetWidth;e.style.animation='';
+  }
   printWaitCur=txt;
 };
 let lastPollOkAt=0;
