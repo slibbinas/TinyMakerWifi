@@ -152,7 +152,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.15.8</span>
+  <span class="badge">User Manual · v0.16.0</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -341,6 +341,15 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <img class="shot" src="images/dashboard-idle.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
   <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear — the printer serves plain HTTP on your LAN — but the shortcut works the same.)</p>
+
+  <h3>If the power drops mid-print</h3>
+  <p>The printer writes a tiny checkpoint to the SD card as it goes, so a power cut is recoverable. When it boots back up it shows <b>Power restored</b> with the model name and the layer it reached, and three choices:</p>
+  <ul>
+    <li><b>Resume</b> — the plate goes back down (no homing, which would drive the part into the vat) and the print continues from where it stopped.</li>
+    <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this peels it free and raises it, then clears the checkpoint.</li>
+    <li><b>Discard</b> — forget the interrupted print and boot normally.</li>
+  </ul>
+  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust. <span class="note">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</span></p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
   <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
@@ -588,7 +597,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.15.8 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.16.0 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>

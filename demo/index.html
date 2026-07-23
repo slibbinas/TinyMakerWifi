@@ -22,7 +22,7 @@ try{window.localStorage.getItem('x');}catch(e){
 // 'ok' is the browser's integrity mark since 0.15.3: api() rejects any 200
 // whose JSON lacks it as a truncated body, so a shim without it fails the
 // whole demo at the first poll.
-var STATUS={ok:true,firmwareVersion:'0.15.8',firmwareBuild:'demo',busy:false,paused:false,
+var STATUS={ok:true,firmwareVersion:'0.16.0',firmwareBuild:'demo',busy:false,paused:false,
   pausing:false,resuming:false,stopping:false,dryRun:false,canPause:false,
   canResume:false,canStop:false,state:'Idle',stateCode:0,layerHeight:0.10,
   wifiRssi:-47,wifiText:'-47 dBm',ip:'tinymaker.demo',sdReady:true,sdText:'Ready',
@@ -277,18 +277,30 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 })();
 
-</script><link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%232fbf4f'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>"><link rel='manifest' href='/manifest.json'><meta name='theme-color' content='#1c1c1e'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black'><link rel='apple-touch-icon' href='/pwa-icon-192.png'><script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script><style>:root{color-scheme:dark;--bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--tile:#202024;--pv:#151517;--line:#3a3a3f;--line2:#555;--line3:#444;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--btnsec:#3c3c42;--btnsec-t:#eee;--danger:#7b2f2f;--dis:#555;--dis-t:#aaa;--overlay:rgba(20,20,22,.93);--dim:rgba(20,20,22,.6);--toast:#2e2e33;--toast-t:#fff;--warncol:#ffb15f;--banner:#3a2818;--warnbg:#3a2320;--subh:#98938a;--fwb:#777;--wbar:#4a4a50}[data-theme=light]{color-scheme:light;--bg:#eceef1;--wrap:#f8f9fa;--card:#fff;--tile:#f4f5f7;--pv:#e8eaee;--line:#d9dbe0;--line2:#c2c6cd;--line3:#d0d3d8;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--btnsec:#dcdfe4;--btnsec-t:#26282c;--danger:#b23434;--dis:#c9ccd2;--dis-t:#82878f;--overlay:rgba(243,244,246,.93);--dim:rgba(100,104,112,.45);--toast:#fff;--toast-t:#1f2124;--warncol:#9a5b00;--banner:#fff1e0;--warnbg:#fdecec;--subh:#7a736a;--fwb:#9aa0a8;--wbar:#c8ccd2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}.wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid var(--accent);border-radius:14px;background:var(--wrap)}.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}h1{margin:0;font-size:24px;color:var(--accent)}h2{font-size:17px;margin:0 0 12px;color:var(--text)}.fw{font-size:13px;color:var(--muted)}#themeBtn,#gsBtn{color:var(--muted);font-size:16px;text-decoration:none;margin-left:6px}#themeBtn:hover,#gsBtn:hover{color:var(--text);text-decoration:none}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.file.active{box-shadow:inset 3px 0 0 var(--accent)}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}.secondaryBtn{background:var(--btnsec);color:var(--btnsec-t)}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}.button.secondary{background:var(--btnsec);color:var(--btnsec-t)}.button.danger,button.danger{background:var(--danger);color:#fff}.grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}.updOverlay{position:fixed;inset:0;z-index:99;background:var(--overlay);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}.updOverlay.on{display:flex}.updOverlay h2{color:var(--accent)}.modal{position:fixed;inset:0;z-index:80;background:var(--dim);display:flex;align-items:center;justify-content:center;padding:20px}.modal.hidden{display:none}.modalCard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}.modalText{color:var(--text);font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}.modalBtns{display:flex;gap:10px}.modalBtns button,.modalBtns .button.secondary{margin-top:0;flex:1;width:auto;padding:12px 14px;font-size:15px}.fwbuild{color:var(--fwb);font-size:11px;font-family:monospace}.fwbuild:empty{display:none}.subhead{grid-column:1/-1;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--subh)}.pwWrap{position:relative;display:block}.pwWrap input{width:100%;padding-right:40px}.eyeBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:auto;background:transparent;border:0;padding:4px 8px;margin:0;font-size:16px;cursor:pointer;color:var(--muted)}.eyeBtn:hover{color:var(--text)}.updSpin{width:34px;height:34px;border:4px solid var(--btnsec);border-top-color:var(--accent);border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}.warn{color:var(--warncol)}.hidden{display:none}.hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:92%;z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 0 16px;overflow-x:auto}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
-<div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'>0.15.8</span><span id='fwBuild' class='fwbuild' data-build="demo"></span> · <a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a><a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div></div>
+</script><link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%232fbf4f'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>"><link rel='manifest' href='/manifest.json'><meta name='theme-color' content='#1c1c1e'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black'><link rel='apple-touch-icon' href='/pwa-icon-192.png'><script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script><style>:root{color-scheme:dark;--bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--tile:#202024;--pv:#151517;--line:#3a3a3f;--line2:#555;--line3:#444;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--btnsec:#3c3c42;--btnsec-t:#eee;--danger:#7b2f2f;--dis:#555;--dis-t:#aaa;--overlay:rgba(20,20,22,.93);--dim:rgba(20,20,22,.6);--toast:#2e2e33;--toast-t:#fff;--warncol:#ffb15f;--banner:#3a2818;--warnbg:#3a2320;--subh:#98938a;--fwb:#777;--wbar:#4a4a50}[data-theme=light]{color-scheme:light;--bg:#eceef1;--wrap:#f8f9fa;--card:#fff;--tile:#f4f5f7;--pv:#151517;--line:#d9dbe0;--line2:#c2c6cd;--line3:#d0d3d8;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--btnsec:#dcdfe4;--btnsec-t:#26282c;--danger:#b23434;--dis:#c9ccd2;--dis-t:#82878f;--overlay:rgba(243,244,246,.93);--dim:rgba(100,104,112,.45);--toast:#fff;--toast-t:#1f2124;--warncol:#9a5b00;--banner:#fff1e0;--warnbg:#fdecec;--subh:#7a736a;--fwb:#9aa0a8;--wbar:#c8ccd2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}.wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid var(--accent);border-radius:14px;background:var(--wrap)}.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}h1{margin:0;font-size:24px;color:var(--accent)}h2{font-size:17px;margin:0 0 12px;color:var(--text)}.fw{font-size:13px;color:var(--muted)}#themeBtn,#gsBtn{color:var(--muted);font-size:16px;text-decoration:none;margin-left:6px}#themeBtn:hover,#gsBtn:hover{color:var(--text);text-decoration:none}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--link);color:#fff;font-size:11px;font-weight:600;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}.button.secondary{background:var(--btnsec);color:var(--btnsec-t)}.button.danger,button.danger{background:var(--danger);color:#fff}.grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}.updOverlay{position:fixed;inset:0;z-index:99;background:var(--overlay);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}.updOverlay.on{display:flex}.updOverlay h2{color:var(--accent)}.modal{position:fixed;inset:0;z-index:80;background:var(--dim);display:flex;align-items:center;justify-content:center;padding:20px}.modal.hidden{display:none}.modalCard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}.modalText{color:var(--text);font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}.modalBtns{display:flex;gap:10px}.modalBtns button,.modalBtns .button.secondary{margin-top:0;flex:1;width:auto;padding:12px 14px;font-size:15px}.fwbuild{color:var(--fwb);font-size:11px;font-family:monospace}.fwbuild:empty{display:none}.subhead{grid-column:1/-1;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--subh)}.pwWrap{position:relative;display:block}.pwWrap input{width:100%;padding-right:40px}.eyeBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:auto;background:transparent;border:0;padding:4px 8px;margin:0;font-size:16px;cursor:pointer;color:var(--muted)}.eyeBtn:hover{color:var(--text)}.updSpin{width:34px;height:34px;border:4px solid var(--btnsec);border-top-color:var(--accent);border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}.warn{color:var(--warncol)}.hidden{display:none}.updDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}.updDot.hidden{display:none}.cfgNav a .updDot{margin-left:5px}.hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:92%;z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
+<div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</h1><div class='fw'>Firmware <span id='fwVersion'></span><span id='fwBuild' class='fwbuild' data-build=""></span> · <a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a><a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div></div>
+
+<section id='resumeBanner' class='card banner hidden'>
+  <strong>Power was restored - a print was interrupted.</strong>
+  <div id='resumeBannerInfo'></div>
+  <div class='hint'>These work only while the printer's own prompt is still on its screen - any button
+  press at the printer takes over.</div>
+  <div style='display:flex;gap:8px;flex-wrap:wrap;margin-top:8px'>
+    <button id='resumeAcceptButton' class='button' type='button'>Resume print</button>
+    <button id='resumeLiftButton' class='button secondary' type='button'>Lift plate only</button>
+    <button id='resumeDiscardButton' class='button secondary' type='button'>Discard</button>
+  </div>
+</section>
 
 <section id='dryRunBanner' class='card banner hidden'>
   <strong>Dry run mode enabled.</strong>
-  <div>Prints will not print, only for testing purposes.</div>
+  <div>Prints will not print, only for testing purposes. (Also togglable in Settings &rarr; Print.)</div>
   <button id='disableDryRunButton' class='button secondary' type='button'>Press here to disable</button>
 </section>
 
 <section id='webControlBanner' class='card banner hidden'>
   <strong>Web control is off - view only.</strong>
-  <div>All actions are disabled: print controls, SD changes, uploads, settings and firmware updates. Monitoring and "Send to printer" from the slicer keep working. Enable: printer &rarr; System &rarr; Advanced.</div>
+  <div>All actions are disabled: print controls, SD changes, uploads, settings and firmware updates. Monitoring and "Send to printer" from the slicer keep working. Enable: printer &rarr; System &rarr; Advanced &rarr; Network.</div>
 </section>
 
 <div id='updOverlay' class='updOverlay'><div class='updSpin'></div><h2>Updating firmware</h2><div class='hint'>Do not power off the printer.<br>This page reloads automatically when it is back.</div></div>
@@ -299,9 +311,9 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <div class='toolbar'>
   <button id='homeViewButton' type='button' class='active'>Dashboard</button>
-  <button id='connectViewButton' type='button' class='hidden'>Connect</button>
-  <button id='configViewButton' type='button'>Settings</button>
-  <button id='updateViewButton' type='button'>Update</button>
+  <button id='connectViewButton' type='button' class='hidden' title='TinyMaker Connect is in preview - under active development'>Connect<span class='navTag'>preview</span></button>
+  <button id='configViewButton' type='button'>Settings<span id='cfgBtnDot' class='updDot hidden'></span></button>
+  <button id='statsViewButton' type='button'>Statistics</button>
 </div>
 
 <div id='statusMsg' class='hint'></div>
@@ -326,6 +338,14 @@ document.addEventListener('DOMContentLoaded',function(){
       <div><div class='label'>Lifetime print time</div><div id='lifetimeValue' class='value'>-</div></div>
       <div><div class='label'>UV LED time</div><div id='uvLedValue' class='value'>-</div></div>
       <div><div class='label'>Resin left (est.)</div><div id='vatValue' class='value'>-</div></div>
+      <!-- 0-26: the previewed model's identity (idle only). It used to sit as
+           one crowded line under the preview card; the status panel already
+           has row mechanics, so it reads like everything else here. The
+           print-time boxes below take over the moment a print starts. -->
+      <div id='modelNameBox' class='hidden'><div class='label'>Model</div><div id='modelNameValue' class='value'>-</div></div>
+      <div id='modelLayersBox' class='hidden'><div class='label'>Layers</div><div id='modelLayersValue' class='value'>-</div></div>
+      <div id='modelTimeBox' class='hidden'><div class='label'>Est. time</div><div id='modelTimeValue' class='value'>-</div></div>
+      <div id='modelResinBox' class='hidden'><div class='label'>Est. resin</div><div id='modelResinValue' class='value'>-</div></div>
       <!-- Print-time boxes pair up with the rows above: Resin (this print)
            lands next to Resin left, the two clocks share a row, Layer closes
            the card (user request). -->
@@ -348,11 +368,16 @@ document.addEventListener('DOMContentLoaded',function(){
   </section>
 
   <section id='printPreviewCard' class='card'>
-    <h2 id='printPreviewTitle'>Model preview</h2>
+    <div class='cardHead'><h2 id='printPreviewTitle'>Model preview</h2>
+      <button id='dashShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
     <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
-    <div id='dashModelInfo' class='hint hidden'></div>
-    <button id='dashShareButton' class='secondaryBtn hidden' type='button'>Share model</button>
+    <!-- 0-26: the info line moved to the status panel rows; the card keeps
+         only the 3D view with its small name overlay.
+         prevNote: shown on a cold device mid-print - the RAM snapshot is the
+         model image, not live layer-by-layer 3D (that needs slices this
+         browser doesn't have), so say so plainly under a "Printing NN%" bar. -->
+    <div id='prevNote' class='hint hidden' style='text-align:center;margin-top:6px'></div>
   </section>
   </div>
 
@@ -368,7 +393,7 @@ document.addEventListener('DOMContentLoaded',function(){
     <div class='cardHead'><h2>SD manager</h2>
       <form id='uploadForm' style='margin:0'>
         <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
-        <button id='uploadButton' class='small secondaryBtn' type='button' style='margin-top:0'>Upload&hellip;</button>
+        <button id='uploadButton' class='small button secondary' type='button' style='margin-top:0'>Upload&hellip;</button>
       </form>
     </div>
     <div id='uploadHint' class='hint' style='margin:2px 0 10px'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
@@ -382,7 +407,8 @@ document.addEventListener('DOMContentLoaded',function(){
 </div>
 
 <section id='modelPanel' class='card hidden'>
-  <h2 id='modelTitle'>Model</h2>
+  <div class='cardHead'><h2 id='modelTitle'>Model</h2>
+    <button id='modelShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
   <div class='grid'>
     <div><div class='label'>Layers</div><div id='modelLayers' class='value'>-</div></div>
     <div id='modelPrintLayersBox' class='hidden'><div class='label'>Print layers</div><div id='modelPrintLayers' class='value'>-</div></div>
@@ -393,7 +419,6 @@ document.addEventListener('DOMContentLoaded',function(){
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div id='modelActions' class='actions'>
     <button id='modelBackButton' class='button secondary spanAll' type='button'>Back to dashboard</button>
-    <button id='modelShareButton' class='secondaryBtn spanAll hidden' type='button'>Share model</button>
     <button id='modelStartButton' class='spanAll' type='button'>Start print</button>
   </div>
   <div id='previewWrap' class='hidden' style='margin-top:12px'>
@@ -408,6 +433,10 @@ document.addEventListener('DOMContentLoaded',function(){
      menu (user finding). Dropping it also stops us framing Brian's UI - the
      direction the Connect offload spec is heading anyway. -->
 <section id='connectView' class='hidden'>
+  <!-- 0-24: Connect is flagged "preview" on its own toolbar button (wording
+       settled with V: preview, not beta), so the marker is always visible and
+       clearly scoped to the Connect section - and never touched by Brian's
+       hosted deploys, which only rewrite connectHostedRoot's innerHTML. -->
   <div id='connectHostedRoot'>
     <h2>TinyMaker Connect</h2>
     <div id='connectHostedStatus' class='hint'>Loading Connect from the configured server...</div>
@@ -420,7 +449,10 @@ document.addEventListener('DOMContentLoaded',function(){
     <a href='#' data-pane='network'>Network</a>
     <a href='#' data-pane='notif'>Notifications</a>
     <a href='#' data-pane='boot'>Boot animation</a>
+    <span class='cfgBreak'></span>
     <a href='#' data-pane='backup'>Backup</a>
+    <a href='#' data-pane='update'>Update<span id='updNavDot' class='updDot hidden'></span></a>
+    <a href='#' data-pane='about'>About</a>
   </nav>
   <form id='configForm'>
   <div id='pane-print' class='cfgPane'>
@@ -568,14 +600,16 @@ document.addEventListener('DOMContentLoaded',function(){
   <button id='configMqttResetButton' class='button secondary hidden' type='button'>Reset MQTT</button>
   </div>
   </div>
-  <div id='configHint' class='hint'>Config locks automatically while printing.</div>
-</section>
-
-<section id='updateView' class='card hidden'>
+  <div id='pane-update' class='cfgPane hidden'>
+  <section id='updateView' class='card'>
   <h2>Firmware update</h2>
   <div class='grid'>
-    <div><div class='label'>Installed</div><div id='updInstalled' class='value'>-</div></div>
-    <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div></div>
+    <!-- 0-20: each version number links to its GitHub Release notes. The link
+         only shows for versions present in the gh-pages manifest (release.py
+         creates the Release together with the manifest entry) - old tags and
+         dev builds have no Release page to point at. -->
+    <div><div class='label'>Installed</div><div id='updInstalled' class='value'>-</div><a id='updInstalledNotes' class='relNotes hidden' href='#' target='_blank' rel='noopener'>&#128221; release notes &#8599;</a></div>
+    <div><div id='updLatestLabel' class='label'>Latest</div><div id='updLatest' class='value'>-</div><a id='updLatestNotes' class='relNotes hidden' href='#' target='_blank' rel='noopener'>&#128221; release notes &#8599;</a></div>
   </div>
   <!-- Full width on purpose: these are sentences, not values. Tried as two
        columns (they sit under the two-column Installed/Stable pair) and both
@@ -583,7 +617,6 @@ document.addEventListener('DOMContentLoaded',function(){
        reverted). The duplicate "Updates are blocked" note is gone either way,
        which is what actually shortened this area. -->
   <div id='updMsg' class='hint'>Checking...</div>
-  <div id='communityStats' class='hint hidden'></div>
   <!-- Shown only on a pre-release: closes the tester loop - checklist ->
        Send report -> feedback form (the panel is public by design). The fw
        tag rides along so the report knows what it was run against. -->
@@ -607,6 +640,10 @@ document.addEventListener('DOMContentLoaded',function(){
          specific version". -->
     <div id='updFileCell'><span style='display:block;font-size:13px;color:var(--muted)'>Flash a firmware.bin from <a href='https://github.com/slibbinas/TinyMakerWifi/releases' target='_blank' rel='noopener'>GitHub Releases</a></span><button id='updUploadButton' class='button secondary' type='button' disabled style='margin-top:6px'>Choose &amp; flash&hellip;</button></div>
   </div>
+  <!-- 0-20: the picked version's notes link lives OUTSIDE updVerLabel on
+       purpose - a link inside a <label> also activates the labeled select
+       (same trap as the file button above, user finding). -->
+  <div id='updPickedNotesRow' class='hint hidden'><a id='updPickedNotes' href='#' target='_blank' rel='noopener'>&#128221; Release notes for the selected version &#8599;</a></div>
   <form id='updUploadForm' class='hidden'>
     <input id='updFile' type='file' name='firmware' accept='.bin' disabled class='hidden'>
   </form>
@@ -615,6 +652,45 @@ document.addEventListener('DOMContentLoaded',function(){
        finding). What is left is the part that is always worth knowing. -->
   <div class='hint'>Do not power off during an update - the printer reboots by itself when done.</div>
   <div class='hint'>Need a full USB reflash or recovery? Use the <a href='https://connect.tinymakerwifi.com/flash.php' target='_blank' rel='noopener'>browser flasher</a> (Chrome/Edge + USB cable).</div>
+  </section>
+  </div>
+  <!-- About as a Settings pane (V 07-21): pure identity info only - all the
+       numbers live on the top-level Statistics view. -->
+  <div id='pane-about' class='cfgPane hidden'>
+  <section class='card'>
+  <h2>About</h2>
+  <div class='grid'>
+    <div><div class='label'>Firmware</div><div class='value'><span id='abVersion'>-</span> <span id='abBuild' class='fwbuild'></span></div></div>
+    <div><div class='label'>Based on</div><div class='value'>TinyMaker3D 1.0.2</div></div>
+    <div><div class='label'>Built</div><div id='abBuilt' class='value'>-</div></div>
+  </div>
+  <div class='hint'>Open-source WiFi firmware for the TinyMaker MSLA printer by Viktoras Sidlauskas,
+    on top of the original TinyMaker3D firmware. Contributors: Brian Karmelk (Connect, web flasher),
+    Tanner Steorts (boot animations).</div>
+  <div class='hint'><a href='https://github.com/slibbinas/TinyMakerWifi' target='_blank' rel='noopener'>GitHub</a> ·
+    <a href='https://github.com/slibbinas/TinyMakerWifi/blob/experimental/CHANGELOG.md' target='_blank' rel='noopener'>Changelog</a> ·
+    <a id='roadmapLink2' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener'>Roadmap</a> ·
+    <a id='manualLink2' href='https://tinymakerwifi.com/manual/' target='_blank' rel='noopener'>Manual</a> ·
+    <a id='fbLink2' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener'>Feedback</a></div>
+  </section>
+  </div>
+  <div id='configHint' class='hint'>Config locks automatically while printing.</div>
+</section>
+
+<!-- Statistics (V 07-21, ex-About): all the numbers in one place - lifetime
+     counters, the 0-30 reset-reason telemetry (permanent home; the snackbar
+     fires only once per record) and the community counter. Pure "who made
+     this" info moved to Settings > About. -->
+<section id='statsView' class='card hidden'>
+  <h2>Statistics</h2>
+  <div class='grid'>
+    <div><div class='label'>Printed total</div><div id='abLifetime' class='value'>-</div></div>
+    <div><div class='label'>UV LED on-time</div><div id='abUvLed' class='value'>-</div></div>
+    <div><div class='label'>Last boot</div><div id='abBootReason' class='value'>-</div></div>
+    <div><div class='label'>Last interrupted print</div><div id='abLastCrash' class='value'>-</div></div>
+    <div id='abCommunityWrap' class='hidden'><div class='label'>Community printers</div><div id='abCommunity' class='value'>-</div></div>
+    <div id='abCommunityTopWrap' class='hidden'><div class='label'>Most on</div><div id='abCommunityTop' class='value'>-</div></div>
+  </div>
 </section>
 
 <script>
@@ -622,6 +698,11 @@ const $=id=>document.getElementById(id);
 let statusData=null,selectedModel='',selectedModelConnectPublicId='',sdFreeBytes=0,sdTotalBytes=0,connectConfig=null,connectTab='models';
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
 const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
+// Share buttons double as a "shared" indicator: an already-shared model has
+// nothing to share, so show a non-clickable "Shared" tag rather than hiding the
+// control (a vanishing button read as "the share is gone"). `ready` = Connect
+// usable at all; `shared` = this model already lives on Connect.
+const setShareUI=(id,ready,shared)=>{const b=$(id);if(!b)return;b.textContent=shared?'✓ Shared':'Share';b.title=shared?'Already on Connect - unshare it from the Connect tab':'Share this model to TinyMaker Connect';b.classList.toggle('shared',shared);show(id,ready);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api=async(path,opt,timeoutMs)=>{
@@ -656,21 +737,23 @@ const api=async(path,opt,timeoutMs)=>{
   }
   finally{if(timer)clearTimeout(timer);}
 };
-// Top-center snackbar. Info messages auto-hide; warnings stay until replaced.
-// The toast anchors just below the user's last click/tap, so pressing a button
-// at the bottom of a long page shows the feedback right there, not off at the
-// top of the viewport. No pointer yet (poll errors at load) -> top fallback.
-document.addEventListener('pointerdown',ev=>{msg._y=ev.clientY;},true);
+// Snackbar. Info messages auto-hide; warnings stay until replaced.
+// ONE position rule for every snackbar: dead centre of the viewport (V,
+// 07-22). The old tap-anchoring (msg._y) looked clever but caused a string of
+// positioning bugs, couldn't be shared across devices (print-wait/SD-job
+// snackbars are status-driven, shown on every browser), and made the same
+// operation jump spots (tap-anchored "Deleting..." replaced by the centred job
+// snackbar). Centre is deterministic and identical everywhere.
+const snackCentre=e=>{e.style.top=Math.round((innerHeight-e.offsetHeight)/2)+'px';};
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
-    const y=(typeof msg._y==='number')?Math.min(Math.max(msg._y+28,14),innerHeight-80):14;
-    e.style.top=y+'px';
+    snackCentre(e);
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
-  // sticky: survives the 5 s auto-clear - for operations that outlive it (a big
+  // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
   // SD delete blocks the printer for tens of seconds and no poll can re-show
   // the message meanwhile, the server is busy deleting).
-  clearTimeout(msg._t);if(t&&!warn&&!sticky)msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},5000);};
+  clearTimeout(msg._t);if(t&&!warn&&!sticky){msg._until=Date.now()+2000;msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},2000);}else{msg._until=0;}};
 // Styled replacement for window.confirm() - returns a Promise. Matches the
 // dashboard instead of the browser's native (unstyleable) dialog.
 let uiConfirmRes=null;
@@ -824,7 +907,7 @@ const localPreviewBlob=async(name,type)=>{
   if(!r.ok)throw new Error('saved preview '+type+' failed to load');
   return await r.blob();
 };
-let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0;
+let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0,lastSdRev=null;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
 const pageFirmwareVersion=()=>$('fwVersion').textContent.trim();
@@ -832,6 +915,9 @@ const reloadIfFirmwareChanged=s=>{
   const live=String(s.firmwareVersion||'').trim(),page=pageFirmwareVersion();
   const liveB=String(s.firmwareBuild||'').trim(),pageB=($('fwBuild').dataset.build||'').trim();
   if((!live||!page||live===page)&&(!liveB||!pageB||liveB===pageB))return false;
+  // 1-35: an OBSERVER device lands here too (someone else flashed the
+  // printer) - leave a note for the fresh page so the reload explains itself.
+  try{sessionStorage.setItem('tmFwUpd',live+(liveB?' ('+liveB+')':''));}catch(err){}
   location.replace('/?fw='+encodeURIComponent(live)+'&r='+Date.now());
   return true;
 };
@@ -978,6 +1064,46 @@ $('bootAnimSaveButton').addEventListener('click',async()=>{
     msg(name==='__shuffle'?'Shuffle enabled. Reboot to see a random installed animation.':(name?'Boot animation set. Reboot to see it.':'Using the built-in boot animation.'));loadBootAnims();}
   catch(e){msg(e.message,true);}
 });
+// Statistics view + Settings>About pane (0-17d, split 07-21): both fill from
+// the regular status poll - no extra endpoint. One renderer covers both (the
+// ab* ids live in either view; all stay in the DOM).
+const fmtWhen=d=>d.toLocaleString([],{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+const renderAbout=()=>{const s=statusData;if(!s)return;
+  setText('abVersion',s.firmwareVersion||'-');setText('abBuild',s.firmwareBuild||'');
+  setText('abBuilt',s.buildDate||'-');
+  setText('abLifetime',s.lifetimePrintTime||'-');setText('abUvLed',s.uvLedTime||'-');
+  // Boot moment = now - uptime (no firmware clock needed); crash moment comes
+  // with the record (last checkpoint's NTP epoch, 0 = clock was never synced).
+  const bootAt=(typeof s.uptimeSecs==='number'&&s.uptimeSecs>0)?' · '+fmtWhen(new Date(Date.now()-s.uptimeSecs*1000)):'';
+  setText('abBootReason',(s.bootReason||'-')+bootAt);
+  const c=s.lastCrash;
+  setText('abLastCrash',c&&c.reason?c.reason+' at ~layer '+c.layer+(c.epoch>1700000000?' · '+fmtWhen(new Date(c.epoch*1000)):''):'none recorded');};
+// Community install counter - once per page load, on the first About open.
+// Rendered as About grid cells (Community printers / Most on) so it reads
+// like the other stats, not a faint footnote (user finding 07-21).
+let communityLoaded=false;
+const loadCommunityStats=()=>{if(communityLoaded)return;communityLoaded=true;
+  fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(r=>r.json()).then(s=>{
+    if(!s.printers)return;
+    let top='',n=0;const bv=s.by_version||{};
+    for(const v in bv)if(bv[v]>n){n=bv[v];top=v;}
+    setText('abCommunity',String(s.printers));show('abCommunityWrap',true);
+    if(top){setText('abCommunityTop',top);show('abCommunityTopWrap',true);}
+  }).catch(()=>{communityLoaded=false;});};  // retry on the next open
+// Update-available badge: a lightweight version.txt check straight from
+// GitHub Pages (not the printer's slow blocking TLS). Since Update moved
+// under Settings (0-17d), a dot on the Settings tab + the Update nav item
+// surfaces a waiting update without opening anything.
+let publishedVer='',verChecked=false;
+const renderFwBadges=()=>{const inst=statusData&&statusData.firmwareVersion;
+  const avail=!!(publishedVer&&inst&&cmpVer(publishedVer,inst)>0);
+  show('cfgBtnDot',avail);show('updNavDot',avail);};
+const checkPublishedVersion=()=>{if(verChecked)return;verChecked=true;
+  fetch('https://slibbinas.github.io/TinyMakerWifi/version.txt',{cache:'no-store'})
+    // version.txt is TWO lines (version + firmware URL) - take line 1 only,
+    // or the patch digit swallows the URL and the compare goes wrong.
+    .then(r=>r.ok?r.text():'').then(t=>{publishedVer=(t||'').split('\n')[0].trim();renderFwBadges();})
+    .catch(()=>{verChecked=false;});};
 const openView=view=>{
   // Leaving the model view cancels an in-flight slice run (fetchSlices checks
   // the sequence each layer) - it must not keep loading behind another view.
@@ -987,27 +1113,63 @@ const openView=view=>{
   show('modelPanel',view==='model');
   show('connectView',view==='connect');
   show('configView',view==='config');
-  show('updateView',view==='update');
+  show('statsView',view==='stats');
   $('homeViewButton').classList.toggle('active',view==='home'||view==='model');
   $('connectViewButton').classList.toggle('active',view==='connect');
   $('configViewButton').classList.toggle('active',view==='config');
-  $('updateViewButton').classList.toggle('active',view==='update');
+  $('statsViewButton').classList.toggle('active',view==='stats');
   if(view==='home')loadFiles();
   if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
-  if(view==='update')loadUpdate();
+  if(view==='stats'){renderAbout();loadCommunityStats();}
 };
 
 const applyStatus=s=>{
     const was=statusData&&statusData.busy; statusData=s;
+    // 1-32/1-33: busy may mean an SD job (delete/import), not a print - the
+    // print UI must not appear then (its Stop/Pause would target nothing).
+    const sdJob=s.sdJob||'', busyPrint=!!s.busy&&!sdJob;
     if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
+    // Page ships version-agnostic (gzipped static shell); fill header from status.
+    if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
+    $('fwBuild').dataset.build=s.firmwareBuild||'';
     setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
     if(s.firmwareVersion){$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');applyThemeLink();}
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}
-    if((pendingPrintCmd==='stop'&&s.stopping)||(pendingPrintCmd==='pause'&&(s.pausing||s.paused))||(pendingPrintCmd==='resume'&&s.resuming))pendingPrintCmd='';
+    // A command's wait is over once the printer's status reflects it: stop -> the
+    // transition is visible or the print is done; pause -> pausing/paused; resume
+    // -> resuming, or already printing again (some paths skip the brief flag).
+    const cmdConfirmed=c=>(c==='stop'&&(s.stopping||!s.busy))||(c==='pause'&&(s.pausing||s.paused))||(c==='resume'&&(s.resuming||(s.busy&&!s.paused)));
+    if(pendingPrintCmd&&cmdConfirmed(pendingPrintCmd))pendingPrintCmd='';
+    if(printWaitSent&&cmdConfirmed(printWaitSent))printWaitSent='';
     phaseRx=(s.busy&&s.phaseTotalMs>0)?{remainMs:Math.max(0,s.phaseTotalMs-s.phaseElapsedMs),at:Date.now()}:null;
-    renderStateValue(); setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    renderStateValue(); renderPrintWait(); renderSdJob(s);
+    // 1-34: the low-resin auto-pause deserves a loud one-shot, not just the
+    // State line - the printer is waiting for a human with a resin bottle.
+    if(s.stateCode===10&&applyStatus._sc!==10)msg('Print paused - refill the resin vat, then press Resume.',true);
+    applyStatus._sc=s.stateCode;
+    setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    // 0-30 reset-reason telemetry: surface a NEW mid-print death once (the
+    // record persists on the printer, so remember what was already shown).
+    if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
+      if(localStorage.getItem('tmCrashSeen')!==ck){localStorage.setItem('tmCrashSeen',ck);
+        msg('Heads-up: the last print was interrupted by a '+s.lastCrash.reason+' at ~layer '+s.lastCrash.layer+'.',true);}}
+    if(!$('statsView').classList.contains('hidden'))renderAbout();  // keep Statistics live
+    renderFwBadges();  // installed version known now - refresh the update dot
+    // 0-28: out-of-band SD changes (slicer upload, another device, the
+    // printer itself) - reload the list and name what appeared. Skipped
+    // while printing (the SD is locked; the rev can only change when idle).
+    if(typeof s.sdRev==='number'&&!s.busy){
+      if(lastSdRev!==null&&s.sdRev!==lastSdRev){
+        const before=filesItems.map(i=>i.name);
+        loadFiles().then(()=>{
+          const added=filesItems.map(i=>i.name).filter(n=>!before.includes(n));
+          if(added.length){added.forEach(n=>newNames.add(n));renderFiles();}
+        }).catch(()=>{});
+      }
+      lastSdRev=s.sdRev;
+    }
     if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
@@ -1020,9 +1182,14 @@ const applyStatus=s=>{
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     syncUploadGate();
     show('dryRunBanner',!!s.dryRun);
+    // 0-33: the boot resume prompt is up on the printer - offer the same three
+    // answers here (valid until someone touches the printer's buttons).
+    const rp=s.resumePending;
+    show('resumeBanner',!!rp);
+    if(rp)setText('resumeBannerInfo',rp.model+' - '+rp.layer+' of '+rp.total+' layers were finished.');
     $('disableDryRunButton').disabled=!!s.busy;
     $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
-    ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,s.busy));
+    ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,busyPrint));
     // Keep the SD manager card visible mid-print (user preference over the
     // 0.13.4 hide): the last-known list stays on screen, locked - no fresh
     // /api/files calls while printing (SD is busy feeding layers).
@@ -1031,11 +1198,11 @@ const applyStatus=s=>{
     // 3D print progress: reuses slices prefetched before the start (or by an
     // earlier Preview 3D) - zero printer traffic while printing. A page
     // refresh restores them from localStorage.
-    if(s.busy&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
-    if(s.busy&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
+    if(busyPrint&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
+    if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
-      show('dashModelInfo',false);show('dashShareButton',false);
+      setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
@@ -1045,21 +1212,33 @@ const applyStatus=s=>{
       // when nothing is previewed. Busy without slices (print started on the
       // printer): drop a stale idle preview instead of showing a wrong model.
       show('printPreviewCard',true);
-      if(!s.busy){
+      if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
+        show('prevNote',false);
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
+        busyPreviewShown='';
       }else if(!slicesPrefetching){
         // Busy without slices - a print started on the printer, or a page opened
-        // mid-print in a browser that never previewed this model. This used to
-        // require dashPreviewName, so a fresh page had nothing to convert and
-        // was left showing the idle "pick a model" placeholder over a running
-        // print (user finding). Say it plainly instead, once - the title guard
-        // keeps the 2s poll from repainting it.
+        // mid-print in a browser that never previewed this model. It can't draw
+        // the live layer-by-layer 3D (no slices, and the SD is locked), so show
+        // the model snapshot (0-19 RAM preview) or a placeholder, and make clear
+        // it IS printing: a "Printing NN%" title + progress bar (the browser
+        // knows the % from the status), and a plain note that the 3D progress
+        // preview isn't available on this device (user finding: the full model
+        // looked already printed).
         if(dashPreviewName)setDashPreviewName('');
-        if($('printPreviewTitle').textContent!=='Print progress 3D'){
-          $('printPreviewTitle').textContent='Print progress 3D';
-          show('dashModelInfo',false);show('dashShareButton',false);
-          paintPreviewProgress($('printPreviewCanvas'),'No 3D preview for this print',null);
+        setModelInfoRows(null);show('dashShareButton',false);
+        const cf=s.totalLayers>0?Math.min(1,s.currentLayer/s.totalLayers):0;
+        $('printPreviewBarFill').style.width=Math.round(cf*100)+'%';
+        $('printPreviewTitle').textContent='Printing · '+Math.round(cf*100)+'%';
+        $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
+        show('prevNote',true);
+        // Fill the canvas once (guarded): the RAM snapshot if the printer kept
+        // one, otherwise a plain placeholder.
+        if(busyPreviewShown!==s.model){
+          busyPreviewShown=s.model;
+          if(s.previewCached)loadSavedPreviewTo($('printPreviewCanvas'),s.model).catch(()=>paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null));
+          else paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null);
         }
       }
     }
@@ -1083,8 +1262,8 @@ const applyStatus=s=>{
     // One line, not three: the card used to stack "Uploads and SD actions are
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
-    if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
-    if(was!==s.busy){loadFiles();loadConfig();loadBootAnims();}
+    if(sdJob){$('uploadHint').textContent=(sdJob==='delete'?'The printer is deleting a model':'The printer is importing a model')+' - SD actions come back when it finishes.';} else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
+    if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
   busy:true,paused:false,pausing:false,resuming:false,stopping:false,dryRun:statusData&&statusData.dryRun,
@@ -1106,19 +1285,26 @@ const refreshStatus=async()=>{
     statusFailCount=0;
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
-    if(!pendingPrintCmd&&!deleteBusy)msg('',false);
+    if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&!sdJobCur&&(!msg._until||Date.now()>=msg._until))msg('',false);
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
     if(deleteBusy)msg('Deleting - the printer is busy removing files...',false,true);
-    else if(statusData&&statusData.busy)msg('Syncing with printer at the next safe network window...',true);
+    else if(statusData&&statusData.busy&&!printWaitCur&&!sdJobCur&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
-    // (scans, slice streaming) - only speak up when it keeps failing.
-    else if(statusFailCount>=3)msg('Status unavailable: '+e.message,true);
+    // (scans, slice streaming) - only speak up when it keeps failing. An
+    // out-of-band import (PrusaSlicer upload) blocks the whole web server
+    // for minutes, so name that likely cause instead of a bare error (0-28).
+    else if(statusFailCount>=3)msg('Printer not answering - likely importing a model (takes minutes) or offline. The page catches up by itself.',true);
   }finally{statusInFlight=false;}
 };
 
 let filesItems=[],filesHidden=0,filesPage=0,filesQuery='',connectLocalModels={},localBootAnims={},activeBootAnim='';
+// 0-28: names that landed out-of-band (upload/other device) since this tab
+// loaded - flagged "New" in the list until you open/preview/print them or F5.
+// In-memory only: a reload means you have seen the current SD state.
+let newNames=new Set();
+const clearNew=n=>{if(newNames.delete(n))renderFiles();};
 const FILES_PER_PAGE=12;
 const renderFiles=()=>{
   const list=$('filesList');
@@ -1142,9 +1328,10 @@ const renderFiles=()=>{
     // where it carries real information: what it is and how big.
     const meta=it.type==='model'?'':'Archive - '+formatBytes(it.sizeBytes);
     const inPv=it.type==='model'&&it.name===dashPreviewName;
-    h+='<div class="file'+(inPv?' active':'')+'"><div><strong>'+esc(it.name)+'</strong>'+
-      (inPv?'<span class="inPv">In preview</span>':'')+(meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div><div class="rowActions">';
-    if(it.type==='model')h+='<button class="small secondaryBtn"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
+    const isNew=it.type==='model'&&newNames.has(it.name);
+    h+='<div class="file"><div><strong>'+esc(it.name)+'</strong>'+
+      (isNew?'<span class="newPill">New</span>':'')+(inPv?'<span class="inPv">In preview</span>':'')+(meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div><div class="rowActions">';
+    if(it.type==='model')h+='<button class="small button secondary"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
     h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
   });
   // No models on the card -> Upload becomes the only meaningful action and
@@ -1160,7 +1347,7 @@ const renderFiles=()=>{
   if(items.length>3)foot+='<span class="meta">'+nModels+' model'+(nModels===1?'':'s')+(nArch?' · '+nArch+' archive'+(nArch===1?'':'s'):'')+'</span>';
   if(filesHidden>0)foot+='<span class="meta">'+filesHidden+' other SD item(s) hidden</span>';
   if(foot)h+='<div style="display:flex;justify-content:space-between;gap:10px;margin-top:10px">'+foot+'</div>';
-  if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small secondaryBtn"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small secondaryBtn"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
+  if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small button secondary"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small button secondary"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
   list.innerHTML=h;
 };
 // The SD card cannot change while a print runs - it is locked for the printer's
@@ -1229,7 +1416,7 @@ const modelDetails=async(nameEnc,estimate)=>{
     show('modelResinBox',true);
     if(d.resinEstimated)setText('modelResin',Number(d.resinMl).toFixed(1)+' ml');
     else if(!estimate)setText('modelResin','Estimating...');
-    show('modelShareButton',connectIsReady()&&!selectedModelConnectPublicId);
+    setShareUI('modelShareButton',connectIsReady(),!!selectedModelConnectPublicId);
     if(!estimate){
       // No buttons (user decision): the preview renders itself. Cached PNG is
       // used only when the exact resin is also known - otherwise we need the
@@ -1255,6 +1442,7 @@ const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
+let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
 const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
 const loadSavedPreviewTo=async(cv,name)=>{
   const ctx=cv.getContext('2d'),img=new Image();
@@ -1338,9 +1526,18 @@ const drawIso=(cv,doneFrac)=>{
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
   for(let k=0;k<N;k++){
     const t=N>1?k/(N-1):0,z=t*modelH;
-    // Strict boundary: at 0% nothing is printed yet - the old t<=doneFrac
-    // painted the whole first slice solid before the print even started.
-    const s=slices[k],up=slices[k+1],solid=doneFrac>0&&t<=doneFrac;
+    // One solid style everywhere (== the idle Preview and the finished print),
+    // but the printed/unprinted boundary interpolates. The render samples only
+    // ~36 slices of a 1000+ layer print, so a hard t<=doneFrac moved the front
+    // a whole slice (~30 layers) at a time and read as frozen (user finding).
+    // `a` = how printed this slice is: 1 solid, 0 ghost, between = the front
+    // slice fading in so progress climbs smoothly. A slice is fully solid once
+    // the front reaches its height (doneFrac>=t) and fades in over the step
+    // below it (the +1); at doneFrac 1 every a is 1, so preview and print-end
+    // render identically. The doneFrac>0 guard keeps 0% fully un-printed.
+    const s=slices[k],up=slices[k+1];
+    const aStep=1/Math.max(N-1,1);
+    const a=doneFrac>0?Math.max(0,Math.min(1,(doneFrac-t)/aStep+1)):0;
     // Back-to-front: this projection puts +x right-down and +y left-down, so
     // near = large (i+j). Ascending order draws the far voxels first and lets
     // the near ones cover them (the old loop ran j from the near edge back).
@@ -1355,7 +1552,15 @@ const drawIso=(cv,doneFrac)=>{
       const fLeft=j===gh-1||!s[(j+1)*gw+i];
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
-      if(solid){
+      const edge0=i===0||j===0||fRight||fLeft;
+      // grey ghost for the un-printed part - also drawn under the fading front
+      // slice so the boundary blends into the ghost instead of popping.
+      if(a<1){
+        ctx.fillStyle='rgba(150,150,165,'+(edge0?0.20:0.05)+')';
+        const gp=isoPt(cx,cy,z);
+        ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
+      }
+      if(a>0){
         // Shade from a real surface normal, estimated from the 3x3x3
         // neighbourhood: the normal points away from the mass, so it turns
         // gradually across a curve. Three fixed tones per face made a sphere
@@ -1386,17 +1591,13 @@ const drawIso=(cv,doneFrac)=>{
         // continuous because the old code also painted the 86% buried inside;
         // on a bare surface the squares stop touching and the model turns to
         // dots (user finding). Faces tile exactly.
+        // The front (partly-printed) slice fades in via globalAlpha so it
+        // climbs smoothly; fully-printed slices draw at full opacity.
+        if(a<1){ctx.save();ctx.globalAlpha=a;}
         if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
         if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
         if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
-      }else{
-        // Not printed yet: keep the cheap translucent splat - overlapping
-        // slices accumulate into an x-ray that reads well, and it must not
-        // compete with the solid part.
-        const edge=i===0||j===0||fRight||fLeft;
-        ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')';
-        const p=isoPt(cx,cy,z);
-        ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);
+        if(a<1)ctx.restore();
       }
     }
   }
@@ -1512,11 +1713,23 @@ let dashPreviewName='',slicesPrefetching=false;
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
 const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();};
+// 0-26: the previewed model's identity lives on the STATUS panel (it already
+// has row mechanics - State, Resin left, the print-time boxes), not squeezed
+// into one line under the preview card. null hides the rows (placeholder,
+// print start - the print-time boxes take the same grid slots).
+const setModelInfoRows=d=>{
+  ['modelNameBox','modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,!!d));
+  if(!d)return;
+  $('modelNameValue').textContent=d.name;
+  $('modelLayersValue').textContent=String(d.layers);
+  $('modelTimeValue').textContent=d.time||'-';
+  $('modelResinValue').textContent=d.resin||'-';
+};
 const dashPreviewPlaceholder=()=>{
   setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
-  show('dashModelInfo',false);show('dashShareButton',false);
+  setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
   paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
 };
 // Boot restore: bring the last previewed model back, but only from the saved
@@ -1532,12 +1745,10 @@ const restoreDashPreview=async()=>{
     if(!hasVoxel||!d.resinEstimated)return dashPreviewPlaceholder();
     setDashPreviewName(name);
     $('printPreviewTitle').textContent='Model preview';
-    $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
-      Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+' · '+Number(d.resinMl).toFixed(1)+' ml';
-    show('dashModelInfo',true);
+    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
     await loadSavedPreviewTo($('printPreviewCanvas'),name);
     if(dashPreviewName!==name)return;
-    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
+    setShareUI('dashShareButton',connectIsReady(),!!(d.connectPublicId||'').length);
   }catch(e){
     // Every SD read answers 409 "printer busy" while a print runs, and this
     // catch treated any failure as "the model is gone": it wiped the remembered
@@ -1557,26 +1768,37 @@ const scrollPreviewIntoView=()=>{
   const r=$('printPreviewCard').getBoundingClientRect();
   if(r.top<0||r.top>window.innerHeight*0.6)$('printPreviewCard').scrollIntoView({behavior:'smooth',block:'start'});
 };
+// 0-29: settings (layer height / exposure) change the firmware-computed
+// estimate, but the preview card cached the old numbers until a page reload
+// (field finding - the firmware recomputes on every request, the page never
+// re-asked). Called after every config save.
+const refreshDashModelInfo=async()=>{
+  if(!dashPreviewName||(statusData&&statusData.busy))return;
+  try{
+    const d=await api('/api/files/model?name='+enc(dashPreviewName));
+    if(!d||d.name!==dashPreviewName)return;
+    const resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
+    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin});
+  }catch(e){}
+};
 const dashPreview=async nameEnc=>{
   const name=decodeURIComponent(nameEnc);
+  clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
-  scrollPreviewIntoView();
+  scrollPreviewIntoView();show('prevNote',false);
   fetchSlicesSeq++;                        // cancel a previous run right away
   const cv=$('printPreviewCanvas');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
-  show('dashModelInfo',false);show('dashShareButton',false);
+  setModelInfoRows(null);show('dashShareButton',false);
   show('printPreviewCard',true);
   paintPreviewProgress(cv,'Loading preview...',null);
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if(dashPreviewName!==name)return;
     let resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
-    const setInfo=()=>{
-      $('dashModelInfo').textContent=d.name+' · '+(d.printLayers||d.layers)+' layers · '+
-        Number(d.heightMm).toFixed(1)+' mm · '+d.estimatedTime+(resin?' · '+resin:'');
-      show('dashModelInfo',true);};
+    const setInfo=()=>setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin});
     setInfo();
     const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
     const hasVoxel=lh1?d.preview1:d.preview05;
@@ -1588,7 +1810,7 @@ const dashPreview=async nameEnc=>{
       if(!resin&&mlEst){resin='~'+mlEst.toFixed(1)+' ml (quick)';setInfo();}
     }
     if(dashPreviewName!==name)return;
-    show('dashShareButton',connectIsReady()&&!(d.connectPublicId||'').length);
+    setShareUI('dashShareButton',connectIsReady(),!!(d.connectPublicId||'').length);
     localStorage.setItem('dashPreviewModel',name);
   }catch(e){
     if(e.message==='preview superseded')return;
@@ -1613,7 +1835,7 @@ const loadConnectApp=()=>{
   if(root)root.innerHTML='<h2>TinyMaker Connect</h2><div class="hint">Loading Connect from '+esc(connectBase())+'...</div>';
   connectAppPromise=new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    s.src=connectBase()+'/assets/printer-connect.js?v=0.15.8';
+    s.src=connectBase()+'/assets/printer-connect.js?v='+enc((statusData&&statusData.firmwareVersion)||'')+'';
     s.async=true;
     s.onload=()=>window.TinyMakerConnectHostedReady?resolve():reject(new Error('Connect app did not initialize'));
     s.onerror=()=>reject(new Error('Connect app failed to load from '+connectBase()));
@@ -1666,15 +1888,20 @@ const retryPendingPrintCommand=async()=>{
   const cmd=pendingPrintCmd;
   try{
     await api('/api/print/'+cmd,{method:'POST'},30000);
-    pendingPrintCmd='';
-    msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' accepted.');
+    // Accepted: stop re-sending (clear pendingPrintCmd) but hand the wait over to
+    // printWaitSent so the snackbar stays up until status confirms the flip - the
+    // resume case answers instantly and would otherwise blink out here.
+    pendingPrintCmd='';printWaitSent=cmd;printWaitSentAt=Date.now();
+    // No "accepted" toast: the wait snackbar (renderPrintWait) now owns this
+    // feedback and keeps showing "Stopping ... ~Xs" until the printer resolves.
     refreshStatus();
   }catch(e){
-    if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';msg(e.message,true);}
-    else msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for the next safe network window...',true);
-  }finally{pendingPrintInFlight=false;applyPendingPrintUi();}
+    // A genuine "nothing to do" answer clears the wait; a network hiccup leaves
+    // pendingPrintCmd set so the wait snackbar keeps showing "... requested".
+    if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';printWaitSent='';msg(e.message,true);}
+  }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
-const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;if(!force&&!await uiConfirm('Start this print?'))return;
+const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
     if(await uiConfirm('Did you refill the VAT since the last print?\nOK = yes (restart the estimate from a full VAT), Cancel = no.')){
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
@@ -1705,7 +1932,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         // SD row leaves the dashboard visible) - the busy status takes over.
         setDashPreviewName(name);
         $('printPreviewTitle').textContent='Print progress 3D';
-        show('dashModelInfo',false);show('dashShareButton',false);
+        setModelInfoRows(null);show('dashShareButton',false);
         show('printPreviewCard',true);
         scrollPreviewIntoView();   // a phone Start renders above the fold otherwise
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
@@ -1738,8 +1965,16 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while, the printer answers when done...',false,true);try{await api('/api/files/delete?name='+enc(name),{method:'POST'},180000);deleteBusy=false;msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
-const printCommand=async(cmd,confirmText)=>{if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;pendingPrintCmd=cmd;applyPendingPrintUi();msg((cmd==='stop'?'Stop':cmd==='pause'?'Pause':'Resume')+' requested. Waiting for printer connection...',true);retryPendingPrintCommand();};
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;msg('Deleting '+name+' - large models take a while...',false,true);try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
+  // Folders come back "queued" (1-32): the printer deletes from its idle loop
+  // and the status-driven job snackbar (renderSdJob) takes over on every
+  // device; its closure announces "Deleted X." and refreshes the list.
+  if(r&&r.queued){refreshStatus();return;}
+  msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+const printCommand=async(cmd,confirmText)=>{
+  if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
+  pendingPrintCmd=cmd;applyPendingPrintUi();
+  renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
 // between polls: mid-print the printer answers polls only in short windows
@@ -1755,6 +1990,111 @@ const renderStateValue=()=>{
   }
   setText('stateValue',t);
 };
+// A pause/stop/resume takes real time - the printer finishes the current layer
+// (and, for a stop, lifts the plate) before it acts. That used to show only as
+// a subtle button label ("Stopping...") that was easy to miss, while the wait
+// seconds sat separately on the State line. This drives one sticky snackbar for
+// the whole wait - what is happening + the live phase countdown - matching how
+// other long operations announce themselves, and clears itself when the printer
+// resolves. The button label stays as a secondary cue. Called after every
+// status apply and every local tick, so the countdown updates smoothly.
+// The wait snackbar mirrors PRINTER status (stopping/pausing/resuming), so every
+// connected browser shows it, centred like every snackbar (one position rule -
+// see msg/snackCentre). printWaitSent = a
+// command that was accepted by the printer and is
+// awaiting a status flip; it keeps the snackbar up across the gap where
+// pendingPrintCmd is already cleared (to stop re-sending) but status hasn't caught
+// up yet - the resume case, which answers instantly, otherwise blinked out.
+let printWaitCur='', printWaitSent='', printWaitSentAt=0;
+const printWaitInfo=()=>{
+  const s=statusData; if(!s)return null;
+  if(s.busy&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
+  if(s.busy&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
+  if(s.busy&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
+  // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
+  // (printWaitSent) - the printer answers between layers, so hold the message.
+  const req=pendingPrintCmd||printWaitSent;
+  if(req==='stop')   return {v:'Stop requested',   tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(req==='pause')  return {v:'Pause requested',  tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(req==='resume') return {v:'Resume requested', tail:' — waiting for the printer (it answers between layers)', count:false};
+  return null;
+};
+const renderPrintWait=()=>{
+  const info=printWaitInfo();
+  if(!info){
+    if(printWaitCur){
+      const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0, wasResume=printWaitCur.indexOf('Resum')===0;
+      const e=$('statusMsg'); if(e.textContent===printWaitCur){e.textContent='';e.style.top='';}  // release the drop, back to the CSS default
+      printWaitCur='';
+      // one-shot closure, transient (the wait is over)
+      if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
+      else if(wasPause&&statusData&&statusData.paused)msg('Print paused.');
+      else if(wasResume&&statusData&&statusData.busy&&!statusData.paused)msg('Print resumed.');
+    }
+    return;
+  }
+  let secs='';
+  if(info.count&&statusData&&statusData.busy&&phaseRx){
+    const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
+    if(rem>-1500)secs=' · ~'+Math.max(0,Math.ceil(rem/1000))+'s';
+  }
+  const txt=info.v+info.tail+secs;
+  const e=$('statusMsg');
+  // Re-assert if the text changed OR something (the poll loop's clear, another
+  // toast) wiped it from under us - that clobber-then-restore was the flicker.
+  if(txt===printWaitCur&&e.textContent===txt)return;
+  const firstShow=!printWaitCur;   // animate only when the wait first appears
+  e.textContent=txt; e.classList.remove('warn');
+  clearTimeout(msg._t); msg._until=0;        // sticky: never auto-clear while waiting
+  // Re-assert the anchor on EVERY render, not just the first: a stray toast (or
+  // the gap re-show) can reset the element's position, and if only the text were
+  // re-asserted the snackbar kept the clobbered spot. No tap to anchor to (see
+  // printWaitSent note) -> the shared coordinate-less centre spot: identical for
+  // the presser, an observer and a cold refresh. Measured after the text is set,
+  // so the height is current.
+  snackCentre(e);
+  if(firstShow){ e.style.animation='none';void e.offsetWidth;e.style.animation=''; }
+  printWaitCur=txt;
+};
+// 1-32/1-33: the printer's long SD work (a web delete, a model import - from
+// any device or the slicer) is announced by STATUS, so every connected browser
+// shows the same sticky snackbar - the presser, observers and a cold refresh
+// alike - at the shared coordinate-less centre spot. Clears itself and
+// announces the result when the job ends.
+let sdJobCur='',sdJobLast='',sdJobLastName='';
+const renderSdJob=s=>{
+  const job=(s&&s.sdJob)||'',name=(s&&s.sdJobName)||'';
+  const e=$('statusMsg');
+  if(!job){
+    if(sdJobCur){
+      if(e.textContent===sdJobCur){e.textContent='';e.style.top='';}
+      sdJobCur='';
+      // one-shot closure - the job just finished
+      if(sdJobLast==='delete'){
+        msg('Deleted '+sdJobLastName+'.');
+        if(localStorage.getItem('dashPreviewModel')===sdJobLastName)localStorage.removeItem('dashPreviewModel');
+        if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
+        loadFiles();
+      }else if(sdJobLast==='import'){
+        msg('Model imported: '+sdJobLastName+'.');
+        loadFiles();
+      }
+      sdJobLast='';sdJobLastName='';
+    }
+    return;
+  }
+  sdJobLast=job;sdJobLastName=name;
+  const txt=job==='delete'
+    ?('Deleting '+name+' - the printer is busy removing files, other SD actions wait...')
+    :('Importing '+name+' - unpacking to the SD card can take a few minutes...');
+  if(txt===sdJobCur&&e.textContent===txt)return;
+  const firstShow=!sdJobCur;
+  e.textContent=txt;e.classList.remove('warn');
+  clearTimeout(msg._t);msg._until=0;   // sticky while the job runs
+  snackCentre(e);
+  if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
+  sdJobCur=txt;
+};
 let lastPollOkAt=0;
 const tickLocalStatus=()=>{
   const busyNow=statusData&&statusData.busy;
@@ -1762,6 +2102,10 @@ const tickLocalStatus=()=>{
     setText('runValue',fmtDur(Date.now()-localPrintStartedAt));
     renderStateValue();
   }
+  // Safety: if a sent command's status flip never arrives (printer offline mid-
+  // wait), drop it after 20s so the snackbar can't hang forever.
+  if(printWaitSent&&Date.now()-printWaitSentAt>20000)printWaitSent='';
+  renderPrintWait();   // tick the wait snackbar's countdown between polls
   // Liveness: only meaningful mid-print, where answers arrive in windows.
   const stale=busyNow&&Date.now()-lastPollOkAt>4000;
   show('syncDot',!!busyNow);
@@ -1775,10 +2119,12 @@ let sdBackupPresent=false; // from /api/config; part of the restoreSdButton gate
 // Settings section panes: one visible at a time, same interaction as the
 // Connect sub-tabs. Hidden panes stay in the form, so any Save posts the
 // full config - no fields are lost by saving from another section.
-const CFG_PANES=['print','network','notif','boot','backup'];
+const CFG_PANES=['print','network','notif','boot','backup','update','about'];
 const setCfgPane=p=>{
   document.querySelectorAll('#cfgNav a').forEach(a=>a.classList.toggle('on',a.dataset.pane===p));
   CFG_PANES.forEach(x=>show('pane-'+x,x===p));
+  if(p==='update')loadUpdate();  // Update lives under Settings now (0-17d)
+  if(p==='about')renderAbout();  // fills the version/build cells
 };
 document.querySelectorAll('#cfgNav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();setCfgPane(a.dataset.pane);}));
 const setConfigDisabled=disabled=>{document.querySelectorAll('#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>e.disabled=disabled);$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;};
@@ -1809,7 +2155,7 @@ const updateConnectView=c=>{
   c=c||connectConfig||{};
   if(window.TinyMakerConnectHostedUpdate){window.TinyMakerConnectHostedUpdate(c);try{tidyConnectHosted();}catch(_){}}
   else if($('connectHostedRoot'))$('connectHostedRoot').innerHTML=connectIsReady()?'<h2>TinyMaker Connect</h2><div class="hint">Connect UI is loaded from '+esc(connectBase())+'.</div>':'<h2>TinyMaker Connect</h2><div class="hint">Enable and register TinyMaker Connect in Settings before loading the hosted Connect app.</div>';
-  show('modelShareButton',connectIsReady()&&!!selectedModel&&!selectedModelConnectPublicId);
+  setShareUI('modelShareButton',connectIsReady()&&!!selectedModel,!!selectedModelConnectPublicId);
 };
 const loadConfig=async()=>{
   if(!connectConfig)$('configHint').textContent='Loading settings...';
@@ -1891,8 +2237,13 @@ const syncUploadGate=()=>{
 // even when the user picks the same file again.
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
-$('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();}catch(err){msg(err.message,true);}});
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
+  // "queued" (1-33): the upload landed and the printer imports it from its idle
+  // loop - the status-driven snackbar covers the wait, the finished model
+  // announces itself via sdRev. Older sync answers keep the previous handling.
+  if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is importing it now.';}
+  else{$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
+$('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
   const text=next?'Enable Auto backup to Connect? Settings will be uploaded to TinyMaker Connect after settings changes and after prints. Stored MQTT, Telegram and Connect tokens are not included.':'Disable Auto backup to Connect? New settings changes and prints will no longer update your Connect backup.';
@@ -1915,6 +2266,19 @@ $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
 $('restoreSdButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the SD card backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/config/restore/sd',{method:'POST'});msg('Settings restored from SD backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!await uiConfirm('Restore all settings from '+f.name+'? Current settings will be overwritten.',{danger:true}))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('disableDryRunButton').addEventListener('click',async()=>{if(!await uiConfirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
+// 0-33: remote answers to the printer's boot resume prompt. Valid only while
+// the prompt is on the printer's screen - the firmware 409s once it is gone.
+const resumeAct=async(path,confirmMsg,opts)=>{
+  if(!await uiConfirm(confirmMsg,opts||{}))return;
+  try{await api(path,{method:'POST'},15000);msg('Sent - the printer is acting on it...');refreshStatus();}
+  catch(e){msg(e.message,true);refreshStatus();}
+};
+$('resumeAcceptButton').addEventListener('click',()=>resumeAct('/api/resume/accept',
+  'Resume the interrupted print? Make sure the vat and the build plate have NOT been touched since the power loss - the plate will lower back into the vat.'));
+$('resumeLiftButton').addEventListener('click',()=>resumeAct('/api/resume/lift',
+  'Lift the plate off the stuck print (up only) and discard the checkpoint?'));
+$('resumeDiscardButton').addEventListener('click',()=>resumeAct('/api/resume/discard',
+  'Discard the interrupted print? The checkpoint is deleted and the printer boots normally.',{danger:true}));
 $('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});msg('VAT marked as refilled ('+r.vatRemainingMl+' ml).');refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
@@ -1930,7 +2294,7 @@ $('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message
 $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type=i.type==='password'?'text':'password';});
 // Contextual help: one modal, content picked by key (.qHelp marks + Telegram).
 const HELP={
- tg:"<b>Telegram setup</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>In Telegram, message <b>@BotFather</b>, send <b>/newbot</b>, follow the prompts and paste the token it gives into <b>Bot token</b>.</li><li>Open your new bot and press <b>Start</b> (or send it any message) - a bot cannot message you until you do.</li><li>Message <b>@userinfobot</b>; it replies with your numeric <b>Id</b> - that is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to it and use the negative id it prints.)</li><li>Press <b>Save config</b>, then <b>Send test message</b> - if it arrives, you are done.</li></ol>",
+ tg:"<b>Telegram setup</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>In Telegram, message <b>@BotFather</b>, send <b>/newbot</b>, follow the prompts and paste the token it gives into <b>Bot token</b>.</li><li>Open your new bot and press <b>Start</b> (or send it any message) - a bot cannot message you until you do.</li><li>Get your Chat ID: open a chat with <b>@userinfobot</b> - a <i>separate</i> bot, search for it by name in Telegram - and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li><li>Press <b>Save config</b>, then <b>Send test message</b> - if it arrives, you are done.</li></ol>",
  layer:"<b>Layer height</b><p>Unlike FDM, the printed layer height is decided by THIS setting, not by the sliced file. Files are always a stack of 0.05 mm images: at 0.05 the printer uses every image, at 0.10 it takes every other one. Always slice with the 0.05 mm profile.</p>",
  resin:"<b>Resin tracking</b><p>The printer has no resin sensor - it counts down an estimate from a full VAT (this size). Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so the estimate stays honest. It warns before a print that will not fit and can pause mid-print when low.</p>",
  web:"<b>Web control</b><p>Off = this dashboard turns view-only: anyone can watch, but print control, uploads, settings and firmware updates are disabled. Turn it back on at the printer (System &gt; Advanced). Slicer upload and MQTT keep working.</p>",
@@ -1966,9 +2330,12 @@ renderGs();
 // persists to localStorage and keeps the Manual link's theme param in sync.
 // Hand our theme to the pages we link out to, so they open the way the
 // dashboard looks right now rather than however the OS is set.
-const applyThemeLink=()=>{const l=document.documentElement.getAttribute('data-theme')==='light';
-  $('manualLink').href='https://slibbinas.github.io/TinyMakerWifi/manual/'+(l?'':'?theme=dark');
-  const fb=$('fbLink'); if(fb){const u=new URL(fb.href); u.searchParams.set('theme',l?'light':'dark'); fb.href=u.toString();}};
+const applyThemeLink=()=>{const t=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  // Hand our current theme to every page we link out to (Manual, Feedback,
+  // Roadmap - header and About copies), so each opens the way the dashboard
+  // looks now, not however the OS is set. Any new outward link belongs here.
+  ['manualLink','manualLink2','fbLink','fbLink2','roadmapLink','roadmapLink2','siteLink'].forEach(id=>{
+    const el=$(id); if(!el)return; try{const u=new URL(el.href); u.searchParams.set('theme',t); el.href=u.toString();}catch(e){}});};
 $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=document.documentElement.getAttribute('data-theme')!=='light';if(toLight)document.documentElement.setAttribute('data-theme','light');else document.documentElement.removeAttribute('data-theme');try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}applyThemeLink();});
 applyThemeLink();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));
@@ -1977,11 +2344,20 @@ $('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('connectViewButton').addEventListener('click',()=>openView('connect'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
-$('updateViewButton').addEventListener('click',()=>openView('update'));
+$('statsViewButton').addEventListener('click',()=>openView('stats'));
 $('modelBackButton').addEventListener('click',()=>openView('home'));
 
 let updInstalledVer='';
 const cmpVer=(a,b)=>{const pa=String(a).split('.').map(Number),pb=String(b).split('.').map(Number);for(let i=0;i<3;i++){if((pa[i]||0)!==(pb[i]||0))return(pa[i]||0)-(pb[i]||0);}return 0;};
+// 0-20: a version links to its GitHub Release page only when the gh-pages
+// manifest lists it - release.py publishes both together, so membership is
+// the "a Release page exists" test without asking the GitHub API.
+let updManifest=[];
+const setRelNotes=(id,v)=>{
+  const a=$(id),ok=!!(v&&updManifest.includes(v));
+  a.classList.toggle('hidden',!ok);
+  if(ok)a.href='https://github.com/slibbinas/TinyMakerWifi/releases/tag/v'+v;
+};
 // Install selected turns orange only when pressing it would change something
 const refreshInstallSelected=()=>{
   const v=$('updVersionSelect').value;
@@ -1989,6 +2365,9 @@ const refreshInstallSelected=()=>{
   $('updInstallSelected').classList.toggle('secondary',!!same);
   if(same)$('updInstallSelected').disabled=true;
   else if(!(statusData&&statusData.busy))$('updInstallSelected').disabled=false;
+  setRelNotes('updPickedNotes',v);
+  $('updPickedNotesRow').classList.toggle('hidden',$('updPickedNotes').classList.contains('hidden'));
+  if(v)$('updPickedNotes').textContent='\u{1F4DD} Release notes for '+v+' ↗';
 };
 const loadUpdate=async()=>{
   // Installed is known instantly (printed into the page header) and the
@@ -1998,18 +2377,12 @@ const loadUpdate=async()=>{
   setText('updInstalled',updInstalledVer||'-');setText('updLatest','-');
   $('updMsg').textContent='Checking the latest version - takes up to ~10 s...';
   $('updInstallLatest').disabled=true;
-  // Community install counter - straight from the stats endpoint, best-effort.
-  fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(r=>r.json()).then(s=>{
-    if(!s.printers)return;
-    let top='',n=0;const bv=s.by_version||{};
-    for(const v in bv)if(bv[v]>n){n=bv[v];top=v;}
-    setText('communityStats','Community: '+s.printers+' printer'+(s.printers===1?'':'s')+' running TinyMakerWifi'+(top?' - most on '+top:''));
-    show('communityStats',true);
-  }).catch(()=>{});
   try{
     const r=await fetch('https://slibbinas.github.io/TinyMakerWifi/versions.txt',{cache:'no-store'});
     if(!r.ok)throw 0;
     const list=(await r.text()).split('\n').map(s=>s.trim()).filter(s=>/^\d+\.\d+\.\d+$/.test(s));
+    updManifest=list;
+    setRelNotes('updInstalledNotes',updInstalledVer);
     const sel=$('updVersionSelect');sel.innerHTML='';
     list.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v+(cmpVer(v,updInstalledVer)===0?' (installed)':'');sel.appendChild(o);});
     // Only the picker pair hides without a manifest - the row itself stays,
@@ -2027,6 +2400,8 @@ const loadUpdate=async()=>{
     const u=await api('/api/update',null,30000);
     updInstalledVer=u.installed;
     setText('updInstalled',u.installed);setText('updLatest',u.latest&&u.latest.length?u.latest:'-');
+    setRelNotes('updInstalledNotes',u.installed);
+    setRelNotes('updLatestNotes',u.latest);
     // Beta testers run ahead of the stable channel, so "Latest" would read as
     // "the newest firmware is older than mine" - name the channel instead.
     const preRel=u.latest&&u.installed&&cmpVer(u.installed,u.latest)>0;
@@ -2081,18 +2456,20 @@ $('updUploadForm').addEventListener('submit',async e=>{
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
-$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName)shareModel(dashPreviewName);});
+$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName&&!$('dashShareButton').classList.contains('shared'))shareModel(dashPreviewName);});
 $('modelResin').addEventListener('click',async()=>{
   if($('modelResin').textContent.indexOf('~')!==0)return;
   if(!await uiConfirm('Run the exact resin scan on the printer? It decodes every layer and can take minutes.'))return;
   modelDetails(enc(selectedModel),true);
 });
-$('modelShareButton').addEventListener('click',()=>shareModel(selectedModel));
+$('modelShareButton').addEventListener('click',()=>{if(!$('modelShareButton').classList.contains('shared'))shareModel(selectedModel);});
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
 // The preview restore has to know whether a print is running before it touches
 // the card, and both used to start at once - so on a page opened mid-print the
 // restore raced the first status and usually won, with no statusData to check.
-openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();checkPublishedVersion();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
+// 1-35: the pre-reload page left a note that the firmware changed under us.
+try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.removeItem('tmFwUpd');msg('Firmware updated - now running '+fwUpd+'.');}}catch(err){}
 </script>
 </main></body></html>
