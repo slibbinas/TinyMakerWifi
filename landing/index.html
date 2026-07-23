@@ -115,11 +115,12 @@ footer a{color:var(--muted2);text-decoration:underline}
       try{localStorage.setItem('tmPrinterIp',v);}catch(err){}
       applyIp();modal.style.display='none';   // the link itself does the opening
     });
-    // Theme toggle (shared localStorage key with the printer dashboard) +
-    // manual links open the manual in the matching theme.
-    var applyManual=function(){
+    // Theme toggle (shared localStorage key with the printer dashboard).
+    // Our own linked pages (manual, roadmap) open in the matching theme —
+    // they read ?theme=; anything on our sites that reads it belongs here.
+    var applyThemeLinks=function(){
       var dark=document.documentElement.getAttribute('data-theme')!=='light';
-      document.querySelectorAll("a[href*='/TinyMakerWifi/manual/']").forEach(function(a){
+      document.querySelectorAll("a[href*='/manual/'], a[href*='/roadmap/']").forEach(function(a){
         var u=new URL(a.href);u.search=dark?'?theme=dark':'';a.href=u.toString();
       });
     };
@@ -129,9 +130,9 @@ footer a{color:var(--muted2);text-decoration:underline}
       if(toLight)document.documentElement.setAttribute('data-theme','light');
       else document.documentElement.removeAttribute('data-theme');
       try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}
-      applyManual();
+      applyThemeLinks();
     });
-    applyManual();
+    applyThemeLinks();
     // Live community counter from the anonymous usage pings (shown from 2 up -
     // a lone "1" reads worse than nothing while the community is young).
     fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(function(r){return r.json();}).then(function(s){
