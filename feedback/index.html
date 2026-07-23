@@ -18,7 +18,7 @@
 :root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--input:#141416}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%;position:relative}
 /* Narrow phones: trim the page/card padding so the fixed 300 px Turnstile box
    keeps room (covers ~360 px viewports and up). */
 @media(max-width:420px){body{padding:12px}.card{padding:24px 12px}}
@@ -74,17 +74,20 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
-<button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:12px;right:14px;z-index:20;width:auto;margin:0;background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 9px;font-size:1.05rem;line-height:1;cursor:pointer">&#9680;</button>
 <script>
-(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
+function tmWireToggle(){var tg=document.getElementById('themeToggle');if(!tg)return;
   /* Šis puslapis pagal nutylėjimą TAMSUS (šviesus - tik jei OS taip prašo). */
   var cur=function(){var d=document.documentElement.getAttribute('data-theme');
     return d||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');};
   tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',n);
-    try{localStorage.setItem('tmTheme',n);}catch(e){}});})();
+    try{localStorage.setItem('tmTheme',n);}catch(e){}});}
+/* Mygtukas gyvena kortelėje, kuri DOM'e yra ŽEMIAU šio skripto — laukiam parse. */
+if(document.readyState!=='loading')tmWireToggle();
+else document.addEventListener('DOMContentLoaded',tmWireToggle);
 </script>
 <div class="card">
+  <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:absolute;top:10px;right:12px;width:auto;margin:0;padding:3px 8px;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;font-size:1rem;line-height:1;cursor:pointer">&#9680;</button>
   <div class="brand">
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
     <span>TinyMakerWifi</span>
