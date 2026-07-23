@@ -140,7 +140,7 @@
 <script>
 // Light by default; ?theme=dark (the printer dashboard's Manual link) opens
 // dark to match the dashboard. The toggle button still flips either way.
-(function(){var p=new URLSearchParams(location.search).get('theme');document.documentElement.setAttribute('data-theme',p==='dark'?'dark':'light');})();
+(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);var t=p||localStorage.getItem('tmTheme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
 // Site links carry the current theme over (different origin - no shared storage).
 window.tmSyncSite=function(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.querySelectorAll("a[href^='https://tinymakerwifi.com']").forEach(function(a){a.href='https://tinymakerwifi.com/?theme='+(d?'dark':'light');});};
 window.addEventListener('DOMContentLoaded',window.tmSyncSite);
@@ -148,7 +148,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 <div class="topBar">
   <a class="toggle-theme" href="https://tinymakerwifi.com">tinymakerwifi.com</a>
   <a class="toggle-theme" href="#toc">Contents</a>
-  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');window.tmSyncSite();})()">◐ Theme</button>
+  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='dark'?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('tmTheme',n);}catch(e){}window.tmSyncSite();})()">◐ Theme</button>
 </div>
 
 <header class="hero">
@@ -349,7 +349,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this peels it free and raises it, then clears the checkpoint.</li>
     <li><b>Discard</b> — forget the interrupted print and boot normally.</li>
   </ul>
-  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust. <span class="note">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</span></p>
+  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust.</p>
+  <p style="color:var(--muted);font-size:.9rem">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
   <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
