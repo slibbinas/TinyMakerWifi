@@ -5,13 +5,16 @@ MSLA resin printer is headed. Updated at each release.
 
 ## Where we are
 
-The **0.15.x** line is a stability push toward **1.0.0**. The feature set is
-frozen — the focus is bug hunting, testing and polish, not new features.
+**0.16.0 just shipped as a beta** — the biggest release since WiFi landed,
+headlined by **power-loss resume** (answerable from the printer or your phone).
+Grab it from the dashboard's *Update → version picker*; the current stable is
+still **0.15.8**.
 
 New builds ship first as **betas** from the dashboard's *Update → version
-picker* and the [Releases page](https://github.com/slibbinas/TinyMakerWifi/releases);
-the automatic self-update channel follows a day or two later, once early testers
-confirm the build.
+picker* and the [Releases page](https://github.com/slibbinas/TinyMakerWifi/releases).
+The automatic self-update channel stays on the previous stable until enough
+testers confirm the beta, then it's promoted — so nobody is pushed onto an
+untested build.
 
 ## Delivered (up to 0.15.8)
 
@@ -30,9 +33,10 @@ Everything through the current stable **0.15.8** — on your printer now via
 Full, version-by-version history is in the
 [changelog](https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md).
 
-## Now in development (0.16)
+## Just shipped: 0.16.0 (beta)
 
-Already built and being tested for the next update:
+Out now on the **beta** channel (*Update → version picker*), being proven
+before the automatic self-update picks it up:
 
 - **A print-aware screen saver** — dims the idle screen, gently moves the
   printer name and IP around (no burn-in), shows live print progress while
@@ -69,10 +73,10 @@ Already built and being tested for the next update:
 - **A "recently fixed" list** in the feedback form, plus a status link for your
   own reports so you can see what happened to them.
 
-0.16 is content-complete and being packaged. It reaches the **beta** channel
-first (*Update → version picker*), and the automatic self-update follows once
-early testers
-confirm it.
+It's on the **beta** channel now (*Update → version picker*); the automatic
+self-update follows once early testers confirm it. Feedback — bug reports and
+"it just works" alike — genuinely steers what ships:
+https://tinymakerwifi.com/feedback
 
 ## Next after 0.16: the 0.17 exposure update
 
