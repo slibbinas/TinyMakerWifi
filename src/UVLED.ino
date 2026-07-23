@@ -61,6 +61,14 @@ void turn_on_LED(){
     // the printer is busy.
     #if ENABLE_NETWORK
     network_service_http();   // HTTP only - no MQTT/Connect timeouts in here
+
+    // 0-22 print saver: while dimmed (or on the waking press) the handlers
+    // below must not see the buttons - a blind press may never pause/cancel.
+    if (printSaverTick()) {
+      Duration2 = 0;
+      startTime2 = millis();
+      continue;
+    }
     #endif
 
     // Check button inputs every 500ms

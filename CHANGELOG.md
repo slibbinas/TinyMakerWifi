@@ -13,6 +13,58 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.16.0] — 2026-07-23 (beta)
+
+The biggest release since WiFi landed: your printer survives a power cut, every
+long operation tells you what it's doing on every open dashboard, and the
+printer's own screen finally shows when it's in a test run or has an update
+waiting. Ships first as a **beta** (Update → version picker); the automatic
+self-update channel follows once early testers confirm it.
+
+### Added
+- **Power-loss resume.** If the power drops mid-print, the printer remembers the
+  layer on the SD card and, on the next boot, offers to **pick the print back up
+  from where it stopped** — no starting over. A third choice safely **lifts the
+  plate** off a stuck print (up only, never into the vat). You can answer all of
+  this **from the dashboard on your phone**, not just at the machine — a first
+  for a resin printer in this class. Field-tested with real power cuts and a
+  resin print. *(Checkpoint engine by **Tanner Steorts ([@Tann2019](https://github.com/Tann2019)), PR #11** — thank you.)*
+- **Clear live feedback on Stop / Pause / Resume.** Instead of a easy-to-miss
+  button label, one message with a live countdown ("Stopping — finishing the
+  current layer · ~18s"), shown centred on every connected dashboard.
+- **Background SD work.** Deleting a model or importing an upload no longer
+  freezes the dashboard — the work runs in the background and every connected
+  device sees what the printer is doing and when it finished.
+- **Mid-print preview from any device.** Open the dashboard mid-print on a fresh
+  phone and still see the model preview (served from a RAM snapshot). *(Reported
+  by Simon Fell.)*
+- **A print-aware screen saver** — dims the idle screen, gently drifts the
+  printer name/IP (no burn-in), shows live progress while printing, on by default.
+- **Reorganized menus** on the printer and dashboard — Advanced grouped
+  (Network / Resin / Display), a new **Statistics** screen (print hours, UV time,
+  boot info), Update kept visible with an "update available" badge.
+- **On-screen status badges** — a **DR** chip when dry-run is on (the UV LED is
+  disabled), a **NEW** chip when a firmware update is available, and a messenger
+  bubble when notifications are enabled — all on the printer's own screen.
+- **Release notes in the updater** — a link to what changed next to every version.
+- **Model details in the status panel** (layers, time, resin) and a smoother 3D
+  progress view.
+- **A self-refreshing model list** — a model uploaded from one device shows up on
+  every open dashboard, no reload needed.
+- **"Why did it restart?" diagnostics** — after an unexpected reboot the printer
+  records the reason (and the layer, if printing) and shows it in Statistics.
+- **Feedback tickets** — the feedback form now gives you a reference number and a
+  status link, and shows a "recently handled" list.
+
+### Fixed
+- **Fresher print-time and resin estimates** right after a settings change.
+- **Mobile navigation** no longer overflows on narrow phones; steadier MQTT
+  reconnects.
+- **WiFi credentials are no longer wiped** when discarding a resume prompt (a
+  held button was misread as the power-on reset gesture).
+- A **security pass** over the HTTP surface (POST endpoints, file paths, gate
+  consistency); boot-animation install restricted to trusted hosts.
+
 ## [0.15.8] — 2026-07-19
 
 A readability fix for the light theme.

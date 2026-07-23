@@ -1,0 +1,139 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voxel preview lab — TinyMakerWifi</title>
+<!--
+  DEV TOOL (not shipped). Reproduces the dashboard's 3D voxel preview renderer
+  (web/dashboard.html: isoPt / drawVolumeBox / quad / solidVoxel / drawIso) in
+  isolation so preview/print render decisions can be seen without a printer.
+
+  Pick a synthetic model + a render mode + a progress %, or hit Play to simulate
+  a print. Modes mirror the real algorithm branches:
+    preview-solid : drawIso(cv,1) - the beauty shot, saved as the thumbnail PNG
+    new-finished  : the 0-27 dotted scheme at 100% (no solid override)
+    old-midprint  : pre-0-27 - solid printed + grey ghost above
+    new-midprint  : 0-27 - white silhouette + interpolated orange (ships now)
+    hybrid-midprint (C) : solid printed (== preview) + white silhouette above,
+                          fades to solid at 100% with no snap
+
+  Keep this in sync with drawIso if the shipped renderer changes. Opening this
+  file in a browser is the fastest way to preview an algorithm tweak.
+-->
+<style>
+:root{--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#ececf0;--muted:#9a9aa2;--accent:#e8720c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;padding:20px;max-width:840px;margin:0 auto}
+h1{font-size:1.15rem;margin:0 0 12px}
+.bar{display:flex;gap:16px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:5px}
+.f label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+select{background:#0c0c0e;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:inherit}
+.f.grow{flex:1 1 240px}
+input[type=range]{accent-color:var(--accent);height:24px}
+.big{font-size:1.15rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;align-self:end}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:10px;display:block}
+.hint{color:var(--muted);font-size:.82rem;margin-top:8px}
+</style></head><body>
+<h1>Voxel preview lab <span style="color:var(--muted);font-weight:400;font-size:.85rem">— dashboard 3D renderer, standalone</span></h1>
+<div class="bar">
+  <div class="f"><label>Model</label>
+    <select id="model"><option value="cone">Cone</option><option value="sphere">Sphere</option><option value="cyl">Cylinder</option><option value="pyr">Pyramid</option><option value="lantern">Lantern</option><option value="real" disabled id="realOpt">— real model —</option></select></div>
+  <div class="f"><label>Real slices (JSON)</label>
+    <input type="file" id="loadJson" accept=".json" style="font-size:.8rem;color:var(--muted)"></div>
+  <div class="f"><label>Render</label>
+    <select id="mode">
+      <option value="prev">preview-solid (thumbnail)</option>
+      <option value="pnew">new-finished (dots @100%)</option>
+      <option value="old">old-midprint (solid+ghost)</option>
+      <option value="new" selected>new-midprint (0-27, ships)</option>
+      <option value="hybrid">hybrid C (solid+silhouette)</option>
+    </select></div>
+  <div class="f grow"><label>Progress <span class="big" id="pct">60%</span> · layer <span id="lay">641</span>/<span id="tot">1069</span></label>
+    <input type="range" id="sld" min="0" max="1000" value="600" aria-label="Progress"></div>
+  <button id="play">▶ Play</button>
+</div>
+<canvas id="cv" width="720" height="440"></canvas>
+<p class="hint">Progress applies to the mid-print modes; preview-solid and new-finished ignore it (always the full model). Layer count is synthetic (1069) to mirror a real 36-slice / 1000+ layer sampling ratio.</p>
+
+<script>
+const PREV_W=720,PREV_H=440,PREV_S=4.7,PREV_CX=360,PREV_CY=286;
+const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
+const MX=40.8,MY=30.6,gw=80,gh=60;
+let modelH=40,N=36,LAYERS=1069;   // mutable: a loaded real model overrides these
+let slices=[];
+function build(kind){
+  modelH=40;N=36;LAYERS=1069;
+  slices=[];
+  for(let k=0;k<N;k++){const s=new Uint8Array(gw*gh),tt=k/(N-1);
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){const dx=i-gw/2,dy=j-gh/2,rr=Math.hypot(dx,dy*1.33);
+      let on=false;
+      if(kind==='cone')      on=rr<=Math.max(2,24*(1-tt));
+      else if(kind==='sphere'){const zz=(tt-0.5)*2;on=(dx*dx+ (dy*1.33)*(dy*1.33))/(24*24) + zz*zz <=1;}
+      else if(kind==='cyl')  on=rr<=20;
+      else if(kind==='pyr')  on=Math.max(Math.abs(dx),Math.abs(dy*1.33))<=Math.max(2,24*(1-tt));
+      else if(kind==='lantern'){const body=rr<=Math.max(6,22-Math.abs(tt-0.55)*30); const stem=tt<0.28&&rr<=9; on=body||stem;}
+      if(on)s[j*gw+i]=1;}
+    slices.push(s);}
+}
+const drawBox=ctx=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;ctx.strokeStyle='#4a4a52';ctx.lineWidth=1;
+  const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
+  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});};
+const quad=(ctx,fill,pts)=>{ctx.fillStyle=fill;ctx.strokeStyle=fill;ctx.lineWidth=1;ctx.beginPath();
+  for(let n=0;n<4;n++){const p=isoPt(pts[n][0],pts[n][1],pts[n][2]);if(n)ctx.lineTo(p.X,p.Y);else ctx.moveTo(p.X,p.Y);}ctx.closePath();ctx.fill();ctx.stroke();};
+function solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz){
+  let nx=0,ny=0,nz=0;for(let dk=-1;dk<=1;dk++){const sk=slices[k+dk];for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj&&!dk)continue;
+    const ii=i+di,jj=j+dj,inside=sk&&ii>=0&&ii<gw&&jj>=0&&jj<gh&&sk[jj*gw+ii];if(!inside){nx+=di;ny+=dj;nz+=dk;}}}
+  const len=Math.hypot(nx,ny,nz)||1,lam=Math.max(0,(nx*0.25+ny*0.5+nz*0.83)/len),depth=0.85+0.15*((i/gw)+(j/gh))/2,v=(0.30+0.70*lam)*depth;
+  const fill='rgb('+Math.round(236*v)+','+Math.round((132+28*t)*v)+','+Math.round((48+22*t)*v)+')';
+  if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
+  if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+  if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+}
+function render(ctx,doneFrac,mode){
+  drawBox(ctx);const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2,step=1/Math.max(N-1,1);
+  const asSolid = mode==='prev' || ((mode==='new'||mode==='hybrid'||mode==='old')&&doneFrac>=1);
+  for(let k=0;k<N;k++){const t=k/(N-1),z=t*modelH,s=slices[k],up=slices[k+1];
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){if(!s[j*gw+i])continue;
+      const fTop=!up||!up[j*gw+i],fRight=i===gw-1||!s[j*gw+i+1],fLeft=j===gh-1||!s[(j+1)*gw+i];
+      if(!(fTop||fRight||fLeft))continue;
+      const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY,edge=i===0||j===0||fRight||fLeft,p=isoPt(cx,cy,z);
+      if(asSolid){solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);continue;}
+      const a=Math.max(0,Math.min(1,(doneFrac-t)/step));
+      if(mode==='old'){
+        if(doneFrac>0&&t<=doneFrac)solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);
+        else{ctx.fillStyle='rgba(150,150,165,'+(edge?0.20:0.05)+')';ctx.fillRect(p.X-1,p.Y-1,2.2,2.2);}
+      }else if(mode==='hybrid'){
+        // printed part = solid (== preview), top slice fades in; unprinted = white silhouette
+        ctx.fillStyle='rgba(233,233,236,'+(edge?0.28:0.05)+')';ctx.fillRect(p.X-1,p.Y-1,2,2);
+        if(doneFrac>0&&a>0){ctx.save();ctx.globalAlpha=a;solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);ctx.restore();}
+      }else{ // new / pnew
+        ctx.fillStyle='rgba(233,233,236,'+(edge?0.28:0.05)+')';ctx.fillRect(p.X-1,p.Y-1,2,2);
+        if(doneFrac>0&&a>0){ctx.fillStyle='rgba(232,114,12,'+(a*(edge?0.75:0.14))+')';ctx.fillRect(p.X-1.5,p.Y-1.5,3.2,3.2);}
+      }
+    }}
+}
+const ctx=document.getElementById('cv').getContext('2d'),sld=document.getElementById('sld'),modelSel=document.getElementById('model'),modeSel=document.getElementById('mode');
+document.getElementById('tot').textContent=LAYERS;
+function paint(){const f=sld.value/1000,m=modeSel.value,df=(m==='prev'||m==='pnew')?1:f;
+  render(ctx,df,m);document.getElementById('pct').textContent=Math.round(f*100)+'%';document.getElementById('lay').textContent=Math.round(f*LAYERS);}
+[sld,modeSel].forEach(el=>el.addEventListener('input',paint));
+modelSel.addEventListener('change',()=>{if(modelSel.value!=='real'){build(modelSel.value);paint();}});
+// Load a real model's slices (scripts/dev/fetch_model_slices.py output). File
+// input, not fetch: a file:// page can't fetch a sibling JSON (CORS).
+document.getElementById('loadJson').addEventListener('change',ev=>{
+  const file=ev.target.files[0];if(!file)return;const rd=new FileReader();
+  rd.onload=()=>{try{const o=JSON.parse(rd.result);
+    slices=o.slices.map(b=>{const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
+    N=o.N||slices.length;modelH=o.modelH||40;LAYERS=o.layers||1069;
+    const opt=document.getElementById('realOpt');opt.disabled=false;opt.textContent=o.name||'real model';modelSel.value='real';
+    document.getElementById('tot').textContent=LAYERS;paint();
+  }catch(e){alert('Bad slice JSON: '+e.message);}};
+  rd.readAsText(file);
+});
+let timer=null;const playBtn=document.getElementById('play');
+playBtn.addEventListener('click',function(){if(timer){clearInterval(timer);timer=null;playBtn.textContent='▶ Play';return;}
+  playBtn.textContent='⏸ Stop';let v=+sld.value;if(v>=1000)v=0;
+  timer=setInterval(()=>{v+=5;if(v>1000){v=1000;clearInterval(timer);timer=null;playBtn.textContent='▶ Play';}sld.value=v;paint();},120);});
+build('cone');paint();
+</script></body></html>

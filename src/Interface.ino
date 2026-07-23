@@ -478,16 +478,22 @@ void screen4(){
   screen = 4;
 }
 
+// System submenu (0-17b): 5 items, one screen code (41) + a selection index -
+// the same pattern as the Advanced groups (440). Update stays visible right
+// before About: self-update is the fix-delivery channel, never buried.
+#define SYSTEM_MENU_COUNT 5
+
 String systemLabel(int item) {
   if (item == 1) return "WiFi Info";
   if (item == 2) return "Advanced";
-  if (item == 3) return "Update";
-  if (item == 4) return "About";
+  if (item == 3) return "Statistics";
+  if (item == 4) return "Update";
+  if (item == 5) return "About";
   return "";
 }
 
 void drawSystemRow(int item, int y, bool selected) {
-  if (item > 4) item = 1;
+  if (item > SYSTEM_MENU_COUNT) item = 1;
 
   gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
   gfx2->setCursor(5, y + 25);
@@ -496,9 +502,9 @@ void drawSystemRow(int item, int y, bool selected) {
 
 void drawSystemMenu(uint8_t selected) {
   if (selected < 1) selected = 1;
-  if (selected > 4) selected = 4;
+  if (selected > SYSTEM_MENU_COUNT) selected = SYSTEM_MENU_COUNT;
 
-  int next = selected >= 4 ? 1 : selected + 1;
+  int next = selected >= SYSTEM_MENU_COUNT ? 1 : selected + 1;
 
   gfx2->fillScreen(BLACK);
   gfx2->setFont(&FreeSans8pt7b);
@@ -509,28 +515,29 @@ void drawSystemMenu(uint8_t selected) {
   drawSystemRow(next, 41, false);
 }
 
-/**
- * @brief Screens 41-44: System submenu (WiFi Info / Advanced / Update / About)
- */
-void screen41(){
-  drawSystemMenu(1);
+void systemMenuShow() {  // redraw at the current selection (screen stays 41)
+  drawSystemMenu(system_item);
   screen = 41;
 }
 
-void screen42(){
-  drawSystemMenu(2);
-  screen = 42;
+void systemMenuUp() {
+  system_item--;
+  if (system_item < 1) system_item = SYSTEM_MENU_COUNT;
+  systemMenuShow();
 }
 
-void screen43(){
-  drawSystemMenu(3);
-  screen = 43;
+void systemMenuDown() {
+  system_item++;
+  if (system_item > SYSTEM_MENU_COUNT) system_item = 1;
+  systemMenuShow();
 }
 
-void screen44(){
-  drawSystemMenu(4);
-  screen = 44;
-}
+// Legacy entry points - callers pick a selection by MEANING (Advanced /
+// Update / About), not by position, so reordering the menu can't break them.
+void screen41(){ system_item = 1; systemMenuShow(); }   // WiFi Info
+void screen42(){ system_item = 2; systemMenuShow(); }   // Advanced
+void screen43(){ system_item = 4; systemMenuShow(); }   // Update
+void screen44(){ system_item = 5; systemMenuShow(); }   // About
 
 /**
  * @brief Screen 411: shown instead of WiFi Info when ENABLE_NETWORK = 0
@@ -551,12 +558,85 @@ bool advancedMqttConfigured() {
   return mqttHost.length() > 0 || mqttUser.length() > 0 || mqttPass.length() > 0;
 }
 
-int advancedOptionCount() {
-  int count = 10; // ...exposure test, boot animation
-  if (wifiEnabled) count++; // web control
-  if (wifiEnabled && advancedMqttConfigured()) count++; // MQTT
-  return count;
+// WiFi follows the same "ask first, act on OK" pattern as every other
+// prompt (since 07-20): nothing changes until Reboot is confirmed. Flipping
+// the flag before the prompt looked harmless ("WiFi only changes at boot")
+// but network_loop() gates on it - the dashboard died the moment the prompt
+// opened (user finding: printer vanished from the browser mid-menu).
+void applyWifiToggleAndReboot() {
+  wifiEnabled = !wifiEnabled;
+  if (!wifiEnabled) {
+    webDashboardEnabled = false;
+    mqttEnabled = false;
+  } else {
+    webDashboardEnabled = true;
+  }
+  saveDeviceConfig();
+  ESP.restart();
 }
+
+// ---- Advanced menu groups (0-17a) ------------------------------------------
+// The flat 10-12 item list became hard to scan on a 2-row screen, so Advanced
+// now opens a group list (screen 440): Network / Resin / Display. OK enters
+// the group's items (screen 441, the existing mechanics); Back walks up.
+// Items keep their ORIGINAL ids (advancedLabel/Value/Select switches are
+// untouched) - advancedGroupItem() maps (group, position) to an id, so the
+// conditional Network entries (Web control, MQTT) just shorten the group.
+
+int advancedGroupCount() { return 3; }
+
+String advancedGroupLabel(int g) {
+  if (g == 1) return "Network";
+  if (g == 2) return "Resin";
+  if (g == 3) return "Display";
+  return "";
+}
+
+// Second row of a group card: a one-glance summary of its key state.
+String advancedGroupValue(int g) {
+  if (g == 1) return wifiEnabled ? "WiFi On" : "WiFi Off";
+  if (g == 2) return String(vatRemaining(), 1) + " ml left";
+  if (g == 3) {
+    if (uiTimeoutSecs == 0) return "Sleep Off";
+    return "Sleep " + String(uiTimeoutSecs) + "s";
+  }
+  return "";
+}
+
+int advancedGroupItemCount(int g) {
+  if (g == 1) {  // WiFi, [Web control], [MQTT], Boot update
+    int count = 2;
+    if (wifiEnabled) count++;
+    if (wifiEnabled && advancedMqttConfigured()) count++;
+    return count;
+  }
+  if (g == 2) return 6;  // VAT refilled, pause, warn, ask refill, exp test, dry run
+  if (g == 3) return 2;  // idle timeout, boot animation
+  return 0;
+}
+
+// (group, 1-based position) -> original item id used by advancedLabel/Value/
+// advancedOptionsSelect. Network keeps WiFi first so the toggles it gates
+// (Web control, MQTT) sit right under it.
+int advancedGroupItem(int g, int pos) {
+  if (g == 1) {
+    if (pos == 1) return 7;                                   // WiFi
+    if (wifiEnabled && pos == 2) return 11;                   // Web control
+    if (wifiEnabled && advancedMqttConfigured() && pos == 3) return 12;  // MQTT
+    return 8;                                                 // Boot update (last)
+  }
+  if (g == 2) {
+    const int items[6] = {3, 4, 5, 6, 9, 2};  // refilled, pause, warn, ask, exp test, dry run
+    if (pos >= 1 && pos <= 6) return items[pos - 1];
+  }
+  if (g == 3) {
+    if (pos == 1) return 1;   // Idle timeout
+    if (pos == 2) return 10;  // Boot animation
+  }
+  return 1;
+}
+
+int advancedOptionCount() { return advancedGroupItemCount(advanced_group); }
 
 String advancedLabel(int item) {
   if (item == 1) return "Idle timeout";   // sleeps only when idle - the old
@@ -571,8 +651,8 @@ String advancedLabel(int item) {
   if (item == 8) return "Boot update";
   if (item == 9) return "Exposure test";
   if (item == 10) return "Boot animation";
-  if (wifiEnabled && item == 11) return "Web control";
-  if (wifiEnabled && advancedMqttConfigured() && item == 12) return "MQTT";
+  if (item == 11) return "Web control";  // shown only via the Network group,
+  if (item == 12) return "MQTT";         // which gates them on wifiEnabled
   return "";
 }
 
@@ -594,18 +674,19 @@ String advancedValue(int item) {
     if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
     return bootAnimExists(bootAnimName) ? bootAnimDisplay(bootAnimName) : bootAnimDisplay(bootAnimName) + " (missing)";
   }
-  if (wifiEnabled && item == 11) return webDashboardEnabled ? "On" : "Off";
-  if (wifiEnabled && advancedMqttConfigured() && item == 12) return mqttEnabled ? "On" : "Off";
+  if (item == 11) return webDashboardEnabled ? "On" : "Off";
+  if (item == 12) return mqttEnabled ? "On" : "Off";
   return "";
 }
 
-void drawAdvancedRow(int item, int y, bool selected) {
-  if (item > advancedOptionCount()) item = 1;
+void drawAdvancedRow(int pos, int y, bool selected) {
+  if (pos > advancedOptionCount()) pos = 1;
+  int id = advancedGroupItem(advanced_group, pos);
   gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
   gfx2->setCursor(5, y + 15);
-  gfx2->print(advancedLabel(item));
+  gfx2->print(advancedLabel(id));
   gfx2->setCursor(5, y + 33);
-  gfx2->print(advancedValue(item));
+  gfx2->print(advancedValue(id));
 }
 
 void screenAdvancedOptions() {
@@ -622,6 +703,42 @@ void screenAdvancedOptions() {
   screen = 441;
 }
 
+// Group list (screen 440) - same 2-row mechanics as the item list above.
+void drawAdvancedGroupRow(int g, int y, bool selected) {
+  if (g > advancedGroupCount()) g = 1;
+  gfx2->drawRoundRect(0, y, 160, 39, 3, selected ? WHITE : BLACK);
+  gfx2->setCursor(5, y + 15);
+  gfx2->print(advancedGroupLabel(g));
+  gfx2->setCursor(5, y + 33);
+  gfx2->print(advancedGroupValue(g));
+}
+
+void screenAdvancedGroups() {
+  int count = advancedGroupCount();
+  if (advanced_group < 1) advanced_group = 1;
+  if (advanced_group > count) advanced_group = count;
+  int next = advanced_group >= count ? 1 : advanced_group + 1;
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  drawAdvancedGroupRow(advanced_group, 0, true);
+  drawAdvancedGroupRow(next, 41, false);
+  screen = 440;
+}
+
+void advancedGroupsUp() {
+  advanced_group--;
+  if (advanced_group < 1) advanced_group = advancedGroupCount();
+  screenAdvancedGroups();
+}
+
+void advancedGroupsDown() {
+  advanced_group++;
+  if (advanced_group > advancedGroupCount()) advanced_group = 1;
+  screenAdvancedGroups();
+}
+
 void advancedOptionsUp() {
   advanced_item--;
   if (advanced_item < 1) advanced_item = advancedOptionCount();
@@ -635,56 +752,48 @@ void advancedOptionsDown() {
 }
 
 void advancedOptionsSelect() {
-  if (advanced_item == 1) {
+  // The visible position resolves to the item's original id - the switch
+  // below stayed keyed by id when the menu grew groups (0-17a).
+  int id = advancedGroupItem(advanced_group, advanced_item);
+  if (id == 1) {
     if (uiTimeoutSecs == 0) uiTimeoutSecs = 30;
     else if (uiTimeoutSecs < 60) uiTimeoutSecs = 60;
     else if (uiTimeoutSecs < 120) uiTimeoutSecs = 120;
     else if (uiTimeoutSecs < 300) uiTimeoutSecs = 300;
     else if (uiTimeoutSecs < 600) uiTimeoutSecs = 600;
     else uiTimeoutSecs = 0;
-  } else if (advanced_item == 2) {
+  } else if (id == 2) {
     uvLedEnabled = !uvLedEnabled;
-  } else if (advanced_item == 3) {
+  } else if (id == 3) {
     vatMarkRefilled();          // action item: bookkeeping restarts from full
-  } else if (advanced_item == 4) {
+  } else if (id == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
-  } else if (advanced_item == 5) {
+  } else if (id == 5) {
     lowResinThresholdMl++;      // cycle 1..3 ml
     if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
-  } else if (advanced_item == 6) {
+  } else if (id == 6) {
     askRefillEnabled = !askRefillEnabled;
-  } else if (advanced_item == 7) {
-    wifiEnabled = !wifiEnabled;
-    if (!wifiEnabled) {
-      webDashboardEnabled = false;
-      mqttEnabled = false;
-    } else {
-      webDashboardEnabled = true;
-    }
-  } else if (advanced_item == 8) {
+  } else if (id == 7) {
+    // No mutation here - the prompt asks first, and the toggle is applied
+    // only on the confirmed reboot (applyWifiToggleAndReboot).
+    screenRebootConfirm();
+    return;
+  } else if (id == 8) {
     bootUpdateCheckEnabled = !bootUpdateCheckEnabled;
-  } else if (advanced_item == 9) {
+  } else if (id == 9) {
     screenExpTestIntro();       // action item: opens the exposure test flow
     return;
-  } else if (advanced_item == 10) {
+  } else if (id == 10) {
     bootAnimName = nextBootAnim(bootAnimName);  // cycle Default -> each installed animation
-  } else if (wifiEnabled && advanced_item == 11) {
+  } else if (id == 11) {
     webDashboardEnabled = !webDashboardEnabled;
-  } else if (wifiEnabled && advancedMqttConfigured() && advanced_item == 12) {
+  } else if (id == 12) {
     mqttEnabled = !mqttEnabled;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK
-  if (advanced_item != 7) {
-    tinymakerConnectScheduleBackup();
-  }
+  tinymakerConnectScheduleBackup();
   #endif
-  if (advanced_item == 7) {
-    // WiFi state only changes at boot (network_setup has no runtime
-    // teardown/bring-up path), so offer a reboot to apply it now.
-    screenRebootConfirm();
-    return;
-  }
   screenAdvancedOptions();
 }
 
@@ -741,9 +850,10 @@ void screenRefillAsk() {
 }
 
 /**
- * @brief Screen 442: WiFi toggled in Advanced - reboot to apply.
- * OK reboots immediately; Back returns to Advanced (saved setting
- * takes effect on the next power-up).
+ * @brief Screen 442: WiFi toggle confirmation. Says WHAT will change (user
+ * finding 07-20: "Reboot required" alone didn't). Nothing has been touched
+ * yet - wifiEnabled still holds the CURRENT value, so the prompt offers its
+ * opposite. OK applies the toggle and reboots; Back leaves everything as is.
  */
 void screenRebootConfirm() {
   uiFrame(ORANGE);
@@ -751,10 +861,10 @@ void screenRebootConfirm() {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
-  gfx2->print("Reboot required");
+  gfx2->print(wifiEnabled ? "Turn WiFi Off?" : "Turn WiFi On?");
   gfx2->setCursor(8, 43);
-  gfx2->print("Reboot now?");
-  uiButtons("Later", "Reboot", 0x879F);
+  gfx2->print("Reboots to apply");
+  uiButtons("Cancel", "Reboot", 0x879F);
   screen = 442;
 }
 
@@ -771,6 +881,73 @@ void screen421Buttons(bool installActive){
   // Right: OK -> install latest (self-update); greyed when nothing newer
   uiButton(1, "Install", installActive ? 0x879F : DARKGREY);
   gfx2->setFont(NULL);
+}
+
+/**
+ * @brief Dim idle screen shown after the UI timeout instead of a black
+ * displayOff(). The backlight is hard-wired on, so a blanked screen still
+ * glows - a low-key status (wordmark + IP) makes the printer look alive and
+ * keeps the dashboard URL in sight, at the same power draw. Static by design:
+ * drawn once when idling starts (handleUiTimeout latches uiBlanked), redrawn
+ * as the normal UI on the next key/network wake.
+ */
+// 0-21/0-22 screen saver core: the drifting dim block at one of 5 spots
+// (4 corners + centre). No wordmark (V 07-21) - the state IS the message:
+// line 1 big = state ("Idle"/"Printing"), line 2 big = live numbers
+// ("47% 1h23m", printing only), last line small = the IP so the dashboard
+// stays reachable.
+static void drawSaverBlock(uint8_t pos, const char *stateBig, const String &numsBig,
+                           const String &thirdLine){
+  const int bw = 120, W = 160, H = 80, m = 4;
+  const bool nums = numsBig.length() > 0;
+  const int bh = nums ? 48 : 30;
+  int x = (pos == 1 || pos == 3) ? (W - bw - m) : (pos == 4) ? (W - bw) / 2 : m;
+  int y = (pos == 2 || pos == 3) ? (H - bh - m) : (pos == 4) ? (H - bh) / 2 : m;
+  gfx2->fillScreen(BLACK);
+  gfx2->setFont(NULL);
+  gfx2->setTextSize(2);
+  gfx2->setTextColor(0x4208);            // dim grey headline
+  gfx2->setCursor(x, y);
+  gfx2->print(stateBig);
+  if (nums) {
+    gfx2->setCursor(x, y + 18);
+    gfx2->print(numsBig);
+  }
+  gfx2->setTextSize(1);
+  gfx2->setTextColor(0x2124);            // dimmest third line
+  if (thirdLine.length()) {
+    gfx2->setCursor(x, y + (nums ? 40 : 22));
+    gfx2->print(thirdLine);
+  }
+  gfx2->setTextSize(1);
+  gfx2->setFont(&FreeSans8pt7b);
+}
+
+void drawIdleScreen(uint8_t pos){
+  // Idle keeps the IP - it is the one place a fresh user discovers where the
+  // dashboard lives. The PRINT saver shows layers instead (V pick 07-22).
+  drawSaverBlock(pos, "Idle", "",
+                 WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String(""));
+}
+
+// 0-22: printing saver - "Printing" + "47% 1h23m" (percent + time left),
+// both in the big font so the state reads across the room.
+void drawPrintSaver(uint8_t pos){
+  String s = "";
+  if (layer_counter > 0) {
+    s += String((int)((long)current_layer * 100L / layer_counter));
+    s += "% ";
+  }
+  uint32_t rem = remainingPrintSecs();
+  if (rem > 0) {
+    if (rem >= 3600) { s += String(rem / 3600); s += "h"; }
+    s += String((rem % 3600) / 60);
+    s += "m";
+  }
+  // Third line: layers done/total instead of the IP - whoever started the
+  // print already knows the address (V pick 07-22).
+  drawSaverBlock(pos, "Printing", s,
+                 String(current_layer) + " / " + String(layer_counter));
 }
 
 /**
@@ -865,6 +1042,42 @@ void screenRestoreDone(bool ok){
   gfx2->setCursor(8, 34);
   gfx2->print(ok ? "Settings restored" : "Restore failed");
   delay(1200);
+}
+
+/**
+ * Screen 427: power was lost mid-print and a valid checkpoint is on the SD
+ * card (resumeLoad() in Resume.ino). OK resumes at the recorded layer -
+ * without homing - Back discards the checkpoint and boots normally.
+ * UP (0-2) lifts the plate off the stuck print first, then discards - for
+ * the "don't want it, but the plate is pressed down" case.
+ */
+void screenResumePrompt(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(8, 18);
+  // A statement, not a question: "Resume print?" biased toward one of the
+  // three actions (Discard / Resume / UP=Lift), and "Power restored" also
+  // explains WHY the prompt appeared (V pick 07-22). ~105 px - clears the
+  // Lift hint at x118.
+  gfx2->print("Power restored");
+  // UP = raise the plate, then discard (0-2). Icon only - the "Lift" label
+  // sat flush against the frame (V pick from a photo, 07-23): the up-arrow
+  // chip alone, 4 px off the right edge.
+  uiActionHint(143, 6, "");
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(0x879F);
+  gfx2->setCursor(8, 38);
+  gfx2->print(uiFitText(String(resumeFolder), 144));
+  gfx2->setCursor(8, 54);
+  gfx2->print("Layer ");
+  gfx2->print(resumeLayer);
+  gfx2->print(" / ");
+  gfx2->print(resumeTotal);
+  gfx2->setTextColor(WHITE);
+  uiButtons("Discard", "Resume", 0x879F);
+  screen = 427;
 }
 
 /**
@@ -965,8 +1178,8 @@ void screen431(){
   uiTitle("TinyMaker WiFi");
   gfx2->setFont(NULL); // built-in small font for long lines
   gfx2->setTextColor(WHITE);
-  // Info block (11 px pitch), wider gap before the repo block; key labels
-  // in blue for quick scanning
+  // Pure identity info (0-17b) - the counters moved to Statistics (432),
+  // matching the dashboard's Settings > About / Statistics split.
   gfx2->setCursor(5, 24);
   gfx2->setTextColor(0x879F);
   gfx2->print("FW: ");
@@ -981,20 +1194,9 @@ void screen431(){
   gfx2->print("Based on TinyMaker 1.0.2");
   gfx2->setCursor(5, 46);
   gfx2->setTextColor(0x879F);
-  gfx2->print("Printed: ");
+  gfx2->print("Built: ");
   gfx2->setTextColor(WHITE);
-  gfx2->print(totalPrintSecs / 3600UL);
-  gfx2->print("h ");
-  gfx2->print((totalPrintSecs % 3600UL) / 60UL);
-  gfx2->print("m");
-  gfx2->setCursor(5, 55);
-  gfx2->setTextColor(0x879F);
-  gfx2->print("UV LED: ");
-  gfx2->setTextColor(WHITE);
-  gfx2->print(totalUvLedSecs / 3600UL);
-  gfx2->print("h ");
-  gfx2->print((totalUvLedSecs % 3600UL) / 60UL);
-  gfx2->print("m");
+  gfx2->print(__DATE__);
   // Classic-font setCursor() y is the glyph TOP (7 px tall): the last row
   // must start by y=73 or it clips past the 80 px panel edge.
   gfx2->setCursor(5, 64);
@@ -1003,6 +1205,56 @@ void screen431(){
   gfx2->print("TinyMakerWifi");
   gfx2->setFont(&FreeSans8pt7b); // restore UI font
   screen = 431;
+}
+
+/**
+ * @brief Screen 432: Statistics (0-17b) - counters + reset-reason telemetry.
+ * The printer-side face of 0-30: "Boot:" is this boot's reason, "Crash:" the
+ * last recorded mid-print death (reason shortened to fit 26 small-font cols).
+ */
+void screen432(){
+  gfx2->fillScreen(BLACK);
+  uiTitle("Statistics");
+  gfx2->setFont(NULL);
+  gfx2->setTextColor(WHITE);
+  gfx2->setCursor(5, 24);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Printed: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(totalPrintSecs / 3600UL);
+  gfx2->print("h ");
+  gfx2->print((totalPrintSecs % 3600UL) / 60UL);
+  gfx2->print("m");
+  gfx2->setCursor(5, 35);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("UV LED: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(totalUvLedSecs / 3600UL);
+  gfx2->print("h ");
+  gfx2->print((totalUvLedSecs % 3600UL) / 60UL);
+  gfx2->print("m");
+  gfx2->setCursor(5, 46);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Boot: ");
+  gfx2->setTextColor(WHITE);
+  gfx2->print(resetReasonName((uint8_t)bootResetReason));
+  gfx2->setCursor(5, 57);
+  gfx2->setTextColor(0x879F);
+  gfx2->print("Crash: ");
+  gfx2->setTextColor(WHITE);
+  if (crashSeen) {
+    String r = resetReasonName(crashReason);
+    int paren = r.indexOf(" (");           // "brownout (power dip)" -> "brownout"
+    if (paren > 0) r = r.substring(0, paren);
+    gfx2->print(r);
+    gfx2->setCursor(5, 68);
+    gfx2->print("  at layer ");
+    gfx2->print(crashLayer);
+  } else {
+    gfx2->print("none recorded");
+  }
+  gfx2->setFont(&FreeSans8pt7b);
+  screen = 432;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1162,11 +1414,17 @@ void screen112(){
  * @brief Screen 1111: Printing Status
  * Shows current print progress including layer, time, and file name.
  */
+// Print-screen title bar: orange normally, the light blue during a dry run -
+// the only on-device cue that the UV LED is disabled while "printing" (B, 07-22).
+uint16_t printTitleBarColor() {
+  return uvLedEnabled ? ORANGE : 0x879F;
+}
+
 void screen1111(){
   gfx2->fillScreen(BLACK);
   gfx2->fillRoundRect(0, 0, 120, 80, 5, ORANGE);
   gfx2->fillRoundRect(2, 2, 116, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 120, 20, 3, ORANGE);    
+  gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
     
   // Icons (Pause/Cancel)    
   gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1204,8 +1462,18 @@ void screen1111(){
  * Updates the top status bar text based on `current_state`.
  */
 void screen1111_state(){
+  // 0-22: while dimmed, curing/lifting/dropping updates stay off the saver -
+  // but a cancel/pause/finish (state >= 4) must wake the screen and show.
+  if (uiDimmedPrint) {
+    if (current_state >= 4) {
+      uiDimmedPrint = false;
+      screen1111();
+    } else {
+      return;
+    }
+  }
   if (screen != 11111 && screen != 11112){
-    gfx2->fillRoundRect(0, 0, 120, 20, 3, ORANGE);    
+    gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
@@ -1278,9 +1546,12 @@ void screen1112(){
  * Highlights the Cancel button.
  */
 void screen1111UP(){
+  // Dimmed saver: don't scribble the selection outline onto the black screen
+  // (move-phase handlers have no dim awareness) - queue a wake instead.
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }
   gfx2->drawRoundRect(128, 4, 32, 32, 3, WHITE);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, BLACK);
-  printing_item_updown = 1;  
+  printing_item_updown = 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1292,9 +1563,10 @@ void screen1111UP(){
  * Highlights the Pause button.
  */
 void screen1111DOWN(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // same as UP
   gfx2->drawRoundRect(128, 4, 32, 32, 3, BLACK);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
-  printing_item_updown = 0;  
+  printing_item_updown = 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1306,6 +1578,7 @@ void screen1111DOWN(){
  * Asks user if they are sure to cancel.
  */
 void screen11111(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // saver: wake first, no blind confirm
   gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
   gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
   gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
@@ -1335,6 +1608,7 @@ void screen11111(){
  * Asks user if they are sure to pause.
  */
 void screen11112(){
+  if (uiDimmedPrint) { uiSaverWakeQueued = true; return; }   // saver: wake first, no blind confirm
   gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
   gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
   gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
@@ -1634,12 +1908,14 @@ void screen213(){
     current_position = stepper.currentPosition();
     if (current_position < -106799){
       stepper.disableOutputs();
+      gfx2->fillScreen(BLACK);   // full clear - the box alone left edge leftovers
       gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
       gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
       gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
-      gfx2->fillRoundRect(16, 11, 5, 10, 1, RED); 
-      gfx2->fillCircle(18, 25, 2, RED); 
+      gfx2->fillRoundRect(16, 11, 5, 10, 1, RED);
+      gfx2->fillCircle(18, 25, 2, RED);
       gfx2->setTextColor(WHITE);
+      gfx2->setFont(&FreeSans8pt7b);   // pin the font (inherited one overflowed the frame)
       gfx2->setTextSize(1);
       gfx2->setCursor(27, 23);
       gfx2->println("Homing error,");

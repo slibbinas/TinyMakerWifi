@@ -152,7 +152,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.15.8</span>
+  <span class="badge">User Manual · v0.16.0</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -174,7 +174,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><a href="#manage">Starting &amp; deleting models</a></li>
     <li><a href="#resin">Resin estimate &amp; refills</a></li>
     <li><a href="#dashboard">The web dashboard</a></li>
-    <li><a href="#advanced">Advanced menu &amp; switches</a></li>
+    <li><a href="#advanced">System menu reference</a></li>
     <li><a href="#update">Updating the firmware</a></li>
     <li><a href="#mqtt">Home Assistant &amp; notifications</a></li>
     <li><a href="#faq">Troubleshooting &amp; FAQ</a></li>
@@ -225,7 +225,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again.</div>
 
   <h3>Method 2 — already running TinyMakerWifi?</h3>
-  <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Update</b> tab — see <a href="#update">Updating the firmware</a>.</p>
+  <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Settings → Update</b> — see <a href="#update">Updating the firmware</a>.</p>
 
   <h3>Method 3 — manual flashing (fallback)</h3>
   <p>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page. Releases contain two files — they are <b>not</b> interchangeable:</p>
@@ -270,7 +270,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h2 class="sec" id="screens"><span class="num">5</span>The printer screens</h2>
   <p>The small status display drives the whole on-printer interface — WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
   <img class="shot" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer UI screens">
-  <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles), <b>Update</b> (firmware) and <b>About</b> (version and lifetime print hours).</p>
+  <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles, grouped into Network / Resin / Display), <b>Statistics</b> (lifetime counters and the last boot/crash record), <b>Update</b> (firmware) and <b>About</b> (version and build info). The full item-by-item reference is in <a href="#advanced">System menu reference</a>.</p>
 </section>
 
 <section>
@@ -320,7 +320,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>Level tracking &amp; refills</h3>
   <ul>
     <li><b>“Resin left (est.)”</b> is shown on the dashboard (and as a Home Assistant sensor with a low-resin alert).</li>
-    <li><b>After refilling</b>, tell the printer: <b>System → Advanced → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
+    <li><b>After refilling</b>, tell the printer: <b>System → Advanced → Resin → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
     <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT refilled?”</i> question so the estimate stays honest. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
     <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
     <li><b>Low resin pause</b> (optional, default Off): mid-print, when the level hits the threshold, the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> — top up, press VAT refilled or resume.</li>
@@ -341,6 +341,15 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <img class="shot" src="images/dashboard-idle.png" alt="The dashboard on a desktop screen: status card with UV LED time and the Manual link, SD manager with models">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
   <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear — the printer serves plain HTTP on your LAN — but the shortcut works the same.)</p>
+
+  <h3>If the power drops mid-print</h3>
+  <p>The printer writes a tiny checkpoint to the SD card as it goes, so a power cut is recoverable. When it boots back up it shows <b>Power restored</b> with the model name and the layer it reached, and three choices:</p>
+  <ul>
+    <li><b>Resume</b> — the plate goes back down (no homing, which would drive the part into the vat) and the print continues from where it stopped.</li>
+    <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this peels it free and raises it, then clears the checkpoint.</li>
+    <li><b>Discard</b> — forget the interrupted print and boot normally.</li>
+  </ul>
+  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust. <span class="note">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</span></p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
   <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
@@ -364,23 +373,46 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="advanced"><span class="num">11</span>Advanced menu &amp; switches</h2>
-  <p><b>System → Advanced</b> on the printer holds the device toggles — <kbd>OK</kbd> changes a value, <kbd>Back</kbd> returns:</p>
+  <h2 class="sec" id="advanced"><span class="num">11</span>System menu reference</h2>
+  <p>The <b>System</b> menu is where everything beyond printing lives. <kbd>OK</kbd> opens an item or changes a value, <kbd>Back</kbd> steps out:</p>
+  <div class="table-scroll">
+  <table>
+    <tr><th>System item</th><th>What it does</th></tr>
+    <tr><td>WiFi Info</td><td>Connected network, signal strength and the printer’s IP. <kbd>OK</kbd> here offers a <b>WiFi reset</b> (reboots into the setup portal).</td></tr>
+    <tr><td>Advanced</td><td>Device toggles, grouped into <b>Network / Resin / Display</b> — the tables below.</td></tr>
+    <tr><td>Statistics</td><td>Lifetime print hours, UV LED on-time, this boot’s reason and the last interrupted print (if any) with its layer.</td></tr>
+    <tr><td>Update</td><td>Installed vs latest firmware; installs a new version over WiFi. See <a href="#update">Updating the firmware</a>.</td></tr>
+    <tr><td>About</td><td>Firmware version, build date and the project link.</td></tr>
+  </table>
+  </div>
+  <h3>Advanced → Network</h3>
   <div class="table-scroll">
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
-    <tr><td>Screen timeout</td><td>Blank the status screen after 30&nbsp;s…10&nbsp;min of inactivity (Off = never).</td></tr>
-    <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test below.</td></tr>
+    <tr><td><b>WiFi</b></td><td><b>On/Off — the whole network</b> (web, PrusaSlicer upload, MQTT, self-update). Confirming reboots to apply; Cancel changes nothing.</td></tr>
+    <tr><td>Web control</td><td>On/Off — browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
+    <tr><td>MQTT</td><td>On/Off (shown once MQTT is configured in the dashboard).</td></tr>
+    <tr><td>Boot update</td><td>On = the printer checks for new firmware right after WiFi connects at boot and offers <i>Install / Later</i> on the screen.</td></tr>
+  </table>
+  </div>
+  <h3>Advanced → Resin</h3>
+  <div class="table-scroll">
+  <table>
+    <tr><th>Item</th><th>What it does</th></tr>
     <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
     <tr><td>Low resin pause</td><td>On = the print pauses for a refill when the estimate runs low.</td></tr>
     <tr><td>Low resin warn</td><td>The warning/pause threshold, 1–3&nbsp;ml (OK cycles).</td></tr>
     <tr><td>Ask refill</td><td>On = every print starts with a “VAT refilled?” question.</td></tr>
-    <tr><td><b>WiFi</b></td><td><b>On/Off — the whole network</b> (web, PrusaSlicer upload, MQTT, self-update).</td></tr>
-    <tr><td>Boot update</td><td>On = the printer checks for new firmware right after WiFi connects at boot and offers <i>Install / Later</i> on the screen.</td></tr>
     <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer — each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
+    <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test.</td></tr>
+  </table>
+  </div>
+  <h3>Advanced → Display</h3>
+  <div class="table-scroll">
+  <table>
+    <tr><th>Item</th><th>What it does</th></tr>
+    <tr><td>Idle timeout</td><td>After this much inactivity the idle screen dims into a screen saver (“TinyMaker” + IP drifting around). 30&nbsp;s…10&nbsp;min, Off = never; fresh installs default to 60&nbsp;s.</td></tr>
     <tr><td>Boot animation</td><td>Which animation plays at power-on — OK cycles <i>Default</i>, <i>Shuffle</i> (with two or more installed) and every animation on the SD card (see <a href="#bootanim">Boot animations</a> below).</td></tr>
-    <tr><td>Web control</td><td>On/Off — browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
-    <tr><td>MQTT</td><td>On/Off (shown once MQTT is configured in the dashboard).</td></tr>
   </table>
   </div>
   <ul>
@@ -404,7 +436,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="note">💡 <b>Count the dots, not the sides.</b> Each bar carries its number as holes near one end — 1 dot = bar 1 (shortest) … 8 dots = bar 8 (longest). The strip stays identifiable no matter how it is flipped or mirrored (the vat view often is!), and the dots double as a fine-detail check: on a well-exposed bar the holes come out round and open.</div>
   <ol class="steps">
     <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> — the strip cures directly on the vat film. Make sure Dry run is off.</li>
-    <li><b>Run:</b> System → Advanced → <b>Exposure test</b> → Start. A progress bar runs for the longest bar’s time (~half a minute); Back cancels.</li>
+    <li><b>Run:</b> System → Advanced → Resin → <b>Exposure test</b> → Start. A progress bar runs for the longest bar’s time (~half a minute); Back cancels.</li>
     <li><b>Peel &amp; rinse:</b> gloves on, lift the strip off the film with a soft plastic scraper, rinse in IPA, dry.</li>
     <li><b>Judge the bars</b> against the light:
       <ul>
@@ -435,7 +467,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3 id="bootanim">Boot animations</h3>
   <p>The printer can play a short animation on its screen at power-on — and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
   <ul>
-    <li><b>On the printer:</b> System → Advanced → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
+    <li><b>On the printer:</b> System → Advanced → Display → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
     <li><b>In the dashboard:</b> Settings → the <b>Boot animation</b> tab. Picking a row only <b>stages</b> the choice — press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
   </ul>
   <img class="shot" src="images/boot-animations.png" alt="Settings, Boot animation tab: installed animations with Show and Delete, the staged selection and Save config">
@@ -455,11 +487,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Three ways to update:</p>
   <ul>
     <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up — press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
-    <li><b>From the dashboard — the Update tab:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
+    <li><b>From the dashboard — Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
     <li><b>For developers:</b> PlatformIO OTA via the <code>tinymaker-ota</code> environment (open System → Update on the printer first — that path keeps the strict gate).</li>
   </ul>
-  <img class="shot" src="images/firmware-update-page.png" alt="The dashboard Update tab: installed vs latest, install latest, version picker and file upload">
-  <p>Two comforts while updating: the printer also <b>checks by itself</b> — shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available — Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back — no guessing whether it finished.</p>
+  <img class="shot" src="images/firmware-update-page.png" alt="The dashboard Settings > Update pane: installed vs latest, install latest, version picker and file upload">
+  <p>Two comforts while updating: the printer also <b>checks by itself</b> — shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available — Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back — no guessing whether it finished.</p>
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
 
   <h3>Backup &amp; restore</h3>
@@ -489,10 +521,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3 id="telegram">Telegram</h3>
   <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
   <ol class="steps">
-    <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code> and follow the prompts. BotFather replies with a <b>bot token</b>.</li>
-    <li><b>Find your chat id:</b> message <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — it replies with your numeric <b>id</b>. Then open your new bot and press <b>Start</b> once, so it is allowed to message you. (For a group, add <b>@RawDataBot</b> to it and use the negative id it prints.)</li>
-    <li><b>Enter both in the dashboard:</b> Settings → <i>Notifications</i> → pick <b>Telegram</b>, paste the token and the chat id, and <b>Save config</b>.</li>
-    <li><b>Press “Send test message”</b> — it should arrive in Telegram within a few seconds.</li>
+    <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code>, follow the prompts, and paste the token into <b>Bot token</b> (Settings → <i>Notifications</i> → <b>Telegram</b>).</li>
+    <li><b>Open your new bot and press Start</b> (or send it any message) — a bot can’t message you until you do.</li>
+    <li><b>Get your Chat ID:</b> open a chat with <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — a <i>separate</i> bot, search “userinfobot” in Telegram — and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li>
+    <li><b>Save config</b>, then press <b>“Send test message”</b> — it should arrive within a few seconds.</li>
   </ol>
   <div class="note">🔒 The bot token is a secret — the dashboard never shows it back, only its last four characters (<i>ends in XXXX</i>), and it is included in your settings backup, so treat the backup file accordingly. The printer talks directly to Telegram over HTTPS; nothing goes through third-party servers.</div>
 
@@ -538,7 +570,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>It’s an estimate that only counts confirmed refills. Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so it stays honest.</p>
 
   <h3>A firmware update failed</h3>
-  <p>The dual OTA partition keeps the previous firmware, so the printer should still boot. Try again from System → Update, or upload a <code>firmware.bin</code> from the dashboard’s Update tab.</p>
+  <p>The dual OTA partition keeps the previous firmware, so the printer should still boot. Try again from System → Update, or upload a <code>firmware.bin</code> from the dashboard’s Settings → Update.</p>
 
   <h3>How do I keep my settings through a USB reflash?</h3>
   <p>Before flashing: dashboard → Settings → <b>Backup to SD</b>. After the reflash the printer finds the backup on the SD card and offers to restore it on first boot. Only WiFi needs to be set up again.</p>
@@ -565,7 +597,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.15.8 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.16.0 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>

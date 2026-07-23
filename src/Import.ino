@@ -560,6 +560,9 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
     done++;
     if (done % 20 == 0 || done == summary.sourceLayers)
       netProgressCount(done, summary.sourceLayers);
+    #if ENABLE_NETWORK
+    sdJobService();   // keep answering status polls during a long unpack (1-33)
+    #endif
   } while (zip->gotoNextFile() == UNZ_OK);
   zip->closeZIP();
   delete zip;
@@ -643,7 +646,16 @@ void importSelectedArchive() {
   options.source = "sd_import";
   ModelImportResult result;
   String error;
+  // Job flags: the web rejects SD-touching requests meanwhile (printerBusy) and
+  // the unpack loop answers status polls (1-33) - loop() context, so it's safe.
+  #if ENABLE_NETWORK
+  sdJobKind = "import"; sdJobName = name; sdJobRunning = true;
+  #endif
   bool ok = importZipModel(src.c_str(), name, options, result, error);
+  #if ENABLE_NETWORK
+  sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
+  #endif
   if (ok) {
     SD.remove(src.c_str());
     netMessage("Model ready:", result.finalName.c_str());

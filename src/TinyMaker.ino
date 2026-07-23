@@ -69,6 +69,45 @@ bool startFromResin = false;        // set when Start pressed on resin screen
 bool webStartPrint = false;         // set by the web SD manager after preview validation
 bool webResumePrint = false;        // set by the web dashboard while paused
 
+// Deferred SD jobs (1-32/1-33): a long delete or model import queued by an HTTP
+// handler and executed from loop() (sdJobRun in Network.ino). The single-
+// threaded WebServer cannot answer other clients from inside a handler, so
+// running the work there froze every other browser for the whole operation;
+// from loop() context the job's inner loops can service HTTP (sdJobService).
+// sdJobKind doubles as the busy gate: printerBusy() is true while it is set,
+// so every existing "printer busy" rejection protects the SD job for free.
+// The printer's own menu delete/import set these too - same protection, and
+// the dashboards see what the printer is doing instead of timeouts.
+String sdJobKind = "";              // "" | "delete" | "import"
+String sdJobName = "";              // model the job works on (shown in /api/status)
+String sdJobZipPath = "";           // import: uploaded archive waiting to be unpacked
+ModelImportOptions sdJobImportOptions;  // import: options captured from the upload request
+bool sdJobRunning = false;          // true while the job body executes (enables servicing)
+// 0-28: SD content revision - bumped after any unpack/delete/import so every
+// dashboard reloads its SD list. Defined here (not Network.ino) because
+// Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.
+uint32_t sdRev = 0;
+
+// --- Power-loss resume (checkpoint file logic in Resume.ino) ---
+// Data parsed from /tinymaker-resume.txt by resumeLoad(); defined here so the
+// print-start code in this (first) file can see them.
+bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
+bool resumeBootPending = false;     // suppresses the boot-update prompt
+bool networkStarted = false;        // network_setup ran (it is idempotent via this)
+// 0-33: the dashboard's answer to the boot resume prompt - set by the
+// /api/resume/* handlers, consumed in loop() while screen 427 is up.
+// 'R' resume, 'L' lift plate + discard, 'D' discard. Deferred to loop()
+// because lift moves the motor - never inside an HTTP handler.
+char webResumeAction = 0;
+char resumePhase = 0;               // 'S' start, 'E' exposing, 'M' moving, 'P' paused
+int resumeLayer = 0;                // fully cured layers at the checkpoint
+int resumeTotal = 0;                // total print layers
+long resumePosSteps = 0;            // stepper position at the checkpoint
+double resumeResinMl = 0;           // resinUsedMl at the checkpoint
+uint32_t resumeElapsedSecs = 0;     // print time elapsed at the checkpoint
+uint32_t resumeUvLedSecs = 0;       // uvLedSessionMs (as secs) at the checkpoint
+char resumeFolder[101] = "";        // model folder of the interrupted print
+
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
 // listEntryValid() in Folder.ino.
@@ -111,7 +150,8 @@ unsigned long printStartMs = 0;     // millis() when the current print started
 unsigned long phaseStartMs = 0;
 unsigned long phaseTotalMs = 0;
 unsigned long prevLiftMs = 0, prevDropMs = 0;
-uint16_t uiTimeoutSecs = 0;         // 0 = never blank the UI screen
+uint16_t uiTimeoutSecs = 60;        // 0 = never blank the UI screen (default 60 s so the
+                                    // screen saver works out of the box - 0-23)
 bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
 bool webDashboardEnabled = true;
@@ -147,6 +187,16 @@ bool statsPingEnabled = true;       // anonymous install ping (MAC hash + versio
 uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
+uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
+unsigned long uiSaverLastMoveMs = 0;  // last time the idle text drifted
+bool uiDimmedPrint = false;           // 0-22: print screen dimmed into the saver
+// A press during a MOVE phase reaches the move-loop button handlers, which
+// have no dim awareness - they used to scribble selection outlines onto the
+// black saver screen (user finding 07-22: "white squares around play/pause").
+// The drawing functions now queue a wake instead; the saver honours it at the
+// next safe point (the curing loop's tick - waking mid-move would stall the
+// stepper for the ~100 ms full redraw).
+bool uiSaverWakeQueued = false;
 
 void savePrintTime() {
   totalPrintSecs += (millis() - printStartMs) / 1000UL;
@@ -169,7 +219,9 @@ void loadDeviceConfig() {
   sysPrefs.begin("tinymaker", true);
   totalPrintSecs = sysPrefs.getULong("printSecs", 0);
   totalUvLedSecs = sysPrefs.getULong("uvLedSecs", 0);
-  uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 0);
+  // Default 60 s (0-23): fresh installs get the screen saver out of the box.
+  // Anyone who explicitly chose Off has "uiTimeout" = 0 saved and keeps it.
+  uiTimeoutSecs = sysPrefs.getUShort("uiTimeout", 60);
   uvLedEnabled = sysPrefs.getBool("uvLed", true);
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
@@ -258,6 +310,76 @@ void saveVatRemaining() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putFloat("vatRemMl", vatRemainingMl);
   sysPrefs.end();
+}
+
+// ---- Reset-reason telemetry (0-30) -----------------------------------------
+// Field case: a print died after the base layers and the printer was found
+// rebooted with no model loaded - looked like a power loss, but mains never
+// went out. A "prActive" flag is set in NVS at print start (layer checkpointed
+// every 25, same cadence as the VAT estimate) and cleared at the single print
+// exit. If the flag is still set at boot, the firmware died mid-print: the
+// reset reason + last layer are persisted so the dashboard can say "brownout
+// during print at ~layer 42" instead of leaving the user guessing.
+esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
+bool crashSeen = false;      // a mid-print death record exists (any boot)
+uint8_t crashReason = 0;     // its esp_reset_reason value
+uint16_t crashLayer = 0;     // last checkpointed layer of that print
+uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
+
+const char *resetReasonName(uint8_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "power-on";
+    case ESP_RST_SW:        return "software restart";
+    case ESP_RST_PANIC:     return "crash (panic)";
+    case ESP_RST_INT_WDT:   return "interrupt watchdog";
+    case ESP_RST_TASK_WDT:  return "task watchdog";
+    case ESP_RST_WDT:       return "watchdog";
+    case ESP_RST_BROWNOUT:  return "brownout (power dip)";
+    case ESP_RST_DEEPSLEEP: return "deep-sleep wake";
+    case ESP_RST_SDIO:      return "SDIO reset";
+    default:                return "unknown";
+  }
+}
+
+// Wall-clock stamp for the crash record ("when did it die") - 0 while NTP
+// has never synced, and the dashboard shows no time then.
+uint32_t telemetryEpochNow() {
+  time_t nowT = time(nullptr);
+  return (uint32_t)(nowT > 1700000000 ? nowT : 0);
+}
+
+void savePrintActiveFlag(bool active) {
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putBool("prActive", active);
+  if (active) {
+    sysPrefs.putUShort("prLayer", 0);
+    sysPrefs.putULong("prEpoch", telemetryEpochNow());
+  }
+  sysPrefs.end();
+}
+
+void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
+  bootResetReason = esp_reset_reason();
+  sysPrefs.begin("tinymaker", false);
+  if (sysPrefs.getBool("prActive", false)) {
+    crashReason = (uint8_t)bootResetReason;
+    crashLayer = sysPrefs.getUShort("prLayer", 0);
+    crashEpoch = sysPrefs.getULong("prEpoch", 0);
+    sysPrefs.putBool("prActive", false);
+    sysPrefs.putBool("crashSeen", true);
+    sysPrefs.putUChar("crashRsn", crashReason);
+    sysPrefs.putUShort("crashLyr", crashLayer);
+    sysPrefs.putULong("crashEpo", crashEpoch);
+    crashSeen = true;
+  } else {  // no fresh death - keep showing the last recorded one
+    crashSeen = sysPrefs.getBool("crashSeen", false);
+    crashReason = sysPrefs.getUChar("crashRsn", 0);
+    crashLayer = sysPrefs.getUShort("crashLyr", 0);
+    crashEpoch = sysPrefs.getULong("crashEpo", 0);
+  }
+  sysPrefs.end();
+  DBG("Boot reset reason: %s%s\n", resetReasonName((uint8_t)bootResetReason),
+      crashSeen ? " (mid-print death on record)" : "");
 }
 
 #if ENABLE_NETWORK
@@ -352,6 +474,8 @@ float motor_updown_time_total; // Total time spent on motor movements
 int setting_item;              // Current selected item in settings menu
 bool setting_item_updown = 1;  // Direction indicator for settings (1=up, 0=down)
 int advanced_item = 1;         // Current selected item in System -> Advanced
+int advanced_group = 1;        // 0-17a: selected Advanced group (1 Network, 2 Resin, 3 Display)
+int system_item = 1;           // 0-17b: System menu selection (one screen code 41 + index)
 bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
@@ -734,9 +858,25 @@ bool restoreFromSdBackup() {
   return true;
 }
 
-// Continue the boot sequence after the SD-restore prompt (screen 426) -
-// the network (and its possible boot-update prompt) run only after it.
+// Continue the boot sequence after the SD-restore prompt (screen 426) or a
+// discarded resume prompt (screen 427) - the network (and its possible
+// boot-update prompt) run only after them.
 void finishRestorePromptBoot() {
+  // A restore may have just brought back the settings an interrupted print
+  // needs (layer height must match) - check for a resume checkpoint here too.
+  if (screen != 427 && resumeLoad()) {
+    screenResumePrompt();
+    return;
+  }
+  // The user just answered the prompt with a button press. If that finger is
+  // still down when network_setup runs, its "hold BACK at power-on = erase
+  // WiFi credentials" emergency check mistakes the held Discard press for
+  // the reset gesture and WIPES the credentials (field finding 07-22: every
+  // Discard sent the printer back to the setup portal). Wait for release.
+  while (digitalRead(buttonBack) == LOW || digitalRead(buttonOK) == LOW ||
+         digitalRead(buttonUp) == LOW || digitalRead(buttonDown) == LOW) {
+    delay(10);
+  }
   #if ENABLE_NETWORK
   network_setup();
   if (screen == 424 || screen == 425) return;   // boot update prompt took over
@@ -745,6 +885,7 @@ void finishRestorePromptBoot() {
 }
 
 bool printerBusy() {
+  if (sdJobKind.length() > 0) return true;   // a deferred delete/import owns the SD
   return screen == 1111 || screen == 1112 || screen == 11111 ||
          screen == 11112 || screen == 11113;
 }
@@ -758,6 +899,54 @@ void uiWakeScreen() {
   }
   lastUiActivityMs = millis();
 }
+
+#if ENABLE_NETWORK
+// 0-22: auto-dim DURING a print, after the same UI timeout. Called from the
+// exposure wait loop (the only place buttons are polled while printing).
+// Returns true when the caller must skip its own button handlers this pass:
+// either the screen is dimmed (presses may only wake it - never pause/stop,
+// V's rule: the waking press is swallowed) or it just woke.
+bool printSaverTick() {
+  if (uiTimeoutSecs == 0) return false;
+  // Only the plain print screen dims - not the stop/pause confirm overlays,
+  // not pause/cancel states (the user is at the machine then).
+  if (!uiDimmedPrint &&
+      (screen != 1111 || print_paused || print_canceled ||
+       current_state < 1 || current_state > 3)) return false;
+
+  bool pressed = digitalRead(buttonBack) == LOW || digitalRead(buttonUp) == LOW ||
+                 digitalRead(buttonDown) == LOW || digitalRead(buttonOK) == LOW;
+
+  if (uiDimmedPrint) {
+    if (pressed || uiSaverWakeQueued) {   // queued: a press landed mid-move
+      uiSaverWakeQueued = false;
+      uiDimmedPrint = false;
+      lastUiActivityMs = millis();
+      screen1111();            // full bright redraw + state bar
+      screen1111_state();
+      while (digitalRead(buttonBack) == LOW || digitalRead(buttonUp) == LOW ||
+             digitalRead(buttonDown) == LOW || digitalRead(buttonOK) == LOW) {
+        delay(10);             // swallow the waking press entirely
+      }
+    } else if (millis() - uiSaverLastMoveMs >= 2000UL) {
+      uiSaverLastMoveMs = millis();
+      uiSaverPos = (uiSaverPos + 1) % 5;
+      drawPrintSaver(uiSaverPos);   // drift + refresh the live progress
+    }
+    return true;               // dimmed (or just woke): callers skip buttons
+  }
+
+  if (pressed) { lastUiActivityMs = millis(); return false; }
+  if (millis() - lastUiActivityMs >= (unsigned long)uiTimeoutSecs * 1000UL) {
+    uiDimmedPrint = true;
+    uiSaverPos = 0;
+    uiSaverLastMoveMs = millis();
+    drawPrintSaver(uiSaverPos);
+    return true;
+  }
+  return false;
+}
+#endif
 
 bool handleUiTimeout() {
   bool buttonPressed = digitalRead(buttonBack) == LOW ||
@@ -775,12 +964,35 @@ bool handleUiTimeout() {
     }
   }
 
-  if (uiTimeoutSecs == 0 || uiBlanked || printerBusy()) return false;
+  if (uiTimeoutSecs == 0 || printerBusy()) return false;
+
+  // Already idling: drift the dim text between 5 spots (4 corners + centre)
+  // every couple of seconds (0-21 screen saver) so nothing burns in.
+  if (uiBlanked) {
+#if ENABLE_NETWORK
+    if (millis() - uiSaverLastMoveMs >= 2000UL) {
+      uiSaverLastMoveMs = millis();
+      uiSaverPos = (uiSaverPos + 1) % 5;
+      drawIdleScreen(uiSaverPos);
+    }
+#endif
+    return false;
+  }
+
   if (!(screen == 1 || screen == 2 || screen == 3 || screen == 4)) return false;
   if (millis() - lastUiActivityMs < (unsigned long)uiTimeoutSecs * 1000UL) return false;
 
+  // The backlight is hard-wired on, so displayOff() would leave a lit black
+  // panel. Draw a dim status instead (0-15/0-21): same power, but the printer
+  // looks alive and its IP stays visible.
+#if ENABLE_NETWORK
+  uiSaverPos = 0;
+  uiSaverLastMoveMs = millis();
+  drawIdleScreen(uiSaverPos);
+#else
   gfx2->fillScreen(BLACK);
-  ((Arduino_TFT *)gfx2)->displayOff(); // may not cut backlight if it is hard-wired
+  ((Arduino_TFT *)gfx2)->displayOff(); // no network build: nothing useful to show
+#endif
   uiBlanked = true;
   return false;
 }
@@ -940,6 +1152,7 @@ void setup() {
 
   // NVS-backed system values: lifetime print time + web/device settings.
   loadDeviceConfig();
+  readBootTelemetry();  // 0-30: reset reason + mid-print death record
   lastUiActivityMs = millis();
 
   delay(1000);
@@ -949,10 +1162,21 @@ void setup() {
     screenRestorePrompt();
     return;                     // loop() takes over at screen 426
   }
+  // Power lost mid-print: a valid checkpoint on the SD card -> offer to
+  // resume. 0-33: the network comes up FIRST (the prompt is just a screen,
+  // loop() keeps servicing HTTP behind it) so the dashboard can show the
+  // interrupted print and answer it remotely; resumeBootPending suppresses
+  // the boot-update prompt so nothing competes with the resume question.
+  bool resumePendingBoot = resumeLoad();
+  if (resumePendingBoot) resumeBootPending = true;
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
-  if (screen == 424 || screen == 425) return;
+  if (!resumePendingBoot && (screen == 424 || screen == 425)) return;
   #endif
+  if (resumePendingBoot) {
+    screenResumePrompt();
+    return;                     // loop() takes over at screen 427
+  }
   screen1(); // jumps to Main Menu
 }
 
@@ -1006,9 +1230,28 @@ bool prepareSelectedPrintPreview() {
  * @brief Main Loop
  * Handles button inputs and UI state transitions continuously.
  */
-void loop() {  
+void loop() {
   #if ENABLE_NETWORK
   network_loop(); // network uploads - only serviced while printer is idle
+  sdJobRun();     // deferred delete/import - ONLY here (the idle loop), never
+                  // from service windows mid-print or the motor/pause loops
+  // 0-33: the dashboard answered the boot resume prompt. Only honoured while
+  // the prompt is still up (screen 427) - any button press at the printer
+  // consumes the prompt and remote answers become stale by design.
+  if (screen == 427 && webResumeAction) {
+    char wra = webResumeAction;
+    webResumeAction = 0;
+    if (wra == 'R') {
+      resumeStartPrint = true;   // picked up by the start path below
+      screen = 111;
+    } else if (wra == 'L') {
+      resumeRaisePlateAndDiscard();
+      finishRestorePromptBoot();
+    } else {                     // 'D'
+      resumeClear();
+      finishRestorePromptBoot();
+    }
+  }
   #endif
   if (handleUiTimeout()) return;
   // -----------------------------------------------------------------------------------
@@ -1123,24 +1366,26 @@ void loop() {
       screen1(); 
       screen3();
         break; 
-      case 41:
-      case 42:
-      case 43:
-      case 44:
-      screen1(); 
+      case 41:                  // System menu -> back to the main menu
+      screen1();
       screen4();
         break;
       case 411:
       screen41();
         break;
-      case 441:
+      case 432:                 // Statistics -> System menu (selection kept)
+      systemMenuShow();
+        break;
+      case 440:                 // group list -> back to System menu
       screen42();
         break;
-      case 442:                 // reboot prompt -> "Later", back to Advanced
-      screenAdvancedOptions();
+      case 441:                 // item list -> back to the group list
+      screenAdvancedGroups();
         break;
-      case 421:
-      screen41();
+      case 442:                 // WiFi prompt -> Cancel: nothing was changed,
+      screenAdvancedOptions();  // just return to the group's items
+        break;
+      case 421:                 // Update screen -> System menu, Update selected
       screen43();
         break;
       #if ENABLE_NETWORK
@@ -1161,14 +1406,17 @@ void loop() {
       case 426:                 // SD settings restore prompt -> Skip
         finishRestorePromptBoot();
         break;
+      case 427:                 // power-loss resume prompt -> Discard
+        resumeClear();
+        finishRestorePromptBoot();
+        break;
       case 232:                 // exposure test intro -> back to Advanced
       case 2321:                // exposure test result -> Skip (no pick)
       case 23211:               // exposure test canceled -> back to Advanced
       case 2322:                // best-bar picker -> Skip (keep current)
         screenAdvancedOptions();
         break;
-      case 431:
-      screen41();
+      case 431:                 // About -> System menu (About stays selected)
       screen44();
         break;
       case 311:
@@ -1235,14 +1483,18 @@ void loop() {
       startFromResin = true;    // re-run the start path (recheck passes now,
       screen = 111;             // unless the model needs more than a full VAT)
         break;
+      case 427:                 // UP on resume prompt -> lift plate only (0-2)
+      resumeRaisePlateAndDiscard();
+      finishRestorePromptBoot();   // continue the normal boot (network etc.)
+        break;
       case 3:
       screen2();
         break;
       case 4:
       screen3();
         break;
-      case 42:
-      screen41();
+      case 41:                  // System menu selection up (wraps)
+      systemMenuUp();
         break;
       case 2322:                // UP on best-bar picker -> next option (1..8, shift-, shift+)
         expTestPickNext();
@@ -1252,14 +1504,6 @@ void loop() {
       screen422();
         break;
       #endif
-      case 43:
-      screen41(); 
-      screen42();
-        break;
-      case 44:
-      screen41();
-      screen43();
-        break;
       case 11:
       folderUp(root);
         break;
@@ -1296,16 +1540,19 @@ void loop() {
       case 3111:
       screen3111increase();
         break;
+      case 440:
+      advancedGroupsUp();
+        break;
       case 441:
       advancedOptionsUp();
         break;
     }
     delay(200);
-  }  
+  }
 
   // -----------------------------------------------------------------------------------
   // Down Button Handling
-  // -----------------------------------------------------------------------------------  
+  // -----------------------------------------------------------------------------------
   if (digitalRead(buttonDown) == LOW) {
     switch (screen) {
       case 1:
@@ -1317,17 +1564,8 @@ void loop() {
       case 3:
       screen4();
         break;
-      case 41:
-      screen42();
-        break;
-      case 42:
-      screen43();
-        break;
-      case 43:
-      screen44();
-        break;
-      case 44:
-      screen41();
+      case 41:                  // System menu selection down (wraps)
+      systemMenuDown();
         break;
       case 11:
       folderDown(root);
@@ -1365,18 +1603,25 @@ void loop() {
       case 3111:
       screen3111decrease();
         break;
+      case 440:
+      advancedGroupsDown();
+        break;
       case 441:
       advancedOptionsDown();
         break;
     }
     delay(200);
-  }  
+  }
 
   // -----------------------------------------------------------------------------------
   // OK Button Handling
-  // (startFromResin/webStartPrint let non-OK flows start the existing print path)
+  // (startFromResin/webStartPrint/resumeStartPrint let non-OK flows start the
+  // existing print path)
   // -----------------------------------------------------------------------------------
-  if (digitalRead(buttonOK) == LOW || startFromResin || webStartPrint) {
+  if (digitalRead(buttonOK) == LOW || startFromResin || webStartPrint || resumeStartPrint) {
+    // A stray button press between the resume prompt and the print start can
+    // change the screen - drop the flag instead of firing OK on every pass.
+    if (resumeStartPrint && screen != 111) resumeStartPrint = false;
     switch (screen) {
       case 1:
       if (SD.begin(SDCS, SD_SCK_MHZ(16))){
@@ -1431,7 +1676,7 @@ void loop() {
       case 111: {
         // "VAT refilled?" ask before every print (optional, System > Advanced).
         // The web start path asks in the browser instead (see startPrint JS).
-        if (askRefillEnabled && !refillAsked && !webStartPrint) {
+        if (askRefillEnabled && !refillAsked && !webStartPrint && !resumeStartPrint) {
           startFromResin = false;
           screenRefillAsk();
           break;
@@ -1440,7 +1685,7 @@ void loop() {
         // start path (webStartPrint) confirms in the browser instead - see
         // handleApiPrintStart. A fresh model estimate (resinNeedForModelMl,
         // set by the resin screen) allows a need-vs-left comparison.
-        if (!resinWarnAccepted && !webStartPrint) {
+        if (!resinWarnAccepted && !webStartPrint && !resumeStartPrint) {
           float needMl = resinNeedForModelMl;
           if ((needMl >= 0 && needMl > vatRemaining()) ||
               vatRemaining() <= (float)lowResinThresholdMl) {
@@ -1454,6 +1699,7 @@ void loop() {
         startFromResin = false;   // consume the resin-screen Start request
         webStartPrint = false;    // consume the web SD-manager Start request
         printStartMs = millis();  // print-hours accounting (incl. pauses)
+        savePrintActiveFlag(true);  // 0-30: armed until the single print exit
         uvLedSessionMs = 0;
         homing_canceled = false;
         print_paused = false;
@@ -1468,6 +1714,11 @@ void loop() {
         current_layer = 0;
         Position_before_pause = 0;
         Transition_Exposure = Base_Exposure;
+        #if ENABLE_NETWORK
+        // 0-19: snapshot the model preview into RAM while the SD is still
+        // free - once the print loop owns the bus, browsers get this copy.
+        capturePreviewCache();
+        #endif
         // A print started from the web reaches here with the screen possibly
         // blanked by the UI timeout - and blanked it would stay: the wake
         // logic lives in loop(), which the print never returns to, while the
@@ -1475,6 +1726,30 @@ void loop() {
         // Cancel). Blanking cannot start while busy, so waking here closes
         // the only dark path (user finding: buttons worked, screen slept).
         uiWakeScreen();
+
+        // Power-loss resume: seed the print state from the SD checkpoint.
+        // Phase 'S' (power died during homing) restarts the print normally -
+        // nothing was cured yet, so the plain homing path below is correct.
+        bool resuming = resumeStartPrint;
+        resumeStartPrint = false;
+        resumeBootPending = false;   // boot-update check may run again later
+        if (resuming) {
+          if (resumePhase == 0) { screen1(); break; }   // nothing loaded
+          strlcpy(foldersel_long, resumeFolder, sizeof(foldersel_long));
+          foldersel = String(resumeFolder);
+          layer_counter = resumeTotal;
+          get_motor_updown_time();
+          if (resumePhase == 'S') {
+            resuming = false;               // fresh start, homing included
+          } else {
+            current_layer = resumeLayer;
+            resinUsedMl = resumeResinMl;
+            resinSampledMl = resumeResinMl; // NVS vat bookkeeping continues
+            printStartMs = millis() - resumeElapsedSecs * 1000UL;
+            uvLedSessionMs = resumeUvLedSecs * 1000UL;
+            Transition_Exposure = resumeTransitionExposureSeed(resumeLayer);
+          }
+        }
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -1486,8 +1761,20 @@ void loop() {
         #endif
 
         // -------------------------------------------------------------------------------
-        // Homing Sequence
+        // Homing Sequence (skipped on resume: homing would drive the
+        // half-printed object into the vat - Resume.ino re-trusts the
+        // checkpointed position instead)
         // -------------------------------------------------------------------------------
+        if (resuming) {
+          resumeRecoverPosition();
+          digitalWrite(FAN, HIGH);
+          if (screen != 11111){
+            gfx2->fillRect(136, 52, 6, 16, YELLOW);
+            gfx2->fillRect(146, 52, 6, 16, YELLOW);
+          }
+          resumeCheckpoint('E');   // stationary at the next layer's height
+        } else {
+        resumeWriteStart();        // 'S': a loss during homing restarts cleanly
         stepper.setCurrentPosition(0);
         stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
         stepper.enableOutputs();
@@ -1514,12 +1801,19 @@ void loop() {
           if (current_position < -106799){
             stepper.disableOutputs();
             homing_canceled = true;
+            gfx2->fillScreen(BLACK);   // the 150x70 box left a ring of the old
+                                       // screen peeking at the edges (user
+                                       // finding: "text sticking out")
             gfx2->fillRoundRect(5, 5, 150, 70, 7, BLACK);
             gfx2->fillRoundRect(7, 7, 146, 66, 5, RED);
             gfx2->fillRoundRect(9, 9, 142, 62, 3, BLACK);
-            gfx2->fillRoundRect(16, 11, 5, 10, 1, RED); 
-            gfx2->fillCircle(18, 25, 2, RED); 
+            gfx2->fillRoundRect(16, 11, 5, 10, 1, RED);
+            gfx2->fillCircle(18, 25, 2, RED);
             gfx2->setTextColor(WHITE);
+            // Pin the font: this box inherits whatever the interrupted screen
+            // used - a larger/other font pushed the text out of the frame
+            // (user finding 07-22).
+            gfx2->setFont(&FreeSans8pt7b);
             gfx2->setTextSize(1);
             gfx2->setCursor(27, 23);
             gfx2->println("Homing error,");
@@ -1587,11 +1881,13 @@ void loop() {
             gfx2->fillRect(136, 52, 6, 16, YELLOW);
             gfx2->fillRect(146, 52, 6, 16, YELLOW);
           }
+          resumeCheckpoint('E');   // homed: at layer 1's exposure height
         }
-          
+        }
+
         // -------------------------------------------------------------------------------
         // Printing Loop
-        // -------------------------------------------------------------------------------       
+        // -------------------------------------------------------------------------------
         while(!homing_canceled && !print_canceled){            
           estimated_seconds = 0;
           estimated_hours = 0;
@@ -1616,9 +1912,22 @@ void loop() {
           vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
           resinSampledMl = resinUsedMl;
           if (vatRemainingMl < 0) vatRemainingMl = 0;
-          if (current_layer % 25 == 0) saveVatRemaining();
+          if (current_layer % 25 == 0) {
+            saveVatRemaining();
+            sysPrefs.begin("tinymaker", false);  // 0-30: crash-record checkpoint
+            sysPrefs.putUShort("prLayer", current_layer);
+            sysPrefs.putULong("prEpoch", telemetryEpochNow());  // ~time of death
+            sysPrefs.end();
+          }
 
-          if (screen != 11111 && screen != 11112){                
+          #if ENABLE_NETWORK
+          if (uiDimmedPrint) {
+            // 0-22: dimmed - refresh the saver's progress line instead of
+            // repainting the bright info block over it.
+            drawPrintSaver(uiSaverPos);
+          } else
+          #endif
+          if (screen != 11111 && screen != 11112){
             gfx2->fillRoundRect(2, 38, 116, 40, 3, BLACK);
             gfx2->setFont(&FreeSans8pt7b);
             gfx2->setTextColor(WHITE);
@@ -1653,6 +1962,9 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
+          // Layer cured, peel begins: from here until the next 'E' the plate
+          // is somewhere in [pos, pos + lift] - resume assumes the low end.
+          if (!print_canceled) resumeCheckpoint('M');
           // The service window moved from after the move to before it: a
           // pending status poll now answers "Lifting" with the countdown
           // ahead of it, not after the phase already ended. The measured
@@ -1684,15 +1996,42 @@ void loop() {
           // Pause Handling
           // -----------------------------------------------------------------------------
           if(print_paused == true){
+            #if ENABLE_NETWORK
+            if (uiDimmedPrint) {   // 0-22: a pause (web/low-resin) wakes the screen
+              uiDimmedPrint = false;
+              screen1111();
+            }
+            #endif
             Position_before_pause = stepper.currentPosition();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
             if (Position_before_pause + (20 * steps_mm) <= max_height * steps_mm)
               stepper.move(20 * steps_mm);
             else
-              stepper.moveTo(max_height * steps_mm);  
-            while (stepper.distanceToGo()!= 0) {
-              stepper.run();
+              stepper.moveTo(max_height * steps_mm);
+            #if ENABLE_NETWORK
+            // Phase countdown for the dashboard ("Pausing - ~Ns"): publish the
+            // lift's estimated duration; polls are answered during the move
+            // (below), so every browser picks it up and ticks it down locally.
+            current_state = 5;   // pausing (a button pause arrives with the layer's phase state)
+            phaseStartMs = millis();
+            phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
+                           (Fast_Lift_Feedrate * steps_mm));
+            #endif
+            {
+              // Answer HTTP every 200ms DURING the lift (the homing-return
+              // pattern) - one pre-move window was not enough, a 2s poll loop
+              // rarely hit it and both browsers looked frozen (user finding).
+              unsigned long svc = millis();
+              while (stepper.distanceToGo()!= 0) {
+                stepper.run();
+                if (millis() - svc >= 200) {
+                  svc = millis();
+                  #if ENABLE_NETWORK
+                  network_service_http();
+                  #endif
+                }
+              }
             }
             stepper.disableOutputs();
             delay(10); 
@@ -1701,6 +2040,7 @@ void loop() {
             bool lowResinNotifyPending = lowResinPauseNow;
             lowResinPauseNow = false;
             saveVatRemaining();   // checkpoint at the pause point
+            resumeCheckpoint('P');  // parked position is exact
             screen1111_state();
             gfx2->fillRect(136, 12, 16, 16, RED);
             gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
@@ -1772,12 +2112,35 @@ void loop() {
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
-              stepper.moveTo(Position_before_pause);  
-              while (stepper.distanceToGo()!= 0) {
-                stepper.run();
+              stepper.moveTo(Position_before_pause);
+              #if ENABLE_NETWORK
+              // Phase countdown for the dashboard ("Resuming - ~Ns"): publish
+              // the travel's estimated duration; polls are answered during the
+              // move (below), so every browser picks it up and ticks locally.
+              phaseStartMs = millis();
+              phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
+                             (Fast_Lift_Feedrate * steps_mm));
+              #endif
+              {
+                // Same as the pause lift: answer HTTP every 200ms during the
+                // travel so the dashboards keep polling and the countdown shows.
+                unsigned long svc = millis();
+                while (stepper.distanceToGo()!= 0) {
+                  stepper.run();
+                  if (millis() - svc >= 200) {
+                    svc = millis();
+                    #if ENABLE_NETWORK
+                    network_service_http();
+                    #endif
+                  }
+                }
               }
               stepper.disableOutputs();
               delay(10);
+              // Back at the post-lift height; the drop to the next layer
+              // follows - same uncertainty window as a normal peel cycle.
+              resumeCheckpointAt('M', Position_before_pause -
+                  (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
               gfx2->fillRect(136, 12, 16, 16, RED);
               gfx2->fillRect(136, 52, 6, 16, YELLOW);
               gfx2->fillRect(146, 52, 6, 16, YELLOW); 
@@ -1797,8 +2160,9 @@ void loop() {
             #endif
             lower_print();
             prevDropMs = millis() - phaseStartMs;
+            resumeCheckpoint('E');  // settled at the next layer's height
           }
-        } 
+        }
         #if ENABLE_NETWORK
         // Canceled: tell the phone NOW - the decision is final and the run
         // time is known, while the lift below takes tens of seconds. Finished
@@ -1821,8 +2185,15 @@ void loop() {
           lift_finished_print();
         }
         digitalWrite(FAN, LOW);
+        uiDimmedPrint = false;       // 0-22: never leave the saver armed past the print
+        lastUiActivityMs = millis();
         savePrintTime();   // single exit point: finish, cancel and homing-abort
+        savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
+        resumeClear();     // the checkpoint only outlives an unfinished print
+        #if ENABLE_NETWORK
+        freePreviewCache();          // 0-19: the RAM preview lives only for the print
+        #endif
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
         // it must never read as a finished print on the user's phone. A cancel
@@ -1894,27 +2265,32 @@ void loop() {
       case 4:
         screen41();
         break;
-      case 41:
-        #if ENABLE_NETWORK
-        screenWifiInfo();
-        #else
-        screen411();
-        #endif
+      case 41:                     // System menu OK - dispatch by selection
+        if (system_item == 1) {
+          #if ENABLE_NETWORK
+          screenWifiInfo();
+          #else
+          screen411();
+          #endif
+        } else if (system_item == 2) {
+          advanced_group = 1;      // 0-17a: Advanced opens the group list
+          screenAdvancedGroups();
+        } else if (system_item == 3) {
+          screen432();             // Statistics (0-17b)
+        } else if (system_item == 4) {
+          #if ENABLE_NETWORK
+          if (!wifiEnabled && !wifiTemporarilyEnabled) screenUpdateWifiConfirm();
+          else screen421();
+          #else
+          screen421();
+          #endif
+        } else {
+          screen431();             // About
+        }
         break;
-      case 42:
+      case 440:                    // enter the selected group's items
         advanced_item = 1;
         screenAdvancedOptions();
-        break;
-      case 43:
-        #if ENABLE_NETWORK
-        if (!wifiEnabled && !wifiTemporarilyEnabled) screenUpdateWifiConfirm();
-        else screen421();
-        #else
-        screen421();
-        #endif
-        break;
-      case 44:
-        screen431();
         break;
       #if ENABLE_NETWORK
       case 312:                 // WiFi Info -> open Reset WiFi confirmation
@@ -1948,6 +2324,20 @@ void loop() {
         screenRestoreDone(restoreFromSdBackup());
         finishRestorePromptBoot();
         break;
+      case 427:                 // power-loss resume prompt -> Resume the print
+        resumeBootPending = true;   // network boots quietly (no update prompt)
+        // Same guard as finishRestorePromptBoot: a still-held button must not
+        // reach network_setup's "hold BACK = erase WiFi" emergency check.
+        while (digitalRead(buttonBack) == LOW || digitalRead(buttonOK) == LOW ||
+               digitalRead(buttonUp) == LOW || digitalRead(buttonDown) == LOW) {
+          delay(10);
+        }
+        #if ENABLE_NETWORK
+        network_setup();
+        #endif
+        resumeStartPrint = true;    // picked up by the start path below
+        screen = 111;
+        break;
       case 232:                 // exposure test intro -> Start
         runExpTest();
         break;
@@ -1963,8 +2353,8 @@ void loop() {
       case 441:
         advancedOptionsSelect();
         break;
-      case 442:                 // reboot prompt -> "Reboot" confirmed
-        ESP.restart();
+      case 442:                 // WiFi prompt -> Reboot: apply the toggle now
+        applyWifiToggleAndReboot();
         break;
       case 311:
       if(setting_item_updown == 1){
