@@ -341,6 +341,21 @@ export default {
       });
     }
 
+    // Team roadmap (the contributor-facing projection) from panel:team KV.
+    // Gated by its OWN key in KV ('key:team') - deliberately NOT LIST_KEY,
+    // because the team may hold this one while LIST_KEY also unlocks /plan
+    // and the feedback admin. 404 without it so the path stays invisible.
+    if (request.method === 'GET' && path === '/team') {
+      const want = String((await env.FEEDBACK.get('key:team')) || '').trim();
+      const got = (url.searchParams.get('key') || '').trim();
+      if (!want || got !== want) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:team');
+      if (!html) return new Response('No team roadmap uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     // Every fb: key with its metadata, newest first. One list call, no gets -
     // enough for stats, filter counts and the version list.
     const indexAll = async () => {
