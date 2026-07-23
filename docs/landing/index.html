@@ -132,7 +132,11 @@ footer a{color:var(--muted2);text-decoration:underline}
       try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}
       applyThemeLinks();
     });
-    applyThemeLinks();
+    // Run after the whole document is parsed — this script sits in the hero,
+    // but themed links (roadmap, get-started manual) live in later sections
+    // that don't exist yet at parse time here.
+    if(document.readyState!=='loading')applyThemeLinks();
+    else document.addEventListener('DOMContentLoaded',applyThemeLinks);
     // Live community counter from the anonymous usage pings (shown from 2 up -
     // a lone "1" reads worse than nothing while the community is young).
     fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(function(r){return r.json();}).then(function(s){
