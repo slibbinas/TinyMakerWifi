@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWifi — feedback</title>
-<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');
+  if(q==='light'||q==='dark')localStorage.setItem('tmTheme',q);
+  var t=q||localStorage.getItem('tmTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -72,6 +74,16 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
+<button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:12px;right:14px;z-index:20;background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 9px;font-size:1.05rem;line-height:1;cursor:pointer">&#9680;</button>
+<script>
+(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
+  /* Šis puslapis pagal nutylėjimą TAMSUS (šviesus - tik jei OS taip prašo). */
+  var cur=function(){var d=document.documentElement.getAttribute('data-theme');
+    return d||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');};
+  tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',n);
+    try{localStorage.setItem('tmTheme',n);}catch(e){}});})();
+</script>
 <div class="card">
   <div class="brand">
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
