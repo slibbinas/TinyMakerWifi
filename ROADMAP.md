@@ -61,17 +61,17 @@ Already built and being tested for the next update:
 - **SD work runs in the background** — deleting a model or importing an upload
   no longer freezes the dashboard; every connected device sees what the
   printer is doing and when it finished.
+- **Power-loss resume** — after an outage the printer offers to pick the print
+  back up from where it stopped (no re-printing from scratch), or to safely
+  lift the plate off a stuck print — and you can answer that **from the
+  dashboard on your phone**, not just at the machine. Field-tested with real
+  power cuts and a resin print.
+- **A "recently fixed" list** in the feedback form, plus a status link for your
+  own reports so you can see what happened to them.
 
-Also planned for 0.16, not built yet:
-
-- **Power-loss resume** — pick a print back up after an outage instead of
-  starting over, with a guided, safe plate raise.
-- **A "recently fixed" list** in the feedback form, and a status page for your
-  own reports.
-
-These are still in development and not yet released — you won't see them on your
-printer yet. When 0.16 is ready it reaches the **beta** channel first (*Update →
-version picker*), and the automatic self-update follows once early testers
+0.16 is content-complete and being packaged. It reaches the **beta** channel
+first (*Update → version picker*), and the automatic self-update follows once
+early testers
 confirm it.
 
 ## Next after 0.16: the 0.17 exposure update
