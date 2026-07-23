@@ -647,7 +647,7 @@ ${hits > PAGE ? `<div class="pager">
   <span class="range">${from + 1}–${Math.min(from + PAGE, hits)} of ${hits}</span>
   ${from + PAGE < hits ? `<a href="${esc(q({ from: from + PAGE }))}">Older →</a>` : '<span></span>'}
 </div>` : ''}
-<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" style="background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:2px 10px;font-size:.78rem;cursor:pointer;font-family:inherit">🌓 Theme</button></footer>
+<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;font-family:inherit">◐</button></footer>
 </div>
 <script>
 var KEY=${JSON.stringify(listKey)};
@@ -656,11 +656,9 @@ var KEY=${JSON.stringify(listKey)};
 (function(){var tg=document.getElementById('themeToggle');if(!tg)return;
   var curTheme=function(){var d=document.documentElement.getAttribute('data-theme');
     return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
-  var label=function(){tg.textContent=curTheme()==='dark'?'☀️ Light':'🌙 Dark';};
-  label();
   tg.addEventListener('click',function(){var next=curTheme()==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',next);
-    try{localStorage.setItem('tmTheme',next);}catch(e){}label();});})();
+    try{localStorage.setItem('tmTheme',next);}catch(e){}});})();
 var api=function(what,note,body){
   return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
     {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})
