@@ -61,9 +61,20 @@
 (function(){var tg=document.getElementById('themeToggle');if(!tg)return;
   var cur=function(){var d=document.documentElement.getAttribute('data-theme');
     return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
+  // Our own linked pages (manual, site) open in the matching theme — they read
+  // ?theme=. Runs after DOM parse: links live further down the document.
+  var applyThemeLinks=function(){
+    var dark=cur()==='dark';
+    document.querySelectorAll("a[href*='/manual/'], a[href*='tinymakerwifi.com']").forEach(function(a){
+      try{var u=new URL(a.href);u.search=dark?'?theme=dark':'';a.href=u.toString();}catch(e){}
+    });
+  };
   tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',n);
-    try{localStorage.setItem('tmTheme',n);}catch(e){}});})();
+    try{localStorage.setItem('tmTheme',n);}catch(e){}
+    applyThemeLinks();});
+  if(document.readyState!=='loading')applyThemeLinks();
+  else document.addEventListener('DOMContentLoaded',applyThemeLinks);})();
 </script>
 
 <header>
