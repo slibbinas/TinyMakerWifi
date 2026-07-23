@@ -329,6 +329,18 @@ export default {
     const listKey = String(env.LIST_KEY || '').trim();
     const keyOk = listKey && (url.searchParams.get('key') || '').trim() === listKey;
 
+    // Private internal plan (planas.html), pushed to panel:plan KV. Gated by the
+    // same admin LIST_KEY; 404 (not 403) without it so the path stays invisible.
+    // NOT a public roadmap - holds internal strategy; only V opens it by URL.
+    if (request.method === 'GET' && path === '/plan') {
+      if (!keyOk) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:plan');
+      if (!html) return new Response('No plan uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     // Every fb: key with its metadata, newest first. One list call, no gets -
     // enough for stats, filter counts and the version list.
     const indexAll = async () => {
