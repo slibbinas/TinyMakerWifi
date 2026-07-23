@@ -548,7 +548,7 @@ function inboxPage(notes, listKey, view) {
 <meta name="robots" content="noindex,nofollow">
 <title>Feedback inbox — TinyMakerWifi</title>
 <script>(function(){try{var q=new URLSearchParams(location.search).get('theme');
-  var t=(q==='light'||q==='dark')?q:localStorage.getItem('fbTheme');
+  var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -660,7 +660,7 @@ var KEY=${JSON.stringify(listKey)};
   label();
   tg.addEventListener('click',function(){var next=curTheme()==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',next);
-    try{localStorage.setItem('fbTheme',next);}catch(e){}label();});})();
+    try{localStorage.setItem('tmTheme',next);}catch(e){}label();});})();
 var api=function(what,note,body){
   return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
     {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})
