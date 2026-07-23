@@ -124,6 +124,7 @@
     border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
   }
   a.toggle-theme:hover{text-decoration:none; border-color:var(--accent)}
+  #themeToggle{align-self:center;width:auto;margin:0;padding:0 2px;background:none;border:0;box-shadow:none;font-size:18px;line-height:1;color:var(--muted);cursor:pointer}
 
   @media print{
     body{background:#fff; color:#000}
@@ -146,9 +147,8 @@ window.tmSyncSite=function(){var d=document.documentElement.getAttribute('data-t
 window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </script>
 <div class="topBar">
-  <a class="toggle-theme" href="https://tinymakerwifi.com">tinymakerwifi.com</a>
   <a class="toggle-theme" href="#toc">Contents</a>
-  <button class="toggle-theme" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='dark'?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('tmTheme',n);}catch(e){}window.tmSyncSite();})()">◐ Theme</button>
+  <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='dark'?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('tmTheme',n);}catch(e){}window.tmSyncSite();})()">◐</button>
 </div>
 
 <header class="hero">
