@@ -104,3 +104,7 @@ išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
   PlatformIO ir testo ant spausdintuvo.
 - Debesų sesijoje pirmenybę teik ne kodavimui, o analizei, planavimui,
   auditui, dokumentacijai ir projekto valdymo darbams.
+- Plano puslapis (`tinymakerwifi.com/plan`) pildomas iš PC sesijos, ne iš
+  debesų — debesų aplinkos tinklo politika to host'o nepasiekia. Debesų
+  sesijoje idėjas fiksuok kaip GitHub issue'us (`[versija]` antraštėje);
+  PC sesija juos perkelia į planą.
