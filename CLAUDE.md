@@ -68,6 +68,13 @@ Build-time switches (top of `TinyMaker.ino`):
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)
 - `upstream` → `TinyMaker3D/TinyMaker-Open-Source-3D-Printer` (original project)
 
+## Tikslinimas iš kodo
+
+Prieš teigdamas ką nors apie kodą (eilutės numerį, funkcijos elgesį,
+kintamojo reikšmę, API, elgseną prie kraštinių sąlygų), patikrink tai
+realiame faile — Read/Grep — o ne iš atminties. Tai galioja VISADA ir
+visose sesijose, ne tik čia. Jei netikrinai — pasakyk, kad tai spėjimas.
+
 ## Modelio parinkimas
 
 Prieš pradėdamas užduotį, ją įvertink:
