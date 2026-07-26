@@ -67,3 +67,33 @@ Build-time switches (top of `TinyMaker.ino`):
 
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)
 - `upstream` → `TinyMaker3D/TinyMaker-Open-Source-3D-Printer` (original project)
+
+## Modelio parinkimas
+
+Prieš pradėdamas užduotį, ją įvertink:
+
+- Platus refaktoringas, architektūros sprendimas, sunkus bug'as, auditas
+  → SUSTOK ir pasiūlyk `/model opus` (arba `/model opusplan`). Nepradėk vykdyti.
+- Mechaninis darbas (pervadinimai, log eilutės, boilerplate, regex)
+  → pasiūlyk `/model haiku`.
+- Kitais atvejais dirbk su dabartiniu modeliu, nieko neklausk.
+
+Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
+toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
+
+## Audito ritmas
+
+Po kiekvienų 2–3 užbaigtų feature'ų pasiūlyk paleisti `firmware-auditor`
+subagentą ant `git diff`. Nelauk darbo pabaigos — architektūrinę klaidą
+pigiau pagauti, kol ji dar neįaugusi į kelis feature'us.
+
+## Debesų sesijos (Claude Code on the web)
+
+Debesų sesijoje firmware kodas NĖRA sukompiliuotas PlatformIO ir NĖRA
+išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
+
+- Niekada nesiūlyk merge'inti firmware pakeitimų iš debesų sesijos.
+- Palik PR juodraštį (draft) ir aiškiai pažymėk, kad reikia kompiliacijos
+  PlatformIO ir testo ant spausdintuvo.
+- Debesų sesijoje pirmenybę teik ne kodavimui, o analizei, planavimui,
+  auditui, dokumentacijai ir projekto valdymo darbams.
