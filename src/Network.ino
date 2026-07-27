@@ -2531,6 +2531,7 @@ void drawWifiBadge() {
   gfx2->fillRect(148, 8, 2, 3, c);   // short bar
   gfx2->fillRect(151, 5, 2, 6, c);   // medium bar
   gfx2->fillRect(154, 2, 2, 9, c);   // tall bar (ends 2 px from the edge)
+  gfx2->setFont(&FreeSans8pt7b);     // #17: badge switched to built-in NULL font for the chip letters; restore so later callers (screen2/3/4 menu labels) don't inherit the small 6x8 font
 }
 
 // Boot-animation install: the printer pulls a TMB1 file from a trusted URL and
