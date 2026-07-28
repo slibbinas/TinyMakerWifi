@@ -115,3 +115,6 @@ išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
   debesų — debesų aplinkos tinklo politika to host'o nepasiekia. Debesų
   sesijoje idėjas fiksuok kaip GitHub issue'us (`[versija]` antraštėje);
   PC sesija juos perkelia į planą.
+- Planas NEKEIČIAMAS be vartotojo sutikimo. Prieš įkeliant ar keičiant ką
+  nors plane, VISADA pirma pasiūlyk vartotojui, ką įtraukti, ir palauk
+  patvirtinimo — niekada nekeisk plano savavališkai.
