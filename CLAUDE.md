@@ -75,6 +75,13 @@ kintamojo reikšmę, API, elgseną prie kraštinių sąlygų), patikrink tai
 realiame faile — Read/Grep — o ne iš atminties. Tai galioja VISADA ir
 visose sesijose, ne tik čia. Jei netikrinai — pasakyk, kad tai spėjimas.
 
+## Pasirinkimų pateikimas
+
+Kai siūlai vartotojui rinktis iš variantų, VISADA iškart pradėk nuo
+rekomenduojamo varianto ir vienos eilutės „kodėl" — trumpi pros/cons.
+Ne neutralus sąrašas, o aiški rekomendacija pirmiausia. Galioja visose
+sesijose.
+
 ## Modelio parinkimas
 
 Prieš pradėdamas užduotį, ją įvertink:
