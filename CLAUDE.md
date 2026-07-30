@@ -63,6 +63,27 @@ Build-time switches (top of `TinyMaker.ino`):
 #define ENABLE_SERIAL_DEBUG  1   // 0 = no serial output
 ```
 
+## Dokumentų žemėlapis
+
+Kai dirbi su konkrečia sritimi, pirma skaityk atitinkamą dokumentą (nekartok
+to, kas jau surašyta — ten pilnas kontekstas):
+
+| Kai dirbi su… | Skaityk |
+|---|---|
+| LAN API / HTTP endpoint'ais (`Network.ino`) | [docs/api.md](docs/api.md) |
+| PR — kur merge'inti, contribution taisyklės | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Cloudflare worker'iais / hosting'u / `/plan` `/team` `/tests` panel'ais | [Firmware_Hosting/](Firmware_Hosting/) + [feedback-worker.md](Firmware_Hosting/feedback-worker.md) |
+| Versijų kopėčiomis / kas kur išleista | [ROADMAP.md](ROADMAP.md) |
+| Release istorija | [CHANGELOG.md](CHANGELOG.md) |
+
+**PR šakos** (pilnos taisyklės — [CONTRIBUTING.md](CONTRIBUTING.md)): maža pataisa
+ar mažas self-contained feature → PR į `main`; didelis feature, WIP, daug failų →
+PR į `experimental`. `main` apsaugotas — CI (abu PlatformIO env) turi būti žalias.
+
+**Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
+`tinymaker-firmware` skill'ą. Jis globalus/plugin (ne repo viduje), tad švarioje
+debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei prieinamas".
+
 ## Remotes
 
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)

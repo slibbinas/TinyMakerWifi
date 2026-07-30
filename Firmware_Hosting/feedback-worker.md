@@ -11,6 +11,33 @@ POST'ina į **atskirą** worker'į:
 - Įdiegta 2026-07-15 (versija a72a1317). `tinymaker-stats` worker'is NELIESTAS —
   feedback gyvena atskirai, kad stats/ping niekada nenukentėtų nuo formos.
 
+## Puslapiai ir KV panel'ai (tas pats worker'is servina daugiau nei feedback)
+
+Tas pats `tinymaker-feedback` worker'is servina ir statiškus puslapius iš KV
+raktų (`panel:*`). HTML įkeliamas iš PC su `wrangler`, NE iš repo.
+
+| Route | KV raktas | Prieiga | Įkėlimas |
+|---|---|---|---|
+| `/tests` | `panel:tests` | viešas | `wrangler kv key put panel:tests --path <failas.html>` |
+| `/plan` | `panel:plan` | secret **`LIST_KEY`** per `?key=`; blogas → **404** (nematomas) | `wrangler kv key put panel:plan --path planas.html` |
+| `/team` | `panel:team` | KV raktas **`key:team`** per `?key=` (NE LIST_KEY); blogas → **404** | `wrangler kv key put panel:team --path <failas.html>` |
+
+Proxy į gh-pages (be KV): `/demo`, `/manual`, `/roadmap`.
+
+**Gating pastaba:** `LIST_KEY` = Worker secret (`wrangler secret put LIST_KEY`);
+`key:team` = KV raktas (vienintelis toks — `wrangler kv key put key:team <secret>`).
+Blogas/nesamas raktas šiuose route'uose grąžina 404 (nematomą), ne 403.
+
+**Maintainer feedback route'ai** (visi po `LIST_KEY`): `/feedback/inbox`,
+`/feedback/csv`, `/feedback/list`, `/feedback/img`, `POST /feedback/mark`,
+`POST /feedback/del`. Vieši: `/feedback/status?t=<token>`, `/feedback/recent`.
+
+**Scope:** tas pats worker'is hostina ir atskirą **eInkWeather** projektą
+(`/orai` ← `panel:orai`, `/oi/<code>` ← `oi:<code>` PNG'ai) — ne TinyMaker, čia
+nedokumentuojama.
+
+Pilnas route'ų/KV šaltinis: `feedback-worker/src/index.js`.
+
 ## Skaitymas
 
 - CF dashboard → Storage & databases → Workers KV → `tinymaker-feedback`
