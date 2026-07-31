@@ -103,6 +103,14 @@ rekomenduojamo varianto ir vienos eilutės „kodėl" — trumpi pros/cons.
 Ne neutralus sąrašas, o aiški rekomendacija pirmiausia. Galioja visose
 sesijose.
 
+## Paprasta kalba
+
+Viską — pasiūlymus, paaiškinimus, techninius sprendimus — dėstyk PAPRASTA,
+ne technine kalba, kad vartotojui būtų lengva iškart apsispręsti ir nereikėtų
+klausti papildomai. Rodyk žmogišką pasekmę/naudą (ką tai duoda), ne tik kas
+techniškai daroma. Jei būtinas techninis terminas — paaiškink jį vienu
+sakiniu. Galioja visose sesijose.
+
 ## Modelio parinkimas
 
 Prieš pradėdamas užduotį, ją įvertink:
