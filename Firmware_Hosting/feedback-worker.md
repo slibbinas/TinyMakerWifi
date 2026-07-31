@@ -24,6 +24,10 @@ raktų (`panel:*`). HTML įkeliamas iš PC su `wrangler`, NE iš repo.
 
 Proxy į gh-pages (be KV): `/demo`, `/manual`, `/roadmap`.
 
+**SEO / AI-discovery route'ai** (inline turinys `src/index.js`, ne KV — apex neturi
+CNAME, tad worker juos servina pats): `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
+Turinį keisti tiesiai `index.js` + `wrangler deploy`.
+
 **Gating pastaba:** `LIST_KEY` = Worker secret (`wrangler secret put LIST_KEY`);
 `key:team` = KV raktas (vienintelis toks — `wrangler kv key put key:team <secret>`).
 Blogas/nesamas raktas šiuose route'uose grąžina 404 (nematomą), ne 403.
