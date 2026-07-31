@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1200px; height:630px; overflow:hidden; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#141416; display:flex; }
+  .left { width:660px; padding:52px 54px 46px; display:flex; flex-direction:column; }
+  .brand { display:flex; align-items:center; gap:15px; }
+  .brand svg { width:52px; height:52px; }
+  .brand .nm { font-size:48px; font-weight:800; letter-spacing:-1.5px; color:#e8720c; }
+  .brand .nm span { color:#fff; }
+  h1 { color:#fff; font-size:36px; font-weight:800; line-height:1.14; margin-top:30px; letter-spacing:-1px; }
+  h1 b { color:#e8720c; }
+  .tag { color:#b9bcc2; font-size:21px; line-height:1.4; margin-top:16px; font-weight:500; }
+  .foot { display:flex; align-items:center; gap:12px; margin-top:40px; }
+  .foot .dot { width:11px; height:11px; border-radius:50%; background:#2fbf4f; }
+  .foot .url { color:#e8720c; font-size:24px; font-weight:800; letter-spacing:.5px; }
+  .foot .free { color:#8a8f98; font-size:19px; font-weight:600; margin-left:auto; }
+  .right { width:540px; position:relative; background:#0e0f11;
+    border-left:4px solid #e8720c; display:flex; align-items:center; justify-content:center; }
+  .right img { width:430px; height:430px; object-fit:cover; border-radius:20px;
+    box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .badge { position:absolute; left:40px; bottom:40px; background:#e8720c; color:#fff;
+    font-size:18px; font-weight:800; letter-spacing:1px; padding:7px 16px; border-radius:8px; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand">
+      <svg viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+      <div class="nm">TinyMaker<span>Wifi</span></div>
+    </div>
+    <h1>WiFi, wireless upload &amp; <b>OTA updates</b> for the TinyMaker resin printer</h1>
+    <div class="tag">Send models straight from PrusaSlicer, watch prints from any browser, and never touch the SD card again.</div>
+    <div class="foot">
+      <span class="dot"></span>
+      <span class="url">tinymakerwifi.com</span>
+      <span class="free">Open source &middot; free</span>
+    </div>
+  </div>
+  <div class="right">
+    <img src="file:///home/user/TinyMakerWifi/Images/Palm_Sized.jpg" alt="printer">
+  </div>
+</body>
+</html>
