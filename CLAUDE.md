@@ -139,3 +139,7 @@ išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
 - Planas NEKEIČIAMAS be vartotojo sutikimo. Prieš įkeliant ar keičiant ką
   nors plane, VISADA pirma pasiūlyk vartotojui, ką įtraukti, ir palauk
   patvirtinimo — niekada nekeisk plano savavališkai.
+- PC sesijos pradžioje: peržiūrėk atvirus GitHub issue'us ir pasiūlyk
+  vartotojui, kuriuos kelti į planą (su tuo pačiu sutikimo principu). Taip visų
+  debesų / telegram sesijų fiksuoti darbai per `git pull` + issue'us pasiekia
+  PC be atskiro priminimų sąrašo — issue'ai yra vienintelis „gyvas" šaltinis.
