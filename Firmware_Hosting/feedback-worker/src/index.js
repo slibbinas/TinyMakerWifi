@@ -80,6 +80,42 @@ export default {
     }
     const path = url.pathname.replace(/\/$/, '') || '/';
 
+    // --- SEO / AI discovery: robots.txt, sitemap.xml, llms.txt at the apex ---
+    // The apex root is Cloudflare-served (not this worker) and there is no CNAME,
+    // so these files have no gh-pages home; the worker owns them via dedicated
+    // routes (see wrangler.jsonc). Kept inline here as the single source of truth.
+    if (request.method === 'GET' && path === '/robots.txt') {
+      const body = 'User-agent: *\nAllow: /\n\nSitemap: https://tinymakerwifi.com/sitemap.xml\n';
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+    if (request.method === 'GET' && path === '/sitemap.xml') {
+      const pages = ['/', '/manual/', '/roadmap/', '/demo/'];
+      const body = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + pages.map(p => `  <url><loc>https://tinymakerwifi.com${p}</loc></url>`).join('\n')
+        + '\n</urlset>\n';
+      return new Response(body, {
+        headers: { 'Content-Type': 'application/xml;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+    if (request.method === 'GET' && path === '/llms.txt') {
+      const body = `# TinyMakerWifi
+
+> Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker MSLA (resin) 3D printer (ESP32-WROOM-32E).
+
+## Docs
+- [User manual](https://tinymakerwifi.com/manual/): WiFi setup, wireless printing from PrusaSlicer, the web dashboard, OTA updates, exposure/resin settings, troubleshooting
+- [Roadmap](https://tinymakerwifi.com/roadmap/): what is coming and what shipped
+- [Live demo](https://tinymakerwifi.com/demo/): the real dashboard driving a simulated printer
+- [Source, releases & firmware downloads](https://github.com/slibbinas/TinyMakerWifi)
+`;
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
     // Test panel: the per-release physical-test checklist, PUBLIC by design -
     // it is linked from the firmware's pre-release banner and the feedback
     // form, turning every beta user into a structured tester (checklist ->
