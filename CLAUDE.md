@@ -124,6 +124,16 @@ Prieš pradėdamas užduotį, ją įvertink:
 Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
 toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
 
+**Gate before hardware.** Firmware branduolio (`Network.ino`, ekspozicijos/lifto
+timing, atmintį liečiantis kodas) neatiduok pigesniam/mechaniniam modeliui — tik
+Claude pakopos; pigų modelį (Haiku ar išorinį) naudok tik verifikuojamam web/docs
+sluoksniui. Bet koks firmware pakeitimas prieš flash'inimą praeina „vartus":
+`firmware-auditor` ant `git diff` + `/security-review` tinklo/web daliai + `pio run`
+kompiliacija. Vartotojui rodyk trumpą ✅/⚠️ santrauką ir tik po ✅ siūlyk flash'inti;
+jei ⚠️ — pirma taisyk, tada kartok. Debesų sesija firmware nemergina ir neflash'ina
+(žr. „Debesų sesijos"). Tikslas — kad prie geležies patektų tik audituotas,
+sukompiliuotas kodas, o vartotojas neeikvotų dervos ant žinomai blogo build'o.
+
 ## Audito ritmas
 
 Po kiekvienų 2–3 užbaigtų feature'ų pasiūlyk paleisti `firmware-auditor`
