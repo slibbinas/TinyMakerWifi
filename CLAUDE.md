@@ -80,6 +80,12 @@ to, kas jau surašyta — ten pilnas kontekstas):
 ar mažas self-contained feature → PR į `main`; didelis feature, WIP, daug failų →
 PR į `experimental`. `main` apsaugotas — CI (abu PlatformIO env) turi būti žalias.
 
+**Merge politika (pagal riziką):** žemos rizikos PR (docs, web, SEO, maži
+self-contained) → **auto-merge** (susimergina pats pažaliavus CI). **Firmware** PR
+(kodas, timing, atmintis) → **rankinis merge tik po hardware testo** — CI tik
+kompiliuoja, netestuoja ant geležies, tad auto-merge įleistų neišbandytą build'ą
+(žr. „gate before hardware"). Žema rizika = automatika, geležis = žmogaus akis.
+
 **Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
 `tinymaker-firmware` skill'ą. Jis globalus/plugin (ne repo viduje), tad švarioje
 debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei prieinamas".
@@ -123,6 +129,16 @@ Prieš pradėdamas užduotį, ją įvertink:
 
 Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
 toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
+
+**Gate before hardware.** Firmware branduolio (`Network.ino`, ekspozicijos/lifto
+timing, atmintį liečiantis kodas) neatiduok pigesniam/mechaniniam modeliui — tik
+Claude pakopos; pigų modelį (Haiku ar išorinį) naudok tik verifikuojamam web/docs
+sluoksniui. Bet koks firmware pakeitimas prieš flash'inimą praeina „vartus":
+`firmware-auditor` ant `git diff` + `/security-review` tinklo/web daliai + `pio run`
+kompiliacija. Vartotojui rodyk trumpą ✅/⚠️ santrauką ir tik po ✅ siūlyk flash'inti;
+jei ⚠️ — pirma taisyk, tada kartok. Debesų sesija firmware nemergina ir neflash'ina
+(žr. „Debesų sesijos"). Tikslas — kad prie geležies patektų tik audituotas,
+sukompiliuotas kodas, o vartotojas neeikvotų dervos ant žinomai blogo build'o.
 
 ## Audito ritmas
 
