@@ -80,6 +80,12 @@ to, kas jau surašyta — ten pilnas kontekstas):
 ar mažas self-contained feature → PR į `main`; didelis feature, WIP, daug failų →
 PR į `experimental`. `main` apsaugotas — CI (abu PlatformIO env) turi būti žalias.
 
+**Merge politika (pagal riziką):** žemos rizikos PR (docs, web, SEO, maži
+self-contained) → **auto-merge** (susimergina pats pažaliavus CI). **Firmware** PR
+(kodas, timing, atmintis) → **rankinis merge tik po hardware testo** — CI tik
+kompiliuoja, netestuoja ant geležies, tad auto-merge įleistų neišbandytą build'ą
+(žr. „gate before hardware"). Žema rizika = automatika, geležis = žmogaus akis.
+
 **Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
 `tinymaker-firmware` skill'ą. Jis globalus/plugin (ne repo viduje), tad švarioje
 debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei prieinamas".
