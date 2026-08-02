@@ -4,17 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMakerWifi — feedback</title>
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="TinyMakerWifi">
-<meta property="og:title" content="TinyMakerWifi — feedback">
-<meta property="og:description" content="Tell us what works, what doesn't and what's missing in the TinyMakerWifi firmware — 30 seconds, no account, photos welcome.">
-<meta property="og:url" content="https://tinymakerwifi.com/feedback/">
-<meta property="og:image" content="https://tinymakerwifi.com/og-card.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="TinyMakerWifi — WiFi firmware for the palm-sized TinyMaker resin printer">
-<meta name="twitter:card" content="summary_large_image">
-<script>(function(){try{var t=new URLSearchParams(location.search).get('theme');
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');
+  if(q==='light'||q==='dark')localStorage.setItem('tmTheme',q);
+  var t=q||localStorage.getItem('tmTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -26,7 +18,7 @@
 :root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#aaa;--input:#141416}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;max-width:480px;width:100%;position:relative}
 /* Narrow phones: trim the page/card padding so the fixed 300 px Turnstile box
    keeps room (covers ~360 px viewports and up). */
 @media(max-width:420px){body{padding:12px}.card{padding:24px 12px}}
@@ -82,7 +74,20 @@ a{color:#84bcf8;text-decoration:none}a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
+<script>
+function tmWireToggle(){var tg=document.getElementById('themeToggle');if(!tg)return;
+  /* Šis puslapis pagal nutylėjimą TAMSUS (šviesus - tik jei OS taip prašo). */
+  var cur=function(){var d=document.documentElement.getAttribute('data-theme');
+    return d||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');};
+  tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',n);
+    try{localStorage.setItem('tmTheme',n);}catch(e){}});}
+/* Mygtukas gyvena kortelėje, kuri DOM'e yra ŽEMIAU šio skripto — laukiam parse. */
+if(document.readyState!=='loading')tmWireToggle();
+else document.addEventListener('DOMContentLoaded',tmWireToggle);
+</script>
 <div class="card">
+  <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer">&#9680;</button>
   <div class="brand">
     <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
     <span>TinyMakerWifi</span>
