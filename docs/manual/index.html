@@ -191,7 +191,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.16.1</span>
+  <span class="badge">User Manual · v0.16.2</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -385,10 +385,12 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The printer writes a tiny checkpoint to the SD card as it goes, so a power cut is recoverable. When it boots back up it shows <b>Power restored</b> with the model name and the layer it reached, and three choices:</p>
   <ul>
     <li><b>Resume</b> — the plate goes back down (no homing, which would drive the part into the vat) and the print continues from where it stopped.</li>
-    <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this peels it free and raises it, then clears the checkpoint.</li>
+    <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this clears the checkpoint first, then peels the part free and raises the plate.</li>
     <li><b>Discard</b> — forget the interrupted print and boot normally.</li>
   </ul>
+  <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer only knows the pre-lift height, so the resumed layers can sit slightly high — usually a faint seam, occasionally a separation at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film.</p>
   <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust.</p>
+  <p><b>Power the printer from its mains adapter, not a USB power bank.</b> A weak or portable supply can sag the moment the plate lifts — the stepper's current draw briefly dips the voltage — and on a marginal supply that dip can even reset the printer part-way through the recovery. If a resume keeps rebooting back to the same prompt, that voltage dip is the usual cause: switch to the supplied adapter and try again.</p>
   <p style="color:var(--muted);font-size:.9rem">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
@@ -598,17 +600,26 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>Where do I find the printer’s IP address?</h3>
   <p><b>System → WiFi Info</b> on the printer — it always shows the connected network, signal strength and IP. (The boot screen only shows the IP after the first-time portal setup; on routine boots the signal bars just turn green.) On most networks <code>tinymaker.local</code> works instead of the IP.</p>
 
+  <h3>What SD cards work?</h3>
+  <p>Format the card as <b>FAT32</b> and keep it <b>32&nbsp;GB or smaller</b> — exFAT and NTFS aren’t read, and cards larger than 32&nbsp;GB can’t be FAT32 without reformatting. A class-10 card is plenty. Copy <code>.sl1</code>/<code>.zip</code> archives into the card’s <b>root</b> (not a sub-folder).</p>
+
   <h3>PrusaSlicer “Test” fails</h3>
   <p>Check the printer is on and shows a green dot / an IP under System → WiFi Info. Use that IP if <code>tinymaker.local</code> doesn’t resolve on your network. The API key value doesn’t matter.</p>
 
   <h3>The dashboard opens but every button is disabled</h3>
   <p><b>Web control</b> is off. Turn it back on on the printer: System → Advanced → Web control. (Slicer upload and MQTT are unaffected by this switch.)</p>
 
-  <h3>My print looks half-height / wrong</h3>
-  <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design.</p>
+  <h3>My print looks half-height, flat or squashed</h3>
+  <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design. If parts come out <b>flat or the wrong height</b>, open PrusaSlicer’s <b>Print settings</b> and confirm the <b>layer height actually reads 0.05&nbsp;mm</b> — a PrusaSlicer update or picking the wrong preset can silently reset it, and the printer can’t tell from the file, so it just prints wrong without a warning.</p>
 
   <h3>“Resin left” looks wrong</h3>
   <p>It’s an estimate that only counts confirmed refills. Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so it stays honest.</p>
+
+  <h3>What do I do after a print? (washing &amp; curing)</h3>
+  <p>Parts come off the plate <b>wet and only partly cured</b>. Rinse them in <b>isopropyl alcohol</b> (IPA) — two baths help: a dirty one first, a clean one second — then let them dry. Only then <b>UV-cure</b> them (sunlight or a curing station) until hard. A <b>matte, chalky surface</b> is usually over-curing or too much sun — cure in shorter bursts and check often. Always wear gloves; uncured resin is a skin irritant.</p>
+
+  <h3>How do I clean the resin VAT?</h3>
+  <p>When changing resin or storing the printer, pour the resin back through a <b>paint filter</b> into its bottle, then wipe the VAT with IPA and a soft <b>paper towel</b> — never anything hard: the clear <b>FEP film</b> on the bottom scratches easily. Held to the light the FEP should be clear, with no cured skin or cloudiness stuck to it; gently <b>flexing</b> the VAT pops leftover cured bits loose so you can peel them off by hand, not with a scraper.</p>
 
   <h3>A firmware update failed</h3>
   <p>The dual OTA partition keeps the previous firmware, so the printer should still boot. Try again from System → Update, or upload a <code>firmware.bin</code> from the dashboard’s Settings → Update.</p>
@@ -638,7 +649,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.16.1 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.16.2 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>

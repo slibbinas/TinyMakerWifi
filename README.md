@@ -141,7 +141,7 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
   <img src="Images/mockups/prusaslicer-send-to-printer.png" width="300" alt="PrusaSlicer: select the TinyMaker WiFi printer and press Send to printer">
 </p>
 
-**Always slice with the 0.05 mm profile.** Unlike FDM, the printed layer height is set **on the printer** (Settings → Layer Height), not by the sliced file — the file is just a stack of 0.05 mm images, and at the 0.10 mm printer setting the firmware takes every other image. Maximum model size: 1200 layers = 60 mm.
+**Always slice with the 0.05 mm profile.** Unlike FDM, the printed layer height is set **on the printer** (Settings → Layer Height), not by the sliced file — the file is just a stack of 0.05 mm images, and at the 0.10 mm printer setting the firmware takes every other image. Maximum model size: 1200 layers = 60 mm. If prints come out **flat or the wrong height**, check that PrusaSlicer's *Print settings* still show **0.05 mm** — an update or the wrong preset can silently reset it, and the printer can't detect it from the file.
 
 ## Importing models from the SD card
 

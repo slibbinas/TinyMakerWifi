@@ -610,7 +610,7 @@ int advancedGroupItemCount(int g) {
     if (wifiEnabled && advancedMqttConfigured()) count++;
     return count;
   }
-  if (g == 2) return 6;  // VAT refilled, pause, warn, ask refill, exp test, dry run
+  if (g == 2) return 7;  // VAT refilled, pause, warn, ask refill, power resume, exp test, dry run
   if (g == 3) return 2;  // idle timeout, boot animation
   return 0;
 }
@@ -626,8 +626,8 @@ int advancedGroupItem(int g, int pos) {
     return 8;                                                 // Boot update (last)
   }
   if (g == 2) {
-    const int items[6] = {3, 4, 5, 6, 9, 2};  // refilled, pause, warn, ask, exp test, dry run
-    if (pos >= 1 && pos <= 6) return items[pos - 1];
+    const int items[7] = {3, 4, 5, 6, 13, 9, 2};  // refilled, pause, warn, ask, power resume, exp test, dry run
+    if (pos >= 1 && pos <= 7) return items[pos - 1];
   }
   if (g == 3) {
     if (pos == 1) return 1;   // Idle timeout
@@ -653,6 +653,7 @@ String advancedLabel(int item) {
   if (item == 10) return "Boot animation";
   if (item == 11) return "Web control";  // shown only via the Network group,
   if (item == 12) return "MQTT";         // which gates them on wifiEnabled
+  if (item == 13) return "Power resume"; // 0-34: power-loss resume on/off
   return "";
 }
 
@@ -676,6 +677,7 @@ String advancedValue(int item) {
   }
   if (item == 11) return webDashboardEnabled ? "On" : "Off";
   if (item == 12) return mqttEnabled ? "On" : "Off";
+  if (item == 13) return resumeEnabled ? "On" : "Off";
   return "";
 }
 
@@ -789,6 +791,8 @@ void advancedOptionsSelect() {
     webDashboardEnabled = !webDashboardEnabled;
   } else if (id == 12) {
     mqttEnabled = !mqttEnabled;
+  } else if (id == 13) {
+    resumeEnabled = !resumeEnabled;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK
