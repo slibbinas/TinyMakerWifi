@@ -377,6 +377,18 @@ export default {
       });
     }
 
+    // Ops "farm map" (how-we-work reference: rules by trigger, farm-map.json).
+    // Same LIST_KEY as /plan so one key opens both, and plan<->map links carry it.
+    // Stable reference (separate from the changing plan); 404 without the key.
+    if (request.method === 'GET' && path === '/map') {
+      if (!keyOk) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:map');
+      if (!html) return new Response('No map uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     // Team roadmap (the contributor-facing projection) from panel:team KV.
     // Gated by its OWN key in KV ('key:team') - deliberately NOT LIST_KEY,
     // because the team may hold this one while LIST_KEY also unlocks /plan
