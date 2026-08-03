@@ -109,6 +109,14 @@ rekomenduojamo varianto ir vienos eilutės „kodėl" — trumpi pros/cons.
 Ne neutralus sąrašas, o aiški rekomendacija pirmiausia. Galioja visose
 sesijose.
 
+## Siūlyk, palauk patvirtinimo
+
+**Meta-principas (kanonas).** Prieš darydamas dalyką, kurį sunku atšaukti ar kuris
+keičia bendrą būseną — planą, modelio perjungimą, išorinį push/deploy/release,
+roadmap — pirma pasiūlyk vartotojui ką ir kodėl, palauk aiškaus OK, tada vykdyk.
+Kitos skiltys (Modelio parinkimas, Debesų sesijos) remiasi šiuo principu. Galioja
+visose sesijose.
+
 ## Paprasta kalba
 
 Viską — pasiūlymus, paaiškinimus, techninius sprendimus — dėstyk PAPRASTA,
@@ -140,21 +148,22 @@ hardware" — geležis = stipriausias modelis). Fable = tik web/docs/mechaninis.
 Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
 toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
 
-**Gate before hardware.** Firmware branduolio (`Network.ino`, ekspozicijos/lifto
-timing, atmintį liečiantis kodas) neatiduok pigesniam/mechaniniam modeliui — tik
-Claude pakopos; pigų modelį (Haiku ar išorinį) naudok tik verifikuojamam web/docs
-sluoksniui. Bet koks firmware pakeitimas prieš flash'inimą praeina „vartus":
-`firmware-auditor` ant `git diff` + `/security-review` tinklo/web daliai + `pio run`
-kompiliacija. Vartotojui rodyk trumpą ✅/⚠️ santrauką ir tik po ✅ siūlyk flash'inti;
-jei ⚠️ — pirma taisyk, tada kartok. Debesų sesija firmware nemergina ir neflash'ina
-(žr. „Debesų sesijos"). Tikslas — kad prie geležies patektų tik audituotas,
-sukompiliuotas kodas, o vartotojas neeikvotų dervos ant žinomai blogo build'o.
+**Gate before hardware (KANONAS).** Bet koks firmware pakeitimas prieš flash'inimą
+praeina „vartus": `firmware-auditor` ant `git diff` + `/security-review` tinklo/web
+daliai + `pio run` kompiliacija. Rodyk vartotojui trumpą ✅/⚠️ santrauką; flash'inti
+siūlyk tik po ✅, jei ⚠️ — pirma taisyk, tada kartok. Firmware branduolį (`Network.ino`,
+ekspozicijos/lifto timing, atmintį liečiantis kodas) audituoja tik Claude pakopos
+(`firmware-auditor` = `opus`), ne pigus/mechaninis modelis. Tikslas: prie geležies
+patenka tik audituotas, sukompiliuotas kodas — vartotojas neeikvoja dervos ant žinomai
+blogo build'o. (Debesų sesija firmware nemergina/neflash'ina — žr. „Debesų sesijos".)
 
 ## Audito ritmas
 
 Po kiekvienų 2–3 užbaigtų feature'ų pasiūlyk paleisti `firmware-auditor`
 subagentą ant `git diff`. Nelauk darbo pabaigos — architektūrinę klaidą
-pigiau pagauti, kol ji dar neįaugusi į kelis feature'us.
+pigiau pagauti, kol ji dar neįaugusi į kelis feature'us. (Tai **proaktyvus**
+ritmas; `firmware-auditor` PRIVALOMAS ir prieš kiekvieną flash'ą — „Gate before
+hardware".)
 
 ## Debesų sesijos (Claude Code on the web)
 
@@ -170,9 +179,8 @@ išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
   debesų — debesų aplinkos tinklo politika to host'o nepasiekia. Debesų
   sesijoje idėjas fiksuok kaip GitHub issue'us (`[versija]` antraštėje);
   PC sesija juos perkelia į planą.
-- Planas NEKEIČIAMAS be vartotojo sutikimo. Prieš įkeliant ar keičiant ką
-  nors plane, VISADA pirma pasiūlyk vartotojui, ką įtraukti, ir palauk
-  patvirtinimo — niekada nekeisk plano savavališkai.
+- Planas NEKEIČIAMAS be vartotojo sutikimo — pirma pasiūlyk, ką įtraukti, palauk
+  OK (žr. „Siūlyk, palauk patvirtinimo"). Niekada nekeisk plano savavališkai.
 - PC sesijos pradžioje: peržiūrėk atvirus GitHub issue'us ir pasiūlyk
   vartotojui, kuriuos kelti į planą (su tuo pačiu sutikimo principu). Taip visų
   debesų / telegram sesijų fiksuoti darbai per `git pull` + issue'us pasiekia
