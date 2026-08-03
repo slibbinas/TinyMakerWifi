@@ -125,7 +125,17 @@ Prieš pradėdamas užduotį, ją įvertink:
   → SUSTOK ir pasiūlyk `/model opus` (arba `/model opusplan`). Nepradėk vykdyti.
 - Mechaninis darbas (pervadinimai, log eilutės, boilerplate, regex)
   → pasiūlyk `/model haiku`.
+- **Lengvas, verifikuojamas, atstatomas sluoksnis** (web/docs) — kur greitis
+  padeda, o klaida pigi: web/docs verifikacinis skaitymas prieš publikuojant
+  (roadmap/landing/dashboard/manual HTML, docs proza — temos toggle, linkai,
+  dims, tipo klaidos), changelog/release-notes juodraščiai, plano teksto
+  lygiavimas, konteksto reikalaujantys batch pervadinimai, „antras skaitymas"
+  po web/docs edito → pasiūlyk **`/model fable`** (Claude 5 greitas/pigus).
 - Kitais atvejais dirbk su dabartiniu modeliu, nieko neklausk.
+
+**Fable ribos:** firmware (`.ino`, timing, atmintis), architektūra, sunkūs bug'ai
+→ NIEKADA Fable, tik `opus`. `firmware-auditor` lieka `opus` (žr. „Gate before
+hardware" — geležis = stipriausias modelis). Fable = tik web/docs/mechaninis.
 
 Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
 toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
