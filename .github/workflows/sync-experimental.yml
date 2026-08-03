@@ -1,0 +1,46 @@
+# Po kiekvieno push į main automatiškai suvienodina experimental su main.
+# Pakeičia rankinę „po merge į main → sync experimental" taisyklę (buvo atminties-
+# priklausoma). Kryptis saugi: release linija (main) -> dev šaka (experimental).
+# Konflikto atveju NEforce'ina — atidaro PR, kad dev darbas nebūtų prarastas.
+name: Sync experimental with main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-experimental
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge main into experimental (PR on conflict)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main experimental
+          git checkout experimental
+          if git merge --no-edit origin/main; then
+            git push origin experimental
+            echo "experimental synced with main."
+          else
+            git merge --abort
+            echo "Merge conflict — opening a PR for manual resolution instead of forcing."
+            gh pr create \
+              --base experimental --head main \
+              --title "Auto-sync: merge main into experimental (conflict — resolve manually)" \
+              --body "The automatic main→experimental sync hit a merge conflict, so nothing was pushed. Resolve the conflict in this PR to bring experimental up to date. (Workflow: .github/workflows/sync-experimental.yml)" \
+              || echo "A sync PR is already open — leaving it for manual resolution."
+          fi
