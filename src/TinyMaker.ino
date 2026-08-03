@@ -156,6 +156,7 @@ bool uvLedEnabled = true;           // false = dry-run motion/display only
 bool wifiEnabled = true;
 bool webDashboardEnabled = true;
 bool bootUpdateCheckEnabled = true;
+bool resumeEnabled = true;          // 0-34: false = never checkpoint / never offer power-loss resume
 String bootAnimName = "";      // "" = built-in splash; else a basename in /bootanim/
 bool wifiTemporarilyEnabled = false;
 bool webDashboardTemporarilyEnabled = false;
@@ -226,6 +227,7 @@ void loadDeviceConfig() {
   wifiEnabled = sysPrefs.getBool("wifiEnabled", true);
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
+  resumeEnabled = sysPrefs.getBool("resumeEn", true);
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
   prevRegularExposure = sysPrefs.getUChar("prevRegExp", 0);
   bootAnimName = sysPrefs.getString("bootAnimName", "");
@@ -273,6 +275,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("wifiEnabled", wifiEnabled);
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
+  sysPrefs.putBool("resumeEn", resumeEnabled);
   sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
@@ -640,6 +643,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += webDashboardEnabled ? "true" : "false";
   out += ",\"bootUpdateCheck\":";
   out += bootUpdateCheckEnabled ? "true" : "false";
+  out += ",\"resumeEnabled\":";
+  out += resumeEnabled ? "true" : "false";
   out += ",\"bootAnim\":\"";
   out += backupEscape(bootAnimName);
   out += "\"";
@@ -773,6 +778,7 @@ void applyConfigBackup(const String &j) {
   wifiEnabled = backupBool(j, "wifiEnabled", wifiEnabled);
   webDashboardEnabled = wifiEnabled && backupBool(j, "webDashboardEnabled", webDashboardEnabled);
   bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
+  resumeEnabled = backupBool(j, "resumeEnabled", resumeEnabled);
   bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
@@ -2302,6 +2308,10 @@ void loop() {
       case 423:                 // Temporarily enable WiFi, then open Update
         wifiTemporarilyEnabled = true;
         webDashboardTemporarilyEnabled = true;
+        // 0-35 (GitHub #38): if WiFi was off at boot, network_setup() already
+        // latched networkStarted and returned early. Clear it so this call
+        // re-inits the stack and actually brings WiFi up for the self-update.
+        networkStarted = false;
         network_setup();
         screen421();
         break;

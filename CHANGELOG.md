@@ -13,6 +13,39 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.16.2] — 2026-08-03 (beta)
+
+Beta fixes and polish on top of 0.16.0.
+
+### Added
+- **Power-loss resume on/off switch** (System → Advanced → Resin, and the
+  dashboard's Settings). Off means the printer never writes a checkpoint and
+  never offers to resume after an outage — it starts fresh, like the stock
+  firmware. On by default.
+- **Dashboard header cleanup.** The firmware version is now a small badge next
+  to the TinyMaker name; it turns orange with an ↑ when a newer version is
+  waiting, and tapping it jumps to the Update screen. The theme toggle moved to
+  the top-right corner, and the build hash is shown in **Update** and **About**.
+- **Manual FAQ additions** — SD card formatting (FAT32, ≤32 GB), washing &
+  curing, cleaning the resin vat, a clear layer-height warning (slice at
+  0.05 mm), and a power-supply note for reliable power-loss recovery.
+
+### Fixed
+- **Self-update was a dead end when WiFi was off at boot.** System → Update now
+  brings WiFi up so you can still check for and install firmware.
+- **Lifting the plate off a stuck print** (from the resume prompt) now clears
+  the checkpoint *before* the lift, so a power dip mid-lift can't leave a stale
+  resume prompt with an already-raised plate.
+
+## [0.16.1] — 2026-07-28 (beta)
+
+### Added
+- **"Buy me a coffee" link** in the dashboard's About footer.
+
+### Fixed
+- Menu item info text looked shrunk after a boot animation played — the badge
+  font is now restored so Maintenance / Settings / System read at full size.
+
 ## [0.16.0] — 2026-07-23 (beta)
 
 The biggest release since WiFi landed: your printer survives a power cut, every

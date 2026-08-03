@@ -1,7 +1,8 @@
 # TinyMakerWiFi LAN API (DRAFT v0 — 0-11)
 
 > Status: **draft for review** — generated from the endpoint registrations in
-> `src/Network.ino` (firmware 0.15.8, experimental branch). Promised in
+> `src/Network.ino`; the contract rides `FIRMWARE_VERSION` (see Versioning policy
+> below), so this doc is not pinned to a single release. Promised in
 > [Issue #12](https://github.com/slibbinas/TinyMakerWifi/issues/12) as the
 > versioned contract the Connect offload spec builds on.
 

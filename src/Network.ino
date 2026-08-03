@@ -1364,6 +1364,8 @@ String configJson() {
   out += webDashboardEnabled ? "true" : "false";
   out += ",\"bootUpdateCheck\":";
   out += bootUpdateCheckEnabled ? "true" : "false";
+  out += ",\"resumeEnabled\":";
+  out += resumeEnabled ? "true" : "false";
   out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
@@ -1420,6 +1422,7 @@ void applyConfigRequest() {
   wifiEnabled = server.hasArg("wifi_enabled");
   webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
   bootUpdateCheckEnabled = server.hasArg("boot_update_check");
+  resumeEnabled = server.hasArg("resume_enabled");
   statsPingEnabled = server.hasArg("stats_ping");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
@@ -1583,6 +1586,7 @@ void resetWebConfigToDefaults() {
   wifiEnabled = true;
   webDashboardEnabled = true;
   bootUpdateCheckEnabled = true;
+  resumeEnabled = true;
   saveDeviceConfig();
 }
 
@@ -2531,6 +2535,7 @@ void drawWifiBadge() {
   gfx2->fillRect(148, 8, 2, 3, c);   // short bar
   gfx2->fillRect(151, 5, 2, 6, c);   // medium bar
   gfx2->fillRect(154, 2, 2, 9, c);   // tall bar (ends 2 px from the edge)
+  gfx2->setFont(&FreeSans8pt7b);     // #17: badge switched to built-in NULL font for the chip letters; restore so later callers (screen2/3/4 menu labels) don't inherit the small 6x8 font
 }
 
 // Boot-animation install: the printer pulls a TMB1 file from a trusted URL and
@@ -2884,6 +2889,11 @@ void network_setup() {
   // the "hold BACK at power-on = erase WiFi" check unreachable from a held
   // prompt button (belt to the button-drain suspenders).
   if (networkStarted) return;
+  // Latched once per boot so the resume/restore prompt's SECOND network_setup()
+  // (case 427 / finishRestorePromptBoot) is a no-op - including when WiFi is off,
+  // where re-running would flash "WiFi disabled" + delay(1000) again mid-resume.
+  // System -> Update (case 423) deliberately clears this to re-init with
+  // temporary WiFi when WiFi was off at boot (0-35 / GitHub #38).
   networkStarted = true;
   if (!networkRuntimeEnabled()) {
     WiFi.mode(WIFI_OFF);

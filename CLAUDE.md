@@ -63,7 +63,107 @@ Build-time switches (top of `TinyMaker.ino`):
 #define ENABLE_SERIAL_DEBUG  1   // 0 = no serial output
 ```
 
+## Dokumentų žemėlapis
+
+Kai dirbi su konkrečia sritimi, pirma skaityk atitinkamą dokumentą (nekartok
+to, kas jau surašyta — ten pilnas kontekstas):
+
+| Kai dirbi su… | Skaityk |
+|---|---|
+| LAN API / HTTP endpoint'ais (`Network.ino`) | [docs/api.md](docs/api.md) |
+| PR — kur merge'inti, contribution taisyklės | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Cloudflare worker'iais / hosting'u / `/plan` `/team` `/tests` panel'ais | [Firmware_Hosting/](Firmware_Hosting/) + [feedback-worker.md](Firmware_Hosting/feedback-worker.md) |
+| Versijų kopėčiomis / kas kur išleista | [ROADMAP.md](ROADMAP.md) |
+| Release istorija | [CHANGELOG.md](CHANGELOG.md) |
+
+**PR šakos** (pilnos taisyklės — [CONTRIBUTING.md](CONTRIBUTING.md)): maža pataisa
+ar mažas self-contained feature → PR į `main`; didelis feature, WIP, daug failų →
+PR į `experimental`. `main` apsaugotas — CI (abu PlatformIO env) turi būti žalias.
+
+**Merge politika (pagal riziką):** žemos rizikos PR (docs, web, SEO, maži
+self-contained) → **auto-merge** (susimergina pats pažaliavus CI). **Firmware** PR
+(kodas, timing, atmintis) → **rankinis merge tik po hardware testo** — CI tik
+kompiliuoja, netestuoja ant geležies, tad auto-merge įleistų neišbandytą build'ą
+(žr. „gate before hardware"). Žema rizika = automatika, geležis = žmogaus akis.
+
+**Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
+`tinymaker-firmware` skill'ą. Jis globalus/plugin (ne repo viduje), tad švarioje
+debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei prieinamas".
+
 ## Remotes
 
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)
 - `upstream` → `TinyMaker3D/TinyMaker-Open-Source-3D-Printer` (original project)
+
+## Tikslinimas iš kodo
+
+Prieš teigdamas ką nors apie kodą (eilutės numerį, funkcijos elgesį,
+kintamojo reikšmę, API, elgseną prie kraštinių sąlygų), patikrink tai
+realiame faile — Read/Grep — o ne iš atminties. Tai galioja VISADA ir
+visose sesijose, ne tik čia. Jei netikrinai — pasakyk, kad tai spėjimas.
+
+## Pasirinkimų pateikimas
+
+Kai siūlai vartotojui rinktis iš variantų, VISADA iškart pradėk nuo
+rekomenduojamo varianto ir vienos eilutės „kodėl" — trumpi pros/cons.
+Ne neutralus sąrašas, o aiški rekomendacija pirmiausia. Galioja visose
+sesijose.
+
+## Paprasta kalba
+
+Viską — pasiūlymus, paaiškinimus, techninius sprendimus — dėstyk PAPRASTA,
+ne technine kalba, kad vartotojui būtų lengva iškart apsispręsti ir nereikėtų
+klausti papildomai. Rodyk žmogišką pasekmę/naudą (ką tai duoda), ne tik kas
+techniškai daroma. Jei būtinas techninis terminas — paaiškink jį vienu
+sakiniu. Galioja visose sesijose.
+
+## Modelio parinkimas
+
+Prieš pradėdamas užduotį, ją įvertink:
+
+- Platus refaktoringas, architektūros sprendimas, sunkus bug'as, auditas
+  → SUSTOK ir pasiūlyk `/model opus` (arba `/model opusplan`). Nepradėk vykdyti.
+- Mechaninis darbas (pervadinimai, log eilutės, boilerplate, regex)
+  → pasiūlyk `/model haiku`.
+- Kitais atvejais dirbk su dabartiniu modeliu, nieko neklausk.
+
+Pasiūlymas — viena eilutė su priežastimi. Nesiūlyk to paties du kartus
+toje pačioje sesijoje; jei vartotojas atmetė, daugiau nebeprimink.
+
+**Gate before hardware.** Firmware branduolio (`Network.ino`, ekspozicijos/lifto
+timing, atmintį liečiantis kodas) neatiduok pigesniam/mechaniniam modeliui — tik
+Claude pakopos; pigų modelį (Haiku ar išorinį) naudok tik verifikuojamam web/docs
+sluoksniui. Bet koks firmware pakeitimas prieš flash'inimą praeina „vartus":
+`firmware-auditor` ant `git diff` + `/security-review` tinklo/web daliai + `pio run`
+kompiliacija. Vartotojui rodyk trumpą ✅/⚠️ santrauką ir tik po ✅ siūlyk flash'inti;
+jei ⚠️ — pirma taisyk, tada kartok. Debesų sesija firmware nemergina ir neflash'ina
+(žr. „Debesų sesijos"). Tikslas — kad prie geležies patektų tik audituotas,
+sukompiliuotas kodas, o vartotojas neeikvotų dervos ant žinomai blogo build'o.
+
+## Audito ritmas
+
+Po kiekvienų 2–3 užbaigtų feature'ų pasiūlyk paleisti `firmware-auditor`
+subagentą ant `git diff`. Nelauk darbo pabaigos — architektūrinę klaidą
+pigiau pagauti, kol ji dar neįaugusi į kelis feature'us.
+
+## Debesų sesijos (Claude Code on the web)
+
+Debesų sesijoje firmware kodas NĖRA sukompiliuotas PlatformIO ir NĖRA
+išbandytas ant geležies (flash'inimui reikia USB kabelio prie PC). Todėl:
+
+- Niekada nesiūlyk merge'inti firmware pakeitimų iš debesų sesijos.
+- Palik PR juodraštį (draft) ir aiškiai pažymėk, kad reikia kompiliacijos
+  PlatformIO ir testo ant spausdintuvo.
+- Debesų sesijoje pirmenybę teik ne kodavimui, o analizei, planavimui,
+  auditui, dokumentacijai ir projekto valdymo darbams.
+- Plano puslapis (`tinymakerwifi.com/plan`) pildomas iš PC sesijos, ne iš
+  debesų — debesų aplinkos tinklo politika to host'o nepasiekia. Debesų
+  sesijoje idėjas fiksuok kaip GitHub issue'us (`[versija]` antraštėje);
+  PC sesija juos perkelia į planą.
+- Planas NEKEIČIAMAS be vartotojo sutikimo. Prieš įkeliant ar keičiant ką
+  nors plane, VISADA pirma pasiūlyk vartotojui, ką įtraukti, ir palauk
+  patvirtinimo — niekada nekeisk plano savavališkai.
+- PC sesijos pradžioje: peržiūrėk atvirus GitHub issue'us ir pasiūlyk
+  vartotojui, kuriuos kelti į planą (su tuo pačiu sutikimo principu). Taip visų
+  debesų / telegram sesijų fiksuoti darbai per `git pull` + issue'us pasiekia
+  PC be atskiro priminimų sąrašo — issue'ai yra vienintelis „gyvas" šaltinis.

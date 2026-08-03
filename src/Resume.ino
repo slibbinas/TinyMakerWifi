@@ -29,6 +29,7 @@ static const char *RESUME_PATH = "/tinymaker-resume.txt";
 
 // Write a checkpoint with an explicit position (steps from the print's home).
 void resumeCheckpointAt(char phase, long posSteps) {
+  if (!resumeEnabled) return;   // 0-34: power-loss resume turned off -> never write a checkpoint
   char buf[240];
   uint32_t elapsedSecs = (millis() - printStartMs) / 1000UL;
   snprintf(buf, sizeof(buf),
@@ -92,6 +93,7 @@ static double resumeDbl(const String &j, const char *key, double def) {
  */
 bool resumeLoad() {
   resumePhase = 0;
+  if (!resumeEnabled) return false;   // 0-34: resume off -> never offer the boot prompt
   File f = SD.open(RESUME_PATH);
   if (!f) return false;
   String j;
@@ -171,10 +173,15 @@ float resumeTransitionExposureSeed(int curedLayers) {
  * Trust the checkpoint like a resume would: seed the position ('M' records
  * the pre-lift LOW height, so an error can only lift HIGHER than intended -
  * the safe direction), peel free with the slow lift, then continue up to a
- * pause-style +20mm park and discard the checkpoint. Runs from the boot
- * prompt, before network_setup - plain blocking moves are fine here.
- * A power loss mid-raise leaves the old checkpoint with the plate higher
- * than recorded - the next boot's recovery errs upward, still safe.
+ * pause-style +20mm park. Runs from the boot prompt, before network_setup -
+ * plain blocking moves are fine here.
+ * The checkpoint is discarded FIRST, before the lift: UP means "do not
+ * resume", so once the plate starts moving up there is nothing to come back
+ * to. Clearing after the move (the old order) meant a power loss mid-raise -
+ * or any reset before the final clear - left the checkpoint behind, so the
+ * next boot re-prompted a resume while the plate had already lifted (wrong
+ * recovered position). Cleared first, a mid-raise loss just boots normally;
+ * the geared Z is self-locking, so the plate stays where it stopped.
  */
 void resumeRaisePlateAndDiscard() {
   gfx2->fillScreen(BLACK);
@@ -183,6 +190,12 @@ void resumeRaisePlateAndDiscard() {
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 44);
   gfx2->print("Raising plate...");
+
+  // Discard the checkpoint BEFORE moving: UP = "do not resume", so a power
+  // loss (or watchdog reset) mid-raise must not re-prompt a resume with an
+  // already-lifted plate. Uses resumePosSteps (RAM) for the move below, which
+  // resumeClear() does not touch.
+  resumeClear();
 
   stepper.setCurrentPosition(resumePosSteps);
   stepper.enableOutputs();
@@ -206,7 +219,6 @@ void resumeRaisePlateAndDiscard() {
   }
   stepper.disableOutputs();
   delay(200);
-  resumeClear();
 }
 
 /**

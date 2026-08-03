@@ -80,6 +80,42 @@ export default {
     }
     const path = url.pathname.replace(/\/$/, '') || '/';
 
+    // --- SEO / AI discovery: robots.txt, sitemap.xml, llms.txt at the apex ---
+    // The apex root is Cloudflare-served (not this worker) and there is no CNAME,
+    // so these files have no gh-pages home; the worker owns them via dedicated
+    // routes (see wrangler.jsonc). Kept inline here as the single source of truth.
+    if (request.method === 'GET' && path === '/robots.txt') {
+      const body = 'User-agent: *\nAllow: /\n\nSitemap: https://tinymakerwifi.com/sitemap.xml\n';
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+    if (request.method === 'GET' && path === '/sitemap.xml') {
+      const pages = ['/', '/manual/', '/roadmap/', '/demo/'];
+      const body = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + pages.map(p => `  <url><loc>https://tinymakerwifi.com${p}</loc></url>`).join('\n')
+        + '\n</urlset>\n';
+      return new Response(body, {
+        headers: { 'Content-Type': 'application/xml;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+    if (request.method === 'GET' && path === '/llms.txt') {
+      const body = `# TinyMakerWifi
+
+> Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker MSLA (resin) 3D printer (ESP32-WROOM-32E).
+
+## Docs
+- [User manual](https://tinymakerwifi.com/manual/): WiFi setup, wireless printing from PrusaSlicer, the web dashboard, OTA updates, exposure/resin settings, troubleshooting
+- [Roadmap](https://tinymakerwifi.com/roadmap/): what is coming and what shipped
+- [Live demo](https://tinymakerwifi.com/demo/): the real dashboard driving a simulated printer
+- [Source, releases & firmware downloads](https://github.com/slibbinas/TinyMakerWifi)
+`;
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
     // Test panel: the per-release physical-test checklist, PUBLIC by design -
     // it is linked from the firmware's pre-release banner and the feedback
     // form, turning every beta user into a structured tester (checklist ->
@@ -329,6 +365,33 @@ export default {
     const listKey = String(env.LIST_KEY || '').trim();
     const keyOk = listKey && (url.searchParams.get('key') || '').trim() === listKey;
 
+    // Private internal plan (planas.html), pushed to panel:plan KV. Gated by the
+    // same admin LIST_KEY; 404 (not 403) without it so the path stays invisible.
+    // NOT a public roadmap - holds internal strategy; only V opens it by URL.
+    if (request.method === 'GET' && path === '/plan') {
+      if (!keyOk) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:plan');
+      if (!html) return new Response('No plan uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
+    // Team roadmap (the contributor-facing projection) from panel:team KV.
+    // Gated by its OWN key in KV ('key:team') - deliberately NOT LIST_KEY,
+    // because the team may hold this one while LIST_KEY also unlocks /plan
+    // and the feedback admin. 404 without it so the path stays invisible.
+    if (request.method === 'GET' && path === '/team') {
+      const want = String((await env.FEEDBACK.get('key:team')) || '').trim();
+      const got = (url.searchParams.get('key') || '').trim();
+      if (!want || got !== want) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:team');
+      if (!html) return new Response('No team roadmap uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
     // Every fb: key with its metadata, newest first. One list call, no gets -
     // enough for stats, filter counts and the version list.
     const indexAll = async () => {
@@ -521,7 +584,7 @@ function inboxPage(notes, listKey, view) {
 <meta name="robots" content="noindex,nofollow">
 <title>Feedback inbox — TinyMakerWifi</title>
 <script>(function(){try{var q=new URLSearchParams(location.search).get('theme');
-  var t=(q==='light'||q==='dark')?q:localStorage.getItem('fbTheme');
+  var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');
   if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -620,7 +683,7 @@ ${hits > PAGE ? `<div class="pager">
   <span class="range">${from + 1}–${Math.min(from + PAGE, hits)} of ${hits}</span>
   ${from + PAGE < hits ? `<a href="${esc(q({ from: from + PAGE }))}">Older →</a>` : '<span></span>'}
 </div>` : ''}
-<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" style="background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:2px 10px;font-size:.78rem;cursor:pointer;font-family:inherit">🌓 Theme</button></footer>
+<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;font-family:inherit">◐</button></footer>
 </div>
 <script>
 var KEY=${JSON.stringify(listKey)};
@@ -629,11 +692,9 @@ var KEY=${JSON.stringify(listKey)};
 (function(){var tg=document.getElementById('themeToggle');if(!tg)return;
   var curTheme=function(){var d=document.documentElement.getAttribute('data-theme');
     return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
-  var label=function(){tg.textContent=curTheme()==='dark'?'☀️ Light':'🌙 Dark';};
-  label();
   tg.addEventListener('click',function(){var next=curTheme()==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',next);
-    try{localStorage.setItem('fbTheme',next);}catch(e){}label();});})();
+    try{localStorage.setItem('tmTheme',next);}catch(e){}});})();
 var api=function(what,note,body){
   return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
     {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Quick feedback (no GitHub account needed)
+    url: https://tinymakerwifi.com/feedback/
+    about: "The 30-second form: what works, what doesn't. You get a reference number and a status link - no account, photos welcome."
+  - name: TinyMaker community (Facebook group)
+    url: https://www.facebook.com/groups/1486879621729571
+    about: Questions, show-and-tell and community chat live here.
