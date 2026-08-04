@@ -40,5 +40,6 @@
   ],
   "kv_namespaces": [
     { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }
-  ]
+  ],
+  "triggers": { "crons": ["0 6 * * 1"] }
 }

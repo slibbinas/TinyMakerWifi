@@ -562,7 +562,8 @@ export default {
       if (path === '/crash/list')
         return new Response(JSON.stringify(recs, null, 1),
                            { headers: { 'Content-Type': 'application/json' } });
-      return new Response(crashInboxPage(recs),
+      const hb = await env.FEEDBACK.get('hb:last');
+      return new Response(crashInboxPage(recs, hb),
                          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
@@ -577,6 +578,13 @@ export default {
     }
 
     return new Response('TinyMakerWifi feedback collector', { status: 200 });
+  },
+
+  // Weekly heartbeat (cron in wrangler.jsonc). Stamps hb:last so /crash/inbox can
+  // show "telemetry alive" - an empty crash list then means "no crashes", not
+  // "the pipeline is dead". Proves the worker + KV run on schedule.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(env.FEEDBACK.put('hb:last', new Date(event.scheduledTime).toISOString()));
   },
 };
 
@@ -597,12 +605,21 @@ const when = (iso) => {
 // Crash telemetry inbox (GitHub #70): read behind LIST_KEY. Anonymous rows -
 // hashed device id + ESP reset reason (+ optional print layer). esc() on every
 // field: reason/version come off the wire from firmware.
-const crashInboxPage = (recs) => {
+const crashInboxPage = (recs, hb) => {
   const counts = {};
   for (const r of recs) counts[r.reason] = (counts[r.reason] || 0) + 1;
   const summary = Object.entries(counts).sort((a, b) => b[1] - a[1])
     .map(([k, n]) => `<span class="pill">${esc(k)}: <b>${n}</b></span>`).join(' ')
     || '<span class="sub">no reports</span>';
+  // Weekly heartbeat health line: fresh (<=10d) green, stale red, none amber.
+  let hbLine;
+  if (hb) {
+    const days = (Date.now() - new Date(hb).getTime()) / 86400000;
+    const fresh = days <= 10;
+    hbLine = `<div style="font-size:12px;margin:2px 0 12px;color:${fresh ? '#2fbf4f' : '#e24b4a'}">&#9679; Telemetry heartbeat: ${when(hb)}${fresh ? ' (weekly, healthy)' : ' &mdash; STALE, check the worker cron'}</div>`;
+  } else {
+    hbLine = `<div style="font-size:12px;margin:2px 0 12px;color:#e8a020">&#9679; Telemetry heartbeat: none yet (weekly cron)</div>`;
+  }
   const rows = recs.map((r) =>
     `<tr><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
     `<td>${r.layer ? esc(String(r.layer)) : ''}</td><td class="mono">${esc(String(r.id).slice(0, 8))}</td></tr>`
@@ -614,6 +631,7 @@ h1{font-size:19px;color:#e8720c;margin:0 0 4px}.sub{color:#aaa;font-size:13px;ma
 table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #333;font-size:13px}
 th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}</style></head>
 <body><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+${hbLine}
 <div>${summary}</div>
 <table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th></tr>${rows}</table></body></html>`;
 };
