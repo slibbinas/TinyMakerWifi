@@ -83,6 +83,7 @@ bool rejectIfBusy() {
 // (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
 #define OTA_VERSION_URL "https://slibbinas.github.io/TinyMakerWifi/version.txt"
 #define STATS_PING_URL  "https://tinymaker-stats.slibbinas.workers.dev/ping"
+#define CRASH_PING_URL  "https://tinymakerwifi.com/crash"   // anonymous crash telemetry (feedback worker, opt-out)
 
 WebServer server(80);
 Preferences netPrefs;
@@ -2354,6 +2355,60 @@ void statsPingMaybe() {
   }
 }
 
+// Was the last boot an abnormal reset (crash), as opposed to a clean power-on
+// or software restart? (0-30 telemetry names live in resetReasonName().)
+bool isAbnormalReset() {
+  switch (bootResetReason) {
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+    case ESP_RST_BROWNOUT: return true;
+    default:               return false;
+  }
+}
+
+// Anonymous crash telemetry (GitHub #70): report a mid-print death (crashSeen)
+// or any abnormal reset, so the maintainer sees fleet-wide instability without
+// waiting for a user report. Same opt-out as the install ping (statsPingEnabled)
+// and the same anonymous hashed id - no IP, name or model data. De-duped per
+// crash event (crashSeen/crashReason persist across boots, so a marker keeps us
+// from re-sending the same crash on every reboot). Called once from setup().
+void crashPingMaybe() {
+  if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
+  if (!crashSeen && !isAbnormalReset()) return;   // nothing worth reporting
+
+  uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
+  uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
+  uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
+  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer);
+
+  sysPrefs.begin("tinymaker", true);
+  String reported = sysPrefs.getString("crashPingId", "");
+  sysPrefs.end();
+  if (reported == eventId) return;                // already sent this event
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, CRASH_PING_URL)) return;
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  String body = "{\"id\":\"" + statsHardwareHash() +
+                "\",\"version\":\"" + connectFirmwareVersion() +
+                "\",\"reason\":\"" + String(resetReasonName(rsn)) +
+                "\",\"layer\":" + String(layer) +
+                ",\"epoch\":" + String(epoch) + "}";
+  int code = http.POST(body);
+  http.end();
+  if (code >= 200 && code < 300) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putString("crashPingId", eventId);
+    sysPrefs.end();
+    DBGLN("Crash ping sent");
+  }
+}
+
 // Download a firmware image over HTTPS and flash it. Shows progress on the
 // LCD; reboots on success. Shared by "Install latest" and the version picker.
 void otaFlashUrl(const String &url, const char *subtitle) {
@@ -3112,6 +3167,7 @@ void network_setup() {
     delay(1800);
   }
   statsPingMaybe();
+  crashPingMaybe();
   otaBootCheckMaybePrompt();
   if (screen == 424) return;
 }

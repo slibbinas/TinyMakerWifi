@@ -5,6 +5,7 @@
   "compatibility_date": "2026-07-01",
   "routes": [
     { "pattern": "tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/plan*", "zone_name": "tinymakerwifi.com" },
@@ -22,6 +23,7 @@
     // /feedback served the form WITHOUT the worker (its POST would go nowhere).
     // The worker owns these paths on www too and 301s to the apex.
     { "pattern": "www.tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "www.tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/plan*", "zone_name": "tinymakerwifi.com" },

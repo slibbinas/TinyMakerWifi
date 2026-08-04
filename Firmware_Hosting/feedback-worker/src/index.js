@@ -57,6 +57,8 @@ const PAGE = 25;                            // notes fetched in full per view
 const MAX_PER_IP_DAY = 5;
 const MAX_PER_DAY = 60;
 const DAY_TTL = 172800;                     // counters self-clean after 48 h
+const MAX_CRASH_PER_DAY = 200;             // crash pings are rare + firmware-deduped; cap guards a runaway fleet
+const CRASH_TTL = 60 * 60 * 24 * 90;       // crash records self-clean after 90 days
 
 const str = (v, n) => String(v || '').slice(0, n);
 
@@ -312,6 +314,48 @@ export default {
       });
     }
 
+    // Firmware crash telemetry (GitHub #70): anonymous, opt-out on the device.
+    // NOT a browser form -> no Turnstile; the firmware de-dupes per crash event,
+    // and here a per-device 60 s gate + a daily cap + a bounded JSON parse keep a
+    // crashlooping or hostile device from flooding KV. No IP, no personal data -
+    // just a hashed device id + the ESP reset reason (+ optional layer/epoch).
+    if (path === '/crash' && request.method === 'POST') {
+      let f = {};
+      try { f = await request.json(); } catch (e) {
+        return new Response('bad body', { status: 400 });
+      }
+      const id = str(f.id, 64);
+      const reason = str(f.reason, 48);
+      if (!id || !reason) return new Response('bad', { status: 400 });
+
+      const gate = 'cgate:' + id;                 // 1 crash / 60 s / device
+      if (await env.FEEDBACK.get(gate))
+        return new Response('slow down', { status: 429 });
+      const day = new Date().toISOString().slice(0, 10);
+      const allKey = `cday:${day}`;
+      const allUsed = Number(await env.FEEDBACK.get(allKey)) || 0;
+      if (allUsed >= MAX_CRASH_PER_DAY)
+        return new Response('over daily limit', { status: 503 });
+      await env.FEEDBACK.put(gate, '1', { expirationTtl: 60 });
+      await env.FEEDBACK.put(allKey, String(allUsed + 1), { expirationTtl: DAY_TTL });
+
+      const stamp = new Date().toISOString();
+      const rec = {
+        id,
+        version: str(f.version, 20),
+        reason,
+        layer: Math.max(0, Math.min(60000, Number(f.layer) || 0)),
+        epoch: Math.max(0, Number(f.epoch) || 0),
+        at: stamp,
+      };
+      await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
+                             JSON.stringify(rec),
+                             { metadata: { reason: rec.reason, version: rec.version },
+                               expirationTtl: CRASH_TTL });
+      return new Response(JSON.stringify({ ok: true }),
+                         { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // 0-7 PUBLIC ticket status: the token IS the authorisation - unguessable
     // (uuid), and a wrong one answers 404 with no timing-relevant difference.
     // Only status fields go back out - never the message or the contact (a
@@ -500,6 +544,28 @@ export default {
       });
     }
 
+    // Crash telemetry admin view (same LIST_KEY as the feedback inbox).
+    if ((path === '/crash/inbox' || path === '/crash/list') && keyOk) {
+      const names = [];
+      let ccur;
+      do {
+        const page = await env.FEEDBACK.list({ prefix: 'crash:', limit: 1000, cursor: ccur });
+        for (const k of page.keys) names.push(k.name);
+        ccur = page.list_complete ? null : page.cursor;
+      } while (ccur);
+      names.reverse();                              // newest first
+      const recs = [];
+      for (const k of names.slice(0, 500)) {
+        const v = await env.FEEDBACK.get(k);
+        if (v) recs.push(JSON.parse(v));
+      }
+      if (path === '/crash/list')
+        return new Response(JSON.stringify(recs, null, 1),
+                           { headers: { 'Content-Type': 'application/json' } });
+      return new Response(crashInboxPage(recs),
+                         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+
     if (path === '/feedback/img' && keyOk) {
       const k = url.searchParams.get('k') || '';
       if (!k.startsWith('img:')) return new Response('bad key', { status: 400 });
@@ -526,6 +592,30 @@ const when = (iso) => {
   if (isNaN(d)) return esc(iso);
   const p = (n) => (n < 10 ? '0' : '') + n;
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+};
+
+// Crash telemetry inbox (GitHub #70): read behind LIST_KEY. Anonymous rows -
+// hashed device id + ESP reset reason (+ optional print layer). esc() on every
+// field: reason/version come off the wire from firmware.
+const crashInboxPage = (recs) => {
+  const counts = {};
+  for (const r of recs) counts[r.reason] = (counts[r.reason] || 0) + 1;
+  const summary = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `<span class="pill">${esc(k)}: <b>${n}</b></span>`).join(' ')
+    || '<span class="sub">no reports</span>';
+  const rows = recs.map((r) =>
+    `<tr><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
+    `<td>${r.layer ? esc(String(r.layer)) : ''}</td><td class="mono">${esc(String(r.id).slice(0, 8))}</td></tr>`
+  ).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker crash telemetry</title>
+<style>body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#1c1c1e;color:#eee;padding:20px}
+h1{font-size:19px;color:#e8720c;margin:0 0 4px}.sub{color:#aaa;font-size:13px;margin-bottom:14px}
+.pill{display:inline-block;background:#3a2a10;border:1px solid #e8a020;color:#e8a020;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px}
+table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #333;font-size:13px}
+th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}</style></head>
+<body><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+<div>${summary}</div>
+<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th></tr>${rows}</table></body></html>`;
 };
 
 const contactLink = (c) => {
