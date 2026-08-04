@@ -785,7 +785,10 @@ bool modelSummaryForModel(const String &name, ModelSummary &summary) {
     sourceLayers = countModelSourceLayers(name);
     backfillModelMetadataLayers(name, sourceLayers);  // pay the scan once
   }
-  return modelSummaryFromSourceLayers(sourceLayers, summary);
+  if (!modelSummaryFromSourceLayers(sourceLayers, summary)) return false;
+  double lh = 0;
+  if (getModelMetadataSlicedLayerHeight(name, lh)) summary.slicedLayerHeightMm = (float)lh;
+  return true;
 }
 
 bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t &timeSecs) {
@@ -1081,7 +1084,11 @@ void handleApiFileModel() {
   out += String(summary.estimatedSecs);
   out += ",\"estimatedTime\":\"";
   out += formatDuration(summary.estimatedSecs);
-  out += "\",\"preview\":";
+  out += "\",\"slicedLayerHeightMm\":";
+  out += String(summary.slicedLayerHeightMm, 3);
+  out += ",\"flatWarning\":";
+  out += slicedIsFlat(summary.slicedLayerHeightMm) ? "true" : "false";
+  out += ",\"preview\":";
   bool preview05 = sdPathExists("/" + name + "/preview05.png");
   bool preview1 = sdPathExists("/" + name + "/preview1.png");
   bool previewLegacy = sdPathExists("/" + name + "/preview.png");
@@ -3164,6 +3171,10 @@ void sdJobRun() {
     if (ok) {
       sdRev++;  // 0-28: every dashboard refreshes its list and names the model
       netMessage("Model ready:", result.finalName.c_str());
+      if (slicedIsFlat(result.summary.slicedLayerHeightMm)) {
+        delay(1500);
+        netMessage("Not sliced at 0.05mm!", "Prints may be flat");
+      }
     } else {
       DBGLN("SD job import FAILED");
       netMessage("Import FAILED", sdJobName.c_str());
