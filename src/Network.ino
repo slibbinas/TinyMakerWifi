@@ -71,6 +71,13 @@ bool rejectIfWebControlOff() {
   return true;
 }
 
+// No SD reads / model changes while a print is running. Same shape as above.
+bool rejectIfBusy() {
+  if (!printerBusy()) return false;
+  sendApiError(409, "printer busy");
+  return true;
+}
+
 // Where the printer checks for a newer firmware (self-update, "Install latest").
 // version.txt must contain two lines: (1) the latest version, e.g. "0.7.0",
 // (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
@@ -471,10 +478,7 @@ void handleApiFileModelPreview() {
   // asks for it mid-print, but HTTP is now serviced from inside the print
   // loops - an SD stream from in there costs motor/button latency, and the
   // no-SD-reads-mid-print rule is only a rule if it has no exceptions.
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -949,10 +953,7 @@ bool validPrintableModel(const String &name) {
 }
 
 void handleApiFiles() {
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1048,10 +1049,7 @@ void handleApiFileModel() {
   // Plain details are read-only, but the ?estimate scan occupies the printer
   // for minutes (decodes every layer) - that is an action, so gate it.
   if (server.hasArg("estimate") && rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1121,10 +1119,7 @@ void handleApiFileModel() {
 
 void handleApiFileModelMetadata() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1212,10 +1207,7 @@ bool deleteSdItem(const String &requestedName, String &error) {
 // same way print_next_png() does (0.10 mm mode uses every other file).
 // Read-only, so allowed with Web control off; blocked while printing (SD busy).
 void handleApiFileLayer() {
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1475,10 +1467,7 @@ void handleApiConfigGet() {
 
 void handleApiConfigSave() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
@@ -1507,10 +1496,7 @@ void handleApiConfigBackupGet() {
 // future full USB reflash can offer to restore it at first boot.
 void handleApiConfigBackupSd() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(409, "SD card not ready");
     return;
@@ -1526,10 +1512,7 @@ void handleApiConfigBackupSd() {
 // POST /api/config/restore (raw JSON body) -> apply an uploaded backup.
 void handleApiConfigRestore() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   String body = server.arg("plain");
   if (body.length() < 10 || backupNum(body, "backupVersion", 0) < 1) {
     sendApiError(400, "not a TinyMaker backup file");
@@ -1552,10 +1535,7 @@ void handleApiConfigRestore() {
 // full USB reflash. Lets a user restore without keeping the file on a computer.
 void handleApiConfigRestoreSd() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(409, "SD card not ready");
     return;
@@ -1616,10 +1596,7 @@ void resetConnectConfigToDefaults() {
 
 void handleApiConfigDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   resetWebConfigToDefaults();
   tinymakerConnectScheduleBackup();
@@ -1628,10 +1605,7 @@ void handleApiConfigDefaults() {
 
 void handleApiConfigMqttDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   resetMqttConfigToDefaults();
   mqttClient.disconnect();
@@ -1642,10 +1616,7 @@ void handleApiConfigMqttDefaults() {
 
 void handleApiConfigConnectDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   resetConnectConfigToDefaults();
   sendApiOk(configJson());
@@ -1653,10 +1624,7 @@ void handleApiConfigConnectDefaults() {
 
 void handleApiConfigDryRun() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   bool enabled = server.hasArg("enabled") &&
                  server.arg("enabled") != "0" &&
@@ -2612,7 +2580,7 @@ bool writeBootAnimMetadataFile(const String &slug) {
 
 void handleApiBootAnimInstall() {
   if (rejectIfWebControlOff()) return;                       // 403 when web control off
-  if (printerBusy())   { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady())  { sendApiError(503, "sd card unavailable"); return; }
   if (WiFi.status() != WL_CONNECTED) { sendApiError(503, "wifi not connected"); return; }
 
@@ -2778,7 +2746,7 @@ void handleApiBootAnimInstall() {
 
 // GET /api/boot-anim - list installed animations + which one is active.
 void handleApiBootAnimList() {
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String names[24];
   int n = listBootAnims(names, 24);
@@ -2803,7 +2771,7 @@ void handleApiBootAnimList() {
 // GET /api/boot-anim/file?name=<slug> - stream an installed TMB1 animation for
 // browser preview. Read-only, but still blocked while printing because SD is busy.
 void handleApiBootAnimFile() {
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = sanitizeAnimName(server.arg("name"));
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
@@ -2825,7 +2793,7 @@ void handleApiBootAnimFile() {
 // POST /api/boot-anim/select  body: name=<slug|empty>  ("" = built-in Default)
 void handleApiBootAnimSelect() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   String name = server.arg("name");
   name.trim();
   if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeAnimName(name);
@@ -2842,7 +2810,7 @@ void handleApiBootAnimSelect() {
 // POST /api/boot-anim/delete  body: name=<slug>
 void handleApiBootAnimDelete() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
@@ -2866,7 +2834,7 @@ void handleApiBootAnimDelete() {
 // otherwise time the browser call out while the loop is busy drawing.
 void handleApiBootAnimPreview() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
