@@ -137,6 +137,7 @@
     <div><div class='label'>Estimated time</div><div id='modelTime' class='value'>-</div></div>
     <div id='modelResinBox' class='hidden'><div class='label'>Resin needed</div><div id='modelResin' class='value'>-</div></div>
   </div>
+  <div id='modelFlatWarn' class='hidden' style='margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(232,160,32,.15);border:1px solid #e8a020;color:#e8a020;font-size:13px'>&#9888; Sliced at <b><span id='modelFlatVal'>?</span>&nbsp;mm</b>, not 0.05&nbsp;mm &mdash; the printer assumes 0.05&nbsp;mm, so this may print <b>flat</b>. Re-slice with a 0.05&nbsp;mm layer height.</div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div id='modelActions' class='actions'>
     <button id='modelBackButton' class='button secondary spanAll' type='button'>Back to dashboard</button>
@@ -1135,6 +1136,7 @@ const modelDetails=async(nameEnc,estimate)=>{
     setText('modelTitle',d.name); setText('modelLayers',d.layers); setText('modelHeight',Number(d.heightMm).toFixed(2)+' mm'); setText('modelTime',d.estimatedTime);
     const showPrint=d.printLayers!==undefined&&Number(d.printLayers)!==Number(d.layers);
     show('modelPrintLayersBox',showPrint); if(showPrint)setText('modelPrintLayers',d.printLayers);
+    show('modelFlatWarn',!!d.flatWarning); if(d.flatWarning)setText('modelFlatVal',Number(d.slicedLayerHeightMm).toFixed(2));
     // Resin box is always there: exact value when known, otherwise the quick
     // estimate lands with the auto preview render below ("Estimating...").
     show('modelResinBox',true);

@@ -137,12 +137,31 @@ int countImportModelSourceLayers(const String &name) {
   return count;
 }
 
+// Read a numeric INI value ("key = value") from a null-terminated text buffer.
+// Returns 0 if the key is absent. Matches the key only as a whole token (start
+// of buffer or after whitespace/newline, then optional spaces, then '='), so
+// "layerHeight" is not matched inside a longer key. Modeled on backupNum().
+float iniReadNumber(const char *text, const char *key) {
+  size_t keyLen = strlen(key);
+  const char *p = text;
+  while ((p = strstr(p, key)) != NULL) {
+    bool startOk = (p == text) || p[-1] == '\n' || p[-1] == '\r' ||
+                   p[-1] == ' ' || p[-1] == '\t';
+    const char *q = p + keyLen;
+    while (*q == ' ' || *q == '\t') q++;
+    if (startOk && *q == '=') return (float)atof(q + 1);  // atof skips spaces, stops at newline
+    p += keyLen;  // not a whole-token match; keep searching
+  }
+  return 0.0f;
+}
+
 bool scanZipModel(const char *zipPath, ModelSummary &summary) {
   char entry[256];
   UNZIP *zip = new UNZIP();
   if (!zip) return false;
 
   int minN = 0x7FFFFFFF, total = 0;
+  float slicedLH = 0.0f;
   if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
     delete zip;
     return false;
@@ -154,6 +173,22 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
     if (n >= 0) {
       total++;
       if (n < minN) minN = n;
+    } else if (slicedLH == 0.0f) {
+      // The SL1/ZIP config.ini carries the sliced layerHeight. Read it once,
+      // bounded, into a stack buffer (config.ini is small); parse one key.
+      String en = String(entry);
+      en.toLowerCase();
+      if (en.endsWith("config.ini") && zip->openCurrentFile() == UNZ_OK) {
+        char cfg[1024];
+        int off = 0, rc;
+        while (off < (int)sizeof(cfg) - 1 &&
+               (rc = zip->readCurrentFile((uint8_t *)cfg + off,
+                                          sizeof(cfg) - 1 - off)) > 0)
+          off += rc;
+        zip->closeCurrentFile();
+        cfg[off] = '\0';
+        slicedLH = iniReadNumber(cfg, "layerHeight");
+      }
     }
   } while (zip->gotoNextFile() == UNZ_OK);
   zip->closeZIP();
@@ -161,6 +196,7 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
 
   if (!modelSummaryFromSourceLayers(total, summary)) return false;
   summary.sizeBytes = sdFileSize(String(zipPath));
+  summary.slicedLayerHeightMm = slicedLH;
   return true;
 }
 
@@ -225,6 +261,10 @@ bool writeModelMetadataFile(const String &destDir, const String &name,
   f.print(",\n");
   f.print("  \"archive_size_bytes\": ");
   f.print(summary.sizeBytes);
+  if (summary.slicedLayerHeightMm > 0) {
+    f.print(",\n  \"sliced_layer_height_mm\": ");
+    f.print(String(summary.slicedLayerHeightMm, 3));
+  }
   if (options.resinKnown) {
     f.print(",\n  \"resin_ml\": ");
     f.print(String(options.resinMl, 2));
@@ -422,6 +462,19 @@ bool getModelMetadataResin(const String &name, double &resinMl) {
   String json;
   if (!readModelMetadataJson(name, json)) return false;
   return readJsonNumberField(json, "resin_ml", resinMl);
+}
+
+bool getModelMetadataSlicedLayerHeight(const String &name, double &mm) {
+  String json;
+  if (!readModelMetadataJson(name, json)) return false;
+  return readJsonNumberField(json, "sliced_layer_height_mm", mm);
+}
+
+// "Flat print" risk: the firmware assumes source PNGs are 0.05 mm pitch, so any
+// other sliced layer height comes out wrong (usually flat). 0 = unknown (no
+// config.ini / old model) -> not flagged.
+bool slicedIsFlat(float mm) {
+  return mm > 0.0f && (mm < 0.049f || mm > 0.051f);
 }
 
 bool getModelMetadataConnectPublicId(const String &name, String &publicId) {
@@ -659,6 +712,10 @@ void importSelectedArchive() {
   if (ok) {
     SD.remove(src.c_str());
     netMessage("Model ready:", result.finalName.c_str());
+    if (slicedIsFlat(result.summary.slicedLayerHeightMm)) {
+      delay(1500);
+      netMessage("Not sliced at 0.05mm!", "Prints may be flat");
+    }
   } else {
     netMessage("Import FAILED", foldersel.c_str());
   }

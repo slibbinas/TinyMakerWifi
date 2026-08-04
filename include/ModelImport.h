@@ -8,6 +8,7 @@ struct ModelSummary {
   float heightMm = 0;
   uint32_t estimatedSecs = 0;
   uint32_t sizeBytes = 0;
+  float slicedLayerHeightMm = 0;  // from the archive's config.ini; 0 = unknown
 };
 
 struct ModelImportOptions {
