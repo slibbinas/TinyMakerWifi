@@ -1366,6 +1366,8 @@ String configJson() {
   out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"resumeEnabled\":";
   out += resumeEnabled ? "true" : "false";
+  out += ",\"resumePrecise\":";
+  out += resumePrecise ? "true" : "false";
   out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
@@ -1423,6 +1425,7 @@ void applyConfigRequest() {
   webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
   bootUpdateCheckEnabled = server.hasArg("boot_update_check");
   resumeEnabled = server.hasArg("resume_enabled");
+  resumePrecise = server.hasArg("resume_precise");   // checked = Precise cadence, else Balanced
   statsPingEnabled = server.hasArg("stats_ping");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
@@ -1575,6 +1578,7 @@ void resetWebConfigToDefaults() {
   webDashboardEnabled = true;
   bootUpdateCheckEnabled = true;
   resumeEnabled = true;
+  resumePrecise = false;
   saveDeviceConfig();
 }
 
