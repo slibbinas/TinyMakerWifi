@@ -157,6 +157,14 @@ bool wifiEnabled = true;
 bool webDashboardEnabled = true;
 bool bootUpdateCheckEnabled = true;
 bool resumeEnabled = true;          // 0-34: false = never checkpoint / never offer power-loss resume
+bool resumePrecise = false;         // 0.17 1-38b: false = Balanced cadence, true = Precise (finer resume, more SD writes)
+long resumeLiveSteps = 0;           // 0.17: physical relabel height loaded from a checkpoint (== base for legacy records)
+long resumeCycleBaseSteps = 0;      // 0.17: exact pre-lift base of the current layer cycle (drift-free target reference)
+// Granular-checkpoint cadence during the ~9s lift/drop motion (0.17 1-38b).
+// Defined here (the first-concatenated TU) so Motor.ino - concatenated before
+// Resume.ino - can see them.
+#define RESUME_CKPT_MS_BALANCED 800
+#define RESUME_CKPT_MS_PRECISE  400
 String bootAnimName = "";      // "" = built-in splash; else a basename in /bootanim/
 bool wifiTemporarilyEnabled = false;
 bool webDashboardTemporarilyEnabled = false;
@@ -228,6 +236,7 @@ void loadDeviceConfig() {
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
   resumeEnabled = sysPrefs.getBool("resumeEn", true);
+  resumePrecise = sysPrefs.getBool("resumePrec", false);
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
   prevRegularExposure = sysPrefs.getUChar("prevRegExp", 0);
   bootAnimName = sysPrefs.getString("bootAnimName", "");
@@ -276,6 +285,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
   sysPrefs.putBool("resumeEn", resumeEnabled);
+  sysPrefs.putBool("resumePrec", resumePrecise);
   sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
@@ -657,6 +667,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"resumeEnabled\":";
   out += resumeEnabled ? "true" : "false";
+  out += ",\"resumePrecise\":";
+  out += resumePrecise ? "true" : "false";
   out += ",\"bootAnim\":\"";
   out += backupEscape(bootAnimName);
   out += "\"";
@@ -791,6 +803,7 @@ void applyConfigBackup(const String &j) {
   webDashboardEnabled = wifiEnabled && backupBool(j, "webDashboardEnabled", webDashboardEnabled);
   bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
   resumeEnabled = backupBool(j, "resumeEnabled", resumeEnabled);
+  resumePrecise = backupBool(j, "resumePrecise", resumePrecise);
   bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
@@ -1986,9 +1999,13 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
-          // Layer cured, peel begins: from here until the next 'E' the plate
-          // is somewhere in [pos, pos + lift] - resume assumes the low end.
-          if (!print_canceled) resumeCheckpoint('M');
+          // Layer cured, peel begins. 0.17 1-38b: capture the exact cycle base
+          // (this layer's pre-lift height) once; lift_print()/lower_print() then
+          // write granular 'M' checkpoints during the ~9s motion (first one on
+          // entry, replacing the old single pre-lift 'M'). `pos` = this base
+          // everywhere in the cycle (drift-free target); `live` tracks the real
+          // height so a mid-motion loss recovers sub-mm instead of to the low end.
+          if (!print_canceled) resumeCycleBaseSteps = stepper.currentPosition();
           // The service window moved from after the move to before it: a
           // pending status poll now answers "Lifting" with the countdown
           // ahead of it, not after the phase already ended. The measured
