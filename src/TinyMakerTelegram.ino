@@ -104,6 +104,19 @@ void tgNotifyCanceled() {
   telegramNotify(msg);
 }
 
+// 0.17: power came back and a print was interrupted mid-run. Sent once per boot
+// from network_setup() after WiFi is up (resumeLayer/Total/Folder were filled by
+// resumeLoad() at boot). Lets a user who is away know to resume (screen prompt +
+// dashboard Resume). Same opt-in channel as the other notifications.
+void tgNotifyPowerRestored() {
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  String msg = "Power restored - print interrupted at layer " +
+               String(resumeLayer) + "/" + String(resumeTotal);
+  if (resumeFolder[0]) msg += " (" + String(resumeFolder) + ")";
+  msg += ". Resume from the dashboard or the printer.";
+  telegramNotify(msg);
+}
+
 // Appended to configJson(). The token itself is never sent to the browser.
 String tinymakerTelegramConfigJson() {
   String out = ",\"tgEnabled\":";
