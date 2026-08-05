@@ -117,7 +117,7 @@ bool modelSummaryFromSourceLayers(int sourceLayers, ModelSummary &summary) {
   long movementLayers = summary.printLayers - 1;
   if (movementLayers < 0) movementLayers = 0;
   summary.estimatedSecs = (Base_Layer * Base_Exposure) +
-                          (exposureLayers * Regular_Exposure) +
+                          (exposureLayers * Regular_Exposure / 10) +   // 0.17 0-3: ds -> s
                           (uint32_t)(motor_updown_time * movementLayers);
   return true;
 }

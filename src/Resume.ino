@@ -191,11 +191,12 @@ bool resumeLoad() {
 // transition layer starting from Base_Exposure - replay the decrements for
 // the layers that were already cured before the power loss.
 float resumeTransitionExposureSeed(int curedLayers) {
-  if (curedLayers <= Base_Layer) return Base_Exposure;
+  // 0.17 0-3: ramp accumulator is in DECISECONDS (Base*10 down to Regular).
+  if (curedLayers <= Base_Layer) return Base_Exposure * 10;
   int done = curedLayers - Base_Layer;
   if (done > Transition_Layer) done = Transition_Layer;
-  float c = (float)(Base_Exposure - Regular_Exposure) / (float)(Transition_Layer + 1);
-  return (float)Base_Exposure - c * done;
+  float c = (float)(Base_Exposure * 10 - Regular_Exposure) / (float)(Transition_Layer + 1);
+  return (float)(Base_Exposure * 10) - c * done;
 }
 
 /**

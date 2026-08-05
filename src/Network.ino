@@ -756,7 +756,7 @@ uint32_t remainingPrintSecs() {
   if (current_layer < Base_Layer) {
     secs += (Base_Layer - current_layer) * Base_Exposure;
   }
-  secs += layersLeft * Regular_Exposure;
+  secs += layersLeft * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
   if (layersLeft > 1) {
     secs += (uint32_t)((layersLeft - 1) * motor_updown_time);
   }
@@ -1327,9 +1327,9 @@ String configJson() {
   out += ",\"baseExposure\":";
   out += String(Base_Exposure);
   out += ",\"regularExposure\":";
-  out += String(Regular_Exposure);
+  out += String(Regular_Exposure / 10.0, 1);      // 0.17 0-3: seconds (deciseconds/10)
   out += ",\"prevRegularExposure\":";
-  out += String(prevRegularExposure);
+  out += String(prevRegularExposure / 10.0, 1);   // seconds (0.0 = no undo available)
   out += ",\"baseLayers\":";
   out += String(Base_Layer);
   out += ",\"transitionLayers\":";
@@ -1406,7 +1406,15 @@ void applyConfigRequest() {
   Layer_Height = requestedLayer < 0.075 ? 0.05 : 0.10;
   Base_Exposure = formLong("base_exposure", Base_Exposure, 10, 60);
   long oldRegular = Regular_Exposure;
-  Regular_Exposure = formLong("regular_exposure", Regular_Exposure, 1, 30);
+  {
+    // 0.17 0-3: the form sends Regular in SECONDS (step 0.1); store deciseconds.
+    float regSecs = server.hasArg("regular_exposure")
+                      ? server.arg("regular_exposure").toFloat()
+                      : (Regular_Exposure / 10.0f);
+    long regDs = lroundf(regSecs * 10.0f);
+    if (regDs < 10) regDs = 10; else if (regDs > 300) regDs = 300;
+    Regular_Exposure = regDs;
+  }
   rememberPrevRegularExposure(oldRegular);   // no-op unless it actually changed
   Base_Layer = formLong("base_layer", Base_Layer, 1, 8);
   Transition_Layer = formLong("transition_layer", Transition_Layer, 0, 10);
