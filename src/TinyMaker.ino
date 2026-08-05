@@ -803,7 +803,7 @@ static long backupClamp(double v, long lo, long hi) {
 // so a hand-edited or stale file can't smuggle absurd values in.
 void applyConfigBackup(const String &j) {
   Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
-  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 10, 60);
+  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 5, 60);   // 0.17 0-3: base min 5 s
   // 0.17 0-3: backup stores Regular in SECONDS (downgrade-readable); convert to
   // deciseconds on restore, preserving 0.1 s (backupClamp->long would drop it).
   {
@@ -1205,7 +1205,7 @@ void setup() {
   // left by a firmware with a different EEPROM layout land exactly here. These
   // are the ranges the dashboard form, the backup restore and the LCD menu
   // already agree on.
-  if (Base_Exposure < 10 || Base_Exposure > 60) {
+  if (Base_Exposure < 5 || Base_Exposure > 60) {   // 0.17 0-3: min 5 s (was 10) for fast resins
     Base_Exposure = 35;
     EEPROM.write(2, (uint8_t)Base_Exposure);
     EEPROM.commit();

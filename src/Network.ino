@@ -1404,7 +1404,7 @@ String configJson() {
 void applyConfigRequest() {
   float requestedLayer = server.hasArg("layer_height") ? server.arg("layer_height").toFloat() : Layer_Height;
   Layer_Height = requestedLayer < 0.075 ? 0.05 : 0.10;
-  Base_Exposure = formLong("base_exposure", Base_Exposure, 10, 60);
+  Base_Exposure = formLong("base_exposure", Base_Exposure, 5, 60);   // 0.17 0-3: base min 5 s
   long oldRegular = Regular_Exposure;
   {
     // 0.17 0-3: the form sends Regular in SECONDS (step 0.1); store deciseconds.

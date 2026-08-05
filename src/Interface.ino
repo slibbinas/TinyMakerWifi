@@ -3257,7 +3257,7 @@ void screen3111decrease(){
       }
         break;
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
@@ -3358,7 +3358,7 @@ void screen3111decrease(){
   if (setting_item_updown == 0) {
     switch (setting_item){
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
