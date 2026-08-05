@@ -924,6 +924,12 @@ const applyStatus=s=>{
     // earlier Preview 3D) - zero printer traffic while printing. A page
     // refresh restores them from localStorage.
     if(busyPrint&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
+    // P-live: a new print restarts the printer's stack from 0 - drop a stale
+    // live cache so the kickoff below refetches from scratch.
+    if(slicesCache.mode==='live'&&s.liveCaptured!==undefined&&s.liveCaptured<liveHave){liveHave=0;slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};}
+    // Opened mid-print with no local slices, but the printer is streaming its
+    // own 3D stack - pull it so this window grows the identical live 3D.
+    if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
@@ -932,6 +938,9 @@ const applyStatus=s=>{
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
       $('printPreviewBarFill').style.width=Math.round(frac*100)+'%';  // smooth, every poll
       if(Math.abs(frac-lastPrevFrac)>=0.004){lastPrevFrac=frac;drawIso($('printPreviewCanvas'),frac);}
+      // P-live delta: the printer captured new silhouettes since our last pull -
+      // fetch just those and force a redraw (one new slice may not move % enough).
+      if(slicesCache.mode==='live'&&s.liveCaptured>liveHave)fetchLiveSlices(s.model,liveHave).then(ok=>{if(ok){lastPrevFrac=-1;drawIso($('printPreviewCanvas'),frac);}});
     }else{
       // The card is always up now (like the SD manager). Idle: placeholder
       // when nothing is previewed. Busy without slices (print started on the
@@ -956,14 +965,22 @@ const applyStatus=s=>{
         const cf=s.totalLayers>0?Math.min(1,s.currentLayer/s.totalLayers):0;
         $('printPreviewBarFill').style.width=Math.round(cf*100)+'%';
         $('printPreviewTitle').textContent='Printing · '+Math.round(cf*100)+'%';
-        $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
-        show('prevNote',true);
-        // Fill the canvas once (guarded): the RAM snapshot if the printer kept
-        // one, otherwise a plain placeholder.
-        if(busyPreviewShown!==s.model){
-          busyPreviewShown=s.model;
-          if(s.previewCached)loadSavedPreviewTo($('printPreviewCanvas'),s.model).catch(()=>paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null));
-          else paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null);
+        if(s.liveN>0){
+          // P-live is streaming: the fetch kicked off above will populate the
+          // slices and the branch above renders the live 3D within a poll or two.
+          // Brief loading state - no "unavailable" note (this device CAN show it).
+          show('prevNote',false);
+          if(busyPreviewShown!=='live:'+s.model){busyPreviewShown='live:'+s.model;paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);}
+        }else{
+          $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
+          show('prevNote',true);
+          // Fill the canvas once (guarded): the RAM snapshot if the printer kept
+          // one, otherwise a plain placeholder.
+          if(busyPreviewShown!==s.model){
+            busyPreviewShown=s.model;
+            if(s.previewCached)loadSavedPreviewTo($('printPreviewCanvas'),s.model).catch(()=>paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null));
+            else paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null);
+          }
         }
       }
     }
@@ -1168,6 +1185,7 @@ const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
 const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
+let liveHave=0,liveFetching=false;   // P-live: silhouettes pulled from the printer
 let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
 const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
 const loadSavedPreviewTo=async(cv,name)=>{
@@ -1348,6 +1366,37 @@ const restoreSlicesFromStorage=name=>{
     slicesCache={name:o.name,mode:o.mode||'',slices:slices,gw:o.gw,gh:o.gh,modelH:o.modelH,layers:o.layers};
     return true;
   }catch(e){return false;}
+};
+// P-live: unpack a base64 64x48 1-bit silhouette into a 1-byte-per-cell array
+// (LSB-first, matching the firmware's liveBase64/bit packing).
+const unpackLiveSlice=(b64,cells)=>{
+  const bin=atob(b64),s=new Uint8Array(cells);
+  for(let c=0;c<cells;c++)if((bin.charCodeAt(c>>3)>>(c&7))&1)s[c]=1;
+  return s;
+};
+// Pull the printer's own live 3D stack (works mid-print - RAM only, no SD). A
+// full fetch (since=0) rebuilds slicesCache padded to the model's N sampled
+// heights, empty slots for layers not yet printed; a delta merges new slots.
+const fetchLiveSlices=async(model,since)=>{
+  if(liveFetching)return false;
+  liveFetching=true;
+  try{
+    const d=await api('/api/live/slices?since='+since,null,8000);
+    if(!d||!d.live||d.model!==model||!d.n)return false;
+    const cells=d.gw*d.gh;
+    if(since===0||slicesCache.name!==model||slicesCache.mode!=='live'||slicesCache.slices.length!==d.n){
+      const slices=[];for(let k=0;k<d.n;k++)slices.push(new Uint8Array(cells));
+      slicesCache={name:model,mode:'live',slices:slices,gw:d.gw,gh:d.gh,modelH:d.modelH,layers:d.layers};
+      liveHave=0;
+    }
+    for(let j=0;j<d.slices.length;j++){
+      const idx=d.since+j;
+      if(idx>=0&&idx<slicesCache.slices.length)slicesCache.slices[idx]=unpackLiveSlice(d.slices[j],cells);
+    }
+    if(d.captured>liveHave)liveHave=d.captured;
+    return true;
+  }catch(e){return false;}
+  finally{liveFetching=false;}
 };
 let fetchSlicesSeq=0;
 const fetchSlices=async(name,layers,modelH,btn,mode)=>{

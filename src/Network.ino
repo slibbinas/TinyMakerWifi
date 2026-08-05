@@ -2010,6 +2010,63 @@ void handleApiPrintStop() {
   sendApiOk("\"stopping\":true");
 }
 
+// Base64 of a byte buffer into out (caller sizes it: len*4/3 + pad + nul).
+static void liveBase64(const uint8_t *in, int len, char *out) {
+  static const char T[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  int o = 0;
+  for (int i = 0; i < len; i += 3) {
+    uint32_t n = (uint32_t)in[i] << 16;
+    if (i + 1 < len) n |= (uint32_t)in[i + 1] << 8;
+    if (i + 2 < len) n |= in[i + 2];
+    out[o++] = T[(n >> 18) & 63];
+    out[o++] = T[(n >> 12) & 63];
+    out[o++] = (i + 1 < len) ? T[(n >> 6) & 63] : '=';
+    out[o++] = (i + 2 < len) ? T[n & 63] : '=';
+  }
+  out[o] = 0;
+}
+
+// GET /api/live/slices?since=k - the P-live 3D stack (0.17). View-only and
+// RAM-only (no SD touch), so - unlike /api/files/layer - it is allowed to answer
+// mid-print: that is the whole point, a browser opened while printing gets the
+// growing 3D here. Returns the 64x48 1-bit silhouettes captured so far in slots
+// [since, captured); the browser delta-fetches when status.liveCaptured grows.
+// Streamed chunked so the worst case (36 slices ~= 18 KB) never allocates a big
+// String on the print-time heap.
+void handleApiLiveSlices() {
+  bool live = printerBusy() && liveBuf && liveN > 0;
+  int cap = live ? liveCaptured : 0;
+  int since = server.hasArg("since") ? server.arg("since").toInt() : 0;
+  if (since < 0) since = 0;
+  if (since > cap) since = cap;
+  float modelH = live ? layer_counter * Layer_Height : 0;
+
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);   // chunked
+  server.send(200, "application/json", "");
+  String head = "{\"ok\":true,\"live\":";
+  head += live ? "true" : "false";
+  head += ",\"gw\":";       head += String(LIVE_GW);
+  head += ",\"gh\":";       head += String(LIVE_GH);
+  head += ",\"n\":";        head += String(live ? liveN : 0);
+  head += ",\"captured\":"; head += String(cap);
+  head += ",\"since\":";    head += String(since);
+  head += ",\"layers\":";   head += String(live ? layer_counter : 0);
+  head += ",\"modelH\":";   head += String(modelH, 2);
+  head += ",\"model\":\"";  head += jsonEscape(live ? String(foldersel_long) : String(""));
+  head += "\",\"slices\":[";
+  server.sendContent(head);
+  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 384 -> 512 chars + nul
+  for (int k = since; k < cap; k++) {
+    liveBase64(liveBuf + (size_t)k * LIVE_SLICE_BYTES, LIVE_SLICE_BYTES, b64);
+    server.sendContent(k > since ? ",\"" : "\"");
+    server.sendContent(b64);
+    server.sendContent("\"");
+  }
+  server.sendContent("]}");
+  server.sendContent("");   // terminate the chunked body
+}
+
 void handleApiStatus() {
   bool busy = printerBusy();
   bool connected = WiFi.status() == WL_CONNECTED;
@@ -2138,6 +2195,12 @@ void handleApiStatus() {
   out += String(statusCurrentLayer);
   out += ",\"totalLayers\":";
   out += String(statusTotalLayers);
+  // P-live: how many 3D silhouettes the printer has captured so far. A browser
+  // with no local slices polls /api/live/slices when liveCaptured grows.
+  out += ",\"liveN\":";
+  out += String(busy ? liveN : 0);
+  out += ",\"liveCaptured\":";
+  out += String(busy ? liveCaptured : 0);
   out += ",\"layerText\":\"";
   out += String(statusCurrentLayer) + " / " + String(statusTotalLayers);
   out += "\",\"resinUsedMl\":";
@@ -3075,6 +3138,7 @@ void network_setup() {
   server.on("/api/files/model/preview", HTTP_GET, handleApiFileModelPreview);
   server.on("/api/files/model/preview", HTTP_POST, finishPreviewUpload, handlePreviewUploadData);
   server.on("/api/files/layer", HTTP_GET, handleApiFileLayer);
+  server.on("/api/live/slices", HTTP_GET, handleApiLiveSlices);   // P-live 3D stack
   server.on("/api/files/delete", HTTP_POST, handleApiFileDelete);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigSave);

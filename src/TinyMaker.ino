@@ -473,6 +473,18 @@ byte estimated_minutes;
 float motor_updown_time;       // Time taken for one up and down cycle
 float motor_updown_time_total; // Total time spent on motor movements
 
+// P-live shared state (0.17): the live-3D silhouette stack. Defined here (the
+// first-concatenated file) so Network.ino can serve it from /api/live/slices and
+// PNG.ino - both concatenated after this one - can fill it. See PNG.ino for the
+// capture logic and the LIVE_* geometry.
+#define LIVE_GW 64
+#define LIVE_GH 48
+#define LIVE_MAX_SLICES 36
+#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 384 bytes, 1 bit/px
+uint8_t *liveBuf = NULL;   // LIVE_SLICE_BYTES * liveN, calloc'd per print (NULL = off)
+int liveN = 0;             // sampled slices for this print (<= 36)
+int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
+
 // UI Navigation Variables
 int setting_item;              // Current selected item in settings menu
 bool setting_item_updown = 1;  // Direction indicator for settings (1=up, 0=down)
@@ -1891,10 +1903,16 @@ void loop() {
         }
         }
 
+        // P-live: allocate the per-print silhouette stack before the first
+        // layer decode, so every browser - including one opened mid-print, which
+        // cannot read the locked SD - can grow the live 3D. No-op without
+        // network; freed at the print's single exit (next to resumeClear).
+        if (!homing_canceled && !print_canceled) liveBegin(layer_counter);
+
         // -------------------------------------------------------------------------------
         // Printing Loop
         // -------------------------------------------------------------------------------
-        while(!homing_canceled && !print_canceled){            
+        while(!homing_canceled && !print_canceled){
           estimated_seconds = 0;
           estimated_hours = 0;
           estimated_minutes = 0;
@@ -2199,6 +2217,7 @@ void loop() {
         resumeClear();     // the checkpoint only outlives an unfinished print
         #if ENABLE_NETWORK
         freePreviewCache();          // 0-19: the RAM preview lives only for the print
+        liveClear();                 // P-live: free the per-print silhouette stack
         #endif
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
