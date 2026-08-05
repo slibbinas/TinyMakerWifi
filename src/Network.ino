@@ -3236,6 +3236,14 @@ void network_setup() {
   }
   statsPingMaybe();
   crashPingMaybe();
+  // 0.17: a power loss interrupted a print -> one push so a user who is away
+  // knows to resume (screen prompt + dashboard Resume already exist locally).
+  // Blocking send, but we are at the idle boot resume prompt - safe, like the
+  // other notifications at their idle exit points.
+  if (powerRestoreNotifyPending) {
+    powerRestoreNotifyPending = false;                 // once per boot
+    if (WiFi.status() == WL_CONNECTED) tgNotifyPowerRestored();
+  }
   otaBootCheckMaybePrompt();
   if (screen == 424) return;
 }

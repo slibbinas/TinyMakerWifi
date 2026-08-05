@@ -93,6 +93,7 @@ uint32_t sdRev = 0;
 // print-start code in this (first) file can see them.
 bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
 bool resumeBootPending = false;     // suppresses the boot-update prompt
+bool powerRestoreNotifyPending = false; // 0.17: send one "power restored" push once WiFi is up this boot
 bool networkStarted = false;        // network_setup ran (it is idempotent via this)
 // 0-33: the dashboard's answer to the boot resume prompt - set by the
 // /api/resume/* handlers, consumed in loop() while screen 427 is up.
@@ -410,6 +411,7 @@ void screen422();   // "install from file" screen (Interface.ino, #if-guarded)
 void tgNotifyFinished();   // Telegram hooks (TinyMakerTelegram.ino, #if-guarded)
 void tgNotifyLowResin();
 void tgNotifyCanceled();
+void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -1199,7 +1201,7 @@ void setup() {
   // interrupted print and answer it remotely; resumeBootPending suppresses
   // the boot-update prompt so nothing competes with the resume question.
   bool resumePendingBoot = resumeLoad();
-  if (resumePendingBoot) resumeBootPending = true;
+  if (resumePendingBoot) { resumeBootPending = true; powerRestoreNotifyPending = true; }  // 0.17: notify once WiFi is up
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
   if (!resumePendingBoot && (screen == 424 || screen == 425)) return;

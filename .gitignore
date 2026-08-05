@@ -11,6 +11,10 @@ compile_commands.json
 # Generated from web/dashboard.html by scripts/gen_dashboard_gz.py (pre-build)
 src/dashboard_html_gz.h
 
+# Arduino preprocessor artifact (transient during `pio run`); must never be
+# committed - a stray copy double-compiles the sketch TU and breaks the build.
+src/*.ino.cpp
+
 # Local, private Claude skills (kept out of the public repo; backup: secret gist)
 .claude/skills/
 
