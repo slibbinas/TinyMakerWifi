@@ -121,6 +121,8 @@ float vatRemainingMl = -1;
 bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
 uint8_t lowResinThresholdMl = 2;    // warning threshold (ml, 1..3); also pre-start check
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
+bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot heads-up before the low-resin stop
+#define LOW_RESIN_PREWARN_MIN 15    // 0.17 #40: warn when ~this many minutes of resin remain
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
 bool askRefillEnabled = true;       // ask "VAT refilled?" before every print
@@ -416,6 +418,7 @@ void tgNotifyFinished();   // Telegram hooks (TinyMakerTelegram.ino, #if-guarded
 void tgNotifyLowResin();
 void tgNotifyCanceled();
 void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
+void tgNotifyLowResinSoon(float ml, int layers, int mins);   // 0.17 #40: pre-warn before low-resin stop
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -533,6 +536,7 @@ float vatRemaining() {
 void vatMarkRefilled() {
   vatRemainingMl = (float)Vat_Capacity_Ml;
   lowResinNotified = false;
+  lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn after a refill
   saveVatRemaining();
 }
 
@@ -1791,6 +1795,7 @@ void loop() {
         resinUsedMl = 0.0;        // reset cured-resin counter for this print
         resinSampledMl = 0.0;     // nothing subtracted from the VAT yet
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
+        lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
                                   // already low at start (user chose to print
                                   // anyway) - do not pause on the first layer
         current_state = 0;
@@ -2074,6 +2079,27 @@ void loop() {
           
           if(current_layer == layer_counter)
             break;
+
+          // 0.17 #40: one-shot heads-up BEFORE the low-resin stop (phone). Safe
+          // spot - the motor is idle between layers, so this only lengthens THIS
+          // layer's pre-exposure dwell by the send time (harmless; UV is off).
+          // Fires once per print; a refill re-arms it.
+          #if ENABLE_NETWORK
+          if (lowResinPauseEnabled && !lowResinPreWarned && !lowResinNotified &&
+              !print_paused && !print_canceled && current_layer >= 5 &&
+              resinUsedMl > 0.0 && vatRemainingMl > (float)lowResinThresholdMl) {
+            double preRate = resinUsedMl / current_layer;                 // ml per layer so far
+            if (preRate > 0.0) {
+              int preLayersLeft = (int)(vatRemainingMl / preRate);        // layers until empty
+              float preLayerSecs = printStartMs ? ((millis() - printStartMs) / 1000.0f) / current_layer : 0.0f;
+              int preMinsLeft = (int)(preLayersLeft * preLayerSecs / 60.0f);
+              if (preMinsLeft <= LOW_RESIN_PREWARN_MIN) {
+                lowResinPreWarned = true;
+                tgNotifyLowResinSoon(vatRemainingMl, preLayersLeft, preMinsLeft);
+              }
+            }
+          }
+          #endif
             
           // Low resin: pause between layers (reuses the normal pause flow).
           // Fires once per threshold crossing; "VAT refilled" re-arms it.

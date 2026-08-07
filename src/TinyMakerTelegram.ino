@@ -95,6 +95,15 @@ void tgNotifyLowResin() {
   telegramNotify("Low resin - printer paused. Refill the VAT to resume.");
 }
 
+// 0.17 #40: one-shot heads-up sent BEFORE the low-resin stop, from the print
+// loop at the idle between-layers gap, so a refill is not a surprise.
+void tgNotifyLowResinSoon(float ml, int layers, int mins) {
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  String msg = "Low resin soon - ~" + String(ml, 1) + " ml left (~" +
+               String(layers) + " layers, ~" + String(mins) + " min). Refill when you can.";
+  telegramNotify(msg);
+}
+
 void tgNotifyCanceled() {
   if (!tgEnabled && !waEnabled && !dcEnabled) return;
   uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
