@@ -49,15 +49,14 @@
   <div id='homeLeft'>
   <section class='card'>
     <div class='grid'>
-      <!-- Paired by meaning (user request): condition / network / lifetime
-           counters / consumable. The print-time boxes below fill the fourth
-           row's empty cell when they appear. -->
+      <!-- Paired by meaning (user request): condition / network / consumable.
+           Lifetime print + UV LED counters live only on the Statistics view now
+           (0.17 #84: reference stats, not live status - removed from this main
+           panel). The print-time boxes below fill an empty cell when they appear. -->
       <div><div class='label'>State <span id='syncDot' class='sdot hidden'></span><span id='syncNote' class='hidden'>syncing…</span></div><div id='stateValue' class='value'>Loading</div></div>
       <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
       <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBars' class='wbars'><i></i><i></i><i></i></span></div></div>
       <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
-      <div><div class='label'>Lifetime print time</div><div id='lifetimeValue' class='value'>-</div></div>
-      <div><div class='label'>UV LED time</div><div id='uvLedValue' class='value'>-</div></div>
       <div><div class='label'>Resin left (est.)</div><div id='vatValue' class='value'>-</div></div>
       <!-- 0-26: the previewed model's identity (idle only). It used to sit as
            one crowded line under the preview card; the status panel already
@@ -876,7 +875,7 @@ const applyStatus=s=>{
     // State line - the printer is waiting for a human with a resin bottle.
     if(s.stateCode===10&&applyStatus._sc!==10)msg('Print paused - refill the resin vat, then press Resume.',true);
     applyStatus._sc=s.stateCode;
-    setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('lifetimeValue',s.lifetimePrintTime); setText('uvLedValue',s.uvLedTime||'-'); setText('sdValue',s.sdText);
+    setText('wifiValue',s.wifiText); setText('ipValue',s.ip); setText('sdValue',s.sdText);   // 0.17 #84: lifetime/UV moved to Statistics view only
     // 0-30 reset-reason telemetry: surface a NEW mid-print death once (the
     // record persists on the printer, so remember what was already shown).
     if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
