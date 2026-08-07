@@ -881,6 +881,23 @@ const applyStatus=s=>{
     if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
       if(localStorage.getItem('tmCrashSeen')!==ck){localStorage.setItem('tmCrashSeen',ck);
         msg('Heads-up: the last print was interrupted by a '+s.lastCrash.reason+' at ~layer '+s.lastCrash.layer+'.',true);}}
+    // 0.17 #40: heads-up BEFORE the low-resin stop, so a refill is not a surprise.
+    // Client-side estimate (no firmware blocking mid-print - the phone pre-warn
+    // needs non-blocking send, deferred to R-alarm). One-shot per print; re-arms
+    // when idle or once the vat is actually low (the refill flow takes over then).
+    if(s.busy&&!s.paused&&!s.vatLow&&Number(s.currentLayer)>=5&&Number(s.resinUsedMl)>0&&Number(s.vatRemainingMl)>0){
+      const rate=s.resinUsedMl/s.currentLayer;              // ml per layer so far
+      if(rate>0){
+        const layersLeft=Math.floor(s.vatRemainingMl/rate); // layers until empty
+        const perLayer=(Number(s.runSecs)||0)/s.currentLayer;
+        const minLeft=Math.round(layersLeft*perLayer/60);
+        if(minLeft<=20&&!applyStatus._resinSoon){
+          applyStatus._resinSoon=true;
+          msg('Low resin soon - about '+s.vatRemainingMl.toFixed(1)+' ml left (~'+layersLeft+' layers, ~'+minLeft+' min). Refill when you can.',true);
+        }
+      }
+    }
+    if(!s.busy||s.vatLow)applyStatus._resinSoon=false;       // re-arm for the next print / after refill
     if(!$('statsView').classList.contains('hidden'))renderAbout();  // keep Statistics live
     renderFwBadges();  // installed version known now - refresh the update dot
     // 0-28: out-of-band SD changes (slicer upload, another device, the
