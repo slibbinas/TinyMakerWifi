@@ -670,7 +670,7 @@ String advancedValue(int item) {
   if (item == 6) return askRefillEnabled ? "On" : "Off";
   if (item == 7) return wifiEnabled ? "On" : "Off";
   if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
-  if (item == 9) return String(expTestBarSecs(1)) + "-" + String(expTestBarSecs(8)) + "s strip";
+  if (item == 9) return String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s";   // 0.17 0-3: ds -> X.X s
   if (item == 10) {
     if (bootAnimName.length() == 0) return "Default";
     if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
@@ -2419,7 +2419,7 @@ void screenExpTestIntro(){
   // string on these screens is measured to fit FreeSans8pt7b at its widest value.
   gfx2->print("Resin in vat, no plate");
   gfx2->setCursor(8, 48);
-  gfx2->print(String("Cures 8 bars: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");
+  gfx2->print(String("8 bars: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened: ds strings are wider
   uiButtons("Back", "Start", 0x879F);
   screen = 232;
 }
@@ -2490,7 +2490,7 @@ void runExpTest(){
   if (!canceled){
     gfx2->setTextColor(0x879F);
     gfx2->setCursor(8, 34);
-    gfx2->print(String("Dots 1..8 = ") + String(expTestBarSecs(1) / 10.0, 1) + ".." + String(expTestBarSecs(8) / 10.0, 1) + "s");
+    gfx2->print(String("Dots 1-8: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened
     gfx2->setCursor(8, 48);
     gfx2->print("Rinse, then pick bar");
     uiButtons("Skip", "Pick", 0x879F);
