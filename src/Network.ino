@@ -1368,6 +1368,8 @@ String configJson() {
   out += resumeEnabled ? "true" : "false";
   out += ",\"resumePrecise\":";
   out += resumePrecise ? "true" : "false";
+  out += ",\"pauseLiftMm\":";
+  out += String(pauseLiftMm);
   out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
@@ -1434,6 +1436,8 @@ void applyConfigRequest() {
   bootUpdateCheckEnabled = server.hasArg("boot_update_check");
   resumeEnabled = server.hasArg("resume_enabled");
   resumePrecise = server.hasArg("resume_precise");   // checked = Precise cadence, else Balanced
+  pauseLiftMm = formLong("pause_lift", pauseLiftMm, 20, 40);   // 0.17 #82: inspection lift height
+  pauseLiftMm = ((pauseLiftMm + 2) / 5) * 5;   // #82: snap to 5 mm so web matches the LCD cycle
   statsPingEnabled = server.hasArg("stats_ping");
   mqttEnabled = server.hasArg("mqtt_enabled");
   if (!wifiEnabled) mqttEnabled = false;
@@ -1587,6 +1591,7 @@ void resetWebConfigToDefaults() {
   bootUpdateCheckEnabled = true;
   resumeEnabled = true;
   resumePrecise = false;
+  pauseLiftMm = 20;   // 0.17 #82
   saveDeviceConfig();
 }
 

@@ -610,7 +610,7 @@ int advancedGroupItemCount(int g) {
     if (wifiEnabled && advancedMqttConfigured()) count++;
     return count;
   }
-  if (g == 2) return 8;  // VAT refilled, pause, warn, ask refill, power resume, resume mode, exp test, dry run
+  if (g == 2) return 9;  // VAT refilled, pause, warn, ask refill, power resume, resume mode, pause lift, exp test, dry run
   if (g == 3) return 2;  // idle timeout, boot animation
   return 0;
 }
@@ -626,8 +626,8 @@ int advancedGroupItem(int g, int pos) {
     return 8;                                                 // Boot update (last)
   }
   if (g == 2) {
-    const int items[8] = {3, 4, 5, 6, 13, 14, 9, 2};  // refilled, pause, warn, ask, power resume, resume mode, exp test, dry run
-    if (pos >= 1 && pos <= 8) return items[pos - 1];
+    const int items[9] = {3, 4, 5, 6, 13, 14, 15, 9, 2};  // refilled, pause, warn, ask, power resume, resume mode, pause lift, exp test, dry run
+    if (pos >= 1 && pos <= 9) return items[pos - 1];
   }
   if (g == 3) {
     if (pos == 1) return 1;   // Idle timeout
@@ -655,6 +655,7 @@ String advancedLabel(int item) {
   if (item == 12) return "MQTT";         // which gates them on wifiEnabled
   if (item == 13) return "Power resume"; // 0-34: power-loss resume on/off
   if (item == 14) return "Resume mode";  // 0.17 1-38b: Balanced vs Precise checkpoint cadence
+  if (item == 15) return "Pause lift";   // 0.17 #82: pause plate-lift height for inspection
   return "";
 }
 
@@ -680,6 +681,7 @@ String advancedValue(int item) {
   if (item == 12) return mqttEnabled ? "On" : "Off";
   if (item == 13) return resumeEnabled ? "On" : "Off";
   if (item == 14) return resumePrecise ? "Precise" : "Balanced";
+  if (item == 15) return String(pauseLiftMm) + " mm";
   return "";
 }
 
@@ -797,6 +799,9 @@ void advancedOptionsSelect() {
     resumeEnabled = !resumeEnabled;
   } else if (id == 14) {
     resumePrecise = !resumePrecise;   // 0.17 1-38b: Balanced <-> Precise checkpoint cadence
+  } else if (id == 15) {
+    pauseLiftMm += 5;                  // 0.17 #82: cycle 20 -> 25 -> 30 -> 35 -> 40 -> 20
+    if (pauseLiftMm > 40) pauseLiftMm = 20;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK
