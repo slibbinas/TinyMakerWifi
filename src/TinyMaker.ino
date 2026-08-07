@@ -161,6 +161,7 @@ bool resumeEnabled = true;          // 0-34: false = never checkpoint / never of
 bool resumePrecise = false;         // 0.17 1-38b: false = Balanced cadence, true = Precise (finer resume, more SD writes)
 long resumeLiveSteps = 0;           // 0.17: physical relabel height loaded from a checkpoint (== base for legacy records)
 long resumeCycleBaseSteps = 0;      // 0.17: exact pre-lift base of the current layer cycle (drift-free target reference)
+int pauseLiftMm = 20;               // 0.17 #82: Pause plate-lift height for inspection (mm, 20-40; runtime-clamped to headroom)
 // Granular-checkpoint cadence during the ~9s lift/drop motion (0.17 1-38b).
 // Defined here (the first-concatenated TU) so Motor.ino - concatenated before
 // Resume.ino - can see them.
@@ -238,6 +239,8 @@ void loadDeviceConfig() {
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
   resumeEnabled = sysPrefs.getBool("resumeEn", true);
   resumePrecise = sysPrefs.getBool("resumePrec", false);
+  pauseLiftMm = sysPrefs.getUChar("pauseLift", 20);   // 0.17 #82
+  if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
   prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
   bootAnimName = sysPrefs.getString("bootAnimName", "");
@@ -287,6 +290,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
   sysPrefs.putBool("resumeEn", resumeEnabled);
   sysPrefs.putBool("resumePrec", resumePrecise);
+  sysPrefs.putUChar("pauseLift", (uint8_t)pauseLiftMm);   // 0.17 #82
   sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
@@ -688,6 +692,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += resumeEnabled ? "true" : "false";
   out += ",\"resumePrecise\":";
   out += resumePrecise ? "true" : "false";
+  out += ",\"pauseLiftMm\":";
+  out += String(pauseLiftMm);
   out += ",\"bootAnim\":\"";
   out += backupEscape(bootAnimName);
   out += "\"";
@@ -830,6 +836,7 @@ void applyConfigBackup(const String &j) {
   bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
   resumeEnabled = backupBool(j, "resumeEnabled", resumeEnabled);
   resumePrecise = backupBool(j, "resumePrecise", resumePrecise);
+  pauseLiftMm = backupClamp(backupNum(j, "pauseLiftMm", pauseLiftMm), 20, 40);
   bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
@@ -2091,8 +2098,8 @@ void loop() {
             Position_before_pause = stepper.currentPosition();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
-            if (Position_before_pause + (20 * steps_mm) <= max_height * steps_mm)
-              stepper.move(20 * steps_mm);
+            if (Position_before_pause + (pauseLiftMm * steps_mm) <= max_height * steps_mm)
+              stepper.move(pauseLiftMm * steps_mm);
             else
               stepper.moveTo(max_height * steps_mm);
             #if ENABLE_NETWORK
