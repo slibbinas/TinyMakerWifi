@@ -1795,9 +1795,9 @@ void loop() {
         resinUsedMl = 0.0;        // reset cured-resin counter for this print
         resinSampledMl = 0.0;     // nothing subtracted from the VAT yet
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
-        lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
                                   // already low at start (user chose to print
                                   // anyway) - do not pause on the first layer
+        lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
         current_state = 0;
         current_layer = 0;
         Position_before_pause = 0;

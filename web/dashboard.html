@@ -891,7 +891,7 @@ const applyStatus=s=>{
         const layersLeft=Math.floor(s.vatRemainingMl/rate); // layers until empty
         const perLayer=(Number(s.runSecs)||0)/s.currentLayer;
         const minLeft=Math.round(layersLeft*perLayer/60);
-        if(minLeft<=20&&!applyStatus._resinSoon){
+        if(minLeft<=15&&!applyStatus._resinSoon){   // 0.17 #40: same runway as firmware LOW_RESIN_PREWARN_MIN
           applyStatus._resinSoon=true;
           msg('Low resin soon - about '+s.vatRemainingMl.toFixed(1)+' ml left (~'+layersLeft+' layers, ~'+minLeft+' min). Refill when you can.',true);
         }
