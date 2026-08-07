@@ -670,7 +670,7 @@ String advancedValue(int item) {
   if (item == 6) return askRefillEnabled ? "On" : "Off";
   if (item == 7) return wifiEnabled ? "On" : "Off";
   if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
-  if (item == 9) return String(expTestBarSecs(1)) + "-" + String(expTestBarSecs(8)) + "s strip";
+  if (item == 9) return String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s";   // 0.17 0-3: ds -> X.X s
   if (item == 10) {
     if (bootAnimName.length() == 0) return "Default";
     if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
@@ -1342,7 +1342,7 @@ void screen111(){
 
   // Calculate print time
   estimated_seconds += Base_Layer * Base_Exposure;
-  estimated_seconds += (layer_counter - Base_Layer) * Regular_Exposure;
+  estimated_seconds += (layer_counter - Base_Layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
   motor_updown_time_total = motor_updown_time * (layer_counter - 1);
   estimated_seconds += motor_updown_time_total; 
   estimated_hours = estimated_seconds / 3600;
@@ -2389,21 +2389,18 @@ void screen23111(){
 // bar 5 = 100% = your current value. A fast resin (cures in 3 s) and a slow
 // one (25 s) both get a meaningful spread - fixed +-seconds steps did not
 // (first real strip saturated: every bar past ~8 s looked identical).
-// Whole seconds cannot hold a +-60% spread once Regular drops low: at 1 s the
-// percentages all rounded to the same value and the strip burned eight
-// identical bars that blanked at once (user finding, 0.15.0 testing). Exposure
-// is settable only in whole seconds (one EEPROM byte, 1..30), so a sub-second
-// ladder would produce bars nobody can then set. Below ~5 s the ladder
-// therefore stops being proportional and becomes a 1 s sweep - every bar stays
-// distinct and every bar maps to a value the pick can actually apply. From ~6 s
-// up the percentages already separate on their own and nothing changes here.
-int expTestBarSecs(int bar) {          // bar 1..8 -> seconds, always distinct
+// 0.17 0-3: Regular exposure is now DECISECONDS, so the ladder stays truly
+// proportional (+-60%) even at low exposure - the old "below ~5 s fall back to a
+// 1 s sweep" hack (whole-second EEPROM byte) is gone. Bars are floored at 1.0 s
+// and forced distinct by at least 0.1 s. Returns DECISECONDS (the "Secs" name is
+// kept only because it has many callers).
+int expTestBarSecs(int bar) {          // bar 1..8 -> deciseconds, always distinct
   static const uint8_t pct[8] = {40, 55, 70, 85, 100, 115, 135, 160};
   int t[8];
   for (int i = 0; i < 8; i++) {
-    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;
-    if (t[i] < 1) t[i] = 1;                          // 1 s = the settable floor
-    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;
+    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;   // Regular is ds -> t is ds
+    if (t[i] < 10) t[i] = 10;                             // 1.0 s = the settable floor
+    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;       // distinct by >= 0.1 s
   }
   return t[bar - 1];
 }
@@ -2422,7 +2419,7 @@ void screenExpTestIntro(){
   // string on these screens is measured to fit FreeSans8pt7b at its widest value.
   gfx2->print("Resin in vat, no plate");
   gfx2->setCursor(8, 48);
-  gfx2->print(String("Cures 8 bars: ") + expTestBarSecs(1) + "-" + expTestBarSecs(8) + "s");
+  gfx2->print(String("8 bars: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened: ds strings are wider
   uiButtons("Back", "Start", 0x879F);
   screen = 232;
 }
@@ -2459,7 +2456,7 @@ void runExpTest(){
       gfx1->fillCircle(x0 + bw / 2, by + 3 * r + k * 3 * r, r, BLACK);
   }
 
-  long maxMs = (long)expTestBarSecs(8) * 1000L;
+  long maxMs = (long)expTestBarSecs(8) * 100L;   // 0.17 0-3: bars are deciseconds -> ms
   int blanked = 0;
   bool canceled = false;
   digitalWrite(FAN, HIGH);
@@ -2468,7 +2465,7 @@ void runExpTest(){
   Duration = 0;
   while (Duration <= maxMs && !canceled){
     Duration = millis() - startTime;
-    while (blanked < 8 && Duration >= (long)expTestBarSecs(blanked + 1) * 1000L){
+    while (blanked < 8 && Duration >= (long)expTestBarSecs(blanked + 1) * 100L){   // ds -> ms
       gfx1->fillRect(blanked * slot + gap, by, bw, bh, BLACK);
       blanked++;
     }
@@ -2493,7 +2490,7 @@ void runExpTest(){
   if (!canceled){
     gfx2->setTextColor(0x879F);
     gfx2->setCursor(8, 34);
-    gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
+    gfx2->print(String("Dots 1-8: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened
     gfx2->setCursor(8, 48);
     gfx2->print("Rinse, then pick bar");
     uiButtons("Skip", "Pick", 0x879F);
@@ -2524,12 +2521,12 @@ void screenExpTestPick(){
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
   if (expTestPick <= 8) {
-    gfx2->print(String(expTestPick) + " dots -> " + expTestBarSecs(expTestPick) + "s");
+    gfx2->print(String(expTestPick) + " dots -> " + String(expTestBarSecs(expTestPick) / 10.0, 1) + "s");
     if (expTestBarSecs(expTestPick) == (int)Regular_Exposure) gfx2->print(" (now)");
   } else if (expTestPick == 9) {
-    gfx2->print(String("All fat -> ") + expTestBarSecs(1) + "s");
+    gfx2->print(String("All fat -> ") + String(expTestBarSecs(1) / 10.0, 1) + "s");
   } else {
-    gfx2->print(String("All soft -> ") + expTestBarSecs(8) + "s");
+    gfx2->print(String("All soft -> ") + String(expTestBarSecs(8) / 10.0, 1) + "s");
   }
   gfx2->setCursor(8, 52);
   gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (retest)");
@@ -2539,9 +2536,9 @@ void screenExpTestPick(){
 }
 
 void expTestApplyPick(){
-  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));
-  if (t < 1) t = 1;
-  if (t > 30) t = 30;
+  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));  // deciseconds
+  if (t < 10) t = 10;    // 0.17 0-3: ds range (1.0 s)
+  if (t > 300) t = 300;  // (30.0 s)
   long oldR = Regular_Exposure;
   Regular_Exposure = t;
   savePrintSettings();
@@ -2606,7 +2603,7 @@ void screen31UP(){
       gfx2->setCursor(5, 56);
       gfx2->println("Regular Exposure");
       gfx2->setCursor(5, 74);
-      gfx2->print(Regular_Exposure);
+      gfx2->print(Regular_Exposure / 10.0, 1);
       gfx2->print(" "); 
       gfx2->print("s");      
       gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
@@ -2616,7 +2613,7 @@ void screen31UP(){
       gfx2->setCursor(5, 15);
       gfx2->println("Regular Exposure"); 
       gfx2->setCursor(5, 33);
-      gfx2->print(Regular_Exposure); 
+      gfx2->print(Regular_Exposure / 10.0, 1); 
       gfx2->print(" "); 
       gfx2->print("s");  
       gfx2->setCursor(5, 56);
@@ -2814,7 +2811,7 @@ void screen31DOWN(){
       gfx2->setCursor(5, 56);
       gfx2->println("Regular Exposure");
       gfx2->setCursor(5, 74);
-      gfx2->print(Regular_Exposure);
+      gfx2->print(Regular_Exposure / 10.0, 1);
       gfx2->print(" "); 
       gfx2->print("s");       
       gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
@@ -2824,7 +2821,7 @@ void screen31DOWN(){
       gfx2->setCursor(5, 15);
       gfx2->println("Regular Exposure"); 
       gfx2->setCursor(5, 33);
-      gfx2->print(Regular_Exposure); 
+      gfx2->print(Regular_Exposure / 10.0, 1); 
       gfx2->print(" "); 
       gfx2->print("s"); 
       gfx2->setCursor(5, 56);
@@ -3043,11 +3040,11 @@ void screen3111increase(){
       }
         break;
       case 3:
-      if(Regular_Exposure < 30){
+      if(Regular_Exposure < 300){   // 0.17 0-3: deciseconds (max 30.0 s), +1 ds = +0.1 s/press
         Regular_Exposure ++;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3144,11 +3141,11 @@ void screen3111increase(){
       }
         break; 
       case 3:
-      if(Regular_Exposure < 30){
+      if(Regular_Exposure < 300){   // 0.17 0-3: deciseconds (max 30.0 s), +1 ds = +0.1 s/press
         Regular_Exposure ++;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3260,7 +3257,7 @@ void screen3111decrease(){
       }
         break;
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
@@ -3270,11 +3267,11 @@ void screen3111decrease(){
       }
         break;
       case 3:
-      if(Regular_Exposure > 1){
+      if(Regular_Exposure > 10){   // 0.17 0-3: deciseconds (min 1.0 s), -1 ds = -0.1 s/press
         Regular_Exposure --;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3361,7 +3358,7 @@ void screen3111decrease(){
   if (setting_item_updown == 0) {
     switch (setting_item){
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
@@ -3371,11 +3368,11 @@ void screen3111decrease(){
       }
         break;
       case 3:
-      if(Regular_Exposure > 1){
+      if(Regular_Exposure > 10){   // 0.17 0-3: deciseconds (min 1.0 s), -1 ds = -0.1 s/press
         Regular_Exposure --;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }

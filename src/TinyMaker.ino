@@ -194,7 +194,7 @@ String waApiKey = "";               // CallMeBot key (secret - never echoed to b
 bool dcEnabled = false;             // Discord notifications via a channel webhook
 String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
-uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
+uint16_t prevRegularExposure = 0;   // last replaced Regular exposure in DECISECONDS (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
@@ -239,7 +239,7 @@ void loadDeviceConfig() {
   resumeEnabled = sysPrefs.getBool("resumeEn", true);
   resumePrecise = sysPrefs.getBool("resumePrec", false);
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
-  prevRegularExposure = sysPrefs.getUChar("prevRegExp", 0);
+  prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
   bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
@@ -540,8 +540,8 @@ int current_state = 0; // Current printing state
 
 // Print Parameters (Loaded from EEPROM) 
 float Layer_Height ;        // Layer thickness (mm)
-long Base_Exposure ;        // Exposure time for base layers (s)
-long Regular_Exposure ;     // Exposure time for normal layers (s)
+long Base_Exposure ;        // Exposure time for base layers (whole seconds)
+long Regular_Exposure ;     // Exposure for normal layers, in DECISECONDS (0.17 0-3; e.g. 140 = 14.0 s)
 byte Base_Layer ;           // Number of base layers
 byte Transition_Layer ;     // Number of transition layers
 byte Slow_Lift_Distance ;   // Distance for slow lift (mm)
@@ -571,10 +571,27 @@ String FileName;          // Current file name
 File myfile;
 PNG png; // PNG decoder instance
 
+// 0.17 0-3: EEPROM schema version lives in addr 0 (previously unused). v2 stores
+// Regular exposure as 2-byte DECISECONDS at addr 12-13; addr 3 still holds the
+// rounded whole-second value so a downgrade to <= 0.16 reads a sane number.
+#define SETTINGS_SCHEMA_VER 2
+#define EE_ADDR_SCHEMA 0
+#define EE_ADDR_REG_DS 12
+
+static uint16_t eepromReadU16(int addr) {
+  return (uint16_t)EEPROM.read(addr) | ((uint16_t)EEPROM.read(addr + 1) << 8);
+}
+static void eepromWriteU16(int addr, uint16_t v) {
+  EEPROM.write(addr, (uint8_t)(v & 0xFF));
+  EEPROM.write(addr + 1, (uint8_t)(v >> 8));
+}
+
 void savePrintSettings() {
+  EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, Layer_Height * 100);
   EEPROM.write(2, Base_Exposure);
-  EEPROM.write(3, Regular_Exposure);
+  EEPROM.write(3, (uint8_t)lroundf(Regular_Exposure / 10.0f));   // downgrade-safe whole seconds
+  eepromWriteU16(EE_ADDR_REG_DS, (uint16_t)Regular_Exposure);    // canonical: deciseconds
   EEPROM.write(4, Base_Layer);
   EEPROM.write(5, Transition_Layer);
   EEPROM.write(6, Slow_Lift_Distance);
@@ -591,10 +608,10 @@ void savePrintSettings() {
 // the old value is remembered so the dashboard can offer a one-click Undo.
 // Undo goes through the same path, so undo-of-undo swaps back.
 void rememberPrevRegularExposure(long oldVal) {
-  if (oldVal <= 0 || oldVal > 30 || oldVal == Regular_Exposure) return;
-  prevRegularExposure = (uint8_t)oldVal;
+  if (oldVal <= 0 || oldVal > 300 || oldVal == Regular_Exposure) return;   // deciseconds now
+  prevRegularExposure = (uint16_t)oldVal;
   sysPrefs.begin("tinymaker", false);
-  sysPrefs.putUChar("prevRegExp", prevRegularExposure);
+  sysPrefs.putUShort("prevRegDs", prevRegularExposure);
   sysPrefs.end();
 }
 
@@ -634,7 +651,7 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += ",\"baseExposure\":";
   out += String(Base_Exposure);
   out += ",\"regularExposure\":";
-  out += String(Regular_Exposure);
+  out += String(Regular_Exposure / 10.0, 1);   // 0.17 0-3: seconds (ds/10) - human-readable + downgrade-safe
   out += ",\"baseLayers\":";
   out += String(Base_Layer);
   out += ",\"transitionLayers\":";
@@ -786,8 +803,15 @@ static long backupClamp(double v, long lo, long hi) {
 // so a hand-edited or stale file can't smuggle absurd values in.
 void applyConfigBackup(const String &j) {
   Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
-  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 10, 60);
-  Regular_Exposure = backupClamp(backupNum(j, "regularExposure", Regular_Exposure), 1, 30);
+  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 5, 60);   // 0.17 0-3: base min 5 s
+  // 0.17 0-3: backup stores Regular in SECONDS (downgrade-readable); convert to
+  // deciseconds on restore, preserving 0.1 s (backupClamp->long would drop it).
+  {
+    double regSecs = backupNum(j, "regularExposure", Regular_Exposure / 10.0);
+    long regDs = lroundf((float)regSecs * 10.0f);
+    if (regDs < 10) regDs = 10; else if (regDs > 300) regDs = 300;
+    Regular_Exposure = regDs;
+  }
   Base_Layer = backupClamp(backupNum(j, "baseLayers", Base_Layer), 1, 8);
   Transition_Layer = backupClamp(backupNum(j, "transitionLayers", Transition_Layer), 0, 10);
   Slow_Lift_Distance = backupClamp(backupNum(j, "slowLiftDistance", Slow_Lift_Distance), 1, 3);
@@ -1040,9 +1064,11 @@ bool handleUiTimeout() {
  * Layer_Height is stored x100 (10 -> 0.10 mm).
  */
 void resetSettingsToDefault() {
+  EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, 10);   // Layer_Height     -> 0.10 mm
   EEPROM.write(2, 35);   // Base_Exposure
-  EEPROM.write(3, 14);   // Regular_Exposure
+  EEPROM.write(3, 14);   // Regular_Exposure whole-second mirror (downgrade-safe)
+  eepromWriteU16(EE_ADDR_REG_DS, 140);  // Regular_Exposure = 14.0 s in deciseconds
   EEPROM.write(4, 2);    // Base_Layer
   EEPROM.write(5, 5);    // Transition_Layer
   EEPROM.write(6, 1);    // Slow_Lift_Distance
@@ -1055,7 +1081,7 @@ void resetSettingsToDefault() {
 
   Layer_Height = EEPROM.read(1) / 100.00;
   Base_Exposure = EEPROM.read(2);
-  Regular_Exposure = EEPROM.read(3);
+  Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);   // deciseconds
   Base_Layer = EEPROM.read(4);
   Transition_Layer = EEPROM.read(5);
   Slow_Lift_Distance = EEPROM.read(6);
@@ -1137,7 +1163,7 @@ void setup() {
   // Layer Height is stored multiplied by 100 to save as integer, so divide by 100.00 to restore float  
   Layer_Height = EEPROM.read(1) / 100.00;
   Base_Exposure = EEPROM.read(2);
-  Regular_Exposure = EEPROM.read(3);
+  // Regular_Exposure is loaded below (0.17 0-3 migration: deciseconds at addr 12-13).
   Base_Layer = EEPROM.read(4);
   Transition_Layer = EEPROM.read(5);
   Slow_Lift_Distance = EEPROM.read(6);
@@ -1155,6 +1181,22 @@ void setup() {
     settingsWereFactoryReset = true;   // a full reflash wiped the settings
   }
 
+  // 0.17 0-3: Regular exposure moved to 2-byte DECISECONDS (addr 12-13). A
+  // pre-0.17 install has schema (addr 0) != v2; migrate ONCE by scaling the old
+  // whole-second byte (addr 3) x10. resetSettingsToDefault() above already wrote
+  // schema=v2 + the ds value on a fresh flash, so that path takes the else here.
+  if (EEPROM.read(EE_ADDR_SCHEMA) != SETTINGS_SCHEMA_VER) {
+    uint8_t regS = EEPROM.read(3);
+    if (regS < 1 || regS > 30) regS = 14;   // sane-guard the old byte before scaling
+    Regular_Exposure = (long)regS * 10;
+    eepromWriteU16(EE_ADDR_REG_DS, (uint16_t)Regular_Exposure);
+    EEPROM.write(3, regS);                   // keep the whole-second downgrade mirror in sync
+    EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
+    EEPROM.commit();
+  } else {
+    Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);
+  }
+
   // Exposures are read raw, and the guard above only inspects Layer_Height, so
   // a bad byte here reached the print loop unchecked. Regular_Exposure = 0
   // makes turn_on_LED() compute 0 ms: the LED goes HIGH and LOW with no wait
@@ -1163,14 +1205,15 @@ void setup() {
   // left by a firmware with a different EEPROM layout land exactly here. These
   // are the ranges the dashboard form, the backup restore and the LCD menu
   // already agree on.
-  if (Base_Exposure < 10 || Base_Exposure > 60) {
+  if (Base_Exposure < 5 || Base_Exposure > 60) {   // 0.17 0-3: min 5 s (was 10) for fast resins
     Base_Exposure = 35;
     EEPROM.write(2, (uint8_t)Base_Exposure);
     EEPROM.commit();
   }
-  if (Regular_Exposure < 1 || Regular_Exposure > 30) {
-    Regular_Exposure = 14;
-    EEPROM.write(3, (uint8_t)Regular_Exposure);
+  if (Regular_Exposure < 10 || Regular_Exposure > 300) {   // deciseconds (1.0-30.0 s)
+    Regular_Exposure = 140;
+    eepromWriteU16(EE_ADDR_REG_DS, 140);
+    EEPROM.write(3, 14);   // keep the whole-second downgrade mirror in sync
     EEPROM.commit();
   }
 
@@ -1474,7 +1517,7 @@ void loop() {
       case 3111:
       Layer_Height = EEPROM.read(1) / 100.00;
       Base_Exposure = EEPROM.read(2);
-      Regular_Exposure = EEPROM.read(3);
+      Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);   // 0.17 0-3: deciseconds (revert to saved)
       Base_Layer = EEPROM.read(4);
       Transition_Layer = EEPROM.read(5);
       Slow_Lift_Distance = EEPROM.read(6);
@@ -1746,7 +1789,7 @@ void loop() {
         current_state = 0;
         current_layer = 0;
         Position_before_pause = 0;
-        Transition_Exposure = Base_Exposure;
+        Transition_Exposure = Base_Exposure * 10;   // 0.17 0-3: ramp accumulator in deciseconds
         #if ENABLE_NETWORK
         // 0-19: snapshot the model preview into RAM while the SD is still
         // free - once the print loop owns the bus, browsers get this copy.
@@ -1934,7 +1977,7 @@ void loop() {
           motor_updown_time_total = 0;
           if (current_layer < Base_Layer)
             estimated_seconds += (Base_Layer - current_layer) * Base_Exposure;                
-          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure;            
+          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s            
           motor_updown_time_total += (layer_counter - current_layer - 1) * motor_updown_time;            
           estimated_seconds += motor_updown_time_total;             
           estimated_hours = estimated_seconds / 3600;

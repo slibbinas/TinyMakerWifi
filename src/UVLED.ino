@@ -18,16 +18,18 @@ static void uvOffTimerCb(void *) { digitalWrite(LED, LOW); }
 void turn_on_LED(){
   long ExposureMillis;
   if(current_layer <= Base_Layer)
-    ExposureMillis = Base_Exposure * 1000;
+    ExposureMillis = Base_Exposure * 1000;   // base layers: whole seconds -> ms
   if(current_layer > Base_Layer && current_layer <= Base_Layer + Transition_Layer){
-    int a = Base_Exposure - Regular_Exposure;
+    // 0.17 0-3: ramp in DECISECONDS from Base (x10) down to Regular (already ds).
+    // Transition_Exposure is seeded to Base_Exposure*10 at print start / resume.
+    float a = (float)(Base_Exposure * 10 - Regular_Exposure);
     int b = Transition_Layer + 1;
-    float c = (float)a / (float)b;
+    float c = a / (float)b;
     Transition_Exposure -= c;
-    ExposureMillis = Transition_Exposure * 1000; 
-  }    
+    ExposureMillis = (long)(Transition_Exposure * 100);   // deciseconds -> ms
+  }
   if(current_layer > Base_Layer + Transition_Layer)
-    ExposureMillis = Regular_Exposure * 1000;
+    ExposureMillis = Regular_Exposure * 100;   // regular layers: deciseconds -> ms
   
   startTime = millis();
   Duration = 0;
