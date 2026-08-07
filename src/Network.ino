@@ -1350,6 +1350,8 @@ String configJson() {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"lowResinWarnMl\":";
+  out += String(lowResinWarnMl);
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
@@ -1428,6 +1430,7 @@ void applyConfigRequest() {
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
   lowResinPauseEnabled = server.hasArg("low_resin_pause");
   lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
+  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
   askRefillEnabled = server.hasArg("ask_refill");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
