@@ -75,10 +75,38 @@ bool telegramSendMessage(const String &text, String &error) {
 // WhatsApp - one at a time, picked in Settings). Failures are swallowed:
 // a print must never stall because a chat message could not be delivered.
 void telegramNotify(const String &text) {
+  // Route by "can actually send", not just the enable flag: a half-configured
+  // channel bails before any TLS and must not cost the preview cache below.
+  // (Settings allows one channel at a time, so ready-routing == flag-routing
+  // in practice.)
+  bool tgReady = tgEnabled && tgToken.length() > 0 && tgChat.length() > 0;
+  bool waReady = waEnabled && waPhone.length() > 0 && waApiKey.length() > 0;
+  bool dcReady = dcEnabled && dcWebhook.length() > 0;
+  if (!tgReady && !waReady && !dcReady) return;
+  // Mid-print the model-preview RAM snapshot (~66-74 KB) fragments the heap:
+  // maxAllocHeap drops ~110 KB -> ~48 KB and every TLS send fails with
+  // "connection refused" (mbedTLS can't get its buffers; measured on hardware
+  // 08-08 - this also silently killed the old low-resin pause notification).
+  // Free it around any notify: all three channels are HTTPS. The print-end
+  // path already ran freePreviewCache() before its notify - this generalizes
+  // that to the mid-print sends (low-resin warn/stop). No-op when empty.
+  bool hadPreview = previewCacheBuf != nullptr;
+  freePreviewCache();
   String error;
-  if (tgEnabled) telegramSendMessage(text, error);
-  else if (waEnabled) whatsappSendMessage(text, error);
-  else if (dcEnabled) discordSendMessage(text, error);
+  if (tgReady) telegramSendMessage(text, error);
+  else if (waReady) whatsappSendMessage(text, error);
+  else if (dcReady) discordSendMessage(text, error);
+  // Re-load the thumbnail from SD once the send is done (V 08-08): the TLS
+  // connection is closed so the heap is back, and this runs in the print
+  // loop itself (single thread - no SD contention with layer reads; a
+  // one-shot read smaller than one layer PNG). Skipped on the cancel path
+  // (tgNotifyCanceled fires ~20 lines before the print-exit free - a
+  // re-capture there would be wasted SD work) and once the print is done.
+  // 16 KB slack + no SD re-init: see capturePreviewCache(). Best-effort -
+  // the largest renders (~70 KB) may not fit back into the mid-print heap;
+  // then the thumbnail 409s until print end, as it did before this fix.
+  if (hadPreview && printerBusy() && !print_canceled && !homing_canceled)
+    capturePreviewCache(16 * 1024, false);
 }
 
 void tgNotifyFinished() {

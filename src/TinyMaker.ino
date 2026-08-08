@@ -1811,7 +1811,7 @@ void loop() {
         #if ENABLE_NETWORK
         // 0-19: snapshot the model preview into RAM while the SD is still
         // free - once the print loop owns the bus, browsers get this copy.
-        capturePreviewCache();
+        capturePreviewCache(30 * 1024, true);
         #endif
         // A print started from the web reaches here with the screen possibly
         // blanked by the UI timeout - and blanked it would stay: the wake
