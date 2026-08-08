@@ -119,8 +119,15 @@ void tgNotifyFinished() {
   telegramNotify(msg);
 }
 
+// Progress context (V 08-08): every mid/end-of-print message carries
+// "layer x/y" + elapsed time so the phone alone tells where the print stands.
 void tgNotifyLowResin() {
-  telegramNotify("Low resin - printer paused. Refill the VAT to resume.");
+  uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
+  String msg = "Low resin - printer paused at layer " + String(current_layer) +
+               "/" + String(layer_counter);
+  if (secs) msg += " (" + formatDuration(secs) + " in)";
+  msg += ". Refill the VAT to resume.";
+  telegramNotify(msg);
 }
 
 // 0.17 #40: one-shot heads-up sent BEFORE the low-resin stop, from the print
@@ -141,6 +148,9 @@ void tgNotifyCanceled() {
   if (!tgEnabled && !waEnabled && !dcEnabled) return;
   uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
   String msg = "Print canceled";
+  // current_layer 0 = canceled during homing, before any layer - skip x/y.
+  if (current_layer > 0 && layer_counter > 0)
+    msg += " at layer " + String(current_layer) + "/" + String(layer_counter);
   if (secs) msg += " after " + formatDuration(secs);
   msg += ".";
   telegramNotify(msg);
