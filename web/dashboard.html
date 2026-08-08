@@ -192,9 +192,10 @@
     <label><span>Drop back feedrate</span><input name='drop_back_feedrate' id='cfgDropBackFeedrate' type='number' min='20' max='50' step='10'></label>
     <label><span>Pause lift height (mm)</span><input name='pause_lift' id='cfgPauseLift' type='number' min='20' max='40' step='5'></label>
     <label><span>VAT size (ml)<a href='#' class='qHelp' data-help='resin'>?</a></span><input name='vat_ml' id='cfgVatMl' type='number' min='10' max='40' step='1'></label>
-    <label><span>Low resin warn (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='1' max='3' step='1'></label>
+    <label><span>Low resin warn (ml)</span><input name='low_resin_warn' id='cfgLowResinWarn' type='number' min='3' max='15' step='1'></label>
+    <label><span>Low resin stop (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='1' max='3' step='1'></label>
     <label><span>Idle screen timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
-    <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin pause (mid-print)</span></label>
+    <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin stop (mid-print)</span></label>
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
     <label class='check'><input name='resume_enabled' id='cfgResumeEnabled' type='checkbox' value='1'><span>Resume after power loss</span></label>
     <label class='check'><input name='resume_precise' id='cfgResumePrecise' type='checkbox' value='1'><span>Precise resume checkpoints (finer recovery, more SD writes)</span></label>
@@ -881,6 +882,22 @@ const applyStatus=s=>{
     if(s.lastCrash&&s.lastCrash.reason){const ck=s.lastCrash.reason+'@'+s.lastCrash.layer;
       if(localStorage.getItem('tmCrashSeen')!==ck){localStorage.setItem('tmCrashSeen',ck);
         msg('Heads-up: the last print was interrupted by a '+s.lastCrash.reason+' at ~layer '+s.lastCrash.layer+'.',true);}}
+    // 0.17 #40 (V 08-08): low-resin WARNING at the ml level, independent of the
+    // stop checkbox. Fires once when the vat drops to the warn level, still above
+    // the stop level. ~layers/min are optional context. Re-arms when idle / low.
+    {const warnMl=Number($('cfgLowResinWarn').value)||5, stopMl=Number($('cfgLowResinMl').value)||2;
+     if(s.busy&&!s.paused&&!s.vatLow&&Number(s.vatRemainingMl)>0&&s.vatRemainingMl<=warnMl&&!applyStatus._resinSoon){
+       applyStatus._resinSoon=true;
+       let extra='';
+       if(Number(s.currentLayer)>=5&&Number(s.resinUsedMl)>0){
+         const rate=s.resinUsedMl/s.currentLayer;
+         if(rate>0){const layersLeft=Math.max(0,Math.floor((s.vatRemainingMl-stopMl)/rate));
+           const minLeft=Math.round(layersLeft*((Number(s.runSecs)||0)/s.currentLayer)/60);
+           extra=' (~'+layersLeft+' layers, ~'+minLeft+' min)';}
+       }
+       msg('Low resin warning - about '+s.vatRemainingMl.toFixed(1)+' ml left'+extra+'. Refill when you can.',true);
+     }}
+    if(!s.busy||s.vatLow)applyStatus._resinSoon=false;       // re-arm for the next print / after refill
     if(!$('statsView').classList.contains('hidden'))renderAbout();  // keep Statistics live
     renderFwBadges();  // installed version known now - refresh the update dot
     // 0-28: out-of-band SD changes (slicer upload, another device, the
@@ -1944,7 +1961,7 @@ const loadConfig=async()=>{
     show('undoRegExp',prevR>0&&prevR!==Number(c.regularExposure));
     $('undoRegExp').textContent='Undo ('+prevR+'s)';
     $('undoRegExp').dataset.v=prevR;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://connect.tinymakerwifi.com'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;

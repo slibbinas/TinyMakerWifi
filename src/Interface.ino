@@ -610,7 +610,7 @@ int advancedGroupItemCount(int g) {
     if (wifiEnabled && advancedMqttConfigured()) count++;
     return count;
   }
-  if (g == 2) return 9;  // VAT refilled, pause, warn, ask refill, power resume, resume mode, pause lift, exp test, dry run
+  if (g == 2) return 10;  // refilled, stop chk, stop ml, warn ml, ask refill, power resume, resume mode, pause lift, exp test, dry run
   if (g == 3) return 2;  // idle timeout, boot animation
   return 0;
 }
@@ -626,8 +626,8 @@ int advancedGroupItem(int g, int pos) {
     return 8;                                                 // Boot update (last)
   }
   if (g == 2) {
-    const int items[9] = {3, 4, 5, 6, 13, 14, 15, 9, 2};  // refilled, pause, warn, ask, power resume, resume mode, pause lift, exp test, dry run
-    if (pos >= 1 && pos <= 9) return items[pos - 1];
+    const int items[10] = {3, 4, 5, 16, 6, 13, 14, 15, 9, 2};  // refilled, stop chk, stop ml, warn ml, ask, power resume, resume mode, pause lift, exp test, dry run
+    if (pos >= 1 && pos <= 10) return items[pos - 1];
   }
   if (g == 3) {
     if (pos == 1) return 1;   // Idle timeout
@@ -644,8 +644,8 @@ String advancedLabel(int item) {
                                           // screen should sleep mid-print too
   if (item == 2) return "Dry run";
   if (item == 3) return "VAT refilled";
-  if (item == 4) return "Low resin pause";
-  if (item == 5) return "Low resin warn";
+  if (item == 4) return "Low resin stop";
+  if (item == 5) return "Stop (ml)";
   if (item == 6) return "Ask refill";
   if (item == 7) return "WiFi";
   if (item == 8) return "Boot update";
@@ -656,6 +656,7 @@ String advancedLabel(int item) {
   if (item == 13) return "Power resume"; // 0-34: power-loss resume on/off
   if (item == 14) return "Resume mode";  // 0.17 1-38b: Balanced vs Precise checkpoint cadence
   if (item == 15) return "Pause lift";   // 0.17 #82: pause plate-lift height for inspection
+  if (item == 16) return "Warn (ml)";    // 0.17 #40: low-resin WARN level
   return "";
 }
 
@@ -682,6 +683,7 @@ String advancedValue(int item) {
   if (item == 13) return resumeEnabled ? "On" : "Off";
   if (item == 14) return resumePrecise ? "Precise" : "Balanced";
   if (item == 15) return String(pauseLiftMm) + " mm";
+  if (item == 16) return String(lowResinWarnMl) + " ml";
   return "";
 }
 
@@ -802,6 +804,14 @@ void advancedOptionsSelect() {
   } else if (id == 15) {
     pauseLiftMm += 5;                  // 0.17 #82: cycle 20 -> 25 -> 30 -> 35 -> 40 -> 20
     if (pauseLiftMm > 40) pauseLiftMm = 20;
+  } else if (id == 16) {
+    // 0.17 #40: cycle warn level 3 -> 5 -> 8 -> 10 -> 12 -> 15 -> 3
+    if (lowResinWarnMl < 5) lowResinWarnMl = 5;
+    else if (lowResinWarnMl < 8) lowResinWarnMl = 8;
+    else if (lowResinWarnMl < 10) lowResinWarnMl = 10;
+    else if (lowResinWarnMl < 12) lowResinWarnMl = 12;
+    else if (lowResinWarnMl < 15) lowResinWarnMl = 15;
+    else lowResinWarnMl = 3;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK

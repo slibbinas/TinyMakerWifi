@@ -430,9 +430,15 @@ void freePreviewCache() {
   previewCacheModel = "";
 }
 
-void capturePreviewCache() {
+// slackBytes: contiguous-heap reserve required on top of the file size (print
+// start: 30 KB, plenty idle-ish; the mid-print re-capture after a notify uses
+// 16 KB - enough for the ~12 KB status-JSON String, the largest remaining
+// mid-print allocation). allowSdInit: print start may re-init a failed SD
+// (sdCardReady -> SD.begin); mid-print must not re-init the shared VSPI bus -
+// if the card errored, SD.open below just fails and the cache stays empty.
+void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   freePreviewCache();
-  if (!sdCardReady()) return;
+  if (allowSdInit && !sdCardReady()) return;
   String name = String(foldersel_long);
   if (!name.length()) return;
   // Same pick as the serve path below: the render matching the active layer
@@ -443,12 +449,13 @@ void capturePreviewCache() {
   if (!f) return;
   size_t sz = f.size();
   // No PSRAM on the WROOM: cap the snapshot and require slack in the largest
-  // free block. Calibrated on hardware: real renders are 66-74 KB and idle
-  // maxAllocHeap sits ~110 KB, so a bigger slack would silently reject every
-  // preview. 30 KB is safe: print loops only service plain HTTP (no TLS),
-  // and the end-of-print TLS notify runs after freePreviewCache(). Too big /
-  // too tight -> silently no cache, the endpoint answers 409 as before.
-  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + 30 * 1024) { f.close(); return; }
+  // free block (slackBytes, see above). Calibrated on hardware: real renders
+  // are 66-74 KB and idle maxAllocHeap sits ~110 KB, so a bigger print-start
+  // slack would silently reject every preview. Mid-print TLS notifies
+  // (low-resin warn/stop, 0.17 #40) free this cache before sending - see
+  // telegramNotify(). Too big / too tight -> silently no cache, the endpoint
+  // answers 409 as before.
+  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + slackBytes) { f.close(); return; }
   previewCacheBuf = (uint8_t *)malloc(sz);
   if (!previewCacheBuf) { f.close(); return; }
   size_t got = 0;
@@ -1350,6 +1357,8 @@ String configJson() {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"lowResinWarnMl\":";
+  out += String(lowResinWarnMl);
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
@@ -1428,6 +1437,7 @@ void applyConfigRequest() {
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
   lowResinPauseEnabled = server.hasArg("low_resin_pause");
   lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
+  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
   askRefillEnabled = server.hasArg("ask_refill");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");

@@ -119,8 +119,10 @@ bool selIsArchive = false;
 // estimate. -1 = never set; lazily seeded to Vat_Capacity_Ml (see vatRemaining()).
 float vatRemainingMl = -1;
 bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
-uint8_t lowResinThresholdMl = 2;    // warning threshold (ml, 1..3); also pre-start check
+uint8_t lowResinThresholdMl = 2;    // 0.17 #40: STOP level (ml, 1..3) - pause/stop trigger; also pre-start check
+uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 3..15) - warns (keeps printing), independent of the stop checkbox
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
+bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per print (re-armed on refill)
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
 bool askRefillEnabled = true;       // ask "VAT refilled?" before every print
@@ -277,6 +279,8 @@ void loadDeviceConfig() {
   lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
   if (lowResinThresholdMl < 1 || lowResinThresholdMl > 3)
     lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
+  lowResinWarnMl = sysPrefs.getUChar("lowResinWarn", 5);   // 0.17 #40: WARN level
+  if (lowResinWarnMl < 3 || lowResinWarnMl > 15) lowResinWarnMl = 5;
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   sysPrefs.end();
 }
@@ -318,6 +322,7 @@ void saveDeviceConfig() {
   sysPrefs.putString("dcWebhook", dcWebhook);
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
+  sysPrefs.putUChar("lowResinWarn", lowResinWarnMl);   // 0.17 #40
   sysPrefs.putBool("askRefill", askRefillEnabled);
   sysPrefs.end();
 }
@@ -416,6 +421,7 @@ void tgNotifyFinished();   // Telegram hooks (TinyMakerTelegram.ino, #if-guarded
 void tgNotifyLowResin();
 void tgNotifyCanceled();
 void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
+void tgNotifyLowResinSoon(float ml, int layers, int mins);   // 0.17 #40: pre-warn before low-resin stop
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -533,6 +539,7 @@ float vatRemaining() {
 void vatMarkRefilled() {
   vatRemainingMl = (float)Vat_Capacity_Ml;
   lowResinNotified = false;
+  lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn after a refill
   saveVatRemaining();
 }
 
@@ -676,6 +683,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"lowResinWarnMl\":";
+  out += String(lowResinWarnMl);
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -828,6 +837,7 @@ void applyConfigBackup(const String &j) {
   Vat_Capacity_Ml = backupClamp(backupNum(j, "vatMl", Vat_Capacity_Ml), 10, 40);
   lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
   lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
+  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 3, 15);
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
@@ -1793,6 +1803,7 @@ void loop() {
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
                                   // already low at start (user chose to print
                                   // anyway) - do not pause on the first layer
+        lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
         current_state = 0;
         current_layer = 0;
         Position_before_pause = 0;
@@ -1800,7 +1811,7 @@ void loop() {
         #if ENABLE_NETWORK
         // 0-19: snapshot the model preview into RAM while the SD is still
         // free - once the print loop owns the bus, browsers get this copy.
-        capturePreviewCache();
+        capturePreviewCache(30 * 1024, true);
         #endif
         // A print started from the web reaches here with the screen possibly
         // blanked by the UI timeout - and blanked it would stay: the wake
@@ -2074,6 +2085,29 @@ void loop() {
           
           if(current_layer == layer_counter)
             break;
+
+          #if ENABLE_NETWORK
+          // 0.17 #40 (V 08-08): low-resin WARNING level. Fire once when the vat
+          // drops to lowResinWarnMl, still ABOVE the stop level. Independent of
+          // the stop checkbox - the warning is always useful; the stop is separate.
+          // ml-based (not time): the vat is small (~15 ml) and per-layer use tiny,
+          // so a time trigger never fired for small models. Message carries a
+          // rough runway (~layers to stop, ~min) as context. Safe: motor idle here.
+          if (!lowResinPreWarned && !lowResinNotified && !print_paused && !print_canceled &&
+              vatRemainingMl <= (float)lowResinWarnMl && vatRemainingMl > (float)lowResinThresholdMl) {
+            lowResinPreWarned = true;
+            int preLayersLeft = 0, preMinsLeft = 0;
+            if (current_layer >= 5 && resinUsedMl > 0.0) {
+              double preRate = resinUsedMl / current_layer;               // ml per layer so far
+              if (preRate > 0.0) {
+                preLayersLeft = (int)((vatRemainingMl - (float)lowResinThresholdMl) / preRate);  // layers to stop
+                float preLayerSecs = printStartMs ? ((millis() - printStartMs) / 1000.0f) / current_layer : 0.0f;
+                preMinsLeft = (int)(preLayersLeft * preLayerSecs / 60.0f);
+              }
+            }
+            tgNotifyLowResinSoon(vatRemainingMl, preLayersLeft, preMinsLeft);
+          }
+          #endif
             
           // Low resin: pause between layers (reuses the normal pause flow).
           // Fires once per threshold crossing; "VAT refilled" re-arms it.
