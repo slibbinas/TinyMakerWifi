@@ -421,7 +421,7 @@ void tgNotifyFinished();   // Telegram hooks (TinyMakerTelegram.ino, #if-guarded
 void tgNotifyLowResin();
 void tgNotifyCanceled();
 void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
-void tgNotifyLowResinSoon(float ml, int layers, int mins);   // 0.17 #40: pre-warn before low-resin stop
+void tgNotifyLowResinSoon(float ml, int minsToStop);   // 0.17 #40: pre-warn before low-resin stop
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -2096,16 +2096,16 @@ void loop() {
           if (!lowResinPreWarned && !lowResinNotified && !print_paused && !print_canceled &&
               vatRemainingMl <= (float)lowResinWarnMl && vatRemainingMl > (float)lowResinThresholdMl) {
             lowResinPreWarned = true;
-            int preLayersLeft = 0, preMinsLeft = 0;
+            int preMinsLeft = 0;   // 0 = too early for a rate; the message omits it
             if (current_layer >= 5 && resinUsedMl > 0.0) {
               double preRate = resinUsedMl / current_layer;               // ml per layer so far
               if (preRate > 0.0) {
-                preLayersLeft = (int)((vatRemainingMl - (float)lowResinThresholdMl) / preRate);  // layers to stop
+                int preLayersLeft = (int)((vatRemainingMl - (float)lowResinThresholdMl) / preRate);  // layers to stop
                 float preLayerSecs = printStartMs ? ((millis() - printStartMs) / 1000.0f) / current_layer : 0.0f;
                 preMinsLeft = (int)(preLayersLeft * preLayerSecs / 60.0f);
               }
             }
-            tgNotifyLowResinSoon(vatRemainingMl, preLayersLeft, preMinsLeft);
+            tgNotifyLowResinSoon(vatRemainingMl, preMinsLeft);
           }
           #endif
             

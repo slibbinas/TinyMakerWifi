@@ -125,10 +125,15 @@ void tgNotifyLowResin() {
 
 // 0.17 #40: one-shot heads-up sent BEFORE the low-resin stop, from the print
 // loop at the idle between-layers gap, so a refill is not a surprise.
-void tgNotifyLowResinSoon(float ml, int layers, int mins) {
+// Progress as "layer x/y" (V 08-08 - the runway reads at a glance); the
+// minutes-to-stop estimate is appended only when a rate exists (fires
+// before layer 5 -> too early to know one; "(~0 layers, ~0 min)" was noise).
+void tgNotifyLowResinSoon(float ml, int minsToStop) {
   if (!tgEnabled && !waEnabled && !dcEnabled) return;
-  String msg = "Low resin soon - ~" + String(ml, 1) + " ml left (~" +
-               String(layers) + " layers, ~" + String(mins) + " min). Refill when you can.";
+  String msg = "Low resin soon - ~" + String(ml, 1) + " ml left (layer " +
+               String(current_layer) + "/" + String(layer_counter);
+  if (minsToStop > 0) msg += ", ~" + String(minsToStop) + " min to stop";
+  msg += "). Refill when you can.";
   telegramNotify(msg);
 }
 
