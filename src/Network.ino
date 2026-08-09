@@ -811,7 +811,7 @@ bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t 
 bool estimateModelResin(const String &name, int printLayers, double &ml) {
   if (printLayers <= 0) return false;
 
-  double volMm3 = 0.0;
+  double volMl = 0.0;
   countPixelsMode = true;
   estimateCancelReq = false;
 
@@ -826,11 +826,11 @@ bool estimateModelResin(const String &name, int printLayers, double &ml) {
       png.decode(NULL, 0);
       png.close();
     }
-    volMm3 += (double)whitePixelsAccum * 0.01626 * Layer_Height;
+    volMl += pxToMlRaw(whitePixelsAccum, Layer_Height);   // R-cal: shared formula (was a duplicated 0.01626)
   }
 
   countPixelsMode = false;
-  ml = volMm3 / 1000.0;
+  ml = volMl;          // RAW - the caller caches this and calibrates on read
   return true;
 }
 
@@ -1124,8 +1124,10 @@ void handleApiFileModel() {
   out += ",\"resinEstimated\":";
   out += resinOk ? "true" : "false";
   if (resinOk) {
+    // R-cal: `ml` (fresh or from model.json) is the RAW geometric estimate -
+    // calibrate on the way out, so re-calibrating refreshes cached models too.
     out += ",\"resinMl\":";
-    out += String(ml, 1);
+    out += String(ml * resinCalFactor + resinFixedMl, 1);
   }
 
   out += "}";
@@ -1359,6 +1361,18 @@ String configJson() {
   out += String(lowResinThresholdMl);
   out += ",\"lowResinWarnMl\":";
   out += String(lowResinWarnMl);
+  out += ",\"resinCalFactor\":";            // R-cal 0.17: slope
+  out += String(resinCalFactor, 3);
+  out += ",\"resinFixedMl\":";              // per-print plate film (ml)
+  out += String(resinFixedMl, 2);
+  out += ",\"resinDensity\":";
+  out += String(resinDensity, 3);
+  out += ",\"lastPrintRawMl\":";            // -1 = nothing to calibrate against yet
+  out += String(lastPrintRawMl, 2);
+  out += ",\"calSamples\":[";               // [{raw,measured}, ...] 0..2 entries
+  if (calRawA > 0) { out += "{\"raw\":" + String(calRawA, 2) + ",\"measured\":" + String(calMeasA, 2) + "}"; }
+  if (calRawB > 0) { if (calRawA > 0) out += ","; out += "{\"raw\":" + String(calRawB, 2) + ",\"measured\":" + String(calMeasB, 2) + "}"; }
+  out += "]";
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
@@ -1438,6 +1452,12 @@ void applyConfigRequest() {
   lowResinPauseEnabled = server.hasArg("low_resin_pause");
   lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
   lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
+  // R-cal: density is a measured property (weigh a known syringe volume), so it
+  // is a plain setting - not part of the print-weighing calibration.
+  if (server.hasArg("resin_density")) {
+    float d = server.arg("resin_density").toFloat();
+    if (d >= 0.8f && d <= 2.0f) resinDensity = d;
+  }
   askRefillEnabled = server.hasArg("ask_refill");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
@@ -1594,6 +1614,9 @@ void handleApiConfigRestoreSd() {
 
 void resetWebConfigToDefaults() {
   resetSettingsToDefault();
+  resinClearCalibration();   // R-cal: a stale factor would silently skew every
+                             // resin number after a "reset to defaults"
+  resinDensity = RESIN_DENSITY_DEF;
   uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
   uvLedEnabled = true;
   wifiEnabled = true;
@@ -1989,6 +2012,74 @@ void handleApiVatRefilled() {
   sendApiOk(out);
 }
 
+// R-cal (0.17): turn one weighed print into the white-pixel -> ml correction.
+// The user posts the GRAMS the scale measured (vat before minus vat after); the
+// factor is measured_ml / lastPrintRawMl, so it never compounds with the factor
+// already in force. Idle-only (rejectIfBusy) - it rewrites the number every
+// resin reading depends on, and lastPrintRawMl belongs to a FINISHED print.
+// "reset=1" restores the uncalibrated 1.0 without needing a print.
+void handleApiResinCalibrate() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+
+  if (server.arg("reset") == "1") {          // "reset=0" must NOT wipe it
+    resinClearCalibration();
+    saveDeviceConfig();
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"factor\":1.000,\"fixedMl\":0.00,\"reset\":true");
+    return;
+  }
+
+  if (!(lastPrintRawMl > 0)) {
+    sendApiError(409, "no finished print to calibrate against - print something first");
+    return;
+  }
+  float grams = server.hasArg("grams") ? server.arg("grams").toFloat() : 0.0f;
+  if (!(grams > 0.0f)) {
+    sendApiError(400, "grams must be a positive number");
+    return;
+  }
+
+  // The density box lives in the same card, so accept it here too - otherwise a
+  // freshly typed density is ignored until the user also saves the config form.
+  if (server.hasArg("density")) {
+    float d = server.arg("density").toFloat();
+    if (d >= 0.8f && d <= 2.0f) resinDensity = d;
+  }
+  float measuredMl = grams / resinDensity;
+  // A sample the model cannot explain at all (more than ~3x the geometry, or a
+  // fraction of it) is a mis-entry - reject before it enters the fit.
+  if (measuredMl < 0.2f * lastPrintRawMl || measuredMl > 3.0f * lastPrintRawMl + RESIN_FIXED_MAX) {
+    String e = "measured " + String(measuredMl, 2) + " ml vs an estimate of " +
+               String(lastPrintRawMl, 2) + " ml - too far apart; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  // Reject BEFORE storing: a sample the model cannot explain (implied slope
+  // outside 0.5-2.0) is a mis-entry. Letting it into a slot would keep poisoning
+  // later fits while the API still answered "ok".
+  float implied = (measuredMl - resinFixedMl) / lastPrintRawMl;
+  if (!(implied >= RESIN_CAL_MIN && implied <= RESIN_CAL_MAX)) {
+    String e = "that would mean a x" + String(implied, 2) +
+               " correction - outside the sane range; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  resinAddSample(lastPrintRawMl, measuredMl);
+  bool twoPoint = resinFitCalibration();
+  saveDeviceConfig();
+  tinymakerConnectScheduleBackup();
+  String out = "\"factor\":" + String(resinCalFactor, 3) +
+               ",\"fixedMl\":" + String(resinFixedMl, 2) +
+               ",\"twoPoint\":" + String(twoPoint ? "true" : "false") +
+               ",\"samples\":" + String((calRawA > 0 ? 1 : 0) + (calRawB > 0 ? 1 : 0)) +
+               ",\"estimatedMl\":" + String(lastPrintRawMl, 2) +
+               ",\"measuredMl\":" + String(measuredMl, 2);
+  sendApiOk(out);
+}
+
 // 0-33: remote answers to the boot resume prompt. All three only queue a
 // flag consumed by loop() at screen 427 - lift moves the motor, and motor
 // moves never run inside an HTTP handler. 409 once the prompt is gone (a
@@ -2239,7 +2330,10 @@ void handleApiStatus() {
   if (busy) {
     if (resinNeedForModelMl > 0) statusResinTotal = resinNeedForModelMl;
     else if (current_layer >= 3)
-      statusResinTotal = resinUsedMl / current_layer * layer_counter;
+      // R-cal: the plate-film offset is charged once at print start - project only
+      // the per-layer part, then add it back (dividing it blew the total up ~300x).
+      statusResinTotal = resinFixedMl +
+                         (resinUsedMl - resinFixedMl) / current_layer * layer_counter;
   }
   out += ",\"resinText\":\"";
   if (statusResinTotal > 0)
@@ -2261,7 +2355,11 @@ void handleApiStatus() {
   out += ",\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
   out += ",\"vatText\":\"";
-  out += String(vatRemaining(), 1) + " ml\",\"vatLow\":";
+  out += String(vatRemaining(), 1) + " ml\",\"vatGrams\":";
+  // R-cal: grams as their OWN field - vatText stays byte-identical for the demo
+  // shim and any older dashboard; the browser appends the grams itself.
+  out += String(vatRemaining() * resinDensity, 1);
+  out += ",\"vatLow\":";
   out += (vatRemaining() <= (float)lowResinThresholdMl) ? "true" : "false";
   // Heap/uptime instrumentation - the 1.0.0 stability yardstick.
   // minFreeHeap = lowest free heap since boot (leak detector);
@@ -3188,6 +3286,7 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);
   server.on("/api/update/install", HTTP_POST, handleApiUpdateInstall);
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);

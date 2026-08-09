@@ -64,6 +64,19 @@
 // files compiled before it (Interface.ino, TinyMaker.ino)
 extern double resinUsedMl;
 extern double resinEstimateMl;
+
+// --- Resin volume math (R-cal 0.17): ONE definition for the whole build ---
+// One masking-LCD pixel area: 40.8 x 30.6 mm / (320 x 240) = 0.01626 mm^2 (from
+// the PrusaSlicer TinyMaker profile). Volume = whitePixels * PX_AREA_MM2 *
+// layerHeight (mm) -> mm^3; /1000 -> ml.
+// This lived in PNG.ino, which is concatenated AFTER Network.ino - so
+// estimateModelResin() carried a duplicated bare 0.01626 literal. Declared here
+// (TinyMaker.ino is prepended first) every estimate site shares one formula,
+// which is also the single place the R-cal factor hooks into.
+#define PX_AREA_MM2 0.01626
+inline double pxToMlRaw(unsigned long px, float layerH) {
+  return (double)px * PX_AREA_MM2 * layerH / 1000.0;   // RAW - no calibration
+}
 bool estimateResin();               // returns true if user chose Start
 bool startFromResin = false;        // set when Start pressed on resin screen
 bool webStartPrint = false;         // set by the web SD manager after preview validation
@@ -130,6 +143,37 @@ bool refillAsked = false;           // the ask was answered for this start attem
 float resinNeedForModelMl = -1;     // fresh full-model estimate for the selected
                                     // model (-1 = none); set by the resin screen,
                                     // cleared when a new preview opens
+
+// --- R-cal (0.17): white-pixel -> ml correction measured against a scale ---
+// The geometric estimate ignores what really leaves the vat: resin clinging to
+// the plate, dripping off during the lift, cured supports, over-cure bloom. One
+// weighed print fixes all of it at once: factor = measured_ml / raw_estimate_ml.
+// Applied at every display/accumulation point (model.json keeps the RAW value,
+// so re-calibrating updates already-scanned models too).
+// Two physically different errors, so two numbers (V 08-09):
+//   used_ml = raw_geometric_ml * resinCalFactor + resinFixedMl
+// * resinCalFactor scales with the model - it corrects the GEOMETRY estimate
+//   (pixel area, layer height, over-cure bloom).
+// * resinFixedMl is per-print and size-independent - the film that coats the
+//   plate and drips off when it comes out. Multiplying it by the geometry
+//   correction would be meaningless, hence + and not *.
+// One weighed print cannot separate a slope from an offset, so calibration
+// keeps TWO samples of clearly different size and solves the line through them.
+#define RESIN_DENSITY_DEF 1.1f      // SUNLU spec 1.06-1.16; measurable, see below
+#define RESIN_CAL_MIN 0.5f
+#define RESIN_CAL_MAX 2.0f
+#define RESIN_FIXED_MAX 10.0f       // ml of plate film - more than this is a typo
+float resinCalFactor = 1.0f;        // NVS "resinCal"  - slope, 1.0 = uncalibrated
+float resinFixedMl   = 0.0f;        // NVS "resinFixed" - per-print offset (ml)
+float resinDensity   = RESIN_DENSITY_DEF;  // NVS "resinDens" - g/ml, weigh a
+                                    // known syringe volume to make grams exact
+// Calibration samples: A = the smaller print, B = the larger one (-1 = empty).
+// meas* are ml already converted from the grams the user weighed.
+float calRawA = -1, calMeasA = -1, calRawB = -1, calMeasB = -1;
+float calNewRaw = -1, calNewMeas = -1;   // RAM: the sample entered most recently
+float lastPrintRawMl = -1;          // NVS "lastPrintMl": RAW ml of the last print
+                                    // (-1 = none yet) - the calibration reference
+double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the factor
 
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
@@ -281,6 +325,22 @@ void loadDeviceConfig() {
     lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
   lowResinWarnMl = sysPrefs.getUChar("lowResinWarn", 5);   // 0.17 #40: WARN level
   if (lowResinWarnMl < 3 || lowResinWarnMl > 15) lowResinWarnMl = 5;
+  // R-cal: a corrupt/absurd factor would silently distort every resin number -
+  // clamp on load, exactly like the low-resin ranges above.
+  resinCalFactor = sysPrefs.getFloat("resinCal", 1.0f);
+  if (!(resinCalFactor >= RESIN_CAL_MIN && resinCalFactor <= RESIN_CAL_MAX))
+    resinCalFactor = 1.0f;          // also catches NaN
+  resinFixedMl = sysPrefs.getFloat("resinFixed", 0.0f);
+  if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
+  resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
+  if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
+  calRawA  = sysPrefs.getFloat("calRawA", -1);  calMeasA = sysPrefs.getFloat("calMeasA", -1);
+  calRawB  = sysPrefs.getFloat("calRawB", -1);  calMeasB = sysPrefs.getFloat("calMeasB", -1);
+  // A NaN here would print as a bare nan in /api/config and break the whole JSON.
+  if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
+  if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+  lastPrintRawMl = sysPrefs.getFloat("lastPrintMl", -1);
+  if (!(lastPrintRawMl > 0)) lastPrintRawMl = -1;   // NaN/garbage -> "no print yet"
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   sysPrefs.end();
 }
@@ -323,6 +383,11 @@ void saveDeviceConfig() {
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
   sysPrefs.putUChar("lowResinWarn", lowResinWarnMl);   // 0.17 #40
+  sysPrefs.putFloat("resinCal", resinCalFactor);       // R-cal 0.17
+  sysPrefs.putFloat("resinFixed", resinFixedMl);
+  sysPrefs.putFloat("resinDens", resinDensity);
+  sysPrefs.putFloat("calRawA", calRawA);   sysPrefs.putFloat("calMeasA", calMeasA);
+  sysPrefs.putFloat("calRawB", calRawB);   sysPrefs.putFloat("calMeasB", calMeasB);
   sysPrefs.putBool("askRefill", askRefillEnabled);
   sysPrefs.end();
 }
@@ -332,7 +397,101 @@ void saveDeviceConfig() {
 void saveVatRemaining() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putFloat("vatRemMl", vatRemainingMl);
+  // R-cal: the raw twin rides along on the same periodic checkpoint, so a
+  // resume restores it directly instead of dividing by whatever factor is in
+  // force now (which may differ from the one used before the power cut).
+  sysPrefs.putFloat("printRawMl", (float)resinUsedRawMl);
   sysPrefs.end();
+}
+
+// R-cal: remember what the printer THOUGHT this print used, uncalibrated. The
+// user weighs the vat before/after and posts the grams; the factor is then
+// simply measured_ml / lastPrintRawMl - no compounding with the current factor.
+// Written at the single print exit (finish, cancel and homing-abort all pass
+// there); a canceled print is still valid calibration data, since the scale and
+// the estimate describe the same partial print.
+void saveLastPrintRaw() {
+  if (!(resinUsedRawMl > 0.0)) return;      // nothing printed - keep the old one
+  if (!uvLedEnabled) return;                // dry run cures nothing: the scale
+                                            // would see ~0 g and poison the fit
+  lastPrintRawMl = (float)resinUsedRawMl;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
+  sysPrefs.end();
+}
+
+extern long Vat_Capacity_Ml;   // defined below with the EEPROM settings block
+
+// R-cal: fit used_ml = raw * factor + fixed through the two stored samples.
+// Needs them far enough apart, otherwise the slope is noise amplified by a tiny
+// denominator - then we keep the single-point meaning (offset stays, slope from
+// the newer sample). Returns true when a real two-point fit was applied.
+bool resinFitCalibration() {
+  bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
+  if (haveA && haveB) {
+    float dr = calRawB - calRawA;
+    if (dr >= 0.5f && dr >= 0.25f * calRawB) {          // clearly different sizes
+      float k = (calMeasB - calMeasA) / dr;
+      float f = calMeasA - k * calRawA;
+      if (f < 0) f = 0;                                  // negative film is nonsense
+      // An offset near the vat size would trip the low-resin stop before layer 1.
+      float fMax = RESIN_FIXED_MAX;
+      if (Vat_Capacity_Ml > 0 && Vat_Capacity_Ml / 4.0f < fMax) fMax = Vat_Capacity_Ml / 4.0f;
+      if (k >= RESIN_CAL_MIN && k <= RESIN_CAL_MAX && f <= fMax) {
+        resinCalFactor = k;
+        resinFixedMl = f;
+        return true;
+      }
+    }
+  }
+  // Single usable sample (or the pair was unusable): solve the slope alone and
+  // leave the offset as it is - the user can add a second, different-sized print.
+  float r = calNewRaw > 0 ? calNewRaw  : (haveB ? calRawB  : calRawA);   // newest wins
+  float m = calNewRaw > 0 ? calNewMeas : (haveB ? calMeasB : calMeasA);
+  if (r > 0 && m > 0) {
+    float k = (m - resinFixedMl) / r;
+    if (k >= RESIN_CAL_MIN && k <= RESIN_CAL_MAX) resinCalFactor = k;
+  }
+  return false;
+}
+
+// Store one weighed print. Of the three possible pairs (old A+B, A+new, new+B)
+// keep the one whose raw values are FURTHEST apart - separation is what makes a
+// two-point fit possible at all. (Refreshing "the nearest slot" instead would let
+// a run of medium-sized prints quietly collapse the pair back to one point.)
+void resinAddSample(float rawMl, float measMl) {
+  if (!(rawMl > 0 && measMl > 0)) return;
+  calNewRaw = rawMl; calNewMeas = measMl;      // newest, for the 1-sample fallback
+  bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
+  if (!haveA)      { calRawA = rawMl; calMeasA = measMl; }
+  else if (!haveB) { calRawB = rawMl; calMeasB = measMl; }
+  else if (fabsf(rawMl - calRawA) <= 0.10f * calRawA) { calRawA = rawMl; calMeasA = measMl; }
+  else if (fabsf(rawMl - calRawB) <= 0.10f * calRawB) { calRawB = rawMl; calMeasB = measMl; }
+  else {
+    // Neither slot is being re-measured, so keep whichever pair is WIDEST. A
+    // middling print that would narrow the pair is ignored on purpose: the spread
+    // is what makes a two-point fit possible, and a run of medium-sized prints
+    // must not quietly collapse it back to one point (verified by simulation).
+    float sAB = calRawB - calRawA;             // A < B is maintained at the end
+    float sAn = fabsf(rawMl - calRawA);
+    float sNb = fabsf(calRawB - rawMl);
+    if (sAn > sAB && sAn >= sNb)  { calRawB = rawMl; calMeasB = measMl; }   // beyond B
+    else if (sNb > sAB)           { calRawA = rawMl; calMeasA = measMl; }   // below A
+    // else: inside the existing span - dropped, the pair stays as wide as it was
+  }
+  // Order the pair only once BOTH slots hold a real sample: with an empty slot
+  // (-1) the comparison would swap the first sample into the empty one.
+  if (calRawA > 0 && calRawB > 0 && calRawA > calRawB) {
+    float tr = calRawA, tm = calMeasA;
+    calRawA = calRawB; calMeasA = calMeasB; calRawB = tr; calMeasB = tm;
+  }
+}
+
+void resinClearCalibration() {
+  resinCalFactor = 1.0f;
+  resinFixedMl = 0.0f;
+  calRawA = calMeasA = calRawB = calMeasB = -1;
+  calNewRaw = calNewMeas = -1;
 }
 
 // ---- Reset-reason telemetry (0-30) -----------------------------------------
@@ -685,6 +844,16 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += String(lowResinThresholdMl);
   out += ",\"lowResinWarnMl\":";
   out += String(lowResinWarnMl);
+  out += ",\"resinCalFactor\":";
+  out += String(resinCalFactor, 3);   // R-cal: 3 decimals - a rounded 1 would undo it
+  out += ",\"resinFixedMl\":";
+  out += String(resinFixedMl, 2);
+  out += ",\"resinDensity\":";
+  out += String(resinDensity, 3);
+  out += ",\"calRawA\":";   out += String(calRawA, 2);
+  out += ",\"calMeasA\":";  out += String(calMeasA, 2);
+  out += ",\"calRawB\":";   out += String(calRawB, 2);
+  out += ",\"calMeasB\":";  out += String(calMeasB, 2);
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -838,6 +1007,23 @@ void applyConfigBackup(const String &j) {
   lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
   lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
   lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 3, 15);
+  // R-cal: fractional - backupClamp() casts to long and would turn 1.35 into 1.
+  {
+    float cal = (float)backupNum(j, "resinCalFactor", resinCalFactor);
+    if (cal >= RESIN_CAL_MIN && cal <= RESIN_CAL_MAX) resinCalFactor = cal;
+    float fx = (float)backupNum(j, "resinFixedMl", resinFixedMl);
+    if (fx >= 0.0f && fx <= RESIN_FIXED_MAX) resinFixedMl = fx;
+    float dn = (float)backupNum(j, "resinDensity", resinDensity);
+    if (dn >= 0.8f && dn <= 2.0f) resinDensity = dn;
+    // Samples travel with the factor - otherwise a restored printer reports
+    // "not calibrated" and the next weighing starts the pair over.
+    calRawA  = (float)backupNum(j, "calRawA", calRawA);
+    calMeasA = (float)backupNum(j, "calMeasA", calMeasA);
+    calRawB  = (float)backupNum(j, "calRawB", calRawB);
+    calMeasB = (float)backupNum(j, "calMeasB", calMeasB);
+    if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
+    if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+  }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
@@ -1798,7 +1984,16 @@ void loop() {
         print_paused = false;
         print_canceled = false;
         webResumePrint = false;
-        resinUsedMl = 0.0;        // reset cured-resin counter for this print
+        // R-cal: the plate film leaves the vat with the very first lifts, so the
+        // per-print offset is charged up front - the VAT estimate (and #40 warn/
+        // stop) then errs on the safe side instead of discovering it at the end.
+        resinUsedMl = resinFixedMl;
+        resinUsedRawMl = 0.0;     // R-cal: GEOMETRY only - the calibration input
+        // ...and clear it in NVS too: the periodic checkpoint only runs every 25
+        // layers, so a cut before that would resume onto the previous run sum.
+        sysPrefs.begin("tinymaker", false);
+        sysPrefs.putFloat("printRawMl", 0.0f);
+        sysPrefs.end();
         resinSampledMl = 0.0;     // nothing subtracted from the VAT yet
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
                                   // already low at start (user chose to print
@@ -1838,6 +2033,12 @@ void loop() {
           } else {
             current_layer = resumeLayer;
             resinUsedMl = resumeResinMl;
+            // R-cal: the raw twin is checkpointed in NVS next to vatRemainingMl,
+            // so it survives the cut without depending on the factor in force now.
+            sysPrefs.begin("tinymaker", true);
+            resinUsedRawMl = sysPrefs.getFloat("printRawMl", 0.0f);
+            sysPrefs.end();
+            if (!(resinUsedRawMl > 0.0)) resinUsedRawMl = 0.0;
             resinSampledMl = resumeResinMl; // NVS vat bookkeeping continues
             printStartMs = millis() - resumeElapsedSecs * 1000UL;
             uvLedSessionMs = resumeUvLedSecs * 1000UL;
@@ -2097,8 +2298,11 @@ void loop() {
               vatRemainingMl <= (float)lowResinWarnMl && vatRemainingMl > (float)lowResinThresholdMl) {
             lowResinPreWarned = true;
             int preMinsLeft = 0;   // 0 = too early for a rate; the message omits it
-            if (current_layer >= 5 && resinUsedMl > 0.0) {
-              double preRate = resinUsedMl / current_layer;               // ml per layer so far
+            // R-cal: resinUsedMl carries the one-off plate-film offset - only the
+            // per-layer part may be divided by the layer count.
+            double preLayerMl = resinUsedMl - (double)resinFixedMl;
+            if (current_layer >= 5 && preLayerMl > 0.0) {
+              double preRate = preLayerMl / current_layer;                // ml per layer so far
               if (preRate > 0.0) {
                 int preLayersLeft = (int)((vatRemainingMl - (float)lowResinThresholdMl) / preRate);  // layers to stop
                 float preLayerSecs = printStartMs ? ((millis() - printStartMs) / 1000.0f) / current_layer : 0.0f;
@@ -2317,6 +2521,7 @@ void loop() {
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
+        saveLastPrintRaw();          // R-cal: this print is the calibration reference
         resumeClear();     // the checkpoint only outlives an unfinished print
         #if ENABLE_NETWORK
         freePreviewCache();          // 0-19: the RAM preview lives only for the print

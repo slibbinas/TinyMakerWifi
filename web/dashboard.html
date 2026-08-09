@@ -203,6 +203,18 @@
   </div>
   <button type='submit'>Save config</button>
   </div>
+  <div class='card'>
+  <h2>Resin calibration</h2>
+  <div class='hint'>Two different things are missing from the pixel estimate: the cured volume itself can be off (pixel size, over-cure), and every print leaves a <b>fixed</b> film on the plate that drips away. One weighing cannot tell them apart, so weigh <b>two prints of clearly different size</b> and the printer solves both.<br><b>Each time:</b> fill the VAT to your mark &rarr; print &rarr; refill to the same mark and weigh what you added (or weigh the VAT before/after) &rarr; enter the grams here.</div>
+  <div class='configGrid grid4'>
+    <label><span>Last print, estimated</span><input id='calLastRaw' type='text' readonly></label>
+    <label><span>Measured (g)</span><input id='calGrams' type='number' min='0.1' max='500' step='0.01' placeholder='e.g. 4.85'></label>
+    <label><span>Resin density (g/ml)<a href='#' class='qHelp' data-help='resin'>?</a></span><input name='resin_density' id='cfgResinDensity' type='number' min='0.8' max='2' step='0.001'></label>
+  </div>
+  <div id='calState' class='hint'></div>
+  <button id='calApplyButton' class='button' type='button'>Calculate &amp; save</button>
+  <button id='calResetButton' class='button secondary' type='button'>Reset to 1.00</button>
+  </div>
   </div>
   <div id='pane-network' class='cfgPane hidden'>
   <div class='card'>
@@ -917,7 +929,7 @@ const applyStatus=s=>{
     const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); if(!s.busy)setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime); tickLocalStatus();
-    setText('vatValue',s.vatLow?s.vatText+' (low!)':s.vatText); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
+    setText('vatValue',(s.vatGrams!==undefined?s.vatText+' (~'+s.vatGrams+' g)':s.vatText)+(s.vatLow?' (low!)':'')); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
@@ -1961,7 +1973,20 @@ const loadConfig=async()=>{
     show('undoRegExp',prevR>0&&prevR!==Number(c.regularExposure));
     $('undoRegExp').textContent='Undo ('+prevR+'s)';
     $('undoRegExp').dataset.v=prevR;
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl; $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl;
+    /* R-cal: lastPrintRawMl -1 = no finished print yet -> nothing to calibrate against */
+    {const raw=Number(c.lastPrintRawMl);const dens=Number(c.resinDensity)||1.1;
+     const f=Number(c.resinCalFactor)||1, fx=Number(c.resinFixedMl)||0, n=(c.calSamples||[]).length;
+     $('cfgResinDensity').value=dens.toFixed(3);
+     $('calLastRaw').value=raw>0?(raw.toFixed(2)+' ml (~'+(raw*dens).toFixed(1)+' g)'):'no print yet';
+     $('calApplyButton').disabled=!(raw>0);
+     let st;
+     if(n===0) st='<b>Not calibrated</b> - estimates are raw geometry. Weigh your next print to start.';
+     else if(n===1) st='<b>1 of 2 samples.</b> Correction x'+f.toFixed(3)+', plate film assumed '+fx.toFixed(2)+' ml. '+
+       'Weigh a print of a <b>clearly different size</b> to separate the film from the scaling.';
+     else st='<b>Calibrated from 2 prints:</b> cured volume x'+f.toFixed(3)+' + '+fx.toFixed(2)+' ml per print (plate film).';
+     if(n) st+=' <span style="opacity:.7">Samples: '+(c.calSamples||[]).map(x=>x.raw+'&rarr;'+x.measured+' ml').join(', ')+'</span>';
+     $('calState').innerHTML=st;} $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://connect.tinymakerwifi.com'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
@@ -2045,6 +2070,10 @@ $('cfgConnectAutoBackup').addEventListener('change',async()=>{
 $('connectBackupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/connect/backup',{cache:'no-store'});if(!r.ok){let j={};try{j=await r.json();}catch(e){}throw new Error(j.error||('backup failed (HTTP '+r.status+')'));}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-connect-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Connect backup downloaded.');}catch(e){msg(e.message,true);loadConfig();}});
 $('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
+/* Enter in the grams box must calibrate, not submit the surrounding config form */
+$('calGrams').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('calApplyButton').click();}});
+$('calApplyButton').addEventListener('click',async()=>{const g=Number($('calGrams').value);if(!(g>0)){msg('Enter the measured grams first.',true);return;}try{const r=await api('/api/resin/calibrate',{method:'POST',body:new URLSearchParams({grams:String(g),density:String(Number($('cfgResinDensity').value)||1.1)})});msg(r.twoPoint?('Calibrated from 2 prints: x'+Number(r.factor).toFixed(3)+' + '+Number(r.fixedMl).toFixed(2)+' ml per print.'):('Sample saved (x'+Number(r.factor).toFixed(3)+'). Weigh a differently sized print to separate the plate film.'));$('calGrams').value='';loadConfig();refreshStatus();refreshDashModelInfo();}catch(e){msg(e.message,true);}});
+$('calResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Drop the resin calibration and go back to the raw estimate (x1.00)?'))return;try{await api('/api/resin/calibrate',{method:'POST',body:new URLSearchParams({reset:'1'})});msg('Resin calibration reset.');loadConfig();refreshStatus();refreshDashModelInfo();}catch(e){msg(e.message,true);}});
 $('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});msg('TinyMaker Connect settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
 $('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
