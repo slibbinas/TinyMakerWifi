@@ -49,6 +49,11 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
       <option value="new" selected>new-midprint (0-27, ships)</option>
       <option value="hybrid">hybrid C (solid+silhouette)</option>
     </select></div>
+  <div class="f"><label>Orientacija</label>
+    <label style="font-weight:400;font-size:.85rem;display:flex;gap:6px;align-items:center">
+      <input type="checkbox" id="flip"> apversta (kaip spausdina)</label>
+    <label style="font-weight:400;font-size:.85rem;display:flex;gap:6px;align-items:center">
+      <input type="checkbox" id="cam"> kamera is apacios</label></div>
   <div class="f grow"><label>Progress <span class="big" id="pct">60%</span> · layer <span id="lay">641</span>/<span id="tot">1069</span></label>
     <input type="range" id="sld" min="0" max="1000" value="600" aria-label="Progress"></div>
   <button id="play">▶ Play</button>
@@ -58,7 +63,11 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
 
 <script>
 const PREV_W=720,PREV_H=440,PREV_S=4.7,PREV_CX=360,PREV_CY=286;
-const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
+let CAM=-1;   // -1 = kamera is virsaus (kaip dabar), +1 = is apacios
+// CAM=+1 (is apacios) pastumia visa modeli zemyn per modelH*0.8*S - kompensuojam,
+// kad butu lyginami TIE PATYS kadrai, o ne skirtingos vietos drobeje.
+const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,
+  Y:PREV_CY+(x+y)*0.35*PREV_S+CAM*z*0.8*PREV_S-(CAM>0?modelH*0.8*PREV_S:0)});
 const MX=40.8,MY=30.6,gw=80,gh=60;
 let modelH=40,N=36,LAYERS=1069;   // mutable: a loaded real model overrides these
 let slices=[];
@@ -93,7 +102,22 @@ function solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz){
 function render(ctx,doneFrac,mode){
   drawBox(ctx);const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2,step=1/Math.max(N-1,1);
   const asSolid = mode==='prev' || ((mode==='new'||mode==='hybrid'||mode==='old')&&doneFrac>=1);
-  for(let k=0;k<N;k++){const t=k/(N-1),z=t*modelH,s=slices[k],up=slices[k+1];
+  // Apversta = kaip printeris i tikruju spausdina: pirmas sluoksnis prilipes prie
+  // plokstes VIRSUJE, modelis auga ZEMYN. Trys dalykai keiciasi kartu:
+  //  z    -> (1-t): sluoksnis 0 atsiduria virsuje;
+  //  up   -> slices[k-1]: kaimynas AUKSCIAU realioje z dabar yra ankstesnis;
+  //  eile -> k mazejant, kad piesimas ir toliau eitu is apacios i virsu (painter).
+  const flip=document.getElementById("flip").checked;
+  const below=document.getElementById("cam").checked; CAM=below?1:-1;
+  // Painter: visada piesiam nuo TOLIMIAUSIO link artimiausio. Kamerai is virsaus
+  // toliausias yra zemiausias z; is apacios - aukstriausias. Matoma sienele +z/-z
+  // taip pat apsiverčia, tad "up" kaimynas renkamas pagal kamera.
+  for(let n=0;n<N;n++){
+    let k=flip?(N-1-n):n;              // n auga => realus z auga
+    if(below) k=flip?n:(N-1-n);        // is apacios piesiam prieinga tvarka
+    const t=k/(N-1),z=(flip?(1-t):t)*modelH,s=slices[k];
+    const upIdx=(flip?-1:1)*(below?-1:1);
+    const up=slices[k+upIdx];
     for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){if(!s[j*gw+i])continue;
       const fTop=!up||!up[j*gw+i],fRight=i===gw-1||!s[j*gw+i+1],fLeft=j===gh-1||!s[(j+1)*gw+i];
       if(!(fTop||fRight||fLeft))continue;
@@ -118,6 +142,7 @@ document.getElementById('tot').textContent=LAYERS;
 function paint(){const f=sld.value/1000,m=modeSel.value,df=(m==='prev'||m==='pnew')?1:f;
   render(ctx,df,m);document.getElementById('pct').textContent=Math.round(f*100)+'%';document.getElementById('lay').textContent=Math.round(f*LAYERS);}
 [sld,modeSel].forEach(el=>el.addEventListener('input',paint));
+document.getElementById('flip').addEventListener('change',paint);
 modelSel.addEventListener('change',()=>{if(modelSel.value!=='real'){build(modelSel.value);paint();}});
 // Load a real model's slices (scripts/dev/fetch_model_slices.py output). File
 // input, not fetch: a file:// page can't fetch a sibling JSON (CORS).
