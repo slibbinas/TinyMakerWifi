@@ -55,6 +55,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `previewCached` | the active model's preview PNG is held in RAM and fetchable mid-print (0-19) |
 | `resinUsedMl`, `resinText`, `runSecs/Time`, `remainingSecs/Time` | consumption + timing |
 | `vatRemainingMl`, `vatText`, `vatLow` | resin-in-VAT estimate + low flag |
+| `vatGrams` | the same estimate in grams, using the configured resin density (R-cal, 0.17). `vatText` deliberately stays ml-only so older clients render unchanged |
 | `webControl`, `askRefill` | runtime toggles |
 | `sdRev` | SD content revision — bumps on any out-of-band SD change (upload/delete/boot-anim); a client reloads its file list when this changes (0-28) |
 | `freeHeap`, `minFreeHeap`, `maxAllocHeap`, `uptimeSecs` | runtime diagnostics (heap + uptime) |
@@ -84,6 +85,33 @@ retries with `action`.
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags) |
 | `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |
+| `/api/resin/calibrate` | POST | R-cal (0.17): teach the printer what a print really costs. `slot=1\|2&raw=<ml>&grams=<g>` writes ONE named sample (`clear=1` empties it); `grams=` alone records against the last finished print; `density=<g/ml>` alone stores a measured density and re-fits both samples; `reset=1` clears everything but the density. Idle-only (409 while printing), 400 when the numbers cannot match the estimate. Returns `{factor, fixedMl, twoPoint, ...}` |
+
+### Resin calibration model (0.17)
+
+The pixel estimate misses two independent things, so the firmware keeps two numbers:
+
+```
+used_ml = raw_geometric_ml * resinCalFactor + resinFixedMl
+```
+
+`resinCalFactor` scales with the model (pixel area, layer height, over-cure); `resinFixedMl`
+is the per-print film left on the plate, which does not scale. A single weighed print cannot
+separate a slope from an offset, so `/api/resin/calibrate` keeps up to two samples of clearly
+different size and solves the line through them (`twoPoint:true`). With one sample only the
+slope is fitted and the offset is left as it is.
+
+`model.json` caches the **raw** geometric estimate, never the calibrated one — re-calibrating
+therefore refreshes already-scanned models without re-decoding a single PNG.
+
+`/api/config` exposes `resinCalFactor`, `resinFixedMl`, `resinDensity`, `lastPrintRawMl`
+(-1 = no finished print yet), `calTwoPoint` (whether a real two-point fit is in force) and
+`calSamples[] = [{slot, raw, grams, ml}]` — samples are stored in **grams** (what the scale
+showed); `ml` is derived with the current density, so changing the density re-fits both.
+Backups carry `calUnit:1` to mark the grams era; older files restore safely.
+
+`/api/status` additionally reports `endstop` (the raw optical Z sensor reading) — added for
+homing diagnostics.
 
 ## Settings, backup, restore
 

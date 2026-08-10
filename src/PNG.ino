@@ -1,9 +1,8 @@
 // Open file for PNG library
 // --- Resin volume estimation (white pixels = cured resin) ---
-// One masking-LCD pixel area: 40.8 x 30.6 mm / (320 x 240) = 0.01626 mm^2
-// (from the PrusaSlicer TinyMaker profile). Volume per layer =
-// whitePixels * PX_AREA_MM2 * layerHeight (mm) -> mm^3; /1000 -> ml.
-#define PX_AREA_MM2 0.01626
+// PX_AREA_MM2 and pxToMlRaw() now live in TinyMaker.ino (R-cal 0.17): it is
+// concatenated first, so Network.ino's estimate can share the same formula
+// instead of repeating the bare constant.
 unsigned long whitePixelsAccum = 0;   // reused for both counting passes
 bool countPixelsMode = false;         // true = PNGDraw also counts white px
 bool estimateCancelReq = false;       // Back pressed during the estimate scan
@@ -196,8 +195,14 @@ void print_next_png(){
     liveNextLayer = liveNextK < liveN ? liveSampleLayer(liveNextK) : 0;
   }
 #endif
-  // Accumulate cured-resin volume for this layer (ml)
-  resinUsedMl += (double)whitePixelsAccum * PX_AREA_MM2 * Layer_Height / 1000.0;
+  // Accumulate cured-resin volume for this layer (ml). R-cal: resinUsedMl is
+  // the CALIBRATED number every screen/VAT/low-resin check uses; the raw twin
+  // keeps the geometric value so the next calibration does not compound.
+  {
+    double rawMl = pxToMlRaw(whitePixelsAccum, Layer_Height);
+    resinUsedRawMl += rawMl;
+    resinUsedMl    += rawMl * resinCalFactor;
+  }
   //entry.close();
   delay(50);  
 }
@@ -248,14 +253,18 @@ bool showResinEstimateResult() {
 bool estimateResin(){
   double cachedMl = 0;
   if (getModelMetadataResin(String(foldersel_long), cachedMl)) {
-    resinEstimateMl = cachedMl;
+    // model.json holds the RAW geometric estimate on purpose: re-calibrating
+    // then fixes every already-scanned model without re-decoding a PNG. (A value
+    // shared in from another printer is the same geometric estimate, so our
+    // resin/plate correction applies to it too.)
+    resinEstimateMl = cachedMl * resinCalFactor + resinFixedMl;
     return showResinEstimateResult();
   }
 
   netProgressStart("Estimating resin ml", "");
 
   int total = layer_counter;              // already halved for 0.1 mm by screen111
-  double volMm3 = 0.0;
+  double volMl = 0.0;
   countPixelsMode = true;                 // PNGDraw counts, does not draw
   estimateCancelReq = false;
 
@@ -276,7 +285,7 @@ bool estimateResin(){
       png.decode(NULL, 0);
       png.close();
     }
-    volMm3 += (double)whitePixelsAccum * PX_AREA_MM2 * Layer_Height;
+    volMl += pxToMlRaw(whitePixelsAccum, Layer_Height);
     // progress bar + percent
     int w = (int)(136L * layer / total);
     gfx2->fillRect(12, 50, w, 12, ORANGE);
@@ -287,7 +296,7 @@ bool estimateResin(){
   }
 
   countPixelsMode = false;
-  resinEstimateMl = volMm3 / 1000.0;
-  setModelMetadataResin(String(foldersel_long), resinEstimateMl);
+  setModelMetadataResin(String(foldersel_long), volMl);   // cache the RAW value
+  resinEstimateMl = volMl * resinCalFactor + resinFixedMl;  // show the calibrated one
   return showResinEstimateResult();
 }

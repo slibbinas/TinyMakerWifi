@@ -811,7 +811,7 @@ bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t 
 bool estimateModelResin(const String &name, int printLayers, double &ml) {
   if (printLayers <= 0) return false;
 
-  double volMm3 = 0.0;
+  double volMl = 0.0;
   countPixelsMode = true;
   estimateCancelReq = false;
 
@@ -826,11 +826,11 @@ bool estimateModelResin(const String &name, int printLayers, double &ml) {
       png.decode(NULL, 0);
       png.close();
     }
-    volMm3 += (double)whitePixelsAccum * 0.01626 * Layer_Height;
+    volMl += pxToMlRaw(whitePixelsAccum, Layer_Height);   // R-cal: shared formula (was a duplicated 0.01626)
   }
 
   countPixelsMode = false;
-  ml = volMm3 / 1000.0;
+  ml = volMl;          // RAW - the caller caches this and calibrates on read
   return true;
 }
 
@@ -1124,8 +1124,10 @@ void handleApiFileModel() {
   out += ",\"resinEstimated\":";
   out += resinOk ? "true" : "false";
   if (resinOk) {
+    // R-cal: `ml` (fresh or from model.json) is the RAW geometric estimate -
+    // calibrate on the way out, so re-calibrating refreshes cached models too.
     out += ",\"resinMl\":";
-    out += String(ml, 1);
+    out += String(ml * resinCalFactor + resinFixedMl, 1);
   }
 
   out += "}";
@@ -1359,6 +1361,30 @@ String configJson() {
   out += String(lowResinThresholdMl);
   out += ",\"lowResinWarnMl\":";
   out += String(lowResinWarnMl);
+  out += ",\"resinCalFactor\":";            // R-cal 0.17: slope
+  out += String(resinCalFactor, 3);
+  out += ",\"resinFixedMl\":";              // per-print plate film (ml)
+  out += String(resinFixedMl, 2);
+  out += ",\"resinDensity\":";
+  out += String(resinDensity, 3);
+  out += ",\"lastPrintRawMl\":";            // -1 = nothing to calibrate against yet
+  out += String(lastPrintRawMl, 2);
+  {
+    // Mirror of the fit gate in resinFitCalibration(): the UI must not say
+    // "calibrated" when two samples exist but sit too close for a real fit.
+    float lo = calRawA < calRawB ? calRawA : calRawB;
+    float hi = calRawA < calRawB ? calRawB : calRawA;
+    bool two = calRawA > 0 && calMeasA > 0 && calRawB > 0 && calMeasB > 0 &&
+               (hi - lo) >= 0.5f && (hi - lo) >= 0.25f * hi;
+    out += ",\"calTwoPoint\":";
+    out += two ? "true" : "false";
+  }
+  out += ",\"calSamples\":[";               // [{raw,measured}, ...] 0..2 entries
+  if (calRawA > 0) { out += "{\"slot\":1,\"raw\":" + String(calRawA, 2) + ",\"grams\":" + String(calMeasA, 2) +
+                            ",\"ml\":" + String(calMeasA / resinDensity, 2) + "}"; }
+  if (calRawB > 0) { if (calRawA > 0) out += ","; out += "{\"slot\":2,\"raw\":" + String(calRawB, 2) + ",\"grams\":" + String(calMeasB, 2) +
+                            ",\"ml\":" + String(calMeasB / resinDensity, 2) + "}"; }
+  out += "]";
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
@@ -1438,6 +1464,15 @@ void applyConfigRequest() {
   lowResinPauseEnabled = server.hasArg("low_resin_pause");
   lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
   lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
+  // R-cal: density is a measured property (weigh a known syringe volume), so it
+  // is a plain setting - not part of the print-weighing calibration.
+  if (server.hasArg("resin_density")) {
+    float d = server.arg("resin_density").toFloat();
+    if (d >= 0.8f && d <= 2.0f && d != resinDensity) {
+      resinDensity = d;
+      resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
+    }
+  }
   askRefillEnabled = server.hasArg("ask_refill");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
@@ -1594,6 +1629,9 @@ void handleApiConfigRestoreSd() {
 
 void resetWebConfigToDefaults() {
   resetSettingsToDefault();
+  resinClearCalibration();   // R-cal: a stale factor would silently skew every
+                             // resin number after a "reset to defaults"
+  resinDensity = RESIN_DENSITY_DEF;
   uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
   uvLedEnabled = true;
   wifiEnabled = true;
@@ -1989,6 +2027,151 @@ void handleApiVatRefilled() {
   sendApiOk(out);
 }
 
+// R-cal (0.17): turn one weighed print into the white-pixel -> ml correction.
+// The user posts the GRAMS the scale measured (vat before minus vat after); the
+// factor is measured_ml / lastPrintRawMl, so it never compounds with the factor
+// already in force. Idle-only (rejectIfBusy) - it rewrites the number every
+// resin reading depends on, and lastPrintRawMl belongs to a FINISHED print.
+// "reset=1" restores the uncalibrated 1.0 without needing a print.
+void handleApiResinCalibrate() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+
+  if (server.arg("reset") == "1") {          // "reset=0" must NOT wipe it
+    resinClearCalibration();
+    saveDeviceConfig();
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"factor\":1.000,\"fixedMl\":0.00,\"reset\":true");
+    return;
+  }
+
+  // Explicit slot: the dashboard has two equal sample rows, so it says WHICH one
+  // it is writing. No guessing - resinAddSample's "keep the widest pair" logic
+  // only makes sense when the printer picks the slot itself.
+  if (server.hasArg("slot")) {
+    int slot = server.arg("slot").toInt();
+    if (slot != 1 && slot != 2) { sendApiError(400, "slot must be 1 or 2"); return; }
+    bool clear = server.arg("clear") == "1";
+    float raw = server.arg("raw").toFloat();
+    float g   = server.arg("grams").toFloat();
+    if (!clear) {
+      if (!(raw > 0.05f && raw < 500.0f)) {
+        sendApiError(400, "estimate must be a positive number of ml");
+        return;
+      }
+      if (!(g > 0.0f && g < 5000.0f)) {
+        sendApiError(400, "grams must be a positive number");
+        return;
+      }
+      // A sample the geometry cannot explain at all is a mis-entry - catch it
+      // before it enters a slot, exactly like the auto path does.
+      float ml = g / resinDensity;
+      if (ml < 0.2f * raw || ml > 3.0f * raw + RESIN_FIXED_MAX) {
+        String e = "measured " + String(ml, 2) + " ml vs an estimate of " +
+                   String(raw, 2) + " ml - too far apart; check the numbers";
+        sendApiError(400, e.c_str());
+        return;
+      }
+      // Same implied-slope gate as the non-slot path: a sample no fit could
+      // ever accept must not slip into a slot silently (auditor find, 08-11).
+      float implied = (ml - resinFixedMl) / raw;
+      if (!(implied >= RESIN_CAL_MIN && implied <= RESIN_CAL_MAX)) {
+        String e = "that would mean a x" + String(implied, 2) +
+                   " correction - outside the sane range; check the numbers";
+        sendApiError(400, e.c_str());
+        return;
+      }
+    }
+    resinSetSample(slot, clear ? -1 : raw, clear ? -1 : g);
+    bool two = calRawA > 0 && calMeasA > 0 && calRawB > 0 && calMeasB > 0;
+    saveDeviceConfig();
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"factor\":" + String(resinCalFactor, 3) +
+              ",\"fixedMl\":" + String(resinFixedMl, 2) +
+              ",\"twoPoint\":" + String(two ? "true" : "false") +
+              ",\"slot\":" + String(slot) +
+              ",\"cleared\":" + String(clear ? "true" : "false"));
+    return;
+  }
+
+  // Density alone: the user weighed a known volume (vat to its marker, or a
+  // syringe). It is a measurement, not a sample - it takes no print, so it is
+  // answered before the "needs a finished print" gate below.
+  if (server.hasArg("density") && !server.hasArg("grams")) {
+    float d = server.arg("density").toFloat();
+    if (!(d >= 0.8f && d <= 2.0f)) {
+      sendApiError(400, "density must be between 0.8 and 2.0 g/ml");
+      return;
+    }
+    resinDensity = d;
+    resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
+    saveDeviceConfig();
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"density\":" + String(resinDensity, 3) +
+              ",\"factor\":" + String(resinCalFactor, 3) +
+              ",\"fixedMl\":" + String(resinFixedMl, 2));
+    return;
+  }
+
+  // `raw` = the estimate this sample belongs to. Normally it is the last
+  // print, still in memory; passing it explicitly lets an older measurement
+  // be re-entered (the printer only ever remembers the LAST estimate, so
+  // without this a cleared or superseded sample was gone for good).
+  float rawMl = server.hasArg("raw") ? server.arg("raw").toFloat() : lastPrintRawMl;
+  if (server.hasArg("raw") && !(rawMl > 0.05f && rawMl < 500.0f)) {
+    sendApiError(400, "estimate must be a positive number of ml");
+    return;
+  }
+  if (!(rawMl > 0)) {
+    sendApiError(409, "no finished print to calibrate against - print something first");
+    return;
+  }
+  float grams = server.hasArg("grams") ? server.arg("grams").toFloat() : 0.0f;
+  if (!(grams > 0.0f)) {
+    sendApiError(400, "grams must be a positive number");
+    return;
+  }
+
+  // The density box lives in the same card, so accept it here too - otherwise a
+  // freshly typed density is ignored until the user also saves the config form.
+  if (server.hasArg("density")) {
+    float d = server.arg("density").toFloat();
+    if (d >= 0.8f && d <= 2.0f) resinDensity = d;   // fitas vyksta cia pat, zemiau
+  }
+  float measuredMl = grams / resinDensity;
+  // A sample the model cannot explain at all (more than ~3x the geometry, or a
+  // fraction of it) is a mis-entry - reject before it enters the fit.
+  if (measuredMl < 0.2f * rawMl || measuredMl > 3.0f * rawMl + RESIN_FIXED_MAX) {
+    String e = "measured " + String(measuredMl, 2) + " ml vs an estimate of " +
+               String(rawMl, 2) + " ml - too far apart; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  // Reject BEFORE storing: a sample the model cannot explain (implied slope
+  // outside 0.5-2.0) is a mis-entry. Letting it into a slot would keep poisoning
+  // later fits while the API still answered "ok".
+  float implied = (measuredMl - resinFixedMl) / rawMl;
+  if (!(implied >= RESIN_CAL_MIN && implied <= RESIN_CAL_MAX)) {
+    String e = "that would mean a x" + String(implied, 2) +
+               " correction - outside the sane range; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  resinAddSample(rawMl, grams);            // slotuose - GRAMAI (zr. TinyMaker.ino)
+  bool twoPoint = resinFitCalibration();
+  saveDeviceConfig();
+  tinymakerConnectScheduleBackup();
+  String out = "\"factor\":" + String(resinCalFactor, 3) +
+               ",\"fixedMl\":" + String(resinFixedMl, 2) +
+               ",\"twoPoint\":" + String(twoPoint ? "true" : "false") +
+               ",\"samples\":" + String((calRawA > 0 ? 1 : 0) + (calRawB > 0 ? 1 : 0)) +
+               ",\"estimatedMl\":" + String(rawMl, 2) +
+               ",\"measuredMl\":" + String(measuredMl, 2);
+  sendApiOk(out);
+}
+
 // 0-33: remote answers to the boot resume prompt. All three only queue a
 // flag consumed by loop() at screen 427 - lift moves the motor, and motor
 // moves never run inside an HTTP handler. 409 once the prompt is gone (a
@@ -2239,7 +2422,10 @@ void handleApiStatus() {
   if (busy) {
     if (resinNeedForModelMl > 0) statusResinTotal = resinNeedForModelMl;
     else if (current_layer >= 3)
-      statusResinTotal = resinUsedMl / current_layer * layer_counter;
+      // R-cal: the plate-film offset is charged once at print start - project only
+      // the per-layer part, then add it back (dividing it blew the total up ~300x).
+      statusResinTotal = resinFixedMl +
+                         (resinUsedMl - resinFixedMl) / current_layer * layer_counter;
   }
   out += ",\"resinText\":\"";
   if (statusResinTotal > 0)
@@ -2261,7 +2447,11 @@ void handleApiStatus() {
   out += ",\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
   out += ",\"vatText\":\"";
-  out += String(vatRemaining(), 1) + " ml\",\"vatLow\":";
+  out += String(vatRemaining(), 1) + " ml\",\"vatGrams\":";
+  // R-cal: grams as their OWN field - vatText stays byte-identical for the demo
+  // shim and any older dashboard; the browser appends the grams itself.
+  out += String(vatRemaining() * resinDensity, 1);
+  out += ",\"vatLow\":";
   out += (vatRemaining() <= (float)lowResinThresholdMl) ? "true" : "false";
   // Heap/uptime instrumentation - the 1.0.0 stability yardstick.
   // minFreeHeap = lowest free heap since boot (leak detector);
@@ -2272,6 +2462,12 @@ void handleApiStatus() {
   out += String(ESP.getMinFreeHeap());
   out += ",\"maxAllocHeap\":";
   out += String(ESP.getMaxAllocHeap());
+  // Z endstop as the printer sees it RIGHT NOW. The sensor is optical, and a
+  // homing run ends only when this reads true - so when homing fails, this one
+  // field says whether the sensor ever reported "home" (stray light / wiring)
+  // or whether the carriage lost steps. Readable without moving anything.
+  out += ",\"endstop\":";
+  out += digitalRead(end_stop) ? "true" : "false";
   out += ",\"uptimeSecs\":";
   out += String(millis() / 1000UL);
   out += "}";
@@ -3188,6 +3384,7 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);
   server.on("/api/update/install", HTTP_POST, handleApiUpdateInstall);
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
