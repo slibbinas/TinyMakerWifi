@@ -85,7 +85,7 @@ retries with `action`.
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags) |
 | `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |
-| `/api/resin/calibrate` | POST | R-cal (0.17): teach the printer what a print really costs. Body `grams=<measured>` records one sample against the last finished print’s raw estimate; `reset=1` clears the calibration. Idle-only (409 while printing), 409 when no finished print exists, 400 when the grams cannot match the estimate. Returns `{factor, fixedMl, twoPoint, samples, estimatedMl, measuredMl}` |
+| `/api/resin/calibrate` | POST | R-cal (0.17): teach the printer what a print really costs. `slot=1\|2&raw=<ml>&grams=<g>` writes ONE named sample (`clear=1` empties it); `grams=` alone records against the last finished print; `density=<g/ml>` alone stores a measured density and re-fits both samples; `reset=1` clears everything but the density. Idle-only (409 while printing), 400 when the numbers cannot match the estimate. Returns `{factor, fixedMl, twoPoint, ...}` |
 
 ### Resin calibration model (0.17)
 
@@ -105,8 +105,13 @@ slope is fitted and the offset is left as it is.
 therefore refreshes already-scanned models without re-decoding a single PNG.
 
 `/api/config` exposes `resinCalFactor`, `resinFixedMl`, `resinDensity`, `lastPrintRawMl`
-(-1 = no finished print yet) and `calSamples[] = [{raw, measured}]`. `resin_density` (g/ml) is a
-plain config field — weigh a known syringe volume to make the gram readings exact.
+(-1 = no finished print yet), `calTwoPoint` (whether a real two-point fit is in force) and
+`calSamples[] = [{slot, raw, grams, ml}]` — samples are stored in **grams** (what the scale
+showed); `ml` is derived with the current density, so changing the density re-fits both.
+Backups carry `calUnit:1` to mark the grams era; older files restore safely.
+
+`/api/status` additionally reports `endstop` (the raw optical Z sensor reading) — added for
+homing diagnostics.
 
 ## Settings, backup, restore
 

@@ -168,7 +168,10 @@ float resinFixedMl   = 0.0f;        // NVS "resinFixed" - per-print offset (ml)
 float resinDensity   = RESIN_DENSITY_DEF;  // NVS "resinDens" - g/ml, weigh a
                                     // known syringe volume to make grams exact
 // Calibration samples: A = the smaller print, B = the larger one (-1 = empty).
-// meas* are ml already converted from the grams the user weighed.
+// calMeas* hold the GRAMS the scale showed - not ml. Grams are what was actually
+// measured; ml is derived. Storing ml froze each sample to the density in force at
+// entry, so editing the density between the two prints silently mixed bases (V
+// found this 08-09). With grams, a density change simply re-fits both points.
 float calRawA = -1, calMeasA = -1, calRawB = -1, calMeasB = -1;
 float calNewRaw = -1, calNewMeas = -1;   // RAM: the sample entered most recently
 float lastPrintRawMl = -1;          // NVS "lastPrintMl": RAW ml of the last print
@@ -339,6 +342,17 @@ void loadDeviceConfig() {
   // A NaN here would print as a bare nan in /api/config and break the whole JSON.
   if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
   if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+  // One-time migration: samples used to be stored in ml. Converting is exact -
+  // those ml were produced by dividing the very same grams by this same density.
+  if (sysPrefs.getUChar("calUnit", 0) != 1) {
+    if (calMeasA > 0) calMeasA *= resinDensity;
+    if (calMeasB > 0) calMeasB *= resinDensity;
+    sysPrefs.end();
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putFloat("calMeasA", calMeasA);
+    sysPrefs.putFloat("calMeasB", calMeasB);
+    sysPrefs.putUChar("calUnit", 1);   // 1 = grams
+  }
   lastPrintRawMl = sysPrefs.getFloat("lastPrintMl", -1);
   if (!(lastPrintRawMl > 0)) lastPrintRawMl = -1;   // NaN/garbage -> "no print yet"
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
@@ -388,6 +402,7 @@ void saveDeviceConfig() {
   sysPrefs.putFloat("resinDens", resinDensity);
   sysPrefs.putFloat("calRawA", calRawA);   sysPrefs.putFloat("calMeasA", calMeasA);
   sysPrefs.putFloat("calRawB", calRawB);   sysPrefs.putFloat("calMeasB", calMeasB);
+  sysPrefs.putUChar("calUnit", 1);         // calMeas* = grams
   sysPrefs.putBool("askRefill", askRefillEnabled);
   sysPrefs.end();
 }
@@ -400,7 +415,10 @@ void saveVatRemaining() {
   // R-cal: the raw twin rides along on the same periodic checkpoint, so a
   // resume restores it directly instead of dividing by whatever factor is in
   // force now (which may differ from the one used before the power cut).
-  sysPrefs.putFloat("printRawMl", (float)resinUsedRawMl);
+  // Only while printing: this helper is also called from "VAT refilled" and
+  // backup restore, and a refill pressed BEFORE resuming would zero the
+  // waiting checkpoint (auditor find, 08-11).
+  if (printerBusy()) sysPrefs.putFloat("printRawMl", (float)resinUsedRawMl);
   sysPrefs.end();
 }
 
@@ -428,11 +446,22 @@ extern long Vat_Capacity_Ml;   // defined below with the EEPROM settings block
 // the newer sample). Returns true when a real two-point fit was applied.
 bool resinFitCalibration() {
   bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
+  // Grams -> ml HERE, with the density in force right now: that is what makes a
+  // later density correction re-fit both samples instead of mixing two bases.
+  const float mA = calMeasA / resinDensity, mB = calMeasB / resinDensity;
   if (haveA && haveB) {
-    float dr = calRawB - calRawA;
-    if (dr >= 0.5f && dr >= 0.25f * calRawB) {          // clearly different sizes
-      float k = (calMeasB - calMeasA) / dr;
-      float f = calMeasA - k * calRawA;
+    // The two rows belong to the user - they may type the bigger print into row 1.
+    // Order a LOCAL copy for the maths instead of swapping the stored slots, which
+    // would make the rows jump around under whoever is editing them.
+    float rLo = calRawA, mLo = mA, rHi = calRawB, mHi = mB;
+    if (rLo > rHi) {
+      float t = rLo; rLo = rHi; rHi = t;
+      t = mLo; mLo = mHi; mHi = t;
+    }
+    float dr = rHi - rLo;
+    if (dr >= 0.5f && dr >= 0.25f * rHi) {              // clearly different sizes
+      float k = (mHi - mLo) / dr;
+      float f = mLo - k * rLo;
       if (f < 0) f = 0;                                  // negative film is nonsense
       // An offset near the vat size would trip the low-resin stop before layer 1.
       float fMax = RESIN_FIXED_MAX;
@@ -446,8 +475,8 @@ bool resinFitCalibration() {
   }
   // Single usable sample (or the pair was unusable): solve the slope alone and
   // leave the offset as it is - the user can add a second, different-sized print.
-  float r = calNewRaw > 0 ? calNewRaw  : (haveB ? calRawB  : calRawA);   // newest wins
-  float m = calNewRaw > 0 ? calNewMeas : (haveB ? calMeasB : calMeasA);
+  float r = calNewRaw > 0 ? calNewRaw  : (haveB ? calRawB : calRawA);    // newest wins
+  float m = (calNewRaw > 0 ? calNewMeas : (haveB ? calMeasB : calMeasA)) / resinDensity;
   if (r > 0 && m > 0) {
     float k = (m - resinFixedMl) / r;
     if (k >= RESIN_CAL_MIN && k <= RESIN_CAL_MAX) resinCalFactor = k;
@@ -464,6 +493,11 @@ void resinAddSample(float rawMl, float measMl) {
   calNewRaw = rawMl; calNewMeas = measMl;      // newest, for the 1-sample fallback
   bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
   if (!haveA)      { calRawA = rawMl; calMeasA = measMl; }
+  // Same-size re-measure must REPLACE slot A, not fill B with a twin: the
+  // dashboard retries a slow POST once, and a double click does the same, so
+  // an identical sample would otherwise occupy both slots (seen 2026-08-09).
+  else if (fabsf(rawMl - calRawA) <= 0.10f * calRawA && !haveB)
+                   { calRawA = rawMl; calMeasA = measMl; }
   else if (!haveB) { calRawB = rawMl; calMeasB = measMl; }
   else if (fabsf(rawMl - calRawA) <= 0.10f * calRawA) { calRawA = rawMl; calMeasA = measMl; }
   else if (fabsf(rawMl - calRawB) <= 0.10f * calRawB) { calRawB = rawMl; calMeasB = measMl; }
@@ -485,6 +519,34 @@ void resinAddSample(float rawMl, float measMl) {
     float tr = calRawA, tm = calMeasA;
     calRawA = calRawB; calMeasA = calMeasB; calRawB = tr; calMeasB = tm;
   }
+}
+
+// Write ONE slot directly (1 = A, 2 = B). Unlike resinAddSample() this decides
+// nothing: the row the user typed into is the row that changes. grams <= 0 clears
+// the slot. Returns false only for a bad slot number.
+bool resinSetSample(int slot, float rawMl, float grams) {
+  float *r = (slot == 1) ? &calRawA  : (slot == 2) ? &calRawB  : nullptr;
+  float *m = (slot == 1) ? &calMeasA : (slot == 2) ? &calMeasB : nullptr;
+  if (!r) return false;
+  if (!(rawMl > 0 && grams > 0)) {
+    *r = *m = -1;
+    // calNew* may have pointed AT this sample; leaving it would let a deleted
+    // measurement keep driving the single-point fallback below.
+    calNewRaw = calNewMeas = -1;
+  } else {
+    *r = rawMl; *m = grams;
+    calNewRaw = rawMl; calNewMeas = grams;   // newest, for the 1-sample fallback
+  }
+  resinFitCalibration();
+  // Nothing left to fit from: the fallback would silently keep the old factor.
+  if (!(calRawA > 0) && !(calRawB > 0)) { resinCalFactor = 1.0f; resinFixedMl = 0.0f; }
+  return true;
+}
+
+// Density changed -> both samples mean different ml now. Re-fit at once, so the
+// correction always matches the density currently shown.
+void resinRefitAfterDensityChange() {
+  if (calRawA > 0 || calRawB > 0) resinFitCalibration();
 }
 
 void resinClearCalibration() {
@@ -854,6 +916,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += ",\"calMeasA\":";  out += String(calMeasA, 2);
   out += ",\"calRawB\":";   out += String(calRawB, 2);
   out += ",\"calMeasB\":";  out += String(calMeasB, 2);
+  out += ",\"calUnit\":1";   // calMeas* = GRAMAI; be sios zymos senas
+                            // backup as (mililitrai) atkurtu klaidinga kalibracija
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -948,7 +1012,15 @@ static int backupFind(const String &j, const char *key) {
   needle += key;
   needle += "\":";
   int p = j.indexOf(needle);
-  return p < 0 ? -1 : p + needle.length();
+  if (p < 0) return -1;
+  p += needle.length();
+  // Hand-edited / pretty-printed backups put a space after ':'. The reader used
+  // to land ON that space and quietly read every boolean as false - one such
+  // restore switched the printer's WiFi off (08-10). Numbers only survived
+  // because atof() skips whitespace by itself.
+  while (p < (int)j.length() &&
+         (j[p] == ' ' || j[p] == '\t' || j[p] == '\r' || j[p] == '\n')) p++;
+  return p;
 }
 
 double backupNum(const String &j, const char *key, double def) {
@@ -1023,6 +1095,16 @@ void applyConfigBackup(const String &j) {
     calMeasB = (float)backupNum(j, "calMeasB", calMeasB);
     if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
     if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+    // Backups written before samples moved to grams carry ml and no marker -
+    // convert. But ONLY when the backup actually carried samples: a 0.16.x file
+    // has no cal keys at all, so calMeas* above kept the PRINTER'S current grams
+    // - converting those would silently multiply a good calibration by the
+    // density on every old-backup restore (found in review 08-10, before ship).
+    bool hadCal = backupFind(j, "calMeasA") >= 0 || backupFind(j, "calMeasB") >= 0;
+    if (hadCal && (int)backupNum(j, "calUnit", 0) != 1) {
+      if (calMeasA > 0) calMeasA *= resinDensity;
+      if (calMeasB > 0) calMeasB *= resinDensity;
+    }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
@@ -1991,9 +2073,13 @@ void loop() {
         resinUsedRawMl = 0.0;     // R-cal: GEOMETRY only - the calibration input
         // ...and clear it in NVS too: the periodic checkpoint only runs every 25
         // layers, so a cut before that would resume onto the previous run sum.
-        sysPrefs.begin("tinymaker", false);
-        sysPrefs.putFloat("printRawMl", 0.0f);
-        sysPrefs.end();
+        // NOT on resume - the resume branch below READS this key; zeroing it
+        // here first made the checkpoint dead code (auditor find, 08-11).
+        if (!resumeStartPrint) {
+          sysPrefs.begin("tinymaker", false);
+          sysPrefs.putFloat("printRawMl", 0.0f);
+          sysPrefs.end();
+        }
         resinSampledMl = 0.0;     // nothing subtracted from the VAT yet
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
                                   // already low at start (user chose to print

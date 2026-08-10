@@ -53,7 +53,10 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
     <label style="font-weight:400;font-size:.85rem;display:flex;gap:6px;align-items:center">
       <input type="checkbox" id="flip"> apversta (kaip spausdina)</label>
     <label style="font-weight:400;font-size:.85rem;display:flex;gap:6px;align-items:center">
-      <input type="checkbox" id="cam"> kamera is apacios</label></div>
+      <input type="checkbox" id="side"> is kitos puses (apeiti 180&deg;)</label></div>
+  <div class="f"><label>Kameros aukštis <span class="big" id="elv">0.35</span>
+      <span style="font-weight:400;color:var(--muted)">(neig. = iš apačios)</span></label>
+    <input type="range" id="elev" min="-40" max="60" value="35" step="1"></div>
   <div class="f grow"><label>Progress <span class="big" id="pct">60%</span> · layer <span id="lay">641</span>/<span id="tot">1069</span></label>
     <input type="range" id="sld" min="0" max="1000" value="600" aria-label="Progress"></div>
   <button id="play">▶ Play</button>
@@ -64,14 +67,27 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
 <script>
 const PREV_W=720,PREV_H=440,PREV_S=4.7,PREV_CX=360,PREV_CY=286;
 let CAM=-1;   // -1 = kamera is virsaus (kaip dabar), +1 = is apacios
-// CAM=+1 (is apacios) pastumia visa modeli zemyn per modelH*0.8*S - kompensuojam,
-// kad butu lyginami TIE PATYS kadrai, o ne skirtingos vietos drobeje.
-const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,
-  Y:PREV_CY+(x+y)*0.35*PREV_S+CAM*z*0.8*PREV_S-(CAM>0?modelH*0.8*PREV_S:0)});
-const MX=40.8,MY=30.6,gw=80,gh=60;
+// Kamera: ROT = +1 stovim vienoje puseje, -1 = apejom modeli i priesinga (180 laipsniu
+// apie vertikalia asi). KY = zemes plokstumos sutrumpejimas: teigiamas - ziurim is
+// virsaus, 0 - is horizonto lygio, NEIGIAMAS - is apacios (ziurim i virsu).
+// Viskas skaiciuojama nuo modelio CENTRO, kad sukant vaizdas neisbegtu is drobes.
+let ROT=1, KY=0.35, FLIP=false;
+// Kurios kubelio sieneles atsuktos i kamera. Apejus modeli (ROT=-1) matomos
+// priesingos sonines; nusileidus zemiau horizonto (KY<0) - apatine vietoj virsutines.
+let FX=1, FY=1, FZ=1;
+const isoPt=(x,y,z)=>{
+  const dx=ROT*(x-MX/2), dy=ROT*(y-MY/2), dz=z-modelH/2;
+  return {X:PREV_CX+(dx-dy)*0.866*PREV_S, Y:PREV_CY+(dx+dy)*KY*PREV_S-dz*0.8*PREV_S};
+};
+const MX=40.8,MY=30.6;
+// Tinklelis KINTAMAS: sintetiniai modeliai piesiami 80x60, o printerio gyvi
+// sluoksniai ateina 64x48 (LIVE_GW/LIVE_GH). Anksciau tai buvo const 80x60, tad
+// tikri sluoksniai buvo skaitomi ne tuo zingsniu ir issitepdavo i juostas.
+let gw=80,gh=60;
 let modelH=40,N=36,LAYERS=1069;   // mutable: a loaded real model overrides these
 let slices=[];
 function build(kind){
+  gw=80;gh=60;   // sintetiniai - atgal i savo tinkleli
   modelH=40;N=36;LAYERS=1069;
   slices=[];
   for(let k=0;k<N;k++){const s=new Uint8Array(gw*gh),tt=k/(N-1);
@@ -85,9 +101,35 @@ function build(kind){
       if(on)s[j*gw+i]=1;}
     slices.push(s);}
 }
-const drawBox=ctx=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;ctx.strokeStyle='#4a4a52';ctx.lineWidth=1;
+// Deze su ORIENTACIJOS uzuominomis. Anksciau visos 12 briaunu buvo vienodai
+// rysku - toks karkasas neturi jokios krypties (Neckerio kubas: akys mato ir
+// taip, ir taip), tad sukant kamera atrodydavo nepakites. Dabar:
+//   * tolimos briaunos tamsios, artimos - sviesios (gylis pagal kamera);
+//   * PLOKSTE pazymeta oranzine plokstuma. Ji NERA "visada apacioje": plokste yra
+//     ten, kur PIRMAS sluoksnis (jis prie jos prilipes), tad apvertus modeli ji
+//     keliauja i virsu. Anksciau buvo prikalta prie z=0 ir dar vadinta vatu - klaida
+//     (V pastebejo 08-09).
+const drawBox=ctx=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;
   const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
-  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});};
+  // Gylis: kuo didesnis, tuo arciau ziurovo. Sonine kryptis priklauso nuo apejimo
+  // (ROT), vertikali - nuo to, ar ziurim is virsaus ar is apacios (KY zenklas).
+  const depth=p=>ROT*((p[0]-MX/2)+(p[1]-MY/2)) + (KY>=0?1:-1)*(p[2]-MZ/2)*0.6;
+  const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const seg=E.map(e=>({a:C[e[0]],b:C[e[1]],d:(depth(C[e[0]])+depth(C[e[1]]))/2}));
+  seg.sort((p,q)=>p.d-q.d);   // tolimiausios pirma
+  // Plokste = pirmo sluoksnio plokstuma: z=0 normaliai, z=modelH apvertus.
+  const pz=FLIP?modelH:0;
+  const f=[[0,0,pz],[MX,0,pz],[MX,MY,pz],[0,MY,pz]].map(p=>isoPt(...p));
+  ctx.fillStyle="rgba(232,114,12,0.05)";ctx.beginPath();
+  f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
+  seg.forEach((sg,n)=>{const a=isoPt(...sg.a),b=isoPt(...sg.b);
+    const near=n>=seg.length/2;                 // pusė artimiausiu - sviesesnes
+    ctx.strokeStyle=near?"#6a6a76":"#2e2e36";ctx.lineWidth=near?1.2:1;
+    ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});
+  // Plokstes kontura pabreziam atskirai - matoma net kai briaunos tamsios.
+  ctx.strokeStyle="rgba(232,114,12,0.45)";ctx.lineWidth=1.2;ctx.beginPath();
+  f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.stroke();
+};
 const quad=(ctx,fill,pts)=>{ctx.fillStyle=fill;ctx.strokeStyle=fill;ctx.lineWidth=1;ctx.beginPath();
   for(let n=0;n<4;n++){const p=isoPt(pts[n][0],pts[n][1],pts[n][2]);if(n)ctx.lineTo(p.X,p.Y);else ctx.moveTo(p.X,p.Y);}ctx.closePath();ctx.fill();ctx.stroke();};
 function solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz){
@@ -95,11 +137,21 @@ function solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz){
     const ii=i+di,jj=j+dj,inside=sk&&ii>=0&&ii<gw&&jj>=0&&jj<gh&&sk[jj*gw+ii];if(!inside){nx+=di;ny+=dj;nz+=dk;}}}
   const len=Math.hypot(nx,ny,nz)||1,lam=Math.max(0,(nx*0.25+ny*0.5+nz*0.83)/len),depth=0.85+0.15*((i/gw)+(j/gh))/2,v=(0.30+0.70*lam)*depth;
   const fill='rgb('+Math.round(236*v)+','+Math.round((132+28*t)*v)+','+Math.round((48+22*t)*v)+')';
-  if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
-  if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
-  if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+  // FX/FY/FZ = i kuria puse atsukta kamera (zr. render)
+  const px=cx+FX*hx, py=cy+FY*hy, pz=z+FZ*hz;
+  if(fRight)quad(ctx,fill,[[px,cy-hy,z-hz],[px,cy+hy,z-hz],[px,cy+hy,z+hz],[px,cy-hy,z+hz]]);
+  if(fLeft)quad(ctx,fill,[[cx-hx,py,z-hz],[cx+hx,py,z-hz],[cx+hx,py,z+hz],[cx-hx,py,z+hz]]);
+  if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,pz],[cx+hx,cy-hy,pz],[cx+hx,cy+hy,pz],[cx-hx,cy+hy,pz]]);
 }
 function render(ctx,doneFrac,mode){
+  // Kamera nuskaitoma PRIES deze: anksciau deze buvo piesiama sena ROT/KY reiksme
+  // ir atsilikdavo vienu kadru - remelis nesutapdavo su modeliu (V pastebejo).
+  ROT=document.getElementById("side").checked?-1:1;
+  KY=parseInt(document.getElementById("elev").value,10)/100;
+  document.getElementById("elv").textContent=KY.toFixed(2);
+  const fromBelow=KY<0;
+  FX=ROT>0?1:-1; FY=FX; FZ=fromBelow?-1:1;
+  FLIP=document.getElementById("flip").checked;   // deze turi zinoti PRIES piesima
   drawBox(ctx);const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2,step=1/Math.max(N-1,1);
   const asSolid = mode==='prev' || ((mode==='new'||mode==='hybrid'||mode==='old')&&doneFrac>=1);
   // Apversta = kaip printeris i tikruju spausdina: pirmas sluoksnis prilipes prie
@@ -108,18 +160,30 @@ function render(ctx,doneFrac,mode){
   //  up   -> slices[k-1]: kaimynas AUKSCIAU realioje z dabar yra ankstesnis;
   //  eile -> k mazejant, kad piesimas ir toliau eitu is apacios i virsu (painter).
   const flip=document.getElementById("flip").checked;
-  const below=document.getElementById("cam").checked; CAM=below?1:-1;
   // Painter: visada piesiam nuo TOLIMIAUSIO link artimiausio. Kamerai is virsaus
   // toliausias yra zemiausias z; is apacios - aukstriausias. Matoma sienele +z/-z
   // taip pat apsiverčia, tad "up" kaimynas renkamas pagal kamera.
   for(let n=0;n<N;n++){
-    let k=flip?(N-1-n):n;              // n auga => realus z auga
-    if(below) k=flip?n:(N-1-n);        // is apacios piesiam prieinga tvarka
+    // Piesimo tvarka: tolimiausi pirma. Auksciau esantys uzdengia zemesnius, kai
+    // ziurim is virsaus; is apacios - atvirksciai.
+    const nn=fromBelow?(N-1-n):n;
+    const k=flip?(N-1-nn):nn;
     const t=k/(N-1),z=(flip?(1-t):t)*modelH,s=slices[k];
-    const upIdx=(flip?-1:1)*(below?-1:1);
+    if(!s) continue;   // N didesnis uz turimu sluoksniu skaiciu (pvz. dar
+                       // nebaigtas spaudinys) - praleidziam, o ne griuvam
+    // Kaimynas TOJE puseje, i kuria ziurim (jo nesant - sienele matoma).
+    const upIdx=(flip?-1:1)*(fromBelow?-1:1);
     const up=slices[k+upIdx];
-    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){if(!s[j*gw+i])continue;
-      const fTop=!up||!up[j*gw+i],fRight=i===gw-1||!s[j*gw+i+1],fLeft=j===gh-1||!s[(j+1)*gw+i];
+    for(let jj=0;jj<gh;jj++)for(let ii=0;ii<gw;ii++){
+      // Apejus modeli artimiausias kampas pasikeicia i priesinga - keiciam ir
+      // apejimo krypti, kitaip tolimi kubeliai uzdazytu artimuosius.
+      const j=ROT>0?jj:(gh-1-jj), i=ROT>0?ii:(gw-1-ii);
+      if(!s[j*gw+i])continue;
+      // Sienele matoma, jei kaimyno TOJE puseje, i kuria ziurim, nera.
+      const iN=i+FX, jN=j+FY;
+      const fTop=!up||!up[j*gw+i];
+      const fRight=iN<0||iN>=gw||!s[j*gw+iN];
+      const fLeft=jN<0||jN>=gh||!s[jN*gw+i];
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY,edge=i===0||j===0||fRight||fLeft,p=isoPt(cx,cy,z);
       if(asSolid){solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);continue;}
@@ -142,7 +206,8 @@ document.getElementById('tot').textContent=LAYERS;
 function paint(){const f=sld.value/1000,m=modeSel.value,df=(m==='prev'||m==='pnew')?1:f;
   render(ctx,df,m);document.getElementById('pct').textContent=Math.round(f*100)+'%';document.getElementById('lay').textContent=Math.round(f*LAYERS);}
 [sld,modeSel].forEach(el=>el.addEventListener('input',paint));
-document.getElementById('flip').addEventListener('change',paint);
+['flip','side'].forEach(id=>document.getElementById(id).addEventListener('change',paint));
+document.getElementById('elev').addEventListener('input',paint);
 modelSel.addEventListener('change',()=>{if(modelSel.value!=='real'){build(modelSel.value);paint();}});
 // Load a real model's slices (scripts/dev/fetch_model_slices.py output). File
 // input, not fetch: a file:// page can't fetch a sibling JSON (CORS).
@@ -150,6 +215,7 @@ document.getElementById('loadJson').addEventListener('change',ev=>{
   const file=ev.target.files[0];if(!file)return;const rd=new FileReader();
   rd.onload=()=>{try{const o=JSON.parse(rd.result);
     slices=o.slices.map(b=>{const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
+    gw=o.gw||gw;gh=o.gh||gh;   // svarbu PRIES paint(): kitaip skaitom ne tuo zingsniu
     N=o.N||slices.length;modelH=o.modelH||40;LAYERS=o.layers||1069;
     const opt=document.getElementById('realOpt');opt.disabled=false;opt.textContent=o.name||'real model';modelSel.value='real';
     document.getElementById('tot').textContent=LAYERS;paint();
