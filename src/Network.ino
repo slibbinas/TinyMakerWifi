@@ -1387,6 +1387,8 @@ String configJson() {
   out += "]";
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
+  out += ",\"previewFlip\":";
+  out += previewFlip ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
   out += String(uiTimeoutSecs);
   out += ",\"dryRun\":";
@@ -1474,6 +1476,7 @@ void applyConfigRequest() {
     }
   }
   askRefillEnabled = server.hasArg("ask_refill");
+  previewFlip = server.hasArg("preview_flip");
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
   uvLedEnabled = !server.hasArg("dry_run");
   wifiEnabled = server.hasArg("wifi_enabled");

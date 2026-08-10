@@ -48,6 +48,8 @@ canvas{width:100%;background:#0c0c0e;border:1px solid var(--line);border-radius:
       <option value="old">old-midprint (solid+ghost)</option>
       <option value="new" selected>new-midprint (0-27, ships)</option>
       <option value="hybrid">hybrid C (solid+silhouette)</option>
+      <option value="mach">masinos kadras (plokste kyla)</option>
+      <option value="smooth">GLOTNUS (surface nets, #93)</option>
     </select></div>
   <div class="f"><label>Orientacija</label>
     <label style="font-weight:400;font-size:.85rem;display:flex;gap:6px;align-items:center">
@@ -75,6 +77,9 @@ let ROT=1, KY=0.35, FLIP=false;
 // Kurios kubelio sieneles atsuktos i kamera. Apejus modeli (ROT=-1) matomos
 // priesingos sonines; nusileidus zemiau horizonto (KY<0) - apatine vietoj virsutines.
 let FX=1, FY=1, FZ=1;
+// Mach rezime stackas kabo apverstas, tad normaliu z asis sviesai apsiverčia -
+// kitaip kupolai butu tamsus, o dugnas sviestu.
+let NZS=1;
 const isoPt=(x,y,z)=>{
   const dx=ROT*(x-MX/2), dy=ROT*(y-MY/2), dz=z-modelH/2;
   return {X:PREV_CX+(dx-dy)*0.866*PREV_S, Y:PREV_CY+(dx+dy)*KY*PREV_S-dz*0.8*PREV_S};
@@ -109,7 +114,7 @@ function build(kind){
 //     ten, kur PIRMAS sluoksnis (jis prie jos prilipes), tad apvertus modeli ji
 //     keliauja i virsu. Anksciau buvo prikalta prie z=0 ir dar vadinta vatu - klaida
 //     (V pastebejo 08-09).
-const drawBox=ctx=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;
+const drawBox=(ctx,noPlate)=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;
   const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
   // Gylis: kuo didesnis, tuo arciau ziurovo. Sonine kryptis priklauso nuo apejimo
   // (ROT), vertikali - nuo to, ar ziurim is virsaus ar is apacios (KY zenklas).
@@ -119,6 +124,17 @@ const drawBox=ctx=>{ctx.clearRect(0,0,PREV_W,PREV_H);const MZ=68;
   seg.sort((p,q)=>p.d-q.d);   // tolimiausios pirma
   // Plokste = pirmo sluoksnio plokstuma: z=0 normaliai, z=modelH apvertus.
   const pz=FLIP?modelH:0;
+  if(noPlate){
+    // mach: luitas piesamas atskirai, cia tik karkasas
+    const E0=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    const seg0=E0.map(e=>({a:C[e[0]],b:C[e[1]],d:(depth(C[e[0]])+depth(C[e[1]]))/2}));
+    seg0.sort((p,q)=>p.d-q.d);
+    seg0.forEach((sg,n)=>{const a=isoPt(...sg.a),b=isoPt(...sg.b);
+      const near=n>=seg0.length/2;
+      ctx.strokeStyle=near?"#6a6a76":"#2e2e36";ctx.lineWidth=near?1.2:1;
+      ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});
+    return;
+  }
   const f=[[0,0,pz],[MX,0,pz],[MX,MY,pz],[0,MY,pz]].map(p=>isoPt(...p));
   ctx.fillStyle="rgba(232,114,12,0.05)";ctx.beginPath();
   f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
@@ -135,13 +151,222 @@ const quad=(ctx,fill,pts)=>{ctx.fillStyle=fill;ctx.strokeStyle=fill;ctx.lineWidt
 function solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz){
   let nx=0,ny=0,nz=0;for(let dk=-1;dk<=1;dk++){const sk=slices[k+dk];for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj&&!dk)continue;
     const ii=i+di,jj=j+dj,inside=sk&&ii>=0&&ii<gw&&jj>=0&&jj<gh&&sk[jj*gw+ii];if(!inside){nx+=di;ny+=dj;nz+=dk;}}}
-  const len=Math.hypot(nx,ny,nz)||1,lam=Math.max(0,(nx*0.25+ny*0.5+nz*0.83)/len),depth=0.85+0.15*((i/gw)+(j/gh))/2,v=(0.30+0.70*lam)*depth;
+  const len=Math.hypot(nx,ny,nz)||1,lam=Math.max(0,(nx*0.25+ny*0.5+NZS*nz*0.83)/len),depth=0.85+0.15*((i/gw)+(j/gh))/2,v=(0.30+0.70*lam)*depth;
   const fill='rgb('+Math.round(236*v)+','+Math.round((132+28*t)*v)+','+Math.round((48+22*t)*v)+')';
   // FX/FY/FZ = i kuria puse atsukta kamera (zr. render)
   const px=cx+FX*hx, py=cy+FY*hy, pz=z+FZ*hz;
   if(fRight)quad(ctx,fill,[[px,cy-hy,z-hz],[px,cy+hy,z-hz],[px,cy+hy,z+hz],[px,cy-hy,z+hz]]);
   if(fLeft)quad(ctx,fill,[[cx-hx,py,z-hz],[cx+hx,py,z-hz],[cx+hx,py,z+hz],[cx-hx,py,z+hz]]);
   if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,pz],[cx+hx,cy-hy,pz],[cx+hx,cy+hy,pz],[cx-hx,cy+hy,pz]]);
+}
+// V 08-11: masinos kadras. Plokste kyla su progresu, atspausdinta dalis kabo
+// po ja apversta (pirmas sluoksnis PRIE plokstes - taip printeris realiai
+// spausdina), busimieji sluoksniai blyskiai skendi po dervos pavirsiumi.
+function renderMach(ctx,doneFrac){
+  drawBox(ctx,true);
+  const stepMm=modelH/Math.max(N-1,1);
+  const frontF=doneFrac*Math.max(N-1,1);
+  const plateZ=doneFrac*modelH;
+  const hx=MX/gw/2,hy=MY/gh/2,hz=stepMm/2;
+  const fromBelow=KY<0;
+  // Fazes - atskiros funkcijos, kad eiliskumas priklausytu nuo kameros:
+  // is apacios tolimiausia yra PLOKSTE, is virsaus - skenduolis. Anksciau
+  // plokste visada ejo paskutine ir uzdazydavo modeli (V pagavo 08-11).
+  const ghostPass=()=>{
+    for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k++){
+      const sl=slices[k];if(!sl)continue;
+      const z=-(k-frontF)*stepMm;
+      if(z<-6)break;                    // murkina derva - giliau nesimato
+      const mur=1+z/6;
+      for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+        if(!sl[j*gw+i])continue;
+        const iN=i+FX,jN=j+FY;
+        const edge=iN<0||iN>=gw||!sl[j*gw+iN]||jN<0||jN>=gh||!sl[jN*gw+i];
+        const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
+        ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
+        ctx.fillRect(p.X-1,p.Y-1,2,2);
+      }
+    }
+  };
+  const surfacePass=()=>{
+    const f=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0]].map(p=>isoPt(...p));
+    ctx.fillStyle='rgba(110,140,165,0.15)';ctx.beginPath();
+    f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(140,170,195,0.5)';ctx.lineWidth=1.2;ctx.stroke();
+  };
+  const stackPass=()=>{
+    NZS=-1;
+    const kMax=Math.min(N-1,Math.ceil(frontF)-1);   // frontF>k, ties 0% nieko
+    const order=[];for(let k=kMax;k>=0;k--)order.push(k);
+    if(fromBelow)order.reverse();
+    for(const k of order){
+      const sl=slices[k];if(!sl)continue;
+      const z=plateZ-k*stepMm;
+      const t=k/Math.max(N-1,1);
+      const upIdx=fromBelow?1:-1;
+      const up=slices[k+upIdx];
+      const aF=Math.max(0,Math.min(1,frontF-k));
+      if(aF<1){ctx.save();ctx.globalAlpha=aF;}
+      for(let jj=0;jj<gh;jj++)for(let ii=0;ii<gw;ii++){
+        const j=ROT>0?jj:(gh-1-jj), i=ROT>0?ii:(gw-1-ii);
+        if(!sl[j*gw+i])continue;
+        const iN=i+FX,jN=j+FY;
+        const fTop=!up||!up[j*gw+i];
+        const fRight=iN<0||iN>=gw||!sl[j*gw+iN];
+        const fLeft=jN<0||jN>=gh||!sl[jN*gw+i];
+        if(!(fTop||fRight||fLeft))continue;
+        solidVoxel(ctx,k,i,j,t,fRight,fLeft,fTop,(i+0.5)/gw*MX,(j+0.5)/gh*MY,z,hx,hy,hz);
+      }
+      if(aF<1)ctx.restore();
+    }
+    NZS=1;
+  };
+  const platePass=()=>{
+    const pz0=plateZ,pz1=plateZ+1.6;
+    const face=(pts,fill)=>{ctx.fillStyle=fill;ctx.beginPath();
+      pts.map(p=>isoPt(...p)).forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));
+      ctx.closePath();ctx.fill();};
+    const yN=FY>0?MY:0, xN=FX>0?MX:0;
+    face([[0,yN,pz0],[MX,yN,pz0],[MX,yN,pz1],[0,yN,pz1]],'rgba(128,130,140,0.96)');
+    face([[xN,0,pz0],[xN,MY,pz0],[xN,MY,pz1],[xN,0,pz1]],'rgba(108,110,120,0.96)');
+    // apacia (is apacios) - seselyje; virsus (is virsaus) - sviesus
+    face(fromBelow?[[0,0,pz0],[MX,0,pz0],[MX,MY,pz0],[0,MY,pz0]]
+                  :[[0,0,pz1],[MX,0,pz1],[MX,MY,pz1],[0,MY,pz1]],
+         fromBelow?'rgba(72,74,84,0.97)':'rgba(150,152,162,0.97)');
+  };
+  if(fromBelow){platePass();stackPass();surfacePass();ghostPass();}
+  else{ghostPass();surfacePass();stackPass();platePass();}
+}
+// ---- #93: glotnus pavirsius is retu pjuviu ----
+let SN={key:'',verts:null,quads:null,fld:null,W:0,H:0,D:0};
+// Laukas: 1 modelio viduje, 0 lauke; tarp pjuviu - tiesine interpoliacija,
+// tada [1,2,1] suliejimas visomis trimis kryptimis.
+function buildField(K){
+  const W=gw,H=gh,D=(N-1)*K+1;
+  const f=new Float32Array(W*H*D);
+  for(let d=0;d<D;d++){
+    const t=d/K, k0=Math.min(N-1,Math.floor(t)), k1=Math.min(N-1,k0+1), w=t-k0;
+    const a=slices[k0],b=slices[k1];
+    if(!a)continue;
+    const off=d*W*H;
+    for(let p=0;p<W*H;p++)f[off+p]=(a[p]?1-w:0)+((b&&b[p])?w:0);
+  }
+  const g=new Float32Array(W*H*D);
+  const blur=(src,dst,sx,sy,sz)=>{
+    for(let d=0;d<D;d++)for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const i=(d*H+y)*W+x;
+      const xm=x-sx>=0?i-sx:i, xp=x+sx<W?i+sx:i;
+      const ym=y-sy>=0?i-sy*W:i, yp=y+sy<H?i+sy*W:i;
+      const zm=d-sz>=0?i-sz*W*H:i, zp=d+sz<D?i+sz*W*H:i;
+      const m=sx?xm:(sy?ym:zm), p2=sx?xp:(sy?yp:zp);
+      dst[i]=(src[m]+2*src[i]+src[p2])/4;
+    }
+  };
+  blur(f,g,1,0,0); blur(g,f,0,1,0); blur(f,g,0,0,1);
+  return {f:g,W:W,H:H,D:D};
+}
+// Surface nets: viena virsune celei, kurios kampai kerta izoreiksme.
+function surfaceNets(fld,iso){
+  const {f,W,H,D}=fld;
+  const idx=new Int32Array((W-1)*(H-1)*(D-1)).fill(-1);
+  const verts=[];
+  const at=(x,y,z)=>f[(z*H+y)*W+x];
+  for(let z=0;z<D-1;z++)for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+    let neg=0,pos=0,sx=0,sy=0,sz=0,n=0;
+    for(let dz=0;dz<2;dz++)for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){
+      (at(x+dx,y+dy,z+dz)<iso?neg++:pos++);
+    }
+    if(!neg||!pos)continue;
+    // virsune = kertamu briaunu susikirtimu vidurkis (tiesine interpoliacija)
+    const E=[[0,0,0,1,0,0],[0,1,0,1,1,0],[0,0,1,1,0,1],[0,1,1,1,1,1],
+             [0,0,0,0,1,0],[1,0,0,1,1,0],[0,0,1,0,1,1],[1,0,1,1,1,1],
+             [0,0,0,0,0,1],[1,0,0,1,0,1],[0,1,0,0,1,1],[1,1,0,1,1,1]];
+    for(const e of E){
+      const a=at(x+e[0],y+e[1],z+e[2]), b=at(x+e[3],y+e[4],z+e[5]);
+      if((a<iso)===(b<iso))continue;
+      const t=(iso-a)/(b-a);
+      sx+=e[0]+(e[3]-e[0])*t; sy+=e[1]+(e[4]-e[1])*t; sz+=e[2]+(e[5]-e[2])*t; n++;
+    }
+    if(!n)continue;
+    idx[(z*(H-1)+y)*(W-1)+x]=verts.length/3;
+    verts.push(x+sx/n, y+sy/n, z+sz/n);
+  }
+  // Keturkampiai: kiekvienai tinklo briaunai, kuri kerta pavirsiu, sujungiam
+  // 4 aplink ja esancias celes.
+  const quads=[];
+  const cell=(x,y,z)=>(x<0||y<0||z<0||x>=W-1||y>=H-1||z>=D-1)?-1:idx[(z*(H-1)+y)*(W-1)+x];
+  for(let z=0;z<D-1;z++)for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+    const c=at(x,y,z)<iso;
+    if(x>0&&y>0&&(at(x,y,z+1)<iso)!==c){
+      const a=cell(x-1,y-1,z),b=cell(x,y-1,z),d2=cell(x,y,z),e2=cell(x-1,y,z);
+      if(a>=0&&b>=0&&d2>=0&&e2>=0)quads.push(a,b,d2,e2);
+    }
+    if(x>0&&z>0&&(at(x,y+1,z)<iso)!==c){
+      const a=cell(x-1,y,z-1),b=cell(x,y,z-1),d2=cell(x,y,z),e2=cell(x-1,y,z);
+      if(a>=0&&b>=0&&d2>=0&&e2>=0)quads.push(a,b,d2,e2);
+    }
+    if(y>0&&z>0&&(at(x+1,y,z)<iso)!==c){
+      const a=cell(x,y-1,z-1),b=cell(x,y,z-1),d2=cell(x,y,z),e2=cell(x,y-1,z);
+      if(a>=0&&b>=0&&d2>=0&&e2>=0)quads.push(a,b,d2,e2);
+    }
+  }
+  return {verts:new Float32Array(verts),quads:new Int32Array(quads)};
+}
+function renderSmooth(ctx,doneFrac){
+  drawBox(ctx);
+  const K=4, key=modelSel.value+':'+N+':'+gw+'x'+gh+':'+K;
+  if(SN.key!==key){
+    const fld=buildField(K);
+    const sn=surfaceNets(fld,0.5);
+    SN={key:key,verts:sn.verts,quads:sn.quads,fld:fld,W:fld.W,H:fld.H,D:fld.D};
+  }
+  const {verts,quads,fld,W,H,D}=SN;
+  const f=fld.f;
+  const gx=v=>v/(W-1)*MX, gy=v=>v/(H-1)*MY;
+  const gz=v=>{const t=v/(D-1);return (FLIP?1-t:t)*modelH;};
+  const fromBelow=KY<0;
+  const dep=(x,y,z)=>ROT*((x-MX/2)+(y-MY/2))+(fromBelow?-1:1)*(z-modelH/2)*0.6;
+  // gylio rusiavimas: tolimiausi pirma
+  const nq=quads.length/4, order=new Array(nq);
+  const cxs=new Float32Array(nq),cys=new Float32Array(nq),czs=new Float32Array(nq);
+  for(let q=0;q<nq;q++){
+    let ax=0,ay=0,az=0;
+    for(let c=0;c<4;c++){const v=quads[q*4+c]*3;ax+=verts[v];ay+=verts[v+1];az+=verts[v+2];}
+    cxs[q]=gx(ax/4);cys[q]=gy(ay/4);czs[q]=gz(az/4);
+    order[q]=q;
+  }
+  order.sort((a,b)=>dep(cxs[a],cys[a],czs[a])-dep(cxs[b],cys[b],czs[b]));
+  // normale is lauko gradiento (glotni per visa pavirsiu)
+  const grad=(x,y,z)=>{
+    const xi=Math.max(1,Math.min(W-2,Math.round(x))),
+          yi=Math.max(1,Math.min(H-2,Math.round(y))),
+          zi=Math.max(1,Math.min(D-2,Math.round(z)));
+    const i=(zi*H+yi)*W+xi;
+    return [f[i-1]-f[i+1], f[i-W]-f[i+W], f[i-W*H]-f[i+W*H]];
+  };
+  const cut=doneFrac<1?doneFrac*(D-1):D;
+  for(const q of order){
+    const v0=quads[q*4]*3;
+    if(verts[v0+2]>cut)continue;                 // dar neatspausdinta dalis
+    let nx=0,ny=0,nz=0;
+    for(let c=0;c<4;c++){const v=quads[q*4+c]*3;
+      const g2=grad(verts[v],verts[v+1],verts[v+2]);nx+=g2[0];ny+=g2[1];nz+=g2[2];}
+    const len=Math.hypot(nx,ny,nz)||1;
+    const lam=Math.max(0,(nx*0.25+ny*0.5+(FLIP?-1:1)*nz*0.83)/len);
+    const t=czs[q]/Math.max(modelH,0.001);
+    const v2=(0.28+0.72*lam)*(0.88+0.12*t);
+    ctx.fillStyle=ctx.strokeStyle='rgb('+Math.round(236*v2)+','+
+      Math.round((132+28*t)*v2)+','+Math.round((48+22*t)*v2)+')';
+    ctx.lineWidth=1;ctx.beginPath();
+    for(let c=0;c<4;c++){
+      const v=quads[q*4+c]*3;
+      const p=isoPt(gx(verts[v]),gy(verts[v+1]),gz(verts[v+2]));
+      c?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y);
+    }
+    ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  ctx.fillStyle='#8a8a92';ctx.font='13px sans-serif';
+  ctx.fillText('surface nets: '+nq+' keturkampiai is '+N+' pjuviu (x'+K+' interpoliacija)',12,PREV_H-10);
 }
 function render(ctx,doneFrac,mode){
   // Kamera nuskaitoma PRIES deze: anksciau deze buvo piesiama sena ROT/KY reiksme
@@ -152,6 +377,8 @@ function render(ctx,doneFrac,mode){
   const fromBelow=KY<0;
   FX=ROT>0?1:-1; FY=FX; FZ=fromBelow?-1:1;
   FLIP=document.getElementById("flip").checked;   // deze turi zinoti PRIES piesima
+  if(mode==='mach'){renderMach(ctx,doneFrac);return;}
+  if(mode==='smooth'){renderSmooth(ctx,doneFrac);return;}
   drawBox(ctx);const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2,step=1/Math.max(N-1,1);
   const asSolid = mode==='prev' || ((mode==='new'||mode==='hybrid'||mode==='old')&&doneFrac>=1);
   // Apversta = kaip printeris i tikruju spausdina: pirmas sluoksnis prilipes prie
@@ -211,20 +438,30 @@ document.getElementById('elev').addEventListener('input',paint);
 modelSel.addEventListener('change',()=>{if(modelSel.value!=='real'){build(modelSel.value);paint();}});
 // Load a real model's slices (scripts/dev/fetch_model_slices.py output). File
 // input, not fetch: a file:// page can't fetch a sibling JSON (CORS).
+const applyReal=o=>{
+  slices=o.slices.map(b=>{const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
+  gw=o.gw||gw;gh=o.gh||gh;   // svarbu PRIES paint(): kitaip skaitom ne tuo zingsniu
+  N=o.N||slices.length;modelH=o.modelH||40;LAYERS=o.layers||1069;
+  const opt=document.getElementById('realOpt');opt.disabled=false;opt.textContent=o.name||'real model';modelSel.value='real';
+  document.getElementById('tot').textContent=LAYERS;paint();
+};
 document.getElementById('loadJson').addEventListener('change',ev=>{
   const file=ev.target.files[0];if(!file)return;const rd=new FileReader();
-  rd.onload=()=>{try{const o=JSON.parse(rd.result);
-    slices=o.slices.map(b=>{const bin=atob(b),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;});
-    gw=o.gw||gw;gh=o.gh||gh;   // svarbu PRIES paint(): kitaip skaitom ne tuo zingsniu
-    N=o.N||slices.length;modelH=o.modelH||40;LAYERS=o.layers||1069;
-    const opt=document.getElementById('realOpt');opt.disabled=false;opt.textContent=o.name||'real model';modelSel.value='real';
-    document.getElementById('tot').textContent=LAYERS;paint();
-  }catch(e){alert('Bad slice JSON: '+e.message);}};
+  rd.onload=()=>{try{applyReal(JSON.parse(rd.result));}catch(e){alert('Bad slice JSON: '+e.message);}};
   rd.readAsText(file);
 });
+// Serviruojant per http salia gulintis dragonhead-slices.json uzsikrauna pats
+// (file:// kelias lieka per file input - CORS).
+if(location.protocol.indexOf('http')===0){
+  fetch('dragonhead-slices.json').then(r=>r.ok?r.json():null)
+    .then(o=>{if(o)applyReal(o);}).catch(()=>{});
+}
 let timer=null;const playBtn=document.getElementById('play');
 playBtn.addEventListener('click',function(){if(timer){clearInterval(timer);timer=null;playBtn.textContent='▶ Play';return;}
   playBtn.textContent='⏸ Stop';let v=+sld.value;if(v>=1000)v=0;
   timer=setInterval(()=>{v+=5;if(v>1000){v=1000;clearInterval(timer);timer=null;playBtn.textContent='▶ Play';}sld.value=v;paint();},120);});
 build('cone');paint();
+window.applyReal=applyReal; window.paint=paint;
+window.buildField=buildField; window.surfaceNets=surfaceNets;
+Object.defineProperty(window,'modelH',{get:()=>modelH});
 </script></body></html>

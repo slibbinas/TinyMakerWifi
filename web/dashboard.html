@@ -13,10 +13,11 @@
   </div>
 </section>
 
-<section id='dryRunBanner' class='card banner hidden'>
+<section id='dryRunBanner' class='card banner hidden' style='cursor:pointer'
+  title='Show the dry run switch'>
   <strong>Dry run mode enabled.</strong>
-  <div>Prints will not print, only for testing purposes. (Also togglable in Settings &rarr; Print.)</div>
-  <button id='disableDryRunButton' class='button secondary' type='button'>Press here to disable</button>
+  <div>The motions run but the UV LEDs stay off, so nothing cures.
+    Press here to jump to the <b>Dry run</b> switch.</div>
 </section>
 
 <section id='webControlBanner' class='card banner hidden'>
@@ -75,7 +76,12 @@
       <div id='printLayerBox' class='hidden'><div class='label'>Layer</div><div id='layerValue' class='value'>-</div></div>
     </div>
     <div id='debugValue' class='meta'></div>
-    <button id='vatRefillButton' class='button secondary' type='button'>VAT refilled</button>
+    <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'>
+      <button id='vatRefillButton' class='button secondary' type='button' style='width:auto;flex:1 1 160px'>VAT refilled</button>
+      <button id='dryRunToggle' class='button secondary' type='button'
+        title='Run the motions without curing: the UV LEDs stay off'
+        style='width:auto;flex:1 1 160px'>Dry run: off</button>
+    </div>
   </section>
 
   <section id='printControls' class='card hidden'>
@@ -90,7 +96,12 @@
   <section id='printPreviewCard' class='card'>
     <div class='cardHead'><h2 id='printPreviewTitle'>Model preview</h2>
       <button id='dashShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
-    <canvas id='printPreviewCanvas' style='width:100%;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
+    <div style='position:relative'>
+      <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
+      <label id='viewAsPrintedWrap' title='Show the model the way the printer builds it: upside down, hanging under the rising plate'
+        style='display:none;position:absolute;top:8px;right:10px;gap:6px;align-items:center;padding:4px 9px;border-radius:999px;background:rgba(20,20,22,.55);border:1px solid var(--line);font-size:.78rem;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none'>
+        <input type='checkbox' id='viewAsPrinted' style='width:auto;margin:0'> As printed</label>
+    </div>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
     <!-- 0-26: the info line moved to the status panel rows; the card keeps
          only the 3D view with its small name overlay.
@@ -197,9 +208,9 @@
     <label><span>Idle screen timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin stop (mid-print)</span></label>
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
+    <label class='check'><input name='preview_flip' id='cfgPreviewFlip' type='checkbox' value='1'><span>Default 3D view: as printed (upside down)</span></label>
     <label class='check'><input name='resume_enabled' id='cfgResumeEnabled' type='checkbox' value='1'><span>Resume after power loss</span></label>
     <label class='check'><input name='resume_precise' id='cfgResumePrecise' type='checkbox' value='1'><span>Precise resume checkpoints (finer recovery, more SD writes)</span></label>
-    <label class='check'><input name='dry_run' id='cfgDryRun' type='checkbox' value='1'><span>Dry run mode</span></label>
   </div>
   <button type='submit'>Save config</button>
   </div>
@@ -978,6 +989,7 @@ const applyStatus=s=>{
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
+    $('dryRunToggle').disabled=!!s.busy||!wc;   // rezimo nekeisti spausdinant
     $('modelStartButton').disabled=!wc;
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     syncUploadGate();
@@ -987,8 +999,6 @@ const applyStatus=s=>{
     const rp=s.resumePending;
     show('resumeBanner',!!rp);
     if(rp)setText('resumeBannerInfo',rp.model+' - '+rp.layer+' of '+rp.total+' layers were finished.');
-    $('disableDryRunButton').disabled=!!s.busy;
-    $('disableDryRunButton').textContent=s.busy?'Disable when idle':'Press here to disable';
     ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,busyPrint));
     // Keep the SD manager card visible mid-print (user preference over the
     // 0.13.4 hide): the last-known list stays on screen, locked - no fresh
@@ -1008,6 +1018,7 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       $('printPreviewTitle').textContent='Print progress 3D';
+      $('viewAsPrintedWrap').style.display='flex';
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
@@ -1021,6 +1032,7 @@ const applyStatus=s=>{
       // when nothing is previewed. Busy without slices (print started on the
       // printer): drop a stale idle preview instead of showing a wrong model.
       show('printPreviewCard',true);
+      $('viewAsPrintedWrap').style.display='none';   // idle = irasyta PNG, ne gyvas 3D
       if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
         show('prevNote',false);
         if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
@@ -1257,7 +1269,17 @@ const modelDetails=async(nameEnc,estimate)=>{
 // kept in slicesCache so the print-progress view can reuse them with zero
 // printer traffic while printing.
 const PREV_W=720,PREV_H=420,PREV_S=4.6,PREV_CX=360,PREV_CY=272;
-const isoPt=(x,y,z)=>({X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S});
+// Normalus kelias BAITAS I BAITA senas (CAM_C=false). Mach rezimas perjungia
+// centruota formule su KY=-0.2 - V stende rastas kampas: ziurint vos is apacios
+// kabantis modelis matosi PRO plokstes apacia, jos nereikia daryti permatomos.
+let CAM_C=false,CAM_KY=0.35,CAM_ZC=34,CAM_CY=272;
+const isoPt=(x,y,z)=>CAM_C
+  ?{X:PREV_CX+((x-20.4)-(y-15.3))*0.866*PREV_S,
+    Y:CAM_CY+((x-20.4)+(y-15.3))*CAM_KY*PREV_S-(z-CAM_ZC)*0.8*PREV_S}
+  :{X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*0.8*PREV_S};
+let PREF_FLIP=false;    // numatytasis vaizdas is printerio config
+let VIEW_FLIP=false;    // sios sesijos vaizdas (korteles varnele)
+let viewFlipTouched=false;
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
 let liveHave=0,liveFetching=false;   // P-live: silhouettes pulled from the printer
@@ -1336,15 +1358,135 @@ const quad=(ctx,fill,pts)=>{
     if(n)ctx.lineTo(p.X,p.Y);else ctx.moveTo(p.X,p.Y);}
   ctx.closePath();ctx.fill();ctx.stroke();
 };
+// V 08-11: spausdinant (doneFrac<1) rodomas MASINOS KADRAS - taip, kaip
+// spausdintuvas dirba iš tikruju: plokste kyla, atspausdinta dalis kabo po ja
+// apversta, busimieji sluoksniai blyskiai skendi po dervos pavirsiumi. Baigus
+// (doneFrac>=1) - stacias modelis kaip visada; flip varnele ji apvercia.
+// Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
+const drawMach=(cv,doneFrac)=>{
+  const {slices,gw,gh,modelH}=slicesCache;
+  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;CAM_CY=PREV_H/2;
+  const cvw=cv;cvw.width=PREV_W;cvw.height=PREV_H;
+  const ctx=cv.getContext('2d');ctx.clearRect(0,0,PREV_W,PREV_H);
+  const MX=40.8,MY=30.6,MZ=68;
+  // karkasas be plokstes plokstumos
+  const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
+  ctx.strokeStyle='#4a4a52';ctx.lineWidth=1;
+  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{
+    const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);
+    ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});
+  const N=slices.length;
+  const stepMm=modelH/Math.max(N-1,1);
+  const frontF=doneFrac*Math.max(N-1,1);
+  const plateZ=doneFrac*modelH;
+  const hx=MX/gw/2,hy=MY/gh/2,hz=stepMm/2;
+  // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
+  // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
+  // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
+  // modeli (V pagavo stende 08-11).
+  // 1) plokste
+  {
+    const pz0=plateZ,pz1=plateZ+1.6;
+    const face=(pts,fill)=>{ctx.fillStyle=fill;ctx.beginPath();
+      pts.map(p=>isoPt(...p)).forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));
+      ctx.closePath();ctx.fill();};
+    // Apacia TAMSIAUSIA (seselis) - sviesi apacia skaitesi kaip virsus ir
+    // pirmi sluoksniai atrode padeti ANT plokstes (V 08-11).
+    face([[0,MY,pz0],[MX,MY,pz0],[MX,MY,pz1],[0,MY,pz1]],'rgba(128,130,140,0.96)');
+    face([[MX,0,pz0],[MX,MY,pz0],[MX,MY,pz1],[MX,0,pz1]],'rgba(108,110,120,0.96)');
+    face([[0,0,pz0],[MX,0,pz0],[MX,MY,pz0],[0,MY,pz0]],'rgba(72,74,84,0.97)');
+  }
+  // 2) kabantis stackas nuo plokstes zemyn (k=0 prie plokstes - tolimiausias)
+  NZS=-1;
+  // k rodomas tik kai frontas JI PASIEKE (frontF>k); ties 0% - nieko.
+  const kMax=Math.min(N-1,Math.ceil(frontF)-1);
+  for(let k=0;k<=kMax;k++){
+    const sl=slices[k];if(!sl)continue;
+    const z=plateZ-k*stepMm;
+    const t=k/Math.max(N-1,1);
+    const up=slices[k+1];
+    // Frontas isnyra palaipsniui, BET iskeptas sluoksnis turi atrodyti kietas:
+    // ties 1% aF buvo ~0.36 ir visas (vienintelis) pjuvis atrode blyskus (V 08-11).
+    const aF=k<Math.floor(frontF)?1:Math.max(0.55,Math.min(1,frontF-k));
+    if(aF<1){ctx.save();ctx.globalAlpha=aF;}
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+      if(!sl[j*gw+i])continue;
+      const fTop=!up||!up[j*gw+i]||k===kMax;
+      const fRight=i===gw-1||!sl[j*gw+i+1];
+      const fLeft=j===gh-1||!sl[(j+1)*gw+i];
+      if(!(fTop||fRight||fLeft))continue;
+      const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
+      machVoxel(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);
+    }
+    if(aF<1)ctx.restore();
+  }
+  NZS=1;
+  // 3) dervos pavirsius z=0 (arciau uz stacka)
+  {
+    const f=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0]].map(p=>isoPt(...p));
+    ctx.fillStyle='rgba(110,140,165,0.15)';ctx.beginPath();
+    f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(140,170,195,0.5)';ctx.lineWidth=1.2;ctx.stroke();
+  }
+  // 4) skenduolis - arciausiai kameros. Derva murkina: ghost'as gesta su
+  // gyliu ir dingsta ties ~6 mm - realus vato gylis keli mm, o kabantis
+  // kiaurai pro dezes dugna 17 mm modelis atrode durnai (V 08-11).
+  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k++){
+    const sl=slices[k];if(!sl)continue;
+    const z=-(k-frontF)*stepMm;
+    if(z<-6)break;                      // giliau nebesimato
+    const mur=1+z/6;                    // 1 prie pavirsiaus -> 0 ties -6
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+      if(!sl[j*gw+i])continue;
+      const edge=i+1>=gw||!sl[j*gw+i+1]||j+1>=gh||!sl[(j+1)*gw+i];
+      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
+      ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
+      ctx.fillRect(p.X-1,p.Y-1,2,2);
+    }
+  }
+  ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
+  ctx.fillText(slicesCache.name+' - '+Math.round(doneFrac*100)+'% printed',12,PREV_H-10);
+  CAM_C=false;CAM_KY=0.35;
+};
+// Vieno voxelio piesimas mach rezimui: tas pats apsvietimas kaip drawIso
+// (gradientine normale), tik apatine puse vietoj virsutines (kamera zemiau).
+const machVoxel=(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz)=>{
+  let nx=0,ny=0,nz=0;
+  for(let dk=-1;dk<=1;dk++){
+    const sk=slices[k+dk];
+    for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){
+      if(!di&&!dj&&!dk)continue;
+      const ii=i+di,jj=j+dj;
+      const inside=sk&&ii>=0&&ii<gw&&jj>=0&&jj<gh&&sk[jj*gw+ii];
+      if(!inside){nx+=di;ny+=dj;nz+=dk;}
+    }
+  }
+  const len=Math.hypot(nx,ny,nz)||1;
+  const lam=Math.max(0,(nx*0.25+ny*0.5+NZS*nz*0.83)/len);
+  const depth=0.85+0.15*((i/gw)+(j/gh))/2;
+  const v=(0.30+0.70*lam)*depth;
+  const fill='rgb('+Math.round(236*v)+','+Math.round((132+28*t)*v)+','+Math.round((48+22*t)*v)+')';
+  if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
+  if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+  if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z-hz],[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx-hx,cy+hy,z-hz]]);
+};
+let NZS=1;
 const drawIso=(cv,doneFrac)=>{
+  // Masinos kadras - OPT-IN per ta pacia 'as printed' varnele (V 08-11):
+  // be jos spausdinimo progresas piesamas senuoju staciu budu.
+  if(doneFrac<1&&VIEW_FLIP){drawMach(cv,doneFrac);return;}
   const {slices,gw,gh,modelH}=slicesCache;
   const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
   const N=slices.length;
+  // Flip varnele: modelis apverstas (kaip kabo spausdinant). Trys dalykai kartu:
+  // z -> (1-t), kaimynas up -> k-1, piesimo eile -> nuo virsaus zemyn (painter).
+  const FL=VIEW_FLIP;
   // Half-extents of one voxel cell - the quads are built around the centre.
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
-  for(let k=0;k<N;k++){
-    const t=N>1?k/(N-1):0,z=t*modelH;
+  for(let n=0;n<N;n++){
+    const k=FL?N-1-n:n;
+    const t=N>1?k/(N-1):0,z=(FL?1-t:t)*modelH;
     // One solid style everywhere (== the idle Preview and the finished print),
     // but the printed/unprinted boundary interpolates. The render samples only
     // ~36 slices of a 1000+ layer print, so a hard t<=doneFrac moved the front
@@ -1354,7 +1496,7 @@ const drawIso=(cv,doneFrac)=>{
     // the front reaches its height (doneFrac>=t) and fades in over the step
     // below it (the +1); at doneFrac 1 every a is 1, so preview and print-end
     // render identically. The doneFrac>0 guard keeps 0% fully un-printed.
-    const s=slices[k],up=slices[k+1];
+    const s=slices[k],up=slices[k+(FL?-1:1)];
     const aStep=1/Math.max(N-1,1);
     const a=doneFrac>0?Math.max(0,Math.min(1,(doneFrac-t)/aStep+1)):0;
     // Back-to-front: this projection puts +x right-down and +y left-down, so
@@ -1400,6 +1542,7 @@ const drawIso=(cv,doneFrac)=>{
           }
         }
         const len=Math.hypot(nx,ny,nz)||1;
+        if(FL)nz=-nz;   // apverstam modeliui sviesa lieka is virsaus
         // Light: high, from the left-front - the two faces the camera sees get
         // clearly different values, and the top stays brightest.
         const lam=Math.max(0,(nx*0.25+ny*0.5+nz*0.83)/len);
@@ -2053,7 +2196,11 @@ const loadConfig=async()=>{
      else if(n===1)st=bdg('part','1 of 2')+'using \u00d7'+f.toFixed(3)+
                       ' for now \u2014 weigh a <b>clearly different size</b> print next';
      else          st=bdg('off','not calibrated')+'estimates are raw geometry';
-     $('calState').innerHTML=st;} $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill; $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; $('cfgDryRun').checked=!!c.dryRun; $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
+     $('calState').innerHTML=st;} $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill;
+     /* Config duoda NUMATYTAJI vaizda; kortelės varnele - gyva busena, kuri
+        pradzioje nuo jo atsispiria (V 08-11). */
+     PREF_FLIP=!!c.previewFlip; $('cfgPreviewFlip').checked=PREF_FLIP;
+     if(!viewFlipTouched){VIEW_FLIP=PREF_FLIP;$('viewAsPrinted').checked=VIEW_FLIP;} $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; setDryRunButton(!!c.dryRun); $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://connect.tinymakerwifi.com'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
@@ -2139,6 +2286,19 @@ $('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiC
 $('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
 /* Tankio matuoklis: X g is Y ml. Rankenos buvo netycia istrintos perrasant
    kortele i dvi eilutes (auditor find, 08-11) - mygtukas liko negyvas. */
+/* Vaizdo jungiklis: perpiesiam is kesuotu sluoksniu, nieko neuzklausiant. */
+$('viewAsPrinted').addEventListener('change',()=>{
+  VIEW_FLIP=$('viewAsPrinted').checked; viewFlipTouched=true;
+  if(slicesCache.slices&&slicesCache.slices.length){
+    /* lastPrevFrac laiko paskutine PIESTA frakcija (-1 = dar nepiesta;
+       idle perziura visada 1). */
+    const cf=lastPrevFrac>=0?lastPrevFrac:1;
+    lastPrevFrac=-1;
+    drawIso($('printPreviewCanvas'),cf);
+    lastPrevFrac=cf;
+  }
+});
+
 const calDensPreview=()=>{
   const g=Number($('calDensG').value),ml=Number($('calDensMl').value);
   $('calDensNow').textContent=(g>0&&ml>0)?(g/ml).toFixed(3):($('calDensCur').textContent||'\u2014');
@@ -2207,7 +2367,15 @@ $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/a
 $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
 $('restoreSdButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the SD card backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/config/restore/sd',{method:'POST'});msg('Settings restored from SD backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
 $('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!await uiConfirm('Restore all settings from '+f.name+'? Current settings will be overwritten.',{danger:true}))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
-$('disableDryRunButton').addEventListener('click',async()=>{if(!await uiConfirm('Disable dry run mode? Future prints will use the UV LEDs.'))return;try{await api('/api/config/dry-run?enabled=0',{method:'POST'});msg('Dry run disabled.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
+/* Banneris nieko nejungia - tik parodo, KUR yra vienintelis jungiklis. */
+$('dryRunBanner').addEventListener('click',()=>{
+  const w=$('dryRunToggle'); if(!w)return;
+  w.scrollIntoView({behavior:'smooth',block:'center'});
+  w.style.transition='none';w.style.outline='2px solid var(--accent)';
+  w.style.outlineOffset='4px';w.style.borderRadius='6px';
+  setTimeout(()=>{w.style.transition='outline-color .6s';w.style.outlineColor='transparent';},900);
+  setTimeout(()=>{w.style.outline='';w.style.outlineOffset='';},1600);
+});
 // 0-33: remote answers to the printer's boot resume prompt. Valid only while
 // the prompt is on the printer's screen - the firmware 409s once it is gone.
 const resumeAct=async(path,confirmMsg,opts)=>{
@@ -2221,6 +2389,29 @@ $('resumeLiftButton').addEventListener('click',()=>resumeAct('/api/resume/lift',
   'Lift the plate off the stuck print (up only) and discard the checkpoint?'));
 $('resumeDiscardButton').addEventListener('click',()=>resumeAct('/api/resume/discard',
   'Discard the interrupted print? The checkpoint is deleted and the printer boots normally.',{danger:true}));
+/* Busena matoma is paties mygtuko: pilkas = isjungta, geltonas remelis =
+   ijungta. dataset.on laiko tiesa, kad paspaudimas zinotu, kur suktis. */
+const setDryRunButton=on=>{
+  const b=$('dryRunToggle'); if(!b)return;
+  b.dataset.on=on?'1':'';
+  b.textContent=on?'Dry run: ON \u2014 no UV':'Dry run: off';
+  b.style.borderColor=on?'var(--warncol)':'';
+  b.style.color=on?'var(--warncol)':'';
+  b.style.borderStyle=on?'solid':'';
+  b.style.borderWidth=on?'1px':'';
+};
+/* Dry run - rezimas, ne nustatymas: keiciasi tuoj pat, be 'Save config'.
+   Isjungiant patvirtinam - grizta UV, tad tai jau ne testas. */
+$('dryRunToggle').addEventListener('click',async()=>{
+  const on=!$('dryRunToggle').dataset.on;
+  if(!on&&!await uiConfirm('Disable dry run? Future prints will use the UV LEDs.'))return;
+  try{
+    await api('/api/config/dry-run?enabled='+(on?1:0),{method:'POST'});
+    setDryRunButton(on);
+    msg(on?'Dry run on - the UV LEDs stay off.':'Dry run off - prints will cure again.');
+    loadConfig();refreshStatus();
+  }catch(e){msg(e.message,true);}
+});
 $('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});msg('VAT marked as refilled ('+r.vatRemainingMl+' ml).');refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);

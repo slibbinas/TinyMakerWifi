@@ -31,3 +31,6 @@ scripts/dev/model-slices/
 
 # Generated demo build (rebuild: python scripts/dev/build_demo.py)
 scripts/dev/demo.html
+scripts/dev/dragonhead-live.raw
+scripts/dev/dragonhead-slices.json
+scripts/dev/model-slices/
