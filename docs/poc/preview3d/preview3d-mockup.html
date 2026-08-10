@@ -1,0 +1,164 @@
+<meta charset="utf-8">
+<style>
+  body{margin:0;background:#14161a;color:#e7e9ee;font-family:Arial,Helvetica,sans-serif}
+  .wrap{width:980px;margin:16px auto}
+  h1{font-size:20px;margin:6px 4px 2px;font-weight:700}
+  h1 span{color:#e8720c}
+  .sub{color:#9aa1ad;font-size:13px;margin:0 4px 14px}
+  .row{display:flex;gap:20px}
+  .card{background:#1b1e24;border:1px solid #2a2e36;border-radius:12px;padding:14px;flex:1}
+  .card h2{font-size:15px;margin:0 0 10px;font-weight:700}
+  .bad h2{color:#c8cdd6}
+  .good h2{color:#e8720c}
+  canvas{display:block;border-radius:8px;background:#101216}
+  .cap{color:#9aa1ad;font-size:12px;margin-top:10px;line-height:1.5}
+</style>
+<div class="wrap">
+  <h1>TinyMaker <span>3D preview</span> — kaip atrodytų dashboard'e</h1>
+  <p class="sub">Simuliacija ta pačia matematika: kairėje — žali sluoksnių duomenys (pikseliai XY + 0.05 mm sluoksniai Z), dešinėje — po 2D blur + marching cubes glotninimo naršyklėje.</p>
+  <div class="row">
+    <div class="card bad">
+      <h2>Žali sluoksniai (be apdorojimo)</h2>
+      <canvas id="c1" width="440" height="540"></canvas>
+      <p class="cap">Matosi ir pikselių kvantavimas perimetre, ir sluoksnių laipteliai — taip modelis užrašytas PNG rinkinyje (mastelis padidintas iliustracijai).</p>
+    </div>
+    <div class="card good">
+      <h2>3D preview (blur + marching cubes)</h2>
+      <canvas id="c2" width="440" height="540"></canvas>
+      <p class="cap">Tas pats duomenų rinkinys, apdorotas naršyklėje — pasukamas, apšviestas, glotnus. Iš šio vaizdo gimtų ir gražus preview.png ekranėliui.</p>
+    </div>
+  </div>
+</div>
+<script>
+// --- SDF of a chess-pawn-like model (y up) ---
+function smin(a,b,k){var h=Math.max(k-Math.abs(a-b),0)/k;return Math.min(a,b)-h*h*k*0.25;}
+function sdSphere(x,y,z,cx,cy,cz,r){var dx=x-cx,dy=y-cy,dz=z-cz;return Math.sqrt(dx*dx+dy*dy+dz*dz)-r;}
+function sdCyl(x,y,z,cy,h,r,rnd){ // rounded capped cylinder centered at (0,cy,0)
+  var q=Math.sqrt(x*x+z*z)-r+rnd, w=Math.abs(y-cy)-h+rnd;
+  var ax=Math.max(q,0),ay=Math.max(w,0);
+  return Math.min(Math.max(q,w),0)+Math.sqrt(ax*ax+ay*ay)-rnd;
+}
+function sdCone(x,y,z,y0,y1,r0,r1){ // linear taper segment
+  var t=(y-y0)/(y1-y0); t=Math.max(0,Math.min(1,t));
+  var r=r0+(r1-r0)*t;
+  var d=Math.sqrt(x*x+z*z)-r;
+  var dy=Math.max(y0-y,y-y1);
+  var ax=Math.max(d,0),ay=Math.max(dy,0);
+  return Math.min(Math.max(d,dy),0)+Math.sqrt(ax*ax+ay*ay);
+}
+function sdTorus(x,y,z,cy,R,r){
+  var q=Math.sqrt(x*x+z*z)-R, dy=y-cy;
+  return Math.sqrt(q*q+dy*dy)-r;
+}
+function sd(x,y,z){
+  var d=sdCyl(x,y,z,0.07,0.07,0.40,0.03);          // base
+  d=smin(d,sdTorus(x,y,z,0.17,0.30,0.055),0.05);   // base ring
+  d=smin(d,sdCone(x,y,z,0.14,0.64,0.26,0.105),0.06); // stem
+  d=smin(d,sdTorus(x,y,z,0.66,0.145,0.045),0.04);  // collar
+  d=smin(d,sdSphere(x,y,z,0,0.86,0,0.215),0.03);   // head
+  return d;
+}
+// --- quantized occupancy: XY pixel grid + Z layer grid ---
+var QXY=0.030, QZ=0.014;
+function snap(v,q){return (Math.floor(v/q)+0.5)*q;}
+function occ(x,y,z){return sd(snap(x,QXY),snap(y,QZ),snap(z,QXY))<0;}
+
+// --- camera / lighting ---
+var CAM={x:0.95,y:0.95,z:2.0}, TGT={x:0,y:0.47,z:0};
+var fw={x:TGT.x-CAM.x,y:TGT.y-CAM.y,z:TGT.z-CAM.z};
+(function(){var l=Math.hypot(fw.x,fw.y,fw.z);fw.x/=l;fw.y/=l;fw.z/=l;})();
+var ri={x:-fw.z,y:0,z:fw.x};
+(function(){var l=Math.hypot(ri.x,ri.y,ri.z);ri.x/=l;ri.y/=l;ri.z/=l;})();
+var up={x:ri.y*fw.z-ri.z*fw.y,y:ri.z*fw.x-ri.x*fw.z,z:ri.x*fw.y-ri.y*fw.x};
+var LIGHT={x:-0.45,y:0.75,z:0.55};
+(function(){var l=Math.hypot(LIGHT.x,LIGHT.y,LIGHT.z);LIGHT.x/=l;LIGHT.y/=l;LIGHT.z/=l;})();
+var FOV=0.42;
+
+function shade(nx,ny,nz,vx,vy,vz,warm){
+  var diff=Math.max(0,nx*LIGHT.x+ny*LIGHT.y+nz*LIGHT.z);
+  // half-vector spec
+  var hx=LIGHT.x-vx,hy=LIGHT.y-vy,hz=LIGHT.z-vz;
+  var hl=Math.hypot(hx,hy,hz);hx/=hl;hy/=hl;hz/=hl;
+  var spec=Math.pow(Math.max(0,nx*hx+ny*hy+nz*hz),40)*0.5;
+  var rim=Math.pow(1-Math.max(0,-(nx*vx+ny*vy+nz*vz)),3)*0.18;
+  var base=0.16+0.78*diff;
+  var r=base*185+spec*255+rim*232, g=base*190+spec*255+rim*120, b=base*198+spec*255+rim*40;
+  if(warm){r=base*205+spec*255+rim*232; g=base*172+spec*250+rim*120; b=base*150+spec*245+rim*40;}
+  return [Math.min(255,r),Math.min(255,g),Math.min(255,b)];
+}
+
+function render(canvasId, smooth){
+  var cv=document.getElementById(canvasId), ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height,img=ctx.createImageData(W,H),px=img.data;
+  for(var j=0;j<H;j++){
+    for(var i=0;i<W;i++){
+      var u=(i/W*2-1)*FOV*(W/H)/ (W/H) * (W/H); // keep simple
+      u=(i/W*2-1)*FOV*(W/H);
+      var v=-(j/H*2-1)*FOV*1.22;
+      var dx=fw.x+u*ri.x+v*up.x, dy=fw.y+u*ri.y+v*up.y, dz=fw.z+u*ri.z+v*up.z;
+      var dl=Math.hypot(dx,dy,dz);dx/=dl;dy/=dl;dz/=dl;
+      var t=0,hit=-1,x,y,z;
+      // sphere-trace the smooth SDF
+      for(var s=0;s<96;s++){
+        x=CAM.x+dx*t;y=CAM.y+dy*t;z=CAM.z+dz*t;
+        var d=sd(x,y,z);
+        if(smooth && d<0.0012){hit=t;break;}
+        if(!smooth && d<0.075){ // near surface: fixed-step the quantized field
+          var tt=t-0.02;
+          for(var q=0;q<120;q++){
+            tt+=0.0025;
+            var qx=CAM.x+dx*tt,qy=CAM.y+dy*tt,qz2=CAM.z+dz*tt;
+            if(occ(qx,qy,qz2)){hit=tt;x=qx;y=qy;z=qz2;break;}
+            if(sd(qx,qy,qz2)>0.11)break;
+          }
+          if(hit>0)break;
+          t+=0.09; if(t>4.5)break; continue;
+        }
+        t+=Math.max(d,0.003);
+        if(t>4.5)break;
+      }
+      var o=(j*W+i)*4;
+      if(hit<0){ // background: subtle vertical gradient + build plate line
+        var g0=16+j/H*8;
+        px[o]=g0;px[o+1]=g0+2;px[o+2]=g0+6;px[o+3]=255;
+        continue;
+      }
+      var nx,ny,nz;
+      if(smooth){
+        var e=0.0025;
+        nx=sd(x+e,y,z)-sd(x-e,y,z);
+        ny=sd(x,y+e,z)-sd(x,y-e,z);
+        nz=sd(x,y,z+e)-sd(x,y,z-e);
+      }else{
+        var e2=0.009;nx=0;ny=0;nz=0;
+        // occupancy-gradient normal -> axis-aligned facets (voxel look)
+        for(var a=0;a<4;a++){
+          var jx=(a%2?0.004:-0.004),jz=(a<2?0.004:-0.004);
+          nx+=(occ(x+e2,y+jx,z+jz)?1:0)-(occ(x-e2,y+jx,z+jz)?1:0);
+          ny+=(occ(x+jx,y+e2,z+jz)?1:0)-(occ(x+jx,y-e2,z+jz)?1:0);
+          nz+=(occ(x+jx,y+jz,z+e2)?1:0)-(occ(x+jx,y+jz,z-e2)?1:0);
+        }
+        nx=-nx;ny=-ny;nz=-nz;
+        if(nx===0&&ny===0&&nz===0){nx=-dx;ny=-dy;nz=-dz;}
+      }
+      var nl=Math.hypot(nx,ny,nz);nx/=-nl;ny/=-nl;nz/=-nl; // outward
+      if(nx*dx+ny*dy+nz*dz>0){nx=-nx;ny=-ny;nz=-nz;}
+      var c=shade(nx,ny,nz,dx,dy,dz,!smooth?false:false);
+      // ambient occlusion-ish darkening near plate
+      var ao=1-Math.max(0,(0.16-y))*1.8; if(ao<0.55)ao=0.55;
+      px[o]=c[0]*ao;px[o+1]=c[1]*ao;px[o+2]=c[2]*ao;px[o+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+  // fake soft contact shadow + plate accent
+  var py=H*0.94;
+  var grd=ctx.createRadialGradient(W/2,py,10,W/2,py,W*0.36);
+  grd.addColorStop(0,'rgba(0,0,0,0.55)');grd.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.save();ctx.scale(1,0.16);ctx.beginPath();
+  ctx.arc(W/2,py/0.16,W*0.36,0,7);ctx.fillStyle=grd;ctx.fill();ctx.restore();
+  ctx.fillStyle='rgba(232,114,12,0.35)';
+  ctx.fillRect(W*0.08,H*0.955,W*0.84,2);
+}
+render('c1',false);
+render('c2',true);
+</script>

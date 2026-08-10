@@ -1,0 +1,186 @@
+<meta charset="utf-8">
+<style>
+  body{margin:0;background:#14161a;color:#e7e9ee;font-family:Arial,Helvetica,sans-serif}
+  .wrap{width:980px;margin:16px auto}
+  h1{font-size:20px;margin:6px 4px 2px;font-weight:700}
+  h1 span{color:#e8720c}
+  .sub{color:#9aa1ad;font-size:13px;margin:0 4px 14px}
+  .row{display:flex;gap:20px}
+  .card{background:#1b1e24;border:1px solid #2a2e36;border-radius:12px;padding:14px;flex:1}
+  .card h2{font-size:15px;margin:0 0 10px;font-weight:700}
+  .bad h2{color:#c8cdd6}
+  .good h2{color:#e8720c}
+  canvas{display:block;border-radius:8px;background:#101216}
+  .cap{color:#9aa1ad;font-size:12px;margin-top:10px;line-height:1.5}
+</style>
+<div class="wrap">
+  <h1>TinyMaker <span>3D preview</span> — tavo modelis (480 sluoksnių, ~24 mm)</h1>
+  <p class="sub">Tikri sluoksnių PNG iš įkelto ZIP: kairėje — voxel duomenys kaip užrašyta faile, dešinėje — po blur + interpoliacijos glotninimo naršyklėje (siūlomas #93 sprendimas).</p>
+  <div class="row">
+    <div class="card bad">
+      <h2>Žali sluoksniai (be apdorojimo)</h2>
+      <canvas id="c1" width="440" height="540"></canvas>
+      <p class="cap">Imtas kas 3-čias sluoksnis, tad laipteliai ~3× ryškesni nei spaudinyje — iliustracijai.</p>
+    </div>
+    <div class="card good">
+      <h2>3D preview (glotninta naršyklėje)</h2>
+      <canvas id="c2" width="440" height="540"></canvas>
+      <p class="cap">Tie patys duomenys po 2D+Z blur ir trilinear interpoliacijos — taip modelį rodytų dashboard'as.</p>
+    </div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script>
+function b64ToU8(b64){
+  var bin=atob(b64), n=bin.length, a=new Uint8Array(n);
+  for(var i=0;i<n;i++)a[i]=bin.charCodeAt(i);
+  return a;
+}
+var RAW=b64ToU8(RAW_B64), SM=b64ToU8(SM_B64);
+var CX=VOL.cx, CY=VOL.cy, CZ=VOL.cz, PLANE=CX*CY;
+// physical mm
+var PX=CX*VOL.vx, PY=CY*VOL.vy, PZ=CZ*VOL.vz;
+var S=1.5/Math.max(PX,PY,PZ);         // world units per mm scale
+var HX=PX*S/2, HZv=PY*S/2, HGT=PZ*S;  // world half-extents; height = layers axis
+var TH=100;
+
+// world -> voxel float coords (world y = layer axis)
+function toVox(wx,wy,wz){
+  return [ (wx+HX)/S/VOL.vx, (wz+HZv)/S/VOL.vy, wy/S/VOL.vz ];
+}
+function rawOcc(wx,wy,wz){
+  var v=toVox(wx,wy,wz);
+  var x=v[0]|0,y=v[1]|0,z=v[2]|0;
+  if(x<0||y<0||z<0||x>=CX||y>=CY||z>=CZ)return false;
+  return RAW[z*PLANE+y*CX+x]>=TH;
+}
+function smSample(wx,wy,wz){
+  var v=toVox(wx,wy,wz);
+  var x=v[0]-0.5,y=v[1]-0.5,z=v[2]-0.5;
+  var x0=Math.floor(x),y0=Math.floor(y),z0=Math.floor(z);
+  var fx=x-x0,fy=y-y0,fz=z-z0;
+  function at(xi,yi,zi){
+    if(xi<0||yi<0||zi<0||xi>=CX||yi>=CY||zi>=CZ)return 0;
+    return SM[zi*PLANE+yi*CX+xi];
+  }
+  var c00=at(x0,y0,z0)*(1-fx)+at(x0+1,y0,z0)*fx;
+  var c10=at(x0,y0+1,z0)*(1-fx)+at(x0+1,y0+1,z0)*fx;
+  var c01=at(x0,y0,z0+1)*(1-fx)+at(x0+1,y0,z0+1)*fx;
+  var c11=at(x0,y0+1,z0+1)*(1-fx)+at(x0+1,y0+1,z0+1)*fx;
+  var c0=c00*(1-fy)+c10*fy, c1=c01*(1-fy)+c11*fy;
+  return c0*(1-fz)+c1*fz;
+}
+
+// camera
+var CAM={x:1.15,y:1.05,z:1.9}, TGT={x:0,y:HGT*0.42,z:0};
+var fw={x:TGT.x-CAM.x,y:TGT.y-CAM.y,z:TGT.z-CAM.z};
+(function(){var l=Math.hypot(fw.x,fw.y,fw.z);fw.x/=l;fw.y/=l;fw.z/=l;})();
+var ri={x:-fw.z,y:0,z:fw.x};
+(function(){var l=Math.hypot(ri.x,ri.y,ri.z);ri.x/=l;ri.y/=l;ri.z/=l;})();
+var up={x:ri.y*fw.z-ri.z*fw.y,y:ri.z*fw.x-ri.x*fw.z,z:ri.x*fw.y-ri.y*fw.x};
+var LIGHT={x:-0.45,y:0.75,z:0.55};
+(function(){var l=Math.hypot(LIGHT.x,LIGHT.y,LIGHT.z);LIGHT.x/=l;LIGHT.y/=l;LIGHT.z/=l;})();
+var FOV=0.44;
+
+function shade(nx,ny,nz,vx,vy,vz){
+  var diff=Math.max(0,nx*LIGHT.x+ny*LIGHT.y+nz*LIGHT.z);
+  var hx=LIGHT.x-vx,hy=LIGHT.y-vy,hz=LIGHT.z-vz;
+  var hl=Math.hypot(hx,hy,hz);hx/=hl;hy/=hl;hz/=hl;
+  var spec=Math.pow(Math.max(0,nx*hx+ny*hy+nz*hz),40)*0.5;
+  var rim=Math.pow(1-Math.max(0,-(nx*vx+ny*vy+nz*vz)),3)*0.18;
+  var base=0.16+0.78*diff;
+  var r=base*185+spec*255+rim*232, g=base*190+spec*255+rim*120, b=base*198+spec*255+rim*40;
+  return [Math.min(255,r),Math.min(255,g),Math.min(255,b)];
+}
+
+// ray-box for bounds min(-HX,0,-HZv) max(HX,HGT,HZv)
+function boxHit(ox,oy,oz,dx,dy,dz){
+  var t0=0.01,t1=1e9;
+  function slab(o,d,mn,mx){
+    if(Math.abs(d)<1e-9)return o>=mn&&o<=mx;
+    var a=(mn-o)/d,b=(mx-o)/d;
+    if(a>b){var t=a;a=b;b=t;}
+    if(a>t0)t0=a; if(b<t1)t1=b;
+    return t0<=t1;
+  }
+  if(!slab(ox,dx,-HX,HX))return null;
+  if(!slab(oy,dy,0,HGT))return null;
+  if(!slab(oz,dz,-HZv,HZv))return null;
+  return [t0,t1];
+}
+
+function render(canvasId, smooth){
+  var cv=document.getElementById(canvasId), ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height,img=ctx.createImageData(W,H),px=img.data;
+  var vox=Math.min(VOL.vx,VOL.vz)*S;
+  var step=smooth?vox*0.7:vox*0.35;
+  for(var j=0;j<H;j++){
+    for(var i=0;i<W;i++){
+      var u=(i/W*2-1)*FOV*(W/H);
+      var v=-(j/H*2-1)*FOV*1.22;
+      var dx=fw.x+u*ri.x+v*up.x, dy=fw.y+u*ri.y+v*up.y, dz=fw.z+u*ri.z+v*up.z;
+      var dl=Math.hypot(dx,dy,dz);dx/=dl;dy/=dl;dz/=dl;
+      var o=(j*W+i)*4;
+      var seg=boxHit(CAM.x,CAM.y,CAM.z,dx,dy,dz);
+      var hit=-1,x,y,z;
+      if(seg){
+        var t=seg[0];
+        var prevT=t;
+        while(t<seg[1]){
+          x=CAM.x+dx*t;y=CAM.y+dy*t;z=CAM.z+dz*t;
+          var inside = smooth ? (smSample(x,y,z)>=TH) : rawOcc(x,y,z);
+          if(inside){
+            // binary refine between prevT and t
+            var a=prevT,b=t;
+            for(var r=0;r<7;r++){
+              var m=(a+b)/2;
+              var mx=CAM.x+dx*m,my=CAM.y+dy*m,mz=CAM.z+dz*m;
+              var ins = smooth ? (smSample(mx,my,mz)>=TH) : rawOcc(mx,my,mz);
+              if(ins)b=m;else a=m;
+            }
+            hit=b;x=CAM.x+dx*b;y=CAM.y+dy*b;z=CAM.z+dz*b;
+            break;
+          }
+          prevT=t; t+=step;
+        }
+      }
+      if(hit<0){
+        var g0=16+j/H*8;
+        px[o]=g0;px[o+1]=g0+2;px[o+2]=g0+6;px[o+3]=255;
+        continue;
+      }
+      var nx,ny,nz;
+      if(smooth){
+        var e=vox*1.2;
+        nx=smSample(x+e,y,z)-smSample(x-e,y,z);
+        ny=smSample(x,y+e,z)-smSample(x,y-e,z);
+        nz=smSample(x,y,z+e)-smSample(x,y,z-e);
+      }else{
+        var e2=vox*0.9;nx=0;ny=0;nz=0;
+        for(var a2=0;a2<4;a2++){
+          var jx=(a2%2?vox*0.35:-vox*0.35),jz=(a2<2?vox*0.35:-vox*0.35);
+          nx+=(rawOcc(x+e2,y+jx,z+jz)?1:0)-(rawOcc(x-e2,y+jx,z+jz)?1:0);
+          ny+=(rawOcc(x+jx,y+e2,z+jz)?1:0)-(rawOcc(x+jx,y-e2,z+jz)?1:0);
+          nz+=(rawOcc(x+jx,y+jz,z+e2)?1:0)-(rawOcc(x+jx,y+jz,z-e2)?1:0);
+        }
+        if(nx===0&&ny===0&&nz===0){nx=-dx;ny=-dy;nz=-dz;}
+      }
+      var nl=Math.hypot(nx,ny,nz);nx/=nl;ny/=nl;nz/=nl;
+      if(nx*dx+ny*dy+nz*dz>0){nx=-nx;ny=-ny;nz=-nz;}
+      var c=shade(nx,ny,nz,dx,dy,dz);
+      var ao=1-Math.max(0,(HGT*0.12-y))*1.2; if(ao<0.6)ao=0.6;
+      px[o]=c[0]*ao;px[o+1]=c[1]*ao;px[o+2]=c[2]*ao;px[o+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+  var py=H*0.94;
+  var grd=ctx.createRadialGradient(W/2,py,10,W/2,py,W*0.38);
+  grd.addColorStop(0,'rgba(0,0,0,0.55)');grd.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.save();ctx.scale(1,0.16);ctx.beginPath();
+  ctx.arc(W/2,py/0.16,W*0.38,0,7);ctx.fillStyle=grd;ctx.fill();ctx.restore();
+  ctx.fillStyle='rgba(232,114,12,0.35)';
+  ctx.fillRect(W*0.08,H*0.955,W*0.84,2);
+}
+render('c1',false);
+render('c2',true);
+</script>
