@@ -139,6 +139,9 @@ bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per pr
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
 bool askRefillEnabled = true;       // ask "VAT refilled?" before every print
+bool previewFlip = false;           // dashboard 3D preview upside down (a viewing
+                                    // preference - lives in printer config so it
+                                    // holds across every browser/phone)
 bool refillAsked = false;           // the ask was answered for this start attempt
 float resinNeedForModelMl = -1;     // fresh full-model estimate for the selected
                                     // model (-1 = none); set by the resin screen,
@@ -356,6 +359,7 @@ void loadDeviceConfig() {
   lastPrintRawMl = sysPrefs.getFloat("lastPrintMl", -1);
   if (!(lastPrintRawMl > 0)) lastPrintRawMl = -1;   // NaN/garbage -> "no print yet"
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
+  previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
 }
 
@@ -404,6 +408,7 @@ void saveDeviceConfig() {
   sysPrefs.putFloat("calRawB", calRawB);   sysPrefs.putFloat("calMeasB", calMeasB);
   sysPrefs.putUChar("calUnit", 1);         // calMeas* = grams
   sysPrefs.putBool("askRefill", askRefillEnabled);
+  sysPrefs.putBool("prevFlip", previewFlip);
   sysPrefs.end();
 }
 
@@ -920,6 +925,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
                             // backup as (mililitrai) atkurtu klaidinga kalibracija
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
+  out += ",\"previewFlip\":";
+  out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
   out += String(uiTimeoutSecs);
   out += ",\"dryRun\":";
@@ -1107,6 +1114,7 @@ void applyConfigBackup(const String &j) {
     }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
+  previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
   wifiEnabled = backupBool(j, "wifiEnabled", wifiEnabled);
