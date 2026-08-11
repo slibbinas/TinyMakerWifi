@@ -3169,7 +3169,8 @@ $('slicerFile').addEventListener('change',async e=>{
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
     slicerButtons(true);
-    if(!$('slicerName').value)
+    /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
+       issisaugodavo ne tuo pavadinimu (V 08-12). */
       $('slicerName').value=f.name.replace(/\.stl$/i,'')
         .replace(/[^A-Za-z0-9_-]/g,'').slice(0,14);   // ilgesnis netelpa printerio ekrane
     $('slicerGo').disabled=false;
