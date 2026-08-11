@@ -1115,6 +1115,7 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
+      slicerOwnsPreview=false;   // spaudinys atsiima kortele is slicer'io
       $('printPreviewTitle').textContent='Print progress 3D';
       $('viewAsPrintedWrap').style.display='flex';
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
@@ -1133,7 +1134,8 @@ const applyStatus=s=>{
       $('viewAsPrintedWrap').style.display='none';   // idle = irasyta PNG, ne gyvas 3D
       if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
         show('prevNote',false);
-        if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
+        if(!dashPreviewName&&!slicerOwnsPreview&&
+           $('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -2964,6 +2966,10 @@ $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
 /* ---- Slicer (B etapas): STL -> matmenys -> telpa/netelpa ---------------- */
 let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
+/* Kol slicer'is piesia i perziuros kortele, ji yra JO. Be sios veliaveles
+   busenos apklausa po sekundes padeda tuscia vietele ir vaizdas dingsta
+   (V 08-12). Spaudinys vis tiek svarbesnis - zr. busyPrint saka. */
+let slicerOwnsPreview=false;
 const slicerSay=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
 const slicerBusyStop=()=>{
   if(statusData&&statusData.busy){msg('Not while printing.',true);return true;}
@@ -2984,7 +2990,8 @@ const sdCollapse=on=>{
 };
 $('slicerToggle').addEventListener('click',async()=>{
   const body=$('slicerBody'), open=body.style.display!=='none';
-  if(open){body.style.display='none';$('slicerToggle').textContent='Open';sdCollapse(false);return;}
+  if(open){body.style.display='none';$('slicerToggle').textContent='Open';
+    sdCollapse(false); slicerOwnsPreview=false; dashPreviewPlaceholder(); return;}
   body.style.display='block';$('slicerToggle').textContent='Close';sdCollapse(true);
   if(slicerMod)return;
   slicerSay('slicerInfo','Loading the slicer…');
@@ -3035,6 +3042,7 @@ const slicerRender=()=>{
     fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
       +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
   if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed));
+  slicerOwnsPreview=true;
   $('printPreviewTitle').textContent='Slicer preview';
   show('printPreviewCard',true);
 };
@@ -3086,6 +3094,7 @@ const slicerShowLayer=async n=>{
   bmp.close&&bmp.close();
   $('slicerLayerNo').textContent=n+' / '+slicerOut.layers+'  ('
     +(n*0.05).toFixed(2)+' mm)';
+  slicerOwnsPreview=true;
   if(window.gl3dShow)gl3dShow(false);
 };
 
@@ -3156,7 +3165,7 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
     $('slicerBody').style.display='none';
     $('slicerToggle').textContent='Open';
-    sdCollapse(false);
+    sdCollapse(false); slicerOwnsPreview=false;
     loadFiles&&loadFiles();
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
   finally{ btn.disabled=false; }
