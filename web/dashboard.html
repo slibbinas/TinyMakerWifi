@@ -202,19 +202,20 @@
 
     <div class='hint' style='margin:2px 0 0;color:var(--muted2)'>Edge pixels are printed grey instead of black or white. Grey passes less UV, so the edge cures only partly and the stair steps between layers stop being visible. Costs nothing in time or resin.</div>
     <div id='slicerProg' class='hint' style='margin-top:6px'></div>
-    <div id='slicerReview' style='display:none'>
-      <div class='calRow'>
-        <span class='lbl'>Layer</span>
-        <input id='slicerLayer' type='range' min='1' max='2' value='1' style='flex:1;min-width:120px'>
-        <span id='slicerLayerNo' style='color:var(--muted);font-size:.85rem;min-width:96px'></span>
-      </div>
-    </div>
+
     <div class='calRow' style='margin-top:6px'>
       <button id='slicerGo' class='button' type='button' style='width:auto' disabled>Slice</button>
       <a href='#' id='slicerDiscardLink' class='hint' style='display:none'>discard</a>
       <span style='flex:1 1 auto'></span>
       <input id='slicerName' type='text' placeholder='model name' style='width:150px' disabled>
       <button id='slicerSave' class='button' type='button' style='width:auto' disabled>Save to printer</button>
+    </div>
+    <div id='slicerReview' style='display:none'>
+      <div class='calRow'>
+        <span class='lbl'>Height</span>
+        <input id='slicerLayer' type='range' min='1' max='2' value='1' style='flex:1;min-width:120px'>
+        <span id='slicerLayerNo' style='color:var(--muted);font-size:.85rem;min-width:110px'></span>
+      </div>
     </div>
     <div class='hint' style='margin-top:8px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
   </div>
@@ -2999,7 +3000,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
   /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
      naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
-  const SV='0.3.2';
+  const SV='0.4.0';
   slicerMod=await loadModule('slicer',SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js?v='+SV);
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
@@ -3080,22 +3081,20 @@ $('slicerScaleFit').addEventListener('click',()=>{
    paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
 let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
 
-const slicerShowLayer=async n=>{
-  if(!slicerOut)return;
-  const f=slicerOut.files[n-1]; if(!f)return;
-  const bmp=await createImageBitmap(new Blob([f.data],{type:'image/png'}));
-  const cv=$('printPreviewCanvas'), ctx=cv.getContext('2d');
-  cv.width=720;cv.height=420;
-  ctx.fillStyle='#151517';ctx.fillRect(0,0,720,420);
-  const sc=Math.min(720/bmp.width,420/bmp.height)*0.92;
-  const w=bmp.width*sc,h=bmp.height*sc;
-  ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(bmp,(720-w)/2,(420-h)/2,w,h);
-  bmp.close&&bmp.close();
-  $('slicerLayerNo').textContent=n+' / '+slicerOut.layers+'  ('
-    +(n*0.05).toFixed(2)+' mm)';
+/* Slankiklis valdo AUKSTI, ne rodo atskira pjuvi: tas pats pieseejas, kuris
+   piesia spausdinimo progresa, tik frakcija ateina is slankiklio, o ne is
+   printerio. Vienas algoritmas visur (V 08-12). */
+const slicerShowLayer=n=>{
+  if(!slicerOut||!slicerOut.preview)return;
+  const p=slicerOut.preview;
+  slicesCache={name:'\u2039slicer\u203a',mode:'current',slices:p.slices,
+               gw:p.gw,gh:p.gh,modelH:p.modelH,layers:slicerOut.layers};
+  const frac=Math.min(1,Math.max(0.02,n/slicerOut.layers));
+  lastPrevFrac=-1;
   slicerOwnsPreview=true;
-  if(window.gl3dShow)gl3dShow(false);
+  drawIso($('printPreviewCanvas'),frac);
+  $('slicerLayerNo').textContent=(n*0.05).toFixed(2)+' mm  ('+n+' / '
+    +slicerOut.layers+')';
 };
 
 $('slicerGo').addEventListener('click',async()=>{
@@ -3127,12 +3126,12 @@ $('slicerGo').addEventListener('click',async()=>{
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
       +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml \u00b7 look through the layers, then save';
     const sl=$('slicerLayer');
-    sl.min=1; sl.max=r.layers; sl.value=Math.max(1,Math.round(r.layers*0.5));
+    sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
     $('slicerReview').style.display='block';
     $('slicerName').disabled=false;
     $('slicerSave').disabled=false;
     $('slicerDiscardLink').style.display='inline';
-    await slicerShowLayer(Number(sl.value));
+    slicerShowLayer(Number(sl.value));
   }catch(e){
     prog.textContent=e.message;
     msg(e.message,true);
