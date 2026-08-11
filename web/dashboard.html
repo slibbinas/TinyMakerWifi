@@ -3020,6 +3020,7 @@ let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
 /* Kamera persistato tik naujam failui: kitaip kiekvienas perpiesimas ja
    pertaikydavo, ir mastelio pokytis ekrane dingdavo (V 08-12). */
 let slicerHome=true;
+let slicerFileName='';
 /* Kol slicer'is piesia i perziuros kortele, ji yra JO. Be sios veliaveles
    busenos apklausa po sekundes padeda tuscia vietele ir vaizdas dingsta
    (V 08-12). Spaudinys vis tiek svarbesnis - zr. busyPrint saka. */
@@ -3108,7 +3109,7 @@ const slicerRender=()=>{
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
-   $('slicerDims').textContent=
+   $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
      b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
      +' mm  ·  '+n.toLocaleString()+' triangles';}
   const fit=$('slicerFit');
@@ -3150,7 +3151,10 @@ $('slicerFile').addEventListener('change',async e=>{
   try{
     const buf=await f.arrayBuffer();
     const r=slicerMod.parseSTL(buf);
-    slicerRaw=r.positions;
+    /* Senas rezultatas nuvalomas PRIES nauja modeli: kitaip jo duomenys
+       gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
+    slicerOut=null;
+    slicerRaw=r.positions; slicerFileName=f.name;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
@@ -3242,7 +3246,7 @@ $('slicerGo').addEventListener('click',async()=>{
       return;}
     slicerOut=r; slicerOut.ml=ml;
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
-      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml \u00b7 look through the layers, then save';
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
     const sl=$('slicerLayer');
     sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
     $('slicerReview').style.display='flex';
