@@ -193,8 +193,20 @@
         <span>%</span></div>
       <button id='slicerScaleFit' class='button secondary' type='button'>Scale to fit</button>
     </div>
-    <div class='hint' style='margin-top:8px;color:var(--muted2)'>Slicing itself is not built yet —
-      this step reads the file, measures it and checks that it fits.</div>
+    <div class='calSep'></div>
+    <div class='calRow'>
+      <span class='lbl'>Detail</span>
+      <label class='check' style='margin:0'><input type='checkbox' id='slicerAA' checked>
+        <span>Smooth edges</span></label>
+      <span style='color:var(--muted2);font-size:.82rem'>grey edge pixels cure partially, which softens the stair steps</span>
+    </div>
+    <div class='calRow'>
+      <span class='lbl'>Save as</span>
+      <div class='grp'><input id='slicerName' type='text' placeholder='model name' style='width:170px'></div>
+      <button id='slicerGo' class='button' type='button' style='width:auto' disabled>Slice &amp; save</button>
+    </div>
+    <div id='slicerProg' class='hint' style='margin-top:2px'></div>
+    <div class='hint' style='margin-top:8px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
   </div>
 </section>
 </div>
@@ -3015,6 +3027,9 @@ $('slicerFile').addEventListener('change',async e=>{
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
     slicerButtons(true);
+    if(!$('slicerName').value)
+      $('slicerName').value=f.name.replace(/\.stl$/i,'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,24);
+    $('slicerGo').disabled=false;
     slicerRender();
   }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
 });
@@ -3029,6 +3044,48 @@ $('slicerScaleFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
   slicerTr.scale*=slicerMod.fitCheck(b.size).scaleToFit; slicerRender();});
+/* Pjaustymas ir issaugojimas. Archyvas keliauja ESAMU ikelimo keliu - tuo
+   paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
+$('slicerGo').addEventListener('click',async()=>{
+  if(!slicerRaw||!slicerMod)return;
+  if(slicerBusyStop())return;
+  let name=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
+  if(!name){msg('Give the model a name first.',true);$('slicerName').focus();return;}
+  const placed=slicerMod.place(slicerRaw,slicerTr);
+  const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
+  if(!f.fits){msg('It does not fit yet \u2014 turn or scale it first.',true);return;}
+  const go=$('slicerGo'), prog=$('slicerProg');
+  go.disabled=true; slicerButtons(false);
+  try{
+    prog.textContent='Slicing\u2026';
+    const t0=performance.now();
+    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked},
+      (done,total)=>{
+        prog.textContent='Slicing '+Math.round(done/total*100)+'%  ('+done+' / '+total+' layers)';
+        paintPreviewProgress($('printPreviewCanvas'),'Slicing '+Math.round(done/total*100)+'%',done/total);
+      });
+    /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
+       imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
+    const c=connectConfig||{};
+    const ml=(r.rawMl*(Number(c.resinCalFactor)||1)+(Number(c.resinFixedMl)||0));
+    prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml \u00b7 uploading\u2026';
+    const fd=new FormData();
+    fd.append('file',r.blob,name+'.zip');
+    await api('/api/files/local',{method:'POST',body:fd},180000);
+    prog.textContent='Saved as \u201c'+name+'\u201d \u00b7 '+r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
+    msg('\u201c'+name+'\u201d is on the printer.');
+    /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
+    $('slicerBody').style.display='none';
+    $('slicerToggle').textContent='Open';
+    sdCollapse(false);
+    loadFiles&&loadFiles();
+  }catch(e){
+    prog.textContent=e.message;
+    msg(e.message,true);
+  }finally{ go.disabled=false; slicerButtons(true); }
+});
+
 $('slicerScale').addEventListener('change',e=>{
   if(!slicerRaw)return;
   const v=Number(e.target.value)/100;

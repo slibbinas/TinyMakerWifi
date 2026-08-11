@@ -175,7 +175,17 @@ topples a column.
 | Hollowing + drain holes | Saves a lot of resin, but honest hollowing needs 3D work. A cheap approximation exists (erode each layer inward); worth doing once the base works. |
 | Copies / array | Useful (the Tooth model is six teeth in one file) but convenience, not necessity. |
 | Manual support points | Large UI job. First see whether automatic placement suffices. |
-| Automatic best orientation | Sounds good, debatable in practice — better to show cross-section area and let the human decide. |
+| Automatic best orientation | Superseded by **Auto arrange** below. |
+
+### Auto arrange — the default the maintainer asked for (08-12)
+
+> “As much automatic placement as possible. One **Auto arrange**: it turns the part, picks
+> suitable supports, and **scales only if it does not fit** — and says so when it does.”
+
+This is the shape stage D should take, not a pile of separate buttons. The manual controls stay
+for the cases automation gets wrong, but the normal path is: drop a file, press one button,
+save. Scaling stays the one thing that is never silent, because it changes the real size of the
+object — everything else may happen without asking.
 
 ---
 
