@@ -3105,6 +3105,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
 (async()=>{
   let T=null,src='';
   const tryLoad=async(u,label)=>{try{const m=await import(u);src=label;return m;}catch(e){return null;}};
+  /* Bendras moduliu kelias (A etapas): SD -> musu gh-pages. Ta pati tvarka
+     naudos ir slicer'is - vienas mechanizmas, ne trys panasus. */
+  window.loadModule=async(name,ver,cdnUrl)=>{
+    let mod=await tryLoad('/lib/'+name+'.js?v='+ver,'SD');
+    if(!mod&&cdnUrl)mod=await tryLoad(cdnUrl,'web');
+    return mod;
+  };
   /* Musu pačių paskelbta, prie versijos prisegta kopija - tas pats saltinis,
      kuriuo printeris jau pasitiki firmware atnaujinimams. Svetimas CDN
      nenaudojamas: pultas si faila importuoja kaip SAVO origin'o skripta,

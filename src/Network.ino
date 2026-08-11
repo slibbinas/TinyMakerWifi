@@ -3287,8 +3287,6 @@ void handleApiModelSlicesUploadDone() {
 // quietly falls back to the CDN, then to its own renderer.
 // v1: senieji kesai buvo irasyti BE turinio patikros, tad jais nebepasitikim -
 // naujas vardas juos tiesiog ignoruoja (auditas 08-12).
-#define THREE_SD_PATH "/lib/three-v1.js.gz"
-#define THREE_SD_LEGACY "/lib/three.js.gz"
 // Musu pacio publikuoto /lib/three-0.160.0.min.js.gz SHA-256. Keiciasi TIK
 // keliant three.js versija (tada perskaiciuoti ir atnaujinti cia).
 static const uint8_t THREE_GZ_SHA[32] = {
@@ -3297,10 +3295,42 @@ static const uint8_t THREE_GZ_SHA[32] = {
   0xcd, 0x86, 0x34, 0xd2, 0x46, 0x43, 0x35, 0x1c,
   0xd4, 0x89, 0x87, 0xea, 0xb8, 0xa2, 0xd9, 0x2e
 };
-void handleLibThree() {
+
+// Naršykles moduliai, gulintys SD korteleje. three.js buvo pirmas ir turejo jam
+// specialiai padaryta kelia; slicer'iui reiketu antro tokio pat, paskui trecio -
+// trys beveik vienodi keliai su trimis kopijomis tos pacios gynybos. Vietoj to
+// viena lentele: naujas modulis = viena eilute, ne naujas kodas.
+struct LibModule {
+  const char *name;      // /lib/<name>.js  ir  /api/lib/<name>
+  const char *path;      // kur guli SD korteleje
+  const char *legacy;    // senesnis kelias, trinamas po sekmingo ikelimo (arba NULL)
+  const uint8_t *sha;    // priimam TIK si turini
+  uint32_t maxLen;
+  uint32_t minLen;       // nukirstas siuntinys blogiau nei joks: modulis lustu import'e
+};
+static const LibModule LIB_MODULES[] = {
+  { "three", "/lib/three-v1.js.gz", "/lib/three.js.gz", THREE_GZ_SHA, 250000u, 50000u },
+};
+static const size_t LIB_MODULE_COUNT = sizeof(LIB_MODULES) / sizeof(LIB_MODULES[0]);
+
+// Modulis pagal URI: /lib/<name>.js arba /api/lib/<name>. Vardai registruoti
+// is tos pacios lenteles, tad nesutapimas cia reikstu klaida, ne uzklausa.
+static const LibModule *libModuleForUri() {
+  String u = server.uri();
+  int at = u.startsWith("/api/lib/") ? 9 : (u.startsWith("/lib/") ? 5 : -1);
+  if (at < 0) return NULL;
+  String n = u.substring(at);
+  if (n.endsWith(".js")) n = n.substring(0, n.length() - 3);
+  for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
+    if (n == LIB_MODULES[i].name) return &LIB_MODULES[i];
+  return NULL;
+}
+void handleLibGet() {
+  const LibModule *m = libModuleForUri();
+  if (!m) { server.send(404, "text/plain", "unknown module"); return; }
   if (rejectIfBusy()) return;                 // SD belongs to the print
   if (!sdCardReady()) { server.send(503, "text/plain", "sd unavailable"); return; }
-  File f = SD.open(THREE_SD_PATH);
+  File f = SD.open(m->path);
   if (!f) { server.send(404, "text/plain", "not cached"); return; }
   server.sendHeader("Content-Encoding", "gzip");
   server.sendHeader("Cache-Control", "max-age=604800, immutable");
@@ -3320,27 +3350,28 @@ void handleLibThree() {
 // POST /api/lib/three - store the gzipped library the browser already fetched.
 // Upload-style handler: the body is written straight to SD in chunks, so a
 // 170 KB file costs no heap.
-#define THREE_SD_MAX 250000u   // gz ~170 KB; virsijantis siuntinys - siuksle
 static File threeUp;
 static bool threeUpBad = false;
 static uint32_t threeUpLen = 0;
 static bool threeUpSeen = false;   // ar sioje uzklausoje ISVIS buvo failas
 static mbedtls_sha256_context threeUpSha;
 static bool threeUpShaOn = false;
-void handleLibThreeUploadData() {
+static const LibModule *libUpMod = NULL;   // kuri modulį rasom sioje uzklausoje
+void handleLibUploadData() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
     // Web control gate kaip visuose rasymo keliuose: be jo bet kuris LAN
     // irenginys irasytu JS moduli, kuri pultas paskui import'ina savo
     // origin'e - tai butu nuolatine skripto injekcija (auditas 08-12).
-    threeUpBad = printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled() ||
+    libUpMod = libModuleForUri();
+    threeUpBad = !libUpMod || printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled() ||
                  !requestFromOwnUi();   // #95: kunas i SD rasomas PRIES uzbaigimo funkcija
     threeUpLen = 0;
     threeUpSeen = true;
     if (threeUpBad) return;
     if (!SD.exists("/lib")) SD.mkdir("/lib");
-    SD.remove(THREE_SD_PATH);
-    threeUp = SD.open(THREE_SD_PATH, FILE_WRITE);
+    SD.remove(libUpMod->path);
+    threeUp = SD.open(libUpMod->path, FILE_WRITE);
     if (!threeUp || threeUp.size() != 0) { threeUpBad = true; }  // FILE_WRITE = append
     if (!threeUpBad) {
       mbedtls_sha256_init(&threeUpSha);
@@ -3354,7 +3385,7 @@ void handleLibThreeUploadData() {
     if (threeUpLen == 0 && up.currentSize >= 2 &&
         !(up.buf[0] == 0x1f && up.buf[1] == 0x8b)) { threeUpBad = true; return; }
     threeUpLen += up.currentSize;
-    if (threeUpLen > THREE_SD_MAX) { threeUpBad = true; return; }
+    if (!libUpMod || threeUpLen > libUpMod->maxLen) { threeUpBad = true; return; }
     if (threeUpShaOn) mbedtls_sha256_update_ret(&threeUpSha, up.buf, up.currentSize);
     if (threeUp.write(up.buf, up.currentSize) != up.currentSize) threeUpBad = true;
   } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
@@ -3370,15 +3401,19 @@ void handleLibThreeUploadData() {
       mbedtls_sha256_finish_ret(&threeUpSha, got);
       mbedtls_sha256_free(&threeUpSha);
       threeUpShaOn = false;
-      if (up.status == UPLOAD_FILE_END && memcmp(got, THREE_GZ_SHA, 32) != 0) threeUpBad = true;
+      if (up.status == UPLOAD_FILE_END &&
+          (!libUpMod || memcmp(got, libUpMod->sha, 32) != 0)) threeUpBad = true;
     }
     if (threeUp) threeUp.close();
-    if (opened && (threeUpBad || up.status == UPLOAD_FILE_ABORTED)) SD.remove(THREE_SD_PATH);
+    if (opened && (threeUpBad || up.status == UPLOAD_FILE_ABORTED)) {
+      if (libUpMod) SD.remove(libUpMod->path);
+    }
     // Patikrinta kopija vietoje - senoji, nepatikrinta, nebereikalinga.
-    else if (opened && SD.exists(THREE_SD_LEGACY)) SD.remove(THREE_SD_LEGACY);
+    else if (opened && libUpMod && libUpMod->legacy && SD.exists(libUpMod->legacy))
+      SD.remove(libUpMod->legacy);
   }
 }
-void handleLibThreeUploadDone() {
+void handleLibUploadDone() {
   // Savi gate'ai: POST be multipart kuno upload callback'o IsVIS nekvieicia,
   // tad be siu patikru neautentifikuota uzklausa pasiektu SD spausdinant
   // (auditas 08-12).
@@ -3392,12 +3427,14 @@ void handleLibThreeUploadDone() {
   // kelias grazindavo 200 su esamo failo dydziu - melavo, kad kazka ikele,
   // ir be reikalo lietesi prie SD.
   if (!seen) { sendApiError(400, "no file in request"); return; }
-  File f = SD.open(THREE_SD_PATH);
+  const LibModule *m = libUpMod;
+  if (!m) { sendApiError(404, "unknown module"); return; }
+  File f = SD.open(m->path);
   size_t sz = f ? f.size() : 0;
   if (f) f.close();
   // A truncated upload would be worse than none: the page would load a broken
   // module from SD and never reach the CDN. Anything implausibly small goes.
-  if (sz < 50000) { SD.remove(THREE_SD_PATH); sendApiError(400, "upload too small"); return; }
+  if (sz < m->minLen) { SD.remove(m->path); sendApiError(400, "upload too small"); return; }
   sendApiOk("\"bytes\":" + String((uint32_t)sz));
 }
 
@@ -3681,11 +3718,16 @@ void network_setup() {
   server.on("/api/resume/discard", HTTP_POST, []() { handleApiResume('D'); });
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
-  server.on("/lib/three.js", HTTP_GET, handleLibThree);
+  // Marsrutai registruojami IS LENTELES - naujas modulis nereikalauja nieko
+  // keisti nei cia, nei handleriuose.
+  for (size_t i = 0; i < LIB_MODULE_COUNT; i++) {
+    server.on(String("/lib/") + LIB_MODULES[i].name + ".js", HTTP_GET, handleLibGet);
+    server.on(String("/api/lib/") + LIB_MODULES[i].name, HTTP_POST,
+              handleLibUploadDone, handleLibUploadData);
+  }
   server.on("/api/files/model/slices", HTTP_GET, handleApiModelSlicesGet);
   server.on("/api/files/model/slices", HTTP_POST, handleApiModelSlicesUploadDone,
             handleApiModelSlicesUploadData);
-  server.on("/api/lib/three", HTTP_POST, handleLibThreeUploadDone, handleLibThreeUploadData);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
