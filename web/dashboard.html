@@ -251,7 +251,7 @@
       <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
     </div>
     <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
-    <div class='calRow' style='margin-top:6px;gap:8px;min-height:1.9em'>
+    <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
       <button id='slicerDiscardLink' class='button secondary' type='button'
               style='visibility:hidden;flex:0 0 auto;min-height:28px;height:28px;padding:0 12px;font-size:.8rem'>Discard</button>
       <!-- Eiga po tuo mygtuku, kuris ja sukele (V 08-12). -->
@@ -260,7 +260,7 @@
     <!-- Vardas ir „discard" - po zingsniais. Vieta rezervuota, kad nuoroda
          atsiradusi nestumdytu bloko (V 08-12). -->
     <div class='calRow' style='margin-top:6px;gap:8px'>
-      <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters — longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
+      <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters - longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
       <button id='slicerSave' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Save to printer</button>
     </div>
     <!-- Visi faktai - viename apatiniame bloke: matmenys, verdiktas ir
@@ -271,7 +271,8 @@
     <div id='slicerFacts'>
     <div id='slicerDims'></div>
     <div id='slicerInfo'>No file loaded yet.</div>
-    <div>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
+    <div>Layers are 0.05 mm, as for every model.</div>
+    <div>Supports and a raft are not generated yet - a part that sits flat on the plate prints as it is.</div>
     </div>
   </div>
 </section>
@@ -3209,8 +3210,12 @@ let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
 const slicerBuildView=()=>{
   if(!slicerOut||!slicerOut.preview)return false;
   const p=slicerOut.preview;
-  slicesCache={name:'\u2039slicer\u203a',mode:'current',slices:p.slices,
+  slicesCache={name:'‹slicer›:'+(slicerFileName||'?')+':'+slicerOut.layers+':'+p.modelH.toFixed(2),mode:'current',slices:p.slices,
                gw:p.gw,gh:p.gh,modelH:p.modelH,layers:slicerOut.layers};
+  /* Naujas pjaustymas privalo persipiesti nuo nulio, nesvarbu, ka kesas
+     mano: vien vardo uzteko, kad antras modelis pakliutu ant pirmojo
+     geometrijos ir atrodytu istemptas (V 08-12). */
+  if(window.key3dReset)key3dReset();
   lastPrevFrac=-1;
   slicerOwns(true);
   drawIso($('printPreviewCanvas'),1);   // visas daiktas + GPU
@@ -3667,6 +3672,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   const MX=40.8,MY=30.6,MZ=68;
   const host=$('gl3d');
   let ren,scene,cam,mesh,key3d='',setHome=null;
+  window.key3dReset=()=>{key3d='';};
   const init=()=>{
     ren=new T.WebGLRenderer({antialias:true,alpha:false});
     ren.localClippingEnabled=true;   // slankiklis pjauna vaizda, zr. gl3dClip
