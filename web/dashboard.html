@@ -1868,12 +1868,26 @@ const saveSlicesToPrinter=async name=>{
     await fetch('/api/files/model/slices?name='+enc(name)+hi,{method:'POST',body:fd});
   }catch(e){}
 };
-const loadSlicesFromPrinter=async name=>{
+const loadSlicesFromPrinter=async(name,onProg)=>{
   try{
     const r=await fetch('/api/files/model/slices?name='+enc(name)+
                         (VIEW_DETAIL?'&hi=1':''));
     if(!r.ok)return false;
-    const o=unpackSlices(await r.arrayBuffer());
+    /* Skaitom gabalais, kad juostele rodytu TIKRUS baitus: dydi zinom is
+       Content-Length. Detaliam kesui (~86-173 KB) tai jau matosi. */
+    let raw=null;
+    const total=Number(r.headers.get('Content-Length'))||0;
+    if(onProg&&total&&r.body&&r.body.getReader){
+      const rd=r.body.getReader(), parts=[]; let got=0;
+      for(;;){
+        const c=await rd.read(); if(c.done)break;
+        parts.push(c.value); got+=c.value.length; onProg(Math.min(1,got/total));
+      }
+      raw=new Uint8Array(got); let off=0;
+      for(const p of parts){raw.set(p,off);off+=p.length;}
+      raw=raw.buffer;
+    }else raw=await r.arrayBuffer();
+    const o=unpackSlices(raw);
     if(!o||!o.slices.length)return false;
     // Failas turi atitikti pasirinkima - kitaip rodytume ne ta tanki.
     if((o.gw>=DET_GW)!==VIEW_DETAIL)return false;
@@ -2066,14 +2080,17 @@ const restoreDashPreview=async()=>{
   if(statusData&&statusData.busy)return;   // the print owns the card; leave it alone
   // Perkrovus puslapi pjuviu parsiuntimas + 3D sulipdymas trunka apie sekunde,
   // ir visa ta laika langas budavo tiesiog juodas (V 08-12).
-  paintPreviewProgress($('printPreviewCanvas'),'Loading 3D view...',null);
+  paintPreviewProgress($('printPreviewCanvas'),'Loading 3D view...',.05);
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if((statusData&&statusData.busy)||dashPreviewName)return;
     const hasVoxel=(statusData?Number(statusData.layerHeight)>0.06:!!d.preview1)?d.preview1:d.preview05;
     /* Pjuviai atkurimui tinka taip pat, kaip miniatiura - ir duoda tikra 3D,
        tad ju ieskom PIRMA. Anksciau butinai reikejo miniatiuros. */
-    const haveSlices=slicesFit(name)||await loadSlicesFromPrinter(name);
+    const haveSlices=slicesFit(name)||await loadSlicesFromPrinter(name,f=>{
+      if(!dashPreviewName)paintPreviewProgress($('printPreviewCanvas'),
+                                               'Loading 3D view...',.1+f*.65);
+    });
     showDetailToggle();
     if((statusData&&statusData.busy)||dashPreviewName)return;
     if(!haveSlices&&(!hasVoxel||!d.resinEstimated))return dashPreviewPlaceholder();
@@ -2083,7 +2100,12 @@ const restoreDashPreview=async()=>{
     const cv=$('printPreviewCanvas');
     $('printPreviewTitle').textContent='Model preview';
     setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
-    if(haveSlices){drawIso(cv,1);}
+    if(haveSlices){
+      paintPreviewProgress(cv,'Loading 3D view...',.85);
+      await new Promise(r=>setTimeout(r,0));
+      if(dashPreviewName!==name)return;
+      drawIso(cv,1);
+    }
     else{
       await loadSavedPreviewTo(cv,name);
       if(dashPreviewName===name)upgradeToSlices(name,d);
@@ -2166,7 +2188,7 @@ const dashPreview=async nameEnc=>{
   $('printPreviewBarFill').style.width='0%';
   setModelInfoRows(null);show('dashShareButton',false);
   show('printPreviewCard',true);
-  paintPreviewProgress(cv,'Loading preview...',null);
+  paintPreviewProgress(cv,'Loading preview...',.05);
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if(dashPreviewName!==name)return;
@@ -2178,11 +2200,18 @@ const dashPreview=async nameEnc=>{
     /* 3D pagal nutylejima (V 08-12). Eile: atmintis -> pjuviu failas prie
        modelio -> sena miniatiura + fono paruosimas -> pilnas skenavimas. */
     showDetailToggle();
+    /* Juostele rodoma KIEKVIENAM krovimui, net jei jis trunka sekunde - kitaip
+       vieni modeliai turi eiga, kiti tik uzrasa (V 08-12). Pries tinklelio
+       lipdyma (~0.5 s, blokuoja) atiduodam narsyklei kadra, kad 85 % spetu
+       issipiesti. */
+    const prog=f=>{ if(dashPreviewName===name)paintPreviewProgress(cv,'Loading preview...',f); };
+    const draw=async()=>{ prog(.85); await new Promise(r=>setTimeout(r,0));
+                          if(dashPreviewName!==name)return; drawIso(cv,1); };
     if(slicesFit(name)){
-      drawIso(cv,1);
-    }else if(await loadSlicesFromPrinter(name)){
+      await draw();
+    }else if(await loadSlicesFromPrinter(name,f=>prog(.1+f*.65))){
       if(dashPreviewName!==name)return;
-      drawIso(cv,1);
+      await draw();
     }else if(hasVoxel&&d.resinEstimated){
       await loadSavedPreviewTo(cv,name);
       if(dashPreviewName===name)upgradeToSlices(name,d);   // fone -> 3D
