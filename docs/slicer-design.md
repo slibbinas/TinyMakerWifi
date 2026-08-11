@@ -165,7 +165,7 @@ topples a column.
 | **Raft** | Without it thin supports peel off the plate. PrusaSlicer adds one automatically; if we do not, the first print fails and the slicer takes the blame. One switch, on by default. |
 | **Resin and time estimate before saving** | We already have the maths (calibration ×1.092 + 0.39). Showing "18.4 ml · 2 h 40 min" *before* printing is where the expensive decision is made. |
 | **Layer preview slider** | The only way to see whether supports are where they should be and whether anything floats. Cheap for us: the slices are already in memory and we have the renderer. |
-| **Exposure from the resin profile** | Ties to `0-16`: pick a resin and exposure plus bottom layers travel with the model. Otherwise the user slices and then prints with someone else's settings. |
+| ~~Exposure from the resin profile~~ | **Dropped (maintainer, 08-12).** Exposure belongs to the printer, set per resin through the profiles and the exposure test — one place, one truth. This also matches what the firmware already does: from `config.ini` it reads exactly one key, `layerHeight`, and the time estimate uses the printer's own `Base_Exposure`/`Regular_Exposure`. A slicer carrying its own numbers would be the only model source behaving differently, and changing resin would leave older models quietly holding stale values. |
 | **Island warning** | A layer touching nothing below will float in the vat and ruin the print. Detection is nearly free (we already find connected regions for supports); saying "3 spots hang in mid-air, look at layer 214" is worth a few lines. |
 
 ### Later
@@ -221,8 +221,12 @@ like everything else.
 
 1. **Raft on by default?** Recommended yes — without it a first print likely detaches and the
    slicer looks broken. Cost: a few millilitres.
-2. **Does the slicer set exposure?** If yes it must know the resin, so it should come **after**
-   `0-16` profiles. If no, the model inherits the global settings as today.
+2. ~~**Does the slicer set exposure?**~~ **Decided: no** (maintainer, 08-12). The model inherits
+   the printer's settings, exactly as a PrusaSlicer upload does. Two consequences: the slicer is
+   **not** blocked behind `0-16` and can be built in parallel; and its resin/time estimate must read
+   the printer's current settings via `/api/config` rather than invent any — so the number shown is
+   the number the printer will actually deliver. Layer height still travels in `config.ini`, because
+   that is the one key the firmware does read (and LH-chk already warns on a mismatch).
 3. **Where is "too complex"?** Suggested ~300k triangles on a phone, ~1M on a desktop. Staying
    silent is possible, but then some attempts end in a frozen tab.
 4. **Own 3D view or shared with the preview?** Recommended shared — same angle, same controls,
