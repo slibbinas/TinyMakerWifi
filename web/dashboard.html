@@ -3084,16 +3084,24 @@ let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
 /* Slankiklis valdo AUKSTI, ne rodo atskira pjuvi: tas pats pieseejas, kuris
    piesia spausdinimo progresa, tik frakcija ateina is slankiklio, o ne is
    printerio. Vienas algoritmas visur (V 08-12). */
-const slicerShowLayer=n=>{
-  if(!slicerOut||!slicerOut.preview)return;
+/* Tinklelis sulipdomas VIENA karta (visas daiktas), o slankiklis tik judina
+   pjovimo plokstuma. Anksciau iki 100 % piese vienas pieseejas, o ties 100 %
+   perjungdavo i kita - vaizdas soktelėdavo (V 08-12). */
+const slicerBuildView=()=>{
+  if(!slicerOut||!slicerOut.preview)return false;
   const p=slicerOut.preview;
   slicesCache={name:'\u2039slicer\u203a',mode:'current',slices:p.slices,
                gw:p.gw,gh:p.gh,modelH:p.modelH,layers:slicerOut.layers};
-  const frac=Math.min(1,Math.max(0.02,n/slicerOut.layers));
   lastPrevFrac=-1;
   slicerOwnsPreview=true;
-  drawIso($('printPreviewCanvas'),frac);
-  $('slicerLayerNo').textContent=(n*0.05).toFixed(2)+' mm  ('+n+' / '
+  drawIso($('printPreviewCanvas'),1);   // visas daiktas + GPU
+  return !!window.gl3dClip;
+};
+const slicerShowLayer=n=>{
+  if(!slicerOut)return;
+  const mm=n*0.05;
+  if(window.gl3dClip)gl3dClip(n>=slicerOut.layers?null:mm);
+  $('slicerLayerNo').textContent=mm.toFixed(2)+' mm  ('+n+' / '
     +slicerOut.layers+')';
 };
 
@@ -3128,6 +3136,7 @@ $('slicerGo').addEventListener('click',async()=>{
     const sl=$('slicerLayer');
     sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
     $('slicerReview').style.display='block';
+    slicerBuildView();
     $('slicerName').disabled=false;
     $('slicerSave').disabled=false;
     $('slicerDiscardLink').style.display='inline';
@@ -3213,6 +3222,7 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwnsPreview=false;
+    if(window.gl3dClip)gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
     dashPreviewPlaceholder();
   }
 });
@@ -3471,6 +3481,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   let ren,scene,cam,mesh,key3d='',setHome=null;
   const init=()=>{
     ren=new T.WebGLRenderer({antialias:true,alpha:false});
+    ren.localClippingEnabled=true;   // slankiklis pjauna vaizda, zr. gl3dClip
     ren.setPixelRatio(Math.min(devicePixelRatio,2));
     host.appendChild(ren.domElement);
     scene=new T.Scene();
@@ -3656,6 +3667,18 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   };
   /* Slicer'iui: parodyti savo tinkleli toje pacioje dezeje, su tais paciais
      valdikliais. Deze ir apsvietimas jau yra - keiciasi tik tinklelis. */
+  /* Pjovimo plokstuma: laiko viska ZEMIAU nurodyto aukscio. Naudoja
+     slicer'io slankiklis - taip vaizdas nebeperjunginejamas tarp dvieju
+     pieseeju, o tik nupjaunamas (V 08-12). */
+  const clipPlane=new T.Plane(new T.Vector3(0,-1,0), MZ/2);
+  window.gl3dClip=mmAbovePlate=>{
+    const on=mmAbovePlate!=null;
+    clipPlane.constant=on?(-MZ/2+mmAbovePlate):MZ/2;
+    if(mesh){mesh.material.clippingPlanes=on?[clipPlane]:null;
+             mesh.material.needsUpdate=true;}
+    if(ren&&scene&&cam)ren.render(scene,cam);
+    return on;
+  };
   window.gl3dMesh=positions=>{
     try{
       if(!ren)init();
