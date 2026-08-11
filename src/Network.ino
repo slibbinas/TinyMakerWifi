@@ -41,6 +41,7 @@
 #include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
+#include "mbedtls/sha256.h"  // three.js SD kopijos turinio patikra
 #include <PubSubClient.h>
 #include "mbedtls/sha256.h" // anonymous stats id (hash of the efuse MAC)
 #include "dashboard_html_gz.h" // gzipped web/dashboard.html (gen_dashboard_gz.py)
@@ -104,6 +105,7 @@ File previewUploadFile;
 String previewUploadName;
 String previewUploadPath;
 String previewUploadTmpPath;
+String previewUploadOld;    // senos kartos miniatiura, trinama pabaigoje
 bool previewUploadOk = false;
 bool previewUploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
@@ -337,9 +339,21 @@ void handlePreviewUploadData() {
   if (up.status == UPLOAD_FILE_START) {
     previewUploadName = server.arg("name");
     String previewType = server.arg("type");
-    if (previewType == "05") previewUploadPath = "/" + previewUploadName + "/preview05.png";
-    else if (previewType == "1") previewUploadPath = "/" + previewUploadName + "/preview1.png";
-    else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    // "s" = smooth: 0.17 piesejo karta. Sena bevarde karta lieka SD, bet
+    // nebeskaitoma - kitaip jau perziureti modeliai amzinai rodytu kampuota
+    // voxelini vaizda (V 08-12).
+    previewUploadOld = "";
+    if (previewType == "05") {
+      previewUploadPath = "/" + previewUploadName + "/preview05s.png";
+      previewUploadOld  = "/" + previewUploadName + "/preview05.png";
+    } else if (previewType == "1") {
+      previewUploadPath = "/" + previewUploadName + "/preview1s.png";
+      previewUploadOld  = "/" + previewUploadName + "/preview1.png";
+    } else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    // Senoji miniatiura trinama TIK pavykus irasyti nauja (zr. UPLOAD_FILE_END):
+    // cia vardas dar nepatikrintas (name=../X taikytusi i svetima aplanka), o
+    // apsaugu blokas dar nepraeitas - trynimas galejo vykti vidury spaudinio
+    // ant tos pacios SPI magistrales (auditas 08-12).
     previewUploadTmpPath = previewUploadPath + ".tmp";
     previewUploadOk = false;
     previewUploadRejected = false;
@@ -382,6 +396,8 @@ void handlePreviewUploadData() {
       previewUploadOk = SD.rename(previewUploadTmpPath.c_str(), previewUploadPath.c_str());
       if (previewUploadOk) {
         if (hadPreview) SD.remove(backupPath.c_str());
+        // Nauja karta vietoje - senoji nebeskaitoma, tad tik uzima vieta.
+        if (previewUploadOld.length()) SD.remove(previewUploadOld.c_str());
       } else {
         if (hadPreview) SD.rename(backupPath.c_str(), previewUploadPath.c_str());
         SD.remove(previewUploadTmpPath.c_str());
@@ -443,9 +459,9 @@ void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   if (!name.length()) return;
   // Same pick as the serve path below: the render matching the active layer
   // height, legacy single preview as the fallback.
-  String path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
+  String path = Layer_Height > 0.06 ? "/" + name + "/preview1s.png" : "/" + name + "/preview05s.png";
   File f = SD.open(path.c_str());
-  if (!f) f = SD.open(("/" + name + "/preview.png").c_str());
+  if (!f) f = SD.open(("/" + name + "/preview.png").c_str());   // slicer'io, kaip ir buvo
   if (!f) return;
   size_t sz = f.size();
   // No PSRAM on the WROOM: cap the snapshot and require slack in the largest
@@ -500,12 +516,12 @@ void handleApiFileModelPreview() {
 
   String previewType = server.arg("type");
   String path;
-  if (previewType == "05") path = "/" + name + "/preview05.png";
-  else if (previewType == "1") path = "/" + name + "/preview1.png";
+  if (previewType == "05") path = "/" + name + "/preview05s.png";
+  else if (previewType == "1") path = "/" + name + "/preview1s.png";
   // One consistent look (user decision): our voxel render everywhere; the
   // archive/slicer thumbnail is only the fallback when no render is cached
   // yet - it is big (slow off the SD), soft when scaled, and off-style.
-  else path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
+  else path = Layer_Height > 0.06 ? "/" + name + "/preview1s.png" : "/" + name + "/preview05s.png";
   File f = SD.open(path.c_str());
   if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
   if (!f) {
@@ -1097,8 +1113,8 @@ void handleApiFileModel() {
   out += ",\"flatWarning\":";
   out += slicedIsFlat(summary.slicedLayerHeightMm) ? "true" : "false";
   out += ",\"preview\":";
-  bool preview05 = sdPathExists("/" + name + "/preview05.png");
-  bool preview1 = sdPathExists("/" + name + "/preview1.png");
+  bool preview05 = sdPathExists("/" + name + "/preview05s.png");
+  bool preview1 = sdPathExists("/" + name + "/preview1s.png");
   bool previewLegacy = sdPathExists("/" + name + "/preview.png");
   bool previewExists = (Layer_Height > 0.06 ? preview1 : preview05) || previewLegacy;
   out += previewExists ? "true" : "false";
@@ -3119,6 +3135,209 @@ void handleApiBootAnimList() {
   server.send(200, "application/json", out);
 }
 
+// GET/POST /api/files/model/slices - the sampled 36-slice silhouette set the
+// dashboard needs for its 3D view, cached next to the model. Re-fetching the
+// 36 layer PNGs costs ~37 s (measured 08-12); this file is 21 KB of packed bits
+// and loads in well under a second, which is what makes 3D the default view
+// instead of a flat thumbnail.
+static String slicesUpName, slicesUpPath;
+static File slicesUp;
+static bool slicesUpBad = false;
+static uint32_t slicesUpLen = 0;
+
+void handleApiModelSlicesGet() {
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = safeModelName(server.arg("name"));
+  if (name.length() == 0) { sendApiError(400, "bad model name"); return; }
+  // ?hi=1 - detalus kesas (160x120 x72). Laikomas atskirai, tad perjungus
+  // varnele abu vaizdai lieka paruosti.
+  String sfn = server.arg("hi") == "1" ? "/slicesHi.tmv" : "/slices.tmv";
+  File f = SD.open(("/" + name + sfn).c_str());
+  if (!f) { sendApiError(404, "no cached slices"); return; }
+  // Be revalidacijos tas pats modelio vardas su nauju turiniu 24 h rodytu
+  // SENOJO modelio forma - narsykle net nepaklaustu (auditas 08-12).
+  server.sendHeader("Cache-Control", "no-cache");
+  server.setContentLength(f.size());
+  server.send(200, "application/octet-stream", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
+void handleApiModelSlicesUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    slicesUpName = safeModelName(server.arg("name"));
+    // safeModelName() niekada negrazina tuscio (fallback "Model"), tad tuscio
+    // patikra buvo mirusi - reikia tikros, kaip gretimuose keliuose.
+    slicesUpBad = printerBusy() || !sdCardReady() ||
+                  !webDashboardRuntimeEnabled() || !validPrintableModel(slicesUpName);
+    slicesUpLen = 0;
+    if (slicesUpBad) return;
+    if (!sdPathExists("/" + slicesUpName)) { slicesUpBad = true; return; }
+    slicesUpPath = "/" + slicesUpName +
+                   (server.arg("hi") == "1" ? "/slicesHi.tmv" : "/slices.tmv");
+    SD.remove(slicesUpPath.c_str());
+    slicesUp = SD.open(slicesUpPath.c_str(), FILE_WRITE);
+    if (!slicesUp || slicesUp.size() != 0) slicesUpBad = true;
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (slicesUpBad || !slicesUp) return;
+    // "TMV2" magic in the first chunk - anything else is not ours.
+    if (slicesUpLen == 0 && up.currentSize >= 4 &&
+        !(up.buf[0] == 'T' && up.buf[1] == 'M' && up.buf[2] == 'V' && up.buf[3] == '2')) {
+      slicesUpBad = true; return;
+    }
+    slicesUpLen += up.currentSize;
+    if (slicesUpLen > 250000u) { slicesUpBad = true; return; }   // 21 KB / 173 KB detalus
+    if (slicesUp.write(up.buf, up.currentSize) != up.currentSize) slicesUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    bool opened = (bool)slicesUp;
+    if (slicesUp) slicesUp.close();
+    if (opened && (slicesUpBad || up.status == UPLOAD_FILE_ABORTED))
+      SD.remove(slicesUpPath.c_str());
+  }
+}
+
+void handleApiModelSlicesUploadDone() {
+  bool bad = slicesUpBad, seen = slicesUpLen > 0;
+  slicesUpBad = false; slicesUpLen = 0;
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (bad || !seen) { sendApiError(400, "slices upload rejected"); return; }
+  // Senos kartos miniatiuros jau nebeskaitomos (jas pakeite preview*s.png),
+  // tad turint pjuvius jos tik uzima SD vieta.
+  if (slicesUpName.length()) {
+    SD.remove(("/" + slicesUpName + "/preview05.png").c_str());
+    SD.remove(("/" + slicesUpName + "/preview1.png").c_str());
+  }
+  sendApiOk("\"bytes\":" + String((uint32_t)slicesUpLen));
+}
+
+// GET /lib/three.js - the browser's 3D library, cached on the SD card (V idea
+// 08-11). Stored ALREADY gzipped (/lib/three.js.gz, ~170 KB) and served with
+// Content-Encoding: gzip, so the ESP only streams bytes - it never compresses
+// and never fetches over TLS. Missing file answers 404 and the dashboard
+// quietly falls back to the CDN, then to its own renderer.
+// v1: senieji kesai buvo irasyti BE turinio patikros, tad jais nebepasitikim -
+// naujas vardas juos tiesiog ignoruoja (auditas 08-12).
+#define THREE_SD_PATH "/lib/three-v1.js.gz"
+#define THREE_SD_LEGACY "/lib/three.js.gz"
+// Musu pacio publikuoto /lib/three-0.160.0.min.js.gz SHA-256. Keiciasi TIK
+// keliant three.js versija (tada perskaiciuoti ir atnaujinti cia).
+static const uint8_t THREE_GZ_SHA[32] = {
+  0x6b, 0x52, 0x03, 0x07, 0x6c, 0xd9, 0x81, 0x01,
+  0xdb, 0x50, 0xe0, 0xa1, 0x99, 0xea, 0xbf, 0x48,
+  0xcd, 0x86, 0x34, 0xd2, 0x46, 0x43, 0x35, 0x1c,
+  0xd4, 0x89, 0x87, 0xea, 0xb8, 0xa2, 0xd9, 0x2e
+};
+void handleLibThree() {
+  if (rejectIfBusy()) return;                 // SD belongs to the print
+  if (!sdCardReady()) { server.send(503, "text/plain", "sd unavailable"); return; }
+  File f = SD.open(THREE_SD_PATH);
+  if (!f) { server.send(404, "text/plain", "not cached"); return; }
+  server.sendHeader("Content-Encoding", "gzip");
+  server.sendHeader("Cache-Control", "max-age=604800, immutable");
+  server.setContentLength(f.size());
+  server.send(200, "application/javascript", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  // Uzsivere peer'as: WiFiClient::write kartoja 10 x 1 s, o 170 KB = 340
+  // gabalu - be sios patikros UI uzsaltu minutems (auditas 08-12).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
+// POST /api/lib/three - store the gzipped library the browser already fetched.
+// Upload-style handler: the body is written straight to SD in chunks, so a
+// 170 KB file costs no heap.
+#define THREE_SD_MAX 250000u   // gz ~170 KB; virsijantis siuntinys - siuksle
+static File threeUp;
+static bool threeUpBad = false;
+static uint32_t threeUpLen = 0;
+static bool threeUpSeen = false;   // ar sioje uzklausoje ISVIS buvo failas
+static mbedtls_sha256_context threeUpSha;
+static bool threeUpShaOn = false;
+void handleLibThreeUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    // Web control gate kaip visuose rasymo keliuose: be jo bet kuris LAN
+    // irenginys irasytu JS moduli, kuri pultas paskui import'ina savo
+    // origin'e - tai butu nuolatine skripto injekcija (auditas 08-12).
+    threeUpBad = printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled();
+    threeUpLen = 0;
+    threeUpSeen = true;
+    if (threeUpBad) return;
+    if (!SD.exists("/lib")) SD.mkdir("/lib");
+    SD.remove(THREE_SD_PATH);
+    threeUp = SD.open(THREE_SD_PATH, FILE_WRITE);
+    if (!threeUp || threeUp.size() != 0) { threeUpBad = true; }  // FILE_WRITE = append
+    if (!threeUpBad) {
+      mbedtls_sha256_init(&threeUpSha);
+      mbedtls_sha256_starts_ret(&threeUpSha, 0);
+      threeUpShaOn = true;
+    }
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (threeUpBad || !threeUp) return;
+    // gzip magic pirmame gabale: is anksto atmetam ne ta turini, kad
+    // narsykle nebandytu import'inti siuksles is SD.
+    if (threeUpLen == 0 && up.currentSize >= 2 &&
+        !(up.buf[0] == 0x1f && up.buf[1] == 0x8b)) { threeUpBad = true; return; }
+    threeUpLen += up.currentSize;
+    if (threeUpLen > THREE_SD_MAX) { threeUpBad = true; return; }
+    if (threeUpShaOn) mbedtls_sha256_update_ret(&threeUpSha, up.buf, up.currentSize);
+    if (threeUp.write(up.buf, up.currentSize) != up.currentSize) threeUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    // Trinam TIK jei failas tikrai buvo atidarytas. Anksciau SD.remove
+    // vykdavo ir atmetus siuntini spausdinant - FAT rasymas ant bendros SPI
+    // vidury spaudinio (auditas 08-12).
+    bool opened = (bool)threeUp;
+    // Turinio patikra: priimam TIK musu pacio paskelbta faila. Be sito bet
+    // kuris LAN irenginys ideda savo JS, kuri pultas vykdo savo origin'e, ir
+    // tai islieka po firmware atnaujinimo (auditas 08-12).
+    if (threeUpShaOn) {
+      uint8_t got[32];
+      mbedtls_sha256_finish_ret(&threeUpSha, got);
+      mbedtls_sha256_free(&threeUpSha);
+      threeUpShaOn = false;
+      if (up.status == UPLOAD_FILE_END && memcmp(got, THREE_GZ_SHA, 32) != 0) threeUpBad = true;
+    }
+    if (threeUp) threeUp.close();
+    if (opened && (threeUpBad || up.status == UPLOAD_FILE_ABORTED)) SD.remove(THREE_SD_PATH);
+    // Patikrinta kopija vietoje - senoji, nepatikrinta, nebereikalinga.
+    else if (opened && SD.exists(THREE_SD_LEGACY)) SD.remove(THREE_SD_LEGACY);
+  }
+}
+void handleLibThreeUploadDone() {
+  // Savi gate'ai: POST be multipart kuno upload callback'o IsVIS nekvieicia,
+  // tad be siu patikru neautentifikuota uzklausa pasiektu SD spausdinant
+  // (auditas 08-12).
+  bool bad = threeUpBad, seen = threeUpSeen;
+  threeUpBad = false; threeUpSeen = false;   // busena nepersineSa i kita uzklausa
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (bad) { sendApiError(400, "upload rejected - checksum or size mismatch"); return; }
+  // POST be multipart failo upload callback’o nekvieicia. Anksciau toks
+  // kelias grazindavo 200 su esamo failo dydziu - melavo, kad kazka ikele,
+  // ir be reikalo lietesi prie SD.
+  if (!seen) { sendApiError(400, "no file in request"); return; }
+  File f = SD.open(THREE_SD_PATH);
+  size_t sz = f ? f.size() : 0;
+  if (f) f.close();
+  // A truncated upload would be worse than none: the page would load a broken
+  // module from SD and never reach the CDN. Anything implausibly small goes.
+  if (sz < 50000) { SD.remove(THREE_SD_PATH); sendApiError(400, "upload too small"); return; }
+  sendApiOk("\"bytes\":" + String((uint32_t)sz));
+}
+
 // GET /api/boot-anim/file?name=<slug> - stream an installed TMB1 animation for
 // browser preview. Read-only, but still blocked while printing because SD is busy.
 void handleApiBootAnimFile() {
@@ -3399,6 +3618,11 @@ void network_setup() {
   server.on("/api/resume/discard", HTTP_POST, []() { handleApiResume('D'); });
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
+  server.on("/lib/three.js", HTTP_GET, handleLibThree);
+  server.on("/api/files/model/slices", HTTP_GET, handleApiModelSlicesGet);
+  server.on("/api/files/model/slices", HTTP_POST, handleApiModelSlicesUploadDone,
+            handleApiModelSlicesUploadData);
+  server.on("/api/lib/three", HTTP_POST, handleLibThreeUploadDone, handleLibThreeUploadData);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
