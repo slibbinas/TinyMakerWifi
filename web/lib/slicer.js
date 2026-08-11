@@ -340,7 +340,10 @@ export async function slice(pos, opts, onProgress) {
      tikisi esamas 3D pieseejas, kuris jau piesia spausdinimo progresa. Renkam
      OR budu - uztenka vieno uzdegto pikselio, kad langelis butu pilnas, nes
      vidurkinimas nuzudo plonus supportus. */
-  const PW = 80, PH = 60, PN = Math.min(36, layers);
+  /* Slicer’io vaizdas VISADA detalus: pilna raiska jau atmintyje, tad rinkti
+     grubiau nera jokios priezasties. 80x60/36 buvo tiesiog nukopijuotas SD
+     modeliu greitosios perziuros skaicius (V 08-12). */
+  const PW = 160, PH = 120, PN = Math.min(72, layers);
   const preview = [];
   const previewAt = new Set();
   for (let k = 0; k < PN; k++)
@@ -390,4 +393,4 @@ export async function slice(pos, opts, onProgress) {
                       modelH: layers * LAYER_MM } };
 }
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';

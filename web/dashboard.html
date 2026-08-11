@@ -3000,7 +3000,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
   /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
      naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
-  const SV='0.4.0';
+  const SV='0.5.0';
   slicerMod=await loadModule('slicer',SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js?v='+SV);
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
@@ -3137,6 +3137,10 @@ $('slicerGo').addEventListener('click',async()=>{
     sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
     $('slicerReview').style.display='block';
     slicerBuildView();
+    /* Slicer’io vaizdas visada detalus, tad mygtukas rodo busena, o ne
+       pasirinkima - kitaip jis atrodo neveikiantis (V 08-12). */
+    {const b=$('gl3dDet'); if(b){b.classList.add('on');b.disabled=true;
+      b.title='Slicer preview is always detailed';}}
     $('slicerName').disabled=false;
     $('slicerSave').disabled=false;
     $('slicerDiscardLink').style.display='inline';
@@ -3223,6 +3227,8 @@ $('slicerSave').addEventListener('click',async()=>{
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwnsPreview=false;
     if(window.gl3dClip)gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
+    {const b=$('gl3dDet'); if(b){b.disabled=false;b.title='Detailed view';
+      b.classList.toggle('on',VIEW_DETAIL);}}
     dashPreviewPlaceholder();
   }
 });
