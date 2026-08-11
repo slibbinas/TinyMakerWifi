@@ -66,13 +66,6 @@ bool webDashboardRuntimeEnabled() {
 // state-changing browser/API actions - print control, SD delete, config,
 // VAT refill, firmware - return 403; viewing, status polling and the
 // PrusaSlicer/UVtools model upload keep working. WiFi off still kills all.
-bool rejectIfWebControlOff() {
-  if (webDashboardRuntimeEnabled()) return false;
-  sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
-  return true;
-}
-
-// No SD reads / model changes while a print is running. Same shape as above.
 bool rejectIfBusy() {
   if (!printerBusy()) return false;
   sendApiError(409, "printer busy");
@@ -87,6 +80,45 @@ bool rejectIfBusy() {
 #define CRASH_PING_URL  "https://tinymakerwifi.com/crash"   // anonymous crash telemetry (feedback worker, opt-out)
 
 WebServer server(80);
+
+// #95 CSRF: irodymas, kad rasymo uzklausa ateina IS MUSU pulto, o ne is
+// svetimo puslapio, kuri vartotojas tuo metu atsidare. multipart/form-data yra
+// CORS-safelisted, tad be sios patikros bet kuri svetaine galejo tyliai
+// POST'inti i printeri LAN'e - o su /api/lib/three tai reikstu nuolatini kodo
+// vykdyma pulte (auditas 08-12, issue #95).
+//
+// Dvi salygos, ne viena: Connect UI veikia MUSU puslapio viduje ir kreipiasi i
+// API savo kodu, be musu antrastes - ji islaiko Origin patikra. Svetimas
+// puslapis nepraeina nei vienos: antrastes jis nepridės (reiketu preflight, o
+// i OPTIONS printeris neatsako), o Origin turės savo.
+bool requestFromOwnUi() {
+  // SVETIMAS Origin atmetamas VISADA, net su musu antraste: taip taisykle lieka
+  // vienareiksme ("is musu puslapio ar ne"), o ne dvieju keliu kombinacija.
+  if (server.hasHeader("Origin")) {
+    String o = server.header("Origin");
+    int p = o.indexOf("://");
+    if (p >= 0) o = o.substring(p + 3);
+    if (!server.hasHeader("Host") || o != server.header("Host")) return false;
+    return true;                     // musu pats puslapis (ir Connect UI jame)
+  }
+  // Origin nera: ne narsykles uzklausa. Praleidziam tik su musu antraste -
+  // ja prideda pultas ir musu pacio irankiai.
+  return server.hasHeader("X-TinyMaker");
+}
+
+bool rejectIfWebControlOff() {
+  if (!webDashboardRuntimeEnabled()) {
+    sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
+    return true;
+  }
+  if (server.method() != HTTP_GET && !requestFromOwnUi()) {
+    sendApiError(403, "request must come from the printer's own dashboard");
+    return true;
+  }
+  return false;
+}
+
+// No SD reads / model changes while a print is running. Same shape as above.
 Preferences netPrefs;
 WiFiClient mqttNet;
 PubSubClient mqttClient(mqttNet);
@@ -359,7 +391,7 @@ void handlePreviewUploadData() {
     previewUploadRejected = false;
 
     if (printerBusy() || !webDashboardRuntimeEnabled() || !sdCardReady() ||
-        !validPrintableModel(previewUploadName)) {
+        !validPrintableModel(previewUploadName) || !requestFromOwnUi()) {   // #95
       previewUploadRejected = true;
       return;
     }
@@ -1474,7 +1506,14 @@ static inline bool formCheck(const char *name, bool cur) {
 void applyConfigRequest() {
   float requestedLayer = server.hasArg("layer_height") ? server.arg("layer_height").toFloat() : Layer_Height;
   Layer_Height = requestedLayer < 0.075 ? 0.05 : 0.10;
-  formFullPost = server.hasArg("form_full");   // pultas zymi savo pilna forma
+  // Pilna forma pripazistama tik jei kartu atkeliauja ir sunkieji laukai, kuriuos
+  // pultas siuncia VISADA. Vien zymos neuztenka: 08-12 pats testui nusiunciau
+  // "base_exposure=9&form_full=1" ir tuo isjungiau visus jungiklius - zyma buvo
+  // teisinga, o forma - ne. Dabar toks siuntinys skaitomas kaip dalinis.
+  formFullPost = server.hasArg("form_full") &&
+                 server.hasArg("layer_height") &&
+                 server.hasArg("regular_exposure") &&
+                 server.hasArg("slow_lift_feedrate");
   long oldBase = Base_Exposure;
   Base_Exposure = formLong("base_exposure", Base_Exposure, 5, 60);   // 0.17 0-3: base min 5 s
   rememberPrevBaseExposure(oldBase);   // no-op unless it actually changed
@@ -3194,7 +3233,8 @@ void handleApiModelSlicesUploadData() {
     // safeModelName() niekada negrazina tuscio (fallback "Model"), tad tuscio
     // patikra buvo mirusi - reikia tikros, kaip gretimuose keliuose.
     slicesUpBad = printerBusy() || !sdCardReady() ||
-                  !webDashboardRuntimeEnabled() || !validPrintableModel(slicesUpName);
+                  !webDashboardRuntimeEnabled() || !validPrintableModel(slicesUpName) ||
+                  !requestFromOwnUi();   // #95
     slicesUpLen = 0;
     if (slicesUpBad) return;
     if (!sdPathExists("/" + slicesUpName)) { slicesUpBad = true; return; }
@@ -3293,7 +3333,8 @@ void handleLibThreeUploadData() {
     // Web control gate kaip visuose rasymo keliuose: be jo bet kuris LAN
     // irenginys irasytu JS moduli, kuri pultas paskui import'ina savo
     // origin'e - tai butu nuolatine skripto injekcija (auditas 08-12).
-    threeUpBad = printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled();
+    threeUpBad = printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled() ||
+                 !requestFromOwnUi();   // #95: kunas i SD rasomas PRIES uzbaigimo funkcija
     threeUpLen = 0;
     threeUpSeen = true;
     if (threeUpBad) return;
@@ -3664,8 +3705,9 @@ void network_setup() {
 
   // Needed for the dashboard's ETag revalidation (WebServer only stores
   // request headers that were registered up front).
-  static const char *collectKeys[] = {"If-None-Match"};
-  server.collectHeaders(collectKeys, 1);
+  // Origin/Host + X-TinyMaker - #95 CSRF patikra (zr. requestFromOwnUi).
+  static const char *collectKeys[] = {"If-None-Match", "X-TinyMaker", "Origin", "Host"};
+  server.collectHeaders(collectKeys, 4);
 
   server.begin();
 
