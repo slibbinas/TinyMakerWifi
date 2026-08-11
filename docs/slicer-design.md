@@ -212,6 +212,24 @@ card, not in the chip.**
 
 ---
 
+## Grouping the controls (maintainer, 08-12)
+
+One row currently holds three different kinds of thing, which is why none of them
+read as what they are:
+
+| Kind | Controls | Behaviour |
+|---|---|---|
+| **Flow** | Choose STL, Slice, Save | one at a time, each unlocks the next |
+| **Tools** | Lay flat, Flip, Tilt, Rotate, Scale | repeatable, any order, only once a model is loaded |
+| **Setting** | Soften edges | changes the result, not the object |
+
+Proposal: **move the tools onto the view itself.** They act on what you are looking
+at, so they belong on the black box beside the rotate and zoom pads already in its
+corners, not in a settings column. What remains on the right is then a plain path,
+choose then slice then save, where the step you are on is obvious.
+
+Deferred until after the current round of fixes.
+
 ## Stages
 
 | Stage | What | Done when |
