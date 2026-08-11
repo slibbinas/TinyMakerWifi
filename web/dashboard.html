@@ -3150,10 +3150,40 @@ $('slicerSave').addEventListener('click',async()=>{
   const btn=$('slicerSave'), prog=$('slicerProg');
   btn.disabled=true;
   try{
-    prog.textContent='Uploading \u2026';
     const fd=new FormData();
     fd.append('file',slicerOut.blob,slicerOut.name+'.zip');
-    await api('/api/files/local',{method:'POST',body:fd},180000);
+    const MB=b=>(b/1048576).toFixed(1);
+    /* Dydi zinom iki baito - archyva pagaminom patys, tad eiga tikra, ne
+       apsimestine. XHR, nes fetch nepranesa, kiek isejo (V 08-12). */
+    await new Promise((res,rej)=>{
+      const x=new XMLHttpRequest();
+      x.open('POST','/api/files/local');
+      x.setRequestHeader('X-TinyMaker','1');
+      x.upload.onprogress=e=>{
+        if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
+        const p=Math.round(e.loaded/e.total*100);
+        prog.textContent='Uploading '+p+'%  ('+MB(e.loaded)+' / '+MB(e.total)+' MB)';
+        paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total);
+      };
+      x.onload=()=>x.status<400?res():rej(new Error('upload failed ('+x.status+')'));
+      x.onerror=()=>rej(new Error('upload failed - connection lost'));
+      x.ontimeout=()=>rej(new Error('upload timed out'));
+      x.timeout=300000;
+      x.send(fd);
+    });
+    /* Ikelta dar nereiskia paruosta: printeris dabar ISPAKUOJA archyva ir tuo
+       metu SD priklauso jam. Laukiam, kol atsileis - kitaip pasakytume
+       „issaugota", o modelio sarase dar nebutu (V 08-12). */
+    prog.textContent='Unpacking on the printer \u2026';
+    paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null);
+    for(let i=0;i<180;i++){
+      await new Promise(r=>setTimeout(r,1000));
+      try{
+        const st=await api('/api/status',null,8000);
+        if(!st.busy)break;
+        if(st.sdJob==='import')prog.textContent='Unpacking on the printer \u2026 ('+(i+1)+' s)';
+      }catch(e){}
+    }
     msg('\u201c'+slicerOut.name+'\u201d is on the printer.');
     prog.textContent='Saved as \u201c'+slicerOut.name+'\u201d \u00b7 '+slicerOut.layers
       +' layers \u00b7 ~'+slicerOut.ml.toFixed(1)+' ml';
