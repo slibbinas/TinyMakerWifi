@@ -4,8 +4,9 @@
    jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas
    pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save -
    .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu
-   tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). */#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number]{min-height:40px;margin:0;padding:8px 12px;font-size:.92rem}#gl3dLayer{width:22px}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Desiniojo pakanka - gulscias lieka tik telefonui (V 08-12). */@media(min-width:561px){#slicerReview{display:none!important}}/* Telefone tarp kampu lieka ~20 px - vertikalus netelpa, lieka gulscias. */@media(max-width:560px){#gl3dLayer{display:none!important}}/* Telefone langas per mazas penktai grupei: 82x82 kryziai jau uzima 164 is
-   192 px auksscio, tad irankiai grizta i stulpeli (V 08-12). */@media(max-width:560px){#gl3dTools{display:none!important}}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy{opacity:.5;cursor:progress}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}@media(max-width:520px){#uploadButton,#slicerToggle{width:auto}}/* Plaziam ekrane irankiai gyvena ant vaizdo, tad stulpelyje ju nebereikia. */@media(min-width:561px){#slicerTools{display:none}}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}/* Paspaudimo busena: be jos pilki mygtukai atrodo vienodai pries ir per
+   tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). */#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number]{min-height:40px;margin:0;padding:8px 12px;font-size:.92rem}#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:42px;z-index:5;background:rgba(20,20,22,.95);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.55);min-width:240px;max-width:88%}#gl3dPop .popRow{display:flex;align-items:center;gap:6px;margin:6px 0;font-size:.82rem;color:var(--text)}#gl3dPop .popRow input[type=number]{width:66px;margin:0;padding:5px 7px;font-size:.82rem}#gl3dPop .popRow input[type=range]{flex:1;margin:0;padding:0;accent-color:var(--accent)}#gl3dPop .popRow input[type=checkbox]{width:auto;margin:0}#gl3dPop .popHint{font-size:.72rem;color:var(--muted);line-height:1.5;margin-top:4px}#gl3dLayer{width:22px}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Desiniojo pakanka - gulscias lieka tik telefonui (V 08-12). */@media(min-width:561px){#slicerReview{display:none!important}}/* Telefone tarp kampu lieka ~20 px - vertikalus netelpa, lieka gulscias. */@media(max-width:560px){#gl3dLayer{display:none!important}}/* Telefone langas per mazas penktai grupei: 82x82 kryziai jau uzima 164 is
+   192 px auksscio, tad irankiai grizta i stulpeli (V 08-12). *//* Anksciau cia slepdavom ir irankius, nors vietos yra - sleptinas buvo tik
+   vertikalus slankiklis (jam tarp kampu lieka ~20 px). V pastebejo (08-12). */#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy{opacity:.5;cursor:progress}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). */#slicerToggle.narrow{width:auto}@media(max-width:520px){#uploadButton,#slicerToggle{width:auto}}/* Plaziam ekrane irankiai gyvena ant vaizdo, tad stulpelyje ju nebereikia. */@media(min-width:561px){#slicerTools{display:none}}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}/* Paspaudimo busena: be jos pilki mygtukai atrodo vienodai pries ir per
    paspaudima, tad neaisku, ar pataikei (V 08-12). Liecia VISA pulta. */button:active:not(:disabled),.button:active{transform:translateY(1px);filter:brightness(.86)}button:disabled:active{transform:none;filter:none}label.button:active{transform:translateY(1px);filter:brightness(.86)}.button.secondary{background:var(--btnsec);color:var(--btnsec-t)}.button.danger,button.danger{background:var(--danger);color:#fff}.grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}.updOverlay{position:fixed;inset:0;z-index:99;background:var(--overlay);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}.updOverlay.on{display:flex}.updOverlay h2{color:var(--accent)}.modal{position:fixed;inset:0;z-index:80;background:var(--dim);display:flex;align-items:center;justify-content:center;padding:20px}.modal.hidden{display:none}.modalCard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}.modalText{color:var(--text);font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}.modalBtns{display:flex;gap:10px}.modalBtns button,.modalBtns .button.secondary{margin-top:0;flex:1;width:auto;padding:12px 14px;font-size:15px}.fwbuild{color:var(--fwb);font-size:11px;font-family:monospace}.fwbuild:empty{display:none}.subhead{grid-column:1/-1;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--subh)}.pwWrap{position:relative;display:block}.pwWrap input{width:100%;padding-right:40px}.eyeBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:auto;background:transparent;border:0;padding:4px 8px;margin:0;font-size:16px;cursor:pointer;color:var(--muted)}.eyeBtn:hover{color:var(--text)}.updSpin{width:34px;height:34px;border:4px solid var(--btnsec);border-top-color:var(--accent);border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}.warn{color:var(--warncol)}.hidden{display:none}.updDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}.updDot.hidden{display:none}.cfgNav a .updDot{margin-left:5px}.hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:92%;z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft,#homeRight{display:grid;gap:14px;align-content:start}/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir
    slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo.
    Slicer'is keliauja pries SD (V 08-12). */@media(max-width:999px){#slicerCard{order:-1}}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
@@ -136,6 +137,22 @@
           <button data-tool='flip' title='Flip over'>&#8645;</button>
           <button data-tool='tilt' title='Tilt 90° — falls forward'>&#8635;</button>
           <button data-tool='rot'  title='Rotate 90° — spins on the plate'>&#10227;</button>
+          <button data-tool='scale' title='Size'>%</button>
+          <button data-tool='detail' title='Detail'>&#9680;</button>
+        </div>
+        <!-- Popup'ai virs irankiu juostos: nustatymai reikalingi retai, tad
+             korteleje jiems vietos neskiriam (V 08-12). -->
+        <div id='gl3dPop' style='display:none'>
+          <div id='gl3dPopScale'>
+            <div class='popRow'><b>Size</b></div>
+            <div class='popRow'><input id='popScaleRange' type='range' min='10' max='300' value='100'></div>
+            <div class='popRow'><input id='popScalePct' type='number' min='10' max='300' step='1'><span>%</span>
+              <input id='popScaleMm' type='number' min='1' max='68' step='0.1'><span>mm tall</span></div>
+          </div>
+          <div id='gl3dPopDetail' style='display:none'>
+            <label class='popRow' style='cursor:pointer'><input type='checkbox' id='popAA' checked><span>Soften edges</span></label>
+            <div class='popHint'>Edge pixels print grey. Grey passes less UV, so the edge cures only partly and the stair steps stop showing. Costs nothing in time or resin.</div>
+          </div>
         </div>
         <!-- Vertikalus, kaip visuose slicer'iuose: modelis auga i virsu,
              tad ir valdiklis eina i virsu (V 08-12). -->
@@ -204,10 +221,6 @@
   <div class='hint' id='slicerLead' style='margin-top:0'>Turn a 3D file into a printable model —
     no slicing software needed.</div>
   <div id='slicerBody' style='display:none'>
-    <div class='toolbar' style='margin-top:14px'>
-      <label id='slicerChoose' class='button secondary step' style='margin-top:0;cursor:pointer'>Choose STL
-        <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
-    </div>
     <div id='slicerTools' class='toolbar' style='margin-top:0'>
       <button id='slicerAutoFit' class='button secondary' type='button' disabled
               title='Turn it, and scale only if it does not fit'>Auto fit</button>
@@ -222,27 +235,21 @@
     </div>
     <div id='slicerInfo' class='hint' style='margin-top:4px'>No file loaded yet.</div>
     <!-- Vieta rezervuota: anksciau si eilute atsirasdavo ir dingdavo, tad sukiojant modeli visa kortele soktelėdavo (V 08-12). --><div id='slicerFit' class='hint' style='margin-top:2px;min-height:2.9em'></div>
-    <div id='slicerScaleRow' class='calRow' style='display:none'>
-      <span class='lbl'>Scale</span>
-      <div class='grp'><input id='slicerScale' type='number' min='5' max='400' step='1' style='width:90px'>
-        <span>%</span></div>
-    </div>
-    <div class='calSep'></div>
-    <div class='calRow'>
-      <span class='lbl'>Detail</span>
-      <label class='check' style='margin:0'><input type='checkbox' id='slicerAA' checked>
-        <span>Soften edges</span></label>
-    </div>
+    <input type='checkbox' id='slicerAA' checked style='display:none'>
+    <input type='number' id='slicerScale' style='display:none'>
+    <div id='slicerScaleRow' style='display:none'></div>
 
-    <div class='hint' style='margin:2px 0 0;color:var(--muted2)'>Edge pixels are printed grey instead of black or white. Grey passes less UV, so the edge cures only partly and the stair steps between layers stop being visible. Costs nothing in time or resin.</div>
-    <div id='slicerProg' class='hint' style='margin-top:6px'></div>
+    <div id='slicerProg' class='hint' style='margin-top:6px;min-height:1.5em'></div>
 
-    <div class='calRow' style='margin-top:6px'>
-      <button id='slicerGo' class='button secondary' type='button' style='width:auto' disabled>Slice</button>
-      <a href='#' id='slicerDiscardLink' class='hint' style='display:none'>discard</a>
-      <span style='flex:1 1 auto'></span>
-      <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters — longer names do not fit the printer screen' style='width:150px' disabled>
-      <button id='slicerSave' class='button secondary' type='button' style='width:auto' disabled>Save to printer</button>
+    <div class='calRow' id='slicerActions' style='margin-top:6px;gap:8px'>
+      <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0'>Choose STL
+        <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
+      <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0' disabled>Slice</button>
+      <button id='slicerSave' class='button secondary' type='button' style='flex:1 1 0' disabled>Save to printer</button>
+    </div>
+    <div class='calRow' style='margin-top:6px;gap:8px;min-height:40px'>
+      <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters — longer names do not fit the printer screen' style='flex:1 1 0' disabled>
+      <a href='#' id='slicerDiscardLink' class='hint' style='visibility:hidden'>discard</a>
     </div>
     <div class='hint' style='margin-top:8px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
   </div>
@@ -1422,7 +1429,13 @@ const cacheIsDetail=()=>slicesCache.gw>=DET_GW;
 const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
                       cacheIsDetail()===VIEW_DETAIL;
 const showDetailToggle=()=>{
-  const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
+  const b=$('gl3dDet'); if(!b)return;
+  /* Slicer'io rezimu mygtukas uzrakinamas (jo vaizdas visada detalus), o
+     atrakindavau tik issaugojimo pabaigoje - atidarius modelio perziura tas
+     kelias nepraeinamas, tad uzraktas likdavo (V 08-12). Atrakinam cia: si
+     funkcija kvieciama butent tada, kai kortele perima perziura. */
+  b.disabled=false; b.title='Detailed view';
+  b.classList.toggle('on',VIEW_DETAIL);
 };
 let PREF_FLIP=false;    // numatytasis vaizdas is printerio config
 let VIEW_FLIP=false;    // sios sesijos vaizdas (korteles varnele)
@@ -3034,9 +3047,9 @@ const sdCollapse=on=>{
 };
 $('slicerToggle').addEventListener('click',async()=>{
   const body=$('slicerBody'), open=body.style.display!=='none';
-  if(open){body.style.display='none';$('slicerToggle').textContent='Open';
+  if(open){body.style.display='none';$('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
     sdCollapse(false); slicerOwnsPreview=false; dashPreviewPlaceholder(); return;}
-  body.style.display='block';$('slicerToggle').textContent='Close';sdCollapse(true);
+  body.style.display='block';$('slicerToggle').textContent='Close';$('slicerToggle').classList.add('narrow');sdCollapse(true);
   if(slicerMod)return;
   slicerSay('slicerInfo','Loading the slicer…');
   /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
@@ -3057,7 +3070,7 @@ const slicerInvalidate=()=>{
   slicerOut=null;
   $('slicerReview').style.display='none';show('printPreviewBarFill',true);{const L=$('gl3dLayer'); if(L)L.style.display='none';}
   $('slicerSave').disabled=true;
-  $('slicerDiscardLink').style.display='none';
+  $('slicerDiscardLink').style.visibility='hidden';
   $('slicerProg').textContent='Settings changed — slice again to save.';
   slicerStep();
 };
@@ -3069,7 +3082,22 @@ const slicerRender=()=>{
   slicerSay('slicerInfo',
     b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)+' mm  \u00b7  '
     +(slicerRaw.length/9).toLocaleString()+' triangles');
-  const fit=$('slicerFit');
+  /* Matmenys IR verdiktas vienoje eiluteje - atskira eilute atsirasdavo ir
+     dingdavo, tad kortele soktelėdavo (V 08-12). */
+  const tri=slicerRaw.length/9;
+  let vd, col;
+  if(f.fits){vd='fits';col='var(--muted)';}
+  else{vd='too large — '+f.axis+' +'+Math.round((f.worst-1)*100)
+      +'% · press autofit ⬛, or turn and scale by hand';col='var(--warncol)';}
+  if(slicerBudget&&tri>slicerBudget)vd+=' · more detail than the printer can show';
+  $('slicerInfo').innerHTML=
+    b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
+    +' mm · '+tri.toLocaleString()+' tri · <span style="color:'+col+'">'+vd+'</span>';
+  {const r=$('popScaleRange'), p=$('popScalePct'), m=$('popScaleMm');
+   const pct=Math.round(slicerTr.scale*100);
+   if(r)r.value=pct; if(p)p.value=pct; if(m)m.value=b.size[2].toFixed(1);}
+  const fit={style:{},textContent:''};
+  const fitEl=$('slicerFit'); if(fitEl)fitEl.style.display='none';
   if(f.fits){
     fit.textContent='Fits the build volume.';
     fit.style.color='var(--muted)';
@@ -3210,7 +3238,7 @@ $('slicerGo').addEventListener('click',async()=>{
       b.title='Slicer preview is always detailed';}}
     $('slicerName').disabled=false;
     $('slicerSave').disabled=false;
-    $('slicerDiscardLink').style.display='inline';
+    $('slicerDiscardLink').style.visibility='visible';
     slicerStep();
     slicerShowLayer(Number(sl.value));
   }catch(e){
@@ -3220,6 +3248,24 @@ $('slicerGo').addEventListener('click',async()=>{
 });
 
 $('slicerAA').addEventListener('change',()=>slicerInvalidate());
+/* Popup'ai tik persiunčia i tuos pacius laukus - logika nesisakoja i dvi kopijas. */
+$('popAA').addEventListener('change',e=>{
+  $('slicerAA').checked=e.target.checked; slicerInvalidate();});
+const popScaleApply=pct=>{
+  if(!slicerRaw)return;
+  const v=Math.max(.1,Math.min(3,pct/100));
+  slicerTr.scale=v; slicerRender();
+};
+$('popScaleRange').addEventListener('input',e=>popScaleApply(Number(e.target.value)));
+$('popScalePct').addEventListener('change',e=>popScaleApply(Number(e.target.value)));
+/* Aukstis milimetrais: zmogus dazniau zino, kokio dydzio nori daiktas, nei
+   kiek procentu reikia (V 08-12). */
+$('popScaleMm').addEventListener('change',e=>{
+  if(!slicerRaw)return;
+  const want=Number(e.target.value); if(!(want>0))return;
+  const now=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size[2];
+  if(now>0)popScaleApply(slicerTr.scale*(want/now)*100);
+});
 $('slicerLayer').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
 $('gl3dLayerRange').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
 $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
@@ -3284,10 +3330,10 @@ $('slicerSave').addEventListener('click',async()=>{
     $('slicerScaleRow').style.display='none';
     $('slicerReview').style.display='none';show('printPreviewBarFill',true);{const L=$('gl3dLayer'); if(L)L.style.display='none';}
     $('slicerSave').disabled=true;
-    $('slicerDiscardLink').style.display='none';
+    $('slicerDiscardLink').style.visibility='hidden';
     /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
     $('slicerBody').style.display='none';
-    $('slicerToggle').textContent='Open';
+    $('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
     sdCollapse(false);
     loadFiles&&loadFiles();
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
@@ -3308,7 +3354,7 @@ $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
   $('slicerReview').style.display='none';show('printPreviewBarFill',true);{const L=$('gl3dLayer'); if(L)L.style.display='none';}
   $('slicerSave').disabled=true;
-  $('slicerDiscardLink').style.display='none';
+  $('slicerDiscardLink').style.visibility='hidden';
   $('slicerProg').textContent='Discarded. Adjust and slice again.';
   slicerRender();
 });
@@ -3679,9 +3725,23 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        ir negali issiskirti (V 08-12). */
     const tls=$('gl3dTools');
     tls.addEventListener('pointerdown',e=>e.stopPropagation());
+    {const p=$('gl3dPop');
+     p.addEventListener('pointerdown',e=>e.stopPropagation());
+     el.addEventListener('pointerdown',()=>{p.style.display='none';});}
     tls.addEventListener('click',e=>{
       const t=e.target&&e.target.dataset&&e.target.dataset.tool; if(!t)return;
       e.stopPropagation();
+      /* Nustatymai atsidaro popup'u virs juostos: reikalingi retai, tad
+         korteleje jiems vietos neskiriam (V 08-12). */
+      if(t==='scale'||t==='detail'){
+        const p=$('gl3dPop'), sc=t==='scale';
+        const same=p.style.display==='block'&&p.dataset.kind===t;
+        p.dataset.kind=t;
+        $('gl3dPopScale').style.display=sc?'block':'none';
+        $('gl3dPopDetail').style.display=sc?'none':'block';
+        p.style.display=same?'none':'block';
+        return;
+      }
       const id={fit:'slicerAutoFit',flat:'slicerFlat',flip:'slicerFlip',
                 tilt:'slicerRotX',rot:'slicerRotZ'}[t];
       const b=$(id); if(b&&!b.disabled)b.click();
