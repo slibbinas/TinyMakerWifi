@@ -124,6 +124,7 @@
           <span></span><button data-rot='d' title='Tilt down'>&#9660;</button><span></span>
         </div>
         <div id='gl3dTools' style='display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:2;gap:2px'>
+          <button data-tool='fit' title='Auto fit — turn, and scale only if it does not fit'>&#9906;</button>
           <button data-tool='flat' title='Lay flat — widest face down'>&#11027;</button>
           <button data-tool='flip' title='Flip over'>&#8645;</button>
           <button data-tool='tilt' title='Tilt 90° — falls forward'>&#8635;</button>
@@ -201,6 +202,8 @@
         <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
     </div>
     <div id='slicerTools' class='toolbar' style='margin-top:0'>
+      <button id='slicerAutoFit' class='button secondary' type='button' disabled
+              title='Turn it, and scale only if it does not fit'>Auto fit</button>
       <button id='slicerFlat' class='button secondary' type='button' disabled
               title='Put the widest flat face down on the plate'>Lay flat</button>
       <button id='slicerFlip' class='button secondary' type='button' disabled
@@ -2995,7 +2998,7 @@ const slicerBusyStop=()=>{
   return false;
 };
 const slicerButtons=on=>{
-  ['slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
+  ['slicerAutoFit','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
     .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
   /* Ta pati busena ir ant vaizdo esantiems - jie tik kita to paties veido puse. */
   const t=$('gl3dTools');
@@ -3053,7 +3056,11 @@ const slicerRender=()=>{
   if(f.fits){
     fit.textContent='Fits the build volume.';
     fit.style.color='var(--muted)';
-    show('slicerScaleRow',false);$('slicerScaleRow').style.display='none';
+    /* Masteli slėpti, kai jis pradeda tikti, - kaip tik atvirksciai, nei
+       reikia: sumazinai iki telpancio ir pakoreguoti nebegali (V 08-12).
+       Slepiamas tik ispejimas, ne valdiklis. */
+    $('slicerScaleRow').style.display='flex';
+    $('slicerScale').value=Math.round(slicerTr.scale*100);
   }else{
     fit.textContent='Too large — the '+f.axis+' is '+Math.round((f.worst-1)*100)
       +'% over. Turning it often solves this; scaling changes the part’s real size.';
@@ -3092,6 +3099,20 @@ $('slicerFile').addEventListener('change',async e=>{
   }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
 });
 
+/* Autofit = pasuka + sumazina TIK jei netelpa, ir apie tai pasako. Mazinimas
+   keicia tikra detales dydi, tad tylus jis nebuna niekada (V 08-12). */
+$('slicerAutoFit').addEventListener('click',()=>{
+  if(!slicerRaw)return;
+  const s0=slicerTr.scale;
+  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
+  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+  const f=slicerMod.fitCheck(b.size);
+  if(!f.fits){
+    slicerTr.scale*=f.scaleToFit;
+    msg('Turned and scaled to '+Math.round(slicerTr.scale*100)+'% so it fits.');
+  }else msg('Turned \u2014 it already fits, nothing was scaled.');
+  slicerRender();
+});
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return; const s=slicerTr.scale;
   slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});
@@ -3646,7 +3667,8 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     tls.addEventListener('click',e=>{
       const t=e.target&&e.target.dataset&&e.target.dataset.tool; if(!t)return;
       e.stopPropagation();
-      const id={flat:'slicerFlat',flip:'slicerFlip',tilt:'slicerRotX',rot:'slicerRotZ'}[t];
+      const id={fit:'slicerAutoFit',flat:'slicerFlat',flip:'slicerFlip',
+                tilt:'slicerRotX',rot:'slicerRotZ'}[t];
       const b=$(id); if(b&&!b.disabled)b.click();
     });
     /* Sukimas ir priartinimas mygtukais - tiems, kas nezino apie pele. */
