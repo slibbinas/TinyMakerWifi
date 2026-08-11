@@ -248,6 +248,7 @@ bool dcEnabled = false;             // Discord notifications via a channel webho
 String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
 uint16_t prevRegularExposure = 0;   // last replaced Regular exposure in DECISECONDS (0 = none) - dashboard Undo
+uint8_t  prevBaseExposure = 0;      // last replaced Base exposure in SECONDS (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
@@ -295,6 +296,7 @@ void loadDeviceConfig() {
   if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
   prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
+  prevBaseExposure = sysPrefs.getUChar("prevBaseS", 0);       // sveikos sekundes
   bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
@@ -852,6 +854,16 @@ void rememberPrevRegularExposure(long oldVal) {
   sysPrefs.end();
 }
 
+// Tas pats Base'ui: derinant butent ji dazniausiai persukama, o be atsarginio
+// kelio tenka atsiminti sena reiksme galvoje (V 08-12).
+void rememberPrevBaseExposure(long oldVal) {
+  if (oldVal < 5 || oldVal > 60 || oldVal == Base_Exposure) return;   // sveikos sekundes
+  prevBaseExposure = (uint8_t)oldVal;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUChar("prevBaseS", prevBaseExposure);
+  sysPrefs.end();
+}
+
 // ===================================================================================
 // Settings backup & restore (flat JSON, on SD or via the dashboard)
 // ===================================================================================
@@ -1162,9 +1174,16 @@ void applyConfigBackup(const String &j) {
   savePrintSettings();
   saveDeviceConfig();
   saveVatRemaining();
+  // Atkurus VISA faila „ankstesne ekspozicijos reiksme" nebeturi prasmes: ji
+  // rodytu ne pries atkurima buvusia, o kazkokia senesne, atsitiktine. Tad
+  // Undo pasiulymus nuimam - jie atsiras vel pakeitus reiksme is pulto.
+  prevRegularExposure = 0;
+  prevBaseExposure = 0;
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putULong("printSecs", totalPrintSecs);
   sysPrefs.putULong("uvLedSecs", totalUvLedSecs);
+  sysPrefs.putUShort("prevRegDs", 0);
+  sysPrefs.putUChar("prevBaseS", 0);
   sysPrefs.end();
 }
 
