@@ -3197,6 +3197,9 @@ void handleApiModelSlicesUploadData() {
     if (slicesUp.write(up.buf, up.currentSize) != up.currentSize) slicesUpBad = true;
   } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
     bool opened = (bool)slicesUp;
+    // Magic tikrinamas tik kai pirmas gabalas >= 4 B, tad uz ji trumpesnis
+    // siuntinys prasprusdavo ir SD likdavo siuksle. Antraste yra 16 B.
+    if (slicesUpLen < 16u) slicesUpBad = true;
     if (slicesUp) slicesUp.close();
     if (opened && (slicesUpBad || up.status == UPLOAD_FILE_ABORTED))
       SD.remove(slicesUpPath.c_str());
@@ -3205,6 +3208,7 @@ void handleApiModelSlicesUploadData() {
 
 void handleApiModelSlicesUploadDone() {
   bool bad = slicesUpBad, seen = slicesUpLen > 0;
+  uint32_t got = slicesUpLen;   // atsakymas rode 0, nes skaitiklis nunulinamas cia
   slicesUpBad = false; slicesUpLen = 0;
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
@@ -3215,7 +3219,7 @@ void handleApiModelSlicesUploadDone() {
     SD.remove(("/" + slicesUpName + "/preview05.png").c_str());
     SD.remove(("/" + slicesUpName + "/preview1.png").c_str());
   }
-  sendApiOk("\"bytes\":" + String((uint32_t)slicesUpLen));
+  sendApiOk("\"bytes\":" + String(got));
 }
 
 // GET /lib/three.js - the browser's 3D library, cached on the SD card (V idea

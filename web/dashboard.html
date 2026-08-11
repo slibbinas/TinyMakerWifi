@@ -1412,14 +1412,31 @@ const drawVolumeBox=cv=>{
 const paintPreviewProgress=(cv,label,frac)=>{
   if(window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
   const ctx=drawVolumeBox(cv);
+  /* Uzrasas ir juostele - drobes VIDURYJE ir vienas po kitu: taip jie skaitosi
+     kaip viena zinute. Anksciau juostele buvo prilipdyta prie apatinio krasto,
+     o istaisius dezes proporcijas jos apatine kraštine nusileido kaip tik ten
+     ir uzejo ant juostelės (V 08-12). */
+  const midY=PREV_H/2;
   ctx.fillStyle='#e9e9ec';
   ctx.font='bold 34px sans-serif';ctx.textAlign='center';
-  ctx.fillText(label,PREV_CX,PREV_CY-16);ctx.textAlign='left';
+  ctx.fillText(label,PREV_CX,midY);ctx.textAlign='left';
   if(frac===null)return;
-  const bw=PREV_W-160;
-  ctx.strokeStyle='#4a4a52';ctx.strokeRect(80,PREV_H-26,bw,10);
-  ctx.fillStyle='#e8720c';
-  if(frac>0)ctx.fillRect(81,PREV_H-25,Math.max(2,(bw-2)*Math.min(frac,1)),8);
+  /* Plotis - PAGAL UZRASA (bet ne siauresnis nei 220 px): juostele ir tekstas
+     sudaro viena bloka, o ne du atsitiktinius elementus. Po juostele dedam
+     tamsu paklota - kitaip tuscia jos dalis susilieja su dezes linijomis,
+     kurios yra tokios pat spalvos (V 08-12). */
+  const tw=ctx.measureText(label).width;
+  const bw=Math.max(220,Math.min(PREV_W-160,tw)), bx=PREV_CX-bw/2, by=midY+18, bh=12, r=6;
+  const pill=(x,y,w,h,rad)=>{ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x,y,w,h,rad); else ctx.rect(x,y,w,h);};
+  pill(bx,by,bw,bh,r);
+  ctx.fillStyle='rgba(12,12,14,.9)';ctx.fill();          // paklotas
+  ctx.strokeStyle='#6a6a74';ctx.lineWidth=1;ctx.stroke(); // sviesesnis nei deze
+  if(frac>0){
+    const fw=Math.max(bh,(bw-2)*Math.min(frac,1));
+    pill(bx+1,by+1,fw,bh-2,r-1);
+    ctx.fillStyle='#e8720c';ctx.fill();
+  }
 };
 // One voxel face, projected. Filled AND stroked in the same colour: canvas
 // antialiasing leaves a hairline between quads that share an edge, and on a
