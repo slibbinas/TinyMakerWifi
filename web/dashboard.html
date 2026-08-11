@@ -165,6 +165,33 @@
   </section>
 </div>
 
+<section id='slicerCard' class='card'>
+  <div class='cardHead'><h2>Slice an STL</h2>
+    <button id='slicerToggle' class='button secondary' type='button'
+            style='width:auto;margin-top:0'>Open</button></div>
+  <div class='hint' id='slicerLead' style='margin-top:0'>Turn a 3D file into a printable model \u2014
+    no slicing software needed.</div>
+  <div id='slicerBody' style='display:none'>
+    <div class='toolbar' style='margin-top:14px'>
+      <label class='button secondary' style='margin-top:0;cursor:pointer'>Choose STL
+        <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
+      <button id='slicerFlat' class='button secondary' type='button' disabled>Lay flat &amp; fit</button>
+      <button id='slicerRotX' class='button secondary' type='button' disabled>Tip 90\u00b0</button>
+      <button id='slicerRotZ' class='button secondary' type='button' disabled>Turn 90\u00b0</button>
+    </div>
+    <div id='slicerInfo' class='hint' style='margin-top:4px'>No file loaded yet.</div>
+    <div id='slicerFit' class='hint' style='margin-top:2px'></div>
+    <div id='slicerScaleRow' class='calRow' style='display:none'>
+      <span class='lbl'>Scale</span>
+      <div class='grp'><input id='slicerScale' type='number' min='5' max='400' step='1' style='width:90px'>
+        <span>%</span></div>
+      <button id='slicerScaleFit' class='button secondary' type='button'>Scale to fit</button>
+    </div>
+    <div class='hint' style='margin-top:8px;color:var(--muted2)'>Slicing itself is not built yet \u2014
+      this step reads the file, measures it and checks that it fits.</div>
+  </div>
+</section>
+
 <section id='modelPanel' class='card hidden'>
   <div class='cardHead'><h2 id='modelTitle'>Model</h2>
     <button id='modelShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
@@ -2906,6 +2933,89 @@ $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
+/* ---- Slicer (B etapas): STL -> matmenys -> telpa/netelpa ---------------- */
+let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
+const slicerSay=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
+const slicerBusyStop=()=>{
+  if(statusData&&statusData.busy){msg('Not while printing.',true);return true;}
+  return false;
+};
+const slicerButtons=on=>['slicerFlat','slicerRotX','slicerRotZ']
+  .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
+
+$('slicerToggle').addEventListener('click',async()=>{
+  const body=$('slicerBody'), open=body.style.display!=='none';
+  if(open){body.style.display='none';$('slicerToggle').textContent='Open';return;}
+  body.style.display='block';$('slicerToggle').textContent='Close';
+  if(slicerMod)return;
+  slicerSay('slicerInfo','Loading the slicer\u2026');
+  /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
+     kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
+  slicerMod=await loadModule('slicer','0.1.0',
+      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js');
+  slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
+                                  :'The slicer module could not be loaded.');
+});
+
+const slicerRender=()=>{
+  const S=slicerMod;
+  const placed=S.place(slicerRaw,slicerTr);
+  const b=S.bounds(placed), f=S.fitCheck(b.size);
+  slicerSay('slicerInfo',
+    b.size[0].toFixed(1)+' \u00d7 '+b.size[1].toFixed(1)+' \u00d7 '+b.size[2].toFixed(1)+' mm  \u00b7  '
+    +(slicerRaw.length/9).toLocaleString()+' triangles');
+  const fit=$('slicerFit');
+  if(f.fits){
+    fit.textContent='Fits the build volume.';
+    fit.style.color='var(--muted)';
+    show('slicerScaleRow',false);$('slicerScaleRow').style.display='none';
+  }else{
+    fit.textContent='Too large \u2014 the '+f.axis+' is '+Math.round((f.worst-1)*100)
+      +'% over. Turning it often solves this; scaling changes the part\u2019s real size.';
+    fit.style.color='var(--warncol)';
+    $('slicerScaleRow').style.display='flex';
+    $('slicerScale').value=Math.round(slicerTr.scale*100);
+  }
+  /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
+  const tri=slicerRaw.length/9;
+  if(slicerBudget&&tri>slicerBudget)
+    fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
+      +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
+  if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed));
+  $('printPreviewTitle').textContent='Slicer preview';
+  show('printPreviewCard',true);
+};
+
+$('slicerFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f||!slicerMod)return;
+  if(slicerBusyStop())return;
+  slicerSay('slicerInfo','Reading '+f.name+'\u2026');slicerSay('slicerFit','');
+  try{
+    const buf=await f.arrayBuffer();
+    const r=slicerMod.parseSTL(buf);
+    slicerRaw=r.positions;
+    slicerBudget=slicerMod.detailBudget(slicerRaw);
+    const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
+    slicerTr=best.tr;
+    slicerButtons(true);
+    slicerRender();
+  }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
+});
+
+$('slicerFlat').addEventListener('click',()=>{
+  if(!slicerRaw)return; const s=slicerTr.scale;
+  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});
+$('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx++;slicerRender();}});
+$('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerTr.rz++;slicerRender();}});
+$('slicerScaleFit').addEventListener('click',()=>{
+  if(!slicerRaw)return;
+  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+  slicerTr.scale*=slicerMod.fitCheck(b.size).scaleToFit; slicerRender();});
+$('slicerScale').addEventListener('change',e=>{
+  if(!slicerRaw)return;
+  const v=Number(e.target.value)/100;
+  if(v>0.05&&v<4){slicerTr.scale=v;slicerRender();}});
+
 $('undoBaseExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgBaseExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Base exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
@@ -3313,6 +3423,32 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     const sz=new T.Vector3(); bb.getSize(sz);
     if(typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
     return true;
+  };
+  /* Slicer'iui: parodyti savo tinkleli toje pacioje dezeje, su tais paciais
+     valdikliais. Deze ir apsvietimas jau yra - keiciasi tik tinklelis. */
+  window.gl3dMesh=positions=>{
+    try{
+      if(!ren)init();
+      const cv=$('printPreviewCanvas');
+      ren.setSize(cv.clientWidth||720,cv.clientHeight||420);
+      cam.aspect=(cv.clientWidth||720)/(cv.clientHeight||420);cam.updateProjectionMatrix();
+      if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();}
+      const geo=new T.BufferGeometry();
+      geo.setAttribute('position',new T.BufferAttribute(positions,3));
+      geo.computeVertexNormals();
+      mesh=new T.Mesh(geo,new T.MeshStandardMaterial({color:0xe8720c,roughness:.55,
+        metalness:.12,side:T.DoubleSide}));
+      scene.add(mesh);
+      key3d='';                      // kitas perziuros piesimas privalo persipiesti
+      geo.computeBoundingBox();
+      const bb=geo.boundingBox,ctr=new T.Vector3();bb.getCenter(ctr);
+      const sz=new T.Vector3();bb.getSize(sz);
+      if(typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+      host.style.display='block';
+      const g=id=>{const e=$(id);if(e)e.style.display=id==='gl3dZoom'?'flex':(id==='gl3dHelp'?'block':'grid');};
+      g('gl3dHelp');g('gl3dPad');g('gl3dRot');g('gl3dZoom');
+      return true;
+    }catch(e){return false;}
   };
   /* drawIso pasako, kada rodyti GPU vaizda: tik perziura/baigtas spaudinys. */
   window.gl3dShow=on=>{
