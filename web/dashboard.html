@@ -540,6 +540,9 @@ const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api=async(path,opt,timeoutMs)=>{
   const o=Object.assign({cache:'no-store'},opt||{});let timer=null,ctrl=null;
+  // #95: irodymas, kad uzklausa is musu pulto - be jos printeris rasymo
+  // uzklausu nebepriima (svetimas puslapis sios antrastes prideti negali).
+  o.headers=Object.assign({'X-TinyMaker':'1'},o.headers||{});
   if(timeoutMs&&typeof AbortController!=='undefined'){ctrl=new AbortController();o.signal=ctrl.signal;timer=setTimeout(()=>ctrl.abort(),timeoutMs);}
   try{
     let r;
@@ -1865,7 +1868,8 @@ const saveSlicesToPrinter=async name=>{
     const fd=new FormData();
     const hi=cacheIsDetail()?'&hi=1':'';
     fd.append('file',new Blob([packSlices()]),'slices.tmv');
-    await fetch('/api/files/model/slices?name='+enc(name)+hi,{method:'POST',body:fd});
+    await fetch('/api/files/model/slices?name='+enc(name)+hi,
+                {method:'POST',body:fd,headers:{'X-TinyMaker':'1'}});
   }catch(e){}
 };
 const loadSlicesFromPrinter=async(name,onProg)=>{
@@ -3127,7 +3131,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const gz=await r.blob();
       if(gz.size<50000||gz.size>250000)return;   // ne tas failas - nesiunciam
       const fd=new FormData(); fd.append('file',gz,'three.js.gz');
-      await fetch('/api/lib/three',{method:'POST',body:fd});
+      await fetch('/api/lib/three',{method:'POST',body:fd,headers:{'X-TinyMaker':'1'}});
     }catch(e){}                                  // nepavyko - kitą kartą vėl CDN
   })();
   const MX=40.8,MY=30.6,MZ=68;
