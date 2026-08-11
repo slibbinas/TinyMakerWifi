@@ -5,7 +5,7 @@
    pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save -
    .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu
    tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button
-   turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). */#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji
+   turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}#slicerFacts>div{position:relative;padding-left:14px;margin-top:3px;min-height:1.3em}#slicerFacts>div:empty{display:none}#slicerFacts>div::before{content:'\2022';position:absolute;left:2px;color:var(--muted)}#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji
    atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu
    soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas +
    priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}#gl3dPop span{color:var(--muted)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad
@@ -252,9 +252,10 @@
     </div>
     <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
     <div class='calRow' style='margin-top:6px;gap:8px;min-height:1.9em'>
-      <span id='slicerProg' class='hint' style='flex:1 1 auto'></span>
       <button id='slicerDiscardLink' class='button secondary' type='button'
               style='visibility:hidden;flex:0 0 auto;min-height:28px;height:28px;padding:0 12px;font-size:.8rem'>Discard</button>
+      <!-- Eiga po tuo mygtuku, kuris ja sukele (V 08-12). -->
+      <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:right'></span>
     </div>
     <!-- Vardas ir „discard" - po zingsniais. Vieta rezervuota, kad nuoroda
          atsiradusi nestumdytu bloko (V 08-12). -->
@@ -265,9 +266,13 @@
     <!-- Visi faktai - viename apatiniame bloke: matmenys, verdiktas ir
          pastaba apie sluoksnius. Korteles virsus lieka vien veiksmams,
          o teksto eilutes nebeblasko akiu tarp dvieju vietu (V 08-12). -->
-    <div id='slicerDims' class='hint' style='margin-top:10px;color:var(--muted2)'></div>
-    <div id='slicerInfo' class='hint' style='margin-top:2px;min-height:1.5em'>No file loaded yet.</div>
-    <div class='hint' style='margin-top:2px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
+    <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
+         tad jos neatrode kaip vienas sarasas (V 08-12). -->
+    <div id='slicerFacts'>
+    <div id='slicerDims'></div>
+    <div id='slicerInfo'>No file loaded yet.</div>
+    <div>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
+    </div>
   </div>
 </section>
 </div>
@@ -3259,6 +3264,9 @@ $('slicerGo').addEventListener('click',async()=>{
      if(L&&R){R.min=1;R.max=r.layers;R.value=r.layers;L.style.display='flex';}}
     slicerBuildView();
     $('slicerName').disabled=false;
+    /* Tas pats modelis du kartus nepjaunamas: mygtukas atsirakina tik kai
+       kas nors pasikeicia arba ikeliamas naujas failas (V 08-12). */
+    $('slicerGo').disabled=true;
     /* Vienintelis dalykas, kuri dar reikia irasyti, - tad kursorius ten. */
     $('slicerName').focus();
     $('slicerSave').disabled=false;
