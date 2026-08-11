@@ -369,4 +369,4 @@ export async function slice(pos, opts, onProgress) {
   return { blob: zipStore(files), files, layers, rawMl };
 }
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.2';
