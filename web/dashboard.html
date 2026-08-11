@@ -220,7 +220,7 @@
   <h2>Print settings</h2>
   <div class='configGrid grid4'>
     <label><span>Layer height (mm)<a href='#' class='qHelp' data-help='layer'>?</a></span><input name='layer_height' id='cfgLayerHeight' type='number' min='0.05' max='0.10' step='0.05'></label>
-    <label><span>Base exposure (s)</span><input name='base_exposure' id='cfgBaseExposure' type='number' min='5' max='60' step='1'></label>
+    <label><span>Base exposure (s) <a href='#' id='undoBaseExp' class='hidden'></a></span><input name='base_exposure' id='cfgBaseExposure' type='number' min='5' max='60' step='1'></label>
     <label><span>Regular exposure (s) <a href='#' id='undoRegExp' class='hidden'></a></span><input name='regular_exposure' id='cfgRegularExposure' type='number' min='1' max='30' step='0.1'></label>
     <label><span>Base layers</span><input name='base_layer' id='cfgBaseLayers' type='number' min='1' max='8' step='1'></label>
     <label><span>Transition layers</span><input name='transition_layer' id='cfgTransitionLayers' type='number' min='0' max='10' step='1'></label>
@@ -2549,7 +2549,7 @@ const setConfigDisabled=disabled=>{document.querySelectorAll('#pane-print-cal in
 // wiped the printer's settings (2026-07-14 incident). Refuse until loaded.
 const configFormData=()=>{
   if(!connectConfig)throw new Error('Settings have not loaded yet - wait a moment and try again.');
-  const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');return fd;};
+  const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');/* Zyma, kad tai PILNA forma: be jos printeris nuimtu varneliu nelaiko isjungimu (zr. formCheck). */fd.append('form_full','1');return fd;};
 const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
@@ -2583,6 +2583,10 @@ const loadConfig=async()=>{
     show('undoRegExp',prevR>0&&prevR!==Number(c.regularExposure));
     $('undoRegExp').textContent='Undo ('+prevR+'s)';
     $('undoRegExp').dataset.v=prevR;
+    const prevB=Number(c.prevBaseExposure)||0;
+    show('undoBaseExp',prevB>0&&prevB!==Number(c.baseExposure));
+    $('undoBaseExp').textContent='Undo ('+prevB+'s)';
+    $('undoBaseExp').dataset.v=prevB;
     $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl;
     /* R-cal: dvi eilutes = du firmware slotai tiesiogiai (V 08-10). */
     {const bdg=(c,t)=>'<span class="calBadge '+c+' ">'+t+'</span> ';
@@ -2898,6 +2902,7 @@ $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('undoRegExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgRegularExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Regular exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
+$('undoBaseExp').addEventListener('click',async e=>{e.preventDefault();const v=Number(e.target.dataset.v)||0;if(!v)return;$('cfgBaseExposure').value=v;try{await api('/api/config',{method:'POST',body:configFormData()});msg('Base exposure back to '+v+'s.');loadConfig();}catch(err){msg(err.message,true);}});
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);

@@ -1355,6 +1355,8 @@ String configJson() {
   out += String(Regular_Exposure / 10.0, 1);      // 0.17 0-3: seconds (deciseconds/10)
   out += ",\"prevRegularExposure\":";
   out += String(prevRegularExposure / 10.0, 1);   // seconds (0.0 = no undo available)
+  out += ",\"prevBaseExposure\":";
+  out += String(prevBaseExposure);                // seconds (0 = no undo available)
   out += ",\"baseLayers\":";
   out += String(Base_Layer);
   out += ",\"transitionLayers\":";
@@ -1456,10 +1458,26 @@ String configJson() {
   return out;
 }
 
+// HTML varnele, kai ji nuimta, formoje NESIUNCIAMA, tad sis endpoint'as skaite
+// „nera = isjungta". Pultui tai teisinga (jis siuncia visa forma), bet bet kokia
+// dalinė uzklausa isjungdavo visus 13 jungikliu iskart, tarp ju WiFi - printeris
+// dingdavo is tinklo. Taip nutiko du kartus (08-11, 08-12).
+//
+// Pultas savo forma pazymi `form_full`. Be sios zymos varneles, kuriu uzklausoje
+// nera, paliekamos kaip buvo: dalinė uzklausa gali ijungti, bet ne isjungti.
+static bool formFullPost = false;
+static inline bool formCheck(const char *name, bool cur) {
+  if (server.hasArg(name)) return true;
+  return formFullPost ? false : cur;
+}
+
 void applyConfigRequest() {
   float requestedLayer = server.hasArg("layer_height") ? server.arg("layer_height").toFloat() : Layer_Height;
   Layer_Height = requestedLayer < 0.075 ? 0.05 : 0.10;
+  formFullPost = server.hasArg("form_full");   // pultas zymi savo pilna forma
+  long oldBase = Base_Exposure;
   Base_Exposure = formLong("base_exposure", Base_Exposure, 5, 60);   // 0.17 0-3: base min 5 s
+  rememberPrevBaseExposure(oldBase);   // no-op unless it actually changed
   long oldRegular = Regular_Exposure;
   {
     // 0.17 0-3: the form sends Regular in SECONDS (step 0.1); store deciseconds.
@@ -1479,7 +1497,7 @@ void applyConfigRequest() {
   Fast_Lift_Feedrate = formLong("fast_lift_feedrate", Fast_Lift_Feedrate, 20, 50);
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
-  lowResinPauseEnabled = server.hasArg("low_resin_pause");
+  lowResinPauseEnabled = formCheck("low_resin_pause", lowResinPauseEnabled);
   lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
   lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
   // R-cal: density is a measured property (weigh a known syringe volume), so it
@@ -1491,19 +1509,19 @@ void applyConfigRequest() {
       resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
     }
   }
-  askRefillEnabled = server.hasArg("ask_refill");
-  previewFlip = server.hasArg("preview_flip");
+  askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
+  previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
-  uvLedEnabled = !server.hasArg("dry_run");
-  wifiEnabled = server.hasArg("wifi_enabled");
-  webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
-  bootUpdateCheckEnabled = server.hasArg("boot_update_check");
-  resumeEnabled = server.hasArg("resume_enabled");
-  resumePrecise = server.hasArg("resume_precise");   // checked = Precise cadence, else Balanced
+  uvLedEnabled = !formCheck("dry_run", !uvLedEnabled);
+  wifiEnabled = formCheck("wifi_enabled", wifiEnabled);
+  webDashboardEnabled = wifiEnabled && formCheck("web_dashboard_enabled", webDashboardEnabled);
+  bootUpdateCheckEnabled = formCheck("boot_update_check", bootUpdateCheckEnabled);
+  resumeEnabled = formCheck("resume_enabled", resumeEnabled);
+  resumePrecise = formCheck("resume_precise", resumePrecise);   // checked = Precise cadence, else Balanced
   pauseLiftMm = formLong("pause_lift", pauseLiftMm, 20, 40);   // 0.17 #82: inspection lift height
   pauseLiftMm = ((pauseLiftMm + 2) / 5) * 5;   // #82: snap to 5 mm so web matches the LCD cycle
-  statsPingEnabled = server.hasArg("stats_ping");
-  mqttEnabled = server.hasArg("mqtt_enabled");
+  statsPingEnabled = formCheck("stats_ping", statsPingEnabled);
+  mqttEnabled = formCheck("mqtt_enabled", mqttEnabled);
   if (!wifiEnabled) mqttEnabled = false;
   mqttHost = formString("mqtt_host", mqttHost, 80);
   mqttPort = formLong("mqtt_port", mqttPort, 1, 65535);
@@ -1513,15 +1531,15 @@ void applyConfigRequest() {
   }
   mqttTopic = formString("mqtt_topic", mqttTopic, 64);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
-  connectEnabled = server.hasArg("connect_enabled");
+  connectEnabled = formCheck("connect_enabled", connectEnabled);
   if (!wifiEnabled) connectEnabled = false;
   connectBaseUrl = connectNormalizeBaseUrl(formString("connect_base_url", connectBaseUrl, 128));
   connectPrinterName = formString("connect_printer_name", connectPrinterName, 64);
   if (connectEnabled) {
-    connectLeaderboardOptIn = server.hasArg("connect_leaderboard");
+    connectLeaderboardOptIn = formCheck("connect_leaderboard", connectLeaderboardOptIn);
   }
   if (server.hasArg("connect_auto_backup_set")) {
-    connectAutoBackup = server.hasArg("connect_auto_backup");
+    connectAutoBackup = formCheck("connect_auto_backup", connectAutoBackup);
   }
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
