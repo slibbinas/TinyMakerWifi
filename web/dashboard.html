@@ -197,15 +197,24 @@
     <div class='calRow'>
       <span class='lbl'>Detail</span>
       <label class='check' style='margin:0'><input type='checkbox' id='slicerAA' checked>
-        <span>Smooth edges</span></label>
-      <span style='color:var(--muted2);font-size:.82rem'>grey edge pixels cure partially, which softens the stair steps</span>
+        <span>Soften edges</span></label>
     </div>
     <div class='calRow'>
       <span class='lbl'>Save as</span>
       <div class='grp'><input id='slicerName' type='text' placeholder='model name' style='width:170px'></div>
-      <button id='slicerGo' class='button' type='button' style='width:auto' disabled>Slice &amp; save</button>
+      <button id='slicerGo' class='button' type='button' style='width:auto' disabled>Slice</button>
     </div>
-    <div id='slicerProg' class='hint' style='margin-top:2px'></div>
+    <div class='hint' style='margin:2px 0 0;color:var(--muted2)'>Edge pixels are printed grey instead of black or white. Grey passes less UV, so the edge cures only partly and the stair steps between layers stop being visible. Costs nothing in time or resin.</div>
+    <div id='slicerProg' class='hint' style='margin-top:6px'></div>
+    <div id='slicerReview' style='display:none'>
+      <div class='calRow'>
+        <span class='lbl'>Layer</span>
+        <input id='slicerLayer' type='range' min='1' max='2' value='1' style='flex:1;min-width:120px'>
+        <span id='slicerLayerNo' style='color:var(--muted);font-size:.85rem;min-width:96px'></span>
+      </div>
+      <button id='slicerSave' class='button' type='button' style='width:auto'>Save to printer</button>
+      <span id='slicerDiscard' class='hint' style='margin-left:10px'><a href='#' id='slicerDiscardLink'>discard</a></span>
+    </div>
     <div class='hint' style='margin-top:8px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
   </div>
 </section>
@@ -2980,13 +2989,25 @@ $('slicerToggle').addEventListener('click',async()=>{
   slicerSay('slicerInfo','Loading the slicer…');
   /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
-  slicerMod=await loadModule('slicer','0.1.0',
-      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js');
+  /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
+     naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
+  const SV='0.3.0';
+  slicerMod=await loadModule('slicer',SV,
+      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js?v='+SV);
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
                                   :'The slicer module could not be loaded.');
 });
 
+/* Bet koks pakeitimas panaikina supjaustyta rezultata: kitaip „Save"
+   siulytu issaugoti tai, ko ekrane jau nebera (V 08-12). */
+const slicerInvalidate=()=>{
+  if(typeof slicerOut==='undefined'||!slicerOut)return;
+  slicerOut=null;
+  $('slicerReview').style.display='none';
+  $('slicerProg').textContent='Settings changed — slice again to save.';
+};
 const slicerRender=()=>{
+  slicerInvalidate();
   const S=slicerMod;
   const placed=S.place(slicerRaw,slicerTr);
   const b=S.bounds(placed), f=S.fitCheck(b.size);
@@ -3046,6 +3067,25 @@ $('slicerScaleFit').addEventListener('click',()=>{
   slicerTr.scale*=slicerMod.fitCheck(b.size).scaleToFit; slicerRender();});
 /* Pjaustymas ir issaugojimas. Archyvas keliauja ESAMU ikelimo keliu - tuo
    paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
+let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
+
+const slicerShowLayer=async n=>{
+  if(!slicerOut)return;
+  const f=slicerOut.files[n-1]; if(!f)return;
+  const bmp=await createImageBitmap(new Blob([f.data],{type:'image/png'}));
+  const cv=$('printPreviewCanvas'), ctx=cv.getContext('2d');
+  cv.width=720;cv.height=420;
+  ctx.fillStyle='#151517';ctx.fillRect(0,0,720,420);
+  const sc=Math.min(720/bmp.width,420/bmp.height)*0.92;
+  const w=bmp.width*sc,h=bmp.height*sc;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(bmp,(720-w)/2,(420-h)/2,w,h);
+  bmp.close&&bmp.close();
+  $('slicerLayerNo').textContent=n+' / '+slicerOut.layers+'  ('
+    +(n*0.05).toFixed(2)+' mm)';
+  if(window.gl3dShow)gl3dShow(false);
+};
+
 $('slicerGo').addEventListener('click',async()=>{
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
@@ -3068,22 +3108,53 @@ $('slicerGo').addEventListener('click',async()=>{
        imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
     const c=connectConfig||{};
     const ml=(r.rawMl*(Number(c.resinCalFactor)||1)+(Number(c.resinFixedMl)||0));
+    /* Nesaugom is karto: pirma parodom, ka gavom. Issaugojimas - atskiras
+       sprendimas, kai sluoksniai atrodo teisingai (V 08-12). */
+    slicerOut=r; slicerOut.name=name; slicerOut.ml=ml;
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
-      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml \u00b7 uploading\u2026';
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml \u00b7 look through the layers, then save';
+    const sl=$('slicerLayer');
+    sl.min=1; sl.max=r.layers; sl.value=Math.max(1,Math.round(r.layers*0.5));
+    $('slicerReview').style.display='block';
+    await slicerShowLayer(Number(sl.value));
+  }catch(e){
+    prog.textContent=e.message;
+    msg(e.message,true);
+  }finally{ go.disabled=false; slicerButtons(true); }
+});
+
+$('slicerAA').addEventListener('change',()=>slicerInvalidate());
+$('slicerLayer').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
+
+$('slicerSave').addEventListener('click',async()=>{
+  if(!slicerOut)return;
+  if(slicerBusyStop())return;
+  const btn=$('slicerSave'), prog=$('slicerProg');
+  btn.disabled=true;
+  try{
+    prog.textContent='Uploading \u2026';
     const fd=new FormData();
-    fd.append('file',r.blob,name+'.zip');
+    fd.append('file',slicerOut.blob,slicerOut.name+'.zip');
     await api('/api/files/local',{method:'POST',body:fd},180000);
-    prog.textContent='Saved as \u201c'+name+'\u201d \u00b7 '+r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
-    msg('\u201c'+name+'\u201d is on the printer.');
+    msg('\u201c'+slicerOut.name+'\u201d is on the printer.');
+    prog.textContent='Saved as \u201c'+slicerOut.name+'\u201d \u00b7 '+slicerOut.layers
+      +' layers \u00b7 ~'+slicerOut.ml.toFixed(1)+' ml';
+    slicerOut=null;
+    $('slicerReview').style.display='none';
     /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
     $('slicerBody').style.display='none';
     $('slicerToggle').textContent='Open';
     sdCollapse(false);
     loadFiles&&loadFiles();
-  }catch(e){
-    prog.textContent=e.message;
-    msg(e.message,true);
-  }finally{ go.disabled=false; slicerButtons(true); }
+  }catch(e){ prog.textContent=e.message; msg(e.message,true); }
+  finally{ btn.disabled=false; }
+});
+
+$('slicerDiscardLink').addEventListener('click',e=>{
+  e.preventDefault(); slicerOut=null;
+  $('slicerReview').style.display='none';
+  $('slicerProg').textContent='Discarded. Adjust and slice again.';
+  slicerRender();
 });
 
 $('slicerScale').addEventListener('change',e=>{

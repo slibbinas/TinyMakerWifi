@@ -364,7 +364,9 @@ export async function slice(pos, opts, onProgress) {
 
   // Same maths the printer uses, so the number shown is the number it means.
   const rawMl = (whiteSum / layers) * PLATE.x * PLATE.y * (layers * LAYER_MM) / 1000;
-  return { blob: zipStore(files), layers, rawMl };
+  // files grazinami ir kvieciancia jam: is ju piesiama sluoksniu perziura,
+  // kad zmogus pamatytu, ka issaugos, PRIES issaugodamas.
+  return { blob: zipStore(files), files, layers, rawMl };
 }
 
-export const VERSION = '0.2.0-stageC';
+export const VERSION = '0.3.0';
