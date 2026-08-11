@@ -3067,8 +3067,12 @@ const sdCollapse=on=>{
 $('slicerToggle').addEventListener('click',async()=>{
   const body=$('slicerBody'), open=body.style.display!=='none';
   if(open){body.style.display='none';$('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
-    sdCollapse(false); slicerOwns(false); dashPreviewPlaceholder(); return;}
+    sdCollapse(false); slicerReset(); slicerOwns(false);
+    dashPreviewPlaceholder(); return;}
   body.style.display='block';$('slicerToggle').textContent='Close';$('slicerToggle').classList.add('narrow');sdCollapse(true);
+  /* Perziuroje galejo kaboti visai kitas failas - jis ne slicer'io, tad
+     vaizdas isvalomas, kad neatrodytu ikeltas (V 08-12). */
+  slicerReset(); slicerOwns(false); dashPreviewPlaceholder();
   if(slicerMod)return;
   slicerSay('slicerInfo','Loading the slicer…');
   /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
@@ -3291,6 +3295,20 @@ const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
    atrakinimas buvo tik vienoje - todel po spausdinimo ar uzdarius sliceri
    mygtukas likdavo uzrakintas (V 08-12). */
 const slicerOwns=v=>{slicerOwnsPreview=v; slicerDetLock(v);};
+/* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
+   negali persekioti tarp atidarymu (V 08-12). */
+const slicerReset=()=>{
+  slicerOut=null; slicerRaw=null; slicerTr=null; slicerBudget=0;
+  slicerFileName=''; slicerHome=true;
+  slicerButtons(false);
+  $('slicerGo').disabled=true; $('slicerSave').disabled=true;
+  $('slicerName').value=''; $('slicerName').disabled=true;
+  $('slicerFile').value='';
+  $('slicerDims').textContent=''; $('slicerProg').textContent='';
+  $('slicerInfo').textContent='Choose an STL file to begin.';
+  $('slicerDiscardLink').style.visibility='hidden';
+  if(window.gl3dClip)gl3dClip(null);
+};
 const popClose=()=>{
   const p=$('gl3dPop'); if(!p||p.style.display==='none')return;
   p.style.display='none'; popRow(true);
