@@ -162,7 +162,7 @@ topples a column.
 
 | Function | Why it is necessary, not nice |
 |---|---|
-| **Raft** | Without it thin supports peel off the plate. PrusaSlicer adds one automatically; if we do not, the first print fails and the slicer takes the blame. One switch, on by default. |
+| **Raft** <span>(accepted)</span> | Without it thin supports peel off the plate. PrusaSlicer adds one automatically; if we do not, the first print fails and the slicer takes the blame. One switch, on by default. |
 | **Resin and time estimate before saving** | We already have the maths (calibration ×1.092 + 0.39). Showing "18.4 ml · 2 h 40 min" *before* printing is where the expensive decision is made. |
 | **Layer preview slider** | The only way to see whether supports are where they should be and whether anything floats. Cheap for us: the slices are already in memory and we have the renderer. |
 | ~~Exposure from the resin profile~~ | **Dropped (maintainer, 08-12).** Exposure belongs to the printer, set per resin through the profiles and the exposure test — one place, one truth. This also matches what the firmware already does: from `config.ini` it reads exactly one key, `layerHeight`, and the time estimate uses the printer's own `Base_Exposure`/`Regular_Exposure`. A slicer carrying its own numbers would be the only model source behaving differently, and changing resin would leave older models quietly holding stale values. |
@@ -217,17 +217,30 @@ like everything else.
 
 ---
 
-## Open decisions
+## Decisions (all closed 2026-08-12)
 
-1. **Raft on by default?** Recommended yes — without it a first print likely detaches and the
-   slicer looks broken. Cost: a few millilitres.
+1. ~~**Raft on by default?**~~ **Decided: yes** (maintainer, 08-12).
 2. ~~**Does the slicer set exposure?**~~ **Decided: no** (maintainer, 08-12). The model inherits
    the printer's settings, exactly as a PrusaSlicer upload does. Two consequences: the slicer is
    **not** blocked behind `0-16` and can be built in parallel; and its resin/time estimate must read
    the printer's current settings via `/api/config` rather than invent any — so the number shown is
    the number the printer will actually deliver. Layer height still travels in `config.ini`, because
    that is the one key the firmware does read (and LH-chk already warns on a mismatch).
-3. **Where is "too complex"?** Suggested ~300k triangles on a phone, ~1M on a desktop. Staying
-   silent is possible, but then some attempts end in a frozen tab.
-4. **Own 3D view or shared with the preview?** Recommended shared — same angle, same controls,
-   nothing new to learn.
+3. ~~**Where is "too complex"?**~~ **Decided: a budget derived from the part, not a fixed number**
+   (08-12). One printer pixel covers 0.01626 mm². Once a model carries roughly one triangle per
+   pixel of its own surface, additional triangles cannot be shown by this machine at all — they are
+   pure weight. So the budget is `surface_area / pixel_area`, computed per file:
+
+   | Part | Surface | Budget |
+   |---|---|---|
+   | Tooth, scull (15–24 mm) | ~2 000 mm² | ~120k triangles |
+   | Typical on this shelf (~35 mm) | 4 150 mm² | ~255k |
+   | Largest here (ScreamingEvil, 53 mm) | 8 638 mm² | ~531k |
+   | Whole build volume | 12 207 mm² | ~751k — the absolute ceiling |
+
+   Behaviour in three steps: **below budget** — silence; **above budget** — one sentence, "this file
+   holds more detail than the printer can show", and carry on; **above 750k** (18–36 MB of geometry
+   alone) — offer to simplify, and on a phone refuse to start, because there it ends in a frozen tab
+   rather than a slower slice.
+4. ~~**Own 3D view or shared with the preview?**~~ **Decided: shared** (maintainer, 08-12) — same
+   angle, same controls, nothing new to learn.
