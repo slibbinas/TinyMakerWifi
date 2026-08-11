@@ -8,7 +8,8 @@
    turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). */#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji
    atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu
    soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas +
-   priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}#gl3dPop span{color:var(--muted)}#gl3dPop input[type=number]{width:46px;height:20px;margin:0;padding:0 4px;font-size:.74rem;text-align:right}#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}#gl3dPop input[type=checkbox]{width:auto;margin:0}#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}#popDone:hover{color:var(--text)}#gl3dLayer{width:22px}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Desiniojo pakanka - gulscias lieka tik telefonui (V 08-12). */@media(min-width:561px){#slicerReview{display:none!important}}/* Telefone tarp kampu lieka ~20 px - vertikalus netelpa, lieka gulscias. */@media(max-width:560px){#gl3dLayer{display:none!important}}/* Telefone langas per mazas penktai grupei: 82x82 kryziai jau uzima 164 is
+   priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}#gl3dPop span{color:var(--muted)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad
+   laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}#gl3dPop input[type=number]::-webkit-inner-spin-button{opacity:1;height:20px}#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}#gl3dPop input[type=checkbox]{width:auto;margin:0}#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}#popDone:hover{color:var(--text)}#gl3dLayer{width:22px}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Desiniojo pakanka - gulscias lieka tik telefonui (V 08-12). */@media(min-width:561px){#slicerReview{display:none!important}}/* Telefone tarp kampu lieka ~20 px - vertikalus netelpa, lieka gulscias. */@media(max-width:560px){#gl3dLayer{display:none!important}}/* Telefone langas per mazas penktai grupei: 82x82 kryziai jau uzima 164 is
    192 px auksscio, tad irankiai grizta i stulpeli (V 08-12). *//* Telefone apatineje juosteleje penktai grupei vietos nera, bet patys
    irankiai reikalingi - tad jie gauna SAVO eilute virs jos (V 08-12). */@media(max-width:560px){#gl3dTools{bottom:40px}}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia
    negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo,
@@ -226,8 +227,6 @@
   <div class='cardHead'><h2>Slice an STL</h2>
     <button id='slicerToggle' class='button secondary' type='button'
             style='margin-top:0'>Open</button></div>
-  <div class='hint' id='slicerLead' style='margin-top:0'>Turn a 3D file into a printable model —
-    no slicing software needed.</div>
   <div id='slicerBody' style='display:none'>
     <div id='slicerTools' class='toolbar' style='margin-top:0'>
       <button id='slicerAutoFit' class='button secondary' type='button' disabled
@@ -241,14 +240,9 @@
       <button id='slicerRotZ' class='button secondary' type='button' disabled
               title='Spin on the plate a quarter turn'>Rotate 90°</button>
     </div>
-    <!-- Matmenys IR verdiktas vienoje eiluteje, kurios aukstis nesikeicia:
-         atskira verdikto eilute atsirasdavo ir dingdavo, tad sukiojant
-         modeli kortele soktelėdavo (V 08-12). -->
-    <div id='slicerInfo' class='hint' style='margin-top:4px;min-height:2.6em'>No file loaded yet.</div>
     <div id='slicerFit' style='display:none'></div>
     <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
     <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
-    <div id='slicerProg' class='hint' style='margin-top:6px;min-height:1.5em'></div>
 
     <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
     <div class='calRow' style='margin-top:6px;gap:8px'>
@@ -256,16 +250,24 @@
         <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
       <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
     </div>
+    <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
+    <div class='calRow' style='margin-top:6px;gap:8px;min-height:1.9em'>
+      <span id='slicerProg' class='hint' style='flex:1 1 auto'></span>
+      <button id='slicerDiscardLink' class='button secondary' type='button'
+              style='visibility:hidden;flex:0 0 auto;min-height:28px;height:28px;padding:0 12px;font-size:.8rem'>Discard</button>
+    </div>
     <!-- Vardas ir „discard" - po zingsniais. Vieta rezervuota, kad nuoroda
          atsiradusi nestumdytu bloko (V 08-12). -->
     <div class='calRow' style='margin-top:6px;gap:8px'>
       <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters — longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
       <button id='slicerSave' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Save to printer</button>
     </div>
-    <div class='calRow' style='margin-top:2px;min-height:1.6em'>
-      <a href='#' id='slicerDiscardLink' class='hint' style='visibility:hidden'>discard</a>
-    </div>
-    <div class='hint' style='margin-top:8px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
+    <!-- Visi faktai - viename apatiniame bloke: matmenys, verdiktas ir
+         pastaba apie sluoksnius. Korteles virsus lieka vien veiksmams,
+         o teksto eilutes nebeblasko akiu tarp dvieju vietu (V 08-12). -->
+    <div id='slicerDims' class='hint' style='margin-top:10px;color:var(--muted2)'></div>
+    <div id='slicerInfo' class='hint' style='margin-top:2px;min-height:1.5em'>No file loaded yet.</div>
+    <div class='hint' style='margin-top:2px;color:var(--muted2)'>Layers are 0.05 mm, as for every model. Supports and a raft are not generated yet — a part that sits flat on the plate prints as it is.</div>
   </div>
 </section>
 </div>
@@ -3103,10 +3105,12 @@ const slicerRender=()=>{
    else{vd='too large — '+f.axis+' +'+Math.round((f.worst-1)*100)
         +'% · press autofit, or turn it by hand';col='var(--warncol)';}
    if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
-   $('slicerInfo').innerHTML=
+   /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
+      to paties pobudzio pastabos apie sluoksnius (V 08-12). */
+   $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
+   $('slicerDims').textContent=
      b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
-     +' mm  ·  '+n.toLocaleString()+' triangles<br><span style="color:'+col+'">'
-     +vd+'</span>';}
+     +' mm  ·  '+n.toLocaleString()+' triangles';}
   const fit=$('slicerFit');
   if(f.fits){
     fit.textContent='Fits the build volume.';
@@ -3247,6 +3251,8 @@ $('slicerGo').addEventListener('click',async()=>{
      if(L&&R){R.min=1;R.max=r.layers;R.value=r.layers;L.style.display='flex';}}
     slicerBuildView();
     $('slicerName').disabled=false;
+    /* Vienintelis dalykas, kuri dar reikia irasyti, - tad kursorius ten. */
+    $('slicerName').focus();
     $('slicerSave').disabled=false;
     $('slicerDiscardLink').style.visibility='visible';
     slicerStep();
