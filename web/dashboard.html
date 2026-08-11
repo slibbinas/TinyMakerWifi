@@ -221,12 +221,11 @@
               title='Spin on the plate a quarter turn'>Rotate 90°</button>
     </div>
     <div id='slicerInfo' class='hint' style='margin-top:4px'>No file loaded yet.</div>
-    <div id='slicerFit' class='hint' style='margin-top:2px'></div>
+    <!-- Vieta rezervuota: anksciau si eilute atsirasdavo ir dingdavo, tad sukiojant modeli visa kortele soktelėdavo (V 08-12). --><div id='slicerFit' class='hint' style='margin-top:2px;min-height:2.9em'></div>
     <div id='slicerScaleRow' class='calRow' style='display:none'>
       <span class='lbl'>Scale</span>
       <div class='grp'><input id='slicerScale' type='number' min='5' max='400' step='1' style='width:90px'>
         <span>%</span></div>
-      <button id='slicerScaleFit' class='button secondary' type='button'>Scale to fit</button>
     </div>
     <div class='calSep'></div>
     <div class='calRow'>
@@ -3138,10 +3137,6 @@ $('slicerFlat').addEventListener('click',()=>{
 $('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx+=2;slicerRender();}});
 $('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx++;slicerRender();}});
 $('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerTr.rz++;slicerRender();}});
-$('slicerScaleFit').addEventListener('click',()=>{
-  if(!slicerRaw)return;
-  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
-  slicerTr.scale*=slicerMod.fitCheck(b.size).scaleToFit; slicerRender();});
 /* Pjaustymas ir issaugojimas. Archyvas keliauja ESAMU ikelimo keliu - tuo
    paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
 let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
