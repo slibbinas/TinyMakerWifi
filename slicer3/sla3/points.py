@@ -101,12 +101,20 @@ def _pt(x, y):
 
 
 def select(candidates: np.ndarray, z: float, chosen: list[SupportPoint],
-           active: set[int], cfg: SupportConfig, island: bool = False) -> set[int]:
+           active: set[int], cfg: SupportConfig, island: bool = False,
+           filtered: bool = True) -> set[int]:
     """Kandidatai -> atramos taškai per augantį įtakos spindulį.
 
     `prepare_supports_for_layer` (SPG.cpp:495): kiekviena jau pastatyta atrama
     turi `current_radius`, priklausantį nuo to, kiek mes virš jos. Kandidatas,
     patenkantis į tokį spindulį, atramos negauna.
+
+    `filtered=False` — salos ir pussaliai. Originale filtras taikomas TIK
+    `support_part_overhangs` (SPG.cpp:270); `support_island` (SPG.cpp:300) ir
+    `support_peninsulas` (SPG.cpp:316) savo taškus deda BESĄLYGIŠKAI. Filtruojant
+    ir juos, atramos, pastatytos modelio apačioje, per išaugusį spindulį
+    (iki 6 mm) uždengdavo galvos viršų 34 mm aukščiau, ir ten nelikdavo nieko
+    (išmatuota 08-12: virš 38 mm atmesta 2326 kandidatai).
 
     **Skaičiuojami tik `active`** — atramos, pasiekiamos per sluoksnių dalių
     grandinę (`is_active`, cpp:503-508). Taikant įtaką visai XY plokštumai
@@ -123,7 +131,7 @@ def select(candidates: np.ndarray, z: float, chosen: list[SupportPoint],
              if idx else np.empty(0))
 
     for x, y in candidates:
-        if len(pos) and (np.hypot(pos[:, 0] - x, pos[:, 1] - y) < radii).any():
+        if filtered and len(pos) and                 (np.hypot(pos[:, 0] - x, pos[:, 1] - y) < radii).any():
             continue
         chosen.append(SupportPoint(float(x), float(y), float(z), island))
         added.add(len(chosen) - 1)
@@ -168,10 +176,13 @@ def generate(layers: list[list[Polygon]], cfg: SupportConfig,
                           if reach.contains(_pt(chosen[k].x, chosen[k].y))}
             if z >= cfg.base_height_mm:      # prie pat plokštės laikosi pats
                 cand, island = overhang_candidates([poly], [p for p, _ in below], cfg)
-                active |= select(cand, z, chosen, active, cfg, island)
-                # Pussaliai - PAPILDOMAI prie nuokabos sejos (SPG.cpp:1529).
+                # Sala remiama besalygiskai, nuokaba - per itakos spinduli.
+                active |= select(cand, z, chosen, active, cfg, island,
+                                 filtered=not island)
+                # Pussaliai - PAPILDOMAI prie nuokabos sejos (SPG.cpp:1529),
+                # ir taip pat be filtro.
                 pen = peninsula_candidates(poly, [p for p, _ in below], cfg)
-                active |= select(pen, z, chosen, active, cfg, True)
+                active |= select(pen, z, chosen, active, cfg, True, filtered=False)
             parts.append((poly, active))
         # prev VISADA ankstesnis sluoksnis, net tuščias: kitaip virš tuštumos
         # atsiradusi sala nebūtų skirtumas ir liktų be nieko.
