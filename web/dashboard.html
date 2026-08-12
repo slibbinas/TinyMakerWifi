@@ -540,15 +540,18 @@ const show=(id,on)=>{const e=$(id);if(e)e.classList.toggle('hidden',!on);};
 const BUSY_CLICK_IDS=['configSaveButton','configDefaultsButton','configMqttResetButton','configConnectResetButton',
   'connectTestButton','connectRegisterButton','connectReclaimButton','connectNewProfileButton','connectBackupRestoreButton',
   'tgTestButton','waTestButton','dcTestButton','restoreButton','restoreSdButton','backupSdButton',
-  'resumeAcceptButton','resumeLiftButton','resumeDiscardButton','vatRefillButton','disableDryRunButton',
+  'resumeAcceptButton','resumeLiftButton','resumeDiscardButton','vatRefillButton','dryRunToggle',
   'bootAnimSaveButton','modelStartButton'];
 const busyBtns=new Set();
 let busyCandidate=null,busyCandidateAt=0,writesInFlight=0;
 const BUSY_CANDIDATE_MS=45000;   // a confirm dialog can sit open before the write starts
 const btnBusy=(el,on)=>{
   if(!el)return;
-  if(on){if(busyBtns.has(el))return;el._wasDis=el.disabled;busyBtns.add(el);el.classList.add('btnBusy');el.disabled=true;el.setAttribute('aria-busy','true');}
-  else{busyBtns.delete(el);el.classList.remove('btnBusy');el.removeAttribute('aria-busy');el.disabled=!!el._wasDis;}
+  // Most of these writes carry no timeout, so a printer that goes silent without
+  // resetting would leave the button spinning until the browser gives up on the
+  // socket - the release valve hands the button back after a minute.
+  if(on){if(busyBtns.has(el))return;el._wasDis=el.disabled;busyBtns.add(el);el.classList.add('btnBusy');el.disabled=true;el.setAttribute('aria-busy','true');el._bw=setTimeout(()=>btnBusy(el,false),60000);}
+  else{clearTimeout(el._bw);busyBtns.delete(el);el.classList.remove('btnBusy');el.removeAttribute('aria-busy');el.disabled=!!el._wasDis;}
 };
 // The status poll rewrites .disabled every 2 s (applyStatus, setConfigDisabled,
 // syncUploadGate) - without re-asserting, a busy button unlocks mid-request.
@@ -645,7 +648,9 @@ const uiChoice=(message,choices)=>{
   return new Promise(r=>{uiConfirmRes=r;});
 };
 const uiConfirm=(message,opts)=>{opts=opts||{};return uiChoice(message,[{label:opts.cancel||'Cancel',value:false,secondary:true},{label:opts.ok||'OK',value:true,danger:!!opts.danger}]);};
-const uiConfirmClose=v=>{if(!uiConfirmRes)return;show('confirmModal',false);const r=uiConfirmRes;uiConfirmRes=null;r(v);};
+// A cancelled dialog means the click led nowhere - drop the remembered button so
+// an unrelated write later cannot light up its spinner.
+const uiConfirmClose=v=>{if(!uiConfirmRes)return;show('confirmModal',false);if(!v)busyCandidate=null;const r=uiConfirmRes;uiConfirmRes=null;r(v);};
 $('confirmModal').addEventListener('click',e=>{if(e.target===$('confirmModal'))uiConfirmClose(false);});
 document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();const b=document.activeElement;if(b&&b.tagName==='BUTTON')b.click();}}});
 const bytesNum=v=>Number(v||0)||0;
@@ -1301,7 +1306,7 @@ const loadFiles=async()=>{
     show('filesFilter',filesItems.length>FILES_PER_PAGE);
     renderFiles();
     if(typeof renderGs==='function')renderGs(); // auto-tick "model on SD"
-  }catch(e){updateSdUsage(null);
+  }catch(e){sdCountsStr='';updateSdUsage(null);   // stale counts under a "Retry" would be a lie
     // Leave the user a way back that isn't F5 (feedback #4: the list "was
     // gone" until a page refresh).
     list.innerHTML='<div class="hint warn">'+esc(e.message)+' <a href="#" onclick="loadFiles();return false">Retry</a></div>';}
@@ -2720,6 +2725,7 @@ const loadConfig=async()=>{
       loadConnectApp().then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(()=>{});
     $('connectBackupDownloadButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
     $('connectBackupRestoreButton').disabled=locked||!c.connectTokenSet||!c.connectBackupEpoch;
+    reassertBusy();   // the .disabled writes above land after setConfigDisabled
     return c;
   }catch(e){const locked=configIsLocallyLocked();setConfigDisabled(locked);updateConnectView(null);$('configHint').textContent=locked?'Config is locked while printing.':e.message;return null;}
 };
