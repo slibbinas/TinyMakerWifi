@@ -27,7 +27,64 @@ Jungikliai: `--no-center` (nestumdyti XY), `--no-mirror` (žr. žemiau).
 
 ## Būsena
 
-**Pirmas žingsnis padarytas:** STL → sluoksniai → kaukės → ZIP, **be supportų**.
+**Antras žingsnis padarytas:** supportai — visa `DefaultSupportTree` grandinė
+(`add_pinheads` → `classify` → `routing_to_ground` → `routing_to_model` →
+`interconnect_pillars`) + padas. Kolizijos per `trimesh`/embree paketais:
+**20 000 spindulių ≈ 7 ms**, visas medis — **0,5 s** (JS versijoje 7–49 s).
+
+### Tankio mechanizmas — tai, ko JS versija neturėjo
+
+Tankio nevaldo pastovus žingsnis. `sample_overhangs` smulkiai diskretizuoja
+nuokabos kraštą (`discretize_overhang_step` = 2 mm), o `prepare_supports_for_layer`
+tada atmeta kandidatus, patenkančius į jau esančių atramų **įtakos spindulį**,
+kuris AUGA kylant aukštyn (`support_curve`, SPG.cpp:1453):
+
+| Z virš atramos | spindulys XY |
+|---|---|
+| 0 mm | 3,2 mm |
+| 3,9 mm | 4,0 mm |
+| 15 mm | 5,0 mm |
+| 40 mm | 6,0 mm |
+
+Įtaka keliauja **tik per susijusias sluoksnių dalis** (`create_near_points`),
+ne per visą XY plokštumą — taikant ją globaliai kelios apatinės atramos
+„uždengia" viską aukščiau ir modelis virš 10 mm negauna nieko (išmatuota:
+33 taškai vietoj 98).
+
+### Kaip atrodo prieš etaloną (biowoman)
+
+n · Ø p50 · tarpas iki detalės p50:
+
+| z | PrusaSlicer | JS slicer2 | slicer3 |
+|---|---|---|---|
+| 3 | 14 · 1,01 · 2,21 | 13 · 1,04 · 0,93 | 6 · 1,04 · 0,98 |
+| 10 | 27 · 1,02 · 9,01 | 70 · 1,11 · 3,53 | 15 · 1,03 · 3,44 |
+| 15 | 30 · 1,19 · 7,27 | 86 · 1,00 · 3,06 | 19 · 1,03 · 5,44 |
+| 20 | 47 · 0,63 · 0,89 | 46 · 1,03 · 2,00 | 16 · 1,01 · 3,95 |
+| 30 | 31 · 1,01 · 2,76 | 53 · 1,02 · 1,06 | 19 · 1,04 · 1,36 |
+| 40 | 15 · 0,25 · 0,17 | 26 · 0,75 · 0,26 | 4 · 1,02 · 0,26 |
+
+Storis pataikytas (1,03 mm per visą aukštį). Stulpų ore — 0. **Kiekis dabar
+per mažas** — maždaug pusė etalono; JS klydo į kitą pusę.
+
+### Kodėl per mažai (išmatuota, ne spėta)
+
+98 atramos taškai → tik 52 galvutės. Priežastis geometrinė: galvutei reikia
+4,20 mm laisvo kelio, o mediana yra 2,76 mm; **23 taškai iš 98 turi medžiagą
+iškart po savimi** (<0,5 mm). Tiesiai žemyn telpa 37, krypties paieška ir
+plonesnė galvutė atgauna iki 52, likę atmetami.
+
+Originale tokios vietos gauna TRUMPESNĘ galvutę: `head.fullwidth()` ir `w`
+skaičiavimas `connect_to_model_body` leidžia plotį iki 0 mini stulpams. Mūsų
+`head_fallback_radius` mažina tik storį, ne ilgį. **Tai kitas darbas.**
+
+Salų (`support_island`) sėja supaprastinta: krantas + centras, o ne originalo
+atskiras algoritmas. 62 iš 98 taškų pažymėti kaip salos — verta patikrinti,
+ar tai tiesa, ar dalių siejimo (`intersects`) trūkumas.
+
+---
+
+**Pirmas žingsnis (baigtas):** STL → sluoksniai → kaukės → ZIP, be supportų.
 
 Priėmimo kriterijai — tie patys skaičiai, kuriais pasitikim JS pusėje:
 
