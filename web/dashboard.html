@@ -2131,12 +2131,37 @@ const dashPreviewPlaceholder=()=>{
   paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
   showDetailToggle();
 };
+// Which printer session the saved preview belongs to: the printer's own uptime
+// tells us when it came up, so a power-on or a firmware flash is recognisable
+// from the browser without the printer storing anything.
+const printerBootStamp=()=>{
+  const u=statusData?Number(statusData.uptimeSecs):NaN;
+  return (isFinite(u)&&u>=0)?Math.round(Date.now()/1000-u):null;
+};
+const BOOT_TOL_SECS=120;   // poll jitter and clock drift are not a reboot
+const forgetDashPreview=()=>{localStorage.removeItem('dashPreviewModel');localStorage.removeItem('dashPreviewBoot');};
 // Boot restore: bring the last previewed model back, but only from the saved
 // preview cache (one PNG off the SD) - never a full slice render on page load.
 const restoreDashPreview=async()=>{
   const name=localStorage.getItem('dashPreviewModel')||'';
   if(!name)return dashPreviewPlaceholder();
   if(statusData&&statusData.busy)return;   // the print owns the card; leave it alone
+  // Restore only within the same printer session. After a reboot the card opens
+  // clean: what you were looking at yesterday is not what you need now, and the
+  // restore costs an SD read on every page load (V 08-12). A reload mid-print
+  // still returns the progress view - a printing printer has not rebooted.
+  // No uptime in the answer (older firmware, or the status call failed) = no
+  // decision to make, so behave as before and restore.
+  // One exception: a power cut reboots the printer mid-print, so the reboot is
+  // real but the session is not over - it is waiting for a resume decision. The
+  // interrupted model is exactly what you want to look at then, so keep it.
+  const rp=statusData&&statusData.resumePending;
+  const resuming=!!(rp&&rp.model===name);
+  const saved=Number(localStorage.getItem('dashPreviewBoot')||''),boot=printerBootStamp();
+  if(!resuming&&boot!==null&&(!isFinite(saved)||!saved||Math.abs(boot-saved)>BOOT_TOL_SECS)){
+    forgetDashPreview();
+    return dashPreviewPlaceholder();
+  }
   // Perkrovus puslapi pjuviu parsiuntimas + 3D sulipdymas trunka apie sekunde,
   // ir visa ta laika langas budavo tiesiog juodas (V 08-12).
   paintPreviewProgress($('printPreviewCanvas'),'Loading 3D view...',.05);
@@ -2177,7 +2202,7 @@ const restoreDashPreview=async()=>{
     // name, so the preview never came back even after the print finished, and
     // dropped an idle placeholder over a running print. Only the printer saying
     // the model is not there means it is not there.
-    if((e.message||'')==='model not found')localStorage.removeItem('dashPreviewModel');
+    if((e.message||'')==='model not found')forgetDashPreview();
     if(!dashPreviewName&&!(statusData&&statusData.busy))dashPreviewPlaceholder();
   }
 };
@@ -2283,6 +2308,7 @@ const dashPreview=async nameEnc=>{
     if(dashPreviewName!==name)return;
     setShareUI('dashShareButton',connectIsReady(),!!(d.connectPublicId||'').length);
     localStorage.setItem('dashPreviewModel',name);
+    const bs=printerBootStamp();if(bs!==null)localStorage.setItem('dashPreviewBoot',String(bs));
   }catch(e){
     if(e.message==='preview superseded')return;
     msg(e.message,true);
@@ -2441,7 +2467,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
   if(r&&r.queued){refreshStatus();return;}
-  msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)localStorage.removeItem('dashPreviewModel');if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+  msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
@@ -2543,7 +2569,7 @@ const renderSdJob=s=>{
       // one-shot closure - the job just finished
       if(sdJobLast==='delete'){
         msg('Deleted '+sdJobLastName+'.');
-        if(localStorage.getItem('dashPreviewModel')===sdJobLastName)localStorage.removeItem('dashPreviewModel');
+        if(localStorage.getItem('dashPreviewModel')===sdJobLastName)forgetDashPreview();
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
         loadFiles();
       }else if(sdJobLast==='import'){
