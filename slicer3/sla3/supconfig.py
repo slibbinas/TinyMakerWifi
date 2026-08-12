@@ -70,6 +70,9 @@ class SupportConfig:
     #: 5*3/4, thick_inner_max_distance = 5.
     island_outline_step_mm: float = 3.75
     island_inner_step_mm: float = 5.0
+    #: SampleConfig::thin_max_distance = 5 mm - atstumas tarp tasku ant
+    #: PLONOS salos dalies (jos „nugarkaulio", ne krasto).
+    island_thin_step_mm: float = 5.0
     #: PrepareSupportConfig::removing_delta (SampleConfig.hpp:31) = 5 mm.
     #: Atrama nustoja veikti, kai dalis nuo jos nutolsta - „kad ta pacia
     #: sriti butu galima paremti vel: nuokaba virs nuokabos".

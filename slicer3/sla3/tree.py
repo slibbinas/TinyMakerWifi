@@ -133,14 +133,20 @@ def add_pinheads(pts: list[SupportPoint], rays: Rays, mesh,
                 # Tinklelio apžvalga tais pačiais rėžiais kaip originalo NLopt.
                 grid_l = [lmin] if lmax <= lmin else [
                     lmin + k * (lmax - lmin) / 3 for k in range(4)]
-                dirs, ls = [], []
-                for k in range(4):
-                    plr = math.pi - (k / 3) * cfg.bridge_slope
-                    for a in range(12):
-                        dirs.append(_dir_from_polar(plr, azimuth + (a / 12) * 2 * math.pi))
+                # Originale tai NLopt genetinis su 2000 iteracijų tolydžioje
+                # erdvėje. Paieškos BŪDAS gali skirtis, jos apimtis - ne: prie
+                # 12x4 tinklelio ir trijų tikrinamų kandidatų ankštos vietos
+                # (plaukų sruogos virš 40 mm) lieka be galvučių, nors kryptis
+                # ten yra. Tankiau ir daugiau tikrinamų - vis tiek pigiau nei
+                # NLopt, nes zondas batch'inamas.
+                dirs = []
+                for k in range(6):
+                    plr = math.pi - (k / 5) * cfg.bridge_slope
+                    for a in range(24):
+                        dirs.append(_dir_from_polar(plr, azimuth + (a / 24) * 2 * math.pi))
                 D = np.array(dirs)
                 probe, _ = rays.first_hit(P[i] + D * r_pin, D)
-                for j in np.argsort(-probe)[:3]:       # vienas spindulys ATRENKA
+                for j in np.argsort(-probe)[:8]:       # vienas spindulys ATRENKA
                     for l in grid_l:                   # pluoštas SPRENDŽIA
                         ww = l + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
                         full = float(rays.pinhead_hit(P[i], D[j], [r_pin], [back_r], [ww], sd)[0])

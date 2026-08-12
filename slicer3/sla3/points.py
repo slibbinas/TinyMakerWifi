@@ -223,16 +223,52 @@ def sample_island(poly: Polygon, cfg: SupportConfig) -> np.ndarray:
     vidus trikampiu tinkleliu `thick_inner_max_distance` (5 mm). Tai
     SUPAPRASTINIMAS, ne kopija, ir pažymėtas kaip toks.
     """
+    core = poly.buffer(-cfg.island_outline_step_mm / 2)
+    if core.is_empty:
+        # PLONA dalis: taškai ant „nugarkaulio", ne ant krašto. Tai svarbu ne
+        # dėl grožio - ant krašto artimiausio paviršiaus normalė rodo į ŠONĄ,
+        # galvutė pakrypsta ir jos spindulių žiedas įlenda į pačią sruogą, tad
+        # `pinhead_mesh_hit` grąžina nulį ir taškas prarandamas. Išmatuota:
+        # 5 iš 6 taškų virš 40 mm (plaukų sruogos) žuvo būtent taip.
+        # Originale nugarkaulį duoda Voronoi skeletas (UniformSupportIsland.cpp);
+        # čia - tinklelio taškai, giliausi nuo krašto, retinami thin_max_distance.
+        return _medial_points(poly, cfg.island_thin_step_mm)
     pts = [discretize(poly.exterior, cfg.island_outline_step_mm)]
     for ring in poly.interiors:
         pts.append(discretize(ring, cfg.island_outline_step_mm))
-    inner = poly.buffer(-cfg.island_outline_step_mm / 2)
-    for p in _polys(inner):
+    for p in _polys(core):
         g = _triangular_grid(p, cfg.island_inner_step_mm)
         if len(g):
             pts.append(g)
     pts = [p for p in pts if len(p)]
     return np.vstack(pts) if pts else np.empty((0, 2))
+
+
+def _medial_points(poly: Polygon, spacing: float) -> np.ndarray:
+    """Taškai plonos figūros viduryje: smulkus tinklelis, atrenkami giliausi
+    nuo krašto, retinami `spacing` atstumu."""
+    x0, y0, x1, y1 = poly.bounds
+    step = 0.3
+    cand = []
+    b = poly.exterior
+    y = y0 + step / 2
+    while y <= y1:
+        x = x0 + step / 2
+        while x <= x1:
+            q = _pt(x, y)
+            if poly.contains(q):
+                cand.append((b.distance(q), x, y))
+            x += step
+        y += step
+    if not cand:
+        c = poly.representative_point()
+        return np.array([[c.x, c.y]])
+    cand.sort(reverse=True)
+    out = []
+    for _, x, y in cand:
+        if all((x - ox) ** 2 + (y - oy) ** 2 >= spacing ** 2 for ox, oy in out):
+            out.append((x, y))
+    return np.array(out)
 
 
 def peninsula_candidates(poly: Polygon, below: list[Polygon],
