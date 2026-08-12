@@ -1789,10 +1789,23 @@ const drawIso=(cv,doneFrac)=>{
     // canvasBlob() irraso miniatiura i SD, o tuscia drobe ten butu ikelusi
     // 'Loading preview 100%' vietoj modelio (auditas 08-12).
     let ok=false;
-    try{drawSmooth(cv);ok=true;}catch(e){}
+    try{drawSmooth(cv);ok=true;}
+    catch(e){
+      /* Atminties nepakako (detalus vaizdas - ~90 MB laukas). Nusileidziam i
+         grubu tanki IR isimenam ta: kitaip GPU kelias tuoj pat bandytu ta pacia
+         alokacija antra karta, o puslapio perkrovimas kartotu nuo pradziu
+         (auditas 08-13). */
+      if(VIEW_DETAIL){
+        VIEW_DETAIL=false;
+        try{localStorage.setItem('tmViewDetail','0');}catch(_){}
+        showDetailToggle();
+        slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+        msg('Not enough memory for the detailed view - back to the normal one.',true);
+      }
+    }
     // GPU - tik pagrindinei pulto drobei; detaliu vaizdas turi savo canvas,
     // o #gl3d gyvena homeView viduje.
-    if(window.gl3dShow)gl3dShow(cv.id==='printPreviewCanvas');
+    if(window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
     if(ok)return;
   }
   const {slices,gw,gh,modelH}=slicesCache;
@@ -2450,8 +2463,15 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
         scrollPreviewIntoView();   // a phone Start renders above the fold otherwise
         try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview...',0);}catch(_){}
         slicesPrefetching=true;
+        /* Spausdinimo kesas VISADA grubus, kad ir kas pasirinkta ekrane
+           (auditas 08-13). Progresas perpiesiamas kas 0,4 %, o 320x240 tai
+           reikstu 5,5 mln. langeliu skenavima kas karta - per patį spausdinimą,
+           pagrindineje gijoje. Antra: detalus kesas i localStorage nededamas,
+           tad F5 spausdinimo viduryje butu praradęs 3D progresa. Progresui
+           detalumo nereikia. */
+        const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
         try{await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);}
-        finally{slicesPrefetching=false;}
+        finally{slicesPrefetching=false;VIEW_DETAIL=wasDet;}
       }
     }catch(e){}
   }
@@ -2856,6 +2876,10 @@ $('prep3dButton').addEventListener('click',async()=>{
   if(statusData&&statusData.busy){msg('Not while printing - the SD card is busy.',true);return;}
   const btn=$('prep3dButton'), note=$('prep3dNote');
   btn.disabled=true;
+  /* Ruosiamas TIK grubus kesas - jis vienintelis ir saugomas kortelėje. Su
+     ijungtu detaliu vaizdu ciklas butu skenaves po 72 sluoksnius modeliui,
+     nieko neirases ir vis tiek parases „N prepared" (auditas 08-13). */
+  const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
   try{
     const d=await api('/api/files');
     const models=(d.items||[]).filter(it=>it.type==='model');
@@ -2883,7 +2907,13 @@ $('prep3dButton').addEventListener('click',async()=>{
     else slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
-  finally{btn.disabled=false;}
+  finally{
+    btn.disabled=false;
+    VIEW_DETAIL=wasDet;
+    // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
+    // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
+    if(wasDet)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+  }
 });
 
 const calDensPreview=()=>{
