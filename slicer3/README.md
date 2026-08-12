@@ -57,30 +57,51 @@ n · Ø p50 · tarpas iki detalės p50:
 
 | z | PrusaSlicer | JS slicer2 | slicer3 |
 |---|---|---|---|
-| 3 | 14 · 1,01 · 2,21 | 13 · 1,04 · 0,93 | 6 · 1,04 · 0,98 |
-| 10 | 27 · 1,02 · 9,01 | 70 · 1,11 · 3,53 | 15 · 1,03 · 3,44 |
-| 15 | 30 · 1,19 · 7,27 | 86 · 1,00 · 3,06 | 19 · 1,03 · 5,44 |
-| 20 | 47 · 0,63 · 0,89 | 46 · 1,03 · 2,00 | 16 · 1,01 · 3,95 |
-| 30 | 31 · 1,01 · 2,76 | 53 · 1,02 · 1,06 | 19 · 1,04 · 1,36 |
-| 40 | 15 · 0,25 · 0,17 | 26 · 0,75 · 0,26 | 4 · 1,02 · 0,26 |
+| 3 | 14 · 1,01 · 2,21 | 13 · 1,04 · 0,93 | 8 · 1,04 · 1,53 |
+| 10 | 27 · 1,02 · 9,01 | 70 · 1,11 · 3,53 | 15 · 1,04 · 6,16 |
+| 15 | 30 · 1,19 · 7,27 | 86 · 1,00 · 3,06 | 17 · 1,04 · 6,93 |
+| 20 | 47 · 0,63 · 0,89 | 46 · 1,03 · 2,00 | 16 · 1,03 · 4,97 |
+| 30 | 31 · 1,01 · 2,76 | 53 · 1,02 · 1,06 | 13 · 1,03 · 2,55 |
+| 40 | 15 · 0,25 · 0,17 | 26 · 0,75 · 0,26 | 2 · 0,83 · 0,81 |
 
-Storis pataikytas (1,03 mm per visą aukštį). Stulpų ore — 0. **Kiekis dabar
-per mažas** — maždaug pusė etalono; JS klydo į kitą pusę.
+Storis pataikytas (1,03-1,04 mm per visą aukštį), stulpų ore - 0, narvas stovi
+atokiau nuo detalės (6,2 / 6,9 mm prieš jo 9,0 / 7,3), tiltai siekia detalę.
+**Kiekis vis dar per mažas** - maždaug perpus; JS klydo į kitą pusę.
 
-### Kodėl per mažai (išmatuota, ne spėta)
+### Galvutės - antras praėjimas (2026-08-12)
 
-98 atramos taškai → tik 52 galvutės. Priežastis geometrinė: galvutei reikia
-4,20 mm laisvo kelio, o mediana yra 2,76 mm; **23 taškai iš 98 turi medžiagą
-iškart po savimi** (<0,5 mm). Tiesiai žemyn telpa 37, krypties paieška ir
-plonesnė galvutė atgauna iki 52, likę atmetami.
+Iš `add_pinheads` (cpp:385-520) buvo praleisti trys dalykai:
 
-Originale tokios vietos gauna TRUMPESNĘ galvutę: `head.fullwidth()` ir `w`
-skaičiavimas `connect_to_model_body` leidžia plotį iki 0 mini stulpams. Mūsų
-`head_fallback_radius` mažina tik storį, ne ilgį. **Tai kitas darbas.**
+1. **Kryptis pagal tikrą paviršiaus normalę**, ne visada žemyn; polar
+   prisotinamas iki `PI - bridge_slope`, o per status polinkis
+   (`polar < PI - normal_cutoff_angle`) taško netenka visai.
+2. **Plona galvutė reikalauja NULINIO ilgio:**
+   `lmin = head_width; if (back_r < head_back_radius) { lmin = 0; lmax = penetration; }`
+   `w = lmin + 2*back_r + 2*head_front_radius - penetration` -> **0,80 mm**
+   vietoj 4,20 mm. Būtent tam ji ir yra: ankštoms vietoms. Pirmoji versija
+   skaičiavo 3,80 mm ir todėl beveik nieko neatgaudavo.
+3. **Optimizuojamos trys reikšmės** - polar, azimutas IR ilgis `l` rėžiuose
+   [lmin, lmax] (cpp:476-490).
 
-Salų (`support_island`) sėja supaprastinta: krantas + centras, o ne originalo
-atskiras algoritmas. 62 iš 98 taškų pažymėti kaip salos — verta patikrinti,
-ar tai tiesa, ar dalių siejimo (`intersects`) trūkumas.
+Rezultatas: 52 -> 62 galvutės iš 98 taškų.
+
+Plius `get_small_parts` (SPG.cpp:1032): dalys, mažesnės už
+`minimal_bounding_sphere_radius` = 0,2 mm, išmetamos dar prieš sėją. Tikėjausi,
+kad tai nuims „salų" infliaciją - **nepasitvirtino**: 98 -> 92 taškai,
+salų 62 -> 54. Vadinasi salos daugumoje tikros, ne mesh triukšmas.
+
+### Kas liko
+
+- **Kiekis ~perpus per mažas**, ryškiausiai viršuje: ties 40 mm mūsų 2, jo 15.
+  35 taškai iš 92 vis dar negauna galvutės.
+- **Nėra `create_peninsulas`** (SPG.cpp:567): vieno sluoksnio nuokaba, kuri
+  neišsikiša daugiau nei `peninsula_min_width` = 2 mm už ankstesnio sluoksnio,
+  atramų negauna visai, o kas toliau nei `peninsula_self_supported_width`
+  = 1,5 mm - gauna kaip sala. Mes to skirstymo neturim.
+- **Salų sėja supaprastinta**: krantas + centras vietoj `support_island`.
+- **Nėra pasvirusių atramų** (`add_anchor`) - stulpas varomas tiesiai į paviršių.
+- `surface_normals` ima artimiausio trikampio normalę; originalas vidurkina
+  žiedą `head_front_radius` spinduliu (glotnina ties briaunomis).
 
 ---
 

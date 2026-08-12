@@ -66,77 +66,95 @@ def _dir_from_polar(polar, azimuth):
 
 
 # --------------------------------------------------------------- 1 · galvutės
-def add_pinheads(pts: list[SupportPoint], rays: Rays, cfg: SupportConfig) -> list[Head]:
-    """`add_pinheads` (DefaultSupportTree.cpp:385).
+def surface_normals(P: np.ndarray, mesh) -> np.ndarray:
+    """Paviršiaus normalė kiekviename atramos taške.
 
-    Kryptis prisotinama: polar = max(polar, PI - bridge_slope), t. y. galvutė
-    turi eiti bent bridge_slope žemiau horizontalės. Taškai sėti iš sluoksnių,
-    tad pradinė kryptis — žemyn.
+    Originale tam yra `normals(...)` (cpp:404), kuris ima trikampį po tašku ir
+    suvidurkina žiedą head_front_radius spinduliu. Čia — artimiausio trikampio
+    normalė. Skirtumas realus (originalas glotnina ties briaunomis), tad
+    pažymėtas, o ne nutylėtas.
+    """
+    import trimesh.proximity as prox
+    _, _, tri = prox.closest_point(mesh, P)
+    return mesh.face_normals[tri]
+
+
+def add_pinheads(pts: list[SupportPoint], rays: Rays, mesh,
+                 cfg: SupportConfig) -> list[Head]:
+    """`add_pinheads` (DefaultSupportTree.cpp:385-520).
+
+    Trys dalykai, kurių pirmoje versijoje trūko ir kurie kainavo beveik pusę
+    galvučių:
+
+    1. Kryptis eina pagal TIKRĄ paviršiaus normalę, ne visada žemyn; polar
+       prisotinamas iki `PI - bridge_slope`, o per status polinkis (mažesnis
+       nei `PI - normal_cutoff_angle`) taško visai netenka.
+    2. Kai imama plonesnė galvutė, reikalaujamas ilgis krenta į NULĮ:
+           lmin = head_width; if (back_r < head_back_radius) { lmin = 0;
+                                                               lmax = penetration; }
+           w = lmin + 2*back_r + 2*head_front_radius - penetration
+       Prie plonos galvutės w = 0,80 mm vietoj 4,20 mm. Būtent tam ji ir yra —
+       ankštoms vietoms, kur ilga galvutė netelpa.
+    3. Optimizuojamos TRYS reikšmės: polar, azimutas IR ilgis `l` rėžiuose
+       [lmin, lmax] (cpp:476-490). Originale tai NLopt genetinis; čia tvarkinga
+       tinklelio apžvalga — įrankis gali skirtis, matematika ne.
     """
     if not pts:
         return []
     P = np.array([[p.x, p.y, p.z] for p in pts])
-    n = len(P)
+    N = surface_normals(P, mesh)
     r_pin = cfg.head_front_radius_mm
-    r_back = np.full(n, cfg.head_back_radius_mm)
-    width = cfg.head_width_mm
-    need = width + 2 * r_back + 2 * r_pin - cfg.head_penetration_mm
+    heads: list[Head] = []
 
-    d = np.tile(DOWN, (n, 1))
-    hit = rays.pinhead_hit(P, d, np.full(n, r_pin), r_back, need)
+    def spheric(n):
+        n = n / np.linalg.norm(n)
+        return math.acos(max(-1.0, min(1.0, n[2]))), math.atan2(n[1], n[0])
 
-    # Nepavykus originalas ieško kitos krypties (cpp:467-499, NLopt). Čia —
-    # tinklelio apžvalga tais pačiais rėžiais: polar nuo PI-bridge_slope iki PI,
-    # azimutas visas ratas. Vienas spindulys ATRENKA, pluoštas SPRENDŽIA.
-    bad = hit < need
-    if bad.any():
-        idx = np.flatnonzero(bad)
-        cand_dirs, cand_hits = [], []
-        for k in range(4):
-            polar = math.pi - (k / 3) * cfg.bridge_slope
-            for a in range(12):
-                az = (a / 12) * 2 * math.pi
-                dd = np.tile(_dir_from_polar(polar, az), (len(idx), 1))
-                dist, _ = rays.first_hit(P[idx] + dd * r_pin, dd)
-                cand_dirs.append(dd)
-                cand_hits.append(dist)
-        H = np.vstack(cand_hits)                       # (48, len(idx))
-        order = np.argsort(-H, axis=0)[:3]             # trys geriausi kiekvienam
-        for rank in range(order.shape[0]):
-            still = hit[idx] < need[idx]
-            if not still.any():
+    for i in range(len(P)):
+        polar, azimuth = spheric(N[i])
+        if polar < math.pi - cfg.normal_cutoff_angle:
+            continue                                   # polinkis nesveikas
+        polar = max(polar, math.pi - cfg.bridge_slope)
+
+        placed = False
+        for back_r in (cfg.head_back_radius_mm, cfg.head_fallback_radius_mm):
+            lmin, lmax = cfg.head_width_mm, cfg.head_width_mm
+            if back_r < cfg.head_back_radius_mm:
+                lmin, lmax = 0.0, cfg.head_penetration_mm
+            w = lmin + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
+            nn = _dir_from_polar(polar, azimuth)
+            hit = float(rays.pinhead_hit(P[i], nn, [r_pin], [back_r], [w])[0])
+            best_l = lmin
+
+            if hit < w:
+                # Tinklelio apžvalga tais pačiais rėžiais kaip originalo NLopt.
+                grid_l = [lmin] if lmax <= lmin else [
+                    lmin + k * (lmax - lmin) / 3 for k in range(4)]
+                dirs, ls = [], []
+                for k in range(4):
+                    plr = math.pi - (k / 3) * cfg.bridge_slope
+                    for a in range(12):
+                        dirs.append(_dir_from_polar(plr, azimuth + (a / 12) * 2 * math.pi))
+                D = np.array(dirs)
+                probe, _ = rays.first_hit(P[i] + D * r_pin, D)
+                for j in np.argsort(-probe)[:3]:       # vienas spindulys ATRENKA
+                    for l in grid_l:                   # pluoštas SPRENDŽIA
+                        ww = l + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
+                        full = float(rays.pinhead_hit(P[i], D[j], [r_pin], [back_r], [ww])[0])
+                        if full > ww and full > hit:
+                            hit, nn, best_l, w = full, D[j], l, ww
+                    if hit > w:
+                        break
+
+            # cpp:501 — priimam, jei telpa IR galvutės galas neatsiduria žemiau
+            # plokštės lygio (ground_level; pad_around_object -> elevation 0).
+            if hit > w and P[i][2] + w * nn[2] >= cfg.object_elevation_mm:
+                j = P[i] + nn * best_l
+                heads.append(Head(P[i], nn, back_r, best_l, j))
+                placed = True
                 break
-            sel = order[rank]
-            dd = np.stack([cand_dirs[sel[j]][j] for j in range(len(idx))])
-            full = rays.pinhead_hit(P[idx], dd, np.full(len(idx), r_pin),
-                                    r_back[idx], need[idx])
-            better = full > hit[idx]
-            upd = still & better
-            if upd.any():
-                rows = idx[upd]
-                d[rows] = dd[upd]
-                hit[rows] = full[upd]
-
-    # Plonesnė galvutė kaip paskutinė išeitis (support_small_pillar_diameter).
-    bad = hit < need
-    if bad.any():
-        idx = np.flatnonzero(bad)
-        r2 = np.full(len(idx), cfg.head_fallback_radius_mm)
-        need2 = width + 2 * r2 + 2 * r_pin - cfg.head_penetration_mm
-        h2 = rays.pinhead_hit(P[idx], d[idx], np.full(len(idx), r_pin), r2, need2)
-        ok = h2 > need2
-        r_back[idx[ok]] = cfg.head_fallback_radius_mm
-        hit[idx[ok]] = h2[ok]
-        need[idx[ok]] = need2[ok]
-
-    heads = []
-    for i in range(n):
-        if not hit[i] > need[i]:
-            continue                                   # netelpa — taško atsisakom
-        j = P[i] + d[i] * width
-        if j[2] < cfg.base_height_mm:
+        if not placed:
             continue
-        heads.append(Head(P[i], d[i], float(r_back[i]), width, j))
     return heads
 
 
@@ -196,7 +214,7 @@ def centroid(cl: list[int], heads: list[Head]) -> int:
 def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
     rays = Rays(mesh)
     t = Tree()
-    heads = add_pinheads(pts, rays, cfg)
+    heads = add_pinheads(pts, rays, mesh, cfg)
     t.heads = heads
     t.log['points'] = len(pts)
     t.log['heads'] = len(heads)

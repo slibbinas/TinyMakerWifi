@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from shapely.geometry import MultiPolygon, Polygon
+from shapely import minimum_bounding_radius
 from shapely.ops import unary_union
 
 from . import config
@@ -148,6 +149,13 @@ def generate(layers: list[list[Polygon]], cfg: SupportConfig,
         z = (i + 0.5) * config.LAYER_MM
         parts: list[tuple[Polygon, set[int]]] = []
         for poly in cur:
+            # `get_small_parts` (SPG.cpp:1032): dalys, mažesnės už
+            # minimal_bounding_sphere_radius, IŠMETAMOS dar prieš sėją -
+            # jų vis tiek neįmanoma atspausdinti kitaip nei rutuliuku nuo
+            # galvutės. Be šito kiekvienas mesh triukšmo taškelis virsta
+            # „sala" ir gauna atramą.
+            if minimum_bounding_radius(poly) < cfg.minimal_part_radius_mm:
+                continue
             below = [(p, s) for p, s in prev_parts if poly.intersects(p)]
             active: set[int] = set()
             for _, s in below:

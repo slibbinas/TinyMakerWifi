@@ -38,6 +38,9 @@ class SupportConfig:
     max_bridges_on_pillar: int = 3          # support_max_bridges_on_pillar
     bridge_slope: float = math.pi / 4       # 45 laipsniai
     critical_angle: float = math.pi / 4     # support_critical_angle 45
+    #: `normal_cutoff_angle` (SupportTreeConfig) - per status polinkis
+    #: atmetamas: polar < PI - normal_cutoff_angle (cpp:441).
+    normal_cutoff_angle: float = math.pi / 2
     ground_facing_only: bool = False        # support_buildplate_only 0
     #: support_object_elevation = 5, BET pad_around_object = 1 -> nekeliam.
     object_elevation_mm: float = 0.0
@@ -47,6 +50,9 @@ class SupportConfig:
     density_relative: float = 1.0           # support_points_density_relative 100 %
     #: PrepareSupportConfig::discretize_overhang_step (SampleConfig.hpp:18)
     discretize_overhang_step_mm: float = 2.0
+    #: PrepareSupportConfig::minimal_bounding_sphere_radius (SampleConfig.hpp:35) -
+    #: mazesnes dalys ismetamos kaip neatspausdinamos.
+    minimal_part_radius_mm: float = 0.2
     support_curve: list[tuple[float, float]] = field(default_factory=default_support_curve)
 
     # --- Pad (SLA/Pad.hpp + profilis) ---
