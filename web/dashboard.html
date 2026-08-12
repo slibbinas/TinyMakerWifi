@@ -1673,6 +1673,12 @@ const smBuildField=()=>{
     }
   };
   blur(a,b,1,W,0,6,1); blur(b,a,W,H,1,6,1); blur(a,b,WH,D,2,2,K);
+  /* Gimtos raiskos vaizde (320x240) horizontalus langelis yra 0,13 mm, o
+     tarpas tarp pjuviu 0,34 mm - t.y. 2,7 karto stambesnis. Kai xy tapo
+     astrus, tas skirtumas pasimate kaip ziedai ant lygiu pavirsiu (V 08-13).
+     Antras praejimas ta pacia z kryptimi isplecia branduoli nepridedant nei
+     atminties, nei pjuviu - tik viena praejima per lauka. */
+  if(gw>=DET_GW){ blur(b,a,WH,D,2,2,K); return {f:a,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di}; }
   return {f:b,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di};
 };
 // Surface nets: viena virsune celei, kurios kampai kerta izoreiksme; celes
