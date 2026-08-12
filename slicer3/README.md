@@ -53,20 +53,24 @@ ne per visą XY plokštumą — taikant ją globaliai kelios apatinės atramos
 
 ### Kaip atrodo prieš etaloną (biowoman)
 
-n · Ø p50 · tarpas iki detalės p50:
+`slicer-lab/blobs.py` — supportų dėmių skaičius, VIENODAS matas visiems trims:
 
-| z | PrusaSlicer | JS slicer2 | slicer3 |
+| z mm | PrusaSlicer | JS slicer2 | slicer3 |
 |---|---|---|---|
-| 3 | 14 · 1,01 · 2,21 | 13 · 1,04 · 0,93 | 8 · 1,04 · 1,53 |
-| 10 | 27 · 1,02 · 9,01 | 70 · 1,11 · 3,53 | 15 · 1,04 · 6,16 |
-| 15 | 30 · 1,19 · 7,27 | 86 · 1,00 · 3,06 | 17 · 1,04 · 6,93 |
-| 20 | 47 · 0,63 · 0,89 | 46 · 1,03 · 2,00 | 16 · 1,03 · 4,97 |
-| 30 | 31 · 1,01 · 2,76 | 53 · 1,02 · 1,06 | 13 · 1,03 · 2,55 |
-| 40 | 15 · 0,25 · 0,17 | 26 · 0,75 · 0,26 | 2 · 0,83 · 0,81 |
+| 3 | 14 | 17 | 17 |
+| 10 | 24 | 30 | 29 |
+| 15 | 29 | 35 | 30 |
+| 20 | 24 | 30 | 31 |
+| 30 | 25 | 20 | 23 |
+| 40 | 4 | 1 | 1 |
 
-Storis pataikytas (1,03-1,04 mm per visą aukštį), stulpų ore - 0, narvas stovi
-atokiau nuo detalės (6,2 / 6,9 mm prieš jo 9,0 / 7,3), tiltai siekia detalę.
-**Kiekis vis dar per mažas** - maždaug perpus; JS klydo į kitą pusę.
+Stulpų ore 0, detalės nekerta niekas, storis 1,0 mm per visą aukštį.
+
+⚠️ **Matuoklis nėra tiesa.** `measure.mjs` ir `blobs.py` tam pačiam failui davė
+2× skirtingus skaičius (Prusa ties z=20: 47 prieš 24) — skiriasi tuo, ar prieš
+atimant praplečiama detalės kaukė. Absoliučiais skaičiais netikėti; tikėti
+palyginimu, kai visiems taikomas tas pats matas. Ir abu privalo tvarkyti
+veidrodį — JS jo netaiko, Prusa ir slicer3 taiko.
 
 ### Galvutės - antras praėjimas (2026-08-12)
 
