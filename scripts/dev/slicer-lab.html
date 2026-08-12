@@ -1,0 +1,402 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Slicer lab — supportai be printerio</title>
+<!--
+  Stendas slicerio moduliui. Įkeli STL, suslicini, matai 3D su supportais ir
+  visus skaičius — be printerio, be flash'o, be gh-pages. Parametrai keičiami
+  čia pat, tad viena iteracija trunka sekundes, ne penkias minutes.
+
+  Paleisti:  python -m http.server 8080     (iš repo šaknies)
+             http://localhost:8080/scripts/dev/slicer-lab.html
+-->
+<style>
+:root{--bg:#1c1c1e;--card:#2a2a2e;--tile:#202024;--line:#3a3a3f;--text:#eee;
+ --muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--ok:#2fbf4f;--warn:#ffb15f;--bad:#ff6b5f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;
+ display:grid;grid-template-columns:320px 1fr;height:100vh;overflow:hidden}
+#side{border-right:1px solid var(--line);padding:14px;overflow-y:auto}
+/* Du vaizdai viršuje, lentelės apačioje — lentelė NEBELIPA ant modelio. */
+#main{display:grid;grid-template-rows:1fr auto;min-height:0;overflow:hidden}
+#views{display:grid;grid-template-columns:1fr 1fr;min-height:0}
+.pane{position:relative;min-height:0;border-right:1px solid var(--line)}
+.pane:last-child{border-right:0}
+.pane canvas{width:100%;height:100%;display:block}
+.tag{position:absolute;left:10px;top:8px;font-size:11.5px;color:var(--muted);
+ background:rgba(20,20,22,.78);padding:4px 9px;border-radius:6px;pointer-events:none;z-index:2}
+.hint{position:absolute;left:10px;bottom:8px;font-size:11px;color:var(--muted2);
+ background:rgba(20,20,22,.78);padding:3px 8px;border-radius:6px;pointer-events:none}
+h1{font-size:17px;margin:0 0 2px;color:var(--accent)}
+.sub{color:var(--muted2);font-size:11.5px;margin:0 0 14px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted2);
+ margin:16px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+button{width:100%;padding:9px;margin:4px 0;border:0;border-radius:7px;background:var(--accent);
+ color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+button.sec{background:#3c3c42;color:var(--text)}
+button:disabled{opacity:.45;cursor:default}
+input[type=file]{width:100%;font-size:12px;color:var(--muted)}
+.row{display:flex;align-items:center;gap:7px;margin:3px 0;font-size:12.5px}
+.row label{flex:1;color:var(--muted)}
+.row input[type=number]{width:66px;padding:3px 6px;background:var(--tile);border:1px solid var(--line);
+ border-radius:5px;color:var(--text);font-size:12.5px}
+#stat{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;
+ background:var(--tile);border-radius:7px;padding:9px;margin-top:8px;line-height:1.45}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+#prog{font-size:12px;color:var(--muted);min-height:18px;margin-top:6px}
+#overlay{position:absolute;left:12px;top:12px;font-size:12px;color:var(--muted);
+ background:rgba(20,20,22,.72);padding:6px 10px;border-radius:7px;pointer-events:none}
+/* Palyginimo lentelės — po pultu, kaip V prašė: kairėje ką daro Prusa,
+   dešinėje ką darom mes, ir ar sutampa. */
+#cmp{max-height:42vh;overflow-y:auto;background:var(--bg);
+ border-top:1px solid var(--line);padding:10px 14px 14px}
+#cmp table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:10px}
+#cmp th,#cmp td{text-align:left;padding:4px 7px;border-bottom:1px solid var(--line);vertical-align:top}
+#cmp th{color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+#cmp td:first-child{color:var(--muted);width:150px}
+#cmp .y{color:var(--ok);font-weight:700;width:24px;text-align:center}
+#cmp .n{color:var(--warn);font-weight:700;width:24px;text-align:center;font-size:10px}
+#cmpRes td:not(:first-child){font-family:ui-monospace,Consolas,monospace}
+#layerBox{position:absolute;right:12px;top:12px;bottom:12px;display:none;
+ flex-direction:column;align-items:center;gap:6px}
+#layerBox input{writing-mode:vertical-lr;direction:rtl;width:24px;flex:1;accent-color:var(--accent)}
+#layerNo{font-size:11.5px;color:var(--muted);background:rgba(20,20,22,.72);padding:3px 7px;border-radius:6px}
+</style>
+
+<div id="side">
+  <h1>Slicer lab</h1>
+  <p class="sub">Supportai be printerio. Modulis imamas iš <code>web/lib/slicer.js</code> — tas pats, kuris gyvena pulte.</p>
+
+  <h2>Modelis</h2>
+  <input type="file" id="file" accept=".stl">
+  <button id="go" disabled>Suslicinti</button>
+  <div id="prog"></div>
+
+  <h2>Algoritmas</h2>
+  <div class="row"><label>kaip pasiekiam tašką</label>
+    <select id="p_style" style="flex:0 0 130px;padding:3px 6px;background:var(--tile);
+      border:1px solid var(--line);border-radius:5px;color:var(--text);font-size:12.5px">
+      <option value="tower">bokštas + tiltas</option>
+      <option value="direct">stulpelis po tašku</option>
+    </select></div>
+  <div class="row"><label>tilto siekis, mm</label><input type="number" id="p_bridgeMaxMm" step="0.5"></div>
+  <div class="row"><label>bokšto dalijimasis, mm</label><input type="number" id="p_towerJoinMm" step="0.5"></div>
+
+  <h2>Kada reikia supporto</h2>
+  <div class="row"><label>kiek gali kyšoti, mm</label><input type="number" id="p_reachMm" step="0.1"></div>
+  <div class="row"><label>stulpelių tinklelis, mm</label><input type="number" id="p_gridMm" step="0.5"></div>
+  <div class="row"><label>trumpiausias stulpelis, mm</label><input type="number" id="p_minLenMm" step="0.1"></div>
+  <div class="row"><label>salos žvilgsnis, sluoksniai</label><input type="number" id="p_lookLayers" step="1"></div>
+  <div class="row"><label>salos „priaugo" kartų</label><input type="number" id="p_mergeFactor" step="1"></div>
+
+  <h2>Formos</h2>
+  <div class="row"><label>stulpelio Ø, mm</label><input type="number" id="p_rMm" step="0.05"></div>
+  <div class="row"><label>viršūnės Ø, mm</label><input type="number" id="p_tipMm" step="0.05"></div>
+  <div class="row"><label>pasvirimas, mm</label><input type="number" id="p_tiltMm" step="0.1"></div>
+  <div class="row"><label>pado aukštis, mm</label><input type="number" id="p_padMm" step="0.1"></div>
+  <div class="row"><label>jungčių dažnis, mm</label><input type="number" id="p_braceEveryMm" step="0.5"></div>
+  <div class="row"><label>jungčių siekis, mm</label><input type="number" id="p_braceMaxMm" step="0.5"></div>
+
+  <button id="reslice" class="sec" disabled>Perskaičiuoti supportus</button>
+  <button id="reset" class="sec">Grąžinti numatytus</button>
+
+  <h2>Rezultatas</h2>
+  <div id="stat">—</div>
+
+  <button id="both" class="sec" disabled style="margin-top:10px">Palyginti abu variantus</button>
+</div>
+
+<div id="main">
+  <div id="views">
+    <div class="pane">
+      <canvas id="view"></canvas>
+      <div class="tag" id="tagOur">mūsų</div>
+      <div class="hint">vilk — sukti · ratukas — artinti</div>
+      <div id="layerBox"><span id="layerNo"></span><input type="range" id="layer" min="1" max="2" value="2"></div>
+    </div>
+    <div class="pane">
+      <canvas id="view2"></canvas>
+      <div class="tag" id="tagRef">antras variantas — spausk „Palyginti abu"</div>
+    </div>
+  </div>
+  <div id="cmp">
+    <table id="cmpAlgo">
+      <tr><th>Ką sprendžia</th><th>PrusaSlicer</th><th>Mes</th><th></th></tr>
+      <tr><td>Kada reikia supporto</td><td>kiek detalė kyšo virš tuštumos</td><td>tas pats — atstumas iki paramos, 1,5 mm</td><td class="y">✓</td></tr>
+      <tr><td>Kur stovi stulpas</td><td>laisvoje vietoje, ieško kelio iki plokštės</td><td id="c_where">—</td><td id="c_where_v"></td></tr>
+      <tr><td>Kaip pasiekia detalę</td><td>tiltu, vienas bokštas laiko kelis taškus</td><td id="c_reach">—</td><td id="c_reach_v"></td></tr>
+      <tr><td>Galvutė</td><td>statmenai paviršiui, Ø0,4 mm, įlenda</td><td>tas pats</td><td class="y">✓</td></tr>
+      <tr><td>Padas</td><td>kūginis, platėja žemyn</td><td>tas pats, Ø1,0 → Ø2,4 mm</td><td class="y">✓</td></tr>
+      <tr><td>Jungtys</td><td>visur, kryžmais, ribotu atstumu</td><td>tas pats, 6 mm</td><td class="y">✓</td></tr>
+      <tr><td>Salos</td><td>remia, bet ne tas, kurios tuoj priauga</td><td>tas pats — žvilgsnis 0,5 mm į priekį</td><td class="y">✓</td></tr>
+    </table>
+    <table id="cmpRes">
+      <tr><th>Rezultatas</th><th>PrusaSlicer<br><span class="n">išmatuota iš jo failo</span></th>
+          <th>bokštas + tiltas</th><th>stulpelis po tašku</th></tr>
+      <tr><td>supportų</td><td>~25 (15–21 sluoksnyje)</td><td id="r_t_n">—</td><td id="r_d_n">—</td></tr>
+      <tr><td>ant plokštės</td><td>~20 iš 25</td><td id="r_t_p">—</td><td id="r_d_p">—</td></tr>
+      <tr><td>ant pačios detalės</td><td>keli</td><td id="r_t_m">—</td><td id="r_d_m">—</td></tr>
+      <tr><td>jungčių / tiltų</td><td>tankus tinklas</td><td id="r_t_b">—</td><td id="r_d_b">—</td></tr>
+      <tr><td>stulpelio Ø</td><td>1,06–1,30 mm</td><td id="r_t_d">1,0 mm</td><td id="r_d_d">1,0 mm</td></tr>
+      <tr><td>savikontrolė</td><td>—</td><td id="r_t_h">—</td><td id="r_d_h">—</td></tr>
+      <tr><td>laikas</td><td>—</td><td id="r_t_s">—</td><td id="r_d_s">—</td></tr>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from '../../web/lib/three-0.160.0.min.js';
+const S = await import('../../web/lib/slicer.js?t=' + Date.now());
+
+const $ = id => document.getElementById(id);
+const DEFAULTS = JSON.parse(JSON.stringify(S.SUP));
+const KEYS = ['reachMm','gridMm','minLenMm','lookLayers','mergeFactor',
+              'rMm','tipMm','tiltMm','padMm','braceEveryMm','braceMaxMm',
+              'bridgeMaxMm','towerJoinMm'];
+const putParams = () => {
+  KEYS.forEach(k => { $('p_' + k).value = S.SUP[k]; });
+  $('p_style').value = S.SUP.style;
+};
+const takeParams = () => {
+  KEYS.forEach(k => {
+    const v = parseFloat($('p_' + k).value);
+    if (!isNaN(v)) S.SUP[k] = v;
+  });
+  S.SUP.style = $('p_style').value;
+};
+putParams();
+$('reset').onclick = () => { Object.assign(S.SUP, DEFAULTS); putParams(); };
+
+/* ---------------------------------------------------------------- scenos */
+/* Du vienodi langai: kairėje vienas algoritmas, dešinėje kitas, tas pats STL.
+   Kamera bendra — pasukus vieną, pasisuka abu, kitaip lyginti neįmanoma. */
+const cams = [];
+function makeView(canvasId) {
+  const cv = $(canvasId);
+  const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  ren.setPixelRatio(devicePixelRatio);
+  ren.localClippingEnabled = true;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x141416);
+  const cam = new THREE.PerspectiveCamera(38, 1, 1, 2000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404050, 2.2));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5);
+  key.position.set(60, 120, 90); scene.add(key);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(S.PLATE.x, S.PLATE.y),
+    new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: .95 }));
+  plate.rotation.x = -Math.PI / 2; plate.position.y = -S.PLATE.z / 2;
+  scene.add(plate);
+  scene.add(new THREE.Box3Helper(new THREE.Box3(
+    new THREE.Vector3(-S.PLATE.x / 2, -S.PLATE.z / 2, -S.PLATE.y / 2),
+    new THREE.Vector3(S.PLATE.x / 2, S.PLATE.z / 2, S.PLATE.y / 2)), 0x3a3a3f));
+
+  const V = { ren, scene, cam, model: null, sup: null,
+              clip: new THREE.Plane(new THREE.Vector3(0, -1, 0), S.PLATE.z / 2) };
+  V.render = () => ren.render(scene, cam);
+  V.resize = () => {
+    const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight;
+    if (!w || !h) return;
+    ren.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); V.render();
+  };
+  V.setMesh = (which, positions, color) => {
+    const old = V[which];
+    if (old) { scene.remove(old); old.geometry.dispose(); old.material.dispose(); V[which] = null; }
+    if (!positions || !positions.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+      color, roughness: .6, metalness: .1, side: THREE.DoubleSide }));
+    scene.add(m); V[which] = m;
+  };
+  V.bounds = () => {
+    const b = new THREE.Box3();
+    for (const m of [V.model, V.sup]) if (m) {
+      m.geometry.computeBoundingBox(); b.union(m.geometry.boundingBox);
+    }
+    return b;
+  };
+  V.clipAt = mm => {
+    const on = mm != null;
+    V.clip.constant = on ? (-S.PLATE.z / 2 + mm) : S.PLATE.z / 2;
+    for (const m of [V.model, V.sup]) if (m) {
+      m.material.clippingPlanes = on ? [V.clip] : null;
+      m.material.needsUpdate = true;
+    }
+  };
+  cams.push(V);
+  return V;
+}
+const A = makeView('view'), B = makeView('view2');
+
+let yaw = -0.7, pitch = 0.5, dist = 150, tgt = new THREE.Vector3(0, 0, 0);
+const place = () => {
+  for (const V of cams) {
+    V.cam.position.set(tgt.x + dist * Math.cos(pitch) * Math.sin(yaw),
+                       tgt.y + dist * Math.sin(pitch),
+                       tgt.z + dist * Math.cos(pitch) * Math.cos(yaw));
+    V.cam.lookAt(tgt); V.render();
+  }
+};
+const resize = () => { for (const V of cams) V.resize(); place(); };
+addEventListener('resize', resize);
+
+const frameAll = () => {
+  const b = new THREE.Box3();
+  for (const V of cams) b.union(V.bounds());
+  if (b.isEmpty()) return;
+  const c = new THREE.Vector3(), s = new THREE.Vector3();
+  b.getCenter(c); b.getSize(s);
+  tgt.copy(c); dist = Math.max(45, Math.max(s.x, s.y, s.z) * 2.6 + 28);
+  place();
+};
+
+let drag = null;
+for (const id of ['view', 'view2']) {
+  $(id).addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; });
+  $(id).addEventListener('wheel', e => {
+    e.preventDefault();
+    dist = Math.max(15, Math.min(500, dist * (e.deltaY > 0 ? 1.1 : 0.9))); place();
+  }, { passive: false });
+}
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  yaw -= (e.clientX - drag[0]) * 0.008;
+  pitch = Math.max(-1.4, Math.min(1.4, pitch + (e.clientY - drag[1]) * 0.008));
+  drag = [e.clientX, e.clientY]; place();
+});
+// Senasis vardas, kad likęs kodas nesikeistų: rašo į abu langus vienodai.
+const setMesh = (which, positions, color) => {
+  A.setMesh(which === 'model' ? 'model' : 'sup', positions, color);
+  if (which === 'model') B.setMesh('model', positions, color);
+};
+
+/* ------------------------------------------------------------- darbas */
+let raw = null, placed = null, layers = 0, sup = null;
+
+$('file').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $('prog').textContent = 'skaitau ' + f.name + '…';
+  const r = S.parseSTL(await f.arrayBuffer());
+  raw = r.positions;
+  const best = S.autoOrient(raw);
+  if (!best.fit.fits) best.tr.scale = best.fit.scaleToFit;
+  placed = S.place(raw, best.tr);
+  const b = S.bounds(placed);
+  layers = Math.max(1, Math.ceil(b.size[2] / S.LAYER_MM));
+  setMesh('model', S.toSceneMesh(placed), 0xe8720c);
+  setMesh('sup', null);
+  frameAll();
+  $('prog').textContent = r.triangles.toLocaleString('lt') + ' trikampių · ' +
+    b.size.map(v => v.toFixed(1)).join(' × ') + ' mm · ' + layers + ' sluoksnių' +
+    (best.fit.fits ? '' : ' · sumažinta iki ' + (best.tr.scale * 100).toFixed(0) + ' %');
+  $('go').disabled = false; $('reslice').disabled = false; $('both').disabled = false;
+  $('stat').textContent = '—';
+};
+
+const run = async () => {
+  if (!placed) return;
+  takeParams();
+  $('go').disabled = $('reslice').disabled = true;
+  $('prog').textContent = 'ieškau nuokabų…';
+  await new Promise(r => setTimeout(r, 20));
+  const t0 = performance.now();
+  sup = await S.findOverhangs(placed, layers, (d, t) => {
+    $('prog').textContent = 'ieškau nuokabų ' + Math.round(d / t * 100) + ' %';
+  });
+  const t1 = performance.now();
+  $('prog').textContent = 'tikrinu, ar niekas nekabo…';
+  await new Promise(r => setTimeout(r, 20));
+  const after = await S.findOverhangs(placed, layers, null, sup);
+  const t2 = performance.now();
+
+  setMesh('sup', S.toSceneMesh(S.supportMesh(sup.pillars, sup.braces)), 0x8fa8c8);
+  frameAll();
+
+  const len = sup.pillars.map(p => p.top - p.bottom).sort((a, b) => a - b);
+  const q = f => len.length ? len[Math.min(len.length - 1, Math.floor(len.length * f))] : 0;
+  const hanging = Math.max(0, after.islands - sup.islands);
+  const dang = S.danglingBraces(sup.pillars, sup.braces).length;
+  $('stat').innerHTML =
+    'stulpelių      ' + sup.pillars.length + '\n' +
+    '  ant plokštės ' + sup.pillars.filter(p => p.bottom === 0).length + '\n' +
+    '  ant detalės  ' + sup.onModel + '\n' +
+    '  kompanionų   ' + sup.companions + '\n' +
+    'jungčių        ' + sup.braces.length + '\n' +
+    'ilgis mm       ' + q(0).toFixed(1) + ' · ' + q(.5).toFixed(1) + ' · ' + q(.99).toFixed(1) + '\n' +
+    'salų           ' + sup.islands + '\n' +
+    '\n' +
+    '<span class="' + (hanging ? 'bad' : 'ok') + '">savikontrolė: ' +
+      (hanging ? hanging + ' KABO ORE' : 'niekas nekabo') + '</span>\n' +
+    '<span class="' + (dang ? 'bad' : 'ok') + '">jungtys: ' +
+      (dang ? dang + ' KABANČIŲ' : 'visos tvirtos') + '</span>\n' +
+    '\nlaikas: ' + ((t1 - t0) / 1000).toFixed(1) + ' s + ' +
+      ((t2 - t1) / 1000).toFixed(1) + ' s savikontrolė';
+  $('prog').textContent = 'gatava';
+  $('go').disabled = $('reslice').disabled = false;
+
+  const L = $('layer');
+  L.min = 1; L.max = layers; L.value = layers;
+  $('layerBox').style.display = 'flex';
+  showLayer(layers);
+};
+$('go').onclick = () => run();
+$('reslice').onclick = () => run();
+
+/* Abu variantai vienas po kito — tas pats STL, tie patys parametrai, skiriasi
+   tik atsakymas į klausimą „kaip pasiekiam tašką". */
+const fill = (pre, r, secs) => {
+  const P = id => $('r_' + pre + '_' + id);
+  P('n').textContent = r.pillars.length;
+  P('p').textContent = r.pillars.filter(p => p.bottom === 0).length;
+  P('m').textContent = r.onModel;
+  P('b').textContent = r.braces.length + (r.bridges ? ' / ' + r.bridges : '');
+  P('h').innerHTML = r.hanging
+    ? '<span style="color:var(--bad)">' + r.hanging + ' kabo</span>'
+    : '<span style="color:var(--ok)">švaru</span>';
+  P('s').textContent = secs.toFixed(1) + ' s';
+};
+$('both').onclick = async () => {
+  if (!placed) return;
+  $('both').disabled = true;
+  const was = $('p_style').value;
+  for (const style of ['tower', 'direct']) {
+    $('p_style').value = style;
+    takeParams();
+    $('prog').textContent = 'skaičiuoju: ' +
+      (style === 'tower' ? 'bokštas + tiltas' : 'stulpelis po tašku') + '…';
+    await new Promise(r => setTimeout(r, 20));
+    const t0 = performance.now();
+    const r = await S.findOverhangs(placed, layers, null);
+    const after = await S.findOverhangs(placed, layers, null, r);
+    r.hanging = Math.max(0, after.islands - r.islands);
+    fill(style === 'tower' ? 't' : 'd', r, (performance.now() - t0) / 1000);
+    /* Kairysis langas — Prusos logika, dešinysis — mūsų senoji. Tas pats STL,
+       tas pats žvilgsnis; skirtumas matomas iškart, be jokių skaičių. */
+    const V = style === 'tower' ? A : B;
+    V.setMesh('sup', S.toSceneMesh(S.supportMesh(r.pillars, r.braces)), 0x8fa8c8);
+    if (style === was) sup = r;
+  }
+  $('p_style').value = was; takeParams();
+  $('tagOur').textContent = 'PrusaSlicer logika — bokštas + tiltas';
+  $('tagRef').textContent = 'mūsų senoji — stulpelis po tašku';
+  $('c_where').textContent = 'kairėje: kelias iki plokštės · dešinėje: po tašku';
+  $('c_where_v').className = 'y'; $('c_where_v').textContent = '✓';
+  $('c_reach').textContent = 'kairėje: tiltu 45° · dešinėje: pasvirusiu galu';
+  $('c_reach_v').className = 'y'; $('c_reach_v').textContent = '✓';
+  frameAll();
+  $('prog').textContent = 'palyginta — kairėje Prusos logika, dešinėje mūsų senoji';
+  $('both').disabled = false;
+};
+
+const showLayer = n => {
+  const mm = n * S.LAYER_MM;
+  for (const V of cams) V.clipAt(n < layers ? mm : null);
+  $('layerNo').textContent = n + ' / ' + layers + '  ·  ' + mm.toFixed(2) + ' mm';
+  place();
+};
+$('layer').oninput = e => showLayer(Number(e.target.value));
+
+resize();
+</script>
