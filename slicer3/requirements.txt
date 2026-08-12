@@ -1,0 +1,8 @@
+trimesh>=4.0
+shapely>=2.0
+numpy>=1.26
+pillow>=10.0
+scipy>=1.11
+networkx>=3.0
+mapbox_earcut>=1.0
+rtree>=1.0
