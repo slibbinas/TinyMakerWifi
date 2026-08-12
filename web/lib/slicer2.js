@@ -75,6 +75,11 @@ export const CFG = {
      Senasis pastovus 3 mm tinklelis niekada neaugo, ir dėl to narvas išeidavo
      2–3× tankesnis nei PrusaSlicer'io (išmatuota 08-12). */
   support_curve: [[3.2, 0], [4.0, 3.9], [5.0, 15.0], [6.0, 40.0]],
+  /* SampleConfig.hpp:47-58 — salų sėjos atstumai: kontūras 5*3/4, vidus 5,
+     plonos dalies nugarkaulis 5. */
+  island_outline_step_mm: 3.75,
+  island_inner_step_mm:   5.0,
+  island_thin_step_mm:    5.0,
   /* `minimal_bounding_sphere_radius` (SampleConfig.hpp:35): mažesnės dalys
      išmetamos dar prieš sėją — jų neįmanoma atspausdinti kitaip nei rutuliuku
      nuo galvutės. */
@@ -1101,7 +1106,37 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
           let island = false;
           if (!below.length) {
             island = true;                        // sala: kabo visa
-            walkRing(ex[0], step, cand);
+            /* PLONOMS saloms taškai dedami ant „nugarkaulio", ne ant krašto.
+               Ant krašto artimiausio paviršiaus normalė rodo į ŠONĄ, galvutė
+               pakrypsta, jos spindulių žiedas įlenda į pačią sruogą ir
+               `pinheadHit` grąžina nulį — taškas prarandamas. Originale
+               nugarkaulį duoda Voronoi skeletas (UniformSupportIsland.cpp),
+               čia — tinklelio taškai, giliausi nuo krašto, retinami
+               thin_max_distance. Storoms saloms lieka kontūras. */
+            const thin = cfg.island_outline_step_mm / 2;
+            const deep = [];
+            for (let gy = bb[1] / SCALE; gy <= bb[3] / SCALE; gy += 0.3)
+              for (let gx = bb[0] / SCALE; gx <= bb[2] / SCALE; gx += 0.3)
+                if (pointInPaths(ex, gx, gy)) {
+                  const d = distToPaths(ex, gx, gy);
+                  if (d > 0.05) deep.push([d, gx, gy]);
+                }
+            const isThin = !deep.some(q => q[0] > thin);
+            if (isThin) {
+              deep.sort((p1, p2) => p2[0] - p1[0]);
+              const sp2 = cfg.island_thin_step_mm * cfg.island_thin_step_mm;
+              for (const [, gx, gy] of deep)
+                if (!cand.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 < sp2))
+                  cand.push([gx, gy]);
+              if (!cand.length) walkRing(ex[0], step, cand);
+            } else {
+              for (const ring of ex) walkRing(ring, cfg.island_outline_step_mm, cand);
+              for (const [d, gx, gy] of deep)
+                if (d > cfg.island_inner_step_mm / 2 &&
+                    !cand.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 <
+                                    cfg.island_inner_step_mm ** 2))
+                  cand.push([gx, gy]);
+            }
           } else {
             const clip = [];
             for (const pp of below) for (const p of pp.paths) clip.push(p);
