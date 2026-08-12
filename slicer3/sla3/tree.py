@@ -122,8 +122,11 @@ def add_pinheads(pts: list[SupportPoint], rays: Rays, mesh,
             if back_r < cfg.head_back_radius_mm:
                 lmin, lmax = 0.0, cfg.head_penetration_mm
             w = lmin + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
+            # DefaultSupportTree.hpp:140 - saugos atstumas NE nulis:
+            #   safety_d = r_back * safety_distance_mm / head_back_radius_mm
+            sd = back_r * cfg.safety_distance_mm / cfg.head_back_radius_mm
             nn = _dir_from_polar(polar, azimuth)
-            hit = float(rays.pinhead_hit(P[i], nn, [r_pin], [back_r], [w])[0])
+            hit = float(rays.pinhead_hit(P[i], nn, [r_pin], [back_r], [w], sd)[0])
             best_l = lmin
 
             if hit < w:
@@ -140,7 +143,7 @@ def add_pinheads(pts: list[SupportPoint], rays: Rays, mesh,
                 for j in np.argsort(-probe)[:3]:       # vienas spindulys ATRENKA
                     for l in grid_l:                   # pluoštas SPRENDŽIA
                         ww = l + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
-                        full = float(rays.pinhead_hit(P[i], D[j], [r_pin], [back_r], [ww])[0])
+                        full = float(rays.pinhead_hit(P[i], D[j], [r_pin], [back_r], [ww], sd)[0])
                         if full > ww and full > hit:
                             hit, nn, best_l, w = full, D[j], l, ww
                     if hit > w:

@@ -90,18 +90,63 @@ class Rays:
             best = np.minimum(best, dist)
         return best
 
-    def pinhead_hit(self, s, direction, r_pin, r_back, width, sd=0.0):
-        """`pinhead_mesh_hit` — ar galvutė telpa neliesdama modelio.
+    def pinhead_hit(self, s, direction, r_pin, r_back, width, sd=None):
+        """`pinhead_mesh_hit` (SupportTreeUtils.hpp:196-280).
 
-        Tas pats pluoštas, tik nuo smaigalio ir kūgiu, kuris prasiskleidžia nuo
-        r_pin iki r_back per VISĄ galvutės ilgį (r2 skaičiuojamas 1 mm atstumui,
-        nes `dst = src + dir`).
+        Tai NE `beam_mesh_hit` su kitais parametrais, nors ilgai buvo taip
+        parašyta. Savas kūnas, ir kiekviena smulkmena turi reikšmę:
+
+        * **16** spindulių, ne 8 („8 is almost ok, but to prevent rare cases of
+          collision, 16 is necessary");
+        * žiedai: smaigalio ties PAČIU tašku `s` spinduliu `r_pin + sd`,
+          nugarėlės ties `s + (r_pin + width + r_back) * dir` spinduliu
+          `r_back + sd` — ne `src + dir` (1 mm) konstrukcija;
+        * spindulys leidžiamas iš `ps + sd * n`, t. y. PASISTŪMĖJUS per saugos
+          atstumą — „move away slightly from the touching point to avoid
+          raycasting on the inner surface of the mesh";
+        * „iš vidaus" riba yra `r_pin + sd`, ne `2*r_src + sd`, o permetama su
+          `q.distance() + 2*sd` poslinkiu.
+
+        `sd` numatytoji reikšmė — ne nulis, o `r_back * safety_distance /
+        head_back_radius` (DefaultSupportTree.hpp:140), t. y. pilnai galvutei
+        **1,0 mm**. Perdavus nulį spinduliai startuoja tiksliai ant paviršiaus,
+        pataiko į jį iš vidaus ir funkcija grąžina gryną 0 — taip 32 taškai iš
+        92 buvo atmesti be priežasties (išmatuota 2026-08-12).
         """
+        SAMPLES = 16
         s = np.asarray(s, dtype=np.float64).reshape(-1, 3)
         d = np.asarray(direction, dtype=np.float64).reshape(-1, 3)
         d = d / np.linalg.norm(d, axis=1, keepdims=True)
-        w = np.maximum(1e-6, np.asarray(width, dtype=np.float64).reshape(-1))
-        r_pin = np.asarray(r_pin, dtype=np.float64).reshape(-1)
-        r_back = np.asarray(r_back, dtype=np.float64).reshape(-1)
-        start = s + d * r_pin[:, None]
-        return self.beam_hit(start, d, r_pin, r_pin + (r_back - r_pin) / w, sd)
+        w = np.asarray(width, dtype=np.float64).reshape(-1)
+        r_pin = np.broadcast_to(np.asarray(r_pin, dtype=np.float64).reshape(-1), len(s))
+        r_back = np.broadcast_to(np.asarray(r_back, dtype=np.float64).reshape(-1), len(s))
+        if sd is None:
+            raise ValueError('sd privalo būti perduotas (žr. DefaultSupportTree.hpp:140)')
+        sd = np.broadcast_to(np.asarray(sd, dtype=np.float64).reshape(-1), len(s))
+
+        spin = s
+        sback = s + d * (r_pin + w + r_back)[:, None]
+        rpin, rback = r_pin + sd, r_back + sd
+        a, b = self._ring_basis(d)
+
+        best = np.full(len(s), INF)
+        for i in range(SAMPLES):
+            t = 2 * np.pi * i / SAMPLES
+            off = np.cos(t) * a + np.sin(t) * b
+            ps = spin + off * rpin[:, None]
+            p = sback + off * rback[:, None]
+            n = p - ps
+            n /= np.linalg.norm(n, axis=1, keepdims=True)
+            dist, inside = self.first_hit(ps + n * sd[:, None], n)
+
+            redo = inside & np.isfinite(dist)
+            if redo.any():
+                far = redo & (dist > rpin)
+                dist[far] = 0.0
+                again = redo & ~far
+                if again.any():
+                    q = ps[again] + n[again] * (dist[again] + 2 * sd[again])[:, None]
+                    d2, _ = self.first_hit(q, n[again])
+                    dist[again] = d2
+            best = np.minimum(best, dist)
+        return best
