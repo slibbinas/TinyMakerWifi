@@ -34,3 +34,6 @@ scripts/dev/demo.html
 scripts/dev/dragonhead-live.raw
 scripts/dev/dragonhead-slices.json
 scripts/dev/model-slices/
+
+# Testų išvestis (SVG peržiūros) — generuojama, ne šaltinis
+scripts/dev/test-out/

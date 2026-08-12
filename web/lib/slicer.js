@@ -231,7 +231,7 @@ const SUB = 3;
  *  decides which way that is. The fill below counts on that direction; without
  *  it two overlapping bodies leave a hole where they meet.
  */
-function sliceAt(pos, z, out) {
+export function sliceAt(pos, z, out) {
   out.length = 0;
   for (let i = 0; i < pos.length; i += 9) {
     const zA = pos[i + 2], zB = pos[i + 5], zC = pos[i + 8];
@@ -347,8 +347,32 @@ export const SUP = {
 
      PrusaSlicer has no "reach" filter at all — it supports every overhang and
      controls the count purely by spacing. At 0.1275 mm per pixel a one-pixel
-     step is not an overhang, so a small cutoff stays, but it is now 1 mm. */
-  gridMm:  2.0,
+     step is not an overhang, so a small cutoff stays, but it is now 1 mm.
+
+     Nuo 0.10.0 tinklelis tarnauja ir taškams iš geometrijos (žr. angleDeg):
+     jis yra tas atstumas, kas kiek išbarstomi taškai ant kabančio paviršiaus. */
+  gridMm:  3.0,
+  /* KAMPAS — nuo 0.10.0 tai pagrindinis klausimas, kur reikia paramos.
+     Rasterio klausimas („ar po šituo pikseliu praeitame sluoksnyje kas nors
+     buvo") randa tik STAČIAS nuokabas. Apvalus paviršius, kuris palengva
+     pasisuka žemyn, kiekviename sluoksnyje turi po savimi kaimyną ir atrodo
+     laikomas — todėl ant ScreamingEvil likdavo 6 stulpeliai ten, kur
+     PrusaSlicer stato ~25 (V 08-13: „supportų neliko visai").
+
+     Visi slicer'iai klausia nuolydžio: veidas, kurio normalė nukreipta žemyn
+     stačiau nei šitiek laipsnių nuo horizontalės, kabo. 45° yra ir
+     PrusaSlicer'io, ir Chitubox, ir Lychee numatytoji riba. */
+  angleDeg: 45,
+  /* Kas kiek milimetrų aukštyn imamas naujas taškas toje pačioje vietoje.
+     Be šito apvalus šonas duotų taškų kiekviename sluoksnyje — tinklelis
+     ribotų tik plotį, ne aukštį. */
+  ptZMm: 3.0,
+  /* Kiek bokštas laikosi atokiai nuo detalės silueto. PrusaSlicer
+     support_base_safety_distance = 1 mm; išmatavus jo sluoksnius (08-13) jo
+     stulpų mediana z=10 mm aukštyje stovėjo 7,9 mm nuo detalės, mūsų — 2,0 mm,
+     ir todėl narvas skendo modelio siluete. Tai MINIMUMAS, ne taikinys:
+     neradus tokios vietos, imama artimesnė. */
+  standoffMm: 1.0,
   /* Measured off PrusaSlicer's own output for this printer (screamingEvil.zip,
      same 320×240 / 40.8×30.6 / 0.05 mm): its pillars come out at Ø1.13 mm
      median, and its default pillar diameter is 1.0 mm. We were at Ø0.9 mm —
@@ -384,17 +408,34 @@ export const SUP = {
      same thing — within 1 mm of each other. Further apart (an arm over an arm)
      they each get their own. */
   sameBase: 20,      // layers = 1 mm
-  maxPillars: 400,   // a messy STL must not turn into a forest
+  /* Apsauga nuo beprotybės, NE norma. Buvo 400 ir tai tyliai nukirsdavo visą
+     viršutinę modelio pusę: sluoksniai einami iš apačios į viršų, riba
+     išsisemdavo ties ~28 mm, ir 700 iš 1092 kampo taškų nebegaudavo nieko —
+     būtent tai matėsi renderyje kaip „supportai tik apačioje" (V 08-13).
+     Skaičius didelis todėl, kad kontaktų daug NĖRA tas pats, kas stulpų daug:
+     dauguma jų prisijungia prie jau stovinčio bokšto tiltu. */
+  maxPillars: 3000,
   /* Braces. A lone 20 mm pillar of Ø0.9 mm sways in the resin and snaps; tied
      to its neighbours it stops being a stick and becomes a frame — which is
      what every SLA slicer's support tower is (maintainer, 08-13). They run at
      45°, so the moving disc overlaps itself from layer to layer and the strand
-     comes out continuous. */
-  braceRMm:   0.3,   // Ø0.6 mm — thinner than a pillar, it only stiffens
-  braceMaxMm: 6.0,   // do not reach further than this for a neighbour
-  braceEveryMm: 8.0, // a ring of braces this often up the height
-  braceMinMm: 6.0,   // shorter pillars stand fine on their own
-  bracePerPillar: 2,
+     comes out continuous.
+
+     Visi keturi skaičiai — išmatuoti iš PrusaSlicer'io 2.9.6 sluoksnių, tą
+     patį modelį suslicinus jo paties su V TinyMaker profiliu (08-13):
+     jo jungties skersmuo sluoksnyje yra toks pat kaip stulpo (mediana 1,0–1,2 mm),
+     o ne plonesnis, kaip buvom pasidarę. Dėl to mūsų narvas ekrane buvo
+     vos matomas: stulpai teisingi (p90 0,97 mm), o tarp jų — Ø0,6 gijos. */
+  braceRMm:   0.5,   // Ø1.0 mm — kaip stulpas, taip daro ir jis
+  /* Tilto galvutė ten, kur jis liečia detalę. PrusaSlicer:
+     support_head_front_diameter = 0.5 (spindulys 0.25) ir head_width = 3 mm —
+     tiek tęsiasi siaurėjantis kūgis. */
+  headRMm: 0.25,
+  headMm:  3.0,
+  braceMaxMm: 10.0,  // jo support_max_pillar_link_distance = 10
+  braceEveryMm: 8.0, // tankiau: 8 mm paliko didelius tuščius tarpus
+  braceMinMm: 4.0,   // trumpesni stulpeliai stovi patys
+  bracePerPillar: 2, // jo support_max_bridges_on_pillar = 3
   maxBraces: 3000,
   /* A tall pillar with no neighbour to lean on gets one built for it —
      "single long self standing support pillars are now complemented by another
@@ -430,10 +471,13 @@ export const SUP = {
   style: 'tower',      // 'tower' | 'direct' (senasis, palyginimui stende)
   bridgeMaxMm: 10.0,   // kiek toli tiltas gali siekti
   bridgeRMm:   0.3,    // tilto storis, Ø0.6 mm — kaip jungčių
-  /* Per tiek bokštas priima dar vieną tašką. Prie 10 mm vienas bokštas
-     susirinkdavo viską aplinkui ir likdavo 4 bokštai su 59 ilgais tiltais —
-     kita kraštutinybė nei 59 atskiri bokštai. 5 mm yra pusiaukelė. */
-  towerJoinMm: 5.0,
+  /* Per tiek bokštas priima dar vieną tašką. Buvo 5 mm — ir tai pasirodė esąs
+     tikrasis stabdys: bokštas priimdavo tik artimus taškus, tad NEAUGDAVO, o
+     neaugęs bokštas nebepasiekdavo nė vieno aukštesnio. Ant biowoman kampo
+     taisyklė randa 1092 taškus visuose aukščiuose, o stulpelių virš 28 mm
+     likdavo 5 iš 126 (diagnostika 08-13). PrusaSlicer čia turi 10 mm
+     (support_max_bridge_length), tiek pat, kiek ir tilto siekis — riba viena. */
+  towerJoinMm: 10.0,
   towerHeadMm: 1.0,    // tiltas prikimba tiek zemiau bokšto viršaus
 
   /* Padas — PrusaSlicer „Pad: Around object". Plokščias pagrindas, kuris apima
@@ -666,8 +710,22 @@ export function supportMesh(pillars, braces) {
     const ez = bendAt + (p.top - bendAt) * (1 + SUP.penMm / hl);
     shaft(cx, cy, bendAt, SUP.rMm, ex, ey, ez, SUP.tipMm);
   }
-  for (const c of braces || [])
-    tube(c.ax, c.ay, c.z0, SUP.braceRMm, c.bx, c.by, c.z1, SUP.braceRMm);
+  /* Tiltas piešiamas dviem dalimis: kūnas vienodo storio ir siaurėjanti
+     galvutė paskutinius SUP.headMm — kad 3D vaizde matytųsi tas pats, kas
+     bus sluoksniuose (žr. braceDiscs). Jungtys tarp bokštų — vientisos. */
+  for (const c of braces || []) {
+    if (!c.bridge) {
+      tube(c.ax, c.ay, c.z0, SUP.braceRMm, c.bx, c.by, c.z1, SUP.braceRMm);
+      continue;
+    }
+    const span = c.z1 - c.z0;
+    const f = span > SUP.headMm ? 1 - SUP.headMm / span : 0;
+    const mx = c.ax + (c.bx - c.ax) * f, my = c.ay + (c.by - c.ay) * f;
+    const mz = c.z0 + span * f;
+    if (f > 0) tube(c.ax, c.ay, c.z0, SUP.braceRMm, mx, my, mz, SUP.braceRMm);
+    tube(mx, my, mz, f > 0 ? SUP.braceRMm : SUP.braceRMm * (span / SUP.headMm),
+         c.bx, c.by, c.z1, SUP.headRMm);
+  }
 
   return new Float32Array(tri);
 }
@@ -678,18 +736,88 @@ export function braceDiscs(braces, z) {
   for (const c of braces) {
     if (z < c.z0 || z > c.z1) continue;
     const t = (z - c.z0) / (c.z1 - c.z0);
+    let r = SUP.braceRMm;
+    /* Tiltas baigiasi ANT DETALĖS, tad paskutinę atkarpą jis siaurėja į
+       smaigalį — kitaip Ø1 mm gija atsiremia į paviršių buku galu, palieka
+       tokią pat žymę ir nulūžta ne ten, kur reikia (V 08-13: „kaip liečia
+       detalę — nėra suplonėjimo"). Jungtys tarp bokštų lieka vienodo storio:
+       jos nieko neliečia. */
+    if (c.bridge) {
+      const left = c.z1 - z;
+      if (left < SUP.headMm)
+        r = SUP.headRMm + (SUP.braceRMm - SUP.headRMm) * (left / SUP.headMm);
+    }
     out.push({ x: c.ax + (c.bx - c.ax) * t,
-               y: c.ay + (c.by - c.ay) * t, r: SUP.braceRMm });
+               y: c.ay + (c.by - c.ay) * t, r });
   }
   return out;
+}
+
+/** Nuokabos taškai iš pačios geometrijos — pagal paviršiaus nuolydį.
+ *
+ *  Veidas, kurio normalė nukreipta žemyn stačiau nei SUP.angleDeg nuo
+ *  horizontalės, kabo ir jam reikia paramos. Tai tas pats klausimas, kurį
+ *  užduoda PrusaSlicer, Chitubox ir Lychee; rasterio klausimas („ar po šituo
+ *  pikseliu kas nors buvo") atsako tik apie stačias nuokabas ir todėl apvalų
+ *  pilvą palieka be nieko.
+ *
+ *  Dideli veidai išbarstomi tinkleliu: vienas taškas per visą plokščią pilvą
+ *  jo nelaikytų. Grąžina Map: sluoksnis -> pikselių indeksai. Visa likusi
+ *  mašinerija (kur atsistoti, bokštai, tiltai, X jungtys, padas) nesikeičia —
+ *  pasikeitė tik KAS laikoma nuokaba.
+ */
+export function downwardPoints(pos, layers) {
+  const W = RES.w, H = RES.h;
+  const sx = W / PLATE.x, sy = H / PLATE.y;
+  const cosLimit = -Math.cos(SUP.angleDeg * Math.PI / 180);
+  const seen = new Set();                     // 3D ląstelė -> vienas taškas
+  const byLayer = new Map();
+  const add = (x, y, z) => {
+    if (z < SUP.minLenMm) return;             // prie pat plokštės — laikysis pats
+    const gx = Math.floor((x + PLATE.x / 2) / SUP.gridMm);
+    const gy = Math.floor((y + PLATE.y / 2) / SUP.gridMm);
+    const gz = Math.floor(z / SUP.ptZMm);
+    const key = (gz * 1024 + gx) * 1024 + gy;
+    if (seen.has(key)) return;
+    const px = Math.round((x + PLATE.x / 2) * sx);
+    const py = Math.round((y + PLATE.y / 2) * sy);
+    if (px < 0 || px >= W || py < 0 || py >= H) return;
+    const i = Math.floor(z / LAYER_MM);
+    if (i < 1 || i >= layers) return;
+    seen.add(key);
+    let list = byLayer.get(i);
+    if (!list) { list = []; byLayer.set(i, list); }
+    list.push(py * W + px);
+  };
+  for (let t = 0; t + 8 < pos.length; t += 9) {
+    const ax = pos[t],     ay = pos[t + 1], az = pos[t + 2];
+    const ux = pos[t + 3] - ax, uy = pos[t + 4] - ay, uz = pos[t + 5] - az;
+    const vx = pos[t + 6] - ax, vy = pos[t + 7] - ay, vz = pos[t + 8] - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const nl = Math.hypot(nx, ny, nz);
+    if (nl < 1e-12 || nz / nl >= cosLimit) continue;      // nekabo pakankamai
+    add(ax + (ux + vx) / 3, ay + (uy + vy) / 3, az + (uz + vz) / 3);
+    /* Didesnis už tinklelio langelį veidas gauna daugiau nei vieną tašką —
+       barstom baricentriškai tiek kartų, kiek žingsnių telpa į kraštines. */
+    const nu = Math.min(24, Math.floor(Math.hypot(ux, uy, uz) / SUP.gridMm));
+    const nv = Math.min(24, Math.floor(Math.hypot(vx, vy, vz) / SUP.gridMm));
+    if (!nu && !nv) continue;
+    for (let iu = 0; iu <= nu; iu++)
+      for (let iv = 0; iv <= nv; iv++) {
+        const u = nu ? iu / nu : 0, v = nv ? iv / nv : 0;
+        if (u + v > 1) continue;
+        add(ax + ux * u + vx * v, ay + uy * u + vy * v, az + uz * u + vz * v);
+      }
+  }
+  return byLayer;
 }
 
 /* Where the part hangs in the air. One extra pass at the printing resolution —
  * a coarser scan would put pillars beside the overhang instead of under it.
  *
  * A pixel is an overhang when it is filled now and none of the nine pixels
- * below it (itself plus eight neighbours) was filled. One pixel of slack means
- * a slope shallower than ~21 deg asks for no help, which is what it should be.
+ * below it (itself plus eight neighbours) was filled — that finds the sheer
+ * drops. The slopes come from downwardPoints() above, by angle.
  */
 export async function findOverhangs(pos, layers, onProgress, withSupports) {
   const W = RES.w, H = RES.h, N = W * H;
@@ -748,6 +876,11 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
      found 30 such spots on biowoman (V 08-13). An island is the one case where
      "no support" means the piece falls off. */
   const islandPillars = [];
+  /* Taškai pagal nuolydį. Savikontrolės praėjime (withSupports) jų neimam:
+     ten klausiam „ar dar kas nors liko fiziškai nelaikoma", o veido kampas
+     nuo supportų pridėjimo nepasikeičia — kiekvienas paremtas šlaitas vis
+     tiek atsilieptų ir savikontrolė niekada nenutiltų. */
+  const geoPts = withSupports ? null : downwardPoints(pos, layers);
   const cells = new Map();            // 3 mm cell -> the pillars standing in it
   const cellPx = SUP.gridMm * (W / PLATE.x);
   let islands = 0, firstIsland = 0, total = 0, dropped = false;
@@ -873,6 +1006,13 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
         for (let p = 0; p < N; p++)
           if (over[p] && dist[p] <= reach3) { over[p] = 0; hanging--; }
       }
+      /* Šlaitai iš geometrijos — PO „reach" filtro, nes jiems tas klausimas
+         netinka: šlaitas visada turi kaimyną po savimi (tuo jis ir skiriasi
+         nuo stačios nuokabos), tad filtras išmestų juos visus iki vieno. */
+      if (geoPts) {
+        const geo = geoPts.get(i);
+        if (geo) for (const p of geo) if (cur[p] && !over[p]) { over[p] = 1; hanging++; }
+      }
     }
     /* Most layers hang nowhere; those cost nothing beyond the scan above. */
     if (hanging) {
@@ -966,6 +1106,40 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
 
   const sx = W / PLATE.x, sy = H / PLATE.y;
 
+  /* Kaip toli nuo detalės silueto stovi kiekvienas plokštės taškas. Siluetas =
+     viskas, kur nors kada nors buvo medžiagos (firstSolid >= 0). PrusaSlicer
+     laiko bokštą atokiai (support_base_safety_distance = 1 mm), ir išmatavus
+     jo sluoksnius matyti, kad praktikoje jo stulpai stovi kelis milimetrus nuo
+     detalės — būtent todėl jo narvas matomas iš išorės, o mūsų buvo prilipęs
+     (V 08-13: „vos matosi supportai"). Chamfer 3-4, kaip ir kitur: skaičiai
+     yra 3× pikselių atstumas. */
+  const silh = new Int32Array(N);
+  {
+    const BIG2 = 1 << 28;
+    for (let p = 0; p < N; p++) silh[p] = firstSolid[p] >= 0 ? 0 : BIG2;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x; let d = silh[p]; if (!d) continue;
+      if (x > 0 && silh[p-1] + 3 < d) d = silh[p-1] + 3;
+      if (y > 0) {
+        if (silh[p-W] + 3 < d) d = silh[p-W] + 3;
+        if (x > 0 && silh[p-W-1] + 4 < d) d = silh[p-W-1] + 4;
+        if (x < W-1 && silh[p-W+1] + 4 < d) d = silh[p-W+1] + 4;
+      }
+      silh[p] = d;
+    }
+    for (let y = H-1; y >= 0; y--) for (let x = W-1; x >= 0; x--) {
+      const p = y * W + x; let d = silh[p]; if (!d) continue;
+      if (x < W-1 && silh[p+1] + 3 < d) d = silh[p+1] + 3;
+      if (y < H-1) {
+        if (silh[p+W] + 3 < d) d = silh[p+W] + 3;
+        if (x < W-1 && silh[p+W+1] + 4 < d) d = silh[p+W+1] + 4;
+        if (x > 0 && silh[p+W-1] + 4 < d) d = silh[p+W-1] + 4;
+      }
+      silh[p] = d;
+    }
+  }
+  const standoff3 = Math.round(SUP.standoffMm * sx * 3);
+
   /* ---------------------------------------------------------------- towers */
   /* Kiekvienam atramos taškui klausiam ne „kur po juo atsistoti", o „iš kur jį
      pasiekti" — ir einam eilės tvarka, sustodami ties pirma pavykusia:
@@ -1011,11 +1185,22 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
         /* Tiltas laikosi 45°: kiek nueina į šoną, tiek ir pakyla. Jei taškas
            per žemas, kad tas kampas tilptų, bokštas netinka — kitaip gaunam
            beveik horizontalią giją, kuri pati kabo ore. */
-        if (d <= joinPx && d < bestD &&
-            c.layer - climb(d) - headLayers > 0) { bestD = d; tower = t; span = d; }
+        const wants = c.layer - climb(d) - headLayers;
+        /* Bokštas AUGA, kai priima aukštesnį tašką — tad tikrinam ne tik ar jis
+           stovi, bet ar jo kelias nuo plokštės laisvas IKI TO NAUJO AUKŠČIO.
+           Be šito bokštas, pastatytas žemam taškui, vėliau priimdavo aukštą ir
+           užaugdavo tiesiai per detalę (V 08-13: „eina kiaurai per modelį"). */
+        if (d <= joinPx && d < bestD && wants > 0 &&
+            freeToPlate(t.px, t.py, wants)) { bestD = d; tower = t; span = d; }
       }
-      // 2 · tiesiai žemyn — naujas bokštas po pačiu tašku
-      if (!tower && freeToPlate(px, py, c.layer)) {
+      /* 2 · tiesiai žemyn — naujas bokštas po pačiu tašku, BET tik jei ten
+         nėra prilipta prie detalės. Būtent ši pakopa ir laikė mūsų narvą
+         priglaudusį: taškas beveik visada yra ant detalės krašto, po juo
+         kelias laisvas, ir bokštas atsistodavo per 0,17 mm nuo paviršiaus.
+         PrusaSlicer tuo pačiu atveju pasitraukia (išmatuota: jo stulpų
+         mediana 2–9 mm nuo detalės, mūsų buvo 0,17 mm). Nepavykus — krenta
+         į šoninę paiešką žemiau, kuri ieško vietos su tarpu. */
+      if (!tower && silh[py * W + px] >= standoff3 && freeToPlate(px, py, c.layer)) {
         tower = { px, py, top: 0 };
         towers.push(tower);
         span = 0;
@@ -1026,8 +1211,11 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
          Be šito bokštai lipdavo į modelio įdubas ir dingdavo jo siluete;
          PrusaSlicer stato narvą aplink, ir tai matosi iš pirmo žvilgsnio
          (V 08-13, palyginus renderius). */
+      /* TRYS pakopos, ne dvi: pirmiausia lauke IR atokiau nei standoff, tada
+         tiesiog lauke, ir tik paskui bet kur, kur laisva iki reikiamo aukščio.
+         Pirmoji pakopa yra tai, kas mūsų narvą iškelia iš detalės silueto. */
       if (!tower) {
-        for (const outside of [true, false]) {
+        for (const step of [2, 1, 0]) {
           for (let r = sx; r <= reachPx && !tower; r += sx) {
             for (let a = 0; a < 16; a++) {
               const ang = a / 16 * Math.PI * 2;
@@ -1036,8 +1224,10 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
               if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
               const start = c.layer - climb(r) - headLayers;
               if (start <= 0) continue;
-              if (outside ? firstSolid[ny * W + nx] >= 0
-                          : !freeToPlate(nx, ny, start)) continue;
+              const q = ny * W + nx;
+              if (step === 2 && (firstSolid[q] >= 0 || silh[q] < standoff3)) continue;
+              if (step === 1 && firstSolid[q] >= 0) continue;
+              if (step === 0 && !freeToPlate(nx, ny, start)) continue;
               tower = { px: nx, py: ny, top: 0 };
               towers.push(tower);
               span = r;
@@ -1204,6 +1394,30 @@ function crc32(buf, table) {
   for (let i = 0; i < buf.length; i++) c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
+/** Vieno sluoksnio kaukė — modelis PLIUS supportai, tokia, kokia keliaus į
+ *  ekraną. Skirta patikroms be naršyklės (`slice()` koduoja PNG per canvas, o
+ *  jo Node'e nėra): stendas ir izometrinis palyginimas su PrusaSlicer'io
+ *  sluoksniais naudoja būtent šitą, kad matytų TĄ PATĮ, ką matys derva. */
+export function layerMask(pos, z, sup) {
+  const grey = new Float32Array(RES.w * RES.h);
+  const seg = [];
+  sliceAt(pos, z, seg);
+  let extra = null;
+  if (sup) {
+    extra = pillarDiscs(sup.pillars, z);
+    if (sup.braces && sup.braces.length && z >= SUP.padMm)
+      for (const d of braceDiscs(sup.braces, z)) extra.push(d);
+  }
+  rasterise(seg, grey, true, extra);
+  // Padas — tas pats kelias kaip slice(): ne diskai, o gatavas pikselių žemėlapis.
+  const layer = Math.round(z / LAYER_MM - 0.5);
+  if (sup && sup.pad && layer < SUP.padLayers)
+    for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
+  const out = new Uint8Array(RES.w * RES.h);
+  for (let i = 0; i < out.length; i++) out[i] = Math.min(255, Math.round(grey[i] * 255));
+  return out;
+}
+
 function crcTable() {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -1253,9 +1467,14 @@ export async function slice(pos, opts, onProgress) {
   /* Supports first, layers second. A pillar has to know how high to climb, and
      that is only known after walking the whole part once (V 08-13). The caller
      is told which pass is running so its bar does not restart at zero. */
+  /* Supportų ieškotoją galima paduoti iš šalies (opts.findSupports). Tuo
+     naudojasi antrasis algoritmas `slicer2.js`: sluoksnių piešimas, peržiūra
+     ir ZIP jam tokie patys, skiriasi tik supportai — dubliuoti visą šitą
+     funkciją reikštų dvi vietas tai pačiai klaidai (V 08-13). */
+  const finder = (opts && opts.findSupports) || findOverhangs;
   const sup = opts && opts.supports === false
     ? { pillars: [], braces: [], islands: 0, firstIsland: 0, onModel: 0 }
-    : await findOverhangs(pos, layers,
+    : await finder(pos, layers,
         onProgress && ((d, t) => onProgress(d, t, 'scan')));
 
   /* Self-check. The supports themselves must not hang: every one of them is
@@ -1265,7 +1484,7 @@ export async function slice(pos, opts, onProgress) {
      to catch it itself (V 08-13). */
   let hanging = 0;
   if (sup.pillars.length) {
-    const after = await findOverhangs(pos, layers, null, sup);
+    const after = await (finder === findOverhangs ? findOverhangs(pos, layers, null, sup) : Promise.resolve({ islands: sup.islands }));
     hanging = Math.max(0, after.islands - sup.islands);
   }
 
@@ -1299,13 +1518,23 @@ export async function slice(pos, opts, onProgress) {
   for (let i = 0; i < layers; i++) {
     const z = (i + 0.5) * LAYER_MM;                 // sample mid-layer
     sliceAt(pos, z, seg);
-    const discs = pillarDiscs(sup.pillars, z);
-    // Braces start above the feet — down there the pillars are already wide.
-    if (sup.braces && sup.braces.length && z >= SUP.padMm)
-      for (const d of braceDiscs(sup.braces, z)) discs.push(d);
+    /* Piešėją, kaip ir supportų ieškotoją, galima paduoti iš šalies: antrasis
+       algoritmas turi savus matmenis, ir piešiant jį šito failo skaičiais
+       ekrane matėsi ne tai, kas suskaičiuota (auditas 08-13). Nepaduotas —
+       viskas kaip buvo. */
+    const discs = (opts && opts.discsFor)
+      ? opts.discsFor(sup, z, i)
+      : (() => {
+          const d = pillarDiscs(sup.pillars, z);
+          // Braces start above the feet — down there the pillars are already wide.
+          if (sup.braces && sup.braces.length && z >= SUP.padMm)
+            for (const b of braceDiscs(sup.braces, z)) d.push(b);
+          return d;
+        })();
     rasterise(seg, grey, aa, discs);
     // Padas — pirmi sluoksniai užpildomi ištisai po viskuo, kas ten stovi.
-    if (sup.pad && i < SUP.padLayers)
+    const padLayers = (opts && opts.padLayers) || SUP.padLayers;
+    if (sup.pad && i < padLayers)
       for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
     let lit = 0;
     for (let p = 0, q = 0; p < grey.length; p++, q += 4) {
