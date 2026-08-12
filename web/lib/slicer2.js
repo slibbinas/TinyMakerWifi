@@ -47,12 +47,18 @@ export const CFG = {
   pillar_radius_mm:     0.5,    // support_pillar_diameter 1
   base_radius_mm:       1.5,    // support_base_diameter 3
   base_height_mm:       1.0,    // support_base_height
-  safety_distance_mm:   1.0,    // support_base_safety_distance
+  /* SupportTree.hpp:110 — KOMPILIAVIMO METO konstanta 0.5, NE profilio
+     `support_base_safety_distance`. Tas profilio skaičius yra stulpo PĖDOS
+     atstumas nuo detalės (`pillar_base_safety_distance_mm`), visai kitas
+     dalykas. Paėmus 1.0 galvutės žiedas išeina 1,67× per platus. */
+  safety_distance_mm:   0.5,
+  pillar_base_safety_distance_mm: 1.0,  // support_base_safety_distance
   max_bridge_length_mm: 10.0,   // support_max_bridge_length
   max_pillar_link_distance_mm: 10.0,  // support_max_pillar_link_distance
   max_bridges_on_pillar: 3,     // support_max_bridges_on_pillar
   bridge_slope:         Math.PI / 4,  // 45°, kaip jo numatytasis
-  normal_cutoff_angle:  Math.PI / 2,  // pjovimo riba galvutės krypčiai
+  normal_cutoff_angle:  150 * Math.PI / 180,  // SupportTree.hpp:105 — 150°, ne 90°
+  removing_delta_mm:    5.0,    // SampleConfig.hpp:31
   ground_facing_only:   false,  // support_buildplate_only = 0
   object_elevation_mm:  0,      // pad_around_object = 1 -> nekeliam
   /* Taškų sėja. PrusaSlicer'io density_relative = 100 %; mūsų pikselis
@@ -252,16 +258,47 @@ export function beamHit(mesh, src, dir, r1, r2, sd = 0) {
   return best;
 }
 
-/** pinhead_mesh_hit — ar galvutė telpa neliesdama modelio. Tas pats pluoštas,
- *  tik nuo smaigalio iki nugarėlės, per `width`. */
+/** Saugos atstumai. `safety_distance(r)` — galvutei (SupportTree.hpp:95),
+ *  `bridgeSafety(r)` — tiltams ir `classify` (DefaultSupportTree.hpp:165).
+ *  Abu perkrovimai patys skaičiuoja atstumą; perdavus nulį tikrinama be jokios
+ *  atsargos, o tai ne tas pats. */
+export function safetyDistance(r, cfg = CFG) {
+  return Math.min(cfg.safety_distance_mm,
+                  r * cfg.safety_distance_mm / cfg.head_back_radius_mm);
+}
+export function bridgeSafety(r, cfg = CFG) {
+  return r * cfg.safety_distance_mm / cfg.head_back_radius_mm;
+}
+
+const PINHEAD_SAMPLES = 16;   // „8 is almost ok … 16 is necessary"
+
+/** `pinhead_mesh_hit` (SupportTreeUtils.hpp:196-280).
+ *
+ *  Tai NE `beam_mesh_hit` su kitais parametrais, nors ilgai buvo taip parašyta.
+ *  Savas kūnas: 16 spindulių; smaigalio žiedas ties PAČIU tašku spinduliu
+ *  `rPin + sd`, nugarėlės — ties `s + (rPin + width + rBack) * dir` spinduliu
+ *  `rBack + sd`; spindulys leidžiamas iš `ps + sd * n`, pasistūmėjus nuo
+ *  lietimosi taško; „iš vidaus" riba yra `rPin + sd`, o permetama su
+ *  `dist + 2*sd` poslinkiu. */
 export function pinheadHit(mesh, s, dir, rPin, rBack, width, sd = 0) {
   const d = norm(dir);
-  const start = add(s, mul(d, rPin));
-  /* Kūgis prasiskleidžia nuo rPin iki rBack per VISĄ galvutės ilgį. Anksčiau
-     `dst = src + d` su normalizuotu d reiškė 1 mm, tad prie 0.25→0.5 kūgis
-     buvo tris kartus per status ir galvutės krisdavo be reikalo (auditas). */
-  const w = Math.max(1e-6, width);
-  return beamHit(mesh, start, d, rPin, rPin + (rBack - rPin) / w, sd);
+  const spin = s;
+  const sback = add(s, mul(d, rPin + width + rBack));
+  const rpin = rPin + sd, rback = rBack + sd;
+  const [a, b] = ringBasis(d);
+  let best = INF;
+  for (let i = 0; i < PINHEAD_SAMPLES; i++) {
+    const ps = ringPoint(spin, a, b, rpin, i, PINHEAD_SAMPLES);
+    const pd = ringPoint(sback, a, b, rback, i, PINHEAD_SAMPLES);
+    const n = norm(sub(pd, ps));
+    let hr = mesh.rayHit(add(ps, mul(n, sd)), n);
+    if (hr.inside && hr.dist < INF) {
+      if (hr.dist > rpin) { best = 0; continue; }
+      hr = mesh.rayHit(add(ps, mul(n, hr.dist + 2 * sd)), n);
+    }
+    if (hr.dist < best) best = hr.dist;
+  }
+  return best;
 }
 
 /* ------------------------------------------------------------ taškų sėja */
@@ -376,10 +413,16 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     }
     let rBack = cfg.head_back_radius_mm;
     let width = cfg.head_width_mm;
-    // Laisvo kelio reikalavimas w (DefaultSupportTree.cpp:456).
-    const need = r => width + 2 * r + 2 * cfg.head_front_radius_mm - cfg.head_penetration_mm;
+    /* Laisvo kelio reikalavimas w (DefaultSupportTree.cpp:449-456):
+         lmin = head_width; if (back_r < head_back_radius) { lmin = 0; }
+         w = lmin + 2*back_r + 2*head_front_radius - penetration
+       Prie plonos galvutės lmin krenta į NULĮ, tad w = 0,80 mm vietoj 4,20 —
+       būtent tam ji ir yra, ankštoms vietoms. */
+    const lmin = r => (r < cfg.head_back_radius_mm ? 0 : cfg.head_width_mm);
+    const need = r => lmin(r) + 2 * r + 2 * cfg.head_front_radius_mm - cfg.head_penetration_mm;
     // Galvutė statoma nuo paviršiaus taško kryptimi dir.
-    let hit = pinheadHit(mesh, p.pos, dir, cfg.head_front_radius_mm, rBack, need(rBack));
+    let hit = pinheadHit(mesh, p.pos, dir, cfg.head_front_radius_mm, rBack,
+                         need(rBack), safetyDistance(rBack, cfg));
     /* Nepavykus originalas NEmeta taško, o ieško kitos krypties, kuri
        nesikirstų su modeliu ir būtų kuo arčiau normalės
        (DefaultSupportTree.cpp:467-499; ten tam naudojamas NLopt genetinis
@@ -414,7 +457,8 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
          skaičiavimas užtrukdavo 39 s vietoj 7. */
       probes.sort((x, y) => y.h - x.h);
       for (const pr of probes.slice(0, 3)) {
-        const full = pinheadHit(mesh, p.pos, pr.d, cfg.head_front_radius_mm, rBack, want);
+        const full = pinheadHit(mesh, p.pos, pr.d, cfg.head_front_radius_mm, rBack,
+                                want, safetyDistance(rBack, cfg));
         if (full > bestHit) { bestHit = full; bestDir = pr.d; }
         if (bestHit > want) break;
       }
@@ -422,7 +466,9 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     }
     if (hit < need(rBack) && rBack > cfg.head_fallback_radius_mm) {
       rBack = cfg.head_fallback_radius_mm;
-      hit = pinheadHit(mesh, p.pos, dir, cfg.head_front_radius_mm, rBack, need(rBack));
+      width = lmin(rBack);                         // plona galvutė gali būti 0 ilgio
+      hit = pinheadHit(mesh, p.pos, dir, cfg.head_front_radius_mm, rBack,
+                       need(rBack), safetyDistance(rBack, cfg));
     }
     if (!(hit > need(rBack))) continue;            // netelpa — taško atsisakom
     const junction = add(p.pos, mul(dir, width));
@@ -443,7 +489,9 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
        klausiama tik „ar kelias laisvas", ne „ar laisvas su atsarga". Pridėjus jį
        pluoštas užkabindavo pačią detalę ir 80 iš 83 taškų klaidingai virsdavo
        atramomis ant modelio. */
-    const hit = beamHit(mesh, h.junction, DOWN, h.rBack, h.rBack);
+    /* `bridge_mesh_intersect(headjp, DOWN, r)` (cpp:547) yra 3 argumentų
+       perkrova, kuri saugos atstumą PASISKAIČIUOJA pati — tai ne „be atsargos". */
+    const hit = beamHit(mesh, h.junction, DOWN, h.rBack, h.rBack, bridgeSafety(h.rBack, cfg));
     if (!(hit < INF)) ground.push(i);
     else if (cfg.ground_facing_only) continue;
     else { h.onModel = true; h.groundHit = hit; onModel.push(i); }
@@ -494,7 +542,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
         Zdown -= zdiff;
         bridgestart[2] -= zdiff;
         // Po galvute reikia dalinio stulpelio — patikrinam, ar ten laisva.
-        if (beamHit(mesh, headjp, DOWN, r, r) < zdiff) return false;
+        if (beamHit(mesh, headjp, DOWN, r, r, bridgeSafety(r, cfg)) < zdiff) return false;
       }
       if (Zdown <= nearU[2] && Zdown >= nearL[2] && D < maxLen) bridgeend[2] = Zdown;
       else return false;
@@ -502,7 +550,8 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     // Empirinė riba: prie pat plokštės tiltas nekabinamas.
     if (bridgeend[2] < 4 * cfg.head_back_radius_mm) return false;
     const need = dist3d(bridgestart, bridgeend);
-    if (beamHit(mesh, bridgestart, norm(sub(bridgeend, bridgestart)), r, r) < need)
+    if (beamHit(mesh, bridgestart, norm(sub(bridgeend, bridgestart)), r, r,
+                bridgeSafety(r, cfg)) < need)
       return false;
     if (pil.bridges >= cfg.max_bridges_on_pillar) return false;
     if (zdiff > 0) {
@@ -549,6 +598,48 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     }
   }
 
+  /** `connect_to_ground` -> `deepsearch_ground_connection`
+   *  (SupportTreeUtils.hpp:600-700). TRŪKSTAMA VIDURINĖ PAKOPA: originale
+   *  `routing_to_model` bando stulpą šalia, **kelią į plokštę**, ir tik tada
+   *  remiasi į patį modelį (cpp:773-783). Be jos kiekviena „ant modelio"
+   *  galvutė numeta stulpelį ant detalės, ir narvas išeina perpus retesnis.
+   *
+   *  Ieškoma tilto krypties (polar rėžiuose [PI - bridge_slope, PI]) ir ilgio
+   *  [0, max_bridge_length] taip, kad iš nusileidimo taško vertikalus stulpas
+   *  pasiektų plokštę neužkliuvęs. Originale tai NLopt MLSL; čia tinklelis, po
+   *  jo — tas pats ilgio trumpinimas žingsniu r. */
+  const connectToGround = h => {
+    const src = h.junction, r = h.rBack, sd = bridgeSafety(r, cfg);
+    const gnd = cfg.object_elevation_mm;
+    if (src[2] <= gnd + cfg.base_height_mm) return false;
+    let best = null;
+    for (let k = 0; k < 4; k++) {
+      const polar = Math.PI - (k / 3) * cfg.bridge_slope;
+      const st = Math.sin(polar), ct = Math.cos(polar);
+      for (let a = 0; a < 12; a++) {
+        const az = (a / 12) * 2 * Math.PI;
+        const n = [st * Math.cos(az), st * Math.sin(az), ct];
+        const free = beamHit(mesh, src, n, r, r, sd);
+        const lmax = Math.min(cfg.max_bridge_length_mm,
+                              Number.isFinite(free) ? free : cfg.max_bridge_length_mm);
+        for (let l = 0; l <= lmax; l += Math.max(r, 1e-3)) {
+          if (best !== null && l >= best.l) break;   // trumpiausias laimi
+          const p = add(src, mul(n, l));
+          if (p[2] <= gnd + cfg.base_height_mm) break;
+          if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
+          best = { l, p };
+          break;
+        }
+      }
+    }
+    if (!best) return false;
+    pillars.push({ x: best.p[0], y: best.p[1], top: best.p[2], bottom: gnd,
+                   rTop: r, rBase: cfg.base_radius_mm, head: h.id, bridges: 0 });
+    if (best.l > 1e-6) bridges.push({ a: src.slice(), b: best.p.slice(), r });
+    h.pillar = pillars.length - 1;
+    return true;
+  };
+
   /* --- 4 · routing_to_model (DefaultSupportTree.cpp:760-789) ------------- */
   /* Tvarka originale griežta: pirma ieškom stulpo šalia, tada kelio į plokštę,
      ir tik kaip PASKUTINĖ išeitis remiamės į patį modelį. Praleidus dvi
@@ -558,6 +649,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     const h = heads[i];
     h.id = i;
     if (searchPillarAndConnect(h)) continue;
+    if (connectToGround(h)) continue;              // vidurinė pakopa (cpp:778)
     /* connect_to_model_body (cpp:670-706). Originale atramos taškas imamas iš
        DVIEJŲ matavimų: pluošto skeno iš classify (`hit`) ir spindulio palei
        AŠĮ (`center_hit = m_sm.emesh.query_ray_hit(hjp, DOWN)`), o galutinis —
@@ -896,6 +988,19 @@ function walkRing(path, step, into) {
   }
 }
 
+/** Ar taškas ExPolygon viduje (even-odd prieš visą rinkinį). */
+function pointInPaths(paths, x, y) {
+  let inside = false;
+  for (const p of paths)
+    for (let k = 0, j = p.length - 1, n = p.length; k < n; j = k++) {
+      const kx = p[k].X / SCALE, ky = p[k].Y / SCALE;
+      const jx = p[j].X / SCALE, jy = p[j].Y / SCALE;
+      if ((ky > y) !== (jy > y) && x < (jx - kx) * (y - ky) / (jy - ky) + kx)
+        inside = !inside;
+    }
+  return inside;
+}
+
 /** Mažiausias atstumas nuo taško iki kelių rinkinio kraštinių (mm). */
 function distToPaths(paths, x, y) {
   let best = Infinity;
@@ -976,6 +1081,19 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
         });
         const active = new Set();
         for (const pp of below) for (const k of pp.active) active.add(k);
+        /* `remove_supports_out_of_part` (SPG.cpp:555): atrama nustoja dengti,
+           kai ši dalis nuo jos nutolsta daugiau nei removing_delta. Be šito
+           senos apatinės atramos blokuoja kandidatus per visą modelio aukštį. */
+        for (const k of [...active]) {
+          const s2 = out[k];
+          if (!(s2.pos[0] >= bb[0] / SCALE - cfg.removing_delta_mm &&
+                s2.pos[0] <= bb[2] / SCALE + cfg.removing_delta_mm &&
+                s2.pos[1] >= bb[1] / SCALE - cfg.removing_delta_mm &&
+                s2.pos[1] <= bb[3] / SCALE + cfg.removing_delta_mm) ||
+              distToPaths(ex, s2.pos[0], s2.pos[1]) > cfg.removing_delta_mm &&
+              !pointInPaths(ex, s2.pos[0], s2.pos[1]))
+            active.delete(k);
+        }
 
         if (z >= cfg.base_height_mm) {
           // Nuokaba = ši dalis MINUS po ja esančios dalys.
