@@ -9,6 +9,7 @@ tankėja.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -69,11 +70,8 @@ def overhang_candidates(cur: list[Polygon], prev: list[Polygon],
     if not prev:
         # Sala: viskas kabo. Originale tam yra atskiras `support_island`;
         # čia sėjam krantą ir centrą — supaprastinimas, pažymėtas sąmoningai.
-        pts = []
-        for p in _polys(cur_u):
-            pts.append(discretize(p.exterior, cfg.discretize_overhang_step_mm))
-            c = p.representative_point()
-            pts.append(np.array([[c.x, c.y]]))
+        pts = [sample_island(p, cfg) for p in _polys(cur_u)]
+        pts = [p for p in pts if len(p)]
         return (np.vstack(pts) if pts else np.empty((0, 2))), True
 
     prev_u = unary_union(prev)
@@ -160,9 +158,20 @@ def generate(layers: list[list[Polygon]], cfg: SupportConfig,
             active: set[int] = set()
             for _, s in below:
                 active |= s
+            # `remove_supports_out_of_part` (SPG.cpp:555): atrama nustoja
+            # dengti, kai ši dalis nuo jos nutolsta daugiau nei
+            # removing_delta. Be šito senos apatinės atramos blokuoja
+            # kandidatus per visą modelio aukštį ir viršus lieka be nieko.
+            if active:
+                reach = poly.buffer(cfg.removing_delta_mm, join_style=2)
+                active = {k for k in active
+                          if reach.contains(_pt(chosen[k].x, chosen[k].y))}
             if z >= cfg.base_height_mm:      # prie pat plokštės laikosi pats
                 cand, island = overhang_candidates([poly], [p for p, _ in below], cfg)
                 active |= select(cand, z, chosen, active, cfg, island)
+                # Pussaliai - PAPILDOMAI prie nuokabos sejos (SPG.cpp:1529).
+                pen = peninsula_candidates(poly, [p for p, _ in below], cfg)
+                active |= select(pen, z, chosen, active, cfg, True)
             parts.append((poly, active))
         # prev VISADA ankstesnis sluoksnis, net tuščias: kitaip virš tuštumos
         # atsiradusi sala nebūtų skirtumas ir liktų be nieko.
@@ -170,3 +179,79 @@ def generate(layers: list[list[Polygon]], cfg: SupportConfig,
         if progress and i % 64 == 0:
             progress(i + 1, len(layers))
     return chosen
+
+
+def _triangular_grid(poly: Polygon, step: float) -> np.ndarray:
+    """Vidaus taškai trikampiu tinkleliu (`sample_expolygon`, USI.cpp:1324).
+
+    Trikampis, ne kvadratas: taip taškai išsidėsto tolygiau tame pačiame plote.
+    """
+    x0, y0, x1, y1 = poly.bounds
+    h = step * math.sqrt(3) / 2
+    out = []
+    row = 0
+    y = y0 + h / 2
+    while y <= y1:
+        x = x0 + (step / 2 if row % 2 else 0) + step / 2
+        while x <= x1:
+            if poly.contains(_pt(x, y)):
+                out.append([x, y])
+            x += step
+        y += h
+        row += 1
+    return np.array(out) if out else np.empty((0, 2))
+
+
+def sample_island(poly: Polygon, cfg: SupportConfig) -> np.ndarray:
+    """Salos / pussalio sėja — `uniform_support_island` atitikmuo.
+
+    Originalas (UniformSupportIsland.cpp, 2850 eilučių) skaido figūrą Voronoi
+    skeletu į „plonas" ir „storas" dalis ir kiekvienai taiko savo taisyklę.
+    Skeleto čia nėra — imam abi kraštines taisykles, kurias jis naudoja
+    storajai daliai: kontūras kas `thick_outline_max_distance` (3,75 mm) ir
+    vidus trikampiu tinkleliu `thick_inner_max_distance` (5 mm). Tai
+    SUPAPRASTINIMAS, ne kopija, ir pažymėtas kaip toks.
+    """
+    pts = [discretize(poly.exterior, cfg.island_outline_step_mm)]
+    for ring in poly.interiors:
+        pts.append(discretize(ring, cfg.island_outline_step_mm))
+    inner = poly.buffer(-cfg.island_outline_step_mm / 2)
+    for p in _polys(inner):
+        g = _triangular_grid(p, cfg.island_inner_step_mm)
+        if len(g):
+            pts.append(g)
+    pts = [p for p in pts if len(p)]
+    return np.vstack(pts) if pts else np.empty((0, 2))
+
+
+def peninsula_candidates(poly: Polygon, below: list[Polygon],
+                         cfg: SupportConfig) -> np.ndarray:
+    """`create_peninsulas` (SPG.cpp:567) + `support_peninsulas` (SPG.cpp:316).
+
+    Vieno sluoksnio nuokaba, kuri išsikiša toliau nei `peninsula_min_width`
+    (2 mm) už žemiau esančios dalies, yra „pussalis" ir remiama ATSKIRAI, be to,
+    kas jau gauta iš `sample_overhangs`. Savaime laikosi tik tai, kas arčiau nei
+    `peninsula_self_supported_width` (1,5 mm) nuo „sausumos".
+
+    Būtent šito mums ir trūko: tai PRIDEDANTIS mechanizmas, o ne atimantis, ir
+    ant organinio modelio (plaukų sruogos, antakiai) jis duoda daug atramų.
+    """
+    if not below:
+        return np.empty((0, 2))
+    land = unary_union(below)
+    # jtSquare -> mitre; apvalus offsetas duotų kitokį kraštą
+    expanded = land.buffer(cfg.peninsula_min_width_mm, join_style=2)
+    over = poly.difference(expanded)
+    if over.is_empty:
+        return np.empty((0, 2))          # tik smulkios nuokabos
+    self_sup = land.buffer(cfg.peninsula_self_supported_width_mm, join_style=2)
+    shape = poly.difference(self_sup)
+    if shape.is_empty:
+        return np.empty((0, 2))
+    out = []
+    for p in _polys(shape):
+        if p.intersection(over).is_empty:
+            continue                     # per siauras, kad būtų pussalis
+        out.append(sample_island(p, cfg))
+    out = [o for o in out if len(o)]
+    return np.vstack(out) if out else np.empty((0, 2))

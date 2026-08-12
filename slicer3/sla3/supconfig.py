@@ -53,6 +53,19 @@ class SupportConfig:
     #: PrepareSupportConfig::minimal_bounding_sphere_radius (SampleConfig.hpp:35) -
     #: mazesnes dalys ismetamos kaip neatspausdinamos.
     minimal_part_radius_mm: float = 0.2
+    #: PrepareSupportConfig (SampleConfig.hpp:20-24). Vieno sluoksnio nuokaba
+    #: tampa „pussaliu", jei issikisa toliau nei peninsula_min_width; o kas
+    #: arciau nei peninsula_self_supported_width - laikosi pati.
+    peninsula_min_width_mm: float = 2.0
+    peninsula_self_supported_width_mm: float = 1.5
+    #: SampleConfig (SampleConfig.hpp:47-58): thick_outline_max_distance =
+    #: 5*3/4, thick_inner_max_distance = 5.
+    island_outline_step_mm: float = 3.75
+    island_inner_step_mm: float = 5.0
+    #: PrepareSupportConfig::removing_delta (SampleConfig.hpp:31) = 5 mm.
+    #: Atrama nustoja veikti, kai dalis nuo jos nutolsta - „kad ta pacia
+    #: sriti butu galima paremti vel: nuokaba virs nuokabos".
+    removing_delta_mm: float = 5.0
     support_curve: list[tuple[float, float]] = field(default_factory=default_support_curve)
 
     # --- Pad (SLA/Pad.hpp + profilis) ---
