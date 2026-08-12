@@ -57,8 +57,22 @@ export const CFG = {
   object_elevation_mm:  0,      // pad_around_object = 1 -> nekeliam
   /* Taškų sėja. PrusaSlicer'io density_relative = 100 %; mūsų pikselis
      0.1275 mm, tad tankį išreiškiam atstumu tarp taškų. */
-  support_points_density: 1.0,
-  point_spacing_mm:      3.0,   // TODO: imti is SupportPointGenerator support_curve, ne derinti
+  support_points_density: 1.0,     // support_points_density_relative 100 %
+  /* Nuokabos krašto diskretizavimo žingsnis — `discretize_overhang_step`
+     (SampleConfig.hpp:18). Tai NE tankis: tankį lemia įtakos spindulys žemiau. */
+  discretize_overhang_step_mm: 2.0,
+  /* `create_default_support_curve()` (SupportPointGenerator.cpp:1453).
+     [atstumas sluoksnyje XY, aukščio skirtumas Z] milimetrais. Ką tik pastatyta
+     atrama „dengia" 3,2 mm spindulį, o kylant aukštyn tas spindulys AUGA iki
+     6 mm ties 40 mm. Būtent tai, o ne pastovus žingsnis, ir valdo tankį —
+     todėl ant glotnaus kūno atramos retėja, o ant šviežios nuokabos tankėja.
+     Senasis pastovus 3 mm tinklelis niekada neaugo, ir dėl to narvas išeidavo
+     2–3× tankesnis nei PrusaSlicer'io (išmatuota 08-12). */
+  support_curve: [[3.2, 0], [4.0, 3.9], [5.0, 15.0], [6.0, 40.0]],
+  /* `minimal_bounding_sphere_radius` (SampleConfig.hpp:35): mažesnės dalys
+     išmetamos dar prieš sėją — jų neįmanoma atspausdinti kitaip nei rutuliuku
+     nuo galvutės. */
+  minimal_part_radius_mm: 0.2,
   critical_angle:        Math.PI / 4,  // support_critical_angle 45
   /* Klasteriai: du taškai jungiasi į vieną stulpą, jei XY atstumas mažesnis
      nei 2 × base_radius IR 3D atstumas mažesnis nei max_bridge_length
@@ -813,114 +827,200 @@ export async function buildPad(pos, pillars, cfg = CFG) {
    galvutės atsidurdavo viršutinėje modelio dalyje, kur niekas nekaba
    (V 08-13: „pankas"). Sluoksniuose ten figūra tik mažėja, tad skirtumo nėra
    ir taškų neatsiranda. */
+/** Atramos taško įtakos spindulys, kai esam `dz` mm virš jo.
+ *  `prepare_supports_for_layer` (SPG.cpp:495-543): tiesinė interpoliacija
+ *  kreivėje; density mažina spindulį per sqrt(r² / density). */
+function influenceRadius(dz, cfg) {
+  const c = cfg.support_curve;
+  let r;
+  if (dz <= c[0][1]) r = c[0][0];
+  else if (dz >= c[c.length - 1][1]) r = c[c.length - 1][0];
+  else {
+    r = c[c.length - 1][0];
+    for (let k = 0; k + 1 < c.length; k++)
+      if (dz >= c[k][1] && dz <= c[k + 1][1]) {
+        const t = (dz - c[k][1]) / ((c[k + 1][1] - c[k][1]) || 1);
+        r = c[k][0] + t * (c[k + 1][0] - c[k][0]);
+        break;
+      }
+  }
+  const d = cfg.support_points_density;
+  return Math.abs(d - 1) > 1e-4 ? Math.sqrt(r * r / d) : r;
+}
+
+/** Clipper rezultatas -> ExPolygon atitikmenys (kontūras + jo skylės). */
+function toExPolys(CL, tree) {
+  const out = [];
+  const stack = tree.Childs().slice();
+  while (stack.length) {
+    const n = stack.pop();
+    if (n.IsHole()) { for (const ch of n.Childs()) stack.push(ch); continue; }
+    const holes = n.Childs();
+    out.push([n.Contour(), ...holes.map(h => h.Contour())]);
+    for (const h of holes) stack.push(h);
+  }
+  return out;
+}
+
+function pathsBBox(paths) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of paths) for (const q of p) {
+    if (q.X < x0) x0 = q.X; if (q.X > x1) x1 = q.X;
+    if (q.Y < y0) y0 = q.Y; if (q.Y > y1) y1 = q.Y;
+  }
+  return [x0, y0, x1, y1];
+}
+
+/** Kilpa -> taškai vienodu žingsniu (`sample()`, SPG.cpp:361). */
+function walkRing(path, step, into) {
+  const n = path.length;
+  let total = 0;
+  for (let k = 0; k < n; k++) {
+    const a = path[k], b = path[(k + 1) % n];
+    total += Math.hypot((b.X - a.X) / SCALE, (b.Y - a.Y) / SCALE);
+  }
+  if (total < step) { into.push([path[0].X / SCALE, path[0].Y / SCALE]); return; }
+  const count = Math.max(1, Math.floor(total / step));
+  const want = total / count;
+  let acc = 0, next = 0;
+  for (let k = 0; k < n; k++) {
+    const a = path[k], b = path[(k + 1) % n];
+    const ax = a.X / SCALE, ay = a.Y / SCALE;
+    const L = Math.hypot(b.X / SCALE - ax, b.Y / SCALE - ay);
+    while (next <= acc + L && into.length < 1e5) {
+      const u = L ? (next - acc) / L : 0;
+      into.push([ax + (b.X / SCALE - ax) * u, ay + (b.Y / SCALE - ay) * u]);
+      next += want;
+    }
+    acc += L;
+  }
+}
+
+/** Mažiausias atstumas nuo taško iki kelių rinkinio kraštinių (mm). */
+function distToPaths(paths, x, y) {
+  let best = Infinity;
+  for (const p of paths) {
+    for (let k = 0, n = p.length; k < n; k++) {
+      const a = p[k], b = p[(k + 1) % n];
+      const ax = a.X / SCALE, ay = a.Y / SCALE;
+      const bx = b.X / SCALE, by = b.Y / SCALE;
+      const dx = bx - ax, dy = by - ay;
+      const L2 = dx * dx + dy * dy;
+      let t = L2 ? ((x - ax) * dx + (y - ay) * dy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(x - (ax + dx * t), y - (ay + dy * t));
+      if (d < best) { best = d; if (best < 1e-7) return best; }
+    }
+  }
+  return best;
+}
+
+/* ------------------------------------------------- taškai iš SLUOKSNIŲ */
+/* SupportPointGenerator.cpp:409 `sample_overhangs`:
+     overhangs = diff_ex(shape, prev_shapes)
+   — nuokaba yra ne veido kampas, o SLUOKSNIO IR ANKSTESNIO SLUOKSNIO
+   SKIRTUMAS, ir taškai sėjami ant to skirtumo KONTŪRO.
+
+   Tankio NEVALDO pastovus žingsnis. Kraštas smulkiai diskretizuojamas
+   (`discretize_overhang_step` = 2 mm), o kandidatas tampa atrama TIK jei jo
+   neuždengia jau esančių atramų įtakos spindulys, kuris AUGA kylant aukštyn
+   (`support_curve`). Įtaka keliauja tik per SUSIJUSIAS sluoksnio dalis
+   (`create_near_points`, SPG.cpp:210), ne per visą XY plokštumą — taikant ją
+   globaliai kelios apatinės atramos „uždengia" viską aukščiau.
+
+   Perkelta iš slicer3 (Python laboratorijos), kur mechanizmas buvo išbandytas
+   pirmas: JS versijos pastovus 3 mm tinklelis niekada neaugo, ir dėl to narvas
+   išeidavo 2–3× tankesnis nei etalono (išmatuota 2026-08-12). */
 export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
   const CL = (await import('./clipper.js')).default;
   const b = bounds(pos);
   const layers = Math.max(1, Math.ceil(b.size[2] / LAYER_MM));
-  const step = Math.max(0.5, cfg.point_spacing_mm / Math.max(0.01, cfg.support_points_density));
-  const out = [];
-  const near = new Set();     // NearPoints atitikmuo
-  let prev = [];
+  const step = cfg.discretize_overhang_step_mm;
+  const minR = cfg.minimal_part_radius_mm * SCALE;
+  const out = [];                 // pasirinkti atramos taškai
+  let prevParts = [];             // [{ paths, bbox, active:Set }]
   const seg = [];
+
   for (let i = 0; i < layers; i++) {
     const z = (i + 0.5) * LAYER_MM;
     sliceAt(pos, z, seg);
     const cur = stitch(seg);
-    if (cur.length && i > 0) {
-      const c = new CL.Clipper();
-      c.AddPaths(cur, CL.PolyType.ptSubject, true);
-      if (prev.length) c.AddPaths(prev, CL.PolyType.ptClip, true);
-      /* PolyTree, ne plokščias kelių sąrašas. Originale `diff_ex` grąžina
-         ExPolygons — kiekviena su kontūru IR savo skylėmis
-         (SupportPointGenerator.cpp:415), ir vidus yra kontūras MINUS skylės.
-         Plokščiame sąraše skylės kilpa nuo kontūro neatskiriama: even-odd
-         prieš TĄ VIENĄ kelią skylės viduje duoda „inside = true", ir atramos
-         sėjamos į tuštumą — 20×20 plokštėje su 13×13 kiauryme 25 iš 48
-         smaigalių kabojo ore (išmatuota 08-13). `Math.abs(Area)` nuo to
-         negelbsti: abs nunulina būtent tą ženklą, kuris skylę ir skiria. */
+    const parts = [];
+    if (cur.length) {
       const tree = new CL.PolyTree();
-      c.Execute(CL.ClipType.ctDifference, tree,
-                CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-      /* Medį išskleidžiam į ExPolygon atitikmenis: lyginis gylis — kontūras,
-         nelyginis — skylė; skylės vaikai yra savarankiškos salos joje. */
-      const expolys = [];
-      const stack = tree.Childs().slice();
-      while (stack.length) {
-        const n = stack.pop();
-        if (n.IsHole()) { for (const ch of n.Childs()) stack.push(ch); continue; }
-        const holeNodes = n.Childs();
-        expolys.push({ contour: n.Contour(), holes: holeNodes.map(h => h.Contour()) });
-        for (const h of holeNodes) stack.push(h);
-      }
-      /* Mažas skirtumas — tik kontūro drebėjimas, ne nuokaba. Riba: vieno
-         pikselio juostelė aplink kontūrą. Plotas skaičiuojamas visai
-         ExPolygon'ai: kontūras minus jo skylės. */
-      const minArea = (PIXEL_MM * PIXEL_MM) * SCALE * SCALE * 4;
-      /** even-odd prieš VISĄ rinkinį (kontūras + skylės): taškas skylėje kerta
-       *  abi ribas, tad lieka lauke. */
-      const inExPoly = (paths, gx, gy) => {
-        let inside = false;
-        for (const path of paths)
-          for (let k = 0, j = path.length - 1; k < path.length; j = k++) {
-            const kx = path[k].X / SCALE, ky = path[k].Y / SCALE;
-            const jx = path[j].X / SCALE, jy = path[j].Y / SCALE;
-            if ((ky > gy) !== (jy > gy) &&
-                gx < (jx - kx) * (gy - ky) / (jy - ky) + kx) inside = !inside;
+      const c0 = new CL.Clipper();
+      c0.AddPaths(cur, CL.PolyType.ptSubject, true);
+      c0.Execute(CL.ClipType.ctUnion, tree,
+                 CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+      for (const ex of toExPolys(CL, tree)) {
+        const bb = pathsBBox(ex);
+        /* `get_small_parts` (SPG.cpp:1032): neatspausdinamos dalys išmetamos
+           dar prieš sėją, kitaip kiekvienas mesh triukšmo taškelis virsta sala. */
+        if (Math.max(bb[2] - bb[0], bb[3] - bb[1]) < 2 * minR) continue;
+
+        /* Siejam su ankstesnio sluoksnio dalimis TIKRU persidengimu, ne
+           gabaritais: gabaritai persidengia beveik visada, tad viskas
+           susisieja su viskuo, salų nebelieka ir atramų kiekis krenta
+           (išmatuota: 12 stulpų vietoj 23). Gabaritai — tik pigus sietas
+           prieš tikrą patikrą. */
+        const below = prevParts.filter(pp => {
+          if (bb[2] < pp.bbox[0] || bb[0] > pp.bbox[2] ||
+              bb[3] < pp.bbox[1] || bb[1] > pp.bbox[3]) return false;
+          const ci = new CL.Clipper();
+          ci.AddPaths(ex, CL.PolyType.ptSubject, true);
+          ci.AddPaths(pp.paths, CL.PolyType.ptClip, true);
+          const inter = new CL.Paths();
+          ci.Execute(CL.ClipType.ctIntersection, inter,
+                     CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+          return inter.length > 0;
+        });
+        const active = new Set();
+        for (const pp of below) for (const k of pp.active) active.add(k);
+
+        if (z >= cfg.base_height_mm) {
+          // Nuokaba = ši dalis MINUS po ja esančios dalys.
+          const cand = [];
+          let island = false;
+          if (!below.length) {
+            island = true;                        // sala: kabo visa
+            walkRing(ex[0], step, cand);
+          } else {
+            const clip = [];
+            for (const pp of below) for (const p of pp.paths) clip.push(p);
+            const c1 = new CL.Clipper();
+            c1.AddPaths(ex, CL.PolyType.ptSubject, true);
+            c1.AddPaths(clip, CL.PolyType.ptClip, true);
+            const over = new CL.PolyTree();
+            c1.Execute(CL.ClipType.ctDifference, over,
+                       CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+            const raw = [];
+            for (const oex of toExPolys(CL, over))
+              for (const ring of oex) walkRing(ring, step, raw);
+            /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
+               (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
+               „sausuma", ne nuokabos krantas. */
+            for (const [x, y] of raw)
+              if (distToPaths(clip, x, y) > 1e-6) cand.push([x, y]);
           }
-        return inside;
-      };
-      const put = (px, py) => {
-        /* NearPoints (SPG.cpp): naujo taško nededam, jei netoliese jau yra
-           paremta vieta. Be šito kontūrų sėja davė 18 644 taškus vietoj
-           poros tūkstančių — kiekvienas sluoksnis kartojo tą patį kraštą. */
-        const key = Math.round(px / step) + ',' + Math.round(py / step) +
-                    ',' + Math.round(z / step);
-        if (near.has(key)) return;
-        near.add(key);
-        out.push({ pos: [px, py, z], normal: [0, 0, -1] });
-      };
-      for (const ex of expolys) {
-        let area = Math.abs(CL.Clipper.Area(ex.contour));
-        for (const h of ex.holes) area -= Math.abs(CL.Clipper.Area(h));
-        if (area < minArea) continue;
-        const all = [ex.contour, ...ex.holes];
-        /* Vidaus užpildas — MŪSŲ priedas, ne originalo: dabartinis
-           `sample_overhangs` sėja tik perimetrus (kontūrą ir kiekvieną skylę,
-           cpp:473-477). Plokščia 6×8 mm nuokaba tada gaudavo taškus tik ant
-           krašto, o vidurys likdavo be nieko (auditas 08-13). Paliekam, bet
-           vadinam savo vardu — šaltinyje `sample_expolygon` funkcijos nėra. */
-        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-        for (const q of ex.contour) {
-          const qx = q.X / SCALE, qy = q.Y / SCALE;
-          if (qx < x0) x0 = qx; if (qx > x1) x1 = qx;
-          if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
-        }
-        for (let gy = Math.ceil(y0 / step) * step; gy <= y1; gy += step)
-          for (let gx = Math.ceil(x0 / step) * step; gx <= x1; gx += step)
-            if (inExPoly(all, gx, gy)) put(gx, gy);
-        /* Taškai ant kontūro vienodu žingsniu (sample(), cpp:361) — ir ant
-           kontūro, IR ant kiekvienos skylės: skylės kraštas irgi yra nuokabos
-           kraštas (cpp:475-477). */
-        for (const path of all) {
-          let carry = 0;
-          for (let k = 0; k < path.length; k++) {
-            const a = path[k], n = path[(k + 1) % path.length];
-            const ax = a.X / SCALE, ay = a.Y / SCALE;
-            const nx = n.X / SCALE, ny = n.Y / SCALE;
-            const L = Math.hypot(nx - ax, ny - ay);
-            for (let t = carry; t < L; t += step) {
-              const u = t / L;
-              put(ax + (nx - ax) * u, ay + (ny - ay) * u);
+          // Atranka pagal augantį įtakos spindulį.
+          for (const [x, y] of cand) {
+            let covered = false;
+            for (const k of active) {
+              const s = out[k];
+              if (Math.hypot(s.pos[0] - x, s.pos[1] - y) <
+                  influenceRadius(z - s.pos[2], cfg)) { covered = true; break; }
             }
-            carry = L ? (Math.ceil((L - carry) / step) * step + carry - L) : 0;
+            if (covered) continue;
+            out.push({ pos: [x, y, z], normal: [0, 0, -1], island });
+            active.add(out.length - 1);
           }
         }
+        parts.push({ paths: ex, bbox: bb, active });
       }
     }
-    /* prev VISADA yra ankstesnis sluoksnis, net jei jis tuščias: palikus
-       seną, virš tuštumos atsiradusi sala nebūdavo skirtumas ir negaudavo
-       nė vieno taško — spausdintųsi ore (auditas 08-13). */
-    prev = cur;
+    /* prev VISADA ankstesnis sluoksnis, net tuščias: kitaip virš tuštumos
+       atsiradusi sala nebūtų skirtumas ir liktų be nieko. */
+    prevParts = parts;
     if (onProgress && (i % 32 === 0)) onProgress(i + 1, layers);
   }
   return out;
