@@ -169,7 +169,11 @@ def classify(heads: list[Head], rays: Rays, cfg: SupportConfig):
         return [], []
     J = np.array([h.junction for h in heads])
     R = np.array([h.r_back for h in heads])
-    hit = rays.beam_hit(J, np.tile(DOWN, (len(heads), 1)), R, R)
+    # `bridge_mesh_intersect(headjp, DOWN, r)` (cpp:547) yra 3 argumentu
+    # perkrova, kuri saugos atstumą PASISKAIČIUOJA pati - tai ne „be atsargos".
+    SD = np.array([cfg.bridge_safety_distance(h.r_back) for h in heads])
+    hit = np.array([rays.beam_hit(J[i:i+1], DOWN, R[i:i+1], R[i:i+1], float(SD[i]))[0]
+                    for i in range(len(heads))])
     ground, on_model = [], []
     for i, h in enumerate(heads):
         h.ground_hit = float(hit[i])
@@ -259,7 +263,7 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
             if zdiff > 0:
                 zdown -= zdiff
                 start[2] -= zdiff
-                if rays.beam_hit(jp, DOWN, r, r)[0] < zdiff:
+                if rays.beam_hit(jp, DOWN, r, r, cfg.bridge_safety_distance(r))[0] < zdiff:
                     return False
             if near_l[2] <= zdown <= near_u[2] and D < max_len:
                 end[2] = zdown
@@ -268,7 +272,8 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
         if end[2] < 4 * cfg.head_back_radius_mm:
             return False
         need = math.dist(start, end)
-        if rays.beam_hit(start, end - start, r, r)[0] < need:
+        if rays.beam_hit(start, end - start, r, r,
+                         cfg.bridge_safety_distance(r))[0] < need:
             return False
         if zdiff > 0:
             pillars.append(Pillar(float(jp[0]), float(jp[1]), float(jp[2]),

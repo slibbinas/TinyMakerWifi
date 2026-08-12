@@ -85,6 +85,12 @@ class SupportConfig:
         return min(self.safety_distance_mm,
                    r * self.safety_distance_mm / self.head_back_radius_mm)
 
+    def bridge_safety_distance(self, r: float) -> float:
+        """`bridge_mesh_intersect(s, dir, r)` be safety_d pats ji skaiciuoja
+        (DefaultSupportTree.hpp:165): r * safety_distance_mm / head_back_radius_mm.
+        Perdavus nuli tiltai ir `classify` tikrinami be jokios atsargos."""
+        return r * self.safety_distance_mm / self.head_back_radius_mm
+
     def influence_radius(self, dz: float) -> float:
         """Atramos taško įtakos spindulys, kai esam `dz` mm virš jo.
 
