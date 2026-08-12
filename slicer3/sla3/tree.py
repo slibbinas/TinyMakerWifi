@@ -233,6 +233,12 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
     t.log['clusters'] = len(clusters)
 
     pillars, bridges = t.pillars, t.bridges
+    # Kiekvienas „ne" suskaiciuojamas: be to nezinia, kuris patikrinimas
+    # suvalgo tiltus, o spejimai jau ne karta buvo ne ten.
+    rej = t.log.setdefault('reject', {})
+    def no(why):
+        rej[why] = rej.get(why, 0) + 1
+        return False
 
     def add_pillar(h: Head) -> int:
         pillars.append(Pillar(float(h.junction[0]), float(h.junction[1]),
@@ -244,7 +250,7 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
         """`connect_to_nearpillar` (cpp:282-363)."""
         pil = pillars[pid]
         if pil.bridges >= cfg.max_bridges_on_pillar:
-            return False
+            return no('max_bridges_on_pillar')
         jp = h.junction
         near_u = np.array([pil.x, pil.y, pil.top])
         near_l = np.array([pil.x, pil.y, pil.bottom])
@@ -264,17 +270,17 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
                 zdown -= zdiff
                 start[2] -= zdiff
                 if rays.beam_hit(jp, DOWN, r, r, cfg.bridge_safety_distance(r))[0] < zdiff:
-                    return False
+                    return no('dalinis stulpelis uzkliuva')
             if near_l[2] <= zdown <= near_u[2] and D < max_len:
                 end[2] = zdown
             else:
-                return False
+                return no('nepataiko i stulpo ruoza / per ilgas')
         if end[2] < 4 * cfg.head_back_radius_mm:
-            return False
+            return no('per zemai (4*r riba)')
         need = math.dist(start, end)
         if rays.beam_hit(start, end - start, r, r,
                          cfg.bridge_safety_distance(r))[0] < need:
-            return False
+            return no('tiltas kertasi su detale')
         if zdiff > 0:
             pillars.append(Pillar(float(jp[0]), float(jp[1]), float(jp[2]),
                                   float(start[2]), r, partial=True))
@@ -315,10 +321,78 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
                 continue
             add_pillar(h)
 
+    def connect_to_ground(h: Head) -> bool:
+        """`connect_to_ground` -> `deepsearch_ground_connection`
+        (SupportTreeUtils.hpp:600-700).
+
+        Trūkstama VIDURINĖ pakopa. `routing_to_model` originale bando tris
+        dalykus iš eilės: stulpą šalia, **kelią į plokštę**, ir tik tada remiasi
+        į patį modelį (cpp:773-783). Mes vidurinės neturėjom, tad kiekviena
+        „ant modelio" galvutė numesdavo stulpelį ant detalės, užuot nuėjusi
+        žemyn — dėl to narvas ir buvo dvigubai retesnis už etaloną.
+
+        Ieškoma tilto krypties (polar rėžiuose [PI - bridge_slope, PI], azimutas
+        visas ratas) ir ilgio [0, max_bridge_length] taip, kad iš nusileidimo
+        taško vertikalus stulpas pasiektų plokštę neužkliuvęs. Originale tai
+        NLopt MLSL; čia tinklelis, o po jo — tas pats ilgio trumpinimas
+        žingsniu `source.r`, kuris ten daromas brute force.
+        """
+        src = h.junction
+        r = h.r_back
+        sd = cfg.bridge_safety_distance(r)
+        gnd = cfg.object_elevation_mm
+        if src[2] <= gnd + cfg.base_height_mm:
+            return False
+
+        # Kryptys: pradinė galvutės kryptis + tinklelis tuose pačiuose rėžiuose.
+        dirs = []
+        for k in range(4):
+            polar = math.pi - (k / 3) * cfg.bridge_slope
+            for a in range(12):
+                dirs.append(_dir_from_polar(polar, (a / 12) * 2 * math.pi))
+        D = np.array(dirs)
+        # Kiek toli tiltas apskritai gali eiti kiekviena kryptimi (vienas paketas).
+        free = rays.beam_hit(np.tile(src, (len(D), 1)), D,
+                             np.full(len(D), r), np.full(len(D), r), sd)
+
+        # Kandidatai (kryptis, ilgis) - ilgis žingsniu r, kaip originale.
+        cand_d, cand_l, land = [], [], []
+        step = max(r, 1e-3)
+        for j in range(len(D)):
+            lmax = min(cfg.max_bridge_length_mm, free[j] if np.isfinite(free[j]) else cfg.max_bridge_length_mm)
+            l = 0.0
+            while l <= lmax:
+                p = src + D[j] * l
+                if p[2] > gnd + cfg.base_height_mm:
+                    cand_d.append(D[j]); cand_l.append(l); land.append(p)
+                l += step
+        if not land:
+            return False
+        land = np.array(land)
+        # Ar iš nusileidimo taško laisvas kelias žemyn iki plokštės (vienas paketas).
+        down = rays.beam_hit(land, np.tile(DOWN, (len(land), 1)),
+                             np.full(len(land), r), np.full(len(land), r), sd)
+        need = land[:, 2] - gnd
+        ok = np.flatnonzero(~(down < need))          # INF arba toliau nei reikia
+        if len(ok) == 0:
+            return False
+        # Trumpiausias tiltas laimi (l = 0 reikštų paprastą vertikalų stulpą).
+        best = ok[int(np.argmin(np.array(cand_l)[ok]))]
+        p = land[best]
+        pillars.append(Pillar(float(p[0]), float(p[1]), float(p[2]), gnd, r))
+        pid = len(pillars) - 1
+        if cand_l[best] > 1e-6:
+            bridges.append(Segment(src.copy(), p.copy(), r))
+        h.pillar = pid
+        return True
+
     # --- 4 · routing_to_model (cpp:760-789) ---
     for i in on_model:
         h = heads[i]
         if search_pillar_and_connect(h):
+            continue
+        # Vidurinė pakopa: kelias į plokštę (cpp:778).
+        if connect_to_ground(h):
             continue
         if not np.isfinite(h.ground_hit):
             continue
