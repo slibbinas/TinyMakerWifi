@@ -32,15 +32,23 @@ class SupportConfig:
     pillar_radius_mm: float = 0.5           # support_pillar_diameter 1
     base_radius_mm: float = 1.5             # support_base_diameter 3
     base_height_mm: float = 1.0             # support_base_height
-    safety_distance_mm: float = 1.0         # support_base_safety_distance
+    #: SupportTree.hpp:110 - KOMPILIAVIMO METO konstanta 0.5, NE profilio
+    #: `support_base_safety_distance`. Tas profilio skaicius yra
+    #: `pillar_base_safety_distance_mm` (zemiau) - stulpo PEDOS atstumas nuo
+    #: detales, visai kitas dalykas. Paemus 1.0 galvutes ziedas isejo 1,67x
+    #: per platus ir 26 taskai buvo atmesti be priezasties (ismatuota 08-12).
+    safety_distance_mm: float = 0.5
+    #: SupportTree.hpp:83 + profilis support_base_safety_distance = 1
+    pillar_base_safety_distance_mm: float = 1.0
     max_bridge_length_mm: float = 10.0      # support_max_bridge_length
     max_pillar_link_distance_mm: float = 10.0   # support_max_pillar_link_distance
     max_bridges_on_pillar: int = 3          # support_max_bridges_on_pillar
     bridge_slope: float = math.pi / 4       # 45 laipsniai
     critical_angle: float = math.pi / 4     # support_critical_angle 45
-    #: `normal_cutoff_angle` (SupportTreeConfig) - per status polinkis
-    #: atmetamas: polar < PI - normal_cutoff_angle (cpp:441).
-    normal_cutoff_angle: float = math.pi / 2
+    #: SupportTree.hpp:105 - 150 laipsniu, ne 90. Atmetama tik tada, kai
+    #: polar < PI - normal_cutoff_angle, t. y. normale rodo beveik tiksliai i
+    #: virsu (< 30 laipsniu). Su 90 laipsniu mes atmesdavome tai, ka jis priima.
+    normal_cutoff_angle: float = 150.0 * math.pi / 180.0
     ground_facing_only: bool = False        # support_buildplate_only 0
     #: support_object_elevation = 5, BET pad_around_object = 1 -> nekeliam.
     object_elevation_mm: float = 0.0
@@ -71,6 +79,11 @@ class SupportConfig:
     # --- Pad (SLA/Pad.hpp + profilis) ---
     pad_thickness_mm: float = 0.15          # pad_wall_thickness 0.15, wall_height 0
     pad_brim_mm: float = 1.6                # pad_brim_size
+
+    def safety_distance(self, r: float) -> float:
+        """`SupportTreeConfig::safety_distance(r)` (SupportTree.hpp:95)."""
+        return min(self.safety_distance_mm,
+                   r * self.safety_distance_mm / self.head_back_radius_mm)
 
     def influence_radius(self, dz: float) -> float:
         """Atramos taško įtakos spindulys, kai esam `dz` mm virš jo.

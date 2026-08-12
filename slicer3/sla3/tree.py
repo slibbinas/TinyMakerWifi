@@ -124,7 +124,7 @@ def add_pinheads(pts: list[SupportPoint], rays: Rays, mesh,
             w = lmin + 2 * back_r + 2 * r_pin - cfg.head_penetration_mm
             # DefaultSupportTree.hpp:140 - saugos atstumas NE nulis:
             #   safety_d = r_back * safety_distance_mm / head_back_radius_mm
-            sd = back_r * cfg.safety_distance_mm / cfg.head_back_radius_mm
+            sd = cfg.safety_distance(back_r)
             nn = _dir_from_polar(polar, azimuth)
             hit = float(rays.pinhead_hit(P[i], nn, [r_pin], [back_r], [w], sd)[0])
             best_l = lmin
