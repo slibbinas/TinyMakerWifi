@@ -1730,8 +1730,14 @@ const quad=(ctx,fill,pts)=>{
 // Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
 const drawMach=(cv,doneFrac)=>{
   const {slices,gw,gh,modelH}=slicesCache;
-  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;CAM_CY=PREV_H*(272/420);
+  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;
+  /* Apverstame vaizde geometrija kitokia (KY=-0.2, atskaitos taskas 34 mm), tad ir
+     kadras skaiciuojamas atskirai: turinys uzima 90.6*S auksciu ir 61.8*S plociu, o
+     centras - lauko vidurys. Su bendra stacio vaizdo formule modelis nusleisdavo po
+     bloko apacia (V 08-14). */
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
+  PREV_S=Math.min(PREV_H*0.92/90.6, PREV_W*0.92/61.8);
+  CAM_CY=PREV_H/2;
   const MX=40.8,MY=30.6,MZ=68;
   // karkasas be plokstes plokstumos
   const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
@@ -1747,7 +1753,12 @@ const drawMach=(cv,doneFrac)=>{
   /* Skenduolis (dar neatspausdinta dalis po dervos pavirsiumi) piesamas retai -
      kitaip prie detalaus keso jis virsta vientisa balta mase (V 08-13). */
   const stpM=Math.max(1,Math.round(gw/80));
-  const gdotM=1.5;
+  const gdotM=2.2;
+  const ghostAtM=(sl,i,j)=>{
+    for(let b=0;b<stpM;b++){const jj=j+b; if(jj>=gh)break;
+      for(let a=0;a<stpM;a++){const ii=i+a; if(ii>=gw)break;
+        if(sl[jj*gw+ii])return true;}}
+    return false;};
   // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
   // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
   // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
@@ -1799,15 +1810,18 @@ const drawMach=(cv,doneFrac)=>{
   // 4) skenduolis - arciausiai kameros. Derva murkina: ghost'as gesta su
   // gyliu ir dingsta ties ~6 mm - realus vato gylis keli mm, o kabantis
   // kiaurai pro dezes dugna 17 mm modelis atrode durnai (V 08-11).
-  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k++){
+  /* Pjuviu imama tiek pat, kiek turejo senasis vaizdas (~36): detalus kesas turi 240, ir
+     vertikali ziedo sienele sudetu taskus i istisas juostas (V 08-14). */
+  const kStep=Math.max(1,Math.round(N/36));
+  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k+=kStep){
     const sl=slices[k];if(!sl)continue;
     const z=-(k-frontF)*stepMm;
     if(z<-6)break;                      // giliau nebesimato
     const mur=1+z/6;                    // 1 prie pavirsiaus -> 0 ties -6
     for(let j=0;j<gh;j+=stpM)for(let i=0;i<gw;i+=stpM){
-      if(!sl[j*gw+i])continue;
-      const edge=i+stpM>=gw||!sl[j*gw+i+stpM]||j+stpM>=gh||!sl[(j+stpM)*gw+i];
-      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
+      if(!ghostAtM(sl,i,j))continue;
+      const edge=i+stpM>=gw||!ghostAtM(sl,i+stpM,j)||j+stpM>=gh||!ghostAtM(sl,i,j+stpM);
+      const p=isoPt((i+stpM/2)/gw*MX,(j+stpM/2)/gh*MY,z);
       ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
       ctx.fillRect(p.X-gdotM/2,p.Y-gdotM/2,gdotM,gdotM);
     }
@@ -2104,11 +2118,17 @@ function* drawIsoGen(cv,doneFrac){
      prie 1.68 vnt langelio, po to drobe dar sumazinama - ekrane iseidavo ~1.5 px taskas
      su ~1.6 px tarpu. Todel dydi laikom fiksuota, o retinima parenkam pagal tai, koks
      langelis gaunasi SIAME mastelyje (V 08-14: „identiski, o ne siaip smulkesni"). */
-  /* Tankumas - kaip senajame vaizde (kas ~80-tojo tinklelio langeli), o taskas mazas
-     (1.5 px): didesnis 2.2 px sitame mastelyje virsdavo baltais staciakampiais
-     (V 08-14: „seno tankumo ir dydzio"). */
+  /* Vaiduoklis piesiamas is TU PACIU duomenu, kuriuos turejo senasis vaizdas: 80x60
+     tinklelio. Detalus kesas (320x240) SUJUNGIAMAS blokais - jei bloke yra bent vienas
+     uzpildytas langelis, taskas yra. Butent sujungimas, o ne kas n-tojo langelio emimas:
+     kitaip dingtu plonos sieneles ir supportai. Taskas - toks pat 2.2 (V 08-14). */
   const stp=Math.max(1,Math.round(gw/80));
-  const gdot=1.5;
+  const gdot=2.2;
+  const ghostAt=(sl,i,j)=>{                 // ar bloke stp x stp yra medziagos
+    for(let b=0;b<stp;b++){const jj=j+b; if(jj>=gh)break;
+      for(let a=0;a<stp;a++){const ii=i+a; if(ii>=gw)break;
+        if(sl[jj*gw+ii])return true;}}
+    return false;};
   for(let n=0;n<N;n++){
     const k=FL?N-1-n:n;
     const t=N>1?k/(N-1):0,z=(FL?1-t:t)*modelH;
@@ -2144,9 +2164,9 @@ function* drawIsoGen(cv,doneFrac){
       /* Vaiduoklis piesiamas RETAI - kas `stp`-taji langeli. Prie 320x240 keso taskeliai
          susilieja i vientisa mase ir dingsta permatomumas; atspausdinta dalis lieka
          pilno tankio, tad kokybe nenukencia (V 08-13). */
-      if(a<1&&!(i%stp)&&!(j%stp)){
+      if(a<1&&!(i%stp)&&!(j%stp)&&ghostAt(s,i,j)){
         ctx.fillStyle=pvSkin().ghost+(edge0?0.20:0.05)+')';
-        const gp=isoPt(cx,cy,z);
+        const gp=isoPt(cx+(stp-1)*(MX/gw)/2,cy+(stp-1)*(MY/gh)/2,z);
         ctx.fillRect(gp.X-gdot/2,gp.Y-gdot/2,gdot,gdot);
       }
       if(a>0){
