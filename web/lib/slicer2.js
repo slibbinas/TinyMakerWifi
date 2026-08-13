@@ -77,9 +77,15 @@ export const CFG = {
   support_curve: [[3.2, 0], [4.0, 3.9], [5.0, 15.0], [6.0, 40.0]],
   /* SampleConfig.hpp:47-58 — salų sėjos atstumai: kontūras 5*3/4, vidus 5,
      plonos dalies nugarkaulis 5. */
-  island_outline_step_mm: 3.75,
-  island_inner_step_mm:   5.0,
-  island_thin_step_mm:    5.0,
+  /* Sėjos žingsniai ir atitraukimai NEPASIRENKAMI — jie išvedami iš galvutės
+     skersmens (žr. bloką po CFG). Čia palikti tik kaip vietos ženklai. */
+  island_outline_step_mm: 0,
+  island_inner_step_mm:   0,
+  island_thin_step_mm:    0,
+  min_dist_from_outline_mm: 0,
+  max_dist_from_outline_mm: 0,
+  thin_max_width_mm:      0,
+  thick_min_width_mm:     0,
   /* SampleConfig.hpp:20-24 — vieno sluoksnio nuokaba tampa „pussaliu", jei
      išsikiša toliau nei `peninsula_min_width`; kas arčiau nei
      `peninsula_self_supported_width` — laikosi pati. */
@@ -106,6 +112,29 @@ export const CFG = {
   pad_brim_mm:           1.6,
   pad_layers:            3,     // 0.15 mm / 0.05
 };
+
+/* `SampleConfigFactory::create` (SLA/SupportIslands/SampleConfigFactory.cpp:55,
+   2.9.6) — VISI sėjos dydžiai išvedami iš galvutės skersmens, ne parenkami.
+   Anksčiau čia stovėjo mano spėti 3,75 / 5,0 / 5,0 ir jokio atitraukimo nuo
+   krašto; dėl to taškai sėdėjo TIKSLIAI ant kontūro, ties briauna normalė
+   išeidavo 45° laukan (`get_normal` ten vidurkina apačią su sienele), ir
+   puodelio atramos nukeliaudavo už atbrailos — 49 stulpai vietoj 15 (08-13).
+
+   Prie ⌀0,5 galvutės: vienam taškui 1,87 · dviem 7,29 · siauras iki 4,67 ·
+   storas nuo 4,02 · žingsniai 5,47 (kontūras) / 7,29 (vidus) / 5,83 (siaura) ·
+   atitraukimas 0,25…1,94. */
+{
+  const d = CFG.head_front_radius_mm * 2;
+  const one = Math.PI * (d / 2) ** 2 * 2.9 + 1.3;   // max_length_for_one_support_point
+  const two = one * 3.9;                            // max_length_for_two_support_points
+  CFG.thin_max_width_mm  = one * 2.5;
+  CFG.thick_min_width_mm = one * 2.15;
+  CFG.island_thin_step_mm    = two * 0.8;           // thin_max_distance
+  CFG.island_inner_step_mm   = two;                 // thick_inner_max_distance
+  CFG.island_outline_step_mm = two * 0.75;          // thick_outline_max_distance
+  CFG.min_dist_from_outline_mm = d / 2;             // = head_radius
+  CFG.max_dist_from_outline_mm = two * 0.8 / 3;
+}
 
 const DOWN = [0, 0, -1];
 const INF = Infinity;
@@ -181,6 +210,186 @@ class MeshIndex {
        patikrą — beamHit grąžindavo 0 visur, kur kliūtis toliau nei 2r+sd,
        ir tiltai buvo atmetami be priežasties (auditas 08-13). */
     return { dist, inside: a < 0 };
+  }
+
+  /** Artimiausias trikampio taškas (Ericson). `get_normal` sprendžia pagal
+   *  PROJEKCIJĄ ant tinklo, ne pagal patį tašką, tad jos reikia atskirai. */
+  closestOnTri(p, a, b, c) {
+    const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+    const d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return a;
+    const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return b;
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return add(a, mul(ab, d1 / (d1 - d3)));
+    const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return c;
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return add(a, mul(ac, d2 / (d2 - d6)));
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0)
+      return add(b, mul(sub(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+    const den = 1 / (va + vb + vc);
+    return add(a, add(mul(ab, vb * den), mul(ac, vc * den)));
+  }
+
+  /** Trikampio vienetinė normalė — pagal apvijos kryptį. */
+  faceNormal(t) {
+    const q = this.pos;
+    return norm(cross([q[t + 3] - q[t], q[t + 4] - q[t + 1], q[t + 5] - q[t + 2]],
+                      [q[t + 6] - q[t], q[t + 7] - q[t + 1], q[t + 8] - q[t + 2]]));
+  }
+
+  /** `vertex_face_index` atitikmuo: viršūnė -> ją naudojantys trikampiai.
+   *  STL viršūnės kartojasi kiekviename trikampyje atskirai, tad raktas —
+   *  suapvalintos koordinatės. Statoma tik pareikalavus. */
+  vertexIndex() {
+    if (this._vmap) return this._vmap;
+    const q = this.pos, m = new Map();
+    this._vkey = (x, y, z) =>
+      Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
+    for (let t = 0; t + 8 < q.length; t += 9)
+      for (let k = 0; k < 3; k++) {
+        const s = this._vkey(q[t + k * 3], q[t + k * 3 + 1], q[t + k * 3 + 2]);
+        let l = m.get(s);
+        if (!l) { l = []; m.set(s, l); }
+        l.push(t);
+      }
+    return (this._vmap = m);
+  }
+
+  /** `face_neighbor_index()[faceid](edge_idx)` — trikampis anapus briaunos. */
+  faceAcrossEdge(t, e1, e2) {
+    const vm = this.vertexIndex(), k = this._vkey;
+    const l1 = vm.get(k(e1[0], e1[1], e1[2])) || [];
+    const l2 = new Set(vm.get(k(e2[0], e2[1], e2[2])) || []);
+    for (const f of l1) if (f !== t && l2.has(f)) return f;
+    return -1;
+  }
+
+  /** `squared_distance(point, faceid, p)` — artimiausias tinklo trikampis ir
+   *  taško projekcija ant jo. Langelių žiedas plečiamas, kol rastas atstumas
+   *  telpa į jau apžiūrėtą plotą — kitaip artimiausias galėtų likti gretimame
+   *  langelyje. */
+  closestFace(p) {
+    let best = Infinity, bt = -1, bq = null;
+    for (let w = this.cell; w <= this.cell * 8; w *= 2) {
+      const i0 = this.cx(p[0] - w), i1 = this.cx(p[0] + w);
+      const j0 = this.cy(p[1] - w), j1 = this.cy(p[1] + w);
+      for (let j = j0; j <= j1; j++)
+        for (let i = i0; i <= i1; i++) {
+          const l = this.map.get(j * this.nx + i);
+          if (!l) continue;
+          for (const t of l) {
+            const q = this.pos;
+            const a = [q[t], q[t + 1], q[t + 2]];
+            const b = [q[t + 3], q[t + 4], q[t + 5]];
+            const c = [q[t + 6], q[t + 7], q[t + 8]];
+            const d = this.pointTriDist2(p, a, b, c);
+            if (d < best) { best = d; bt = t; bq = this.closestOnTri(p, a, b, c); }
+          }
+        }
+      if (bt >= 0 && Math.sqrt(best) <= w) break;
+    }
+    return bt < 0 ? null : { t: bt, q: bq };
+  }
+
+  /** Paviršiaus normalė taške — `get_normal` (MeshNormals.cpp:31) PAŽODŽIUI.
+   *
+   *  Čia buvo savas variantas: sumuodavo VISŲ trikampių, esančių arčiau nei r,
+   *  normales su plotu. Skamba panašiai, bet elgiasi kitaip — ties plokštės
+   *  kiaurymės kraštu jis sumaišydavo apačią su sienele ir grąžindavo įstrižą
+   *  kryptį, tad galvutės pasvirdavo į skylę, o stulpai nusileisdavo pro ją
+   *  (8 iš 38, 08-13). Originalas taip nedaro: ima ARTIMIAUSIO trikampio
+   *  normalę ir vidurkina tik tada, kai projekcija patenka ant briaunos
+   *  (2 trikampiai) ar viršūnės (visi tą viršūnę dalijantys). */
+  normalAt(p, eps) {
+    const hit = this.closestFace(p);
+    if (!hit) return null;
+    const q = this.pos, t = hit.t;
+    const v = [[q[t], q[t + 1], q[t + 2]],
+               [q[t + 3], q[t + 4], q[t + 5]],
+               [q[t + 6], q[t + 7], q[t + 8]]];
+    const epsSq = eps * eps;
+    const d2 = (a, b) => {
+      const x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2];
+      return x * x + y * y + z * z;
+    };
+    /* point_on_edge (MeshNormals.cpp:20): atstumas iki TIESĖS per briaunos
+       galus, ne iki atkarpos — taip parašyta originale. */
+    const lineD2 = (pt, e1, e2) => {
+      const d = sub(e2, e1), L = dot(d, d);
+      if (L < 1e-18) return d2(pt, e1);
+      return d2(pt, add(e1, mul(d, dot(sub(pt, e1), d) / L)));
+    };
+    let vi = -1, ei = -1;
+    if (d2(hit.q, v[0]) < epsSq) vi = 0;
+    else if (d2(hit.q, v[1]) < epsSq) vi = 1;
+    else if (d2(hit.q, v[2]) < epsSq) vi = 2;
+    else if (lineD2(hit.q, v[0], v[1]) < epsSq) ei = 0;
+    else if (lineD2(hit.q, v[1], v[2]) < epsSq) ei = 1;
+    else if (lineD2(hit.q, v[0], v[2]) < epsSq) ei = 2;
+
+    const neigh = [];
+    /* Kaimynai DEDUPLIKUOJAMI pagal normalę (eqfn, 1e-3): plokštuma, viršūnę
+       dalijanti šešiais trikampiais, į sumą įeina VIENĄ kartą — kitaip ji
+       nusvertų greta stovinčią sienelę vien trikampių skaičiumi. */
+    const push = n => {
+      for (const m of neigh)
+        if (Math.abs(m[0] - n[0]) < 1e-3 && Math.abs(m[1] - n[1]) < 1e-3 &&
+            Math.abs(m[2] - n[2]) < 1e-3) return;
+      neigh.push(n);
+    };
+    if (vi >= 0) {
+      const vm = this.vertexIndex();
+      for (const f of (vm.get(this._vkey(v[vi][0], v[vi][1], v[vi][2])) || []))
+        push(this.faceNormal(f));
+    } else if (ei >= 0) {
+      // briaunų numeracija kaip originale: 0=(p1,p2), 1=(p2,p3), 2=(p1,p3)
+      const E = [[0, 1], [1, 2], [0, 2]][ei];
+      const f2 = this.faceAcrossEdge(t, v[E[0]], v[E[1]]);
+      if (f2 >= 0) { push(this.faceNormal(t)); push(this.faceNormal(f2)); }
+    }
+    if (neigh.length) {
+      const acc = neigh.reduce((a, n) => [a[0] + n[0], a[1] + n[1], a[2] + n[2]],
+                               [0, 0, 0]);
+      const L = Math.hypot(acc[0], acc[1], acc[2]);
+      return L > 1e-12 ? [acc[0] / L, acc[1] / L, acc[2] / L] : null;
+    }
+    return this.faceNormal(t);
+  }
+
+  /** Kvadratinis atstumas nuo taško iki trikampio (Ericson, Real-Time
+   *  Collision Detection). Reikia normalės žiedui — be jo imtume ir tolimų
+   *  trikampių normales. */
+  pointTriDist2(p, a, b, c) {
+    const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+    const d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return dot(ap, ap);
+    const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return dot(bp, bp);
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+      const v = d1 / (d1 - d3), q = sub(ap, mul(ab, v));
+      return dot(q, q);
+    }
+    const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return dot(cp, cp);
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+      const w = d2 / (d2 - d6), q = sub(ap, mul(ac, w));
+      return dot(q, q);
+    }
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
+      const w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+      const q = sub(sub(p, b), mul(sub(c, b), w));
+      return dot(q, q);
+    }
+    const den = 1 / (va + vb + vc);
+    const v = vb * den, w = vc * den;
+    const q = sub(ap, add(mul(ab, v), mul(ac, w)));
+    return dot(q, q);
   }
 
   /** Vieno spindulio metimas — AABBMesh::query_ray_hit atitikmuo. */
@@ -430,7 +639,14 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
        normalė, DefaultSupportTree.cpp:462), o kabančio paviršiaus normalė jau
        rodo žemyn. Prisotinimas: polar = max(polar, PI - bridge_slope) reiškia,
        kad kryptis turi būti bent bridge_slope žemiau horizontalės. */
-    let dir = norm(p.normal);
+    /* Kryptis — iš TINKLO normalės (cpp:404,455). Sėja duoda tik [0,0,-1],
+       o tikroji normalė ties briauna įstriža, ir kaip tik ji atitraukia
+       jungtį nuo detalės. Nepavykus — grįžtam prie sėjos normalės. */
+    const nAt = mesh.normalAt(p.pos, cfg.head_front_radius_mm);
+    let dir = norm(nAt || p.normal);
+    /* `if (polar < PI - normal_cutoff_angle) return;` (cpp:441) — normalė,
+       rodanti beveik tiksliai į viršų, taško netenka. */
+    if (dir[2] > Math.cos(Math.PI - cfg.normal_cutoff_angle)) continue;
     const maxDown = -Math.cos(cfg.bridge_slope);   // -0.707 prie 45°
     if (dir[2] > maxDown) {
       // per mažas polinkis žemyn — pakreipiam iki leistinos ribos
@@ -1062,6 +1278,38 @@ function pathsBBox(paths) {
 }
 
 /** Kilpa -> taškai vienodu žingsniu (`sample()`, SPG.cpp:361). */
+/** Kontūro taškus atitraukia nuo krašto, o siaurus ruožus perkelia į jų vidurio
+ *  ašį — `minimal_distance_from_outline` (= galvutės spindulys) ir „thin"
+ *  taisyklė iš 2.9.6 `UniformSupportIsland`.
+ *
+ *  Originalas siaurą ruožą atpažįsta iš Voronojaus diagramos ir sėja per jos
+ *  medialinę ašį. Čia ašis randama zondu: nuo kontūro taško einam į vidų, kol
+ *  išeinam anapus — tai vietinis PLOTIS; siaurame ruože taškas dedamas ties
+ *  puse to pločio (juostai tai lygiai medialinė ašis), plačiame — atitraukiamas
+ *  per `min_dist_from_outline`. Įrankis kitas, taisyklė ta pati.
+ *
+ *  Puodelio atbraila (žiedas 9…12 mm, plotis 3 < 4,67) taip atsiduria ties
+ *  r = 10,5 — kaip etalone, o ne ant briaunos ties r = 12. */
+function insetPoints(paths, pts, cfg) {
+  if (!paths || !paths.length) return pts.map(p => [p[0], p[1]]);
+  const inside = (x, y) => pointInPaths(paths, x, y);   // even-odd, su skylėm
+  const probe = 0.05, lim = cfg.thin_max_width_mm;
+  const out = [];
+  for (const p of pts) {
+    const [x, y, tx, ty] = p;
+    if (tx === undefined) { out.push([x, y]); continue; }
+    let nx = -ty, ny = tx;
+    if (!inside(x + nx * probe, y + ny * probe)) { nx = -nx; ny = -ny; }
+    if (!inside(x + nx * probe, y + ny * probe)) { out.push([x, y]); continue; }
+    let w = lim;
+    for (let d = probe; d <= lim; d += 0.1)
+      if (!inside(x + nx * d, y + ny * d)) { w = d; break; }
+    const off = w < lim ? w / 2 : cfg.min_dist_from_outline_mm;
+    out.push([x + nx * off, y + ny * off]);
+  }
+  return out;
+}
+
 function walkRing(path, step, into) {
   const n = path.length;
   let total = 0;
@@ -1069,7 +1317,13 @@ function walkRing(path, step, into) {
     const a = path[k], b = path[(k + 1) % n];
     total += Math.hypot((b.X - a.X) / SCALE, (b.Y - a.Y) / SCALE);
   }
-  if (total < step) { into.push([path[0].X / SCALE, path[0].Y / SCALE]); return; }
+  if (total < step) {
+    const a0 = path[0], b0 = path[1 % n];
+    const dx = (b0.X - a0.X) / SCALE, dy = (b0.Y - a0.Y) / SCALE;
+    const L0 = Math.hypot(dx, dy) || 1;
+    into.push([a0.X / SCALE, a0.Y / SCALE, dx / L0, dy / L0]);
+    return;
+  }
   const count = Math.max(1, Math.floor(total / step));
   const want = total / count;
   let acc = 0, next = 0;
@@ -1079,7 +1333,11 @@ function walkRing(path, step, into) {
     const L = Math.hypot(b.X / SCALE - ax, b.Y / SCALE - ay);
     while (next <= acc + L && into.length < 1e5) {
       const u = L ? (next - acc) / L : 0;
-      into.push([ax + (b.X / SCALE - ax) * u, ay + (b.Y / SCALE - ay) * u]);
+      /* Kartu įrašom liestinę — iš jos `insetPoints` gauna kryptį į vidų.
+         Be jos taškas liktų ant pačios briaunos. */
+      const L1 = L || 1;
+      into.push([ax + (b.X / SCALE - ax) * u, ay + (b.Y / SCALE - ay) * u,
+                 (b.X / SCALE - ax) / L1, (b.Y / SCALE - ay) / L1]);
       next += want;
     }
     acc += L;
@@ -1237,9 +1495,15 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               for (const [, gx, gy] of deep)
                 if (!out.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 < sp2))
                   out.push([gx, gy]);
-              if (!out.length) walkRing(paths[0], cfg.island_outline_step_mm, out);
+              if (!out.length) {
+                const rp0 = [];
+                walkRing(paths[0], cfg.island_outline_step_mm, rp0);
+                for (const q of insetPoints(paths, rp0, cfg)) out.push(q);
+              }
             } else {
-              for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, out);
+              const rp = [];
+              for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, rp);
+              for (const q of insetPoints(paths, rp, cfg)) out.push(q);
               const st = cfg.island_inner_step_mm;
               for (let gy = Math.ceil(pbb[1] / SCALE / st) * st; gy <= pbb[3] / SCALE; gy += st)
                 for (let gx = Math.ceil(pbb[0] / SCALE / st) * st; gx <= pbb[2] / SCALE; gx += st)
@@ -1295,8 +1559,11 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               const rt = new CL.PolyTree();
               c2.Execute(CL.ClipType.ctUnion, rt,
                          CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+              const ringPts = [];
               for (const oex of toExPolys(CL, rt))
-                for (const ring of oex) walkRing(ring, step, raw);
+                for (const ring of oex) walkRing(ring, step, ringPts);
+              // ant kontūro nesėjam — atitraukiam (siaurą ruožą — į vidurio ašį)
+              for (const q of insetPoints(restored, ringPts, cfg)) raw.push(q);
             }
             /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
                (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
