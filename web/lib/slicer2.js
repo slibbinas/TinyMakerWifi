@@ -1290,7 +1290,7 @@ function pathsBBox(paths) {
  *
  *  Puodelio atbraila (žiedas 9…12 mm, plotis 3 < 4,67) taip atsiduria ties
  *  r = 10,5 — kaip etalone, o ne ant briaunos ties r = 12. */
-function insetPoints(paths, pts, cfg) {
+function insetPoints(paths, pts, cfg, medial) {
   if (!paths || !paths.length) return pts.map(p => [p[0], p[1]]);
   const inside = (x, y) => pointInPaths(paths, x, y);   // even-odd, su skylėm
   const probe = 0.05, lim = cfg.thin_max_width_mm;
@@ -1304,7 +1304,7 @@ function insetPoints(paths, pts, cfg) {
     let w = lim;
     for (let d = probe; d <= lim; d += 0.1)
       if (!inside(x + nx * d, y + ny * d)) { w = d; break; }
-    const off = w < lim ? w / 2 : cfg.min_dist_from_outline_mm;
+    const off = (medial && w < lim) ? w / 2 : cfg.min_dist_from_outline_mm;
     out.push([x + nx * off, y + ny * off]);
   }
   return out;
@@ -1498,12 +1498,12 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               if (!out.length) {
                 const rp0 = [];
                 walkRing(paths[0], cfg.island_outline_step_mm, rp0);
-                for (const q of insetPoints(paths, rp0, cfg)) out.push(q);
+                for (const q of insetPoints(paths, rp0, cfg, true)) out.push(q);
               }
             } else {
               const rp = [];
               for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, rp);
-              for (const q of insetPoints(paths, rp, cfg)) out.push(q);
+              for (const q of insetPoints(paths, rp, cfg, true)) out.push(q);
               const st = cfg.island_inner_step_mm;
               for (let gy = Math.ceil(pbb[1] / SCALE / st) * st; gy <= pbb[3] / SCALE; gy += st)
                 for (let gx = Math.ceil(pbb[0] / SCALE / st) * st; gx <= pbb[2] / SCALE; gx += st)
@@ -1542,7 +1542,8 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             const solid = new CL.Paths();
             thinOut.Execute(solid, -selfSup / 2 * SCALE);
             const raw = [];
-            if (solid.length) {
+            let region = null;          // pilno pločio nuokabos sritis — jos reikia
+            if (solid.length) {         // atitraukimui po „sausumos" filtro
               const cs = new CL.Clipper();
               cs.AddPaths(solid, CL.PolyType.ptSubject, true);
               const back = new CL.PolyTree();
@@ -1554,16 +1555,14 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                 wide.AddPaths(sx, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
               const restored = new CL.Paths();
               wide.Execute(restored, selfSup / 2 * SCALE);
+              region = restored;
               const c2 = new CL.Clipper();
               c2.AddPaths(restored, CL.PolyType.ptSubject, true);
               const rt = new CL.PolyTree();
               c2.Execute(CL.ClipType.ctUnion, rt,
                          CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-              const ringPts = [];
               for (const oex of toExPolys(CL, rt))
-                for (const ring of oex) walkRing(ring, step, ringPts);
-              // ant kontūro nesėjam — atitraukiam (siaurą ruožą — į vidurio ašį)
-              for (const q of insetPoints(restored, ringPts, cfg)) raw.push(q);
+                for (const ring of oex) walkRing(ring, step, raw);
             }
             /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
                (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
@@ -1579,8 +1578,19 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             T.over += now() - tk;
             tk = now();
             const landTol = LAYER_MM / Math.tan(cfg.critical_angle);
-            for (const [x, y] of raw)
-              if (distToPaths(clip, x, y) > landTol) cand.push([x, y]);
+            /* EILIŠKUMAS: pirma „sausumos" filtras ant NEPAJUDINTŲ taškų, tik
+               paskui atitraukimas. Atvirkščiai buvo klaida — juostos vidinis
+               kraštas sutampa su apatiniu sluoksniu, tad tie taškai turi iškristi;
+               atitraukti per 0,25 mm jie nustodavo sutapti ir prasprūsdavo pro
+               filtrą. Biustui tai davė 13 laisvų kelių į plokštę vietoj 7 ir
+               22 kolonas vietoj 18 (08-13). */
+            /* Nuokabos taškai lieka TIKSLIAI ant kontūro — `sample_overhangs`
+               (SPG.cpp:409) juos ima iš pačių daugiakampio viršūnių ir tik
+               praleidžia tas atkarpas, kurios sutampa su apatiniu sluoksniu.
+               Jokio atitraukimo ten nėra; į vidurio ašį traukiami tik salų ir
+               pusiasalių taškai (`uniform_support_island`). */
+            for (const p of raw)
+              if (distToPaths(clip, p[0], p[1]) > landTol) cand.push([p[0], p[1]]);
             T.land += now() - tk;
 
             /* `create_peninsulas` (SPG.cpp:567) + `support_peninsulas`
@@ -1637,8 +1647,19 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             }
             T.island += now() - tk;
           }
-          // Atranka pagal augantį įtakos spindulį.
+          /* EILIŠKUMAS (generate_support_points, SPG.cpp:1528-1537): pirma
+             `support_peninsulas`, tik paskui `support_part_overhangs`. Tvarka
+             nėra kosmetinė — pusiasalio taškai jau guli `near_points` sąraše,
+             kai tikrinami nuokabos taškai, tad kontūro taškai, patenkantys į jų
+             įtakos spindulį, iškrinta. Buvo atvirkščiai: puodelio atbraila
+             gaudavo IR pusiasalio žiedą ties r=11,2, IR kontūro žiedą ties
+             r=12 — 26 taškai vietoj 15 (08-13). */
           tk = now();
+          for (const [x, y] of free) {
+            out.push({ pos: [x, y, z], normal: [0, 0, -1], island: true });
+            active.add(out.length - 1);
+          }
+          // Atranka pagal augantį įtakos spindulį.
           for (const [x, y] of cand) {
             let covered = false;
             for (const k of active) {
@@ -1648,13 +1669,6 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             }
             if (covered) continue;
             out.push({ pos: [x, y, z], normal: [0, 0, -1], island });
-            active.add(out.length - 1);
-          }
-          /* Salos ir pussaliai — BE spindulio patikros: originale filtras yra
-             tik `support_part_overhangs` (SPG.cpp:270), o `support_island` ir
-             `support_peninsulas` savo taškus deda besąlygiškai. */
-          for (const [x, y] of free) {
-            out.push({ pos: [x, y, z], normal: [0, 0, -1], island: true });
             active.add(out.length - 1);
           }
           T.pick += now() - tk;
