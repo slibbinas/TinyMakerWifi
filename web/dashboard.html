@@ -1658,11 +1658,19 @@ const paintPreviewProgress=(cv,label,frac)=>{
      „Preloading detailed view 46/240 (19%)" issitempdavo per visa drobe ir
      skaitesi kaip makaronas (V 08-13). */
   const lines=String(label).split('\n');
-  ctx.font='bold 34px sans-serif';
+  /* Sriftas prisitaiko prie lauko. Laukas nebe fiksuoto plocio, tad 34 px uzrasas
+     siauresneje drobeje islisdavo per abu krastus (V 08-13). Mazinam, kol telpa i
+     86 % plocio; antra eilute - proporcingai mazesne. */
+  const fitFont=(txt,start)=>{let f=start;
+    for(;f>11;f--){ctx.font='bold '+f+'px sans-serif';
+      if(ctx.measureText(txt).width<=PREV_W*0.86)break;}
+    return f;};
+  const f1=fitFont(lines[0],34);
+  ctx.font='bold '+f1+'px sans-serif';
   ctx.fillText(lines[0],PREV_CX,midY);
   let tw=ctx.measureText(lines[0]).width, by=midY+18;
   if(lines[1]){
-    ctx.font='bold 26px sans-serif';
+    ctx.font='bold '+Math.max(12,Math.round(f1*0.76))+'px sans-serif';
     ctx.fillText(lines[1],PREV_CX,midY+30);
     tw=Math.max(tw,ctx.measureText(lines[1]).width);
     by=midY+48;
@@ -3370,12 +3378,14 @@ window.syncCageBtn=syncCageBtn;   // gl3d IIFE pakyla veliau - susivienodinam te
 /* Oranzine = busena ijungta/uzfiksuota (narvas, detalumas). Cia perjungiami DU
    lygiaverciai vaizdai, tad spalva nesikeicia - keiciasi pati ikona: modelis stovi ant
    ploksteles arba kabo po ja (V 08-13, bendras principas). */
+/* B variantas (V 08-13): plokste + kryptis, kur auga spaudinys. Prie 26 px tai
+   perskaitoma is karto - du elementai ir aiskus rysys. */
 const ICON_UPRIGHT="<svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor'"
-  +" stroke-width='1.15' stroke-linejoin='round'><path d='M5.5 10.1 6.5 5.6h3l1 4.5z'/>"
-  +"<path d='M8 10.4 14 12.9 8 15.4 2 12.9z'/></svg>";
+  +" stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'>"
+  +"<path d='M8 9.6 14 12.1 8 14.6 2 12.1z'/><path d='M8 8.2V2.4M5.6 4.6 8 2.2 10.4 4.6'/></svg>";
 const ICON_HANGING="<svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor'"
-  +" stroke-width='1.15' stroke-linejoin='round'><path d='M8 0.9 14 3.4 8 5.9 2 3.4z'/>"
-  +"<path d='M5.5 6.2 6.5 10.7h3l1-4.5z'/></svg>";
+  +" stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'>"
+  +"<path d='M8 1.4 14 3.9 8 6.4 2 3.9z'/><path d='M8 7.8v6M5.6 11.6 8 14 10.4 11.6'/></svg>";
 const syncFlipBtn=()=>{const b=$('gl3dFlip');if(!b)return;
   b.innerHTML=VIEW_FLIP?ICON_HANGING:ICON_UPRIGHT;
   b.title=VIEW_FLIP?'Hanging under the plate, as printed - tap for the upright view'
