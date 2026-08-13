@@ -38,7 +38,12 @@ def segment_discs(segs: list[Segment], z: float, cfg: SupportConfig):
             continue
         k = (z - lo[2]) / ((hi[2] - lo[2]) or 1.0)
         r = cfg.pillar_radius_mm
-        if s.head_tip:
+        if s.anchor:
+            # Apversta galvutė: platus galas viršuje (prie stulpo), smaigalys
+            # apačioje, detalėje. Kūgis per visą atkarpą.
+            r = (cfg.head_front_radius_mm +
+                 (s.r - cfg.head_front_radius_mm) * (z - lo[2]) / ((hi[2] - lo[2]) or 1))
+        elif s.head_tip:
             # Galvutė siaurėja iki head_front_radius per head_width — tai jos
             # visa prasmė: laikyti, bet nusilaužti.
             left = hi[2] - z

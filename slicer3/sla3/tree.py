@@ -39,6 +39,7 @@ class Pillar:
     r_top: float
     on_model: bool = False
     partial: bool = False
+    anchored: bool = False      # apačioje ne paviršius, o apversta galvutė
     bridges: int = 0
     links: int = 0
 
@@ -48,7 +49,8 @@ class Segment:
     a: np.ndarray
     b: np.ndarray
     r: float
-    head_tip: bool = False      # smailėja į detalę
+    head_tip: bool = False      # smailėja į detalę VIRŠUJE
+    anchor: bool = False        # apversta galvutė: smailėja į detalę APAČIOJE
 
 
 @dataclass
@@ -407,11 +409,31 @@ def build(pts: list[SupportPoint], mesh, cfg: SupportConfig) -> Tree:
         dist, _ = rays.first_hit(h.junction, DOWN)
         if not np.isfinite(dist[0]):
             continue
-        bottom = max(0.0, float(h.junction[2] - dist[0]))
+        surface = float(h.junction[2] - dist[0])
+        # `connect_to_model_body` (cpp:684-706): stulpas baigiasi NE ant
+        # paviršiaus, o `hh` aukščiau jo, o likusį tarpą uždengia APVERSTA
+        # galvutė (`add_anchor`), smailėjanti iki r_pin. Tai ne grožis: storas
+        # stulpas, atremtas į detalę, nulūždamas palieka 1 mm žymę, o galvutė
+        # nusilaužia švariai. Iki šiol varėm stulpą tiesiai į paviršių.
+        #   zangle = max(asin(dir.z), PI/4);  dir = DOWN -> asin(-1) -> PI/4
+        #   hh = min(hit.distance() - r_back, sin(zangle) * fullwidth)
+        fullwidth = (2 * cfg.head_front_radius_mm + h.width +
+                     2 * h.r_back - cfg.head_penetration_mm)
+        hh = min(float(dist[0]) - h.r_back, math.sin(math.pi / 4) * fullwidth)
+        if h.r_back < cfg.head_back_radius_mm:
+            hh = max(hh, 0.0)                    # mini stulpui uodega gali būti 0
+        elif hh <= 0:
+            continue
+        bottom = max(0.0, surface + hh)
         if h.junction[2] - bottom < cfg.base_height_mm:
             continue
         pillars.append(Pillar(float(h.junction[0]), float(h.junction[1]),
-                              float(h.junction[2]), bottom, h.r_back, on_model=True))
+                              float(h.junction[2]), bottom, h.r_back,
+                              on_model=True, anchored=hh > 1e-6))
+        if hh > 1e-6:
+            bridges.append(Segment(np.array([h.junction[0], h.junction[1], bottom]),
+                                   np.array([h.junction[0], h.junction[1], surface]),
+                                   h.r_back, anchor=True))
         h.pillar = len(pillars) - 1
 
     # --- 5 · interconnect_pillars (cpp:189, 792) ---
@@ -479,9 +501,19 @@ def self_check(t: Tree, mesh, cfg: SupportConfig) -> int:
     storį (JS versijoje dėl to visi pranešimai buvo klaidingi)."""
     rays = Rays(mesh)
     eps, tol = 1e-3, 1e-3 + 0.05
-    check = [p for p in t.pillars if p.bottom > 1e-6 and not p.partial]
+    # `anchored` stulpo apačioje medžiagos NĖRA ir neturi būti — po juo eina
+    # apversta galvutė iki paviršiaus. Ją tikrinam atskirai, per jos smaigalį.
+    check = [p for p in t.pillars if p.bottom > 1e-6 and not p.partial
+             and not p.anchored]
+    anchors = [c for c in t.bridges if c.anchor]
+    if anchors:
+        o = np.array([[c.b[0], c.b[1], c.b[2] + eps] for c in anchors])
+        d2, in2 = Rays(mesh).first_hit(o, np.tile(DOWN, (len(o), 1)))
+        bad_anchor = int(np.sum(~(in2 | (d2 <= tol))))
+    else:
+        bad_anchor = 0
     if not check:
         return 0
     o = np.array([[p.x, p.y, p.bottom + eps] for p in check])
     dist, inside = rays.first_hit(o, np.tile(DOWN, (len(o), 1)))
-    return int(np.sum(~(inside | (dist <= tol))))
+    return int(np.sum(~(inside | (dist <= tol)))) + bad_anchor
