@@ -1398,6 +1398,32 @@ function crc32(buf, table) {
  *  ekraną. Skirta patikroms be naršyklės (`slice()` koduoja PNG per canvas, o
  *  jo Node'e nėra): stendas ir izometrinis palyginimas su PrusaSlicer'io
  *  sluoksniais naudoja būtent šitą, kad matytų TĄ PATĮ, ką matys derva. */
+/* display_mirror_x = 1 (PrusaSlicer/TinyMaker.ini:9, nuo pirmojo viesojo
+   leidimo). Ekranas rodo veidrodiskai, o firmware nieko neverčia — `PNG.ino:134`
+   piesia kiekviena PNG eilute tiesiai, o `rotation 1` nustatytas tvarkykleje
+   vienoda visam UI. Tad veidrodis privalo buti PACIAME paveiksleyje:
+   PrusaSlicer ji ideda, mes iki siol — ne, ir musu spaudiniai isejo veidrodiniai
+   (0.17 sesijos kodo perziura + musu matavimas 08-13: skirtumas tarp musu ir jo
+   sluoksniu yra grynas X veidrodis).
+
+   Taikoma TIK isvesciai. Modelio geometrijos ir supportu skaiciavimo neliecia —
+   ten viskas lieka modelio koordinatese; 3D perziuros irgi, kitaip vartotojui
+   ekrane modelis atsiverstu. */
+export const MIRROR_X = true;
+
+/** Apverčia pilkumo zemelapi X asimi (vietoje). */
+export function mirrorX(grey, w = RES.w, h = RES.h) {
+  if (!MIRROR_X) return grey;
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0, xe = w - 1; x < xe; x++, xe--) {
+      const a = row + x, b = row + xe;
+      const t = grey[a]; grey[a] = grey[b]; grey[b] = t;
+    }
+  }
+  return grey;
+}
+
 export function layerMask(pos, z, sup) {
   const grey = new Float32Array(RES.w * RES.h);
   const seg = [];
@@ -1415,7 +1441,7 @@ export function layerMask(pos, z, sup) {
     for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
   const out = new Uint8Array(RES.w * RES.h);
   for (let i = 0; i < out.length; i++) out[i] = Math.min(255, Math.round(grey[i] * 255));
-  return out;
+  return mirrorX(out);          // tai, kas spausdinama, o ne modelio vaizdas
 }
 
 function crcTable() {
@@ -1537,11 +1563,18 @@ export async function slice(pos, opts, onProgress) {
     if (sup.pad && i < padLayers)
       for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
     let lit = 0;
-    for (let p = 0, q = 0; p < grey.length; p++, q += 4) {
-      let v = grey[p]; if (v > 1) v = 1;
-      const g = (v * 255) | 0;
-      img.data[q] = g; img.data[q + 1] = g; img.data[q + 2] = g; img.data[q + 3] = 255;
-      lit += v;
+    /* PNG rasomas VEIDRODINIS (display_mirror_x), o `grey` lieka modelio
+       kryptimi — is jo statoma 3D perziura, kuri vartotojui turi atrodyti taip
+       pat, kaip jo ikeltas STL. */
+    for (let y = 0; y < RES.h; y++) {
+      const row = y * RES.w;
+      for (let x = 0; x < RES.w; x++) {
+        let v = grey[row + x]; if (v > 1) v = 1;
+        const g = (v * 255) | 0;
+        const q = (row + (MIRROR_X ? RES.w - 1 - x : x)) * 4;
+        img.data[q] = g; img.data[q + 1] = g; img.data[q + 2] = g; img.data[q + 3] = 255;
+        lit += v;
+      }
     }
     whiteSum += lit / grey.length;
     if (previewAt.has(i)) {
