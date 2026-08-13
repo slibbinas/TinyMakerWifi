@@ -2364,8 +2364,10 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
   await buildIso(cv);
   saveSlicesToPrinter(name);   // kitas atidarymas bus 3D be 37 s laukimo
   /* Detaliame rezime drobeje modelio nera (ji piesia GPU) IR miniatiura ten vis tiek
-     neatnaujinama - tad neikeliam „progreso uzraso" vietoj paveikslelio (V 08-13). */
-  if(!cacheIsDetail())try{
+     neatnaujinama - tad neikeliam „progreso uzraso" vietoj paveikslelio (V 08-13).
+     `slicesCache.name` patikra - ta pati, kaip refreshModelThumb: statymas ilgas, o per
+     ji galima persijungti i kita modeli. */
+  if(!cacheIsDetail()&&slicesCache.name===name)try{
     await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
   }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
@@ -2488,7 +2490,11 @@ const restoreDashPreview=async()=>{
     // `cv` cia anksciau nebuvo apibreztas - ReferenceError palikdavo tuscia
     // langa kaskart perkrovus puslapi (V 08-12).
     const cv=$('printPreviewCanvas');
-    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
+    /* Be `resinEstimated` patikros: modeliai be dervos iverčio JSON'e to lauko NETURI,
+       tad `Number(undefined).toFixed(1)` duoda „NaN ml" - butent taip ir buvo matoma po
+       puslapio atkurimo (V 08-13). Kitos dvi vietos patikra jau turejo. */
+    setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,
+                      resin:d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':''});
     if(haveSlices){
       if(dashPreviewName!==name)return;
       await buildIso(cv);
@@ -2803,6 +2809,11 @@ const canvasBlob=cv=>new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
 const refreshModelThumb=async(name,cv)=>{
   if(statusData&&statusData.busy)return;   // SD priklauso spaudiniui
   if(cacheIsDetail())return;               // detalus tankis to paties PNG nepagerina
+  /* Drobeje turi buti TAS PATS modelis, kurio vardu rasom. 3D statymas trunka
+     sekundes, o per ta laika galima atidaryti kita modeli - tada senojo kelio pabaiga
+     irasydavo NAUJO modelio piesini SENO vardu (V 08-13: „Skeletus" miniatiuroje buvo
+     „scull"). Kesas ir yra tas, is ko piesta, tad juo ir tikrinam. */
+  if(slicesCache.name!==name)return;
   try{await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
   catch(e){}                               // patogumas, ne būtinybė - tyli klaida
 };
