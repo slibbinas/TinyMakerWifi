@@ -939,7 +939,8 @@ export async function findOverhangs(pos, layers, onProgress, withSupports) {
     let extra = null;
     if (withSupports) {
       extra = pillarDiscs(withSupports.pillars, zNow);
-      if (withSupports.braces && zNow >= SUP.padMm)
+      if (withSupports.braces &&
+          (withSupports.bracesFromZero || zNow >= SUP.padMm))
         for (const d of braceDiscs(withSupports.braces, zNow)) extra.push(d);
     }
     rasterise(seg, grey, false, extra);   // no antialiasing: the mask is enough
@@ -1430,9 +1431,16 @@ export function layerMask(pos, z, sup) {
   sliceAt(pos, z, seg);
   let extra = null;
   if (sup) {
-    extra = pillarDiscs(sup.pillars, z);
-    if (sup.braces && sup.braces.length && z >= SUP.padMm)
-      for (const d of braceDiscs(sup.braces, z)) extra.push(d);
+    /* Jei atramas suskaičiavo slicer2, jis pats ir duoda savo diskus: kitaip
+       čia būtų piešiama SENO modulio matmenimis (SUP.rMm ir kt.), o skaičiuota
+       naujais — tada net galvutės skersmens keitimas piešinyje nesimatydavo,
+       ir jungtys ties SUP.padMm (1,5 mm) išnirdavo ore (08-13). */
+    if (sup.discsFor) extra = sup.discsFor(z);
+    else {
+      extra = pillarDiscs(sup.pillars, z);
+      if (sup.braces && sup.braces.length && z >= SUP.padMm)
+        for (const d of braceDiscs(sup.braces, z)) extra.push(d);
+    }
   }
   rasterise(seg, grey, true, extra);
   // Padas — tas pats kelias kaip slice(): ne diskai, o gatavas pikselių žemėlapis.

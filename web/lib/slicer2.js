@@ -1130,6 +1130,14 @@ export async function findOverhangs(pos, layers, onProgress) {
   });
   return {
     pillars, braces, companions: [],
+    /* `slicer.js` jungtis piešia tik nuo `SUP.padMm` (1,5 mm) — senojo
+       algoritmo taisyklė. Mūsų tiltai prasideda ir žemiau, tad ties ta riba
+       jie „išnirdavo" ore: „evil" sluoksnyje z=1,55 — 5 salos be atramos iš 8
+       (08-13). Vėliavėle prašom piešti nuo nulio, senojo elgesio neliečiant. */
+    bracesFromZero: true,
+    /* Piešiam SAVO matmenimis (žr. `discsFor`) — `layerMask` be šito imtų
+       senojo modulio SUP konstantas. */
+    discsFor: zz => discsFor({ pillars, braces }, zz, CFG),
     towers: t.pillars.filter(p => !p.onModel).length,
     bridges: t.bridges.length,
     pad: t.pad,
@@ -1770,9 +1778,11 @@ export function braceDiscs2(braces, z, cfg = CFG) {
 /** Vieno sluoksnio diskai — tai, ką `slice()` paims per opts.discsFor. */
 export function discsFor(sup, z, cfg = CFG) {
   const d = pillarDiscs2(sup.pillars, z, cfg);
-  /* Jungtys prasideda virš pėdų — žemiau stulpas ir taip platus. Riba ta pati,
-     kuria skaičiuota (base_height_mm), o ne svetima SUP.padMm. */
-  if (sup.braces && sup.braces.length && z >= cfg.base_height_mm)
+  /* Jungtys piešiamos VISU aukščiu, įskaitant pėdos zoną. Anksčiau žemiau
+     `base_height_mm` jos buvo praleidžiamos („ten stulpas ir taip platus") —
+     bet tiltas, prasidedantis žemiau tos ribos, tada išnirdavo ore: „evil"
+     sluoksnyje z=1,55 atsirasdavo 5 salos be atramos iš 8 (08-13). */
+  if (sup.braces && sup.braces.length)
     for (const b of braceDiscs2(sup.braces, z, cfg)) d.push(b);
   return d;
 }
