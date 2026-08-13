@@ -131,11 +131,11 @@
         <!-- Ikona ir VISADA ta pati vieta: tekstinis „Share" / „✓ Shared" keitė plotį,
              tad antraštė smukčiojo (V 08-13). Kai dalintis negalima - tik nematomas,
              bet vietos neatiduoda. -->
-        <button id='stageOpen' type='button' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
+        <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
         <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
              detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
              (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13). -->
-        <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
+        <button id='stageOpen' type='button' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
       </span></div>
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
@@ -1498,11 +1498,22 @@ const modelDetails=async(nameEnc,estimate)=>{
    o mastelis ir centras isvedami TAIS PACIAIS santykiais (3.8/420 ir 307/420), tad
    proporcijos ir kadravimas nesikeicia - tik viskas auga kartu su bloku. */
 let PREV_W=720,PREV_H=420,PREV_S=3.8,PREV_CX=360,PREV_CY=307;
-const PREV_S_R=3.8/420, PREV_CY_R=307/420, PREV_AR=720/420;
+const PREV_AR=720/420;
+/* Laukas auga kartu su bloku, o deze - iki artimiausio krasto, islaikant proporcijas.
+   Dezes matmenys piesinio vienetais: plotis 0.866*(MX+MY)=61.8*S, aukstis
+   0.35*(MX+MY)*S + MZ*ISO_Z*S = 101.2*S.
+   CENTRAVIMAS - abiem asim, ir cia buvo klaida (V 08-13: „prilipo prie desines"):
+   horizontaliai deze NEsimetriska apie nuli, nes (x-y) eina nuo -MY=-30.6 iki +MX=40.8,
+   tad jos vidurys yra 4.4*S i desine nuo PREV_CX - ta ir kompensuojam.
+   Vertikaliai vidurys yra 25.6*S auksciau uz CY. Su senais skaiciais (720x420) gaunasi
+   tas pats kadras, tik dabar tikrai per vidury. */
+const BOX_W_U=61.8, BOX_H_U=101.2;
 const pvSetField=(w,h)=>{
   PREV_W=Math.max(240,Math.round(w)); PREV_H=Math.max(150,Math.round(h));
-  PREV_S=PREV_H*PREV_S_R; PREV_CX=PREV_W/2; PREV_CY=PREV_H*PREV_CY_R;
-  CAM_CY=PREV_H*(272/420);
+  PREV_S=Math.min(PREV_H*0.92/BOX_H_U, PREV_W*0.92/BOX_W_U);
+  PREV_CX=PREV_W/2-4.4*PREV_S;
+  PREV_CY=PREV_H/2+25.6*PREV_S;
+  CAM_CY=PREV_H/2+16.3*PREV_S;      // masinos kadras - tas pats santykis kaip 272 prie 420
 };
 // Normalus kelias BAITAS I BAITA senas (CAM_C=false). Mach rezimas perjungia
 // centruota formule su KY=-0.2 - V stende rastas kampas: ziurint vos is apacios
@@ -1605,10 +1616,8 @@ const pvSkin=()=>{
 const pvFit=cv=>{
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const r=cv.getBoundingClientRect();
-  /* Atskira (nematoma) drobe - „Prepare 3D" ciklui: ten dydzio nera, tad paliekam
-     senaji 720x420 lauka. */
   const cssW=Math.round(r.width)||720;
-  const cssH=Math.round(r.height)|| Math.round(cssW/PREV_AR);
+  const cssH=Math.round(r.height)||Math.round(cssW/PREV_AR);
   pvSetField(cssW,cssH);
   const k=Math.max(1,Math.min(3,dpr));
   cv.width=Math.round(PREV_W*k); cv.height=Math.round(PREV_H*k);
@@ -1652,6 +1661,10 @@ const paintPreviewProgress=(cv,label,frac)=>{
      o istaisius dezes proporcijas jos apatine kraštine nusileido kaip tik ten
      ir uzejo ant juostelės (V 08-12). */
   const midY=PREV_H/2;
+  /* Tekstas ir juostele centruojami pagal PATI LAUKA, ne pagal dezes asi: PREV_CX yra
+     pastumtas 4.4*S i kaire, kad centruotusi deze, o uzrasas del to atsidurdavo salia
+     (V 08-13). */
+  const midX=PREV_W/2;
   ctx.fillStyle=pvSkin().text;
   ctx.textAlign='center';
   /* Antra eilute po '\n': skaiciai po pavadinimu, ne uodegoje. Vienoje eiluteje
@@ -1667,7 +1680,7 @@ const paintPreviewProgress=(cv,label,frac)=>{
     return f;};
   const f1=fitFont(lines[0],34);
   ctx.font='bold '+f1+'px sans-serif';
-  ctx.fillText(lines[0],PREV_CX,midY);
+  ctx.fillText(lines[0],midX,midY);
   let tw=ctx.measureText(lines[0]).width, by=midY+18;
   if(lines[1]){
     ctx.font='bold '+Math.max(12,Math.round(f1*0.76))+'px sans-serif';
@@ -1681,7 +1694,7 @@ const paintPreviewProgress=(cv,label,frac)=>{
      sudaro viena bloka, o ne du atsitiktinius elementus. Po juostele dedam
      tamsu paklota - kitaip tuscia jos dalis susilieja su dezes linijomis,
      kurios yra tokios pat spalvos (V 08-12). */
-  const bw=Math.max(220,Math.min(PREV_W-160,tw)), bx=PREV_CX-bw/2, bh=12, r=6;
+  const bw=Math.max(220,Math.min(PREV_W-160,tw)), bx=midX-bw/2, bh=12, r=6;
   const pill=(x,y,w,h,rad)=>{ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(x,y,w,h,rad); else ctx.rect(x,y,w,h);};
   pill(bx,by,bw,bh,r);
@@ -2759,11 +2772,16 @@ const fitStage=()=>{
   if(applied&&Math.abs(applied-h)<10){st.style.height=prev||applied+'px';return;}
   st.style.height=h+'px';
   st.dataset.fitH=String(h);
+  clearTimeout(pvRepaintT);
+  pvRepaintT=setTimeout(()=>{try{repaintPreviewForTheme();}catch(e){}},180);
 };
 window.fitStage=fitStage;   // gl3dShow gyvena savo IIFE - pasiekia per window
+let pvRepaintT=0;
 window.addEventListener('resize',()=>{
   fitStage();
   stageBoxSize();    // pailgintas blokas seka savo ploti (lango dydis, pasukimas)
+  clearTimeout(pvRepaintT);
+  pvRepaintT=setTimeout(()=>{try{repaintPreviewForTheme();}catch(e){}},180);
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
 });
@@ -2776,6 +2794,9 @@ const BOX_AR=0.611;
 /* Perjungus tema drobe reikia PERPIESTI: ji piesiama viena karta, tad fonas (CSS)
    pasikeisdavo, o joje irasytas tekstas likdavo senos spalvos - juodas ant juodo
    (V 08-13). GPU rodinys persidazo pats, tad ji praleidziam. */
+/* Naudojama ir po temos perjungimo, ir po bloko dydzio keitimo: drobe piesiama
+   viena karta, tad pasikeitus laukui senas piesinys butu istemptas (V 08-13 -
+   raides issitempe vertikaliai). */
 const repaintPreviewForTheme=()=>{
   const cv=$('printPreviewCanvas'), gl=$('gl3d');
   if(!cv)return;
@@ -2808,6 +2829,7 @@ const stageBox=on=>{
   ob.setAttribute('aria-label',ob.title);
   ob.innerHTML=on?ICON_BACK:ICON_GROW;
   if(on){stageBoxSize();scrollPreviewIntoView();} else fitStage();
+  repaintPreviewForTheme();   // naujas laukas - naujas piesinys, ne istemptas senas
   /* Kadravimo NORAS, ne vienkartinis veiksmas: pailginant 3D sluoksnio dar gali nebuti
      (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau), ir tada
      „kadruok turi" nueidavo i tuscia. Zyma laukia, kol 3D pakils, ir suveikia ten. */
