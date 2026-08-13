@@ -617,26 +617,44 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     const src = h.junction, r = h.rBack, sd = bridgeSafety(r, cfg);
     const gnd = cfg.object_elevation_mm;
     if (src[2] <= gnd + cfg.base_height_mm) return false;
-    let best = null;
+    /* Kryptys paruošiamos vieną kartą, o ilgis auga VISOMS iš karto: pirmas
+       radinys tada ir yra trumpiausias tiltas, ir paieška nutrūksta. Anksčiau
+       kiekviena kryptis buvo perrenkama iki galo — maršrutizacija truko 8,7 s. */
+    /* VISOS 48 kryptys. Bandžiau atrinkti aštuonias pagal ilgiausią laisvą
+       spindulį — klaida: svarbu ne kiek laisva ta kryptimi, o ar iš
+       NUSILEIDIMO TAŠKO yra laisvas kelias žemyn, o to vienas spindulys palei
+       tiltą nematuoja. Su atranka dėžučių testas liko be stulpų, o tikrame
+       modelyje jų sumažėjo 30 -> 26. Greitį duoda ne siauresnė paieška, o
+       pigus atmetimas žemiau. */
+    const dirs = [];
     for (let k = 0; k < 4; k++) {
       const polar = Math.PI - (k / 3) * cfg.bridge_slope;
       const st = Math.sin(polar), ct = Math.cos(polar);
       for (let a = 0; a < 12; a++) {
         const az = (a / 12) * 2 * Math.PI;
         const n = [st * Math.cos(az), st * Math.sin(az), ct];
-        const free = beamHit(mesh, src, n, r, r, sd);
-        const lmax = Math.min(cfg.max_bridge_length_mm,
-                              Number.isFinite(free) ? free : cfg.max_bridge_length_mm);
-        for (let l = 0; l <= lmax; l += Math.max(r, 1e-3)) {
-          if (best !== null && l >= best.l) break;   // trumpiausias laimi
-          const p = add(src, mul(n, l));
-          if (p[2] <= gnd + cfg.base_height_mm) break;
-          if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
-          best = { l, p };
-          break;
-        }
+        // lmax — vienu spinduliu; tiltą vis tiek patikrins pluoštas žemiau.
+        const free = mesh.rayHit(add(src, mul(n, r)), n).dist;
+        dirs.push({ n, lmax: Math.min(cfg.max_bridge_length_mm,
+                    Number.isFinite(free) ? free : cfg.max_bridge_length_mm) });
       }
     }
+    let best = null;
+    const step = Math.max(r, 1e-3);
+    for (let l = 0; l <= cfg.max_bridge_length_mm && !best; l += step)
+      for (const d of dirs) {
+        if (l > d.lmax) continue;
+        const p = add(src, mul(d.n, l));
+        if (p[2] <= gnd + cfg.base_height_mm) continue;
+        /* Pigus atmetimas: viena ašis. Beveik visi kandidatai krenta čia, ir
+           brangaus pluošto jiems nebereikia. */
+        if (mesh.rayHit(p, DOWN).dist < p[2] - gnd) continue;
+        // Tikras sprendimas — pluoštas su saugos atstumu.
+        if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
+        if (beamHit(mesh, src, d.n, r, r, sd) < l) continue;   // ir pats tiltas
+        best = { l, p };
+        break;
+      }
     if (!best) return false;
     pillars.push({ x: best.p[0], y: best.p[1], top: best.p[2], bottom: gnd,
                    rTop: r, rBase: cfg.base_radius_mm, head: h.id, bridges: 0 });
@@ -1068,19 +1086,25 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
   const out = [];                 // pasirinkti atramos taškai
   let prevParts = [];             // [{ paths, bbox, active:Set }]
   const seg = [];
+  /* Laikmačiai: kartą jau „pagreitinau" ne tą vietą, tad daugiau nespėliojam. */
+  const T = { slice: 0, tree: 0, below: 0, over: 0, land: 0, island: 0, pick: 0 };
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Number(process.hrtime.bigint() / 1000000n));
+  let tk;
 
   for (let i = 0; i < layers; i++) {
     const z = (i + 0.5) * LAYER_MM;
-    sliceAt(pos, z, seg);
-    const cur = stitch(seg);
+    tk = now(); sliceAt(pos, z, seg);
+    const cur = stitch(seg); T.slice += now() - tk;
     const parts = [];
     if (cur.length) {
+      tk = now();
       const tree = new CL.PolyTree();
       const c0 = new CL.Clipper();
       c0.AddPaths(cur, CL.PolyType.ptSubject, true);
       c0.Execute(CL.ClipType.ctUnion, tree,
                  CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-      for (const ex of toExPolys(CL, tree)) {
+      const expolys = toExPolys(CL, tree); T.tree += now() - tk;
+      for (const ex of expolys) {
         const bb = pathsBBox(ex);
         /* `get_small_parts` (SPG.cpp:1032): neatspausdinamos dalys išmetamos
            dar prieš sėją, kitaip kiekvienas mesh triukšmo taškelis virsta sala. */
@@ -1091,9 +1115,18 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
            susisieja su viskuo, salų nebelieka ir atramų kiekis krenta
            (išmatuota: 12 stulpų vietoj 23). Gabaritai — tik pigus sietas
            prieš tikrą patikrą. */
+        tk = now();
         const below = prevParts.filter(pp => {
           if (bb[2] < pp.bbox[0] || bb[0] > pp.bbox[2] ||
               bb[3] < pp.bbox[1] || bb[1] > pp.bbox[3]) return false;
+          /* Gretimi sluoksniai beveik sutampa, tad daugumą porų išsprendžia
+             VIENAS taškas: jei vienos figūros viršūnė yra kitos viduje —
+             persidengia, ir Clipper'io kviesti nereikia. Pilna sankirta lieka
+             tik neaiškiems atvejams. Išmatuota: šis žingsnis buvo 7,8 s iš
+             17,1 s visos sėjos. */
+          const a0 = ex[0][0], b0 = pp.paths[0][0];
+          if (pointInPaths(pp.paths, a0.X / SCALE, a0.Y / SCALE)) return true;
+          if (pointInPaths(ex, b0.X / SCALE, b0.Y / SCALE)) return true;
           const ci = new CL.Clipper();
           ci.AddPaths(ex, CL.PolyType.ptSubject, true);
           ci.AddPaths(pp.paths, CL.PolyType.ptClip, true);
@@ -1102,6 +1135,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                      CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
           return inter.length > 0;
         });
+        T.below += now() - tk;
         const active = new Set();
         for (const pp of below) for (const k of pp.active) active.add(k);
         /* `remove_supports_out_of_part` (SPG.cpp:555): atrama nustoja dengti,
@@ -1131,15 +1165,26 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                nugarkaulį duoda Voronoi skeletas (UniformSupportIsland.cpp),
                čia — tinklelio taškai, giliausi nuo krašto, retinami
                thin_max_distance. Storoms saloms lieka kontūras. */
+            tk = now();
             const thin = cfg.island_outline_step_mm / 2;
+            /* Ar sala PLONA — atsakom PIGIAI: neigiamu offsetu. Anksčiau tam
+               buvau statęs 0,3 mm tinklelį VISOMS saloms, ir jis vienas suėdė
+               15,7 s iš 26,9 (pado diskas pirmame sluoksnyje irgi yra sala:
+               27×27 mm tinklelis kiekvienam jo taškui matavo atstumą iki visų
+               kraštinių). Storoms saloms tinklelio nereikia. */
+            const cin = new CL.ClipperOffset();
+            cin.AddPaths(ex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
+            const shrunk = new CL.Paths();
+            cin.Execute(shrunk, -thin * SCALE);
+            const isThin = shrunk.length === 0;
             const deep = [];
-            for (let gy = bb[1] / SCALE; gy <= bb[3] / SCALE; gy += 0.3)
-              for (let gx = bb[0] / SCALE; gx <= bb[2] / SCALE; gx += 0.3)
-                if (pointInPaths(ex, gx, gy)) {
-                  const d = distToPaths(ex, gx, gy);
-                  if (d > 0.05) deep.push([d, gx, gy]);
-                }
-            const isThin = !deep.some(q => q[0] > thin);
+            if (isThin)
+              for (let gy = bb[1] / SCALE; gy <= bb[3] / SCALE; gy += 0.3)
+                for (let gx = bb[0] / SCALE; gx <= bb[2] / SCALE; gx += 0.3)
+                  if (pointInPaths(ex, gx, gy)) {
+                    const d = distToPaths(ex, gx, gy);
+                    if (d > 0.05) deep.push([d, gx, gy]);
+                  }
             if (isThin) {
               deep.sort((p1, p2) => p2[0] - p1[0]);
               const sp2 = cfg.island_thin_step_mm * cfg.island_thin_step_mm;
@@ -1148,14 +1193,17 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                   cand.push([gx, gy]);
               if (!cand.length) walkRing(ex[0], step, cand);
             } else {
+              // Stora sala: kontūras + RETAS vidaus tinklelis (5 mm), be
+              // atstumų skaičiavimo — jų čia nereikia, o jie ir buvo brangūs.
               for (const ring of ex) walkRing(ring, cfg.island_outline_step_mm, cand);
-              for (const [d, gx, gy] of deep)
-                if (d > cfg.island_inner_step_mm / 2 &&
-                    !cand.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 <
-                                    cfg.island_inner_step_mm ** 2))
-                  cand.push([gx, gy]);
+              const st = cfg.island_inner_step_mm;
+              for (let gy = Math.ceil(bb[1] / SCALE / st) * st; gy <= bb[3] / SCALE; gy += st)
+                for (let gx = Math.ceil(bb[0] / SCALE / st) * st; gx <= bb[2] / SCALE; gx += st)
+                  if (pointInPaths(shrunk, gx, gy)) cand.push([gx, gy]);
             }
+            T.island += now() - tk;
           } else {
+            tk = now();
             const clip = [];
             for (const pp of below) for (const p of pp.paths) clip.push(p);
             const c1 = new CL.Clipper();
@@ -1170,10 +1218,14 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
                (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
                „sausuma", ne nuokabos krantas. */
+            T.over += now() - tk;
+            tk = now();
             for (const [x, y] of raw)
               if (distToPaths(clip, x, y) > 1e-6) cand.push([x, y]);
+            T.land += now() - tk;
           }
           // Atranka pagal augantį įtakos spindulį.
+          tk = now();
           for (const [x, y] of cand) {
             let covered = false;
             for (const k of active) {
@@ -1185,6 +1237,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             out.push({ pos: [x, y, z], normal: [0, 0, -1], island });
             active.add(out.length - 1);
           }
+          T.pick += now() - tk;
         }
         parts.push({ paths: ex, bbox: bb, active });
       }
@@ -1194,6 +1247,12 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
     prevParts = parts;
     if (onProgress && (i % 32 === 0)) onProgress(i + 1, layers);
   }
+  for (const k in T) T[k] = Math.round(T[k]);
+  /* Naršyklėje `process` neegzistuoja, o `process?.env` nuo to neapsaugo —
+     neapibrėžtas identifikatorius meta ReferenceError dar prieš optional
+     chaining. Tikrinam per typeof. */
+  if (typeof process !== 'undefined' && process.env && process.env.SLICER_TIMES)
+    console.log('  sėjos vidus (ms):', JSON.stringify(T));
   return out;
 }
 
