@@ -11,19 +11,12 @@
    tuscia juoda apacia (V 08-13). Tempimo nera: proporcija issaugoma. */
 #previewStage{position:relative}#previewStage.stageTall{position:relative}
 #previewStage.stageTall>canvas{height:100%;object-fit:contain}
-/* ID + klase, ir PO stageTall: kitaip ``
-   yra stipresne uz `.stageFull{position:fixed}` ir isdidinimas nieko nedaro - butent
-   taip ir buvo (V 08-13: „tas expand man nieko nedaro"). */
-/* Isdidintas langas NEUZIMA viso ekrano ploCio: spausdinimo turis yra siauras ir
-   aukstas, tad placiame ekrane irankiai issibegiodavo i tolimus kampus, o vaizdas
-   likdavo mazas vidury (V 08-13, pvz. nr.2). Plotis skaiciuojamas is aukscio
-   (stageFullSize) ir paduodamas kaip --stageW - langas gaunasi proporcingas dezei,
-   o mygtukai lieka salia vaizdo, kaip pvz. nr.3. */
-#previewStage.stageFull{position:fixed;top:12px;bottom:12px;left:50%;transform:translateX(-50%);width:var(--stageW,min(96vw,640px));max-width:calc(100vw - 24px);height:auto!important;z-index:70;background:var(--pv);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid;place-items:center}
-body.stageFullOn::before{content:'';position:fixed;inset:0;background:var(--bg);z-index:69}
-#previewStage.stageFull>canvas{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
-#stageClose{display:none;position:absolute;right:14px;top:14px;z-index:5;width:auto;margin:0;padding:5px 11px;border-radius:8px;background:rgba(20,20,22,.72);border:1px solid var(--line);color:var(--text);font-size:15px;line-height:1}
-#previewStage.stageFull #stageClose{display:block;left:50%;right:auto;transform:translateX(-50%)}
+/* „Isdidinimas" - NE pilnas ekranas, o paprasciausiai AUKSTESNIS perziuros blokas
+   (V 08-13). Spausdinimo turis yra stacias staciakampis: blokas pailgeja tiek, kad
+   deze ji uzpildytu, ir daugiau nebeilgeja - toliau ribotu plotis, tad aukstis nieko
+   nebeduotu. Sluoksnio virs puslapio nera, tad nera nei nupjautu krastu, nei i
+   kampus issibegiojusiu irankiu, nei remelio remelyje. */
+#previewStage.stageBox>canvas{height:100%;object-fit:contain}
 /* Ikona, ne uzrasas: „Expand" mygtukas korteles antrasteje atrode kaip svetimkunis
    salia 3D irankiu, kurie visi yra maži kvadratėliai (V 08-13). */
 .cardBusy .cardHead button,.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dHelp{opacity:.4;pointer-events:none}
@@ -135,15 +128,12 @@ body.stageFullOn::before{content:'';position:fixed;inset:0;background:var(--bg);
              bet vietos neatiduoda. -->
         <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
         <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
-             detales korteleje tiesiog nesimato. Isdidinimas duoda visa langa, o
-             kortele lieka kompaktiska (V 08-13). -->
-        <button id='stageOpen' type='button' title='Fill the window (Esc closes)' aria-label='Fill the window'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
+             detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
+             (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13). -->
+        <button id='stageOpen' type='button' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
       </span></div>
-    <!-- Pozicija - CSS'e, ne inline: inline `position:relative` nugalėdavo
-         `.stageFull{position:fixed}` ir išdidinimas nieko nedarydavo (V 08-13). -->
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
-      <button id='stageClose' type='button' title='Close (Esc)'>Close &#10005;</button>
       <div id='gl3d' style='display:none;position:absolute;inset:0;border-radius:8px;overflow:hidden'>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
@@ -1066,11 +1056,9 @@ const openView=view=>{
   // Leaving the model view cancels an in-flight slice run (fetchSlices checks
   // the sequence each layer) - it must not keep loading behind another view.
   if(view!=='model')fetchSlicesSeq++;
-  /* Isdidinta perziura negali persekioti kito vaizdo: jei ji liktu, sluoksnis
-     dingtu kartu su #homeView, o `body{overflow:hidden}` liktu - puslapis
-     nebeslinktu be jokios iseities (auditas 08-13). */
+  /* Pailgintas blokas nepersekioja kito vaizdo: perjungus grazinam iprasta auksti. */
   const stg=document.getElementById('previewStage');
-  if(stg&&stg.classList.contains('stageFull')){stg.classList.remove('stageFull');document.body.style.overflow='';}
+  if(stg&&stg.classList.contains('stageBox')){stg.classList.remove('stageBox');stg.style.height='';stg.dataset.boxH='';}
   if(view!=='connect'||connectTab!=='boot')clearBootAnimPreviews();
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -1767,7 +1755,25 @@ let NZS=1;
 // zingsnio 36 pjuviai atrodo kaip 36 blynai, kad ir kaip juos sesetuotum.
 const SM_K=4;
 let SM={key:'',verts:null,quads:null,f:null,W:0,H:0,D:0};
-const smBuildField=()=>{
+/* Sunkus skaiciavimas dalimis. Laukas, pavirsius ir piesimas sukasi vienoje gijoje
+   su narsykle, tad vientisas 5-6 s gabalas atrodo kaip pakibes puslapis - Chrome net
+   siulydavo ji uzdaryti („Page Unresponsive", V 08-13). Skaiciavimai parasyti kaip
+   generatoriai: tas pats kodas gali suktis vientisai (smRun) arba dalimis, atiduodant
+   narsyklei kadra tarp gabaliuku (smRunAsync). Pauzei - MessageChannel, ne setTimeout:
+   fone paliktame skirtuke narsykle laikmacius pristabdo iki 1 k./s, ir perziura ten
+   uzstrigtu. */
+const smPause=(()=>{
+  const ch=new MessageChannel(), q=[];
+  ch.port1.onmessage=()=>{const f=q.shift();if(f)f();};
+  return ()=>new Promise(r=>{q.push(r);ch.port2.postMessage(0);});
+})();
+const smRun=it=>{let r;while(!(r=it.next()).done);return r.value;};
+const smRunAsync=async(it,onProg)=>{
+  let r;
+  while(!(r=it.next()).done){ if(onProg)onProg(r.value); await smPause(); }
+  return r.value;
+};
+function* smBuildFieldGen(){
   const {slices,gw,gh}=slicesCache, N=slices.length;
   // Vieno langelio tuscias APVADAS is visu pusiu: be jo pavirsius nesusidaro
   // ten, kur medziaga siekia masyvo krasta (dugnas!) - modelis liktu be
@@ -1791,6 +1797,7 @@ const smBuildField=()=>{
       const p=y*Wi+x;
       a[off+(y+1)*W+(x+1)]=(s0[p]?1-w:0)+((s1&&s1[p])?w:0);
     }
+    if((d&31)===0)yield 0.10*d/Di;
   }
   const b=new Float32Array(WH*D);
   // Branduolio svoris: kuo didesnis centras, tuo svelnesnis suliejimas.
@@ -1803,26 +1810,34 @@ const smBuildField=()=>{
   // tinkleli patys sutankinom interpoliuodami: be sito suliejimas vienoje
   // kryptyje siekia 0.51 mm, kitoje 0.11 mm, ir modelis vienur istirpes,
   // kitur laipteliuotas (V 08-12).
-  const blur=(src,dst,st,lim,dim,w,sp)=>{
-    const div=2+w, off=st*sp;
-    for(let d=0;d<D;d++)for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-      const i=(d*H+y)*W+x, c=dim===0?x:(dim===1?y:d);
-      dst[i]=(src[c>=sp?i-off:i]+w*src[i]+src[c<lim-sp?i+off:i])/div;
+  /* Gabaliuko dydis - 24 pjuviai: apie 30-40 ms darbo, t.y. trumpiau, nei narsyklei
+     reikia kadrui, tad puslapis lieka gyvas ir per patį sunkiausią etapa. */
+  function* blur(src,dst,st,lim,dim,w,sp,base,span){
+    const div=2+w, off=st*sp, CH=24;
+    for(let d0=0;d0<D;d0+=CH){
+      const d1=Math.min(D,d0+CH);
+      for(let d=d0;d<d1;d++)for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+        const i=(d*H+y)*W+x, c=dim===0?x:(dim===1?y:d);
+        dst[i]=(src[c>=sp?i-off:i]+w*src[i]+src[c<lim-sp?i+off:i])/div;
+      }
+      yield base+span*(d1/D);
     }
-  };
-  blur(a,b,1,W,0,6,1); blur(b,a,W,H,1,6,1); blur(a,b,WH,D,2,2,K);
+  }
+  yield* blur(a,b,1,W,0,6,1,0.10,0.20);
+  yield* blur(b,a,W,H,1,6,1,0.30,0.20);
+  yield* blur(a,b,WH,D,2,2,K,0.50,0.20);
   /* Gimtos raiskos vaizde (320x240) horizontalus langelis yra 0,13 mm, o
      tarpas tarp pjuviu 0,34 mm - t.y. 2,7 karto stambesnis. Kai xy tapo
      astrus, tas skirtumas pasimate kaip ziedai ant lygiu pavirsiu (V 08-13).
      Antras praejimas ta pacia z kryptimi isplecia branduoli nepridedant nei
      atminties, nei pjuviu - tik viena praejima per lauka. */
-  if(gw>=DET_GW){ blur(b,a,WH,D,2,2,K); return {f:a,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di}; }
+  if(gw>=DET_GW){ yield* blur(b,a,WH,D,2,2,K,0.70,0.20); return {f:a,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di}; }
   return {f:b,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di};
-};
+}
 // Surface nets: viena virsune celei, kurios kampai kerta izoreiksme; celes
 // sujungiamos i keturkampius. Trumpiau ir tvirciau uz marching cubes, o
 // rezultatas toks pat glotnus.
-const smSurfaceNets=(fld,iso)=>{
+function* smSurfaceNetsGen(fld,iso){
   const {f,W,H,D}=fld;
   const idx=new Int32Array((W-1)*(H-1)*(D-1)).fill(-1);
   const vs=[];
@@ -1830,7 +1845,9 @@ const smSurfaceNets=(fld,iso)=>{
   const E=[[0,0,0,1,0,0],[0,1,0,1,1,0],[0,0,1,1,0,1],[0,1,1,1,1,1],
            [0,0,0,0,1,0],[1,0,0,1,1,0],[0,0,1,0,1,1],[1,0,1,1,1,1],
            [0,0,0,0,0,1],[1,0,0,1,0,1],[0,1,0,0,1,1],[1,1,0,1,1,1]];
-  for(let z=0;z<D-1;z++)for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+  for(let z=0;z<D-1;z++){
+   if((z&7)===0)yield z/(D-1)*0.6;
+   for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
     let neg=0,pos=0;
     for(let dz=0;dz<2;dz++)for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)
       (at(x+dx,y+dy,z+dz)<iso?neg++:pos++);
@@ -1845,36 +1862,51 @@ const smSurfaceNets=(fld,iso)=>{
     if(!n)continue;
     idx[(z*(H-1)+y)*(W-1)+x]=vs.length/3;
     vs.push(x+sx/n,y+sy/n,z+sz/n);
+   }
   }
   const qs=[];
   const cell=(x,y,z)=>(x<0||y<0||z<0||x>=W-1||y>=H-1||z>=D-1)?-1:idx[(z*(H-1)+y)*(W-1)+x];
   const push4=(a,b,c,d)=>{if(a>=0&&b>=0&&c>=0&&d>=0)qs.push(a,b,c,d);};
-  for(let z=0;z<D-1;z++)for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
+  for(let z=0;z<D-1;z++){
+   if((z&7)===0)yield 0.6+z/(D-1)*0.4;
+   for(let y=0;y<H-1;y++)for(let x=0;x<W-1;x++){
     const c=at(x,y,z)<iso;
     if(x>0&&y>0&&(at(x,y,z+1)<iso)!==c)push4(cell(x-1,y-1,z),cell(x,y-1,z),cell(x,y,z),cell(x-1,y,z));
     if(x>0&&z>0&&(at(x,y+1,z)<iso)!==c)push4(cell(x-1,y,z-1),cell(x,y,z-1),cell(x,y,z),cell(x-1,y,z));
     if(y>0&&z>0&&(at(x+1,y,z)<iso)!==c)push4(cell(x,y-1,z-1),cell(x,y,z-1),cell(x,y,z),cell(x,y-1,z));
+   }
   }
   return {verts:new Float32Array(vs),quads:new Int32Array(qs)};
-};
-const smMesh=()=>{
+}
+function* smMeshGen(){
   const key=slicesCache.name+':'+(slicesCache.mode||'')+':'+slicesCache.slices.length+
             ':'+slicesCache.gw+'x'+slicesCache.gh;
   if(SM.key!==key){
-    const fld=smBuildField();
-    const sn=smSurfaceNets(fld,0.5);
+    /* Pusiau ir pusiau: laukas ir pavirsius kainuoja panasiai, tad procentai auga
+       tolygiai, o ne soka nuo 5 iki 90. */
+    const fld=yield* smSubGen(smBuildFieldGen(),0,0.5);
+    const sn=yield* smSubGen(smSurfaceNetsGen(fld,0.5),0.5,0.5);
     SM={key:key,verts:sn.verts,quads:sn.quads,f:fld.f,W:fld.W,H:fld.H,D:fld.D,
         Wi:fld.Wi,Hi:fld.Hi,Di:fld.Di};
   }
   return SM;
-};
+}
+// Vaiko generatoriaus procentus perskaiciuoja i savo ruoza (0..1 -> base..base+span).
+function* smSubGen(it,base,span){
+  let r;
+  while(!(r=it.next()).done)yield base+span*r.value;
+  return r.value;
+}
+const smMesh=()=>smRun(smMeshGen());
 // Glotnus piesimas - ta pati drobe, ta pati projekcija, tas pats apsvietimas
 // kaip voxeliuose; skiriasi tik tai, kad piesiami pavirsiaus keturkampiai.
-const drawSmooth=cv=>{
+function* drawSmoothGen(cv){
   const {modelH}=slicesCache;
-  const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
-  const m=smMesh(), {verts,quads,f,W,H,D,Wi,Hi,Di}=m;
+  /* Tinklelis PIRMA, drobe po jo: dalimis skaiciuojant ant drobes tuo metu dar rasomi
+     procentai, ir jei deze butu nupiesta anksciau, keturkampiai gultu ant uzrasu. */
+  const m=yield* smSubGen(smMeshGen(),0,0.75), {verts,quads,f,W,H,D,Wi,Hi,Di}=m;
+  const ctx=drawVolumeBox(cv);
   const FL=VIEW_FLIP;
   // -1: laukas turi apvada, tad tinklelio 1 atitinka modelio 0.
   const gx=v=>(v-1)/(Wi-1)*MX, gy=v=>(v-1)/(Hi-1)*MY;
@@ -1896,7 +1928,11 @@ const drawSmooth=cv=>{
           i=(zi*H+yi)*W+xi;
     return [f[i-1]-f[i+1], f[i-W]-f[i+W], f[i-W*H]-f[i+W*H]];
   };
+  let drawn=0;
   for(const q of ord){
+    // Piesimas irgi dalimis: 4000 keturkampiu uztrunka apie 20 ms, o tarp gabaliuku
+    // narsykle spėja atsakyti (ir vaizdas ropoja i virsu, o ne stoja vienu blyksniu).
+    if((++drawn&4095)===0)yield 0.75+0.25*drawn/nq;
     let nx=0,ny=0,nz=0;
     for(let c=0;c<4;c++){const v=quads[q*4+c]*3;
       const g=grad(verts[v],verts[v+1],verts[v+2]);nx+=g[0];ny+=g[1];nz+=g[2];}
@@ -1917,8 +1953,8 @@ const drawSmooth=cv=>{
   ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
   ctx.fillText(slicesCache.name+' - '+modelH.toFixed(1)+' mm - '+slicesCache.layers+' layers',
     12,PREV_H-10);
-};
-const drawIso=(cv,doneFrac)=>{
+}
+function* drawIsoGen(cv,doneFrac){
   // GPU sluoksnis paslepiamas PIRMA, pries bet kuri ankstyva return'a:
   // is perziuros paspaudus Print jis likdavo uzklojes spaudini (auditas 08-12).
   if(doneFrac<1&&window.gl3dShow)gl3dShow(false);
@@ -1929,11 +1965,20 @@ const drawIso=(cv,doneFrac)=>{
   // lieka voxeliai: ten sluoksniai ateina po viena, o tinklelio perskaiciavimas
   // (~0.5 s) vyktu kas kelias sekundes.
   if(doneFrac>=1&&slicesCache.slices.length>2){
-    // Drobe piesiama VISADA, net kai virsuje bus GPU: po sio kvietimo einantis
-    // canvasBlob() irraso miniatiura i SD, o tuscia drobe ten butu ikelusi
-    // 'Loading preview 100%' vietoj modelio (auditas 08-12).
-    let ok=false;
-    try{drawSmooth(cv);ok=true;}
+    /* Drobe piesiama tada, kai jos piesinys kam nors reikalingas: po sio kvietimo
+       einantis canvasBlob() irraso miniatiura i SD, o tuscia drobe ten butu ikelusi
+       „Loading preview 100%" vietoj modelio (auditas 08-12). IsSKYRUS detalu rezima:
+       ten miniatiura ir taip nerasoma (tas pats PNG geresnis nebus), o ekrane rodo
+       GPU - tad 186 tukst. keturkampiu piesimas ant 2D drobes buvo grynas laukimas
+       (ismatuota 08-13: „scull" 66 s, is kuriu tinklelis - viena sekunde). */
+    let ok=false,gpu=false;
+    try{
+      if(cacheIsDetail()&&cv.id==='printPreviewCanvas'&&window.gl3dShow){
+        yield* smSubGen(smMeshGen(),0,1);
+        gpu=ok=!!gl3dShow(true);
+      }
+      if(!ok){yield* drawSmoothGen(cv);ok=true;}
+    }
     catch(e){
       /* Atminties nepakako (detalus vaizdas - ~90 MB laukas). Nusileidziam i
          grubu tanki IR isimenam ta: kitaip GPU kelias tuoj pat bandytu ta pacia
@@ -1948,8 +1993,8 @@ const drawIso=(cv,doneFrac)=>{
       }
     }
     // GPU - tik pagrindinei pulto drobei; detaliu vaizdas turi savo canvas,
-    // o #gl3d gyvena homeView viduje.
-    if(window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
+    // o #gl3d gyvena homeView viduje. (Jei ji jau parodem auksciau - nekartojam.)
+    if(!gpu&&window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
     if(ok)return;
   }
   const {slices,gw,gh,modelH}=slicesCache;
@@ -2044,7 +2089,12 @@ const drawIso=(cv,doneFrac)=>{
   let cap=slicesCache.name+' - '+modelH.toFixed(1)+' mm - '+slicesCache.layers+' layers';
   if(doneFrac<1)cap+=' - '+Math.round(doneFrac*100)+'% printed';
   ctx.fillText(cap,12,PREV_H-10);
-};
+}
+/* Du budai paleisti TA PATI piesima: vientisai (gyvas spausdinimo progresas - ten
+   piesiami voxeliai, tai pigu) ir dalimis su procentais (perziuros glotnus vaizdas,
+   kur skaiciavimo yra kelioms sekundems). */
+const drawIso=(cv,doneFrac)=>smRun(drawIsoGen(cv,doneFrac));
+const drawIsoAsync=(cv,doneFrac,onProg)=>smRunAsync(drawIsoGen(cv,doneFrac),onProg);
 /* Pjuviu kesas SALIA MODELIO (V 08-12): 36 PNG traukimas ~37 s, o sis failas
    21 KB ir ateina per <1 s - butent tai leidzia rodyti 3D pagal nutylejima,
    o ne plokscia paveiksleli. Formatas TMV2, po viena bita langeliui. */
@@ -2248,9 +2298,9 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
    reikia (V 08-13). Vardas laikomas atskirai, kad paspaudimas atkurtu butent
    ta modeli, kurio krovimas nutruko, o ne kazkoki pasenusi. */
 let previewStoppedFor='';
-const markPreviewStopped=(cv,name)=>{
+const markPreviewStopped=(cv,name,why)=>{
   previewStoppedFor=name;
-  paintPreviewProgress(cv,'Preview stopped\nclick here to load it again',null);
+  paintPreviewProgress(cv,(why||'Preview stopped')+'\nclick here to load it again',null);
   cv.style.cursor='pointer';
   cv.title='Click to load the preview again';
 };
@@ -2275,6 +2325,15 @@ const paintStage=(cv,txt,n)=>{
   paintPreviewProgress(cv,txt+(n?'\nsmoothing '+n+' slices':''),null);
   return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
 };
+/* Glotnaus vaizdo statymas su tikrais procentais. Skaiciavimo dalis (iki ~75 %)
+   piesia procentus, o nuo ten jau lipdomas pats pavirsius - ten uzrasu nebededam,
+   nes jie tryntu ta pati vaizda, kuris kaip tik ropoja i virsu. */
+const buildIso=async cv=>{
+  await paintStage(cv,'Building the 3D view…',slicesCache.slices.length);
+  await drawIsoAsync(cv,1,f=>{
+    if(f<0.74)paintPreviewProgress(cv,'Building the 3D view\n'+Math.round(f*100)+'%',f);
+  });
+};
 // Shared voxel-preview pipeline: slices (with painted % progress) -> quick
 // resin estimate -> isometric render -> SD cache. Returns the quick estimate.
 const renderVoxelPreview=async(cv,name,layers,modelH)=>{
@@ -2297,12 +2356,13 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
      vienoje gijoje be pertraukos - todel ekrane sustingdavo paskutinis skaicius
      (99 %) ir atrodydavo, kad uzstrigo (V 08-13). Pasakom, kas vyksta, ir
      LEIDZIAM narsyklei ta kadra nupiesti pries pradedant skaiciuoti. */
-  await paintStage(cv,'Building the 3D view…',slicesCache.slices.length);
-  drawIso(cv,1);
+  await buildIso(cv);
   saveSlicesToPrinter(name);   // kitas atidarymas bus 3D be 37 s laukimo
-  const blob=await canvasBlob(cv);
-  try{await uploadModelPreview(name,blob,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
-  catch(e){}  // cache write is best effort
+  /* Detaliame rezime drobeje modelio nera (ji piesia GPU) IR miniatiura ten vis tiek
+     neatnaujinama - tad neikeliam „progreso uzraso" vietoj paveikslelio (V 08-13). */
+  if(!cacheIsDetail())try{
+    await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
+  }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
 };
 // Details-view preview (Brian's Connect app deep-links here via modelDetails).
@@ -2425,10 +2485,8 @@ const restoreDashPreview=async()=>{
     const cv=$('printPreviewCanvas');
     setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
     if(haveSlices){
-      paintPreviewProgress(cv,'Loading 3D view...',.85);
-      await new Promise(r=>setTimeout(r,0));
       if(dashPreviewName!==name)return;
-      drawIso(cv,1);
+      await buildIso(cv);
     }
     else{
       await loadSavedPreviewTo(cv,name);
@@ -2500,8 +2558,7 @@ const upgradeToSlices=async(name,d)=>{
     if(dashPreviewName!==name)return;
     // Tas pats etapas, kaip renderVoxelPreview: pasakom, kad dabar lipdomas
     // pavirsius, ir leidziam kadrui pasirodyti pries uzimant gija (V 08-13).
-    await paintStage(cvp,'Building the 3D view…',slicesCache.slices.length);
-    drawIso($('printPreviewCanvas'),1);
+    await buildIso($('printPreviewCanvas'));
     // Vienas po kito, ne kartu: ESP32 serveris aptarnauja po vieną užklausą, o abu
     // rašo į SD - persidengę jie tik trukdytų vienas kitam (auditas 08-13).
     await saveSlicesToPrinter(name);
@@ -2550,8 +2607,7 @@ const dashPreview=async nameEnc=>{
        lipdyma (~0.5 s, blokuoja) atiduodam narsyklei kadra, kad 85 % spetu
        issipiesti. */
     const prog=f=>{ if(dashPreviewName===name)paintPreviewProgress(cv,'Loading preview...',f); };
-    const draw=async()=>{ prog(.85); await new Promise(r=>setTimeout(r,0));
-                          if(dashPreviewName!==name)return; drawIso(cv,1); };
+    const draw=async()=>{ if(dashPreviewName!==name)return; await buildIso(cv); };
     if(slicesFit(name)){
       await draw();
     }else if(await loadSlicesFromPrinter(name,f=>prog(.1+f*.65))){
@@ -2580,8 +2636,12 @@ const dashPreview=async nameEnc=>{
       if(dashPreviewName===name)markPreviewStopped(cv,name);
       return;
     }
+    /* Nepavykes krovimas irgi turi ISEITI: anksciau drobeje likdavo negyvas
+       „Preview failed", ir vienintelis kelias buvo perkrauti puslapi. Daznaiusia
+       priezastis - printeris tuo metu aptarnavo kita langa ar siuntima (jis atsako po
+       viena uzklausa), tad pakartojimas po kelių sekundžių paprastai pavyksta. */
     msg(e.message,true);
-    if(dashPreviewName===name)paintPreviewProgress(cv,'Preview failed',null);
+    if(dashPreviewName===name)markPreviewStopped(cv,name,'Preview failed - '+e.message);
   }
 };
 window.dashPreview=dashPreview;
@@ -2595,7 +2655,7 @@ window.dashPreview=dashPreview;
    DABAR (V 08-13: „gerai butu, kad tilptu i ekrana"). */
 const fitStage=()=>{
   const st=$('previewStage'), card=$('printPreviewCard');
-  if(!st||!card||st.classList.contains('stageFull'))return;
+  if(!st||!card||st.classList.contains('stageBox'))return;
   if(!st.classList.contains('stageTall')){st.style.height='';return;}
   /* Matuojam nuo DOKUMENTO virsaus, ne nuo lango: `top` viewport atzvilgiu keiciasi
      slenkant, o funkcija sukasi kas 2 s - tada perziura tyliai keistu dydi vien nuo
@@ -2605,7 +2665,10 @@ const fitStage=()=>{
   // Jei perziura ir taip prasideda zemiau ekrano vidurio (telefonas, siauras langas),
   // tempti ja i „ekrano apacia" beprasmiska - ten vis tiek slenkama.
   if(wrapTop>window.innerHeight*0.78){st.style.height='';st.dataset.fitH='';return;}
-  let h=Math.max(260,Math.min(900,Math.round(window.innerHeight-wrapTop-66)));
+  /* Zemesnes lubos ir didesnė atsarga apacioje: perziura buvo isaugusi tiek, kad
+     oranzinis puslapio remelis nebetilpdavo i ekrana (V 08-13). 660 px uztenka
+     modeliui matyti, o kortele telpa su visa apvadu. */
+  let h=Math.max(260,Math.min(660,Math.round(window.innerHeight-wrapTop-96)));
   /* Kortele turi savo parastes, tad vien „langas minus virsus" duoda per daug
      (ismatuota: 13 px per krasta). Pamatuojam realia apacia ir atimam skirtuma. */
   const prev=st.style.height;
@@ -2623,7 +2686,7 @@ const fitStage=()=>{
 window.fitStage=fitStage;   // gl3dShow gyvena savo IIFE - pasiekia per window
 window.addEventListener('resize',()=>{
   fitStage();
-  stageFullSize();   // isdidintas langas seka ekrano auksti (telefono pasukimas)
+  stageBoxSize();    // pailgintas blokas seka savo ploti (lango dydis, pasukimas)
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
 });
@@ -2632,48 +2695,36 @@ window.addEventListener('resize',()=>{
    aukscio, tad pacio piesinio plotis ~0.54h. Prie jo pridedam sonines juostas
    irankiams (~170 px: sukimo/stumdymo padai po 82 px + tarpai), kad mygtukai stovetu
    salia vaizdo, o ne prie ekrano krastu. */
-const stageFullSize=()=>{
+const BOX_AR=0.611;
+const stageBoxSize=()=>{
   const st=$('previewStage');
-  if(!st||!st.classList.contains('stageFull'))return;
-  const gl=$('gl3d');
-  const is3d=!!(gl&&gl.style.display==='block');
-  const h=Math.max(240,window.innerHeight-24);
-  /* 2D drobe yra plati ir zema (ji piesia is virsaus i apacia, ne turi), tad jai
-     siauras langas paliktu tuscias juostas. Todel proporcija priklauso nuo to, kas
-     rodoma; persijungus i 3D (jis pakyla veliau) plotis persiskaiciuoja gl3dShow'e. */
-  const w=is3d?Math.round(h*0.55)+170:Math.round(h*1.35);
-  st.style.setProperty('--stageW',Math.min(window.innerWidth-24,w)+'px');
+  if(!st||!st.classList.contains('stageBox'))return;
+  const w=st.clientWidth||st.getBoundingClientRect().width;
+  if(!w)return;
+  const h=Math.round(w/BOX_AR);
+  if(st.dataset.boxH!==String(h)){st.style.height=h+'px';st.dataset.boxH=String(h);}
 };
-window.stageFullSize=stageFullSize;   // gl3d gyvena savo IIFE - pasiekia per window
-const stageFull=on=>{
+window.stageBoxSize=stageBoxSize;   // gl3d gyvena savo IIFE - pasiekia per window
+const stageBox=on=>{
   const st=$('previewStage');
   if(!st)return;
-  /* Aukstis valomas ABIEM kryptim. Ieinant tai butina: `position:fixed;inset:0` kartu
-     su `height` yra per daug apribojimu, ir narsykle ignoruoja `bottom` - „pilnas
-     langas" butu likes tokio auksčio, koks buvo korteleje (auditas 08-13). */
-  st.style.height='';st.dataset.fitH='';
-  st.classList.toggle('stageFull',on);
-  document.body.classList.toggle('stageFullOn',on);
-  document.body.style.overflow=on?'hidden':'';
-  if(on)stageFullSize(); else st.style.removeProperty('--stageW');
-  if(!on)fitStage();   // grizus atgal langas turi atgauti savo auksti, ne susitraukti
-  /* Kadravimo NORAS, ne vienkartinis veiksmas: isdidinant 3D sluoksnio dar gali
-     nebuti (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau),
-     ir tada „kadruok turi" nueidavo i tuscia - deze likdavo nupjauta (pvz. nr.1).
-     Zyma laukia, kol 3D pakils, ir suveikia ten. */
-  window.stageWantsVolume=!!on;
+  st.style.height='';st.dataset.fitH='';st.dataset.boxH='';
+  st.classList.toggle('stageBox',on);
+  $('stageOpen').title=on?'Back to the normal height':'Grow to the print volume';
+  if(on){stageBoxSize();scrollPreviewIntoView();} else fitStage();
+  /* Kadravimo NORAS, ne vienkartinis veiksmas: pailginant 3D sluoksnio dar gali nebuti
+     (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau), ir tada
+     „kadruok turi" nueidavo i tuscia. Zyma laukia, kol 3D pakils, ir suveikia ten. */
+  window.stageWantsVolume=true;
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow){
     gl3dShow(true);                                   // setSize + camera.aspect
-    // Dideliame lange ziurima, kaip daiktas stovi plokstėje - tad kadre visas turis.
-    if(on&&window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
-    if(!on&&window.gl3dFrameModel)gl3dFrameModel();   // atgal i korteles kadra
+    if(window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
   }
 };
-$('stageOpen').addEventListener('click',()=>stageFull(true));
-$('stageClose').addEventListener('click',()=>stageFull(false));
+$('stageOpen').addEventListener('click',()=>stageBox(!$('previewStage').classList.contains('stageBox')));
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&$('previewStage').classList.contains('stageFull')){e.preventDefault();stageFull(false);}
+  if(e.key==='Escape'&&$('previewStage').classList.contains('stageBox')){e.preventDefault();stageBox(false);}
 });
 // Nutruktas krovimas: pats vaizdas yra mygtukas (V 08-13). Veikia tik tada, kai
 // drobeje stovi „Preview stopped" - kitu metu paspaudimas nieko nedaro, kad
@@ -2743,17 +2794,24 @@ const refreshModelThumb=async(name,cv)=>{
   try{await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
   catch(e){}                               // patogumas, ne būtinybė - tyli klaida
 };
-const shareModel=async name=>{
+const shareModel=async(name,btn)=>{
   /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ir ikelimas, tad
      apklausos nustoja atsakineti. Kol tai vyksta, snackbaras turi sakyti TIKSLIAI ka
      printeris veikia, o ne speti „greiciausiai ikelimas" (V 08-13). */
   bgJob='Sharing this model';
+  /* Mygtukas uzsirakina su suktuku, kol dalijimasis vyksta (V 08-13): jis ir taip po
+     to virsta „Shared", tad tarpine busena buvo vienintele, kurios truko - spaudei
+     antra karta, nes atrode, kad pirmas paspaudimas dingo. */
+  if(btn){btn.disabled=true;btn.classList.add('btnBusy');btn.title='Sharing...';btn.setAttribute('aria-label','Sharing');}
   try{
     await loadConnectApp();
     if(window.TinyMakerConnectShareModel)return await window.TinyMakerConnectShareModel(name);
     throw new Error('Connect app did not expose sharing');
   }catch(e){msg(e.message,true);}
-  finally{bgJob='';}
+  finally{
+    bgJob='';
+    if(btn){btn.disabled=false;btn.classList.remove('btnBusy');btn.title='Share';btn.setAttribute('aria-label','Share');}
+  }
 };
 window.shareModel=shareModel;
 
@@ -3209,7 +3267,7 @@ $('gl3dDet').addEventListener('click',async e=>{
   const cv=$('printPreviewCanvas');
   b.classList.add('busy');
   try{
-    if(slicesFit(name)||await loadSlicesFromPrinter(name)){drawIso(cv,1);return;}
+    if(slicesFit(name)||await loadSlicesFromPrinter(name)){await buildIso(cv);return;}
     const d=await api('/api/files/model?name='+enc(name));
     if(dashPreviewName===name)await upgradeToSlices(name,d);
   }catch(e2){msg(e2.message,true);}
@@ -3262,7 +3320,7 @@ $('prep3dButton').addEventListener('click',async()=>{
            (V 08-13). Piešiam į ATSKIRĄ drobę - matomas langas šiuo metu rodo Settings,
            ir jo blaškyti nereikia. */
         const off=document.createElement('canvas');
-        drawIso(off,1);
+        await drawIsoAsync(off,1);   // dalimis: ciklas sukasi fone, puslapis lieka gyvas
         await refreshModelThumb(m.name,off);
         made++;
       }catch(e){}
@@ -3273,7 +3331,7 @@ $('prep3dButton').addEventListener('click',async()=>{
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
     /* Ciklas piešė į atskirą drobę, o tai paslėpė GPU rodinį (drawIso jį gesina, kai
        drobė ne pagrindinė) - grįžus į Dashboard likdavo 2D (auditas 08-13). */
-    if(dashPreviewName){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); drawIso($('printPreviewCanvas'),1); }
+    if(dashPreviewName){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); await buildIso($('printPreviewCanvas')); }
     else slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
@@ -3581,13 +3639,13 @@ $('updUploadForm').addEventListener('submit',async e=>{
 $('pauseButton').addEventListener('click',()=>printCommand('pause','Pause this print?'));
 $('resumeButton').addEventListener('click',()=>printCommand('resume','Resume this print?'));
 $('stopButton').addEventListener('click',()=>printCommand('stop','Stop this print?'));
-$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName&&!$('dashShareButton').classList.contains('shared'))shareModel(dashPreviewName);});
+$('dashShareButton').addEventListener('click',()=>{if(dashPreviewName&&!$('dashShareButton').classList.contains('shared'))shareModel(dashPreviewName,$('dashShareButton'));});
 $('modelResin').addEventListener('click',async()=>{
   if($('modelResin').textContent.indexOf('~')!==0)return;
   if(!await uiConfirm('Run the exact resin scan on the printer? It decodes every layer and can take minutes.'))return;
   modelDetails(enc(selectedModel),true);
 });
-$('modelShareButton').addEventListener('click',()=>{if(!$('modelShareButton').classList.contains('shared'))shareModel(selectedModel);});
+$('modelShareButton').addEventListener('click',()=>{if(!$('modelShareButton').classList.contains('shared'))shareModel(selectedModel,$('modelShareButton'));});
 $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)));
 
 // The preview restore has to know whether a print is running before it touches
@@ -3813,9 +3871,16 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        centras, kabantis tuscioje erdveje virs 24 mm kaukoles, tad artinant
        vaizdas lindo i niekur (V 08-12). Atstumas irgi pagal modelio dydi. */
     geo.computeBoundingBox();
-    const bb=geo.boundingBox, ctr=new T.Vector3(); bb.getCenter(ctr);
-    const sz=new T.Vector3(); bb.getSize(sz);
-    if(typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+    /* Kadras - VISAS spausdinimo turis, ne vien modelis (V 08-13). Anksciau kamera
+       prilipdavo prie modelio, tad deze uzsikrovus buvo kito dydzio nei ta, kuri
+       nupiesta krovimo metu ir miniatiuroje - vaizdas soktelėdavo. Dabar 2D ir 3D
+       rodo ta pati kadra, o modelis stovi turyje tokio dydzio, koks yra is tikruju.
+       Priartinti visada galima mygtukais (+ / -) arba ratuku. */
+    if(!window.gl3dFrameVolume||!gl3dFrameVolume()){
+      const bb=geo.boundingBox, ctr=new T.Vector3(); bb.getCenter(ctr);
+      const sz=new T.Vector3(); bb.getSize(sz);
+      if(typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+    }
     return true;
   };
   /* drawIso pasako, kada rodyti GPU vaizda: tik perziura/baigtas spaudinys. */
@@ -3835,9 +3900,8 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       if(!ren)init();
       const cv=$('printPreviewCanvas');
       host.style.display='block';   // PRIES matavima: paslepto elemento clientWidth = 0
-      // Isdidintas langas persiskaiciuoja PRIES matavima: 3D nori dezes proporcijos,
-      // o 2D drobe - placios. Kitaip GPU gautu dar senojo lango matmenis.
-      if(window.stageFullSize)stageFullSize();
+      // Pailgintas blokas persiskaiciuoja PRIES matavima, kitaip GPU gautu senus matmenis.
+      if(window.stageBoxSize)stageBoxSize();
       /* Matmenys imami is PACIO GPU sluoksnio, ne is drobes: iprastai jie sutampa
          (sluoksnis yra `inset:0` virs drobes), o isdidinus drobe letterbox'inama, o
          sluoksnis uzima visa ekrana - tada 3D pagaliau gauna auksti (V 08-13). */
@@ -3847,8 +3911,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       /* Isdidinta, bet dar nekadruota - kadruojam CIA, nes tik dabar 3D tikrai stovi.
          Zyma nuimama is karto: kitaip kiekvienas perpiesimas grazintu vaizda atgal ir
          isdidintame lange nebūtų imanoma nei pasukti, nei priartinti. */
-      if(window.stageWantsVolume&&stage&&stage.classList.contains('stageFull')
-         &&window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
+      if(window.stageWantsVolume&&window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
       host.style.display='block';
       if(cvEl)cvEl.style.visibility='hidden';   // vienas vaizdas, ne du (zr. auksciau)
       const hh=$('gl3dHelp'); if(hh)hh.style.display='block';
@@ -3874,16 +3937,6 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
                +Math.abs(Math.sin(pitch)*Math.cos(yaw))*hz;
     const asp=cam.aspect||1;
     setView(new T.Vector3(0,0,0),Math.max(halfH/fill,(halfW/fill)/asp)/tf);
-    return true;
-  };
-  /* Uzdarius isdidinima kortele turi atrodyti taip, kaip atrode iki jo: turio kadras
-     mazame lange palieka modeli mazyti (V 08-13). */
-  window.gl3dFrameModel=()=>{
-    if(!mesh||typeof setHome!=='function')return false;
-    const g=mesh.geometry; if(!g.boundingBox)g.computeBoundingBox();
-    const ctr=new T.Vector3(),sz=new T.Vector3();
-    g.boundingBox.getCenter(ctr); g.boundingBox.getSize(sz);
-    setHome(ctr,Math.max(sz.x,sz.y,sz.z));
     return true;
   };
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
