@@ -2127,6 +2127,10 @@ function* drawIsoGen(cv,doneFrac){
      uzpildytas langelis, taskas yra. Butent sujungimas, o ne kas n-tojo langelio emimas:
      kitaip dingtu plonos sieneles ir supportai. Taskas - toks pat 2.2 (V 08-14). */
   const stp=Math.max(1,Math.round(gw/80));
+  /* IR per sluoksnius: senasis vaizdas turejo ~36 pjuvius, o detalus kesas - 240, tad
+     vaiduoklio taskai sustodavo vienas ant kito i vertikalias juostas (V 08-14
+     „kur taskuciai?"). Spausdinta dalis piesiama is VISU sluoksniu, kaip ir buvo. */
+  const kStepG=Math.max(1,Math.round(N/36));
   const gdot=2.2;
   const ghostAt=(sl,i,j)=>{                 // ar bloke stp x stp yra medziagos
     for(let b=0;b<stp;b++){const jj=j+b; if(jj>=gh)break;
@@ -2168,7 +2172,7 @@ function* drawIsoGen(cv,doneFrac){
       /* Vaiduoklis piesiamas RETAI - kas `stp`-taji langeli. Prie 320x240 keso taskeliai
          susilieja i vientisa mase ir dingsta permatomumas; atspausdinta dalis lieka
          pilno tankio, tad kokybe nenukencia (V 08-13). */
-      if(a<1&&!(i%stp)&&!(j%stp)&&ghostAt(s,i,j)){
+      if(a<1&&!(k%kStepG)&&!(i%stp)&&!(j%stp)&&ghostAt(s,i,j)){
         ctx.fillStyle=pvSkin().ghost+(edge0?0.20:0.05)+')';
         const gp=isoPt(cx+(stp-1)*(MX/gw)/2,cy+(stp-1)*(MY/gh)/2,z);
         ctx.fillRect(gp.X-gdot/2,gp.Y-gdot/2,gdot,gdot);
