@@ -24,6 +24,10 @@ const EPS = 1e-3, tol = EPS + 0.05;
 let air = 0; const airList = [];
 for (const p of t.pillars) {
   if (p.bottom <= 1e-6 || p.partial) continue;
+  /* `anchored` stulpo apacia SPECIALIAI kabo: tarpa iki pavirsiaus uzdengia
+     apversta galvute (add_anchor). Tikrinam ne stulpa, o tos galvutes smaigali —
+     jis ir liecia detale. */
+  if (p.anchored) continue;
   const hr = t.mesh.rayHit([p.x, p.y, p.bottom + EPS], DOWN);
   if (hr.inside || hr.dist <= tol) continue;
   air++; if (airList.length < 5)
@@ -56,8 +60,17 @@ for (const p of t.pillars)
 for (const c of t.bridges) if (walk(c.a, c.b, SKIP)) inBridge++;
 for (const c of t.links)   if (walk(c.a, c.b, 0)) inLink++;
 
+/* Apverstu galvuciu smaigaliai — atskirai. */
+let anchorAir = 0;
+for (const c of (t.bridges || [])) {
+  if (!c.anchor) continue;
+  const hr = t.mesh.rayHit([c.b[0], c.b[1], c.b[2] + EPS], DOWN);
+  if (!(hr.inside || hr.dist <= tol)) anchorAir++;
+}
+console.log('  apverstu galvuciu ore: %d / %d', anchorAir,
+  (t.bridges || []).filter(c => c.anchor).length);
 console.log('  apacia ore: %d / %d  %s', air,
-  t.pillars.filter(p => p.bottom > 1e-6 && !p.partial).length, JSON.stringify(airList));
+  t.pillars.filter(p => p.bottom > 1e-6 && !p.partial && !p.anchored).length, JSON.stringify(airList));
 console.log('  kerta detale: stulpu %d/%d · tiltu %d/%d · jungciu %d/%d',
   inPillar, t.pillars.length, inBridge, t.bridges.length, inLink, t.links.length);
 console.log('  selfCheck() sako:', M.selfCheck(t, t.mesh, M.CFG));

@@ -11,6 +11,7 @@ Taip gaunam jo taškų sąrašą nesikapstant po 3MF ir nespėliojant.
     python tips.py <sluoksniai.zip|sl1> <placed.stl> [pirmo_sluoksnio_storis]
 """
 import io
+import os
 import sys
 import zipfile
 
@@ -39,7 +40,9 @@ def masks(k):
     a = np.asarray(Image.open(io.BytesIO(z.read(names[k]))).convert('L')) > 127
     part = raster.rasterize(slicing.section(mesh, layer_z(k))) > 127
     # detales krastas gali buti pilkas - praplecia, kad jo nelaikytume supportu
-    part = ndimage.binary_dilation(part, iterations=2)
+    import os
+    it = int(os.environ.get("DIL", "2"))
+    if it: part = ndimage.binary_dilation(part, iterations=it)
     return a & ~part
 
 
@@ -55,7 +58,7 @@ for k in range(len(names) - 1, -1, -1):          # is virsaus zemyn
         sizes = ndimage.sum(sup, lab, index=np.arange(1, n + 1))
         cent = ndimage.center_of_mass(sup, lab, np.arange(1, n + 1))
         for i in range(n):
-            if has_above[i] or sizes[i] < 2:
+            if has_above[i] or sizes[i] < int(os.environ.get("MINPX","2")):
                 continue
             tips.append((layer_z(k), cent[i][1], cent[i][0], sizes[i]))
     prev_sup = ndimage.binary_dilation(sup, iterations=1)
