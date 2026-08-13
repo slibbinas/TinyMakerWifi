@@ -95,6 +95,10 @@ export const CFG = {
      (DefaultSupportTree.cpp:565-571). */
   cluster_size:          3,     // = max_bridges_on_pillar
   pillar_cascade_neighbors: 3,  // kiek kaimynų vienas stulpas jungia
+  /* SupportTree.hpp:112-113 — nuo šių aukščių stulpas laikomas „vienišu" ir
+     jungčių skaičiavimas griežtėja. */
+  max_solo_pillar_height_mm: 15.0,
+  max_dual_pillar_height_mm: 35.0,
   pillar_connection_mode: 'zigzag',   // support_pillar_connection_mode
   /* SLA/Pad.hpp + V profilis: pad_wall_height 0, pad_wall_thickness 0.15,
      pad_brim_size 1.6. full_height = wall_height + wall_thickness. */
@@ -781,6 +785,9 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
       if (donePairs.has(key)) continue;
       const B = pillars[j];
       if (d < 2 * cfg.head_back_radius_mm) continue;
+      /* cpp:856 — plonesnis kaimynas praleidžiamas: jungtis turi eiti į bent
+         tokį pat storą stulpą. */
+      if ((B.rTop || cfg.pillar_radius_mm) < (A.rTop || cfg.pillar_radius_mm)) continue;
       const bridgeDistance = d / Math.cos(-cfg.bridge_slope);
       const zstep = d * Math.tan(-cfg.bridge_slope);
       let sUp = A.top, sLo = B.top;
@@ -800,15 +807,32 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
       let a = [ax, ay, startz], b = [bx, by, startz + zstep];
       let made = false, guard = 0;
       while (b[2] >= eUp && guard++ < 200) {
-        if (beamHit(mesh, a, norm(sub(b, a)), cfg.head_front_radius_mm,
-                    cfg.head_front_radius_mm, cfg.safety_distance_mm) >= bridgeDistance) {
+        /* Tikrinama STULPO spinduliu (`bridge_mesh_distance(sj, dir,
+           pillar.r_start)`, cpp:256), ne galvutės smaigalio — o smaigalys
+           dvigubai plonesnis. Su per plonu pluoštu jungtys prasispraudžia
+           pro vietas, kur jos netelpa: puodelio narvas išėjo su tankiu
+           zigzagu ten, kur etalonas turi vieną žiedą. Saugos atstumą 3
+           argumentų perkrova pasiskaičiuoja pati. */
+        const rLink = A.rTop || cfg.pillar_radius_mm;
+        if (beamHit(mesh, a, norm(sub(b, a)), rLink, rLink,
+                    bridgeSafety(rLink, cfg)) >= bridgeDistance) {
           links.push({ a: a.slice(), b: b.slice(), r: cfg.pillar_radius_mm });
           made = true;
         }
         const t = a; a = b; b = [t[0], t[1], a[2] + zstep];
       }
       donePairs.add(key);
-      if (made) { A.links++; B.links = (B.links || 0) + 1; }
+      if (made) {
+        /* cpp:860-869 — jungtis SKAIČIUOJAMA tik tada, kai kaimynas nėra
+           daug žemesnis: „if the interconnection length between the two
+           pillars is less than 50% of the longer pillar's height, don't
+           count". Žemam stulpui (žemiau max_solo_pillar_height) skaičiuojama
+           visada. */
+        const hA = A.top - A.bottom, hB = B.top - B.bottom;
+        if (hA < cfg.max_solo_pillar_height_mm || hB / hA > 0.5) A.links++;
+        if (hB < cfg.max_solo_pillar_height_mm || hA / hB > 0.5)
+          B.links = (B.links || 0) + 1;
+      }
     }
   }
 
