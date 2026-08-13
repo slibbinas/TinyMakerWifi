@@ -23,7 +23,8 @@ from scipy import ndimage
 sys.path.insert(0, 'C:/PIO-build/s3-wt/slicer3')
 from sla3 import raster, slicing  # noqa: E402
 
-ZS = [3, 10, 15, 20, 30, 40]
+import os
+ZS = [float(v) for v in os.environ.get("ZS","3,10,15,20,30,40").split(",")]
 mesh = slicing.place(slicing.load(sys.argv[1]))
 
 
