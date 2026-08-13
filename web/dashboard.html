@@ -1631,61 +1631,6 @@ const pvFit=cv=>{
   ctx.setTransform(k,0,0,k,0,0);
   return ctx;
 };
-/* Vaiduokliui VISADA grubus rinkinys - toks pat, koki duoda printeris (80x60, ~36
-   pjuviai). Kai atmintyje guli detalus kesas (po „Detailed" perziuros), ji vienakart
-   sumazinam: langelis uzpildytas, jei uzpildyta bent puse bloko (ne „bent vienas" -
-   tas storino silueta). Taip senasis piesimo kodas gauna tokius duomenis, kokiems
-   parasytas, ir vaizdas nesiskiria nuo senojo (V 08-14). */
-let ghostCache={key:'',gw:0,gh:0,slices:[]};
-const ghostSet=()=>{
-  const sc=slicesCache, N=sc.slices.length;
-  const key=sc.name+':'+sc.gw+'x'+sc.gh+':'+N;
-  if(ghostCache.key===key)return ghostCache;
-  const fx=Math.max(1,Math.round(sc.gw/80)), fz=Math.max(1,Math.round(N/36));
-  if(fx===1&&fz===1){ghostCache={key:key,gw:sc.gw,gh:sc.gh,slices:sc.slices,step:1};return ghostCache;}
-  const GW=Math.max(1,Math.round(sc.gw/fx)), GH=Math.max(1,Math.round(sc.gh/fx)), out=[];
-  for(let k=0;k<N;k+=fz){
-    const src=sc.slices[k]; if(!src){out.push(new Uint8Array(GW*GH));continue;}
-    const d=new Uint8Array(GW*GH);
-    for(let j=0;j<GH;j++)for(let i=0;i<GW;i++){
-      let n=0,tot=0;
-      for(let b=0;b<fx;b++)for(let a=0;a<fx;a++){
-        const jj=j*fx+b, ii=i*fx+a;
-        if(jj<sc.gh&&ii<sc.gw){tot++; if(src[jj*sc.gw+ii])n++;}}
-      if(tot&&n*2>=tot)d[j*GW+i]=1;
-    }
-    out.push(d);
-  }
-  ghostCache={key:key,gw:GW,gh:GH,slices:out,step:fz};
-  return ghostCache;
-};
-const drawGhost=(ctx,doneFrac)=>{
-  /* Originalus piesimas: kiekvienas grubaus tinklelio langelis, kiekvienas jo pjuvis,
-     taskas 2.2, permatomumas 0.20 / 0.05 - lygiai kaip buvo. */
-  const g=ghostSet(), {modelH}=slicesCache, MX=40.8, MY=30.6;
-  const N=g.slices.length; if(N<2)return;
-  const FL=VIEW_FLIP;
-  /* Taskas turi buti mazesnis IR uz horizontalu tarpa tarp langeliu, IR uz vertikalu
-     tarpa tarp pjuviu - kitaip sienele sudeda taskus i stulpelius (ismatuota stende
-     08-14: pailgintame bloke vertikalus tarpas 1.98 px, o fiksuotas 2.2 px taskas juos
-     sujungdavo). Mazame bloke tarpai < 1 px, tad lieka apatine 1 px riba - ten vaizdas
-     ir buvo toks, kokį prisimeni. */
-  const pitchX=(MX/g.gw)*0.866*PREV_S;
-  const pitchZ=(modelH/Math.max(N-1,1))*ISO_Z*PREV_S;
-  const gd=Math.max(1,Math.min(2.6,0.6*Math.min(pitchX,pitchZ)));
-  for(let n=0;n<N;n++){
-    const k=FL?N-1-n:n, t=N>1?k/(N-1):0, z=(FL?1-t:t)*modelH;
-    if(doneFrac>0&&t<=doneFrac)continue;          // ta dali jau piesia spaudinys
-    const sl=g.slices[k]; if(!sl)continue;
-    for(let j=0;j<g.gh;j++)for(let i=0;i<g.gw;i++){
-      if(!sl[j*g.gw+i])continue;
-      const edge=i===0||j===0||i+1>=g.gw||!sl[j*g.gw+i+1]||j+1>=g.gh||!sl[(j+1)*g.gw+i];
-      const gp=isoPt((i+0.5)/g.gw*MX,(j+0.5)/g.gh*MY,z);
-      ctx.fillStyle=pvSkin().ghost+(edge?0.20:0.05)+')';
-      ctx.fillRect(gp.X-gd/2,gp.Y-gd/2,gd,gd);
-    }
-  }
-};
 const drawVolumeBox=cv=>{
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
   const MX=40.8,MY=30.6,MZ=68;
@@ -1870,24 +1815,21 @@ const drawMach=(cv,doneFrac)=>{
   // 4) skenduolis - arciausiai kameros. Derva murkina: ghost'as gesta su
   // gyliu ir dingsta ties ~6 mm - realus vato gylis keli mm, o kabantis
   // kiaurai pro dezes dugna 17 mm modelis atrode durnai (V 08-11).
-  /* Pjuviu imama tiek pat, kiek turejo senasis vaizdas (~36): detalus kesas turi 240, ir
-     vertikali ziedo sienele sudetu taskus i istisas juostas (V 08-14). */
-  const kStep=Math.max(1,Math.round(N/36));
-  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k+=kStep){
+  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k++){
     const sl=slices[k];if(!sl)continue;
     const z=-(k-frontF)*stepMm;
     if(z<-6)break;                      // giliau nebesimato
     const mur=1+z/6;                    // 1 prie pavirsiaus -> 0 ties -6
-    for(let j=0;j<gh;j+=stpM)for(let i=0;i<gw;i+=stpM){
-      if(!ghostAtM(sl,i,j))continue;
-      const edge=i+stpM>=gw||!ghostAtM(sl,i+stpM,j)||j+stpM>=gh||!ghostAtM(sl,i,j+stpM);
-      const p=isoPt((i+stpM/2)/gw*MX,(j+stpM/2)/gh*MY,z);
-      ctx.fillStyle='rgba(140,160,178,'+((edge?0.42:0.13)*mur).toFixed(3)+')';
-      ctx.fillRect(p.X-gdotM/2,p.Y-gdotM/2,gdotM,gdotM);
+    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+      if(!sl[j*gw+i])continue;
+      const edge=i+1>=gw||!sl[j*gw+i+1]||j+1>=gh||!sl[(j+1)*gw+i];
+      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
+      ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
+      ctx.fillRect(p.X-1,p.Y-1,2,2);
     }
   }
-  /* Trecias uzrasas is to paties rinkinio (masinos kadras, „As printed") - taip pat
-     iskeltas i DOM: vardas antrasteje, procentai Layers eiluteje (V 08-13). */
+  ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
+  ctx.fillText(slicesCache.name+' - '+Math.round(doneFrac*100)+'% printed',12,PREV_H-10);
   CAM_C=false;CAM_KY=0.35;
 };
 // Vieno voxelio piesimas mach rezimui: tas pats apsvietimas kaip drawIso
@@ -2227,7 +2169,13 @@ function* drawIsoGen(cv,doneFrac){
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
       const edge0=i===0||j===0||fRight||fLeft;
-      /* Vaiduoklis piesiamas atskirai (drawGhost) is grubaus rinkinio. */
+      // grey ghost for the un-printed part - also drawn under the fading front
+      // slice so the boundary blends into the ghost instead of popping.
+      if(a<1){
+        ctx.fillStyle='rgba(150,150,165,'+(edge0?0.20:0.05)+')';
+        const gp=isoPt(cx,cy,z);
+        ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
+      }
       if(a>0){
         // Shade from a real surface normal, estimated from the 3x3x3
         // neighbourhood: the normal points away from the mass, so it turns
@@ -2270,7 +2218,6 @@ function* drawIsoGen(cv,doneFrac){
       }
     }
   }
-  if(doneFrac<1)drawGhost(ctx,doneFrac);   // dar neatspausdinta dalis - virsuje
   /* Zr. auksciau: uzrasai gyvena DOM'e, ne piesinyje (V 08-13). */
 }
 /* Du budai paleisti TA PATI piesima: vientisai (gyvas spausdinimo progresas - ten
