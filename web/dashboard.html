@@ -14,7 +14,13 @@
 /* ID + klase, ir PO stageTall: kitaip ``
    yra stipresne uz `.stageFull{position:fixed}` ir isdidinimas nieko nedaro - butent
    taip ir buvo (V 08-13: „tas expand man nieko nedaro"). */
-#previewStage.stageFull{position:fixed;inset:0;height:auto!important;z-index:70;background:var(--bg);padding:12px;display:grid;place-items:center}
+/* Isdidintas langas NEUZIMA viso ekrano ploCio: spausdinimo turis yra siauras ir
+   aukstas, tad placiame ekrane irankiai issibegiodavo i tolimus kampus, o vaizdas
+   likdavo mazas vidury (V 08-13, pvz. nr.2). Plotis skaiciuojamas is aukscio
+   (stageFullSize) ir paduodamas kaip --stageW - langas gaunasi proporcingas dezei,
+   o mygtukai lieka salia vaizdo, kaip pvz. nr.3. */
+#previewStage.stageFull{position:fixed;top:12px;bottom:12px;left:50%;transform:translateX(-50%);width:var(--stageW,min(96vw,640px));max-width:calc(100vw - 24px);height:auto!important;z-index:70;background:var(--pv);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid;place-items:center}
+body.stageFullOn::before{content:'';position:fixed;inset:0;background:var(--bg);z-index:69}
 #previewStage.stageFull>canvas{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 #stageClose{display:none;position:absolute;right:14px;top:14px;z-index:5;width:auto;margin:0;padding:5px 11px;border-radius:8px;background:rgba(20,20,22,.72);border:1px solid var(--line);color:var(--text);font-size:15px;line-height:1}
 #previewStage.stageFull #stageClose{display:block;left:50%;right:auto;transform:translateX(-50%)}
@@ -854,6 +860,10 @@ const localPreviewBlob=async(name,type)=>{
   if(!r.ok)throw new Error('saved preview '+type+' failed to load');
   return await r.blob();
 };
+/* Kai patys pradedam darba, kuris uzima vienintelį printerio rysi (dalijimasis,
+   ikelimas), cia iraso zmogiska jo pavadinima - tada tyla paaiskinama tiksliai, o ne
+   spejant (V 08-13). Tuscia = nezinom, kas vyksta. */
+let bgJob='';
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0,lastSdRev=null;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
@@ -1322,7 +1332,12 @@ const refreshStatus=async()=>{
        gali uztrukti, ir ta salyga aptarnauja auksciau esanti „Syncing..." saka su
        auksitesne riba. Todel greitis imamas ne trumpinant limita visiems, o
        pasitikint viena klaida ten, kur ji reiskia daug (V 08-13). */
-    else if(statusFailCount>=1)msg('Printer not answering - a model is probably being uploaded to it (an upload holds the printer’s only connection), or it is offline. The page catches up by itself.',true);
+    /* Trumpiau: senoji zinute buvo dvieju eiluciu paskaita apie ESP32 rysi, o
+       snackbaras skaitomas per sekunde (V 08-13). Kai patys pradejom darba - vardas
+       tikras; kai ne - viena eilute isvardija galimas priezastis. */
+    else if(statusFailCount>=1)msg(bgJob
+      ?(bgJob+' - the printer stops answering until it finishes.')
+      :'Printer not answering - an upload, share or other background job is probably holding it, or it is offline.',true);
   }finally{statusInFlight=false;}
 };
 
@@ -2608,9 +2623,28 @@ const fitStage=()=>{
 window.fitStage=fitStage;   // gl3dShow gyvena savo IIFE - pasiekia per window
 window.addEventListener('resize',()=>{
   fitStage();
+  stageFullSize();   // isdidintas langas seka ekrano auksti (telefono pasukimas)
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
 });
+/* Isdidinto lango plotis pagal auksti. Dezes projekcija musu kampu yra 0.61 plocio
+   nuo aukscio (40.8x30.6x68 mm, yaw 45 laipsniu, pitch 23.8) - vaizdas uzima ~0.88
+   aukscio, tad pacio piesinio plotis ~0.54h. Prie jo pridedam sonines juostas
+   irankiams (~170 px: sukimo/stumdymo padai po 82 px + tarpai), kad mygtukai stovetu
+   salia vaizdo, o ne prie ekrano krastu. */
+const stageFullSize=()=>{
+  const st=$('previewStage');
+  if(!st||!st.classList.contains('stageFull'))return;
+  const gl=$('gl3d');
+  const is3d=!!(gl&&gl.style.display==='block');
+  const h=Math.max(240,window.innerHeight-24);
+  /* 2D drobe yra plati ir zema (ji piesia is virsaus i apacia, ne turi), tad jai
+     siauras langas paliktu tuscias juostas. Todel proporcija priklauso nuo to, kas
+     rodoma; persijungus i 3D (jis pakyla veliau) plotis persiskaiciuoja gl3dShow'e. */
+  const w=is3d?Math.round(h*0.55)+170:Math.round(h*1.35);
+  st.style.setProperty('--stageW',Math.min(window.innerWidth-24,w)+'px');
+};
+window.stageFullSize=stageFullSize;   // gl3d gyvena savo IIFE - pasiekia per window
 const stageFull=on=>{
   const st=$('previewStage');
   if(!st)return;
@@ -2619,13 +2653,21 @@ const stageFull=on=>{
      langas" butu likes tokio auksčio, koks buvo korteleje (auditas 08-13). */
   st.style.height='';st.dataset.fitH='';
   st.classList.toggle('stageFull',on);
+  document.body.classList.toggle('stageFullOn',on);
   document.body.style.overflow=on?'hidden':'';
+  if(on)stageFullSize(); else st.style.removeProperty('--stageW');
   if(!on)fitStage();   // grizus atgal langas turi atgauti savo auksti, ne susitraukti
+  /* Kadravimo NORAS, ne vienkartinis veiksmas: isdidinant 3D sluoksnio dar gali
+     nebuti (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau),
+     ir tada „kadruok turi" nueidavo i tuscia - deze likdavo nupjauta (pvz. nr.1).
+     Zyma laukia, kol 3D pakils, ir suveikia ten. */
+  window.stageWantsVolume=!!on;
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow){
     gl3dShow(true);                                   // setSize + camera.aspect
     // Dideliame lange ziurima, kaip daiktas stovi plokstėje - tad kadre visas turis.
-    if(on&&window.gl3dFrameVolume)gl3dFrameVolume();
+    if(on&&window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
+    if(!on&&window.gl3dFrameModel)gl3dFrameModel();   // atgal i korteles kadra
   }
 };
 $('stageOpen').addEventListener('click',()=>stageFull(true));
@@ -2702,11 +2744,16 @@ const refreshModelThumb=async(name,cv)=>{
   catch(e){}                               // patogumas, ne būtinybė - tyli klaida
 };
 const shareModel=async name=>{
+  /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ir ikelimas, tad
+     apklausos nustoja atsakineti. Kol tai vyksta, snackbaras turi sakyti TIKSLIAI ka
+     printeris veikia, o ne speti „greiciausiai ikelimas" (V 08-13). */
+  bgJob='Sharing this model';
   try{
     await loadConnectApp();
-    if(window.TinyMakerConnectShareModel)return window.TinyMakerConnectShareModel(name);
+    if(window.TinyMakerConnectShareModel)return await window.TinyMakerConnectShareModel(name);
     throw new Error('Connect app did not expose sharing');
   }catch(e){msg(e.message,true);}
+  finally{bgJob='';}
 };
 window.shareModel=shareModel;
 
@@ -3129,12 +3176,12 @@ const syncUploadGate=()=>{
 // even when the user picks the same file again.
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
-$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
+$('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;bgJob='Uploading the model';syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
   // "queued" (1-33): the upload landed and the printer imports it from its idle
   // loop - the status-driven snackbar covers the wait, the finished model
   // announces itself via sdRev. Older sync answers keep the previous handling.
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is importing it now.';}
-  else{$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;syncUploadGate();}});
+  else{$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncUploadGate();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
@@ -3593,7 +3640,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   })();
   const MX=40.8,MY=30.6,MZ=68;
   const host=$('gl3d');
-  let ren,scene,cam,mesh,key3d='',setHome=null;
+  let ren,scene,cam,mesh,key3d='',setHome=null,setView=null;
   const init=()=>{
     ren=new T.WebGLRenderer({antialias:true,alpha:false});
     ren.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -3626,6 +3673,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     setHome=(c,size)=>{
       DEF.tgt.copy(c); tgt.copy(c);
       DEF.dist=dist=Math.max(45,Math.min(220,size*2.6+28));
+      yaw=DEF.yaw; pitch=DEF.pitch; place();
+    };
+    /* Tas pats, tik atstumas paduodamas tiesiai: turio kadravimui jis skaiciuojamas
+       is lango proporcijos, o ne is modelio dydzio (zr. gl3dFrameVolume). */
+    setView=(c,d)=>{
+      DEF.tgt.copy(c); tgt.copy(c);
+      DEF.dist=dist=Math.max(45,Math.min(400,d));
       yaw=DEF.yaw; pitch=DEF.pitch; place();
     };
     const el=ren.domElement;
@@ -3781,12 +3835,20 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       if(!ren)init();
       const cv=$('printPreviewCanvas');
       host.style.display='block';   // PRIES matavima: paslepto elemento clientWidth = 0
+      // Isdidintas langas persiskaiciuoja PRIES matavima: 3D nori dezes proporcijos,
+      // o 2D drobe - placios. Kitaip GPU gautu dar senojo lango matmenis.
+      if(window.stageFullSize)stageFullSize();
       /* Matmenys imami is PACIO GPU sluoksnio, ne is drobes: iprastai jie sutampa
          (sluoksnis yra `inset:0` virs drobes), o isdidinus drobe letterbox'inama, o
          sluoksnis uzima visa ekrana - tada 3D pagaliau gauna auksti (V 08-13). */
       const w=host.clientWidth||cv.clientWidth||720,h=host.clientHeight||cv.clientHeight||420;
       ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();
       build();
+      /* Isdidinta, bet dar nekadruota - kadruojam CIA, nes tik dabar 3D tikrai stovi.
+         Zyma nuimama is karto: kitaip kiekvienas perpiesimas grazintu vaizda atgal ir
+         isdidintame lange nebūtų imanoma nei pasukti, nei priartinti. */
+      if(window.stageWantsVolume&&stage&&stage.classList.contains('stageFull')
+         &&window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
       host.style.display='block';
       if(cvEl)cvEl.style.visibility='hidden';   // vienas vaizdas, ne du (zr. auksciau)
       const hh=$('gl3dHelp'); if(hh)hh.style.display='block';
@@ -3799,7 +3861,31 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   /* Isdidinus kadre turi buti VISAS spausdinimo turis, o ne vien modelis: dideliame
      lange ziuri, kaip daiktas stovi plokstėje, ne tik i jo veida (V 08-13). Dezes
      centras GL erdveje yra (0,0,0) - taip sudeliota build(). */
-  window.gl3dFrameVolume=()=>{ if(typeof setHome==='function'){setHome(new T.Vector3(0,0,0),68);return true;} return false; };
+  /* Atstumas skaiciuojamas, o ne spejamas is „dydzio 68": kamera turi fiksuota 38
+     laipsniu vertikalu kampa, tad siaurame lange (telefonas, pvz. nr.1) deze i ploti
+     nebetilpdavo ir buvo nupjaunama. Suprojektuojam dezes kampus i kameros asis ir
+     atsitraukiam tiek, kad tilptu IR i auksti, IR i ploti pagal esama proporcija. */
+  window.gl3dFrameVolume=()=>{
+    if(typeof setView!=='function'||!cam)return false;
+    const yaw=Math.PI/4,pitch=0.415,tf=Math.tan(38*Math.PI/360),fill=0.86;
+    const hx=MX/2,hy=MZ/2,hz=MY/2;   // GL erdveje: x=MX, y=MZ (auksti), z=MY
+    const halfW=Math.abs(Math.cos(yaw))*hx+Math.abs(Math.sin(yaw))*hz;
+    const halfH=Math.abs(Math.sin(pitch)*Math.sin(yaw))*hx+Math.cos(pitch)*hy
+               +Math.abs(Math.sin(pitch)*Math.cos(yaw))*hz;
+    const asp=cam.aspect||1;
+    setView(new T.Vector3(0,0,0),Math.max(halfH/fill,(halfW/fill)/asp)/tf);
+    return true;
+  };
+  /* Uzdarius isdidinima kortele turi atrodyti taip, kaip atrode iki jo: turio kadras
+     mazame lange palieka modeli mazyti (V 08-13). */
+  window.gl3dFrameModel=()=>{
+    if(!mesh||typeof setHome!=='function')return false;
+    const g=mesh.geometry; if(!g.boundingBox)g.computeBoundingBox();
+    const ctr=new T.Vector3(),sz=new T.Vector3();
+    g.boundingBox.getCenter(ctr); g.boundingBox.getSize(sz);
+    setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+    return true;
+  };
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
 })();
 </script>
