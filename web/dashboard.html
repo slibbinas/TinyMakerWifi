@@ -1511,9 +1511,12 @@ const BOX_W_U=61.8, BOX_H_U=101.2;
 const pvSetField=(w,h)=>{
   PREV_W=Math.max(240,Math.round(w)); PREV_H=Math.max(150,Math.round(h));
   PREV_S=Math.min(PREV_H*0.92/BOX_H_U, PREV_W*0.92/BOX_W_U);
-  PREV_CX=PREV_W/2-4.4*PREV_S;
+  PREV_CX=PREV_W/2;   // postumis - tik iprastoje isoPt sakoje (zr. zemiau)
   PREV_CY=PREV_H/2+25.6*PREV_S;
-  CAM_CY=PREV_H/2+16.3*PREV_S;      // masinos kadras - tas pats santykis kaip 272 prie 420
+  /* Masinos kadras derintas ant stendo (V 08-11) - jo neperskaiciuojam savo formule,
+     tik proporcingai isplečiam: 272/420. Bandymas ji centruoti pats nustume kabanti
+     modeli po bloko apacia (V 08-14). */
+  CAM_CY=PREV_H*(272/420);
 };
 // Normalus kelias BAITAS I BAITA senas (CAM_C=false). Mach rezimas perjungia
 // centruota formule su KY=-0.2 - V stende rastas kampas: ziurint vos is apacios
@@ -1527,7 +1530,10 @@ const ISO_Z=1.121;
 const isoPt=(x,y,z)=>CAM_C
   ?{X:PREV_CX+((x-20.4)-(y-15.3))*0.866*PREV_S,
     Y:CAM_CY+((x-20.4)+(y-15.3))*CAM_KY*PREV_S-(z-CAM_ZC)*ISO_Z*PREV_S}
-  :{X:PREV_CX+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*ISO_Z*PREV_S};
+  /* -4.4*S: sioje sakoje (x-y) eina nuo -30.6 iki +40.8, tad dezes vidurys yra
+     4.4*S i desine nuo PREV_CX - be sio postumio deze lipdavo prie desinio krasto
+     (V 08-13). Masinos sakoje koordinates jau centruotos, tad ten postumio NEra. */
+  :{X:PREV_CX-4.4*PREV_S+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*ISO_Z*PREV_S};
 /* Detalus vaizdas: 160x120 tinklelis ir 72 pjuviai vietoj 80x60 ir 36.
    Ar kesas detalus, matyti is paties tinklelio (gw), tad formato keisti
    nereikia. */
@@ -1724,7 +1730,7 @@ const quad=(ctx,fill,pts)=>{
 // Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
 const drawMach=(cv,doneFrac)=>{
   const {slices,gw,gh,modelH}=slicesCache;
-  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;CAM_CY=PREV_H/2;
+  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;CAM_CY=PREV_H*(272/420);
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
   const MX=40.8,MY=30.6,MZ=68;
   // karkasas be plokstes plokstumos
@@ -1741,6 +1747,7 @@ const drawMach=(cv,doneFrac)=>{
   /* Skenduolis (dar neatspausdinta dalis po dervos pavirsiumi) piesamas retai -
      kitaip prie detalaus keso jis virsta vientisa balta mase (V 08-13). */
   const stpM=Math.max(1,Math.round(gw/80));
+  const gdotM=1.5;
   // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
   // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
   // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
@@ -1802,7 +1809,7 @@ const drawMach=(cv,doneFrac)=>{
       const edge=i+stpM>=gw||!sl[j*gw+i+stpM]||j+stpM>=gh||!sl[(j+stpM)*gw+i];
       const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
       ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
-      ctx.fillRect(p.X-1,p.Y-1,2,2);
+      ctx.fillRect(p.X-gdotM/2,p.Y-gdotM/2,gdotM,gdotM);
     }
   }
   /* Trecias uzrasas is to paties rinkinio (masinos kadras, „As printed") - taip pat
@@ -2089,7 +2096,19 @@ function* drawIsoGen(cv,doneFrac){
   const FL=VIEW_FLIP;
   // Half-extents of one voxel cell - the quads are built around the centre.
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
-  const stp=Math.max(1,Math.round(gw/80));   // vaiduoklio retinimas (zr. zemiau)
+  /* Vaiduoklis - SMULKUS taskas, ne kvadratelis: dydis fiksuotas piesinio vienetais
+     (~1.4 px), o retinimas parenkamas taip, kad tarp tasku liktu tarpas. Anksciau
+     taskas buvo 2.2, o laukas paaugo beveik dvigubai - taskai virto stačiakampiais
+     (V 08-14). */
+  /* Taskeliai turi atrodyti TAIP PAT kaip anksciau: senasis vaizdas buvo 2.2 vnt taskas
+     prie 1.68 vnt langelio, po to drobe dar sumazinama - ekrane iseidavo ~1.5 px taskas
+     su ~1.6 px tarpu. Todel dydi laikom fiksuota, o retinima parenkam pagal tai, koks
+     langelis gaunasi SIAME mastelyje (V 08-14: „identiski, o ne siaip smulkesni"). */
+  /* Tankumas - kaip senajame vaizde (kas ~80-tojo tinklelio langeli), o taskas mazas
+     (1.5 px): didesnis 2.2 px sitame mastelyje virsdavo baltais staciakampiais
+     (V 08-14: „seno tankumo ir dydzio"). */
+  const stp=Math.max(1,Math.round(gw/80));
+  const gdot=1.5;
   for(let n=0;n<N;n++){
     const k=FL?N-1-n:n;
     const t=N>1?k/(N-1):0,z=(FL?1-t:t)*modelH;
@@ -2128,7 +2147,7 @@ function* drawIsoGen(cv,doneFrac){
       if(a<1&&!(i%stp)&&!(j%stp)){
         ctx.fillStyle=pvSkin().ghost+(edge0?0.20:0.05)+')';
         const gp=isoPt(cx,cy,z);
-        ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
+        ctx.fillRect(gp.X-gdot/2,gp.Y-gdot/2,gdot,gdot);
       }
       if(a>0){
         // Shade from a real surface normal, estimated from the 3x3x3
@@ -2801,7 +2820,15 @@ const repaintPreviewForTheme=()=>{
   const cv=$('printPreviewCanvas'), gl=$('gl3d');
   if(!cv)return;
   if(gl&&gl.style.display==='block')return;      // virsuje GPU - drobes nesimato
-  if(statusData&&statusData.busy){lastPrevFrac=-1;return;}   // spausdinant perpies poll'as
+  if(statusData&&statusData.busy){
+    /* Nelaukiam kitos apklausos (iki 2 s) - iki jos senas piesinys butu tempiamas i nauja
+       bloka (V 08-14: „tarpe gaunam 1 s istempyto vaizdo"). Piesiam is karto su ta pacia
+       eiga, kuria zinom. */
+    const f=(statusData.totalLayers>0)?Math.min(1,statusData.currentLayer/statusData.totalLayers):0;
+    lastPrevFrac=f;
+    try{drawIso(cv,f);}catch(e){}
+    return;
+  }
   if(previewStoppedFor){markPreviewStopped(cv,previewStoppedFor);return;}
   if(!dashPreviewName){dashPreviewPlaceholder();return;}
   if(typeof slicesFit==='function'&&slicesFit(dashPreviewName)){try{drawIso(cv,1);}catch(e){}}

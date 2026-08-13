@@ -325,7 +325,15 @@ void lower_print(){
  * Lifts the platform to the maximum height after printing is complete.
  */
 void lift_finished_print(){
+  /* Dry run pabaigoje (ir ji atsaukus) kelti iki pat virsaus nera ko: nieko
+     neatspausdinta, nuimti nera ko, o kelias uztrunka desimtis sekundziu ir testuojant
+     kartojasi be galo (V 08-13). Keliam iki „Pause lift height" - tiek, kad plokste
+     butu patogu nuimti ar uzdeti. Tikram spaudiniui elgsena NEKINTA. */
   long lift_finished_print_steps = (max_height * steps_mm);
+  if (!uvLedEnabled) {
+    long dryTarget = stepper.currentPosition() + (long)pauseLiftMm * steps_mm;
+    if (dryTarget < lift_finished_print_steps) lift_finished_print_steps = dryTarget;
+  }
   stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
   stepper.moveTo(lift_finished_print_steps);
