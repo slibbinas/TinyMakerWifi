@@ -1236,9 +1236,44 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             const over = new CL.PolyTree();
             c1.Execute(CL.ClipType.ctDifference, over,
                        CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-            const raw = [];
+            /* Ruožas, siauresnis nei sluoksnio postūmis prie KRITINIO kampo, nėra
+               nuokaba — tai vertikali (ar statesnė nei support_critical_angle)
+               siena, kuri laikosi pati. Prie 0,05 mm sluoksnio ir 45° tai
+               0,05 mm.
+
+               Be šio filtro trianguliacijos triukšmas virsta atramų taškais:
+               `revolve` cilindro pjūvis su aukščiu truputį pasisuka, gretimų
+               sluoksnių skirtumas išeina 128 drožlės po ~5 µm, jos kartu
+               peršoka ploto ribą, ir ant vertikalios sienos atsiranda 13 taškų.
+               Galvučių jie negauna, bet užima įtakos spindulį ir nutildo tikrą
+               nuokabą aukščiau (puodelio atbraila: 13 atramų vietoj ~16). */
+            const selfSup = LAYER_MM / Math.tan(cfg.critical_angle);
+            const thinOut = new CL.ClipperOffset();
             for (const oex of toExPolys(CL, over))
-              for (const ring of oex) walkRing(ring, step, raw);
+              thinOut.AddPaths(oex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
+            const solid = new CL.Paths();
+            thinOut.Execute(solid, -selfSup / 2 * SCALE);
+            const raw = [];
+            if (solid.length) {
+              const cs = new CL.Clipper();
+              cs.AddPaths(solid, CL.PolyType.ptSubject, true);
+              const back = new CL.PolyTree();
+              cs.Execute(CL.ClipType.ctUnion, back,
+                         CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+              // atgal į pilną plotį — filtruotas, bet ne suplonintas
+              const wide = new CL.ClipperOffset();
+              for (const sx of toExPolys(CL, back))
+                wide.AddPaths(sx, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
+              const restored = new CL.Paths();
+              wide.Execute(restored, selfSup / 2 * SCALE);
+              const c2 = new CL.Clipper();
+              c2.AddPaths(restored, CL.PolyType.ptSubject, true);
+              const rt = new CL.PolyTree();
+              c2.Execute(CL.ClipType.ctUnion, rt,
+                         CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+              for (const oex of toExPolys(CL, rt))
+                for (const ring of oex) walkRing(ring, step, raw);
+            }
             /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
                (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
                „sausuma", ne nuokabos krantas. */
