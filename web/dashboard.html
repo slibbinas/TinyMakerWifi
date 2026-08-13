@@ -2705,12 +2705,19 @@ const stageBoxSize=()=>{
   if(st.dataset.boxH!==String(h)){st.style.height=h+'px';st.dataset.boxH=String(h);}
 };
 window.stageBoxSize=stageBoxSize;   // gl3d gyvena savo IIFE - pasiekia per window
+/* Mygtukas rodo, KAS bus paspaudus, kaip langu valdymas Windows'e: vienas kvadratas
+   - pailginti, du persidenge - grazinti i iprasta auksti (V 08-13). */
+const ICON_GROW="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg>";
+const ICON_BACK="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linejoin='round'><rect x='1.8' y='5.6' width='8.6' height='8.6' rx='1.4'/><path d='M5.4 5.6V3.2a1.4 1.4 0 0 1 1.4-1.4h6a1.4 1.4 0 0 1 1.4 1.4v6a1.4 1.4 0 0 1-1.4 1.4h-2.4'/></svg>";
 const stageBox=on=>{
   const st=$('previewStage');
   if(!st)return;
   st.style.height='';st.dataset.fitH='';st.dataset.boxH='';
   st.classList.toggle('stageBox',on);
-  $('stageOpen').title=on?'Back to the normal height':'Grow to the print volume';
+  const ob=$('stageOpen');
+  ob.title=on?'Back to the normal height':'Grow to the print volume';
+  ob.setAttribute('aria-label',ob.title);
+  ob.innerHTML=on?ICON_BACK:ICON_GROW;
   if(on){stageBoxSize();scrollPreviewIntoView();} else fitStage();
   /* Kadravimo NORAS, ne vienkartinis veiksmas: pailginant 3D sluoksnio dar gali nebuti
      (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau), ir tada
