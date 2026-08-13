@@ -675,11 +675,27 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     if (!Number.isFinite(centre.dist)) continue;
     /* Spindulys eina iš pačios jungties, tad atstumas jau tikras — pluošto
        poslinkio (+r_back, SupportTreeUtils.hpp:179) čia nebėra ką kompensuoti. */
-    const bottom = Math.max(0, h.junction[2] - centre.dist);
+    const surface = h.junction[2] - centre.dist;
+    /* Stulpas NEVAROMAS į paviršių: jis baigiasi `hh` aukščiau, o likusį tarpą
+       uždengia APVERSTA galvutė (`add_anchor`, cpp:684-706), smailėjanti iki
+       head_front_radius. Tai ne grožis — storas stulpas, atremtas į detalę,
+       nulūždamas palieka 1 mm žymę, o galvutė nusilaužia švariai.
+         zangle = max(asin(dir.z), PI/4);  dir = DOWN -> PI/4
+         hh = min(hit.distance() - r_back, sin(zangle) * fullwidth) */
+    const fullwidth = 2 * cfg.head_front_radius_mm + h.width +
+                      2 * h.rBack - cfg.head_penetration_mm;
+    let hh = Math.min(centre.dist - h.rBack, Math.SQRT1_2 * fullwidth);
+    if (h.rBack < cfg.head_back_radius_mm) hh = Math.max(hh, 0);
+    else if (hh <= 0) continue;
+    const bottom = Math.max(0, surface + hh);
     if (h.junction[2] - bottom < cfg.base_height_mm) continue;   // galvutė atmetama
     pillars.push({ x: h.junction[0], y: h.junction[1], top: h.junction[2],
                    bottom, rTop: h.rBack, rBase: h.rBack, head: i, bridges: 0,
-                   onModel: true });
+                   onModel: true, anchored: hh > 1e-6 });
+    if (hh > 1e-6)
+      bridges.push({ a: [h.junction[0], h.junction[1], bottom],
+                     b: [h.junction[0], h.junction[1], surface],
+                     r: h.rBack, anchor: true });
     h.pillar = pillars.length - 1;
   }
 
@@ -764,6 +780,7 @@ export async function findOverhangs(pos, layers, onProgress) {
   const pillars = t.pillars.map(p => ({
     x: p.x, y: p.y, cx: p.x, cy: p.y, top: p.top, bottom: p.bottom,
     tower: !p.onModel,
+    anchored: !!p.anchored,
     /* `partial` keliaujam kartu — be jo savikontrolė reikalaudavo medžiagos po
        stulpeliu, kuris remiasi į tiltą, ir visada degdavo raudonai. */
     partial: !!p.partial,
@@ -787,6 +804,7 @@ export async function findOverhangs(pos, layers, onProgress) {
       ax: lo[0], ay: lo[1], z0: lo[2],
       bx: hi[0], by: hi[1], z1: hi[2],
       bridge: c.headTip === true,
+      anchor: c.anchor === true,
     };
   });
   return {
@@ -1210,7 +1228,12 @@ export function braceDiscs2(braces, z, cfg = CFG) {
     if (z < c.z0 || z > c.z1) continue;
     const t = (z - c.z0) / ((c.z1 - c.z0) || 1);
     let r = cfg.pillar_radius_mm;
-    if (c.bridge) {
+    if (c.anchor) {
+      /* Apversta galvutė: platus galas viršuje prie stulpo, smaigalys apačioje,
+         detalėje. Kūgis per visą atkarpą. */
+      r = cfg.head_front_radius_mm +
+          (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * t;
+    } else if (c.bridge) {
       const left = c.z1 - z;
       if (left < cfg.head_width_mm)
         r = cfg.head_front_radius_mm +
@@ -1252,6 +1275,9 @@ export function selfCheck(sup, mesh, cfg = CFG) {
     /* `partial` stulpelis po galvute remiasi į TILTĄ, ne į medžiagą
        (connect_to_nearpillar, cpp:282-363) — medžiagos po juo ir neturi būti. */
     if (p.partial) continue;
+    /* `anchored` stulpo apačioje medžiagos NĖRA ir neturi būti — po juo eina
+       apversta galvutė iki paviršiaus; ją tikrina `braces` dalis. */
+    if (p.anchored) continue;
     const hr = mesh.rayHit([p.x, p.y, p.bottom + EPS], DOWN);
     if (hr.inside || hr.dist <= tol) continue;
     hanging++;
