@@ -1205,7 +1205,7 @@ const applyStatus=s=>{
     if(slicesCache.mode==='live'&&s.liveCaptured!==undefined&&s.liveCaptured<liveHave){liveHave=0;slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};}
     // Opened mid-print with no local slices, but the printer is streaming its
     // own 3D stack - pull it so this window grows the identical live 3D.
-    if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length))fetchLiveSlices(s.model,0);
+    if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length||cacheIsDetail()))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
@@ -1646,7 +1646,12 @@ const drawVolumeBox=cv=>{
   // tiesiog nebuvo ploksteles (V 08-12).
   if(typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH>0&&
      slicesCache.slices&&slicesCache.slices.length){
-    const pz=(typeof VIEW_FLIP!=='undefined'&&VIEW_FLIP)?slicesCache.modelH:0;
+    /* Pakelta plokste rodoma tik tada, kai TAS modelis is tikruju rodomas: tuscioje
+       perziuroje kesas dar laiko praeita modeli, ir plokste kabodavo jo aukstyje -
+       tuscioje dezeje (V 08-14). */
+    const showing=(typeof dashPreviewName!=='undefined'&&dashPreviewName===slicesCache.name)
+                  ||(typeof statusData!=='undefined'&&statusData&&statusData.busy);
+    const pz=(typeof VIEW_FLIP!=='undefined'&&VIEW_FLIP&&showing)?slicesCache.modelH:0;
     const q=[[0,0,pz],[MX,0,pz],[MX,MY,pz],[0,MY,pz]].map(p=>isoPt(...p));
     ctx.fillStyle='rgba(232,114,12,0.07)';ctx.beginPath();
     q.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
@@ -1828,8 +1833,8 @@ const drawMach=(cv,doneFrac)=>{
       ctx.fillRect(p.X-1,p.Y-1,2,2);
     }
   }
-  ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
-  ctx.fillText(slicesCache.name+' - '+Math.round(doneFrac*100)+'% printed',12,PREV_H-10);
+  /* Uzraso drobeje nera: vardas - korteles antrasteje, procentai - Layers eiluteje
+     (V 08-13). Grazinant sena piesima jis buvo netycia parsivilktas atgal. */
   CAM_C=false;CAM_KY=0.35;
 };
 // Vieno voxelio piesimas mach rezimui: tas pats apsvietimas kaip drawIso
@@ -3025,7 +3030,11 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   }
   // prefetch slices for the 3D progress view (best effort - the print starts
   // either way; while printing the layer endpoint is unavailable)
-  if(!force||!(slicesCache.name===name&&slicesCache.slices.length)){
+  /* Detalus kesas (320x240) spausdinimo vaizdui netinka: senasis piesimas deda taska
+     kiekvienam langeliui, ir 16 kartu tankesniame tinklelyje jie susilieja i vientisa
+     mase (V 08-14). Jei atmintyje guli detalus rinkinys - imam grubu, toki, koki sis
+     vaizdas gaudavo visada. */
+  if(!force||!(slicesCache.name===name&&slicesCache.slices.length&&!cacheIsDetail())){
     try{
       if(slicesCache.name!==name||!slicesCache.slices.length){
         msg('Preparing 3D progress preview...');
