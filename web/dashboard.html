@@ -1212,7 +1212,13 @@ const refreshStatus=async()=>{
     // While the update overlay is up the printer is rebooting: a poll on the
     // old connection can hang the full 30s and, via statusInFlight, block the
     // reload from firing. Short timeout so recovery is caught within seconds.
-    const s=await api('/api/status',null,updLock?4000:30000);
+    /* 30 s laukimo buvo ilgiau uz pati ivyki: kol PrusaSlicer siuncia faila
+       (~29 s trims megabaitams, ismatuota 08-13), printeris NEATSAKO nieko -
+       ESP32 serveris aptarnauja viena uzklausa vienu metu, o siuntimas ji uzima
+       nuo pirmo iki paskutinio baito. Su 30 s limitu spedavo ivykti viena
+       nepavykusi apklausa is trijų reikalingu, tad pultas tylejo visa ta laika.
+       4 s: klaidos susikaupia per ~10 s ir vartotojas gauna paaiskinima. */
+    const s=await api('/api/status',null,4000);
     if(reloadIfFirmwareChanged(s))return;
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
@@ -1229,7 +1235,7 @@ const refreshStatus=async()=>{
     // (scans, slice streaming) - only speak up when it keeps failing. An
     // out-of-band import (PrusaSlicer upload) blocks the whole web server
     // for minutes, so name that likely cause instead of a bare error (0-28).
-    else if(statusFailCount>=3)msg('Printer not answering - likely importing a model (takes minutes) or offline. The page catches up by itself.',true);
+    else if(statusFailCount>=2)msg('Printer not answering - a model is probably being uploaded to it (an upload holds the printer’s only connection), or it is offline. The page catches up by itself.',true);
   }finally{statusInFlight=false;}
 };
 
