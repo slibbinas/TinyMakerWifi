@@ -39,7 +39,12 @@ export const VERSION = '2.0.1-dev';
    matyti, iš kur kiekvienas skaičius. Reikšmės — iš V profilio
    (TinyMaker + „Universal 0.05 - Light Supports"), ne iš numatytųjų. */
 export const CFG = {
-  head_front_radius_mm: 0.25,   // support_head_front_diameter 0.5
+  /* Kontaktas su detale ⌀0,4 (ne PrusaSlicer profilio 0,5) — V sprendimas
+     2026-08-13: SUNLU derva kieta ir tvirta, plonesnis antgalis laiko, o žymė
+     mažesnė ir lengviau atsilupa. Šaltiniai riba deda ties 0,4–0,5: po 0,3
+     antgaliai lūžta ir lieka detalėje. Iš šio skaičiaus išvedamas ir visas
+     sėjos konfigas (žr. bloką po CFG). */
+  head_front_radius_mm: 0.20,
   head_back_radius_mm:  0.5,    // support_pillar_diameter 1
   head_fallback_radius_mm: 0.3, // 60 % — support_small_pillar_diameter_percent
   head_penetration_mm:  0.3,    // support_head_penetration
@@ -52,6 +57,12 @@ export const CFG = {
      atstumas nuo detalės (`pillar_base_safety_distance_mm`), visai kitas
      dalykas. Paėmus 1.0 galvutės žiedas išeina 1,67× per platus. */
   safety_distance_mm:   0.5,
+  /* PRASILENKIMO tarpas — V sprendimas 2026-08-13: 1 mm, kad tarp atramos ir
+     detalės tilptų replės. Galioja TIK tam, kas eina PRO ŠALĮ (tiltai, stulpų
+     jungtys), ne tam, kas į detalę atsiremia: ten atrama privalo liesti, kitaip
+     ji lieka kaboti (sargas tai pagavo iškart — 0,8 mm tarpas, 08-13).
+     `safety_distance_mm` lieka geometrinis 0,5 (SupportTree.hpp:110). */
+  clearance_mm:         1.0,
   pillar_base_safety_distance_mm: 1.0,  // support_base_safety_distance
   max_bridge_length_mm: 10.0,   // support_max_bridge_length
   max_pillar_link_distance_mm: 10.0,  // support_max_pillar_link_distance
@@ -505,6 +516,11 @@ export function safetyDistance(r, cfg = CFG) {
 export function bridgeSafety(r, cfg = CFG) {
   return r * cfg.safety_distance_mm / cfg.head_back_radius_mm;
 }
+/** Prasilenkimo tarpas: kiek atrama turi apeiti detalę, kad tarp jų tilptų
+ *  replės. Skiriasi nuo `bridgeSafety` tik konstanta — žr. `clearance_mm`. */
+export function passSafety(r, cfg = CFG) {
+  return r * cfg.clearance_mm / cfg.head_back_radius_mm;
+}
 
 const PINHEAD_SAMPLES = 16;   // „8 is almost ok … 16 is necessary"
 
@@ -791,7 +807,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
         Zdown -= zdiff;
         bridgestart[2] -= zdiff;
         // Po galvute reikia dalinio stulpelio — patikrinam, ar ten laisva.
-        if (beamHit(mesh, headjp, DOWN, r, r, bridgeSafety(r, cfg)) < zdiff) return false;
+        if (beamHit(mesh, headjp, DOWN, r, r, passSafety(r, cfg)) < zdiff) return false;
       }
       if (Zdown <= nearU[2] && Zdown >= nearL[2] && D < maxLen) bridgeend[2] = Zdown;
       else return false;
@@ -800,7 +816,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     if (bridgeend[2] < 4 * cfg.head_back_radius_mm) return false;
     const need = dist3d(bridgestart, bridgeend);
     if (beamHit(mesh, bridgestart, norm(sub(bridgeend, bridgestart)), r, r,
-                bridgeSafety(r, cfg)) < need)
+                passSafety(r, cfg)) < need)
       return false;
     if (pil.bridges >= cfg.max_bridges_on_pillar) return false;
     if (zdiff > 0) {
@@ -858,7 +874,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
    *  pasiektų plokštę neužkliuvęs. Originale tai NLopt MLSL; čia tinklelis, po
    *  jo — tas pats ilgio trumpinimas žingsniu r. */
   const connectToGround = h => {
-    const src = h.junction, r = h.rBack, sd = bridgeSafety(r, cfg);
+    const src = h.junction, r = h.rBack, sd = passSafety(r, cfg);
     const gnd = cfg.object_elevation_mm;
     if (src[2] <= gnd + cfg.base_height_mm) return false;
     /* Kryptys paruošiamos vieną kartą, o ilgis auga VISOMS iš karto: pirmas
@@ -1031,7 +1047,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
            argumentų perkrova pasiskaičiuoja pati. */
         const rLink = A.rTop || cfg.pillar_radius_mm;
         if (beamHit(mesh, a, norm(sub(b, a)), rLink, rLink,
-                    bridgeSafety(rLink, cfg)) >= bridgeDistance) {
+                    passSafety(rLink, cfg)) >= bridgeDistance) {
           links.push({ a: a.slice(), b: b.slice(), r: cfg.pillar_radius_mm });
           made = true;
         }
@@ -1054,6 +1070,20 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
 
   /* --- 6 · merge_result -------------------------------------------------- */
   lap('interconnect');
+  /* Prasilenkimo tarpas (`clearance_mm`, 1 mm) yra PAGEIDAVIMAS, ne absoliutas.
+     Ankštoje vietoje su juo kelio gali nebūti visai — dviejų dėžių tarpe (4 mm)
+     jis palieka 0 stulpų vietoj 2, t. y. visa viršutinė dalis liktų be atramos.
+     Nepriremta detalė blogiau nei atrama, prie kurios sunkiau prilįsti replėmis,
+     tad neradus kelio perstatom su geometriniu 0,5 (08-13, V taisyklė). */
+  if (cfg.clearance_mm > cfg.safety_distance_mm &&
+      heads.some(h => !(h.pillar >= 0 && h.pillar < pillars.length))) {
+    /* Tikrinam INDEKSĄ, ne `undefined`: nepavykus inkarui `h.pillar` lieka
+       `pillars.length - 1` = −1, tad „undefined" patikra nieko negaudė. */
+    const relaxed = { ...cfg, clearance_mm: cfg.safety_distance_mm };
+    const again = await buildSupportTree(pos, relaxed, onProgress);
+    again.log.relaxed = true;
+    return again;
+  }
   /* Padas — po viskuo, kas stovi ant plokštės (SLA/Pad.hpp). */
   const pad = await buildPad(pos, pillars, cfg);
   log.pillars = pillars.length;
