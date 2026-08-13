@@ -60,6 +60,29 @@ function plateWithHole(outer, inner, z0, h, into = []) {
   return into;
 }
 
+
+/** 2D profilis, ištęstas per `depth` — figūra, kurios pjūvis KEIČIASI su
+ *  aukščiu. Dėžutės to neduoda, o būtent ties tokiais laiptais gyvena plokščios
+ *  nuokabos. Profilis XZ plokštumoje, tąsa per Y. */
+function extrude(profile, depth, into = []) {
+  const n = profile.length, y0 = -depth / 2, y1 = depth / 2;
+  const tri = (a, b, c) => into.push(...a, ...b, ...c);
+  // šonai
+  for (let i = 0; i < n; i++) {
+    const [x0, z0] = profile[i], [x1, z1] = profile[(i + 1) % n];
+    tri([x0, y0, z0], [x1, y0, z1], [x1, y1, z1]);
+    tri([x0, y0, z0], [x1, y1, z1], [x0, y1, z0]);
+  }
+  // galai — vėduokle nuo pirmos viršūnės (profilis išgaubtas dalimis, o
+  // pjaustymui svarbu tik uždarumas)
+  for (let i = 1; i + 1 < n; i++) {
+    const a = profile[0], b = profile[i], c = profile[i + 1];
+    tri([a[0], y1, a[1]], [b[0], y1, b[1]], [c[0], y1, c[1]]);
+    tri([a[0], y0, a[1]], [c[0], y0, c[1]], [b[0], y0, b[1]]);
+  }
+  return into;
+}
+
 /* --------------------------------------------------------- spinduliai */
 
 test('beamHit: atstumas iki dėžės sutampa su geometrija', async () => {
@@ -187,6 +210,40 @@ test('skylė nėra nuokaba — į ją nesėjama', async () => {
   // Ir stulpai neturi stovėti kiauryme (jie eina iki plokštės, bet iš niekur).
   const badP = t.pillars.filter(p => inHole([p.x, p.y]));
   assert.equal(badP.length, 0, `stulpai kiauryme: ${badP.length}/${t.pillars.length}`);
+});
+
+
+test('plokščia nuokaba paremiama VISAME plote, ne tik pakraštyje', async () => {
+  /* `create_peninsulas` (SPG.cpp:567) + `support_peninsulas` (SPG.cpp:316).
+     Vieno sluoksnio nuokaba, išsikišusi toliau nei `peninsula_min_width`, yra
+     „pussalis" ir remiama kaip PLOTAS, ne kaip kraštas.
+
+     Testas gimė iš tikro radinio: viskas buvo tikrinta ant dviejų organinių
+     modelių, o pirmas kronsteinas parodė, kad po plokšte dedam 8 atramas ten,
+     kur etalonas deda 12–20. Ant glotnaus kūno mechanizmas tyli, tad be tokios
+     figūros jo dingimo niekas nepastebėtų. */
+  const prof = [[-13, 0], [-9, 0], [-9, 12], [9, 12], [9, 0],
+                [13, 0], [13, 15], [-13, 15]];      // „П": dvi kojos ir plokštė
+  const pos = new Float32Array(extrude(prof, 10));
+  const t = await M.buildSupportTree(pos, M.CFG);
+
+  const under = t.heads.filter(h => Math.abs(h.pos[2] - 12) < 0.3);
+  assert.ok(under.length > 0, 'po plokšte nėra nė vienos galvutės');
+
+  /* Skiriamasis požymis — ne kiekis, o VIETA. Plokštės laisvi kraštai yra
+     ties y = ±5; sėjant tik kontūrą visos galvutės ten ir sėdi (išmatuota
+     išjungus pussalius: y reikšmės buvo lygiai −5 ir 5, viduryje nulis).
+     Pussaliai užpildo plotą, tad vidurio juostoje atsiranda atramų.
+     Slenkstis čia netiktų — jis lūžtų nuo bet kokio teisėto tankio pokyčio. */
+  const middle = under.filter(h => Math.abs(h.pos[1]) <= 2);
+  assert.ok(middle.length > 0,
+    `visos ${under.length} galvutės ant kraštų (y: ` +
+    [...new Set(under.map(h => +h.pos[1].toFixed(1)))].sort((a, b) => a - b).join(' ') +
+    ') — nuokabos vidurys neparemtas');
+
+  // Ir jos turi kur nusileisti: stulpai stovi ant plokštės, ne ant detalės.
+  assert.ok(t.pillars.some(p => p.bottom <= 1e-6),
+    'nė vienas stulpas nepasiekė plokštės');
 });
 
 test('sala virš kūno gauna atramos taškų', async () => {
