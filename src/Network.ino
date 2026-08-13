@@ -673,6 +673,16 @@ void handleUpdatePage() {
   server.send(200, "text/html", otaStyledPage(inner));
 }
 
+// "620 / 1424 KB" i progreso ekrana. Be alokaciju: OTA metu heap'as itemptas.
+static void otaProgressText(size_t done) {
+  char buf[24];
+  if (otaTotalBytes > 0)
+    snprintf(buf, sizeof buf, "%u / %u KB", (unsigned)(done / 1024), (unsigned)(otaTotalBytes / 1024));
+  else
+    snprintf(buf, sizeof buf, "%u KB", (unsigned)(done / 1024));
+  netProgressText(buf);
+}
+
 void handleUpdateUpload() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
@@ -700,13 +710,22 @@ void handleUpdateUpload() {
     Update.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 524288) { // redraw every 512 KB - see the upload handler note on SPI streaks
       otaShownBytes = up.totalSize;
-      String p = String(up.totalSize / 1024) + " KB";
+      // "620 / 1424 KB", ne vien "620 KB": be antro skaiciaus zinai, kad kazkas vyksta,
+      // bet ne ar liko sekunde, ar minute (V 08-13). Bendra dydi zinom is Content-Length;
+      // jei jo nebutu (0) - grizt prie vieno skaiciaus, o ne rodyt dalyba is nulio.
+      // char buferis, ne String: cia pats itempciausias heap'o momentas (Update.write
+      // i flash'a), o kaimyninis netProgressCount daro lygiai taip pat (auditas 08-13).
+      otaProgressText(up.totalSize);
       netProgressBar(up.totalSize, otaTotalBytes);
-      netProgressText(p.c_str());
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
     if (otaBlocked) return;
+    // Paskutinis perpiesimas: su 512 KB zingsniu skaitiklis niekada nepasiekdavo
+    // galo ir ekrane amzinai likdavo "1024 / 1425 KB" - atrode, kad pakibo
+    // (auditas 08-13).
+    otaProgressText(up.totalSize);
+    netProgressBar(up.totalSize, otaTotalBytes);
     if (Update.end(true)) otaWebOk = true;
     DBG("Web OTA end: %u bytes, ok=%d\n", up.totalSize, otaWebOk);
   }

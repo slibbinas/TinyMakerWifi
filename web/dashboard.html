@@ -1,7 +1,30 @@
-<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>TinyMaker</title><link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%232fbf4f'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>"><link rel='manifest' href='/manifest.json'><meta name='theme-color' content='#1c1c1e'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black'><link rel='apple-touch-icon' href='/pwa-icon-192.png'><script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script><style>:root{color-scheme:dark;--bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--tile:#202024;--pv:#151517;--line:#3a3a3f;--line2:#555;--line3:#444;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--btnsec:#3c3c42;--btnsec-t:#eee;--danger:#7b2f2f;--dis:#555;--dis-t:#aaa;--overlay:rgba(20,20,22,.93);--dim:rgba(20,20,22,.6);--toast:#2e2e33;--toast-t:#fff;--warncol:#ffb15f;--banner:#3a2818;--warnbg:#3a2320;--subh:#98938a;--fwb:#777;--wbar:#4a4a50}[data-theme=light]{color-scheme:light;--bg:#eceef1;--wrap:#f8f9fa;--card:#fff;--tile:#f4f5f7;--pv:#151517;--line:#d9dbe0;--line2:#c2c6cd;--line3:#d0d3d8;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--btnsec:#dcdfe4;--btnsec-t:#26282c;--danger:#b23434;--dis:#c9ccd2;--dis-t:#82878f;--overlay:rgba(243,244,246,.93);--dim:rgba(100,104,112,.45);--toast:#fff;--toast-t:#1f2124;--warncol:#9a5b00;--banner:#fff1e0;--warnbg:#fdecec;--subh:#7a736a;--fwb:#9aa0a8;--wbar:#c8ccd2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}.wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid var(--accent);border-radius:14px;background:var(--wrap)}.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;position:relative}h1{margin:0;font-size:24px;color:var(--accent)}h2{font-size:17px;margin:0 0 12px;color:var(--text)}.fw{font-size:13px;color:var(--muted)}#gsBtn{color:var(--muted);font-size:16px;text-decoration:none;margin-left:6px}#gsBtn:hover{color:var(--text);text-decoration:none}#themeBtn{position:absolute;top:7px;right:0;color:var(--muted);font-size:18px;line-height:1;text-decoration:none}#themeBtn:hover{color:var(--text);text-decoration:none}.fwBadge{display:inline-block;margin-left:10px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);background:var(--tile);color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.2px;vertical-align:middle;text-decoration:none;cursor:pointer}.calRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem;min-height:38px}.calRow>.lbl{flex:0 0 92px;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}.calRow .grp{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.calRow input{margin:0;padding:6px 8px;font-size:.88rem;text-align:right}.calRow button{width:auto;margin:0;padding:8px 14px;font-size:.85rem;white-space:nowrap}.calSep{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}#calRaw1,#calRaw2{color:var(--muted);border-style:dashed}#calRaw1:focus,#calRaw2:focus{color:var(--text);border-style:solid}.calList{font-size:.88rem;line-height:1.9;display:flex;gap:2px 20px;flex-wrap:wrap;min-width:0}.calList>div{padding-left:1.4em;text-indent:-1.4em}@media(max-width:700px){.calRow{gap:6px;min-height:0;margin-bottom:4px}.calRow>.lbl{flex:0 0 auto}.calRow input{padding:6px}#calDensButton{width:100%;margin-top:4px}.calRow.sample .grp>.t{flex:0 0 84px}.calRow.sample{display:block}.calRow.sample>.lbl{display:block;margin:6px 0 0}.calRow.sample .grp{display:flex;margin:8px 0;flex-wrap:wrap}.calRow.sample+.calRow.sample{border-top:1px solid var(--line);margin-top:10px;padding-top:6px}}#gl3dHelpBtn{width:24px;height:24px;margin:0;padding:0;border-radius:50%;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;line-height:1;cursor:help;display:flex;align-items:center;justify-content:center}#gl3dHelpBtn:hover,#gl3dHelp.on #gl3dHelpBtn{color:var(--accent);border-color:var(--accent)}#gl3dHelpBox{display:none;margin-top:6px;padding:8px 11px;border-radius:8px;background:rgba(20,20,22,.92);border:1px solid var(--line);color:var(--text);font-size:.74rem;line-height:1.7;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}#gl3dHelp:hover #gl3dHelpBox,#gl3dHelp.on #gl3dHelpBox{display:block}@media(max-width:560px){#gl3dHelpBox{white-space:normal;max-width:70vw;line-height:1.55}}#gl3dPad,#gl3dRot{grid-template-columns:repeat(3,26px);grid-template-rows:repeat(3,26px);gap:2px}#gl3dZoom{display:none;flex-direction:column}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover{color:var(--text);border-color:var(--line2)}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy{opacity:.5;cursor:progress}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}button:not(:disabled):active,.button:active{transform:translateY(1px);filter:brightness(.92)}button.eyeBtn:active{transform:translateY(-50%);filter:brightness(.85)}button.btnBusy{cursor:progress}button.btnBusy::after{content:'';display:inline-block;vertical-align:-1px;margin-left:8px;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:uspin .8s linear infinite}.button.secondary{background:var(--btnsec);color:var(--btnsec-t)}.button.danger,button.danger{background:var(--danger);color:#fff}.grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}.updOverlay{position:fixed;inset:0;z-index:99;background:var(--overlay);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}.updOverlay.on{display:flex}.updOverlay h2{color:var(--accent)}.modal{position:fixed;inset:0;z-index:80;background:var(--dim);display:flex;align-items:center;justify-content:center;padding:20px}.modal.hidden{display:none}.modalCard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}.modalText{color:var(--text);font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}.modalBtns{display:flex;gap:10px}.modalBtns button,.modalBtns .button.secondary{margin-top:0;flex:1;width:auto;padding:12px 14px;font-size:15px}.fwbuild{color:var(--fwb);font-size:11px;font-family:monospace}.fwbuild:empty{display:none}.subhead{grid-column:1/-1;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--subh)}.pwWrap{position:relative;display:block}.pwWrap input{width:100%;padding-right:40px}.eyeBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:auto;background:transparent;border:0;padding:4px 8px;margin:0;font-size:16px;cursor:pointer;color:var(--muted)}.eyeBtn:hover{color:var(--text)}.updSpin{width:34px;height:34px;border:4px solid var(--btnsec);border-top-color:var(--accent);border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}.warn{color:var(--warncol)}.hidden{display:none}.updDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}.updDot.hidden{display:none}.cfgNav a .updDot{margin-left:5px}.hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}/* Plotis ribotas, o ne 92 % ekrano: ilga zinute placiame ekrane isitempdavo per
+<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>TinyMaker</title><link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%232fbf4f'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>"><link rel='manifest' href='/manifest.json'><meta name='theme-color' content='#1c1c1e'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black'><link rel='apple-touch-icon' href='/pwa-icon-192.png'><script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script><style>:root{color-scheme:dark;--bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--tile:#202024;--pv:#151517;--line:#3a3a3f;--line2:#555;--line3:#444;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--btnsec:#3c3c42;--btnsec-t:#eee;--danger:#7b2f2f;--dis:#555;--dis-t:#aaa;--overlay:rgba(20,20,22,.93);--dim:rgba(20,20,22,.6);--toast:#2e2e33;--toast-t:#fff;--warncol:#ffb15f;--banner:#3a2818;--warnbg:#3a2320;--subh:#98938a;--fwb:#777;--wbar:#4a4a50}[data-theme=light]{color-scheme:light;--bg:#eceef1;--wrap:#f8f9fa;--card:#fff;--tile:#f4f5f7;--pv:#151517;--line:#d9dbe0;--line2:#c2c6cd;--line3:#d0d3d8;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--btnsec:#dcdfe4;--btnsec-t:#26282c;--danger:#b23434;--dis:#c9ccd2;--dis-t:#82878f;--overlay:rgba(243,244,246,.93);--dim:rgba(100,104,112,.45);--toast:#fff;--toast-t:#1f2124;--warncol:#9a5b00;--banner:#fff1e0;--warnbg:#fdecec;--subh:#7a736a;--fwb:#9aa0a8;--wbar:#c8ccd2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}.wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid var(--accent);border-radius:14px;background:var(--wrap)}.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;position:relative}h1{margin:0;font-size:24px;color:var(--accent)}h2{font-size:17px;margin:0 0 12px;color:var(--text)}.fw{font-size:13px;color:var(--muted)}#gsBtn{color:var(--muted);font-size:16px;text-decoration:none;margin-left:6px}#gsBtn:hover{color:var(--text);text-decoration:none}#themeBtn{position:absolute;top:7px;right:0;color:var(--muted);font-size:18px;line-height:1;text-decoration:none}#themeBtn:hover{color:var(--text);text-decoration:none}.fwBadge{display:inline-block;margin-left:10px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);background:var(--tile);color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.2px;vertical-align:middle;text-decoration:none;cursor:pointer}.calRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem;min-height:38px}.calRow>.lbl{flex:0 0 92px;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}.calRow .grp{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.calRow input{margin:0;padding:6px 8px;font-size:.88rem;text-align:right}.calRow button{width:auto;margin:0;padding:8px 14px;font-size:.85rem;white-space:nowrap}.calSep{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}#calRaw1,#calRaw2{color:var(--muted);border-style:dashed}#calRaw1:focus,#calRaw2:focus{color:var(--text);border-style:solid}.calList{font-size:.88rem;line-height:1.9;display:flex;gap:2px 20px;flex-wrap:wrap;min-width:0}.calList>div{padding-left:1.4em;text-indent:-1.4em}@media(max-width:700px){.calRow{gap:6px;min-height:0;margin-bottom:4px}.calRow>.lbl{flex:0 0 auto}.calRow input{padding:6px}#calDensButton{width:100%;margin-top:4px}.calRow.sample .grp>.t{flex:0 0 84px}.calRow.sample{display:block}.calRow.sample>.lbl{display:block;margin:6px 0 0}.calRow.sample .grp{display:flex;margin:8px 0;flex-wrap:wrap}.calRow.sample+.calRow.sample{border-top:1px solid var(--line);margin-top:10px;padding-top:6px}}#gl3dHelpBtn{width:24px;height:24px;margin:0;padding:0;border-radius:50%;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;line-height:1;cursor:help;display:flex;align-items:center;justify-content:center}#gl3dHelpBtn:hover,#gl3dHelp.on #gl3dHelpBtn{color:var(--accent);border-color:var(--accent)}#gl3dHelpBox{display:none;margin-top:6px;padding:8px 11px;border-radius:8px;background:rgba(20,20,22,.92);border:1px solid var(--line);color:var(--text);font-size:.74rem;line-height:1.7;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}#gl3dHelp:hover #gl3dHelpBox,#gl3dHelp.on #gl3dHelpBox{display:block}@media(max-width:560px){#gl3dHelpBox{white-space:normal;max-width:70vw;line-height:1.55}}#gl3dPad,#gl3dRot{grid-template-columns:repeat(3,26px);grid-template-rows:repeat(3,26px);gap:2px}#gl3dZoom{display:none;flex-direction:column}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover{color:var(--text);border-color:var(--line2)}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy{opacity:.5;cursor:progress}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}button:not(:disabled):active,.button:active{transform:translateY(1px);filter:brightness(.92)}button.eyeBtn:active{transform:translateY(-50%);filter:brightness(.85)}button.btnBusy{cursor:progress}button.btnBusy::after{content:'';display:inline-block;vertical-align:-1px;margin-left:8px;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:uspin .8s linear infinite}.button.secondary{background:var(--btnsec);color:var(--btnsec-t)}.button.danger,button.danger{background:var(--danger);color:#fff}.grid button,.grid .button,.actions button,.actions .button,.connectActions button,.connectActions .button,.rowActions button,.rowActions .button{margin-top:0}.updOverlay{position:fixed;inset:0;z-index:99;background:var(--overlay);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}.updOverlay.on{display:flex}.updOverlay h2{color:var(--accent)}.modal{position:fixed;inset:0;z-index:80;background:var(--dim);display:flex;align-items:center;justify-content:center;padding:20px}.modal.hidden{display:none}.modalCard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.55)}.modalText{color:var(--text);font-size:15px;line-height:1.5;white-space:pre-line;margin-bottom:18px}.modalBtns{display:flex;gap:10px}.modalBtns button,.modalBtns .button.secondary{margin-top:0;flex:1;width:auto;padding:12px 14px;font-size:15px}.fwbuild{color:var(--fwb);font-size:11px;font-family:monospace}.fwbuild:empty{display:none}.subhead{grid-column:1/-1;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--subh)}.pwWrap{position:relative;display:block}.pwWrap input{width:100%;padding-right:40px}.eyeBtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:auto;background:transparent;border:0;padding:4px 8px;margin:0;font-size:16px;cursor:pointer;color:var(--muted)}.eyeBtn:hover{color:var(--text)}.updSpin{width:34px;height:34px;border:4px solid var(--btnsec);border-top-color:var(--accent);border-radius:50%;animation:uspin 1s linear infinite}@keyframes uspin{to{transform:rotate(360deg)}}.warn{color:var(--warncol)}.hidden{display:none}.updDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}.updDot.hidden{display:none}.cfgNav a .updDot{margin-left:5px}/* Isdidinta perziura. Sluoksnis - musu, ne narsykles requestFullscreen: tas
+   paslepia adreso juosta ir tarp narsykliu elgiasi skirtingai, o cia viskas lieka
+   pavaldu mums (V 08-13). Drobe letterbox'inama (jos piesinys turi savo proporcija),
+   o GPU rodinys yra `inset:0` ir uzpildo VISA sluoksni - todel telefone jis pagaliau
+   gauna auksti, o ne tik ploti. */
+/* WiFi ir IP iskraustymas atlaisvino busenos kortelėje maždaug eilutę - ji atiduota
+   perziurai (V 08-13). Auksti gauna GPU sluoksnis (jo kamera prisitaiko prie bet kokio
+   santykio), o 2D drobe lieka savo proporcijos ir tiesiog centruojama. */
+/* Auksti nustato fitStage(). Drobe uzima VISA ploto, o jos piesinys centruojamas
+   `object-fit:contain` - taip krovimo uzrasas stovi vidury, o ne kabo virsuje su
+   tuscia juoda apacia (V 08-13). Tempimo nera: proporcija issaugoma. */
+#previewStage{position:relative}#previewStage.stageTall{position:relative}
+#previewStage.stageTall>canvas{height:100%;object-fit:contain}
+/* ID + klase, ir PO stageTall: kitaip ``
+   yra stipresne uz `.stageFull{position:fixed}` ir isdidinimas nieko nedaro - butent
+   taip ir buvo (V 08-13: „tas expand man nieko nedaro"). */
+#previewStage.stageFull{position:fixed;inset:0;height:auto!important;z-index:70;background:var(--bg);padding:12px;display:grid;place-items:center}
+#previewStage.stageFull>canvas{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+#stageClose{display:none;position:absolute;right:14px;top:14px;z-index:5;width:auto;margin:0;padding:5px 11px;border-radius:8px;background:rgba(20,20,22,.72);border:1px solid var(--line);color:var(--text);font-size:15px;line-height:1}
+.stageFull #stageClose{display:block}
+/* Ikona, ne uzrasas: „Expand" mygtukas korteles antrasteje atrode kaip svetimkunis
+   salia 3D irankiu, kurie visi yra maži kvadratėliai (V 08-13). */
+#stageOpen,#dashShareButton[data-icon]{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#stageOpen:hover,#dashShareButton[data-icon]:hover{color:var(--text);border-color:var(--line2)}#dashShareButton[data-icon].shared{color:var(--accent);border-color:var(--accent);cursor:default}
+.hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}/* Plotis ribotas, o ne 92 % ekrano: ilga zinute placiame ekrane isitempdavo per
    visa virsu ir skaitesi kaip juosta, ne kaip zinute (V 08-13). Dabar auga i
    apacia. Telefone lieka ta pati 92 % riba. */#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:min(92%,720px);z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}#statusMsg.warn{background:var(--warnbg);border-color:#d4705c;color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
-<div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker<a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
+<div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker<a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
 <section id='resumeBanner' class='card banner hidden'>
   <strong>Power was restored - a print was interrupted.</strong>
@@ -58,17 +81,18 @@
            panel). The print-time boxes below fill an empty cell when they appear. -->
       <div><div class='label'>State <span id='syncDot' class='sdot hidden'></span><span id='syncNote' class='hidden'>syncing…</span></div><div id='stateValue' class='value'>Loading</div></div>
       <div><div class='label'>SD card</div><div id='sdValue' class='value'>-</div></div>
-      <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBars' class='wbars'><i></i><i></i><i></i></span></div></div>
-      <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
+      <!-- WiFi ir IP persikele i Statistics (0.17, V 08-13): kasdien ju nereikia, o
+           antrastes pagaliukai pasako svarbiausia - ar rysys yra. Atlaisvinta vieta
+           atiteko 3D perziurai, kuri tapo tuo, i ka is tikruju ziurima. -->
+      <!-- Poromis pagal prasmę (V 08-13): du „ml" vienoje eilutėje, o kiek sluoksnių ir
+           kiek laiko - kitoje. Medžiaga viršuje, nes prie jos ir „VAT refilled". -->
       <div><div class='label'>Resin left (est.)</div><div id='vatValue' class='value'>-</div></div>
-      <!-- 0-26: the previewed model's identity (idle only). It used to sit as
-           one crowded line under the preview card; the status panel already
-           has row mechanics, so it reads like everything else here. The
-           print-time boxes below take over the moment a print starts. -->
-      <div id='modelNameBox' class='hidden'><div class='label'>Model</div><div id='modelNameValue' class='value'>-</div></div>
-      <div id='modelLayersBox' class='hidden'><div class='label'>Layers</div><div id='modelLayersValue' class='value'>-</div></div>
-      <div id='modelTimeBox' class='hidden'><div class='label'>Est. time</div><div id='modelTimeValue' class='value'>-</div></div>
-      <div id='modelResinBox' class='hidden'><div class='label'>Est. resin</div><div id='modelResinValue' class='value'>-</div></div>
+      <div id='modelResinBox'><div class='label'>Est. resin</div><div id='modelResinValue' class='value'>-</div></div>
+      <!-- 0-26: modelio tapatybė persikėlė į peržiūros antraštę (V 08-13), tad čia
+           liko tik skaičiai. Jie rodomi VISADA, su brūkšneliais, kol modelio nėra -
+           kitaip kortelė augtų ir mažėtų, o kartu šokinėtų peržiūra po ja. -->
+      <div id='modelLayersBox'><div class='label'>Layers</div><div id='modelLayersValue' class='value'>-</div></div>
+      <div id='modelTimeBox'><div class='label'>Est. time</div><div id='modelTimeValue' class='value'>-</div></div>
       <!-- Print-time boxes pair up with the rows above: Resin (this print)
            lands next to Resin left, the two clocks share a row, Layer closes
            the card (user request). -->
@@ -77,7 +101,7 @@
       <div id='printRemainingBox' class='hidden'><div class='label'>Remaining time</div><div id='remainingValue' class='value'>-</div></div>
       <div id='printLayerBox' class='hidden'><div class='label'>Layer</div><div id='layerValue' class='value'>-</div></div>
     </div>
-    <div id='debugValue' class='meta'></div>
+    <!-- „heap | min | blk | up" persikele i Statistics: tai diagnostika, ne busena. -->
     <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'>
       <button id='vatRefillButton' class='button secondary' type='button' style='width:auto;flex:1 1 160px'>VAT refilled</button>
       <button id='dryRunToggle' class='button secondary' type='button'
@@ -97,9 +121,21 @@
 
   <section id='printPreviewCard' class='card'>
     <div class='cardHead'><h2 id='printPreviewTitle'>Model preview</h2>
-      <button id='dashShareButton' class='button secondary hidden' type='button' style='margin-top:0'>Share</button></div>
-    <div style='position:relative'>
+      <span style='display:flex;gap:8px;align-items:center'>
+        <!-- Ikona ir VISADA ta pati vieta: tekstinis „Share" / „✓ Shared" keitė plotį,
+             tad antraštė smukčiojo (V 08-13). Kai dalintis negalima - tik nematomas,
+             bet vietos neatiduoda. -->
+        <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
+        <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
+             detales korteleje tiesiog nesimato. Isdidinimas duoda visa langa, o
+             kortele lieka kompaktiska (V 08-13). -->
+        <button id='stageOpen' type='button' title='Fill the window (Esc closes)' aria-label='Fill the window'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
+      </span></div>
+    <!-- Pozicija - CSS'e, ne inline: inline `position:relative` nugalėdavo
+         `.stageFull{position:fixed}` ir išdidinimas nieko nedarydavo (V 08-13). -->
+    <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
+      <button id='stageClose' type='button' title='Close (Esc)'>&#10005;</button>
       <div id='gl3d' style='display:none;position:absolute;inset:0;border-radius:8px;overflow:hidden'>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
@@ -525,6 +561,17 @@
     <div><div class='label'>Last interrupted print</div><div id='abLastCrash' class='value'>-</div></div>
     <div id='abCommunityWrap' class='hidden'><div class='label'>Community printers</div><div id='abCommunity' class='value'>-</div></div>
     <div id='abCommunityTopWrap' class='hidden'><div class='label'>Most on</div><div id='abCommunityTop' class='value'>-</div></div>
+    <!-- Tinklas ir sistema: atkeliavo is pagrindinio vaizdo (V 08-13). Ten jie buvo
+         triuksmas - ziurimi karta per menesi, o vietos ede kasdien. Sitas vaizdas
+         perpiesiamas kas apklausa, kai atidarytas, tad skaiciai gyvi. -->
+    <div class='subhead'>Network</div>
+    <div><div class='label'>WiFi</div><div class='value'><span id='wifiValue'>-</span><span id='wifiBarsStats' class='wbars'><i></i><i></i><i></i></span></div></div>
+    <div><div class='label'>IP</div><div id='ipValue' class='value'>-</div></div>
+    <div class='subhead'>System</div>
+    <div><div class='label'>Uptime</div><div id='abUptime' class='value'>-</div></div>
+    <div><div class='label'>Free memory</div><div id='abHeap' class='value'>-</div></div>
+    <div><div class='label'>Lowest ever</div><div id='abHeapMin' class='value'>-</div></div>
+    <div><div class='label'>Largest free block</div><div id='abHeapBlk' class='value'>-</div></div>
   </div>
 </section>
 
@@ -572,7 +619,13 @@ const writeSettled=()=>setTimeout(()=>{if(!writesInFlight)Array.from(busyBtns).f
 // nothing to share, so show a non-clickable "Shared" tag rather than hiding the
 // control (a vanishing button read as "the share is gone"). `ready` = Connect
 // usable at all; `shared` = this model already lives on Connect.
-const setShareUI=(id,ready,shared)=>{const b=$(id);if(!b)return;b.textContent=shared?'✓ Shared':'Share';b.title=shared?'Already on Connect - unshare it from the Connect tab':'Share this model to TinyMaker Connect';b.classList.toggle('shared',shared);show(id,ready);};
+const setShareUI=(id,ready,shared)=>{const b=$(id);if(!b)return;
+  /* Ikoninis mygtukas teksto nekeičia (jis keitė plotį ir stumdė antraštę - V 08-13);
+     būseną pasako spalva ir užvedimo tekstas, o vieta rezervuojama visada. */
+  if(!b.dataset.icon)b.textContent=shared?'✓ Shared':'Share';
+  b.title=shared?'Already on Connect - unshare it from the Connect tab':'Share this model to TinyMaker Connect';
+  b.classList.toggle('shared',shared);
+  if(b.dataset.icon)b.style.visibility=ready?'':'hidden'; else show(id,ready);};
 const enc=v=>encodeURIComponent(v||'').replace(/'/g,'%27');
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api=async(path,opt,timeoutMs)=>{
@@ -1001,6 +1054,11 @@ const openView=view=>{
   // Leaving the model view cancels an in-flight slice run (fetchSlices checks
   // the sequence each layer) - it must not keep loading behind another view.
   if(view!=='model')fetchSlicesSeq++;
+  /* Isdidinta perziura negali persekioti kito vaizdo: jei ji liktu, sluoksnis
+     dingtu kartu su #homeView, o `body{overflow:hidden}` liktu - puslapis
+     nebeslinktu be jokios iseities (auditas 08-13). */
+  const stg=document.getElementById('previewStage');
+  if(stg&&stg.classList.contains('stageFull')){stg.classList.remove('stageFull');document.body.style.overflow='';}
   if(view!=='connect'||connectTab!=='boot')clearBootAnimPreviews();
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -1079,8 +1137,22 @@ const applyStatus=s=>{
       }
       lastSdRev=s.sdRev;
     }
-    if(typeof s.freeHeap==='number'){const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);setText('debugValue','heap '+Math.round(s.freeHeap/1024)+'k | min '+Math.round(s.minFreeHeap/1024)+'k | blk '+Math.round(s.maxAllocHeap/1024)+'k | up '+(ud?ud+'d ':'')+uh+'h '+um+'m');}
-    const wb=$('wifiBars').children,wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;for(let i=0;i<3;i++)wb[i].classList.toggle('on',i<wn);
+    /* Sistemos skaiciai gyvena Statistics skiltyje (V 08-13). Vienoje eiluteje
+       sugrusti „heap | min | blk | up" pagrindiniame vaizde buvo diagnostika, o ne
+       busena; cia jie isskleidziami i normalias celes su zmoniskais pavadinimais. */
+    if(typeof s.freeHeap==='number'){
+      const u=s.uptimeSecs||0,ud=Math.floor(u/86400),uh=Math.floor(u%86400/3600),um=Math.floor(u%3600/60);
+      setText('abUptime',(ud?ud+'d ':'')+uh+'h '+um+'m');
+      setText('abHeap',Math.round(s.freeHeap/1024)+' kB');
+      setText('abHeapMin',Math.round(s.minFreeHeap/1024)+' kB');
+      setText('abHeapBlk',Math.round(s.maxAllocHeap/1024)+' kB');
+    }
+    /* Pagaliukai dabar dviese: antrasteje (nuolatinis „rysys yra" zenklas, kuriam
+       dingus zinai, kad kaltas tinklas - V 08-13) ir Statistics eiluteje. */
+    const wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;
+    ['wifiBars','wifiBarsStats'].forEach(id=>{const e=$(id);if(!e)return;
+      for(let i=0;i<3;i++)e.children[i].classList.toggle('on',i<wn);
+      if(id==='wifiBars')e.title='WiFi: '+(s.wifiText||'-')+(s.ip&&s.ip!=='-'?' · '+s.ip:'');});
     const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
     setText('layerValue',s.layerText); setText('resinValue',s.resinText); if(!s.busy)setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime); tickLocalStatus();
     setText('vatValue',(s.vatGrams!==undefined?s.vatText+' (~'+s.vatGrams+' g)':s.vatText)+(s.vatLow?' (low!)':'')); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
@@ -1115,6 +1187,10 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
+      /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
+         išvalyti. Anksčiau tai spręsdavo antraštės tekstas, bet joje dabar modelio
+         vardas, o šioje (gyvo 3D) šakoje žymė nebūdavo nustatoma (auditas 08-13). */
+      busyPreviewShown='print:'+s.model;
       $('printPreviewTitle').textContent='Print progress 3D';
       $('viewAsPrintedWrap').style.display='flex';
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
@@ -1133,7 +1209,9 @@ const applyStatus=s=>{
       $('viewAsPrintedWrap').style.display='none';   // idle = irasyta PNG, ne gyvas 3D
       if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
         show('prevNote',false);
-        if(!dashPreviewName&&$('printPreviewTitle').textContent!=='Model preview')dashPreviewPlaceholder();
+        // Antraštėje dabar gali stovėti modelio vardas, tad „ar ji ne Model preview"
+        // nebėra požymis, kad liko spausdinimo vaizdas - klausiam tiesiai.
+        if(!dashPreviewName&&busyPreviewShown)dashPreviewPlaceholder();
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -2161,7 +2239,9 @@ const clearPreviewStopped=cv=>{
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
 const paintStage=(cv,txt,n)=>{
-  paintPreviewProgress(cv,txt+(n?'\nsmoothing '+n+' slices':''),1);
+  /* JOKIOS juostelės: šis etapas progreso neturi, o pilna juosta melavo, kad viskas
+     baigta. Animuoti irgi neišeitų - gija tuo metu užimta skaičiavimu (V 08-13). */
+  paintPreviewProgress(cv,txt+(n?'\nsmoothing '+n+' slices':''),null);
   return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
 };
 // Shared voxel-preview pipeline: slices (with painted % progress) -> quick
@@ -2236,12 +2316,22 @@ const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;ren
 // into one line under the preview card. null hides the rows (placeholder,
 // print start - the print-time boxes take the same grid slots).
 const setModelInfoRows=d=>{
-  ['modelNameBox','modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,!!d));
-  if(!d)return;
-  $('modelNameValue').textContent=d.name;
-  $('modelLayersValue').textContent=String(d.layers);
-  $('modelTimeValue').textContent=d.time||'-';
-  $('modelResinValue').textContent=d.resin||'-';
+  /* Modelio pavadinimas nebėra „parametras" šalia SD būsenos, o paties vaizdo antraštė:
+     ten jis atsako į klausimą „ką aš matau", o būsenos kortelėje atlaisvina eilutę,
+     kuri atitenka 3D peržiūrai (V 08-13). Antraštę spausdinimo metu perrašo print
+     keliai („Printing · 42%"), tad čia ją liečiam tik tada, kai tikrai rodom modelį. */
+  /* Eilutės rodomos VISADA (su brūkšneliais, kol modelio nėra) - kitaip kortelė
+     auga ir mažėja kraunant, o kartu šokinėja ir peržiūra po ja: trys skirtingi
+     dydžiai vietoj vieno (V 08-13). Slepiam tik spausdinant, kai jų vietą užima
+     spaudinio eilutės. */
+  const printing=!!(statusData&&statusData.busy);
+  ['modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,!printing));
+  // Antraštę spausdinant valdo print keliai; SD darbas (import/delete) čia neskaitomas
+  // spausdinimu, tad peržiūros vardas turi likti (auditas 08-13).
+  if(!(printing&&!(statusData&&statusData.sdJob)))$('printPreviewTitle').textContent=d?d.name:'Model preview';
+  $('modelLayersValue').textContent=d?String(d.layers):'-';
+  $('modelTimeValue').textContent=(d&&d.time)||'-';
+  $('modelResinValue').textContent=(d&&d.resin)||'-';
 };
 const dashPreviewPlaceholder=()=>{
   setDashPreviewName('');
@@ -2302,7 +2392,6 @@ const restoreDashPreview=async()=>{
     // `cv` cia anksciau nebuvo apibreztas - ReferenceError palikdavo tuscia
     // langa kaskart perkrovus puslapi (V 08-12).
     const cv=$('printPreviewCanvas');
-    $('printPreviewTitle').textContent='Model preview';
     setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin:Number(d.resinMl).toFixed(1)+' ml'});
     if(haveSlices){
       paintPreviewProgress(cv,'Loading 3D view...',.85);
@@ -2381,7 +2470,10 @@ const upgradeToSlices=async(name,d)=>{
     // pavirsius, ir leidziam kadrui pasirodyti pries uzimant gija (V 08-13).
     await paintStage(cvp,'Building the 3D view…',slicesCache.slices.length);
     drawIso($('printPreviewCanvas'),1);
-    saveSlicesToPrinter(name);
+    // Vienas po kito, ne kartu: ESP32 serveris aptarnauja po vieną užklausą, o abu
+    // rašo į SD - persidengę jie tik trukdytų vienas kitam (auditas 08-13).
+    await saveSlicesToPrinter(name);
+    await refreshModelThumb(name,$('printPreviewCanvas'));   // kortelėje lieka ŠVIEŽIAS vaizdas
   }catch(e){
     /* Cia krovimas nutrūksta perjungus vaizdą (openView pasididina
        fetchSlicesSeq). Gaudyklė buvo tyli, tad drobėje likdavo paskutinis
@@ -2460,6 +2552,65 @@ const dashPreview=async nameEnc=>{
   }
 };
 window.dashPreview=dashPreview;
+/* Isdidinimas: perziuros konteineris tampa pilno ekrano sluoksniu. Nieko perkelti
+   nereikia - sukiojimo, priartinimo, „Detailed" ir pagalbos mygtukai gyvena TAME
+   PACIAME konteineryje, tad keliauja kartu. Po perjungimo GPU rodiniui pasakom
+   persidydinti: jis matmenis ima is drobes kliento dydzio. */
+/* Perziura pasiima tiek auksčio, kiek lieka iki ekrano apacios. Fiksuotas santykis
+   netiktu: virs jos esancios kortelės aukštis kinta (spausdinant atsiranda eilutes,
+   idle - modelio duomenys), tad vienintelis patikimas skaicius yra isматuotas ČIA IR
+   DABAR (V 08-13: „gerai butu, kad tilptu i ekrana"). */
+const fitStage=()=>{
+  const st=$('previewStage'), card=$('printPreviewCard');
+  if(!st||!card||st.classList.contains('stageFull'))return;
+  if(!st.classList.contains('stageTall')){st.style.height='';return;}
+  /* Matuojam nuo DOKUMENTO virsaus, ne nuo lango: `top` viewport atzvilgiu keiciasi
+     slenkant, o funkcija sukasi kas 2 s - tada perziura tyliai keistu dydi vien nuo
+     to, kad paslinkai puslapi (auditas 08-13). */
+  const top=st.getBoundingClientRect().top+window.scrollY;
+  const wrapTop=Math.max(0,top-window.scrollY);
+  // Jei perziura ir taip prasideda zemiau ekrano vidurio (telefonas, siauras langas),
+  // tempti ja i „ekrano apacia" beprasmiska - ten vis tiek slenkama.
+  if(wrapTop>window.innerHeight*0.78){st.style.height='';st.dataset.fitH='';return;}
+  let h=Math.max(260,Math.min(900,Math.round(window.innerHeight-wrapTop-28)));
+  /* Kortele turi savo parastes, tad vien „langas minus virsus" duoda per daug
+     (ismatuota: 13 px per krasta). Pamatuojam realia apacia ir atimam skirtuma. */
+  const prev=st.style.height;
+  st.style.height=h+'px';
+  const over=Math.round(card.getBoundingClientRect().bottom-window.innerHeight)+8;
+  if(over>0)h=Math.max(260,h-over);
+  /* Nekeičiam dėl smulkmenų: kortelė kas apklausą gali skirtis keliais pikseliais, o
+     mes iš to darytume plaukiojantį bloką. Lyginam su TAIKYTU aukščiu, ne su tarpiniu
+     skaičiavimu - kitaip slenkstis niekada nesuveikia (auditas 08-13). */
+  const applied=parseInt(st.dataset.fitH||'0')||0;
+  if(applied&&Math.abs(applied-h)<10){st.style.height=prev||applied+'px';return;}
+  st.style.height=h+'px';
+  st.dataset.fitH=String(h);
+};
+window.fitStage=fitStage;   // gl3dShow gyvena savo IIFE - pasiekia per window
+window.addEventListener('resize',()=>{
+  fitStage();
+  const gl=$('gl3d');
+  if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
+});
+const stageFull=on=>{
+  const st=$('previewStage');
+  if(!st)return;
+  /* Aukstis valomas ABIEM kryptim. Ieinant tai butina: `position:fixed;inset:0` kartu
+     su `height` yra per daug apribojimu, ir narsykle ignoruoja `bottom` - „pilnas
+     langas" butu likes tokio auksčio, koks buvo korteleje (auditas 08-13). */
+  st.style.height='';st.dataset.fitH='';
+  st.classList.toggle('stageFull',on);
+  document.body.style.overflow=on?'hidden':'';
+  if(!on)fitStage();   // grizus atgal langas turi atgauti savo auksti, ne susitraukti
+  const gl=$('gl3d');
+  if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);   // setSize + camera.aspect
+};
+$('stageOpen').addEventListener('click',()=>stageFull(true));
+$('stageClose').addEventListener('click',()=>stageFull(false));
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&$('previewStage').classList.contains('stageFull')){e.preventDefault();stageFull(false);}
+});
 // Nutruktas krovimas: pats vaizdas yra mygtukas (V 08-13). Veikia tik tada, kai
 // drobeje stovi „Preview stopped" - kitu metu paspaudimas nieko nedaro, kad
 // nesikirstu su 3D sukiojimu.
@@ -2517,6 +2668,17 @@ const loadConnectTab=async()=>{if(window.TinyMakerConnectLoadTab)return window.T
 const setConnectTab=tab=>{if(window.TinyMakerConnectSetTab)return window.TinyMakerConnectSetTab(tab);connectTab=tab;};
 
 const canvasBlob=cv=>new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
+/* Miniatiura kortelėje atsinaujina ten, kur pastatomas TIKRAS 3D. Iki šiol ją įrašė
+   viena vienintelė vieta (renderVoxelPreview), o „Detailed" perstatymas ir „Prepare 3D
+   for all models" pjūvius įrašydavo, paveikslėlio – ne; todėl kortelėje ir likdavo
+   senos kartos vaizdai (V 08-13). Senumo požymio niekur nėra ir nereikia: perrašom
+   kaskart, kai turim ką geresnio. */
+const refreshModelThumb=async(name,cv)=>{
+  if(statusData&&statusData.busy)return;   // SD priklauso spaudiniui
+  if(cacheIsDetail())return;               // detalus tankis to paties PNG nepagerina
+  try{await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+  catch(e){}                               // patogumas, ne būtinybė - tyli klaida
+};
 const shareModel=async name=>{
   try{
     await loadConnectApp();
@@ -3026,6 +3188,13 @@ $('prep3dButton').addEventListener('click',async()=>{
         if(!layers)continue;
         await fetchSlices(m.name,layers,Number(info.heightMm)||layers*0.05,{set textContent(v){}});
         await saveSlicesToPrinter(m.name);
+        /* Kartu atnaujinam ir paveikslėlį: „Prepare 3D" iki šiol ruošdavo pjūvius, o
+           kortelėje palikdavo seną kadrą, tad vienas paruošimas duodavo pusę darbo
+           (V 08-13). Piešiam į ATSKIRĄ drobę - matomas langas šiuo metu rodo Settings,
+           ir jo blaškyti nereikia. */
+        const off=document.createElement('canvas');
+        drawIso(off,1);
+        await refreshModelThumb(m.name,off);
         made++;
       }catch(e){}
     }
@@ -3033,7 +3202,9 @@ $('prep3dButton').addEventListener('click',async()=>{
     /* Ciklas bendrame kese palieka PASKUTINI modeli, o „As printed" perpiesia
        is jo netikrindamas vardo - korteleje atsirasdavo svetimas modelis
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
-    if(dashPreviewName){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); }
+    /* Ciklas piešė į atskirą drobę, o tai paslėpė GPU rodinį (drawIso jį gesina, kai
+       drobė ne pagrindinė) - grįžus į Dashboard likdavo 2D (auditas 08-13). */
+    if(dashPreviewName){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); drawIso($('printPreviewCanvas'),1); }
     else slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
@@ -3353,6 +3524,11 @@ $('modelStartButton').addEventListener('click',()=>startPrint(enc(selectedModel)
 // The preview restore has to know whether a print is running before it touches
 // the card, and both used to start at once - so on a page opened mid-print the
 // restore raced the first status and usually won, with no statusData to check.
+/* Perziuros langas pasiima savo auksti VIENA KARTA, iskart, ir jo nebekeicia:
+   anksciau jis augo tik uzsikrovus 3D, tad tuscias, kraunantis ir uzkrautas buviai
+   buvo trijų skirtingų dydžių, o kortelė šokinėjo (V 08-13). Perskaiciuojama tik
+   pakeitus lango dydi. */
+(()=>{const st=$('previewStage');if(st){st.classList.add('stageTall');fitStage();}})();
 openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();checkPublishedVersion();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 // 1-35: the pre-reload page left a note that the firmware changed under us.
 try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.removeItem('tmFwUpd');msg('Firmware updated - now running '+fwUpd+'.');}}catch(err){}
@@ -3568,21 +3744,35 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   };
   /* drawIso pasako, kada rodyti GPU vaizda: tik perziura/baigtas spaudinys. */
   window.gl3dShow=on=>{
-    if(!on){host.style.display='none';return false;}
-    if(!slicesCache.slices||slicesCache.slices.length<3)return false;
+    /* Ši funkcija valdo TIK GPU sluoksnį ir drobės matomumą. Lango aukščio ji
+       neliečia sąmoningai: ją kviečia kiekvienas krovimo procentų perpiešimas, tad
+       anksčiau kiekvienas kadras nuimdavo aukštį ir kortelė šokinėjo per visą
+       krovimą (auditas 08-13). Aukštį valdo dashPreview / dashPreviewPlaceholder. */
+    const cvEl=document.getElementById('printPreviewCanvas');
+    const hide=()=>{host.style.display='none';if(cvEl)cvEl.style.visibility='';return false;};
+    /* Drobe paslepiam, kol rodo GPU: auksta perziura ja centruoja, o sluoksnis lieka
+       per visa ploti, ir permatomose vietose issilenda ANTRAS to paties modelio
+       vaizdas (V 08-13). `visibility`, ne `display` - buferis reikalingas miniatiurai. */
+    if(!on)return hide();
+    if(!slicesCache.slices||slicesCache.slices.length<3)return hide();   // ir issivalom, ne tik griztam
     try{
       if(!ren)init();
       const cv=$('printPreviewCanvas');
-      const w=cv.clientWidth||720,h=cv.clientHeight||420;
+      host.style.display='block';   // PRIES matavima: paslepto elemento clientWidth = 0
+      /* Matmenys imami is PACIO GPU sluoksnio, ne is drobes: iprastai jie sutampa
+         (sluoksnis yra `inset:0` virs drobes), o isdidinus drobe letterbox'inama, o
+         sluoksnis uzima visa ekrana - tada 3D pagaliau gauna auksti (V 08-13). */
+      const w=host.clientWidth||cv.clientWidth||720,h=host.clientHeight||cv.clientHeight||420;
       ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();
       build();
       host.style.display='block';
+      if(cvEl)cvEl.style.visibility='hidden';   // vienas vaizdas, ne du (zr. auksciau)
       const hh=$('gl3dHelp'); if(hh)hh.style.display='block';
       const pb=$('gl3dPad'); if(pb)pb.style.display='grid';
       const rb=$('gl3dRot'); if(rb)rb.style.display='grid';
       const zb=$('gl3dZoom'); if(zb)zb.style.display='flex';
       return true;
-    }catch(e){host.style.display='none';return false;}
+    }catch(e){host.style.display='none';if(stage)stage.classList.remove('stageTall');if(cvEl)cvEl.style.visibility='';return false;}
   };
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
 })();
