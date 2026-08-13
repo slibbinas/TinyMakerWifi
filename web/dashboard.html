@@ -1631,6 +1631,34 @@ const pvFit=cv=>{
   ctx.setTransform(k,0,0,k,0,0);
   return ctx;
 };
+/* PROGRESO vaizdui (spausdinant) - visada grubus rinkinys. Senasis piesimas deda taska
+   kiekvienam langeliui: prie 320x240 keso, kuri palieka „Detailed" perziura, tasku yra
+   16 kartu daugiau ir jie susilieja i vientisa mase. Piesimo kodas NEKEICIAMAS - tik
+   duomenys: vienakart pasidarom 80x60 / ~36 pjuviu kopija (langelis uzpildytas, jei
+   uzpildyta bent puse bloko - taip islieka plonos sieneles). Perziuros (doneFrac=1)
+   kelias to neliecia: ten detalumas ir reikalingas (V 08-14). */
+let coarseCache={key:'',gw:0,gh:0,slices:[],modelH:0,layers:0};
+const coarseSlices=()=>{
+  const sc=slicesCache;
+  if(!cacheIsDetail())return sc;
+  const N=sc.slices.length, key=sc.name+':'+sc.gw+'x'+sc.gh+':'+N;
+  if(coarseCache.key===key)return coarseCache;
+  const fx=Math.max(1,Math.round(sc.gw/80)), fz=Math.max(1,Math.round(N/36));
+  const GW=Math.max(1,Math.round(sc.gw/fx)), GH=Math.max(1,Math.round(sc.gh/fx)), out=[];
+  for(let k=0;k<N;k+=fz){
+    const src=sc.slices[k]; const d=new Uint8Array(GW*GH);
+    if(src)for(let j=0;j<GH;j++)for(let i=0;i<GW;i++){
+      let n=0,tot=0;
+      for(let b=0;b<fx;b++)for(let a=0;a<fx;a++){
+        const jj=j*fx+b, ii=i*fx+a;
+        if(jj<sc.gh&&ii<sc.gw){tot++; if(src[jj*sc.gw+ii])n++;}}
+      if(tot&&n*2>=tot)d[j*GW+i]=1;
+    }
+    out.push(d);
+  }
+  coarseCache={key:key,gw:GW,gh:GH,slices:out,modelH:sc.modelH,layers:sc.layers};
+  return coarseCache;
+};
 const drawVolumeBox=cv=>{
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
   const MX=40.8,MY=30.6,MZ=68;
@@ -1734,7 +1762,7 @@ const quad=(ctx,fill,pts)=>{
 // (doneFrac>=1) - stacias modelis kaip visada; flip varnele ji apvercia.
 // Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
 const drawMach=(cv,doneFrac)=>{
-  const {slices,gw,gh,modelH}=slicesCache;
+  const {slices,gw,gh,modelH}=coarseSlices();
   CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;
   /* Apverstame vaizde geometrija kitokia (KY=-0.2, atskaitos taskas 34 mm), tad ir
      kadras skaiciuojamas atskirai: turinys uzima 90.6*S auksciu ir 61.8*S plociu, o
@@ -2108,7 +2136,7 @@ function* drawIsoGen(cv,doneFrac){
     if(!gpu&&window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
     if(ok)return;
   }
-  const {slices,gw,gh,modelH}=slicesCache;
+  const {slices,gw,gh,modelH}=coarseSlices();
   const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
   const N=slices.length;
@@ -2896,7 +2924,7 @@ const stageBox=on=>{
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow){
     gl3dShow(true);                                   // setSize + camera.aspect
-    if(window.gl3dFrameVolume&&gl3dFrameVolume())window.stageWantsVolume=false;
+    if(window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
   }
 };
 $('stageOpen').addEventListener('click',()=>stageBox(!$('previewStage').classList.contains('stageBox')));
@@ -3932,7 +3960,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   })();
   const MX=40.8,MY=30.6,MZ=68;
   const host=$('gl3d');
-  let ren,scene,cam,mesh,key3d='',setHome=null,setView=null,cage=null,plate=null,baseLine=null;
+  let ren,scene,cam,mesh,key3d='',framedFor='',setHome=null,setView=null,cage=null,plate=null,baseLine=null;
   /* Narvo busena issaugoma: tas, kuriam patinka svarus vaizdas, jo neperjunginetu
      kas atidaryma (V 08-13). */
   let CAGE_ON=(()=>{try{return localStorage.getItem('tmViewCage')!=='0';}catch(e){return true;}})();
@@ -4181,6 +4209,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const sz=new T.Vector3(); bb.getSize(sz);
       if(typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
     }
+    framedFor=key3d;
     return true;
   };
   /* drawIso pasako, kada rodyti GPU vaizda: tik perziura/baigtas spaudinys. */
@@ -4211,6 +4240,11 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       /* Isdidinta, bet dar nekadruota - kadruojam CIA, nes tik dabar 3D tikrai stovi.
          Zyma nuimama is karto: kitaip kiekvienas perpiesimas grazintu vaizda atgal ir
          isdidintame lange nebūtų imanoma nei pasukti, nei priartinti. */
+      /* Kadras naujam modeliui: build() ji nustato tik tada, kai IS TIKRUJU perstato
+         tinkleli. Jei modelis jau buvo paruostas anksciau, GPU parodydavom su senu
+         kadru - be narvo modelis likdavo mazas ir necentruotas, kol nepaspaudei narvo
+         mygtuko (V 08-14). */
+      if(framedFor!==key3d&&window.gl3dFrameAuto&&gl3dFrameAuto())framedFor=key3d;
       if(window.stageWantsVolume&&window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
       host.style.display='block';
       if(cvEl)cvEl.style.visibility='hidden';   // vienas vaizdas, ne du (zr. auksciau)
