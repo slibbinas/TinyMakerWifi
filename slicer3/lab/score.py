@@ -85,11 +85,16 @@ def geometry(stl, oriented):
 def main():
     tag = sys.argv[1] if len(sys.argv) > 1 else 'be-zymes'
     note = sys.argv[2] if len(sys.argv) > 2 else ''
-    head = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+    # Commit'as, kuriame paskutinį kartą keistas BŪTENT slicer2.js — šakos
+    # galva meluoja, kai matuojam senesnę failo versiją per `git checkout <sha> --`.
+    head = subprocess.run(['git', 'log', '-1', '--format=%h', '--', 'web/lib/slicer2.js'],
                           cwd='C:/PIO-build/exp2-wt', capture_output=True,
                           text=True).stdout.strip()
 
-    entry = {'tag': tag, 'note': note, 'commit': head, 'models': {}}
+    import datetime
+    when = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+    entry = {'tag': tag, 'note': note, 'commit': head, 'when': when,
+             'models': {}}
     scores = []
     for name, (stl, ref, first, zs, oriented) in MODELS.items():
         ours = f'score-{name}.zip'

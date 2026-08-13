@@ -41,9 +41,11 @@ for i, e in enumerate(hist):
     g = e.get('geometry', {})
     ok = '✓' if (g.get('air') == 0 and g.get('crossing') == 0) else '⚠'
     rows.append(
-        '<tr><td>%d</td><td><code>%s</code></td><td>%s</td><td>%s</td>'
-        '<td class="%s">%s</td><td class="small">%s</td><td>%s</td></tr>'
-        % (i + 1, e['commit'], e['tag'], bar(e['score']), cls, d, per, ok))
+        '<tr><td>%d</td><td class="small">%s</td><td><code>%s</code></td>'
+        '<td>%s</td><td>%s</td><td class="%s">%s</td>'
+        '<td class="small">%s</td><td>%s</td></tr>'
+        % (i + 1, e.get('when', '—'), e['commit'], e['tag'], bar(e['score']),
+           cls, d, per, ok))
 
 last = hist[-1]
 detail = []
@@ -107,11 +109,11 @@ kitaip balas neturi prasmės.</p>
 
 <h2>Eiga · {{SPARK}}</h2>
 <div class="scroll"><table>
-<tr><th>#</th><th>commit</th><th>žymė</th><th>balas</th><th>Δ</th><th>pagal modelį</th><th>geom.</th></tr>
+<tr><th>#</th><th>kada</th><th>commit</th><th>žymė</th><th>balas</th><th>Δ</th><th>pagal modelį</th><th>geom.</th></tr>
 {{ROWS}}
 </table></div>
 
-<h2>Paskutinė būsena · {{TAG}}</h2>
+<h2>Paskutinė būsena · {{TAG}} <span class="small">({{WHEN}})</span></h2>
 <div class="cards">{{DETAIL}}</div>
 
 <p class="note">Raudonai pažymėti aukščiai, kur nuokrypis didesnis nei 15 %.
@@ -123,6 +125,7 @@ failams, su veidrodžio ir sluoksnio poslinkio pataisa. Šaltinis:
 for _k, _v in (('{{ROWS}}', '\n'.join(rows)),
                ('{{DETAIL}}', '\n'.join(detail)),
                ('{{TAG}}', last['tag']),
+               ('{{WHEN}}', last.get('when', '—')),
                ('{{SPARK}}', spark)):
     HTML = HTML.replace(_k, _v)
 
