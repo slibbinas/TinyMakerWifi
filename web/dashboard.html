@@ -17,9 +17,11 @@
 #previewStage.stageFull{position:fixed;inset:0;height:auto!important;z-index:70;background:var(--bg);padding:12px;display:grid;place-items:center}
 #previewStage.stageFull>canvas{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 #stageClose{display:none;position:absolute;right:14px;top:14px;z-index:5;width:auto;margin:0;padding:5px 11px;border-radius:8px;background:rgba(20,20,22,.72);border:1px solid var(--line);color:var(--text);font-size:15px;line-height:1}
-.stageFull #stageClose{display:block}
+#previewStage.stageFull #stageClose{display:block;left:50%;right:auto;transform:translateX(-50%)}
 /* Ikona, ne uzrasas: „Expand" mygtukas korteles antrasteje atrode kaip svetimkunis
    salia 3D irankiu, kurie visi yra maži kvadratėliai (V 08-13). */
+.cardBusy .cardHead button,.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dHelp{opacity:.4;pointer-events:none}
+.cardBusy .cardHead{cursor:progress}
 #stageOpen,#dashShareButton[data-icon]{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#stageOpen:hover,#dashShareButton[data-icon]:hover{color:var(--text);border-color:var(--line2)}#dashShareButton[data-icon].shared{color:var(--accent);border-color:var(--accent);cursor:default}
 .hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}/* Plotis ribotas, o ne 92 % ekrano: ilga zinute placiame ekrane isitempdavo per
    visa virsu ir skaitesi kaip juosta, ne kaip zinute (V 08-13). Dabar auga i
@@ -135,7 +137,7 @@
          `.stageFull{position:fixed}` ir išdidinimas nieko nedarydavo (V 08-13). -->
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
-      <button id='stageClose' type='button' title='Close (Esc)'>&#10005;</button>
+      <button id='stageClose' type='button' title='Close (Esc)'>Close &#10005;</button>
       <div id='gl3d' style='display:none;position:absolute;inset:0;border-radius:8px;overflow:hidden'>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
@@ -2165,6 +2167,11 @@ const fetchLiveSlices=async(model,since)=>{
 };
 let fetchSlicesSeq=0;
 const fetchSlices=async(name,layers,modelH,btn,mode)=>{
+  setPreviewBusy(true);
+  try{ return await fetchSlicesInner(name,layers,modelH,btn,mode); }
+  finally{ setPreviewBusy(false); }
+};
+const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
   // Only one slice run at a time: a second run (another model opened, Start
   // pressed) supersedes this one - two loops in parallel starve the printer.
   const mySeq=++fetchSlicesSeq;
@@ -2238,6 +2245,15 @@ const clearPreviewStopped=cv=>{
 };
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
+/* Kol vaizdas statomas, gija uzimta ir NE VIENAS mygtukas nereaguoja - bet atrodo,
+   kad reaguos (V 08-13). Prigesinam juos, kaip ir SD darbu metu: geriau matyti, kad
+   dabar negalima, nei spausti i tuscia. */
+let previewBusy=0;
+const setPreviewBusy=on=>{
+  previewBusy=Math.max(0,previewBusy+(on?1:-1));
+  const c=$('printPreviewCard');
+  if(c)c.classList.toggle('cardBusy',previewBusy>0);
+};
 const paintStage=(cv,txt,n)=>{
   /* JOKIOS juostelės: šis etapas progreso neturi, o pilna juosta melavo, kad viskas
      baigta. Animuoti irgi neišeitų - gija tuo metu užimta skaičiavimu (V 08-13). */
@@ -2455,6 +2471,7 @@ const upgradeToSlices=async(name,d)=>{
   const cvp=$('printPreviewCanvas');
   const setN=t=>paintPreviewProgress(cvp,t,0);
   setN('Building the 3D view\u2026');
+  setPreviewBusy(true);
   try{
     await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,{
       // fetchSlices raso 'Loading 45%' - pasukam i uzrasa ir juostele, kad
@@ -2481,6 +2498,7 @@ const upgradeToSlices=async(name,d)=>{
     if(e&&e.message==='preview superseded'&&dashPreviewName===name)markPreviewStopped(cvp,name);
   }
   finally{
+    setPreviewBusy(false);    // uzimtumo zyma nuimama kartu su visu kitu
     // Kortelės juostelė priklauso spausdinimo progresui - įkrovimas jos nebeliečia,
     // tad ir nulinti nebereikia; užrašas gyvena drobėje ir dingsta su piešiniu.
     if(dashPreviewName===name)show('prevNote',false);
@@ -2572,7 +2590,7 @@ const fitStage=()=>{
   // Jei perziura ir taip prasideda zemiau ekrano vidurio (telefonas, siauras langas),
   // tempti ja i „ekrano apacia" beprasmiska - ten vis tiek slenkama.
   if(wrapTop>window.innerHeight*0.78){st.style.height='';st.dataset.fitH='';return;}
-  let h=Math.max(260,Math.min(900,Math.round(window.innerHeight-wrapTop-28)));
+  let h=Math.max(260,Math.min(900,Math.round(window.innerHeight-wrapTop-66)));
   /* Kortele turi savo parastes, tad vien „langas minus virsus" duoda per daug
      (ismatuota: 13 px per krasta). Pamatuojam realia apacia ir atimam skirtuma. */
   const prev=st.style.height;
@@ -2604,7 +2622,11 @@ const stageFull=on=>{
   document.body.style.overflow=on?'hidden':'';
   if(!on)fitStage();   // grizus atgal langas turi atgauti savo auksti, ne susitraukti
   const gl=$('gl3d');
-  if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);   // setSize + camera.aspect
+  if(gl&&gl.style.display==='block'&&window.gl3dShow){
+    gl3dShow(true);                                   // setSize + camera.aspect
+    // Dideliame lange ziurima, kaip daiktas stovi plokstėje - tad kadre visas turis.
+    if(on&&window.gl3dFrameVolume)gl3dFrameVolume();
+  }
 };
 $('stageOpen').addEventListener('click',()=>stageFull(true));
 $('stageClose').addEventListener('click',()=>stageFull(false));
@@ -3774,6 +3796,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       return true;
     }catch(e){host.style.display='none';if(stage)stage.classList.remove('stageTall');if(cvEl)cvEl.style.visibility='';return false;}
   };
+  /* Isdidinus kadre turi buti VISAS spausdinimo turis, o ne vien modelis: dideliame
+     lange ziuri, kaip daiktas stovi plokstėje, ne tik i jo veida (V 08-13). Dezes
+     centras GL erdveje yra (0,0,0) - taip sudeliota build(). */
+  window.gl3dFrameVolume=()=>{ if(typeof setHome==='function'){setHome(new T.Vector3(0,0,0),68);return true;} return false; };
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
 })();
 </script>
