@@ -243,11 +243,15 @@ const BEAM_SAMPLES = 8;   // SupportTreeUtils.hpp: Beam_<Samples = 8>
 
 /** beam_mesh_hit (SupportTreeUtils.hpp:150-194): aštuoni spinduliai palei kūgio
  *  paviršių, rezultatas — mažiausias pataikymas. `sd` yra saugos atstumas. */
-export function beamHit(mesh, src, dir, r1, r2, sd = 0) {
+/** Kaip `beamHit`, tik grąžina ir pataikymo TAŠKĄ. Jo reikia apverstai
+ *  galvutei: kai ašis ir pluoštas nesutampa, originalas remiasi į pluošto
+ *  pataikymo vietą, o ji yra šalia ašies (SupportTreeUtils.hpp: hit.position()
+ *  = spindulio pradžia + kryptis × atstumas). */
+export function beamHitFull(mesh, src, dir, r1, r2, sd = 0) {
   const d = norm(dir);
   const dst = add(src, d);
   const [a, b] = ringBasis(d);
-  let best = INF;
+  let best = INF, bestPos = null;
   for (let i = 0; i < BEAM_SAMPLES; i++) {
     const ps = ringPoint(src, a, b, r1 + sd, i, BEAM_SAMPLES);
     const pd = ringPoint(dst, a, b, r2 + sd, i, BEAM_SAMPLES);
@@ -255,7 +259,7 @@ export function beamHit(mesh, src, dir, r1, r2, sd = 0) {
     let hr = mesh.rayHit(add(ps, mul(rd, r1)), rd);
     if (hr.inside && hr.dist < INF) {
       // Pataikyta iš vidaus — permetam iš išorės, kaip daro originalas.
-      if (hr.dist > 2 * r1 + sd) { best = 0; continue; }
+      if (hr.dist > 2 * r1 + sd) { best = 0; bestPos = null; continue; }
       /* hr.dist matuojamas nuo TAŠKO, iš kurio šauta (ps + rd*r1), tad
          permetant reikia to paties poslinkio — kitaip naujas spindulys
          atsiduria prieš paviršių ir pataiko į jį patį (rezultatas visada
@@ -263,9 +267,18 @@ export function beamHit(mesh, src, dir, r1, r2, sd = 0) {
       const q = add(ps, mul(rd, r1 + hr.dist + 1e-6));
       hr = mesh.rayHit(q, rd);
     }
-    if (hr.dist < best) best = hr.dist;
+    if (hr.dist < best) {
+      best = hr.dist;
+      bestPos = Number.isFinite(hr.dist)
+        ? add(add(ps, mul(rd, r1)), mul(rd, hr.dist)) : null;
+    }
   }
-  return best;
+  return { dist: best, pos: bestPos };
+}
+
+/** Tik atstumas — taip jis naudojamas beveik visur. */
+export function beamHit(mesh, src, dir, r1, r2, sd = 0) {
+  return beamHitFull(mesh, src, dir, r1, r2, sd).dist;
 }
 
 /** Saugos atstumai. `safety_distance(r)` — galvutei (SupportTree.hpp:95),
@@ -501,10 +514,16 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
        atramomis ant modelio. */
     /* `bridge_mesh_intersect(headjp, DOWN, r)` (cpp:547) yra 3 argumentų
        perkrova, kuri saugos atstumą PASISKAIČIUOJA pati — tai ne „be atsargos". */
-    const hit = beamHit(mesh, h.junction, DOWN, h.rBack, h.rBack, bridgeSafety(h.rBack, cfg));
-    if (!(hit < INF)) ground.push(i);
+    const scan = beamHitFull(mesh, h.junction, DOWN, h.rBack, h.rBack,
+                             bridgeSafety(h.rBack, cfg));
+    if (!(scan.dist < INF)) ground.push(i);
     else if (cfg.ground_facing_only) continue;
-    else { h.onModel = true; h.groundHit = hit; onModel.push(i); }
+    else {
+      h.onModel = true;
+      h.groundHit = scan.dist;
+      h.groundHitPos = scan.pos;      // `m_head_to_ground_scans[i] = hit`
+      onModel.push(i);
+    }
   }
   const clusters = clusterHeads(ground.map(i => heads[i]), cfg)
     .map(cl => cl.map(k => ground[k]));
@@ -691,14 +710,22 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
        klausimui „ar kelias laisvas" — būtent tam jis ir naudojamas classify. */
     if (!Number.isFinite(h.groundHit)) continue;     // !hit.is_hit() -> return false
     const centre = mesh.rayHit(h.junction, DOWN);
-    /* NUOKRYPIS NUO ORIGINALO, sąmoningas: kai abu matavimai nesutampa
-       (|hitdiff| >= 2·r_back — kaip tik briaunos atvejis), originalas stato
-       PASVIRUSIĄ atramą į pluošto pataikymo tašką. Pasvirusių atramų dar
-       nepiešiam, tad galvutės atsisakom: geriau be atramos nei atrama ore. */
-    if (!Number.isFinite(centre.dist)) continue;
+    /* `hitp` — kur atsiremia apversta galvutė (cpp:699-701):
+         hitdiff = center_hit.distance() - hit.distance();
+         hitp = |hitdiff| < 2*r_back ? center_hit.position() : hit.position();
+       Kai ašis ir pluoštas nesutampa, atrama krypsta į pluošto pataikymo tašką
+       — anksčiau tokių galvučių tiesiog atsisakydavom, nes pasvirusių nepiešėm. */
+    const hitdiff = centre.dist - h.groundHit;
+    const onAxis = Math.abs(hitdiff) < 2 * h.rBack && Number.isFinite(centre.dist);
+    const hitp = onAxis
+      ? [h.junction[0], h.junction[1], h.junction[2] - centre.dist]
+      : h.groundHitPos;
+    if (!hitp) continue;                    // nėra kur atsiremti
     /* Spindulys eina iš pačios jungties, tad atstumas jau tikras — pluošto
        poslinkio (+r_back, SupportTreeUtils.hpp:179) čia nebėra ką kompensuoti. */
-    const surface = h.junction[2] - centre.dist;
+    /* `endp.z = hjp.z - hit.distance() + h` (cpp:696) — nuo PLUOŠTO atstumo,
+       kaip originale, o ne nuo ašies. */
+    const surface = h.junction[2] - h.groundHit;
     /* Stulpas NEVAROMAS į paviršių: jis baigiasi `hh` aukščiau, o likusį tarpą
        uždengia APVERSTA galvutė (`add_anchor`, cpp:684-706), smailėjanti iki
        head_front_radius. Tai ne grožis — storas stulpas, atremtas į detalę,
@@ -707,7 +734,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
          hh = min(hit.distance() - r_back, sin(zangle) * fullwidth) */
     const fullwidth = 2 * cfg.head_front_radius_mm + h.width +
                       2 * h.rBack - cfg.head_penetration_mm;
-    let hh = Math.min(centre.dist - h.rBack, Math.SQRT1_2 * fullwidth);
+    let hh = Math.min(h.groundHit - h.rBack, Math.SQRT1_2 * fullwidth);
     if (h.rBack < cfg.head_back_radius_mm) hh = Math.max(hh, 0);
     else if (hh <= 0) continue;
     const bottom = Math.max(0, surface + hh);
@@ -716,9 +743,10 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
                    bottom, rTop: h.rBack, rBase: h.rBack, head: i, bridges: 0,
                    onModel: true, anchored: hh > 1e-6 });
     if (hh > 1e-6)
+      // Atkarpa nuo stulpo galo iki `hitp` — vertikali, kai ašis sutampa, ir
+      // PASVIRUSI, kai ne (`taildir = (endp - hitp).normalized()`, cpp:706).
       bridges.push({ a: [h.junction[0], h.junction[1], bottom],
-                     b: [h.junction[0], h.junction[1], surface],
-                     r: h.rBack, anchor: true });
+                     b: hitp.slice(), r: h.rBack, anchor: true });
     h.pillar = pillars.length - 1;
   }
 
