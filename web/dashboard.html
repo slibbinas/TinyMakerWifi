@@ -1736,8 +1736,12 @@ const drawMach=(cv,doneFrac)=>{
      centras - lauko vidurys. Su bendra stacio vaizdo formule modelis nusleisdavo po
      bloko apacia (V 08-14). */
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
-  PREV_S=Math.min(PREV_H*0.92/90.6, PREV_W*0.92/61.8);
-  CAM_CY=PREV_H/2;
+  /* I kadra iskaiciuojam ir PANARDINTA dali: ji siekia -6 mm po dervos pavirsiumi, tad
+     turinys yra ne 90.6*S, o 97.2*S auksčio, ir jo vidurys - 3.3*S zemiau lauko vidurio.
+     Be sito iprastame (nepailgintame) bloke giliausi taskai nukrisdavo 8 px zemiau krasto
+     (ismatuota 08-14). */
+  PREV_S=Math.min(PREV_H*0.92/97.2, PREV_W*0.92/61.8);
+  CAM_CY=PREV_H/2-3.3*PREV_S;
   const MX=40.8,MY=30.6,MZ=68;
   // karkasas be plokstes plokstumos
   const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
