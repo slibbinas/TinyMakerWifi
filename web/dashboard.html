@@ -1620,7 +1620,10 @@ const pvSkin=()=>{
    pailgintame bloke narsykle ta pati piesini istempdavo ~1,9 karto: taskeliai, kuriais
    rodoma dar neatspausdinta dalis, susiliedavo i demę (V 08-13). */
 const pvFit=cv=>{
-  const dpr=Math.min(window.devicePixelRatio||1,2);
+  /* Tikras ekrano tankis, ne apribotas iki 2: V ekrane jis 2.25, tad drobe buvo
+     ruosiama 2x ir narsykle ja istempdavo 1.125 karto - taskeliai sutepami i blura
+     (ismatuota 08-14). Stende to nesimate, nes ten tankis 1. */
+  const dpr=Math.min(window.devicePixelRatio||1,3);
   const r=cv.getBoundingClientRect();
   const cssW=Math.round(r.width)||720;
   const cssH=Math.round(r.height)||Math.round(cssW/PREV_AR);
