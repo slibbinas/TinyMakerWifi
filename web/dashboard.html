@@ -2632,9 +2632,15 @@ const renderSdJob=s=>{
     return;
   }
   sdJobLast=job;sdJobLastName=name;
+  /* SD-prog: the count belongs HERE too. This sticky snackbar is what you are
+     actually looking at while the job runs - the hint down in the SD card
+     section is out of view (V 08-13). "a few minutes" with no number reads as
+     a stuck page; a number that moves reads as work. */
+  const jd=Number(s&&s.sdJobDone)||0, jt=Number(s&&s.sdJobTotal)||0;
+  const pos=(jt>0&&jd>0&&jd<=jt)?' '+jd+'/'+jt+' ('+Math.min(99,Math.round(jd*100/jt))+'%)':'';
   const txt=job==='delete'
-    ?('Deleting '+name+' - the printer is busy removing files, other SD actions wait...')
-    :('Importing '+name+' - unpacking to the SD card can take a few minutes...');
+    ?('Deleting '+name+pos+' - the printer is busy removing files, other SD actions wait...')
+    :('Importing '+name+pos+' - unpacking to the SD card can take a few minutes...');
   if(txt===sdJobCur&&e.textContent===txt)return;
   const firstShow=!sdJobCur;
   e.textContent=txt;e.classList.remove('warn');

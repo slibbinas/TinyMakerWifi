@@ -157,11 +157,11 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
     #endif
     done++;
     if (showProgress) sdJobDone = done;   // SD-prog: same number the screen bar uses
-    if (showProgress && (done % 10 == 0 || done == total)) {
-      int w = (int)(136L * done / total);
-      if (w > 136) w = 136;
-      if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
-    }
+    // Bar AND the count, like the unpack screen: if the printer bothers to show
+    // a progress screen, it should say how far it is, not just that it is alive
+    // (V 08-13). The model name on line2 gives way to the number - you just
+    // picked it on the previous screen, and the dashboard names it anyway.
+    if (showProgress && (done % 10 == 0 || done == total)) netProgressCount(done, total);
   }
   dir.close();
   return SD.rmdir(path);
