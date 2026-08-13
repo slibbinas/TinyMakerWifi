@@ -80,6 +80,11 @@ export const CFG = {
   island_outline_step_mm: 3.75,
   island_inner_step_mm:   5.0,
   island_thin_step_mm:    5.0,
+  /* SampleConfig.hpp:20-24 — vieno sluoksnio nuokaba tampa „pussaliu", jei
+     išsikiša toliau nei `peninsula_min_width`; kas arčiau nei
+     `peninsula_self_supported_width` — laikosi pati. */
+  peninsula_min_width_mm: 2.0,
+  peninsula_self_supported_width_mm: 1.5,
   /* `minimal_bounding_sphere_radius` (SampleConfig.hpp:35): mažesnės dalys
      išmetamos dar prieš sėją — jų neįmanoma atspausdinti kitaip nei rutuliuku
      nuo galvutės. */
@@ -1154,54 +1159,45 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
 
         if (z >= cfg.base_height_mm) {
           // Nuokaba = ši dalis MINUS po ja esančios dalys.
-          const cand = [];
+          const cand = [];      // per įtakos spindulio filtrą
+          const free = [];      // BE filtro — salos ir pussaliai (SPG.cpp:300,316)
           let island = false;
-          if (!below.length) {
-            island = true;                        // sala: kabo visa
-            /* PLONOMS saloms taškai dedami ant „nugarkaulio", ne ant krašto.
-               Ant krašto artimiausio paviršiaus normalė rodo į ŠONĄ, galvutė
-               pakrypsta, jos spindulių žiedas įlenda į pačią sruogą ir
-               `pinheadHit` grąžina nulį — taškas prarandamas. Originale
-               nugarkaulį duoda Voronoi skeletas (UniformSupportIsland.cpp),
-               čia — tinklelio taškai, giliausi nuo krašto, retinami
-               thin_max_distance. Storoms saloms lieka kontūras. */
-            tk = now();
+
+          /* Salos/pussalio sėja: plonoms dalims — „nugarkaulis", storoms —
+             kontūras plius retas vidaus tinklelis. Ta pati taisyklė abiem, tad
+             gyvena vienoje vietoje. */
+          const islandLike = (paths, pbb, out) => {
             const thin = cfg.island_outline_step_mm / 2;
-            /* Ar sala PLONA — atsakom PIGIAI: neigiamu offsetu. Anksčiau tam
-               buvau statęs 0,3 mm tinklelį VISOMS saloms, ir jis vienas suėdė
-               15,7 s iš 26,9 (pado diskas pirmame sluoksnyje irgi yra sala:
-               27×27 mm tinklelis kiekvienam jo taškui matavo atstumą iki visų
-               kraštinių). Storoms saloms tinklelio nereikia. */
             const cin = new CL.ClipperOffset();
-            cin.AddPaths(ex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
+            cin.AddPaths(paths, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
             const shrunk = new CL.Paths();
             cin.Execute(shrunk, -thin * SCALE);
-            const isThin = shrunk.length === 0;
-            const deep = [];
-            if (isThin)
-              for (let gy = bb[1] / SCALE; gy <= bb[3] / SCALE; gy += 0.3)
-                for (let gx = bb[0] / SCALE; gx <= bb[2] / SCALE; gx += 0.3)
-                  if (pointInPaths(ex, gx, gy)) {
-                    const d = distToPaths(ex, gx, gy);
+            if (shrunk.length === 0) {
+              const deep = [];
+              for (let gy = pbb[1] / SCALE; gy <= pbb[3] / SCALE; gy += 0.3)
+                for (let gx = pbb[0] / SCALE; gx <= pbb[2] / SCALE; gx += 0.3)
+                  if (pointInPaths(paths, gx, gy)) {
+                    const d = distToPaths(paths, gx, gy);
                     if (d > 0.05) deep.push([d, gx, gy]);
                   }
-            if (isThin) {
               deep.sort((p1, p2) => p2[0] - p1[0]);
               const sp2 = cfg.island_thin_step_mm * cfg.island_thin_step_mm;
               for (const [, gx, gy] of deep)
-                if (!cand.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 < sp2))
-                  cand.push([gx, gy]);
-              if (!cand.length) walkRing(ex[0], step, cand);
+                if (!out.some(c => (c[0] - gx) ** 2 + (c[1] - gy) ** 2 < sp2))
+                  out.push([gx, gy]);
+              if (!out.length) walkRing(paths[0], cfg.island_outline_step_mm, out);
             } else {
-              // Stora sala: kontūras + RETAS vidaus tinklelis (5 mm), be
-              // atstumų skaičiavimo — jų čia nereikia, o jie ir buvo brangūs.
-              for (const ring of ex) walkRing(ring, cfg.island_outline_step_mm, cand);
+              for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, out);
               const st = cfg.island_inner_step_mm;
-              for (let gy = Math.ceil(bb[1] / SCALE / st) * st; gy <= bb[3] / SCALE; gy += st)
-                for (let gx = Math.ceil(bb[0] / SCALE / st) * st; gx <= bb[2] / SCALE; gx += st)
-                  if (pointInPaths(shrunk, gx, gy)) cand.push([gx, gy]);
+              for (let gy = Math.ceil(pbb[1] / SCALE / st) * st; gy <= pbb[3] / SCALE; gy += st)
+                for (let gx = Math.ceil(pbb[0] / SCALE / st) * st; gx <= pbb[2] / SCALE; gx += st)
+                  if (pointInPaths(shrunk, gx, gy)) out.push([gx, gy]);
             }
-            T.island += now() - tk;
+          };
+
+          if (!below.length) {
+            island = true;                        // sala: kabo visa
+            islandLike(ex, bb, free);
           } else {
             tk = now();
             const clip = [];
@@ -1223,6 +1219,51 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             for (const [x, y] of raw)
               if (distToPaths(clip, x, y) > 1e-6) cand.push([x, y]);
             T.land += now() - tk;
+
+            /* `create_peninsulas` (SPG.cpp:567) + `support_peninsulas`
+               (SPG.cpp:316). Vieno sluoksnio nuokaba, išsikišusi toliau nei
+               `peninsula_min_width` (2 mm) už to, kas po ja, yra „pussalis" ir
+               remiama ATSKIRAI — ne tik kraštas, o visas plotas, kaip sala.
+               Savaime laikosi tik tai, kas arčiau nei
+               `peninsula_self_supported_width` (1,5 mm) nuo „sausumos".
+
+               Tai PRIDEDANTIS mechanizmas. Be jo plokščia nuokaba gauna tik
+               kontūro taškus: kronsteine mūsų 8 prieš etalono 12–20
+               (išmatuota 08-13). Ant glotnaus kūno jis netyli — ten sluoksnis
+               retai išsikiša 2 mm per vieną žingsnį. */
+            tk = now();
+            const grow = (delta) => {
+              const co = new CL.ClipperOffset();
+              co.AddPaths(clip, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
+              const o = new CL.Paths();
+              co.Execute(o, delta * SCALE);
+              return o;
+            };
+            const diff = (subj, cl) => {
+              const c = new CL.Clipper();
+              c.AddPaths(subj, CL.PolyType.ptSubject, true);
+              if (cl.length) c.AddPaths(cl, CL.PolyType.ptClip, true);
+              const tr = new CL.PolyTree();
+              c.Execute(CL.ClipType.ctDifference, tr,
+                        CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+              return tr;
+            };
+            const overPen = toExPolys(CL, diff(ex, grow(cfg.peninsula_min_width_mm)));
+            if (overPen.length) {
+              const shapes = toExPolys(CL, diff(ex, grow(cfg.peninsula_self_supported_width_mm)));
+              for (const pex of shapes) {
+                // pakankamai platus? — turi persidengti su `overPen`
+                const ci = new CL.Clipper();
+                ci.AddPaths(pex, CL.PolyType.ptSubject, true);
+                for (const oe of overPen) ci.AddPaths(oe, CL.PolyType.ptClip, true);
+                const inter = new CL.Paths();
+                ci.Execute(CL.ClipType.ctIntersection, inter,
+                           CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+                if (!inter.length) continue;
+                islandLike(pex, pathsBBox(pex), free);
+              }
+            }
+            T.island += now() - tk;
           }
           // Atranka pagal augantį įtakos spindulį.
           tk = now();
@@ -1235,6 +1276,13 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             }
             if (covered) continue;
             out.push({ pos: [x, y, z], normal: [0, 0, -1], island });
+            active.add(out.length - 1);
+          }
+          /* Salos ir pussaliai — BE spindulio patikros: originale filtras yra
+             tik `support_part_overhangs` (SPG.cpp:270), o `support_island` ir
+             `support_peninsulas` savo taškus deda besąlygiškai. */
+          for (const [x, y] of free) {
+            out.push({ pos: [x, y, z], normal: [0, 0, -1], island: true });
             active.add(out.length - 1);
           }
           T.pick += now() - tk;
