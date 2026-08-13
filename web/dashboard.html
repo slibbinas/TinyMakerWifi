@@ -2143,6 +2143,21 @@ const fetchSlices=async(name,layers,modelH,btn,mode)=>{
   slicesCache={name:name,mode:mode,slices:slices,gw:gw,gh:gh,modelH:modelH,layers:layers,mlEst:mlEst};
   saveSlicesToStorage();
 };
+/* Nutruktas krovimas: pats vaizdas tampa mygtuku. Ieskoti „Preview" sarase,
+   kai pries akis stovi juodas blokas su uzrasu, yra vienu zingsniu daugiau nei
+   reikia (V 08-13). Vardas laikomas atskirai, kad paspaudimas atkurtu butent
+   ta modeli, kurio krovimas nutruko, o ne kazkoki pasenusi. */
+let previewStoppedFor='';
+const markPreviewStopped=(cv,name)=>{
+  previewStoppedFor=name;
+  paintPreviewProgress(cv,'Preview stopped\nclick here to load it again',null);
+  cv.style.cursor='pointer';
+  cv.title='Click to load the preview again';
+};
+const clearPreviewStopped=cv=>{
+  previewStoppedFor='';
+  if(cv){cv.style.cursor='';cv.title='';}
+};
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
 const paintStage=(cv,txt,n)=>{
@@ -2198,7 +2213,13 @@ const modelPreview=async()=>{
       $('modelResin').style.cursor='pointer';
     }
   }catch(e){
-    if(e.message==='preview superseded')return;  // navigated away - stay quiet
+    if(e.message==='preview superseded'){
+      // Tas pats, kaip dashPreview: nutrauke - pasakom, o ne paliekam sustingusi
+      // skaiciu (V 08-13).
+      if(selectedModel===name)
+        paintPreviewProgress($('modelPreviewCanvas'),'Preview stopped\npress Preview to load it again',null);
+      return;
+    }
     msg(e.message,true);
     if(selectedModel===name)drawVolumeBox($('modelPreviewCanvas'));
   }
@@ -2337,8 +2358,13 @@ const upgradeToSlices=async(name,d)=>{
   /* Savo eiles numerio cia NEGALIMA: fetchSlices skaitikli pasididina pats,
      tad palyginimas po jo visada nesutapdavo ir 37 s darbas buvo ismetamas
      (V: 'Tooth - nieko nematau', 08-12). Sarga - dashPreviewName. */
-  const note=$('prevNote'), bar=$('printPreviewBarFill');
-  const setN=t=>{ if(note){note.textContent=t;show('prevNote',true);} };
+  /* Progresas piesiamas JUODAME BLOKE, ne eiluteje po juo (V 08-13). Ta eilute
+     priklauso busenos apklausai: idle sakoje ji kas 2 s ja paslepdavo, o musu
+     progresas ja vel parodydavo - eilute mirksedavo, kortele augdavo ir mazedavo
+     24 px, kilnodavosi visas puslapis (ismatuota: doc 1650 <-> 1625). Drobe
+     nieko nereflow'ina, tad problema dingsta is principo. */
+  const cvp=$('printPreviewCanvas');
+  const setN=t=>paintPreviewProgress(cvp,t,0);
   setN('Building the 3D view\u2026');
   try{
     await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,{
@@ -2347,19 +2373,25 @@ const upgradeToSlices=async(name,d)=>{
       set textContent(v){
         if(dashPreviewName!==name)return;
         const pc=String(v).replace('Loading ','');
-        setN('Building the 3D view '+pc);
-        if(bar)bar.style.width=pc;
+        const m=/\((\d+)%\)/.exec(pc);
+        paintPreviewProgress(cvp,'Building the 3D view\n'+pc,(m?+m[1]:0)/100);
       }});
     if(dashPreviewName!==name)return;
     // Tas pats etapas, kaip renderVoxelPreview: pasakom, kad dabar lipdomas
     // pavirsius, ir leidziam kadrui pasirodyti pries uzimant gija (V 08-13).
-    setN('Smoothing '+slicesCache.slices.length+' slices…');
-    await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+    await paintStage(cvp,'Building the 3D view…',slicesCache.slices.length);
     drawIso($('printPreviewCanvas'),1);
     saveSlicesToPrinter(name);
-  }catch(e){}
+  }catch(e){
+    /* Cia krovimas nutrūksta perjungus vaizdą (openView pasididina
+       fetchSlicesSeq). Gaudyklė buvo tyli, tad drobėje likdavo paskutinis
+       skaičius ir atrodė, kad užstrigo (V 08-13). */
+    if(e&&e.message==='preview superseded'&&dashPreviewName===name)markPreviewStopped(cvp,name);
+  }
   finally{
-    if(dashPreviewName===name){ show('prevNote',false); if(bar)bar.style.width='0%'; }
+    // Kortelės juostelė priklauso spausdinimo progresui - įkrovimas jos nebeliečia,
+    // tad ir nulinti nebereikia; užrašas gyvena drobėje ir dingsta su piešiniu.
+    if(dashPreviewName===name)show('prevNote',false);
   }
 };
 
@@ -2368,6 +2400,7 @@ const dashPreview=async nameEnc=>{
   clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
+  clearPreviewStopped($('printPreviewCanvas'));   // naujas bandymas - senas „stopped" nebegalioja
   scrollPreviewIntoView();show('prevNote',false);
   fetchSlicesSeq++;                        // cancel a previous run right away
   const cv=$('printPreviewCanvas');
@@ -2413,12 +2446,29 @@ const dashPreview=async nameEnc=>{
     localStorage.setItem('dashPreviewModel',name);
     const bs=printerBootStamp();if(bs!==null)localStorage.setItem('dashPreviewBoot',String(bs));
   }catch(e){
-    if(e.message==='preview superseded')return;
+    if(e.message==='preview superseded'){
+      /* Perjungus vaizda krovimas NUTRAUKIAMAS tycia (openView pasididina
+         fetchSlicesSeq, kad nekrautu fone ir netampytu printerio). Bet drobeje
+         likdavo paskutinis nupiestas skaicius - „94/240 (39%)" amzinai, ir
+         atrodydavo, kad uzstrigo (V 08-13). Jei nauja perziura nepradeta,
+         pasakom, kas ivyko, ir kviesciam pakartoti. */
+      if(dashPreviewName===name)markPreviewStopped(cv,name);
+      return;
+    }
     msg(e.message,true);
     if(dashPreviewName===name)paintPreviewProgress(cv,'Preview failed',null);
   }
 };
 window.dashPreview=dashPreview;
+// Nutruktas krovimas: pats vaizdas yra mygtukas (V 08-13). Veikia tik tada, kai
+// drobeje stovi „Preview stopped" - kitu metu paspaudimas nieko nedaro, kad
+// nesikirstu su 3D sukiojimu.
+$('printPreviewCanvas').addEventListener('click',()=>{
+  if(!previewStoppedFor)return;
+  const n=previewStoppedFor;
+  clearPreviewStopped($('printPreviewCanvas'));
+  dashPreview(enc(n));
+});
 
 const connectIsReady=()=>!!(connectConfig&&connectConfig.connectEnabled&&connectConfig.connectPrinterPublicId&&connectConfig.connectTokenSet);
 const connectBase=()=>String((connectConfig&&connectConfig.connectBaseUrl)||'https://connect.tinymakerwifi.com').replace(/\/+$/,'');
