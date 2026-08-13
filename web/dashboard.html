@@ -11,7 +11,7 @@
    `object-fit:contain` - taip krovimo uzrasas stovi vidury, o ne kabo virsuje su
    tuscia juoda apacia (V 08-13). Tempimo nera: proporcija issaugoma. */
 #previewStage{position:relative}#previewStage.stageTall{position:relative}
-#previewStage.stageTall>canvas{height:100%;object-fit:contain}
+#previewStage.stageTall>canvas{width:100%;height:100%;object-fit:fill}
 /* „Isdidinimas" - NE pilnas ekranas, o paprasciausiai AUKSTESNIS perziuros blokas
    (V 08-13). Spausdinimo turis yra stacias staciakampis: blokas pailgeja tiek, kad
    deze ji uzpildytu, ir daugiau nebeilgeja - toliau ribotu plotis, tad aukstis nieko
@@ -21,7 +21,7 @@
    nei uzsikroves 3D. Bandziau pildyti pagal auksti - nukirto uzrasus ir juostele, o
    mazesne deze kaip tik pasako, kad dar kraunama (V 08-13: „gal gerai, nes kaip ir
    signalizuoja"). */
-#previewStage.stageBox>canvas{height:100%;object-fit:contain}
+#previewStage.stageBox>canvas{width:100%;height:100%;object-fit:fill}
 /* Ikona, ne uzrasas: „Expand" mygtukas korteles antrasteje atrode kaip svetimkunis
    salia 3D irankiu, kurie visi yra maži kvadratėliai (V 08-13). */
 .cardBusy .cardHead button,.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dHelp{opacity:.4;pointer-events:none}
@@ -1493,7 +1493,17 @@ const modelDetails=async(nameEnc,estimate)=>{
 // printer traffic while printing.
 // Mastelis 4.6 -> 3.8 ir centras 272 -> 307, nes istaisius aukscio
 // daugikli (zr. isoPt) deze paaugo 28 % ir kitaip nebetilptu.
-const PREV_W=720,PREV_H=420,PREV_S=3.8,PREV_CX=360,PREV_CY=307;
+/* Piesinio lauko dydis nebe fiksuotas: pailgintame bloke 720x420 piesinys likdavo
+   mazas vidury, o aplink - tuscios juostos (V 08-13). Dydis imamas is pacios drobes,
+   o mastelis ir centras isvedami TAIS PACIAIS santykiais (3.8/420 ir 307/420), tad
+   proporcijos ir kadravimas nesikeicia - tik viskas auga kartu su bloku. */
+let PREV_W=720,PREV_H=420,PREV_S=3.8,PREV_CX=360,PREV_CY=307;
+const PREV_S_R=3.8/420, PREV_CY_R=307/420, PREV_AR=720/420;
+const pvSetField=(w,h)=>{
+  PREV_W=Math.max(240,Math.round(w)); PREV_H=Math.max(150,Math.round(h));
+  PREV_S=PREV_H*PREV_S_R; PREV_CX=PREV_W/2; PREV_CY=PREV_H*PREV_CY_R;
+  CAM_CY=PREV_H*(272/420);
+};
 // Normalus kelias BAITAS I BAITA senas (CAM_C=false). Mach rezimas perjungia
 // centruota formule su KY=-0.2 - V stende rastas kampas: ziurint vos is apacios
 // kabantis modelis matosi PRO plokstes apacia, jos nereikia daryti permatomos.
@@ -1594,8 +1604,13 @@ const pvSkin=()=>{
    rodoma dar neatspausdinta dalis, susiliedavo i demę (V 08-13). */
 const pvFit=cv=>{
   const dpr=Math.min(window.devicePixelRatio||1,2);
-  const cssW=cv.clientWidth||PREV_W;
-  const k=Math.max(1,Math.min(3,(cssW*dpr)/PREV_W));
+  const r=cv.getBoundingClientRect();
+  /* Atskira (nematoma) drobe - „Prepare 3D" ciklui: ten dydzio nera, tad paliekam
+     senaji 720x420 lauka. */
+  const cssW=Math.round(r.width)||720;
+  const cssH=Math.round(r.height)|| Math.round(cssW/PREV_AR);
+  pvSetField(cssW,cssH);
+  const k=Math.max(1,Math.min(3,dpr));
   cv.width=Math.round(PREV_W*k); cv.height=Math.round(PREV_H*k);
   const ctx=cv.getContext('2d');
   ctx.setTransform(k,0,0,k,0,0);
@@ -1702,6 +1717,9 @@ const drawMach=(cv,doneFrac)=>{
   const frontF=doneFrac*Math.max(N-1,1);
   const plateZ=doneFrac*modelH;
   const hx=MX/gw/2,hy=MY/gh/2,hz=stepMm/2;
+  /* Skenduolis (dar neatspausdinta dalis po dervos pavirsiumi) piesamas retai -
+     kitaip prie detalaus keso jis virsta vientisa balta mase (V 08-13). */
+  const stpM=Math.max(1,Math.round(gw/80));
   // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
   // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
   // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
@@ -1758,9 +1776,9 @@ const drawMach=(cv,doneFrac)=>{
     const z=-(k-frontF)*stepMm;
     if(z<-6)break;                      // giliau nebesimato
     const mur=1+z/6;                    // 1 prie pavirsiaus -> 0 ties -6
-    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
+    for(let j=0;j<gh;j+=stpM)for(let i=0;i<gw;i+=stpM){
       if(!sl[j*gw+i])continue;
-      const edge=i+1>=gw||!sl[j*gw+i+1]||j+1>=gh||!sl[(j+1)*gw+i];
+      const edge=i+stpM>=gw||!sl[j*gw+i+stpM]||j+stpM>=gh||!sl[(j+stpM)*gw+i];
       const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
       ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
       ctx.fillRect(p.X-1,p.Y-1,2,2);
@@ -2050,6 +2068,7 @@ function* drawIsoGen(cv,doneFrac){
   const FL=VIEW_FLIP;
   // Half-extents of one voxel cell - the quads are built around the centre.
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
+  const stp=Math.max(1,Math.round(gw/80));   // vaiduoklio retinimas (zr. zemiau)
   for(let n=0;n<N;n++){
     const k=FL?N-1-n:n;
     const t=N>1?k/(N-1):0,z=(FL?1-t:t)*modelH;
@@ -2082,7 +2101,10 @@ function* drawIsoGen(cv,doneFrac){
       const edge0=i===0||j===0||fRight||fLeft;
       // grey ghost for the un-printed part - also drawn under the fading front
       // slice so the boundary blends into the ghost instead of popping.
-      if(a<1){
+      /* Vaiduoklis piesiamas RETAI - kas `stp`-taji langeli. Prie 320x240 keso taskeliai
+         susilieja i vientisa mase ir dingsta permatomumas; atspausdinta dalis lieka
+         pilno tankio, tad kokybe nenukencia (V 08-13). */
+      if(a<1&&!(i%stp)&&!(j%stp)){
         ctx.fillStyle=pvSkin().ghost+(edge0?0.20:0.05)+')';
         const gp=isoPt(cx,cy,z);
         ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
