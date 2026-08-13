@@ -32,20 +32,31 @@ def bar(v, best=100.0):
 
 hist = json.load(io.open(HIST, encoding='utf-8'))
 rows = []
+# Delta skaiciuojam nuo paskutines ISLAIKYTOS busenos: A/B bandymai (isjungtas
+# gabalas, kad matytusi ka jis dave) nera eigos zingsniai ir eiles neveda.
+last_kept = None
 for i, e in enumerate(hist):
-    prev = hist[i - 1]['score'] if i else None
+    exp = e.get('kind') == 'bandymas'
+    prev = last_kept
     d = '' if prev is None else ('%+.1f' % (e['score'] - prev))
     cls = '' if not d else ('up' if e['score'] >= prev else 'down')
+    if exp:
+        cls = 'exp'
+        if d:
+            d = '(%s)' % d
+    else:
+        last_kept = e['score']
     per = ' · '.join('%s <b>%.0f</b>' % (m, e['models'][m]['score'])
                      for m in MODELS if m in e['models'])
     g = e.get('geometry', {})
     ok = '✓' if (g.get('air') == 0 and g.get('crossing') == 0) else '⚠'
+    tag = e['tag'] if not exp else         '%s <span class="chip">bandymas</span>' % e['tag']
     rows.append(
-        '<tr><td>%d</td><td class="small">%s</td><td><code>%s</code></td>'
+        '<tr class="%s"><td>%d</td><td class="small">%s</td><td><code>%s</code></td>'
         '<td>%s</td><td>%s</td><td class="%s">%s</td>'
         '<td class="small">%s</td><td>%s</td></tr>'
-        % (i + 1, e.get('when', '—'), e['commit'], e['tag'], bar(e['score']),
-           cls, d, per, ok))
+        % ('dim' if exp else '', i + 1, e.get('when', '—'), e['commit'], tag,
+           bar(e['score']), cls, d, per, ok))
 
 last = hist[-1]
 detail = []
@@ -91,6 +102,9 @@ code{font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
      margin-right:8px;vertical-align:middle;overflow:hidden}
 .bar span{display:block;height:100%;background:var(--accent)}
 .up{color:var(--ok);font-weight:600} .down{color:var(--bad);font-weight:600}
+.exp{color:var(--muted)} tr.dim{opacity:.72}
+.chip{border:1px solid var(--line);border-radius:20px;padding:0 7px;font-size:11px;
+      color:var(--muted);margin-left:6px;white-space:nowrap}
 .small{color:var(--muted);font-size:12.5px}
 .cards{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(520px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
@@ -116,7 +130,10 @@ kitaip balas neturi prasmės.</p>
 <h2>Paskutinė būsena · {{TAG}} <span class="small">({{WHEN}})</span></h2>
 <div class="cards">{{DETAIL}}</div>
 
-<p class="note">Raudonai pažymėti aukščiai, kur nuokrypis didesnis nei 15 %.
+<p class="note"><b>bandymas</b> — eilutė, kur gabalas buvo laikinai išjungtas, kad
+matytųsi, ką jis duoda; toks matavimas eilės neveda, todėl jo Δ skliaustuose ir
+skaičiuojamas nuo paskutinės išlaikytos būsenos.
+Raudonai pažymėti aukščiai, kur nuokrypis didesnis nei 15 %.
 Skaičius — supportų dėmių sluoksnyje tuo aukščiu; matuojama vienodai abiem
 failams, su veidrodžio ir sluoksnio poslinkio pataisa. Šaltinis:
 <code>slicer-lab/score.py</code> → <code>log/history.json</code>.</p>
