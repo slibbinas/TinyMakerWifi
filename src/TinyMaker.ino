@@ -96,6 +96,12 @@ String sdJobName = "";              // model the job works on (shown in /api/sta
 String sdJobZipPath = "";           // import: uploaded archive waiting to be unpacked
 ModelImportOptions sdJobImportOptions;  // import: options captured from the upload request
 bool sdJobRunning = false;          // true while the job body executes (enables servicing)
+// SD-prog: how far the job is. The printer's own screen has shown this all
+// along ("Unpacking layers 120/240", the delete bar); the numbers simply never
+// reached /api/status, so every dashboard sat on a mute "Importing model" for
+// the whole minute. Defined here, not in Network.ino, because Folder.ino writes
+// them and precedes Network.ino in the .ino concatenation.
+int sdJobDone = 0, sdJobTotal = 0;  // 0/0 = no count available for this job
 // 0-28: SD content revision - bumped after any unpack/delete/import so every
 // dashboard reloads its SD list. Defined here (not Network.ino) because
 // Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.

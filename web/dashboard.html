@@ -1187,7 +1187,16 @@ const applyStatus=s=>{
     // One line, not three: the card used to stack "Uploads and SD actions are
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
-    if(sdJob){$('uploadHint').textContent=(sdJob==='delete'?'The printer is deleting a model':'The printer is importing a model')+' - SD actions come back when it finishes.';} else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
+    if(sdJob){
+      /* SD-prog: the printer counted layers all along ("Unpacking layers
+         120/240" on its own screen) - the dashboard just never got the number
+         and sat on a mute noun for the whole minute (V 08-12). */
+      const jd=Number(s.sdJobDone)||0, jt=Number(s.sdJobTotal)||0;
+      const what=sdJob==='delete'?'The printer is deleting a model':'The printer is importing a model';
+      const unit=sdJob==='delete'?' files':' layers';   // a delete walks files, not layers
+      const how=(jt>0&&jd>0&&jd<=jt)?' - '+jd+' of '+jt+unit+' ('+Math.min(99,Math.round(jd*100/jt))+'%)':'';
+      $('uploadHint').textContent=what+how+' - SD actions come back when it finishes.';
+    } else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
     if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{

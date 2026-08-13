@@ -2405,7 +2405,12 @@ void handleApiStatus() {
   out += sdJobKind;
   out += "\",\"sdJobName\":\"";
   out += jsonEscape(sdJobName);
-  out += "\"";
+  // SD-prog: how far it is. The printer's screen has always shown this; the
+  // dashboards only ever got the noun. 0/0 = this job has no count.
+  out += "\",\"sdJobDone\":";
+  out += sdJobDone;          // String() temporaries add nothing here, and this
+  out += ",\"sdJobTotal\":"; // answer is built for every client every 2 s
+  out += sdJobTotal;
   // 0-33: the boot resume prompt is up - the dashboard offers the same three
   // answers remotely. Valid ONLY while screen 427 shows (any button press at
   // the printer consumes it - the safety rule: remote resume only while the
@@ -3797,6 +3802,7 @@ void sdJobRun() {
   if (sdJobKind.length() == 0 || sdJobRunning) return;
   uiWakeScreen();   // web-started work must be visible on the printer
   sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: a fresh job starts with no count yet
   if (sdJobKind == "delete") {
     String path = "/" + sdJobName;
     // Same screen the printer-menu delete shows - without it the LCD looked
@@ -3826,6 +3832,7 @@ void sdJobRun() {
   }
   sdJobRunning = false;
   sdJobKind = ""; sdJobName = ""; sdJobZipPath = "";
+  sdJobDone = sdJobTotal = 0;   // SD-prog: stale numbers would outlive the job
   screen1();   // the progress screen overwrote whatever was shown
 }
 

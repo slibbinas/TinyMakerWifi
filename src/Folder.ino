@@ -138,6 +138,10 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
   dir = SD.open(path);
   if (!dir) return false;
   int done = 0;
+  // SD-prog: publish the total BEFORE the loop. The loop services status polls
+  // before it updates the count, so a total written per-iteration would let the
+  // first poll of a new job answer with the previous job's numbers.
+  if (showProgress) { sdJobDone = 0; sdJobTotal = total; }
   while (true) {
     File entry = dir.openNextFile();
     if (!entry) break;
@@ -152,6 +156,7 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
     sdJobService();   // keep answering status polls during a long delete (1-32)
     #endif
     done++;
+    if (showProgress) sdJobDone = done;   // SD-prog: same number the screen bar uses
     if (showProgress && (done % 10 == 0 || done == total)) {
       int w = (int)(136L * done / total);
       if (w > 136) w = 136;
@@ -228,11 +233,13 @@ void deleteSelectedModel(){
   // this runs in loop() context, so servicing HTTP here is safe.
   #if ENABLE_NETWORK
   sdJobKind = "delete"; sdJobName = String(foldersel_long); sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: never show the previous job's count
   #endif
   bool ok = selIsArchive ? SD.remove(path.c_str())
                          : deleteModelFolder(path.c_str());
   #if ENABLE_NETWORK
   sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  sdJobDone = sdJobTotal = 0;
   if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
   #endif
   gfx2->fillScreen(BLACK);
