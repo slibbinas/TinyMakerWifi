@@ -1276,11 +1276,20 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             }
             /* Kraštas, sutampantis su ankstesniu sluoksniu, praleidžiamas
                (`contain_point(p, prev_points)`, cpp:429): tai jau paremta
-               „sausuma", ne nuokabos krantas. */
+               „sausuma", ne nuokabos krantas.
+
+               Tolerancija — ne nulinė. Originale `diff_ex` palieka TIKSLIAI
+               bendras viršūnes, tad ten užtenka tapatybės. Mūsų sluoksniai
+               ateina iš trianguliacijos, kuri su aukščiu truputį pasisuka, ir
+               bendras kraštas prasiskiria mikronais; su 1 nm tolerancija virš
+               pačios puodelio sienos atsirasdavo 14 „nuokabos" taškų ten, kur
+               nuokabos nėra. Riba ta pati, kuria matuojam ir savilaikį: sluoksnio
+               postūmis prie kritinio kampo. */
             T.over += now() - tk;
             tk = now();
+            const landTol = LAYER_MM / Math.tan(cfg.critical_angle);
             for (const [x, y] of raw)
-              if (distToPaths(clip, x, y) > 1e-6) cand.push([x, y]);
+              if (distToPaths(clip, x, y) > landTol) cand.push([x, y]);
             T.land += now() - tk;
 
             /* `create_peninsulas` (SPG.cpp:567) + `support_peninsulas`
@@ -1323,7 +1332,16 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                 ci.Execute(CL.ClipType.ctIntersection, inter,
                            CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
                 if (!inter.length) continue;
-                islandLike(pex, pathsBBox(pex), free);
+                /* Sausumos pusė nesėjama: `create_peninsulas` kiekvienai
+                   kraštinei žymi `is_outline` ir tik krantą laiko nuokaba
+                   (cpp:675-680). Mūsų pussalio vidinė riba kaip tik ir eina per
+                   `below_self_supported` — be šito 9 iš 12 jo taškų dubliavo
+                   nuokabos taškus. */
+                const pen = [];
+                islandLike(pex, pathsBBox(pex), pen);
+                const coast = grow(cfg.peninsula_self_supported_width_mm);
+                for (const [x, y] of pen)
+                  if (distToPaths(coast, x, y) > landTol) free.push([x, y]);
               }
             }
             T.island += now() - tk;
