@@ -1071,7 +1071,10 @@ const openView=view=>{
   if(view!=='model')fetchSlicesSeq++;
   /* Pailgintas blokas nepersekioja kito vaizdo: perjungus grazinam iprasta auksti. */
   const stg=document.getElementById('previewStage');
-  if(stg&&stg.classList.contains('stageBox')){stg.classList.remove('stageBox');stg.style.height='';stg.dataset.boxH='';}
+  /* Per TA PATI mygtuko kelia, ne ranka: anksciau cia nuimdavom tik klase ir aukstį, tad
+     blokas likdavo ~790 px, o ikona - „grazinti", ir kitas paspaudimas vel isdidindavo
+     (auditas 08-14). */
+  if(stg&&stg.classList.contains('stageBox'))stageBox(false);
   if(view!=='connect'||connectTab!=='boot')clearBootAnimPreviews();
   show('homeView',view==='home');
   show('modelPanel',view==='model');
@@ -1205,14 +1208,25 @@ const applyStatus=s=>{
     if(slicesCache.mode==='live'&&s.liveCaptured!==undefined&&s.liveCaptured<liveHave){liveHave=0;slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};}
     // Opened mid-print with no local slices, but the printer is streaming its
     // own 3D stack - pull it so this window grows the identical live 3D.
-    if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length||cacheIsDetail()))fetchLiveSlices(s.model,0);
+    /* Gyvas srautas - tik ATSARGINIS variantas: jame yra VIEN jau atspausdinti sluoksniai,
+       tad neatspausdintos dalies (vaiduoklio) piesti nebera is ko - prasidejus spaudiniui
+       jis dingdavo (V 08-14). Jei sio modelio pilnus pjuvius jau turim, jie ir lieka. */
+    if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length
+       /* Tas pats vardas, kitas turinys: perpjaustytas ar pakeistas failas. Be sio
+          patikrinimo visa spaudini rodytume SENA geometrija (auditas 08-14). */
+       ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers)))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
          išvalyti. Anksčiau tai spręsdavo antraštės tekstas, bet joje dabar modelio
          vardas, o šioje (gyvo 3D) šakoje žymė nebūdavo nustatoma (auditas 08-13). */
       busyPreviewShown='print:'+s.model;
-      $('printPreviewTitle').textContent=s.model+' · printing';
+      /* Viena antrastes forma abiem sakoms (V 08-14): telefone, kol platforma dar
+         leidziasi, pjuviu dar nera ir ten suveikdavo apatine saka - vienas irenginys
+         rodydavo „Tooth · printing", kitas „Printing · 0%". Procentas pirmas: siauroje
+         antrasteje jis nukerpamas paskutinis. */
+      $('printPreviewTitle').textContent='Printing '+
+        Math.round(Math.min(1,s.currentLayer/s.totalLayers)*100)+'% · '+s.model;
       $('gl3dFlip').style.display='flex'; if(window.syncFlipBtn)syncFlipBtn();
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
       show('printPreviewCard',true);
@@ -1248,7 +1262,9 @@ const applyStatus=s=>{
         setModelInfoRows(null);show('dashShareButton',false);
         const cf=s.totalLayers>0?Math.min(1,s.currentLayer/s.totalLayers):0;
         $('printPreviewBarFill').style.width=Math.round(cf*100)+'%';
-        $('printPreviewTitle').textContent='Printing · '+Math.round(cf*100)+'%';
+        // Ta pati forma kaip virsuje; vardo dar galim nezinoti - tada tik procentas.
+        $('printPreviewTitle').textContent='Printing '+Math.round(cf*100)+'%'+
+          (s.model?' · '+s.model:'');
         if(s.liveN>0){
           // P-live is streaming: the fetch kicked off above will populate the
           // slices and the branch above renders the live 3D within a poll or two.
@@ -1491,49 +1507,60 @@ const modelDetails=async(nameEnc,estimate)=>{
 // inside the build-volume box. All drawing happens in the browser. Slices are
 // kept in slicesCache so the print-progress view can reuse them with zero
 // printer traffic while printing.
-// Mastelis 4.6 -> 3.8 ir centras 272 -> 307, nes istaisius aukscio
-// daugikli (zr. isoPt) deze paaugo 28 % ir kitaip nebetilptu.
 /* Piesinio lauko dydis nebe fiksuotas: pailgintame bloke 720x420 piesinys likdavo
    mazas vidury, o aplink - tuscios juostos (V 08-13). Dydis imamas is pacios drobes,
-   o mastelis ir centras isvedami TAIS PACIAIS santykiais (3.8/420 ir 307/420), tad
-   proporcijos ir kadravimas nesikeicia - tik viskas auga kartu su bloku. */
+   o mastelis ir centras perskaiciuojami is dezes matmenu (zr. pvSetField), tad
+   proporcijos nesikeicia - viskas auga kartu su bloku. Zemiau esancios pradines
+   reiksmes yra tik iki pirmo pvFit. */
 let PREV_W=720,PREV_H=420,PREV_S=3.8,PREV_CX=360,PREV_CY=307;
 const PREV_AR=720/420;
-/* Laukas auga kartu su bloku, o deze - iki artimiausio krasto, islaikant proporcijas.
-   Dezes matmenys piesinio vienetais: plotis 0.866*(MX+MY)=61.8*S, aukstis
-   0.35*(MX+MY)*S + MZ*ISO_Z*S = 101.2*S.
-   CENTRAVIMAS - abiem asim, ir cia buvo klaida (V 08-13: „prilipo prie desines"):
-   horizontaliai deze NEsimetriska apie nuli, nes (x-y) eina nuo -MY=-30.6 iki +MX=40.8,
-   tad jos vidurys yra 4.4*S i desine nuo PREV_CX - ta ir kompensuojam.
-   Vertikaliai vidurys yra 25.6*S auksciau uz CY. Su senais skaiciais (720x420) gaunasi
-   tas pats kadras, tik dabar tikrai per vidury. */
-const BOX_W_U=61.8, BOX_H_U=101.2;
+
+/* ================= KAMEROS KAMPAS - VIENAS SKAICIUS =================
+   Azimutas visada 45 laipsniu; keiciamas tik PAKILIMAS. Is jo isvedami VISI kiti
+   dydziai: gylio koeficientas, aukscio daugiklis, dezes proporcijos, centravimas,
+   masinos vaizdo kadras ir GPU kameros pradine padetis.
+   Anksciau tie penki dydziai buvo surasyti ranka, ir per viena diena du kartus
+   nesutapo tarpusavyje (V 08-14) - kampa keiciant uzteko pamirsti viena.
+   35.26 = tikra izometrija: visos trys asys ekrane vienodo ilgio, tad niekas
+   neatrodo istempta i auksti. Zemesnis kampas (15-25) aukstį ekrane pailgina,
+   aukstesnis (45) rodo daugiau plokstes ir maziau turio.
+   PAKEISTI KAMPA = pakeisti SITA viena skaiciu. */
+const CAM_PITCH_DEG=20;
+const CAM_PITCH=CAM_PITCH_DEG*Math.PI/180;              // rad - ta pati ir GPU kamerai
+const ISO_KY=0.866*Math.sin(CAM_PITCH);                 // gylio koeficientas prie (x+y)
+const ISO_Z =1.2247*Math.cos(CAM_PITCH);                // aukscio daugiklis prie z
+/* Dezes matmenys PIESINIO vienetais: plotis 0.866*(MX+MY) - nuo kampo NEpriklauso;
+   aukstis MZ*ISO_Z + ISO_KY*(MX+MY). Vertikalus dezes vidurys yra BOX_CY_U*S auksciau
+   uz lauko vidurį. Horizontalus 4.4*S postumis (zr. isoPt) irgi nuo kampo nepriklauso -
+   jis is to, kad (x-y) eina nuo -30.6 iki +40.8. */
+const BOX_W_U=0.866*(40.8+30.6);
+const BOX_H_U=68*ISO_Z+ISO_KY*(40.8+30.6);
+const BOX_CY_U=(68*ISO_Z-ISO_KY*(40.8+30.6))/2;
 const pvSetField=(w,h)=>{
   PREV_W=Math.max(240,Math.round(w)); PREV_H=Math.max(150,Math.round(h));
   PREV_S=Math.min(PREV_H*0.92/BOX_H_U, PREV_W*0.92/BOX_W_U);
   PREV_CX=PREV_W/2;   // postumis - tik iprastoje isoPt sakoje (zr. zemiau)
-  PREV_CY=PREV_H/2+25.6*PREV_S;
-  /* Masinos kadras derintas ant stendo (V 08-11) - jo neperskaiciuojam savo formule,
-     tik proporcingai isplečiam: 272/420. Bandymas ji centruoti pats nustume kabanti
-     modeli po bloko apacia (V 08-14). */
-  CAM_CY=PREV_H*(272/420);
+  PREV_CY=PREV_H/2+BOX_CY_U*PREV_S;   // dezes vidurys - is kampo (zr. BOX_CY_U)
+  /* CAM_CY cia nenustatom: masinos vaizdas ji ir mastelį PERSKAICIUOJA pats (drawMach),
+     nes i jo kadra iskaiciuota po dervos pavirsiumi kabanti dalis. Anksciau cia stovejo
+     272/420 - is seno kampo isvesta reiksme, kuria drawMach vis tiek perrasydavo. */
 };
-// Normalus kelias BAITAS I BAITA senas (CAM_C=false). Mach rezimas perjungia
-// centruota formule su KY=-0.2 - V stende rastas kampas: ziurint vos is apacios
-// kabantis modelis matosi PRO plokstes apacia, jos nereikia daryti permatomos.
-let CAM_C=false,CAM_KY=0.35,CAM_ZC=34,CAM_CY=272;
-/* Aukscio daugiklis 1.121, ne 0.8: prie azimuto 45 deg ir pakilimo 23.8 deg
-   (tie patys 0.866 ir 0.35) teisingas santykis yra cos(23.8)/cos(30)=1.121.
-   Su 0.8 deze buvo suplota 22 % - piesinyje atrode a/p 1.28 vietoj tikru 1.64,
-   ir persijungus i 3D ji staiga issitiesdavo (V 08-12). */
-const ISO_Z=1.121;
+// Normalus kelias - CAM_C=false; mach rezimas perjungia centruota formule su neigiamu
+// KY (ziurima is apacios): tada kabantis modelis matosi PRO plokstes apacia.
+/* Kampo istorija (kad kitas auditas nekartotu): 0.8 buvo per plokscia - deze suplota 22 %
+   (V 08-12); 1.121 atitiko 23.8 laipsnio kamera ir TAM kampui buvo teisingas - 08-14 ji
+   buvau pasiules mazinti kaip „istempima", bet perskaiciavus paaiskejo, kad klydau, ir jis
+   buvo grazintas. Kampas galiausiai pakeistas ne del klaidos, o V pasirinkus is renderiu:
+   buvo 23.8 staciame ir 13.4 apverstame (du skirtingi - vartant vaizdas soktelėdavo),
+   dabar abu ir GPU - tas pats CAM_PITCH_DEG, tik apverstas ziuri is apacios. */
+let CAM_C=false,CAM_KY=ISO_KY,CAM_ZC=34,CAM_CY=272;
 const isoPt=(x,y,z)=>CAM_C
   ?{X:PREV_CX+((x-20.4)-(y-15.3))*0.866*PREV_S,
     Y:CAM_CY+((x-20.4)+(y-15.3))*CAM_KY*PREV_S-(z-CAM_ZC)*ISO_Z*PREV_S}
   /* -4.4*S: sioje sakoje (x-y) eina nuo -30.6 iki +40.8, tad dezes vidurys yra
      4.4*S i desine nuo PREV_CX - be sio postumio deze lipdavo prie desinio krasto
      (V 08-13). Masinos sakoje koordinates jau centruotos, tad ten postumio NEra. */
-  :{X:PREV_CX-4.4*PREV_S+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*0.35*PREV_S-z*ISO_Z*PREV_S};
+  :{X:PREV_CX-4.4*PREV_S+(x-y)*0.866*PREV_S,Y:PREV_CY+(x+y)*ISO_KY*PREV_S-z*ISO_Z*PREV_S};
 /* Detalus vaizdas: 160x120 tinklelis ir 72 pjuviai vietoj 80x60 ir 36.
    Ar kesas detalus, matyti is paties tinklelio (gw), tad formato keisti
    nereikia. */
@@ -1611,9 +1638,56 @@ const pvSkin=()=>{
   const light=document.documentElement.getAttribute('data-theme')==='light';
   return light
     ? {line:'#a9afb7',text:'#1f2124',cap:'#5f6570',ghost:'rgba(92,98,110,',
-       track:'rgba(255,255,255,.85)',trackLine:'#9aa0a8'}
+       track:'rgba(255,255,255,.85)',trackLine:'#9aa0a8',
+       plate:'rgba(74,96,120,',  plateEdge:'rgba(58,80,104,0.85)', sub:'rgba(70,100,125,'}
     : {line:'#4a4a52',text:'#e9e9ec',cap:'#aaa',    ghost:'rgba(150,150,165,',
-       track:'rgba(12,12,14,.9)',   trackLine:'#6a6a74'};
+       track:'rgba(12,12,14,.9)',   trackLine:'#6a6a74',
+       plate:'rgba(120,140,160,',plateEdge:'rgba(158,182,206,0.75)',sub:'rgba(140,160,178,'};
+};
+/* VIENA plokste abiem 2D vaizdams (V 08-14). Buvo trys skirtingos: stačiame - plokscias
+   oranzinis keturkampis (liejosi su modeliu), apverstame - 1,6 mm beveik nepermatomas
+   pilkas luitas (per storas, kirto vaiduokli), 3D - permatoma pilka plokstuma. Dabar
+   visur ta pati: PLONA, pusiau permatoma, salta melsvai pilka - salta spalva atsiskiria
+   ir nuo oranzinio modelio, ir nuo melsvo dervos pavirsiaus. */
+/* Tas pats tankis, kuriuo pvFit ruosia drobe. Vaiduoklio taskas matuojamas FIZINIAIS
+   pikseliais: piesimo vienetas ekrane yra dpr pikseliu, tad fiksuotas vienetu dydis
+   1x monitoriuje virsdavo 0.8 px dėme (max alfa 0.06 - praktiskai nematoma), o 2.25x
+   ekrane atrodydavo gerai. Ismatuota audito 08-14. */
+const pvDpr=()=>Math.max(1,Math.min(3,window.devicePixelRatio||1));
+const PLATE_T=0.8;      // mm - plona briaunele (buvo 1.6)
+/* Kiek giliai i derva rodom vaiduokli apverstame vaizde (V pasirinko 08-14 is trijų
+   surenderintu variantu). 20 buvo per daug - „alaus bokalai". Prie 6 vaiduoklis vis tiek
+   matomas, nes taskeliai ryskesni ir nebegesta iki nulio (liekamasis 0.15). */
+const MACH_DEEP=6;
+/* Kur plokste ir KADA ja piesti. Stačiame vaizde ji apacioje - tolimiausia, tad piesiama
+   pirma (kartu su deze). Apverstame ji virsuje, t.y. ARCIAUSIAI kameros - tada ja reikia
+   piesti PASKUTINE, kitaip modelis ja uzdazo ir atrodo stovintis pries plokste, o ne
+   kabantis po ja. Su sena 0.07 alfa to nesimatė, su nauja - matosi (auditas 08-14).
+   Grazina: -1 plokstes nera (tuscia perziura) · 0 apacioje · >0 pakelta i modelio auksti.
+   Butent -1, o ne null: su null uzrasas `if(pz)` atrodo teisingas ir tyliai veikia, o
+   `if(pz===0)` ir `if(pz)` yra lengva supainioti (auditas 08-14). */
+const plateZFor=()=>{
+  if(typeof slicesCache==='undefined'||!slicesCache||!(slicesCache.modelH>0)||
+     !slicesCache.slices||!slicesCache.slices.length)return -1;
+  /* Pakelta plokste rodoma tik tada, kai TAS modelis is tikruju rodomas: tuscioje
+     perziuroje kesas dar laiko praeita modeli, ir plokste kabodavo jo aukstyje (V 08-14). */
+  const showing=(typeof dashPreviewName!=='undefined'&&dashPreviewName===slicesCache.name)
+                ||(typeof statusData!=='undefined'&&statusData&&statusData.busy);
+  return (typeof VIEW_FLIP!=='undefined'&&VIEW_FLIP&&showing)?slicesCache.modelH:0;
+};
+const drawPlate=(ctx,z0,MX,MY,fromBelow)=>{
+  const sk=pvSkin(), z1=z0+PLATE_T;
+  const face=(pts,a)=>{ctx.fillStyle=sk.plate+a+')';ctx.beginPath();
+    pts.map(p=>isoPt(...p)).forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));
+    ctx.closePath();ctx.fill();};
+  face([[0,MY,z0],[MX,MY,z0],[MX,MY,z1],[0,MY,z1]],0.42);   // sonas i kamera
+  face([[MX,0,z0],[MX,MY,z0],[MX,MY,z1],[MX,0,z1]],0.34);   // sonas i desine
+  // Apverstame vaizde kamera zemiau - matom plokstes APACIA, staciame - VIRSU.
+  const zf=fromBelow?z0:z1, top=[[0,0,zf],[MX,0,zf],[MX,MY,zf],[0,MY,zf]];
+  face(top,0.30);
+  ctx.strokeStyle=sk.plateEdge;ctx.lineWidth=1.2;ctx.beginPath();
+  top.map(p=>isoPt(...p)).forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));
+  ctx.closePath();ctx.stroke();
 };
 /* Drobe piesiama TIEK PIKSELIU, kiek jos matoma ekrane, o piesimo koordinates lieka
    tos pacios (720x420) - jas parenka transformacija. Anksciau raiska buvo fiksuota, ir
@@ -1675,18 +1749,9 @@ const drawVolumeBox=cv=>{
   // ji keliauja i virsu kartu su saknimi. Be jos apverstas modelis kabojo ore
   // ir atrode, kad tarp saknies ir ploksteles yra tarpas - o tarpo nebuvo,
   // tiesiog nebuvo ploksteles (V 08-12).
-  if(typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH>0&&
-     slicesCache.slices&&slicesCache.slices.length){
-    /* Pakelta plokste rodoma tik tada, kai TAS modelis is tikruju rodomas: tuscioje
-       perziuroje kesas dar laiko praeita modeli, ir plokste kabodavo jo aukstyje -
-       tuscioje dezeje (V 08-14). */
-    const showing=(typeof dashPreviewName!=='undefined'&&dashPreviewName===slicesCache.name)
-                  ||(typeof statusData!=='undefined'&&statusData&&statusData.busy);
-    const pz=(typeof VIEW_FLIP!=='undefined'&&VIEW_FLIP&&showing)?slicesCache.modelH:0;
-    const q=[[0,0,pz],[MX,0,pz],[MX,MY,pz],[0,MY,pz]].map(p=>isoPt(...p));
-    ctx.fillStyle='rgba(232,114,12,0.07)';ctx.beginPath();
-    q.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
-    ctx.strokeStyle='rgba(232,114,12,0.5)';ctx.lineWidth=1.2;ctx.stroke();
+  const pz=plateZFor();
+  if(pz===0){                      // apacioje - tolimiausia, tad cia pat; pakelta - po modelio
+    drawPlate(ctx,0,MX,MY,false);
     ctx.strokeStyle=pvSkin().line;ctx.lineWidth=1;
   }
   return ctx;
@@ -1698,6 +1763,9 @@ const drawVolumeBox=cv=>{
 const paintPreviewProgress=(cv,label,frac)=>{
   if(window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
   const ctx=drawVolumeBox(cv);
+  // Pakelta plokste piesiama po modelio, tad krovimo/tuscios dezes keliuose jos
+  // niekas nenupiestu - o su ijungtu vartymu ji priklauso vaizdui (auditas 08-14).
+  { const pz=plateZFor(); if(pz>0)drawPlate(ctx,pz,40.8,30.6,false); }
   /* Uzrasas ir juostele - drobes VIDURYJE ir vienas po kitu: taip jie skaitosi
      kaip viena zinute. Anksciau juostele buvo prilipdyta prie apatinio krasto,
      o istaisius dezes proporcijas jos apatine kraštine nusileido kaip tik ten
@@ -1720,13 +1788,20 @@ const paintPreviewProgress=(cv,label,frac)=>{
     for(;f>11;f--){ctx.font='bold '+f+'px sans-serif';
       if(ctx.measureText(txt).width<=PREV_W*0.86)break;}
     return f;};
-  const f1=fitFont(lines[0],34);
+  /* FIKSUOTAS dydis, nepriklausantis nuo bloko (V 08-14): uzrasas turi atrodyti kaip
+     iprastas pulto tekstas, o ne augti kartu su vaizdu. Buvo 34 - jis tiko, kol piesinys
+     buvo daromas 720 px lauke ir mazinamas i bloka; nuo tada, kai laukas lygus pačiam
+     blokui, 34 liko tikri 34 px ir atrode milzinis. 20 px = korteles antrastes dydis.
+     `fitFont` ji dar sumazina, jei netelptu i siaura bloka. */
+  const f1=fitFont(lines[0],20);
   ctx.font='bold '+f1+'px sans-serif';
   ctx.fillText(lines[0],midX,midY);
   let tw=ctx.measureText(lines[0]).width, by=midY+18;
   if(lines[1]){
     ctx.font='bold '+Math.max(12,Math.round(f1*0.76))+'px sans-serif';
-    ctx.fillText(lines[1],PREV_CX,midY+30);
+    // midX, ne PREV_CX: pastarasis pastumtas -4.4*S dezei centruoti, tad antra eilute
+    // stovedavo ~20 px kaireje uz pirmaja (auditas 08-14).
+    ctx.fillText(lines[1],midX,midY+30);
     tw=Math.max(tw,ctx.measureText(lines[1]).width);
     by=midY+48;
   }
@@ -1765,19 +1840,25 @@ const quad=(ctx,fill,pts)=>{
 // (doneFrac>=1) - stacias modelis kaip visada; flip varnele ji apvercia.
 // Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
 const drawMach=(cv,doneFrac)=>{
+  /* Masinos vaizdas piesamas tik spausdinant, tad - visada grubus rinkinys (zr. ta pati
+     paaiskinima drawIsoGen: detalus kesas spausdinimo kelyje kainuoja per daug). */
   const {slices,gw,gh,modelH}=coarseSlices();
-  CAM_C=true;CAM_KY=-0.2;CAM_ZC=34;
-  /* Apverstame vaizde geometrija kitokia (KY=-0.2, atskaitos taskas 34 mm), tad ir
-     kadras skaiciuojamas atskirai: turinys uzima 90.6*S auksciu ir 61.8*S plociu, o
-     centras - lauko vidurys. Su bendra stacio vaizdo formule modelis nusleisdavo po
-     bloko apacia (V 08-14). */
+  /* TAS PATS kampas kaip staciame vaizde, tik ziurima is APACIOS - gylio koeficientas
+     neigiamas (V 08-14: kad vartant rombas nesikeistu). */
+  CAM_C=true;CAM_KY=-ISO_KY;CAM_ZC=34;
   const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
-  /* I kadra iskaiciuojam ir PANARDINTA dali: ji siekia -6 mm po dervos pavirsiumi, tad
-     turinys yra ne 90.6*S, o 97.2*S auksčio, ir jo vidurys - 3.3*S zemiau lauko vidurio.
-     Be sito iprastame (nepailgintame) bloke giliausi taskai nukrisdavo 8 px zemiau krasto
-     (ismatuota 08-14). */
-  PREV_S=Math.min(PREV_H*0.92/97.2, PREV_W*0.92/61.8);
-  CAM_CY=PREV_H/2-3.3*PREV_S;
+  /* Kadras skaiciuojamas atskirai, nes cia atskaitos taskas 34 mm ir i kadra iskaiciuota
+     PANARDINTA dalis (iki MACH_DEEP po dervos pavirsiumi). Auksciausias taskas:
+     (34+MACH_DEEP)*ISO_Z + 35.7*ISO_KY; zemiausias: -(34*ISO_Z + 35.7*ISO_KY). Suma =
+     (68+MACH_DEEP)*ISO_Z + 71.4*ISO_KY, o vidurys - MACH_DEEP*ISO_Z/2 zemiau lauko
+     vidurio. Be sito giliausi vaiduoklio taskai nukristu uz krasto. */
+  /* Gylis skaiciuojamas CIA ir naudojamas ir kadrui, ir paciam vaiduokliui - kitaip
+     6-10 mm modeliui kadre butu rezervuota ~11 % nereikalingo aukscio ir visas vaizdas
+     iseitu smulkesnis (auditas 08-14). */
+  const machDeep=Math.min(MACH_DEEP,Math.max(6,modelH));
+  const MACH_H_U=(68+machDeep)*ISO_Z+ISO_KY*(40.8+30.6);
+  PREV_S=Math.min(PREV_H*0.92/MACH_H_U, PREV_W*0.92/BOX_W_U);
+  CAM_CY=PREV_H/2-(machDeep*ISO_Z/2)*PREV_S;
   const MX=40.8,MY=30.6,MZ=68;
   // karkasas be plokstes plokstumos
   const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
@@ -1790,32 +1871,12 @@ const drawMach=(cv,doneFrac)=>{
   const frontF=doneFrac*Math.max(N-1,1);
   const plateZ=doneFrac*modelH;
   const hx=MX/gw/2,hy=MY/gh/2,hz=stepMm/2;
-  /* Skenduolis (dar neatspausdinta dalis po dervos pavirsiumi) piesamas retai -
-     kitaip prie detalaus keso jis virsta vientisa balta mase (V 08-13). */
-  const stpM=Math.max(1,Math.round(gw/80));
-  const gpitchM=(MX/gw)*0.866*PREV_S*stpM;
-  const gdotM=Math.max(1.0,Math.min(2.2,gpitchM*0.75));
-  const ghostAtM=(sl,i,j)=>{
-    for(let b=0;b<stpM;b++){const jj=j+b; if(jj>=gh)break;
-      for(let a=0;a<stpM;a++){const ii=i+a; if(ii>=gw)break;
-        if(sl[jj*gw+ii])return true;}}
-    return false;};
   // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
   // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
   // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
   // modeli (V pagavo stende 08-11).
   // 1) plokste
-  {
-    const pz0=plateZ,pz1=plateZ+1.6;
-    const face=(pts,fill)=>{ctx.fillStyle=fill;ctx.beginPath();
-      pts.map(p=>isoPt(...p)).forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));
-      ctx.closePath();ctx.fill();};
-    // Apacia TAMSIAUSIA (seselis) - sviesi apacia skaitesi kaip virsus ir
-    // pirmi sluoksniai atrode padeti ANT plokstes (V 08-11).
-    face([[0,MY,pz0],[MX,MY,pz0],[MX,MY,pz1],[0,MY,pz1]],'rgba(128,130,140,0.96)');
-    face([[MX,0,pz0],[MX,MY,pz0],[MX,MY,pz1],[MX,0,pz1]],'rgba(108,110,120,0.96)');
-    face([[0,0,pz0],[MX,0,pz0],[MX,MY,pz0],[0,MY,pz0]],'rgba(72,74,84,0.97)');
-  }
+  drawPlate(ctx,plateZ,MX,MY,true);   // ta pati plokste kaip staciame vaizde (V 08-14)
   // 2) kabantis stackas nuo plokstes zemyn (k=0 prie plokstes - tolimiausias)
   NZS=-1;
   // k rodomas tik kai frontas JI PASIEKE (frontF>k); ties 0% - nieko.
@@ -1829,6 +1890,11 @@ const drawMach=(cv,doneFrac)=>{
     // ties 1% aF buvo ~0.36 ir visas (vienintelis) pjuvis atrode blyskus (V 08-11).
     const aF=k<Math.floor(frontF)?1:Math.max(0.55,Math.min(1,frontF-k));
     if(aF<1){ctx.save();ctx.globalAlpha=aF;}
+    /* Priekinis pjuvis - PROPORCINGO STORIO (zr. ta pati paaiskinima drawIsoGen).
+       Cia spaudinys auga nuo plokstes ZEMYN, tad plonejantis pjuvis lieka prilipes
+       prie virsaus. Storio dalis imama BE 0.55 grindu - jos skirtos tik ryskumui. */
+    const fT=k<Math.floor(frontF)?1:Math.max(0.04,Math.min(1,frontF-k));
+    const hzK=hz*fT, zK=z+hz-hzK;
     for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
       if(!sl[j*gw+i])continue;
       const fTop=!up||!up[j*gw+i]||k===kMax;
@@ -1836,7 +1902,7 @@ const drawMach=(cv,doneFrac)=>{
       const fLeft=j===gh-1||!sl[(j+1)*gw+i];
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
-      machVoxel(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz);
+      machVoxel(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,zK,hx,hy,hzK);
     }
     if(aF<1)ctx.restore();
   }
@@ -1848,25 +1914,37 @@ const drawMach=(cv,doneFrac)=>{
     f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
     ctx.strokeStyle='rgba(140,170,195,0.5)';ctx.lineWidth=1.2;ctx.stroke();
   }
-  // 4) skenduolis - arciausiai kameros. Derva murkina: ghost'as gesta su
-  // gyliu ir dingsta ties ~6 mm - realus vato gylis keli mm, o kabantis
-  // kiaurai pro dezes dugna 17 mm modelis atrode durnai (V 08-11).
-  for(let k=Math.min(N-1,Math.ceil(frontF));k<N;k++){
-    const sl=slices[k];if(!sl)continue;
-    const z=-(k-frontF)*stepMm;
-    if(z<-6)break;                      // giliau nebesimato
-    const mur=1+z/6;                    // 1 prie pavirsiaus -> 0 ties -6
-    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
-      if(!sl[j*gw+i])continue;
-      const edge=i+1>=gw||!sl[j*gw+i+1]||j+1>=gh||!sl[(j+1)*gw+i];
-      const p=isoPt((i+0.5)/gw*MX,(j+0.5)/gh*MY,z);
-      ctx.fillStyle='rgba(140,160,178,'+((edge?0.15:0.035)*mur).toFixed(3)+')';
-      ctx.fillRect(p.X-1,p.Y-1,2,2);
+  /* 4) skenduolis - arciausiai kameros. Derva murkina, tad vaiduoklis gesta su gyliu.
+     Riba buvo 6 mm (V 08-11), bet prie jos 15 mm modelio apverstame vaizde vaiduoklio
+     PRAKTISKAI NEBUVO: vartant jis tai atsirasdavo, tai dingdavo (V 08-14). Dabar rodom
+     visa likusia dali, tik ne giliau kaip DEEP - ir su liekamuoju ryskumu, kad giliausi
+     taskai neistirptu i nieka. Kadras zemiau iskaiciuoja ta pati DEEP. */
+  {
+    // Cia rinkinys tas pats, kuri jau turim (mach vaizdas VISADA grubus) - tik trumpesni
+    // vardai, kad kilpa sutaptu su stacio vaizdo vaiduokliu.
+    const gs=slices, gwG=gw, ghG=gh, NG=gs.length;
+    const stepG=stepMm, frontG=frontF;
+    // Taskas - kaip staciame vaizde (zr. paaiskinima ten).
+    const mdot=Math.max(0.8,1/pvDpr(),Math.min(1.7,(MX/gwG)*0.866*PREV_S*0.55)), mo=mdot/2;
+    const sub=pvSkin().sub;   // po dervos - melsvas atspalvis, taip pat pagal tema
+    const deep=machDeep;   // tas pats, kuriuo skaiciuotas kadras (zr. auksciau)
+    for(let k=Math.min(NG-1,Math.ceil(frontG));k<NG;k++){
+      const sl=gs[k];if(!sl)continue;
+      const z=-(k-frontG)*stepG;
+      if(z<-deep)break;                   // giliau nebesimato
+      const mur=0.15+0.85*(1+z/deep);     // 1 prie pavirsiaus -> 0.15 ties giliausiu
+      for(let j=0;j<ghG;j++)for(let i=0;i<gwG;i++){
+        if(!sl[j*gwG+i])continue;
+        const edge=i+1>=gwG||!sl[j*gwG+i+1]||j+1>=ghG||!sl[(j+1)*gwG+i];
+        const p=isoPt((i+0.5)/gwG*MX,(j+0.5)/ghG*MY,z);
+        ctx.fillStyle=sub+((edge?0.56:0.07)*mur).toFixed(3)+')';
+        ctx.fillRect(p.X-mo,p.Y-mo,mdot,mdot);
+      }
     }
   }
   /* Uzraso drobeje nera: vardas - korteles antrasteje, procentai - Layers eiluteje
      (V 08-13). Grazinant sena piesima jis buvo netycia parsivilktas atgal. */
-  CAM_C=false;CAM_KY=0.35;
+  CAM_C=false;CAM_KY=ISO_KY;
 };
 // Vieno voxelio piesimas mach rezimui: tas pats apsvietimas kaip drawIso
 // (gradientine normale), tik apatine puse vietoj virsutines (kamera zemiau).
@@ -2092,6 +2170,7 @@ function* drawSmoothGen(cv){
     }
     ctx.closePath();ctx.fill();ctx.stroke();
   }
+  { const pz=plateZFor(); if(pz>0)drawPlate(ctx,pz,MX,MY,false); }   // pakelta plokste - virs modelio
   /* Uzraso drobeje NEBERA: vardas stovi korteles antrasteje, skaiciai - busenos
      kortelėje. Tekstas pikselyje nepazymimas, nesilauzo, telefone smulkus ir kabo ne
      ties bloko apacia, o ties drobes (ji centruojama) - V 08-13. */
@@ -2139,7 +2218,13 @@ function* drawIsoGen(cv,doneFrac){
     if(!gpu&&window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
     if(ok)return;
   }
-  const {slices,gw,gh,modelH}=coarseSlices();
+  /* SPAUSDINANT - visada grubus rinkinys, PERZIUROJE (doneFrac=1) - koki turim.
+     Bandziau atspausdinta dali spausdinimo metu piesti is detalaus keso, bet auditas
+     (08-14) priminė, ko 4cf9b6f jau buvo atsisakęs: 320x240 x 240 = ~18 mln. langeliu
+     kas 0.4% progreso, pagrindineje gijoje (ismatuota 371 ms vs 18 ms desktope, telefone
+     ~1-2 s), o detalus kesas dar ir neirasomas i localStorage - F5 spausdinant prarastu
+     vaizda. Vaiduoklis nuo to nenukenteia: jis ir taip visada is coarseSlices(). */
+  const {slices,gw,gh,modelH}=doneFrac<1?coarseSlices():slicesCache;
   const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
   const N=slices.length;
@@ -2148,33 +2233,6 @@ function* drawIsoGen(cv,doneFrac){
   const FL=VIEW_FLIP;
   // Half-extents of one voxel cell - the quads are built around the centre.
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
-  /* Vaiduoklis - SMULKUS taskas, ne kvadratelis: dydis fiksuotas piesinio vienetais
-     (~1.4 px), o retinimas parenkamas taip, kad tarp tasku liktu tarpas. Anksciau
-     taskas buvo 2.2, o laukas paaugo beveik dvigubai - taskai virto stačiakampiais
-     (V 08-14). */
-  /* Taskeliai turi atrodyti TAIP PAT kaip anksciau: senasis vaizdas buvo 2.2 vnt taskas
-     prie 1.68 vnt langelio, po to drobe dar sumazinama - ekrane iseidavo ~1.5 px taskas
-     su ~1.6 px tarpu. Todel dydi laikom fiksuota, o retinima parenkam pagal tai, koks
-     langelis gaunasi SIAME mastelyje (V 08-14: „identiski, o ne siaip smulkesni"). */
-  /* Vaiduoklis piesiamas is TU PACIU duomenu, kuriuos turejo senasis vaizdas: 80x60
-     tinklelio. Detalus kesas (320x240) SUJUNGIAMAS blokais - jei bloke yra bent vienas
-     uzpildytas langelis, taskas yra. Butent sujungimas, o ne kas n-tojo langelio emimas:
-     kitaip dingtu plonos sieneles ir supportai. Taskas - toks pat 2.2 (V 08-14). */
-  const stp=Math.max(1,Math.round(gw/80));
-  /* IR per sluoksnius: senasis vaizdas turejo ~36 pjuvius, o detalus kesas - 240, tad
-     vaiduoklio taskai sustodavo vienas ant kito i vertikalias juostas (V 08-14
-     „kur taskuciai?"). Spausdinta dalis piesiama is VISU sluoksniu, kaip ir buvo. */
-  const kStepG=Math.max(1,Math.round(N/36));
-  /* Taskas niekada neplatesnis uz tarpa tarp tasku - kitaip jie susilipdo i putas.
-     Mazame bloke mastelis ~2.6, tarp tasku lieka 1.13 px, o fiksuotas 2.2 px taskas
-     tuos tarpus uzpildydavo (ismatuota 08-14). */
-  const gpitch=(MX/gw)*0.866*PREV_S*stp;
-  const gdot=Math.max(1.0,Math.min(2.2,gpitch*0.75));
-  const ghostAt=(sl,i,j)=>{                 // ar bloke stp x stp yra medziagos
-    for(let b=0;b<stp;b++){const jj=j+b; if(jj>=gh)break;
-      for(let a=0;a<stp;a++){const ii=i+a; if(ii>=gw)break;
-        if(sl[jj*gw+ii])return true;}}
-    return false;};
   for(let n=0;n<N;n++){
     const k=FL?N-1-n:n;
     const t=N>1?k/(N-1):0,z=(FL?1-t:t)*modelH;
@@ -2188,8 +2246,15 @@ function* drawIsoGen(cv,doneFrac){
     // below it (the +1); at doneFrac 1 every a is 1, so preview and print-end
     // render identically. The doneFrac>0 guard keeps 0% fully un-printed.
     const s=slices[k],up=slices[k+(FL?-1:1)];
+    if(!s)continue;   // tuscias slotas (gyvas srautas) - kaip drawMach
     const aStep=1/Math.max(N-1,1);
     const a=doneFrac>0?Math.max(0,Math.min(1,(doneFrac-t)/aStep+1)):0;
+    if(a<=0)continue;   // visa neatspausdinta dalis - atskiras vaiduoklio praejimas zemiau
+    /* Priekinis (dar nebaigtas) pjuvis rodomas PROPORCINGO STORIO, ne viso. Vienas
+       rodomas pjuvis dengia ~1/35 modelio aukscio (15 mm modeliui - 0.44 mm, t.y. ~4
+       tikri sluoksniai), tad vos prasidejus spaudiniui ekrane stovedavo 4x storesnis
+       „blynas" nei is tikruju atspausdinta (V 08-14). Auga nuo apacios i virsu. */
+    const hzK=hz*a, zK=z-hz+hzK;
     // Back-to-front: this projection puts +x right-down and +y left-down, so
     // near = large (i+j). Ascending order draws the far voxels first and lets
     // the near ones cover them (the old loop ran j from the near edge back).
@@ -2204,15 +2269,7 @@ function* drawIsoGen(cv,doneFrac){
       const fLeft=j===gh-1||!s[(j+1)*gw+i];
       if(!(fTop||fRight||fLeft))continue;
       const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
-      const edge0=i===0||j===0||fRight||fLeft;
-      // grey ghost for the un-printed part - also drawn under the fading front
-      // slice so the boundary blends into the ghost instead of popping.
-      if(a<1){
-        ctx.fillStyle='rgba(150,150,165,'+(edge0?0.20:0.05)+')';
-        const gp=isoPt(cx,cy,z);
-        ctx.fillRect(gp.X-1,gp.Y-1,2.2,2.2);
-      }
-      if(a>0){
+      {
         // Shade from a real surface normal, estimated from the 3x3x3
         // neighbourhood: the normal points away from the mass, so it turns
         // gradually across a curve. Three fixed tones per face made a sphere
@@ -2247,13 +2304,58 @@ function* drawIsoGen(cv,doneFrac){
         // The front (partly-printed) slice fades in via globalAlpha so it
         // climbs smoothly; fully-printed slices draw at full opacity.
         if(a<1){ctx.save();ctx.globalAlpha=a;}
-        if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx+hx,cy-hy,z+hz]]);
-        if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,z-hz],[cx+hx,cy+hy,z-hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
-        if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,z+hz],[cx+hx,cy-hy,z+hz],[cx+hx,cy+hy,z+hz],[cx-hx,cy+hy,z+hz]]);
+        if(fRight)quad(ctx,fill,[[cx+hx,cy-hy,zK-hzK],[cx+hx,cy+hy,zK-hzK],[cx+hx,cy+hy,zK+hzK],[cx+hx,cy-hy,zK+hzK]]);
+        if(fLeft)quad(ctx,fill,[[cx-hx,cy+hy,zK-hzK],[cx+hx,cy+hy,zK-hzK],[cx+hx,cy+hy,zK+hzK],[cx-hx,cy+hy,zK+hzK]]);
+        if(fTop)quad(ctx,fill,[[cx-hx,cy-hy,zK+hzK],[cx+hx,cy-hy,zK+hzK],[cx+hx,cy+hy,zK+hzK],[cx-hx,cy+hy,zK+hzK]]);
         if(a<1)ctx.restore();
       }
     }
   }
+  /* VAIDUOKLIS - atskiras praejimas per GRUBU rinkini: visada 80x60 ir ~36 pjuviai, kad ir
+     prie detalaus keso liktu reti taskeliai, o ne vientisa mase. Piesamas PO atspaudo: jis
+     yra virs fronto, tad ir dengti turi paskutinis. Dydis ir permatomumas - zemiau. */
+  if(doneFrac<1){
+    const G=coarseSlices(), gs=G.slices, gwG=G.gw, ghG=G.gh, NG=gs.length;
+    const gdot=Math.max(0.8,1/pvDpr(),Math.min(1.7,(MX/gwG)*0.866*PREV_S*0.55)), go=gdot/2;
+    const sk=pvSkin();
+    /* Tasko dydis - 0.55 tarpo tarp tasku, su dviem ribom:
+       virsutine 1.7 vnt - pailgintame bloke 2.2 jau skaitesi kaip KVADRATELIS (V 08-14);
+       apatine 0.8 vnt, bet ne maziau kaip 1 FIZINIS pikselis - 1x monitoriuje 0.8 vnt
+       virsdavo 0.8 px deme (vidaus alfa 0.06, praktiskai nematoma; auditas 08-14), o
+       2.25x ekrane atrode gerai. Daugiau kelti negalima: tarpas cia ~1.15 px, tad
+       storesnis taskas vel virsta migla (patikrinta stende).
+       Retinimas (kas n-tas langelis) NENAUDOJAMAS: butent jis dave vertikalius dryzius. */
+    /* Vieno grubaus zingsnio persidengimas su atspaudu (auditas 08-14): atspaudas
+       baigiasi TIKSLIAI ties doneFrac, o vaiduoklis be sito prasidetu tik nuo pirmo
+       grubaus pjuvio virs jo - tarp ju likdavo tuscia juostele (~3% modelio aukscio),
+       o ties 0% dingdavo pats apatinis vaiduoklio pjuvis. */
+    const back=1/Math.max(NG-1,1);
+    for(let k=0;k<NG;k++){
+      const t=NG>1?k/(NG-1):0;
+      if(t<=doneFrac-back)continue;         // ta dali jau nupiese atspaudo ciklas
+      const s=gs[k]; if(!s)continue;
+      // FL cia siandien visada false (apverstas progresas eina i drawMach), bet formule
+      // laikom teisinga abiem atvejam - kad pakeitus marsruta vaiduoklis neliktu stacias.
+      const up=gs[k+(FL?-1:1)], z=(FL?1-t:t)*modelH;
+      for(let j=0;j<ghG;j++)for(let i=0;i<gwG;i++){
+        if(!s[j*gwG+i])continue;
+        const fTop=!up||!up[j*gwG+i];
+        const fRight=i===gwG-1||!s[j*gwG+i+1];
+        const fLeft=j===ghG-1||!s[(j+1)*gwG+i];
+        if(!(fTop||fRight||fLeft))continue;
+        const gp=isoPt((i+0.5)/gwG*MX,(j+0.5)/ghG*MY,z);
+        /* Ryskumas pakeltas (0.20/0.05 -> 0.75/0.10): kai taskas buvo per platus, silpna
+           spalva slepe susilipdyma; dabar taskai reti, tad silpni jie tiesiog dingdavo.
+           Ismatuota stende 08-14 - variantai salia (0.20 ... 0.75). Vidus laikomas SILPNAS
+           (0.10): kai ji kelem iki 0.20, vaiduoklis uzdengdavo atspausdinta dali pieno
+           sluoksniu. Ryskus kontūras + silpnas vidus = taskeliai, o ne migla.
+           Spalva - is temos: sviesioje temoje pilkas taskas ant sviesaus fono dingdavo. */
+        ctx.fillStyle=sk.ghost+((i===0||j===0||fRight||fLeft)?0.75:0.10)+')';
+        ctx.fillRect(gp.X-go,gp.Y-go,gdot,gdot);
+      }
+    }
+  }
+  { const pz=plateZFor(); if(pz>0)drawPlate(ctx,pz,MX,MY,false); }   // pakelta plokste - virs modelio
   /* Zr. auksciau: uzrasai gyvena DOM'e, ne piesinyje (V 08-13). */
 }
 /* Du budai paleisti TA PATI piesima: vientisai (gyvas spausdinimo progresas - ten
@@ -2381,6 +2483,12 @@ const fetchLiveSlices=async(model,since)=>{
   try{
     const d=await api('/api/live/slices?since='+since,null,8000);
     if(!d||!d.live||d.model!==model||!d.n)return false;
+    /* TUSCIAS atsakymas - ne kesas. Per hominga printeris jau pranesa n=36, bet dar nei
+       vieno pjuvio neatiduoda (pilnas stekas atrakinamas tik po homing'o, kad 19 KB
+       siuntinys nestabdytu variklio). Anksciau cia buvo sukuriamas kesas is 36 TUSCIU
+       pjuviu, ir pultas paskui piesdavo ta tuscia deze visa hominga - t.y. blogiau nei
+       plokscias paveiksliukas, kuris buvo pries tai (auditas 08-14). */
+    if(!d.slices.length&&!d.captured)return false;
     const cells=d.gw*d.gh;
     if(since===0||slicesCache.name!==model||slicesCache.mode!=='live'||slicesCache.slices.length!==d.n){
       const slices=[];for(let k=0;k<d.n;k++)slices.push(new Uint8Array(cells));
@@ -2489,7 +2597,15 @@ const paintStage=(cv,txt,n)=>{
   /* JOKIOS juostelės: šis etapas progreso neturi, o pilna juosta melavo, kad viskas
      baigta. Animuoti irgi neišeitų - gija tuo metu užimta skaičiavimu (V 08-13). */
   paintPreviewProgress(cv,txt+(n?'\nsmoothing '+n+' slices':''),null);
-  return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+  /* Laukiam, kol uzrasas atsiras ekrane - BET ne vien kadro. Paslėptame ar uzdengtame lange
+     narsykle kadru nepiesia is viso, tad `requestAnimationFrame` nesuveikia NIEKADA ir visas
+     statymas uzstrigdavo, kol grizdavai i langa (V 08-14; tas pats matesi ir per paslepta
+     narsykles polangi - kvietimas nutrukdavo po 30 s). Laikmatis ji paleidzia ir fone. */
+  return new Promise(r=>{
+    let done=false; const go=()=>{if(!done){done=true;r();}};
+    requestAnimationFrame(()=>setTimeout(go,0));
+    setTimeout(go,150);
+  });
 };
 /* Glotnaus vaizdo statymas su tikrais procentais. Skaiciavimo dalis (iki ~75 %)
    piesia procentus, o nuo ten jau lipdomas pats pavirsius - ten uzrasu nebededam,
@@ -2821,37 +2937,21 @@ window.dashPreview=dashPreview;
    nereikia - sukiojimo, priartinimo, „Detailed" ir pagalbos mygtukai gyvena TAME
    PACIAME konteineryje, tad keliauja kartu. Po perjungimo GPU rodiniui pasakom
    persidydinti: jis matmenis ima is drobes kliento dydzio. */
-/* Perziura pasiima tiek auksčio, kiek lieka iki ekrano apacios. Fiksuotas santykis
-   netiktu: virs jos esancios kortelės aukštis kinta (spausdinant atsiranda eilutes,
-   idle - modelio duomenys), tad vienintelis patikimas skaicius yra isматuotas ČIA IR
-   DABAR (V 08-13: „gerai butu, kad tilptu i ekrana"). */
+/* Bloko PROPORCIJA fiksuota, keiciasi tik dydis (V 08-14: „zoom yra zoom").
+   Anksciau iprasto bloko aukstį lemdavo LANGO aukstis, o plotį - lango plotis: kiekvienas
+   lango dydzio keitimas keisdavo ir formą, tad piesinys turedavo persiskaiciuoti ir modelis
+   pasislinkdavo. Dabar dvi busenos, abi pastovaus santykio:
+     iprastas   - piesinio santykis (720:420),
+     pailgintas - spausdinimo turio santykis (stageBoxSize).
+   Tempiant langa keiciasi tik mastelis - vaizdas nebesikaitalioja. */
 const fitStage=()=>{
-  const st=$('previewStage'), card=$('printPreviewCard');
-  if(!st||!card||st.classList.contains('stageBox'))return;
+  const st=$('previewStage');
+  if(!st||st.classList.contains('stageBox'))return;
   if(!st.classList.contains('stageTall')){st.style.height='';return;}
-  /* Matuojam nuo DOKUMENTO virsaus, ne nuo lango: `top` viewport atzvilgiu keiciasi
-     slenkant, o funkcija sukasi kas 2 s - tada perziura tyliai keistu dydi vien nuo
-     to, kad paslinkai puslapi (auditas 08-13). */
-  const top=st.getBoundingClientRect().top+window.scrollY;
-  const wrapTop=Math.max(0,top-window.scrollY);
-  // Jei perziura ir taip prasideda zemiau ekrano vidurio (telefonas, siauras langas),
-  // tempti ja i „ekrano apacia" beprasmiska - ten vis tiek slenkama.
-  if(wrapTop>window.innerHeight*0.78){st.style.height='';st.dataset.fitH='';return;}
-  /* Zemesnes lubos ir didesnė atsarga apacioje: perziura buvo isaugusi tiek, kad
-     oranzinis puslapio remelis nebetilpdavo i ekrana (V 08-13). 660 px uztenka
-     modeliui matyti, o kortele telpa su visa apvadu. */
-  let h=Math.max(260,Math.min(660,Math.round(window.innerHeight-wrapTop-96)));
-  /* Kortele turi savo parastes, tad vien „langas minus virsus" duoda per daug
-     (ismatuota: 13 px per krasta). Pamatuojam realia apacia ir atimam skirtuma. */
-  const prev=st.style.height;
-  st.style.height=h+'px';
-  const over=Math.round(card.getBoundingClientRect().bottom-window.innerHeight)+8;
-  if(over>0)h=Math.max(260,h-over);
-  /* Nekeičiam dėl smulkmenų: kortelė kas apklausą gali skirtis keliais pikseliais, o
-     mes iš to darytume plaukiojantį bloką. Lyginam su TAIKYTU aukščiu, ne su tarpiniu
-     skaičiavimu - kitaip slenkstis niekada nesuveikia (auditas 08-13). */
-  const applied=parseInt(st.dataset.fitH||'0')||0;
-  if(applied&&Math.abs(applied-h)<10){st.style.height=prev||applied+'px';return;}
+  const w=st.clientWidth||st.getBoundingClientRect().width;
+  if(!w)return;
+  const h=Math.round(w/PREV_AR);
+  if(st.dataset.fitH===String(h))return;         // niekas nepasikeite - nepersipiesiam
   st.style.height=h+'px';
   st.dataset.fitH=String(h);
   clearTimeout(pvRepaintT);
@@ -2867,12 +2967,10 @@ window.addEventListener('resize',()=>{
   const gl=$('gl3d');
   if(gl&&gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
 });
-/* Isdidinto lango plotis pagal auksti. Dezes projekcija musu kampu yra 0.61 plocio
-   nuo aukscio (40.8x30.6x68 mm, yaw 45 laipsniu, pitch 23.8) - vaizdas uzima ~0.88
-   aukscio, tad pacio piesinio plotis ~0.54h. Prie jo pridedam sonines juostas
-   irankiams (~170 px: sukimo/stumdymo padai po 82 px + tarpai), kad mygtukai stovetu
-   salia vaizdo, o ne prie ekrano krastu. */
-const BOX_AR=0.611;
+/* Pailginto bloko proporcija = pacios dezes projekcijos proporcija, tad ji skaiciuojama
+   is BOX_W_U/BOX_H_U, o ne irasoma ranka: pasikeitus kameros kampui ji persiskaiciuoja
+   pati (anksciau cia stovejo fiksuotas 0.611 nuo 23.8 laipsnio kampo). */
+const BOX_AR=BOX_W_U/BOX_H_U;   // dezes plotis:aukstis - persiskaiciuoja su kampu
 /* Perjungus tema drobe reikia PERPIESTI: ji piesiama viena karta, tad fonas (CSS)
    pasikeisdavo, o joje irasytas tekstas likdavo senos spalvos - juodas ant juodo
    (V 08-13). GPU rodinys persidazo pats, tad ji praleidziam. */
@@ -2918,7 +3016,8 @@ const stageBox=on=>{
   ob.title=on?'Back to the normal height':'Grow to the print volume';
   ob.setAttribute('aria-label',ob.title);
   ob.innerHTML=on?ICON_BACK:ICON_GROW;
-  if(on){stageBoxSize();scrollPreviewIntoView();} else fitStage();
+  if(on){stageBoxSize();scrollPreviewIntoView();}
+  else fitStage();   // iprastas santykis; aukstis BUTINAS, nes drobes CSS aukstis - 100% tevo
   repaintPreviewForTheme();   // naujas laukas - naujas piesinys, ne istemptas senas
   /* Kadravimo NORAS, ne vienkartinis veiksmas: pailginant 3D sluoksnio dar gali nebuti
      (V 08-13 - pirma atsidaro senas paveiksliukas, GPU vaizdas pakyla veliau), ir tada
@@ -3987,8 +4086,8 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        yaw buvo neigiamas - kamera stovejo prie priesingo dezes kampo, ir
        vaizdas persiversdavo uzsikrovus (V 08-12).
          yaw   +45 deg  - tas pats artimasis kampas kaip isoPt (x-y, x+y)
-         pitch  23.8 deg - atan(0.35/0.866) is isoPt vertikalaus koeficiento */
-    const DEF={yaw:Math.PI/4,pitch:0.415,dist:96,tgt:new T.Vector3(0,0,0)};
+         pitch  - TAS PATS CAM_PITCH kaip 2D vaizde (vienas skaicius abiem, zr. ten). */
+    const DEF={yaw:Math.PI/4,pitch:CAM_PITCH,dist:96,tgt:new T.Vector3(0,0,0)};
     let yaw=DEF.yaw,pitch=DEF.pitch,dist=DEF.dist;
     const tgt=new T.Vector3(0,0,0);
     /* Zvilgsnis sukasi apie TASKA, ne apie nuli: kitaip pastumus modelis
@@ -4148,15 +4247,18 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     const gCage=new T.BufferGeometry().setFromPoints(_pt([[0,0,MZ],[MX,0,MZ],[MX,0,MZ],[MX,MY,MZ],
       [MX,MY,MZ],[0,MY,MZ],[0,MY,MZ],[0,0,MZ],[0,0,0],[0,0,MZ],[MX,0,0],[MX,0,MZ],
       [MX,MY,0],[MX,MY,MZ],[0,MY,0],[0,MY,MZ]]));
-    baseLine=new T.LineSegments(gBase,new T.LineBasicMaterial({color:0x6a5a3a}));
+    /* Plokstes kontūras - tos pacios saltos spalvos kaip pati plokste. Buvo rusvai
+       oranzinis ir liko vienintele oranzine plokstes vieta (V pastebejo 08-14). */
+    baseLine=new T.LineSegments(gBase,new T.LineBasicMaterial({color:0x8ea4b8}));
     scene.add(baseLine);
     cage=new T.LineSegments(gCage,new T.LineBasicMaterial({color:0x4a4a52}));
     cage.visible=CAGE_ON; scene.add(cage);
     /* Permatoma plokstuma: vien kontūras neduoda „stalo" pojucio - modelis atrode
        kabantis ore. Silpnas pilkas atspalvis pasako, kur pavirsius, ir neuzstoja
        modelio (V 08-13). `depthWrite:false` - kad nekapotu uz jos esanciu detaliu. */
+    /* Ta pati salta melsvai pilka kaip 2D vaizduose (V 08-14) - viena plokste visur. */
     plate=new T.Mesh(new T.PlaneGeometry(MX,MY),
-      new T.MeshBasicMaterial({color:0x9aa0a8,transparent:true,opacity:0.14,
+      new T.MeshBasicMaterial({color:0x788ca0,transparent:true,opacity:0.22,
                                side:T.DoubleSide,depthWrite:false}));
     plate.rotation.x=-Math.PI/2; plate.position.set(0,-MZ/2,0);
     scene.add(plate);
@@ -4167,9 +4269,12 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const dark=document.documentElement.getAttribute('data-theme')!=='light';
       scene.background=new T.Color(dark?0x151517:0xe2e6ea);
       if(cage)cage.material.color.setHex(dark?0x4a4a52:0xa8aeb6);
-      if(baseLine)baseLine.material.color.setHex(dark?0x6a5a3a:0xb98a3c);
-      if(plate){plate.material.color.setHex(dark?0x9aa0a8:0x5c626b);
-                plate.material.opacity=dark?0.14:0.10;}
+      if(baseLine)baseLine.material.color.setHex(dark?0x8ea4b8:0x6f8ba6);
+      // Tos pacios dvi plokstes spalvos kaip pvSkin() 2D vaizduose (V 08-14).
+      if(plate){plate.material.color.setHex(dark?0x788ca0:0x4a6078);
+                plate.material.opacity=dark?0.22:0.18;}
+      // Kontūras kartu su plokste - kitaip cia jis tuoj pat uzrasydavo nauja salta
+      // spalva senaja rusva, ir 3D nesutapdavo su 2D (auditas 08-14).
     };
     gl3dTheme();
     (function loop(){requestAnimationFrame(loop);
@@ -4271,7 +4376,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      siaurame lange nupjaudavo krastus). */
   const frameBox=(c,hx,hy,hz)=>{
     if(typeof setView!=='function'||!cam)return false;
-    const yaw=Math.PI/4,pitch=0.415,tf=Math.tan(cam.fov*Math.PI/360),fill=0.86;
+    const yaw=Math.PI/4,pitch=CAM_PITCH,tf=Math.tan(cam.fov*Math.PI/360),fill=0.86;
     const halfW=Math.abs(Math.cos(yaw))*hx+Math.abs(Math.sin(yaw))*hz;
     const halfH=Math.abs(Math.sin(pitch)*Math.sin(yaw))*hx+Math.cos(pitch)*hy
                +Math.abs(Math.sin(pitch)*Math.cos(yaw))*hz;

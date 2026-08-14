@@ -740,6 +740,16 @@ float motor_updown_time_total; // Total time spent on motor movements
 uint8_t *liveBuf = NULL;   // LIVE_SLICE_BYTES * liveN, calloc'd per print (NULL = off)
 int liveN = 0;             // sampled slices for this print (<= 36)
 int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
+// Slots ABOVE liveCaptured hold the model's own silhouettes, pre-loaded from the
+// cached slice file at print start (SD is still free there). That is what lets a
+// browser opened mid-print draw the un-printed part as a ghost: the live capture
+// alone only ever knows layers already exposed. No extra RAM - same buffer.
+bool livePrefilled = false;
+// Pilnas stekas atiduodamas tik ISEJUS is homing'o: 36 pjuviai = ~19 KB chunked, o
+// homing'o cikle HTTP aptarnaujamas tarp zingsniu - toks siuntinys silpname WiFi
+// blokuoja `client.write` 1-3 s ir tiek laiko nekvieciamas `stepper.run()` (auditas
+// 08-14). Iki tol endpoint'as elgiasi kaip anksciau: atiduoda tik uzfiksuotus.
+bool liveReady = false;
 
 // UI Navigation Variables
 int setting_item;              // Current selected item in settings menu
@@ -2164,6 +2174,16 @@ void loop() {
             Transition_Exposure = resumeTransitionExposureSeed(resumeLayer);
           }
         }
+        #if ENABLE_NETWORK
+        // P-live stack BEFORE homing (V 08-14). Homing "can take minutes" (see the
+        // loop below), and until this ran a browser that joins in that window had
+        // nothing to draw but the flat preview PNG - so the phone showed a picture
+        // while the desktop already drew the 3D. Both values it needs are final
+        // here: layer_counter and, on resume, current_layer (set just above). SD is
+        // still free, same as capturePreviewCache. Freed at the single print exit,
+        // including the homing-abort path.
+        if (!print_canceled) liveBegin(layer_counter);
+        #endif
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -2299,11 +2319,15 @@ void loop() {
         }
         }
 
-        // P-live: allocate the per-print silhouette stack before the first
-        // layer decode, so every browser - including one opened mid-print, which
-        // cannot read the locked SD - can grow the live 3D. No-op without
-        // network; freed at the print's single exit (next to resumeClear).
-        if (!homing_canceled && !print_canceled) liveBegin(layer_counter);
+        // P-live stekas paruostas dar PRIES hominga (zr. auksciau), o CIA jis atrakinamas
+        // atidavimui: homing'as baigtas, motoras nebesukasi, tad 19 KB siuntinys jau
+        // niekam netrukdo.
+        #if ENABLE_NETWORK
+        // Ne atsaukimo kelyje: po jo dar eina lift_finished_print() - kelios desimtys
+        // sekundziu motoro darbo, HTTP aptarnaujamas kas 200 ms, o liveClear() tik gale.
+        // Atrakinus cia, 19 KB siuntinys pakliutu kaip tik i ta judesi (auditas 08-14).
+        if (!homing_canceled && !print_canceled) liveReady = true;
+        #endif
 
         // -------------------------------------------------------------------------------
         // Printing Loop

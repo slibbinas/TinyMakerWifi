@@ -2345,6 +2345,12 @@ void handleApiLiveSlices() {
   int since = server.hasArg("since") ? server.arg("since").toInt() : 0;
   if (since < 0) since = 0;
   if (since > cap) since = cap;
+  // Pre-loaded stack: the FULL fetch also carries the slots above `captured` -
+  // they hold the model's own silhouettes, which is the un-printed part the
+  // browser draws as a ghost. Deltas keep returning only real captures, so a
+  // freshly exposed layer overwrites its pre-loaded slot.
+  // liveReady: homing'o metu pilno steko NEATIDUODAM - zr. paaiskinima prie vėliavos.
+  int last = (live && livePrefilled && liveReady && since == 0) ? liveN : cap;
   float modelH = live ? layer_counter * Layer_Height : 0;
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);   // chunked
@@ -2355,6 +2361,7 @@ void handleApiLiveSlices() {
   head += ",\"gh\":";       head += String(LIVE_GH);
   head += ",\"n\":";        head += String(live ? liveN : 0);
   head += ",\"captured\":"; head += String(cap);
+  head += ",\"prefilled\":"; head += (live && livePrefilled && liveReady) ? "true" : "false";
   head += ",\"since\":";    head += String(since);
   head += ",\"layers\":";   head += String(live ? layer_counter : 0);
   head += ",\"modelH\":";   head += String(modelH, 2);
@@ -2362,7 +2369,7 @@ void handleApiLiveSlices() {
   head += "\",\"slices\":[";
   server.sendContent(head);
   char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 384 -> 512 chars + nul
-  for (int k = since; k < cap; k++) {
+  for (int k = since; k < last; k++) {
     liveBase64(liveBuf + (size_t)k * LIVE_SLICE_BYTES, LIVE_SLICE_BYTES, b64);
     server.sendContent(k > since ? ",\"" : "\"");
     server.sendContent(b64);
