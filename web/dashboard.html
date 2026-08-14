@@ -128,17 +128,18 @@
   <section id='printPreviewCard' class='card'>
     <div class='cardHead'><h2 id='printPreviewTitle'>Model preview</h2>
       <span style='display:flex;gap:8px;align-items:center'>
-        <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
-             detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
-             (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13).
-             Jis - KAIREJE nuo Share: spausdinant jo nera, o rezervuota vieta lieka,
-             tad tuscias tarpas atsiranda viduryje, o ne tarp Share ir korteles krasto
-             (V 08-14: „beryšio, kai share kabo kazkur ne prie krasto"). -->
-        <button id='stageOpen' type='button' style='display:none' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
         <!-- Ikona ir VISADA ta pati vieta: tekstinis „Share" / „✓ Shared" keitė plotį,
              tad antraštė smukčiojo (V 08-13). Kai dalintis negalima - tik nematomas,
              bet vietos neatiduoda. -->
         <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
+        <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
+             detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
+             (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13).
+             Vieta - KAMPE, kaip Windows lango mygtukas: tai lango, o ne turinio
+             valdiklis (V sprendimas; 08-14 buvau perkeles kaireje - grazinta).
+             Tarpo problema sprendziama ne tvarka, o tuo, kad slepiamas mygtukas
+             vietos NEREZERVUOJA (`display`, ne `visibility`). -->
+        <button id='stageOpen' type='button' style='display:none' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
       </span></div>
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
@@ -3052,8 +3053,8 @@ const stageBox=on=>{
    patys taskai (V 08-14). Todel spausdinant mygtuko nera.
    Isimamas VISAI (`display`), ne paliekamas nematomas: nematomas rezervuotu vieta
    ir Share atsidurtu ne prie korteles krasto, o kazkur viduryje - „berysio" (V 08-14).
-   Kad nieko nesistumdytu, markup'e sis mygtukas stovi KAIREJE nuo Share: dingsta
-   jis, o Share lieka toje pacioje vietoje prie krasto.
+   Eiliskumas lieka Share -> langas, o langas - kampe, kaip Windows lange; nesant
+   lango mygtuko Share paprasciausiai uzima jo vieta (V sprendimas 08-14).
    Pilkas neveikiantis mygtukas atmestas - jis atrodo kaip gedimas, o ne kaip
    „cia to nereikia". */
 const setStageGrowUI=canGrow=>{
