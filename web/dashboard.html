@@ -1328,7 +1328,11 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&(slicesCache.name!==s.model||!slicesCache.slices.length))restoreSlicesFromStorage(s.model);
     // P-live: a new print restarts the printer's stack from 0 - drop a stale
     // live cache so the kickoff below refetches from scratch.
-    if(slicesCache.mode==='live'&&s.liveCaptured!==undefined&&s.liveCaptured<liveHave){liveHave=0;slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};}
+    /* TIK spausdinant. Spaudiniui pasibaigus printerio skaitiklis irgi nukrenta i 0, ir
+       si salyga issivalydavo ka tik surinktus pjuvius - tad paspaudus „Preview" ant ka
+       tik atspausdinto modelio 3D nebeturedavo is ko atsirasti ir uzsikraudavo paprastas
+       paveiksliukas (V 08-14). Atmintyje juos paliekam: jie to paties modelio ir sviezi. */
+    if(busyPrint&&slicesCache.mode==='live'&&s.liveCaptured!==undefined&&s.liveCaptured<liveHave){liveHave=0;slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};}
     // Opened mid-print with no local slices, but the printer is streaming its
     // own 3D stack - pull it so this window grows the identical live 3D.
     /* Gyvas srautas - tik ATSARGINIS variantas: jame yra VIEN jau atspausdinti sluoksniai,
