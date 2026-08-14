@@ -890,6 +890,24 @@ const uploadPreviewFromUrl=async(name,url,type)=>{
     return true;
   }finally{URL.revokeObjectURL(obj);}
 };
+/* Miniatiura, kuri gula i printeri (jo ekranas ir SD sarasas), pie6iama ATSKIRAI ir
+   visada vienodo pavidalo: stacia ir tamsi. Iki 08-14 ten keliaudavo tos pacios drobes
+   kopija, tad i printeri patekdavo tai, kas tuo metu buvo naršyklėje - sviesioje temoje
+   sviesus paveiksliukas, o su ijungtu „as printed" - apverstas modelis. */
+const uploadFixedThumb=async(name,type)=>{
+  const tmp=document.createElement('canvas');
+  const wasDark=PV_FORCE_DARK, wasFlip=VIEW_FLIP;
+  PV_FORCE_DARK=true; VIEW_FLIP=false;
+  try{
+    drawIso(tmp,1);                                  // pjuviai jau atmintyje - piesimas pigus
+    await uploadModelPreview(name,await canvasBlob(tmp),type);
+  }finally{
+    PV_FORCE_DARK=wasDark; VIEW_FLIP=wasFlip;
+    /* Piesimo laukas (PREV_W/H) buvo perskaiciuotas pagal laikina drobe - grazinam ji
+       perpiesdami tikraja; kartu grizta ir teisingos temos spalvos. */
+    repaintPreviewForTheme();
+  }
+};
 const localPreviewBlob=async(name,type)=>{
   const r=await fetch('/api/files/model/preview?name='+enc(name)+'&type='+enc(type)+'&r='+Date.now(),{cache:'no-store'});
   if(!r.ok)throw new Error('saved preview '+type+' failed to load');
@@ -1144,17 +1162,21 @@ const applyStatus=s=>{
     // 1-32/1-33: busy may mean an SD job (delete/import), not a print - the
     // print UI must not appear then (its Stop/Pause would target nothing).
     const sdJob=s.sdJob||'', busyPrint=!!s.busy&&!sdJob;
-    /* „As printed" yra SPAUDINIO vaizdas: mygtukas rodomas tik spausdinant, nes tik tada
-       modelis tikrai kabo po plokste. Bet busena likdavo visai sesijai, tad perjunges
-       vartyma spaudinio metu ir spaudini nutraukes, visus kitus modelius matydavai
-       apverstus (V 08-14). Spaudiniui pasibaigus grazinam printerio numatytaji vaizda. */
-    if(!busyPrint&&VIEW_FLIP!==PREF_FLIP){
-      const c=$('viewAsPrinted');
-      viewFlipTouched=false;                       // nuo cia vel galioja printerio nustatymas
-      if(c){c.checked=PREF_FLIP;c.dispatchEvent(new Event('change'));viewFlipTouched=false;}
-      else VIEW_FLIP=PREF_FLIP;
-      if(window.syncFlipBtn)syncFlipBtn();
-    }
+    /* Spaudinio pradzia ir pabaiga - atskirai: nuo ju kabo vartymo perjungimas ir tai,
+       kas lieka korteleje pasibaigus. */
+    const printJustStarted=busyPrint&&!prevBusyPrint, printJustEnded=!busyPrint&&prevBusyPrint;
+    /* „As printed" yra SPAUDINIO vaizdas ir tik jo: apverstas modelis prasmingas tada,
+       kai jis tikrai kabo po plokste, o ramioje perziuroje zmogus sukioja ir zoomina
+       stati modeli (V 08-14). Todel spaudiniui prasidejus vaizdas imamas is printerio
+       nustatymo, spaudiniui pasibaigus - visada grazinamas stacias, o tarp ju perjungti
+       galima tik tol, kol spausdinama (mygtukas ir taip rodomas tik ten). */
+    {const wantFlip=busyPrint?PREF_FLIP:false;
+     if((!busyPrint&&VIEW_FLIP)||(printJustStarted&&VIEW_FLIP!==wantFlip)){
+       const c=$('viewAsPrinted');
+       if(c){c.checked=wantFlip;c.dispatchEvent(new Event('change'));}
+       else VIEW_FLIP=wantFlip;
+       if(window.syncFlipBtn)syncFlipBtn();
+     }}
     if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
     // Page ships version-agnostic (gzipped static shell); fill header from status.
     if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
@@ -1276,6 +1298,7 @@ const applyStatus=s=>{
        ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers)))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
+      lastPrintModel=s.model;  // pasibaigus i korteles grazinsim buten ji (V 08-14)
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
          išvalyti. Anksčiau tai spręsdavo antraštės tekstas, bet joje dabar modelio
          vardas, o šioje (gyvo 3D) šakoje žymė nebūdavo nustatoma (auditas 08-13). */
@@ -1308,6 +1331,21 @@ const applyStatus=s=>{
         /* `justConnected` - kad uzrasas „Connecting to the printer..." butu pakeistas
            i tikra bukle, kai atsakymas pagaliau ateina. */
         if(!dashPreviewName&&(busyPreviewShown||justConnected))dashPreviewPlaceholder();
+        /* Spaudiniui pasibaigus korteleje lieka TAS PATS modelis, kuri ka tik spausdinom
+           (V pasirinkimas 08-14): pjuviai jau atmintyje, tad piesiasi is karto, o zmogus
+           mato, ka darė, o ne tuscia deze su kvietimu rinktis. */
+        if(printJustEnded&&lastPrintModel&&!sdJob){
+          const back=lastPrintModel; lastPrintModel='';
+          if(!dashPreviewName)dashPreview(enc(back));
+        }
+        /* Kortelės darbo metu (ispakavimas, trynimas - savas ar svetimas) deze sake
+           „Pick a model and press Preview", nors snackas tuo pat metu rase, kad
+           printeris uzimtas (V 08-14). Sakom ta pati, ka ir visos kitos vietos. */
+        if(sdJob&&!dashPreviewName){
+          const boxTxt=(sdJob==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
+          if(boxTxt!==sdBoxCur){sdBoxCur=boxTxt;
+            paintPreviewProgress($('printPreviewCanvas'),boxTxt,null);}
+        }else if(sdBoxCur){sdBoxCur='';}
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -1394,6 +1432,7 @@ const applyStatus=s=>{
        o iki tol buvo gyvi (V 08-14). Cia tik vietinis perpiesimas, be uzklausu. */
     if(was!==s.busy)renderFiles();
     if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
+    prevBusyPrint=busyPrint;   // paskutinis dalykas: kita apklausa is cia mato perejima
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
   busy:true,paused:false,pausing:false,resuming:false,stopping:false,dryRun:statusData&&statusData.dryRun,
@@ -1679,13 +1718,19 @@ const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
 const showDetailToggle=()=>{
   const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
 };
-let PREF_FLIP=false;    // numatytasis vaizdas is printerio config
-let VIEW_FLIP=false;    // sios sesijos vaizdas (korteles varnele)
-let viewFlipTouched=false;
+/* Vaizdo jungikliu atsiminimo KANONAS (V 08-14), kad ketvirtas nebutu daromas dar
+   kitaip: narvas ir detalumas - IRENGINIO nustatymas (localStorage, zr. tmViewCage /
+   tmViewDetail), o vartymas - VIENO SPAUDINIO dalykas: prasidejus imamas is printerio
+   nustatymo, pasibaigus dingsta. Nieko is to nesaugom sesijoje „iki kito karto". */
+let PREF_FLIP=false;    // printerio nustatymas: nuo ko pradeda SPAUDINIO vaizdas
+let VIEW_FLIP=false;    // dabartinis vaizdas; ne spausdinant - visada stacias
+let prevBusyPrint=false;   // ar praeita apklausa buvo spausdinama (spaudinio pradziai pagauti)
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
 let liveHave=0,liveFetching=false;   // P-live: silhouettes pulled from the printer
 let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
+let sdBoxCur='';           // koks korteles darbo uzrasas jau nupiestas dezeje
+let lastPrintModel='';     // ka ka tik spausdinom - i ta grizta kortele pasibaigus
 const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
 const loadSavedPreviewTo=async(cv,name)=>{
   if(window.gl3dShow)gl3dShow(false);   // kesuota PNG - drobeje
@@ -1727,8 +1772,10 @@ const loadSavedPreviewTo=async(cv,name)=>{
 /* Piesinio spalvos pagal tema. Sviesioje temoje juodas langas atrode kaip skyle, o
    perjungus dali spalvu (tik GPU) krovimo metu likdavo juodas fonas - todel spalvos
    surinktos i VIENA vieta ir jomis naudojasi visi piesimo keliai (V 08-13). */
+/* Kai piesiam miniatiura printeriui, tema nesvarbi - ji visada tamsi (zr. uploadFixedThumb). */
+let PV_FORCE_DARK=false;
 const pvSkin=()=>{
-  const light=document.documentElement.getAttribute('data-theme')==='light';
+  const light=!PV_FORCE_DARK&&document.documentElement.getAttribute('data-theme')==='light';
   return light
     ? {line:'#a9afb7',text:'#1f2124',cap:'#5f6570',ghost:'rgba(92,98,110,',
        track:'rgba(255,255,255,.85)',trackLine:'#9aa0a8',
@@ -2740,7 +2787,7 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
      `slicesCache.name` patikra - ta pati, kaip refreshModelThumb: statymas ilgas, o per
      ji galima persijungti i kita modeli. */
   if(!cacheIsDetail()&&slicesCache.name===name)try{
-    await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
+    await uploadFixedThumb(name,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
   }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
 };
@@ -3225,7 +3272,7 @@ const refreshModelThumb=async(name,cv)=>{
      irasydavo NAUJO modelio piesini SENO vardu (V 08-13: „Skeletus" miniatiuroje buvo
      „scull"). Kesas ir yra tas, is ko piesta, tad juo ir tikrinam. */
   if(slicesCache.name!==name)return;
-  try{await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
+  try{await uploadFixedThumb(name,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
   catch(e){}                               // patogumas, ne būtinybė - tyli klaida
 };
 /* Vienas kelias, kuriuo mygtukai suzino apie „shared": perklausiam printeri ir
@@ -3690,7 +3737,10 @@ const loadConfig=async()=>{
      /* Config duoda NUMATYTAJI vaizda; kortelės varnele - gyva busena, kuri
         pradzioje nuo jo atsispiria (V 08-11). */
      PREF_FLIP=!!c.previewFlip; $('cfgPreviewFlip').checked=PREF_FLIP;
-     if(!viewFlipTouched){VIEW_FLIP=PREF_FLIP;$('viewAsPrinted').checked=VIEW_FLIP;} $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; setDryRunButton(!!c.dryRun); $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
+     /* Nustatymas NEBEKEICIA dabartinio vaizdo: jis yra tik spaudinio pradzios taskas
+        (V 08-14). Anksciau ijungtas jungiklis apversdavo ir ramias perziuras, o grizti
+        i stati vaizda nebuvo kaip - vartymo mygtukas rodomas tik spausdinant. */
+     $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; setDryRunButton(!!c.dryRun); $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
     $('cfgConnectEnabled').checked=!!c.connectEnabled; $('cfgConnectBaseUrl').value=c.connectBaseUrl||'https://connect.tinymakerwifi.com'; $('cfgConnectPrinterName').value=c.connectPrinterName||''; $('cfgConnectLeaderboard').checked=!!c.connectLeaderboardOptIn;
@@ -3908,7 +3958,7 @@ $('gl3dDet').addEventListener('click',async e=>{
 });
 
 $('viewAsPrinted').addEventListener('change',()=>{
-  VIEW_FLIP=$('viewAsPrinted').checked; viewFlipTouched=true;
+  VIEW_FLIP=$('viewAsPrinted').checked;
   // Kesas privalo buti TO PACIO modelio, kuris rodomas: kitaip perpiestume
   // svetima forma (auditas 08-12). Spausdinant kesas yra spaudinio.
   const shown=dashPreviewName||((statusData&&statusData.busy)?slicesCache.name:'');
