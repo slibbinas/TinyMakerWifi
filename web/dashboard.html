@@ -3283,9 +3283,14 @@ const renderStateValue=()=>{
 let printWaitCur='', printWaitSent='', printWaitSentAt=0;
 const printWaitInfo=()=>{
   const s=statusData; if(!s)return null;
-  if(s.busy&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
-  if(s.busy&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
-  if(s.busy&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
+  /* „Uzimtas" NEUZTENKA: uzimtas printeris yra ir tada, kai kortele isppakuoja ar trina
+     (sdJob), o `stopping` lieka pazymetas nuo praeito spaudinio - tad ispakuojant iššokdavo
+     „Stopping - finishing the current layer" (V 08-14). Sios trys zinutes yra apie SPAUDINI,
+     tad ir salyga turi buti apie spaudini. */
+  const printing=s.busy&&!(s.sdJob||'');
+  if(printing&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
+  if(printing&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
+  if(printing&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
   // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
   // (printWaitSent) - the printer answers between layers, so hold the message.
   const req=pendingPrintCmd||printWaitSent;
