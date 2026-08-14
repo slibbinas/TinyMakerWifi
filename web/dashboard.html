@@ -27,6 +27,12 @@
 .cardBusy .cardHead button,.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dHelp{opacity:.4;pointer-events:none}
 .cardBusy .cardHead{cursor:progress}
 #stageOpen,#dashShareButton[data-icon]{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#stageOpen:hover,#dashShareButton[data-icon]:hover{color:var(--text);border-color:var(--line2)}#dashShareButton[data-icon].shared{color:var(--accent);border-color:var(--accent);cursor:default}
+/* Ikoniniai mygtukai savo fona/spalva nusako ID taisykle, tad bendras `button:disabled`
+   ju neprigesina - be sio priedo uzrakintas mygtukas atrode visiskai gyvas (V 08-14). */
+#stageOpen:disabled,#dashShareButton[data-icon]:disabled{opacity:.45;cursor:not-allowed}
+/* Jau pasidalintas mygtukas nieko nedaro, tad ir neturi „spaustis": paspaudimo
+   animacija buvo vienintelis atsakas i paspaudima ir atrode kaip neveikiantis mygtukas. */
+#dashShareButton[data-icon].shared:active{transform:none;filter:none}
 .hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}/* Plotis ribotas, o ne 92 % ekrano: ilga zinute placiame ekrane isitempdavo per
    visa virsu ir skaitesi kaip juosta, ne kaip zinute (V 08-13). Dabar auga i
    apacia. Telefone lieka ta pati 92 % riba. */#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:min(92%,720px);z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
@@ -1189,6 +1195,12 @@ const applyStatus=s=>{
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
     $('dryRunToggle').disabled=!!s.busy||!wc;   // rezimo nekeisti spausdinant
     $('modelStartButton').disabled=!wc;
+    /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ikelimas, tad spausdinant
+       jo nera. Iki siol tai buvo VIENINTELIS mygtukas, kuris spausdinant vis tiek
+       spaudesi ir nieko nedarydavo, o kaimyniniai jau rode „negalima" (V 08-14).
+       Rakinam abu: ir korteles ikona, ir modelio skydelio „Share". */
+    {const shareLock=!wc||!!s.busy;
+     ['modelShareButton','dashShareButton'].forEach(id=>{const b=$(id);if(b)b.disabled=shareLock;});}
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     syncUploadGate();
     show('dryRunBanner',!!s.dryRun);
