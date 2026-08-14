@@ -40,7 +40,14 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #dashShareButton[data-icon].shared:active{transform:none;filter:none}
 .hint{font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.4}/* Plotis ribotas, o ne 92 % ekrano: ilga zinute placiame ekrane isitempdavo per
    visa virsu ir skaitesi kaip juosta, ne kaip zinute (V 08-13). Dabar auga i
-   apacia. Telefone lieka ta pati 92 % riba. */#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:min(92%,720px);z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
+   apacia. Telefone lieka ta pati 92 % riba. */#statusMsg{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:min(92%,720px);z-index:60;margin:0;background:var(--toast);color:var(--toast-t);border:2px solid var(--accent);border-radius:10px;padding:11px 18px;box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:14px;font-weight:600;line-height:1.4;animation:toastIn .25s ease}
+/* Eigos pranesimas: kaireje - nekintantis tekstas, desineje - skaicius fiksuoto
+   plocio langelyje (tabular-nums), apacioje - juostele. Taip snackas nesitampo
+   kas kelias sekundes, kaip buvo iki 08-14. */
+#statusMsg .snackLine{display:flex;align-items:baseline;gap:14px;justify-content:space-between}
+#statusMsg .snackPct{flex:0 0 auto;min-width:8.5em;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent)}
+#statusMsg .snackBar{margin-top:8px;height:3px;border-radius:2px;background:var(--line2);overflow:hidden}
+#statusMsg .snackBar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}</style></head><body><main class='wrap'>
 <div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker<a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
 <section id='resumeBanner' class='card banner hidden'>
@@ -711,6 +718,36 @@ const api=async(path,opt,timeoutMs)=>{
 // operation jump spots (tap-anchored "Deleting..." replaced by the centred job
 // snackbar). Centre is deterministic and identical everywhere.
 const snackCentre=e=>{e.style.top=Math.round((innerHeight-e.offsetHeight)/2)+'px';};
+/* Ilgo darbo pranesimas su eiga. VIENA vieta visiems atvejams - savo ikelimui,
+   svetimam ispakavimui, trynimui (V 08-14: „vis tiek nieko daryti negali, tai geriau
+   vienoje vietoje ir vienodai"). Tekstas nesikeicia, keiciasi tik desineje esantis
+   skaicius (fiksuoto plocio langelis) ir juostele - tad snackas nesitampo.
+   `extra` - laisvas priedas desineje (greitis, praejes laikas), kai procentu nera. */
+const snackProgress=(txt,done,total,extra,fmt)=>{
+  const e=$('statusMsg');
+  const pct=(total>0&&done>=0)?Math.min(99,Math.round(done*100/total)):-1;
+  if(e.dataset.prog!=='1'||e.dataset.ptxt!==txt){
+    e.dataset.prog='1'; e.dataset.ptxt=txt;
+    e.classList.remove('warn');
+    e.innerHTML="<div class='snackLine'><span class='snackTxt'></span>"+
+                "<span class='snackPct'></span></div><div class='snackBar'><span></span></div>";
+    e.querySelector('.snackTxt').textContent=txt;
+    clearTimeout(msg._t); msg._until=0;          // sticky, kol darbas vyksta
+    e.style.animation='none'; void e.offsetWidth; e.style.animation='';
+    snackCentre(e);
+  }
+  const p=e.querySelector('.snackPct'), b=e.querySelector('.snackBar>span');
+  /* `fmt` - kaip rodyti skaicius: sluoksniai kaip yra, baitai - megabaitais. */
+  const num=v=>fmt?fmt(v):String(v);
+  if(p)p.textContent=pct>=0?((total>0?num(done)+'/'+num(total)+' · ':'')+pct+' %'):(extra||'');
+  if(b)b.style.width=(pct>=0?pct:0)+'%';
+};
+const snackProgressClear=()=>{
+  const e=$('statusMsg');
+  if(e.dataset.prog!=='1')return;
+  e.dataset.prog=''; e.dataset.ptxt='';
+  e.textContent=''; e.style.top='';
+};
 const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t){
     snackCentre(e);
@@ -787,7 +824,7 @@ const updateSdUsage=d=>{
   }
   sdFooterSync();
 };
-const uploadWithProgress=(fd,hintEl)=>{
+const uploadWithProgress=(fd,hintEl,label)=>{
   const started=Date.now();
   let lastLoaded=0,total=0,sentAt=0;
   const render=()=>{
@@ -796,10 +833,18 @@ const uploadWithProgress=(fd,hintEl)=>{
     // count only exists on the printer's own screen: unpacking runs inside the
     // /upload handler, so the ESP cannot answer /api/status until it is done.
     // The timer is the proof-of-life; the real progress is one glance away.
-    if(sentAt){hintEl.textContent='Unpacking on the printer... '+formatShortTime(Date.now()-sentAt)+' - its screen counts the layers';return;}
-    const elapsed=Date.now()-started, pct=total?Math.round(lastLoaded*100/total):0;
+    /* Eiga - i SNACKA, ne i SD korteles eilute: ten ji buvo isblukusia „hint" spalva
+       ir jos niekas nepastebedavo (V 08-14). Kortelėje lieka tik statinis sakinys. */
+    if(sentAt){
+      snackProgress('Unpacking '+shortName(label||'the model')+' on the printer',-1,-1,
+                    formatShortTime(Date.now()-sentAt));
+      hintEl.textContent='SD actions come back when it finishes.';
+      return;
+    }
+    const elapsed=Date.now()-started;
     const speed=elapsed>0?formatBytes(lastLoaded/(elapsed/1000))+'/s':'-';
-    hintEl.textContent='Uploading'+(total?' '+pct+'%':'')+' - '+formatShortTime(elapsed)+' - '+speed;
+    snackProgress('Uploading '+shortName(label||'the model'),lastLoaded,total,speed,formatBytes);
+    hintEl.textContent='SD actions come back when it finishes.';
   };
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
@@ -846,7 +891,7 @@ const modelUploadFd=(blob,filename,action,meta)=>{
   return fd;
 };
 const uploadModelPayload=async(blob,filename,hintEl,meta)=>{
-  const send=action=>uploadWithProgress(modelUploadFd(blob,filename,action,meta),hintEl);
+  const send=action=>uploadWithProgress(modelUploadFd(blob,filename,action,meta),hintEl,filename);
   try{return await send('');}
   catch(e){
     if(e.status!==409||!e.data||!e.data.conflict)throw e;
@@ -1326,11 +1371,13 @@ const applyStatus=s=>{
           const back=lastPrintModel; lastPrintModel='';
           if(!dashPreviewName)dashPreview(enc(back));
         }
-        /* Kortelės darbo metu (ispakavimas, trynimas - savas ar svetimas) deze sake
-           „Pick a model and press Preview", nors snackas tuo pat metu rase, kad
-           printeris uzimtas (V 08-14). Sakom ta pati, ka ir visos kitos vietos. */
-        if(sdJob&&!dashPreviewName){
-          const boxTxt=(sdJob==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
+        /* Kortelės darbo metu (ispakavimas, trynimas, MUSU siuntimas) deze sake „Pick a
+           model and press Preview", nors kitos vietos tuo metu rase, kad printeris
+           uzimtas (V 08-14). Klausiam to paties klausimo kaip visur: `busyBoxText()`
+           apima ir ta tarpa, kai failas dar keliauja, o printeris dar nieko nepranese. */
+        {const boxNow=busyBoxText();
+        if(boxNow&&!dashPreviewName){
+          const boxTxt=boxNow;
           if(boxTxt!==sdBoxCur){sdBoxCur=boxTxt;
             paintPreviewProgress($('printPreviewCanvas'),boxTxt,null);}
         }else if(sdBoxCur){
@@ -1338,7 +1385,7 @@ const applyStatus=s=>{
              nepiesia, tad „Unpacking X…" likdavo kabeti salia „Idle · Ready" (V 08-14). */
           sdBoxCur='';
           if(!dashPreviewName)dashPreviewPlaceholder();
-        }
+        }}
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -1407,17 +1454,9 @@ const applyStatus=s=>{
     // disabled", "Locked while printing" and "SD contents load after the print
     // finishes" on top of each other (user finding).
     if(sdJob){
-      /* SD-prog: the printer counted layers all along ("Unpacking layers
-         120/240" on its own screen) - the dashboard just never got the number
-         and sat on a mute noun for the whole minute (V 08-12). */
-      const jd=Number(s.sdJobDone)||0, jt=Number(s.sdJobTotal)||0;
-      /* Skaiciai gyvena BUTENT cia (snackas ju nebeturi, V 08-14), tad ir zodis toks
-         pat, kaip snacke bei printerio ekrane: „Unpacking" / „Deleting". */
-      const what=sdJob==='delete'?'Deleting':'Unpacking';
-      const unit=sdJob==='delete'?' files':' layers';   // a delete walks files, not layers
-      const how=(jt>0&&jd>0&&jd<=jt)?' '+jd+' of '+jt+unit+' ('+Math.min(99,Math.round(jd*100/jt))+'%)':'...';
-      $('uploadHint').textContent=what+' '+shortName(s.sdJobName||'')+how+
-        ' - SD actions come back when it finishes.';
+      /* Skaiciai isikele i snacka (V 08-14: cia jie buvo isblukusia „hint" spalva ir
+         ju niekas nepastebedavo). Kortelėje - tik kodel viskas uzrakinta. */
+      $('uploadHint').textContent='SD actions come back when it finishes.';
     } else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
     if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
     prevBusyPrint=busyPrint;   // paskutinis dalykas: kita apklausa is cia mato perejima
@@ -2756,7 +2795,9 @@ const forgetDashPreview=()=>{localStorage.removeItem('dashPreviewModel');localSt
 const restoreDashPreview=async()=>{
   const name=localStorage.getItem('dashPreviewModel')||'';
   if(!name)return dashPreviewPlaceholder();
-  if(statusData&&statusData.busy)return;   // the print owns the card; leave it alone
+  /* `uiBusy`, ne vien printerio vėliava: perkrovus puslapį per SAVO įkėlimą printeris
+     dar tyli, ir atsistatydavo senas modelis, nors tuo metu vyko darbas (V 08-14). */
+  if(uiBusy())return;   // darbas valdo kortele - jos neliečiam
   // Restore only within the same printer session. After a reboot the card opens
   // clean: what you were looking at yesterday is not what you need now, and the
   // restore costs an SD read on every page load (V 08-12). A reload mid-print
@@ -3308,7 +3349,6 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;
-  setOurSdJob(true);   // musu pacio pradetas darbas - eiga rodo kortele, snacko nereikia
   renderFiles();       // sarasas uzsirakina is karto, nelaukiant printerio atsakymo
   msg('Deleting '+shortName(name)+' - large models take a while...',false,true);try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
@@ -3413,18 +3453,10 @@ const renderPrintWait=()=>{
 // alike - at the shared coordinate-less centre spot. Clears itself and
 // announces the result when the job ends.
 let sdJobCur='',sdJobLast='',sdJobLastName='';
-/* Ar SD darba pradejo SITAS langas. Jei taip - snacko nereikia: eiga matai toje
-   pacioje korteleje, kurioje ka tik spaudei, o snackas tik dubliuotu ir tamposi.
-   Snackas skirtas darbams, atsiradusiems PATIEMS: PrusaSlicer „Send to printer",
-   ikelimas is telefono, kito lango trynimas - tada be jo atrodytu, kad pultas be
-   priezasties nustojo klausyti (V 08-14). */
 /* Zyme gyvena sessionStorage: perkrovus puslapi (F5) tas pats zmogus tame paciame
    skirtuke matydavo „started from another device" apie savo paties trynima (V 08-14).
    sessionStorage isnyksta uzdarius skirtuka, tad kitas langas svetimo darbo savu
    nepalaikys. */
-let ourSdJob=(()=>{try{return sessionStorage.getItem('tmOurSdJob')==='1';}catch(e){return false;}})();
-const setOurSdJob=on=>{ourSdJob=on;try{on?sessionStorage.setItem('tmOurSdJob','1')
-  :sessionStorage.removeItem('tmOurSdJob');}catch(e){}};
 /* Ilgi vardai: pilnas vardas lieka SD sarase, o zinutese kerpam - kitaip viena
    zinute isaugdavo per pusę ekrano. */
 const shortName=(n,max=24)=>{n=String(n||'');return n.length>max?(n.slice(0,max-1)+'…'):n;};
@@ -3432,16 +3464,10 @@ const renderSdJob=s=>{
   const job=(s&&s.sdJob)||'',name=(s&&s.sdJobName)||'';
   const e=$('statusMsg');
   if(!job){
-    /* Zyme nuimam TIK kai musu paciu veiksmas jau baigtas: tarp „failas issiustas"
-       ir „printeris paskelbe darba" buna apklausu be darbo, ir per anksti nuimta
-       zyme butu parodziusi snacka musu paciu ikelimui. */
-    if(!uploadBusy&&!deleteBusy)setOurSdJob(false);
     if(sdJobCur){
-      if(e.textContent===sdJobCur){e.textContent='';e.style.top='';}
+      /* Musu paciu ikelimas gali dar vykti (jis pats piesia snacka) - tada jo neliesk. */
+      if(!uploadBusy&&!deleteBusy)snackProgressClear();
       sdJobCur='';
-      /* Nuimam paspaudimą: ta pati juosta naudojama ir paprastoms zinutems, o jos
-         nieko nenuslenka - liktu mygtukas, kuris niekur neveda. */
-      e.onclick=null;e.style.cursor='';
       // one-shot closure - the job just finished
       if(sdJobLast==='delete'){
         msg('Deleted '+shortName(sdJobLastName)+'.');
@@ -3457,34 +3483,11 @@ const renderSdJob=s=>{
     return;
   }
   sdJobLast=job;sdJobLastName=name;
-  /* Musu paciu pradetas darbas: snacko nerodom, o jei jis jau kabo (pvz. darba
-     pradejom, kol snackas dar nespejo dingti) - nuimam. Skaiciai lieka korteleje. */
-  if(ourSdJob){
-    if(sdJobCur){ if(e.textContent===sdJobCur){e.textContent='';e.style.top='';}
-      sdJobCur='';e.onclick=null;e.style.cursor=''; }
-    return;
-  }
-  /* BE judanciu skaiciu. 08-13 jie cia buvo idėti, nes SD korteles eilute likdavo
-     uz ekrano; bet tada snackas persipiesinėja ir tamposi kas kelias sekundes, o
-     tas pats skaicius jau stovi korteleje (V 08-14). Snacko darbas - pasakyti, KAS
-     vyksta ir kodel pultas nebeatsakineja; KIEK nuejo - korteleje. Bakstelejus
-     snacka nuslenkam prie tos korteles, tad skaiciai per viena palietima. */
-  /* Zinute nesako, IS KUR darbas atsirado: pultas to tiksliai nezino, o „started from
-     another device" apie savo paties trynima po F5 skambejo kvailai (V 08-14). Sako, KAS
-     vyksta ir kodel kitos SD komandos laukia. */
-  const txt=job==='delete'
-    ?('Deleting '+shortName(name)+' - the printer is busy removing files; other SD actions wait...')
-    // „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje.
-    :('Unpacking '+shortName(name)+' - the printer is writing the layers to the SD card...');
-  if(txt===sdJobCur&&e.textContent===txt)return;
-  const firstShow=!sdJobCur;
-  e.textContent=txt;e.classList.remove('warn');
-  /* Skaiciai gyvena SD korteleje - bakstelejus snacka ten ir nuvedam. */
-  e.style.cursor='pointer';
-  e.onclick=()=>{const h=$('uploadHint');if(h)h.scrollIntoView({block:'center',behavior:'smooth'});};
-  clearTimeout(msg._t);msg._until=0;   // sticky while the job runs
-  snackCentre(e);
-  if(firstShow){e.style.animation='none';void e.offsetWidth;e.style.animation='';}
+  /* Rodom VISIEMS - ir savo, ir svetimiems darbams (V 08-14: viena vieta, vienas
+     pavidalas). Zinute nesako, IS KUR darbas atsirado - pultas to tiksliai nezino.
+     „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje. */
+  const txt=(job==='delete'?'Deleting ':'Unpacking ')+shortName(name);
+  snackProgress(txt,Number(s&&s.sdJobDone)||0,Number(s&&s.sdJobTotal)||0);
   sdJobCur=txt;
 };
 let lastPollOkAt=0;
@@ -3685,6 +3688,14 @@ $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();f
 const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy;
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */
+/* Tas pats klausimas, tik trumpu pavidalu peržiūros dėžei ir snackui. */
+const busyBoxText=()=>{
+  const s=statusData||{}, jb=s.sdJob||'';
+  if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
+  if(uploadBusy)return 'Uploading the model…';
+  if(deleteBusy)return 'Deleting…';
+  return '';
+};
 const busyWhat=()=>{
   const jb=(statusData&&statusData.sdJob)||'';
   if(uploadBusy)return 'this window is uploading a model';
@@ -3756,7 +3767,6 @@ const syncUploadGate=()=>{
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;
-  setOurSdJob(true);   // ta pati taisykle kaip trynimui: eiga cia pat korteleje
   bgJob='Uploading the model';syncActionLocks();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
   // "queued" (1-33): the upload landed and the printer imports it from its idle
   // loop - the status-driven snackbar covers the wait, the finished model
