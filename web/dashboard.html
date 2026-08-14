@@ -1270,7 +1270,13 @@ const applyStatus=s=>{
           // slices and the branch above renders the live 3D within a poll or two.
           // Brief loading state - no "unavailable" note (this device CAN show it).
           show('prevNote',false);
-          if(busyPreviewShown!=='live:'+s.model){busyPreviewShown='live:'+s.model;paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);}
+          /* Piesiam KAS APKLAUSA, ne viena karta. Vienkartine zyme reiske, kad jei drobe
+             tuo metu perpiesdavo kas nors kitas (pvz. tuscios perziuros uzrasas), zinute
+             nebeatsirasdavo ir per visa hominga (kuris „gali uztrukti minutes") likdavo
+             „Pick a model and press Preview", nors antrasteje jau „Printing 0%"
+             (V 08-14). Perpiesimas pigus: deze + uzrasas, be modelio. */
+          busyPreviewShown='live:'+s.model;
+          paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);
         }else{
           $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
           show('prevNote',true);
