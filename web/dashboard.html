@@ -1101,7 +1101,23 @@ const openView=view=>{
   if(view==='stats'){renderAbout();loadCommunityStats();}
 };
 
+/* Kol pirmas atsakymas is printerio neatejo, pultas nezino NIEKO: nei ar printeris
+   spausdina, nei ar leidziamas valdymas is tinklo. Iki siol tuo metu jis atrode kaip
+   laisvas printeris - drobeje „Pick a model and press Preview", visi mygtukai gyvi -
+   ir paspaudimas baigdavosi klaida (V 08-14). Todel iki pirmo atsakymo veiksmai
+   uzrakinti, o vietoj kvietimo rinktis modeli rasoma, kad dar jungiamasi. */
+let firstStatusSeen=false;
+const NOT_READY_BTN=['modelStartButton','uploadButton','vatRefillButton','dryRunToggle',
+                     'dashShareButton','modelShareButton','prep3dButton'];
+const setPageWaiting=on=>{
+  NOT_READY_BTN.forEach(id=>{const b=$(id);if(b)b.disabled=on;});
+};
+setPageWaiting(true);   // pultas atsidaro laukdamas printerio, ne apsimesdamas, kad jis cia
 const applyStatus=s=>{
+    /* Atrakinam PRIES visa kita: toliau kiekvienas mygtukas vis tiek gauna savo
+       tikra bukle is sios pacios funkcijos, tad nei vienas neliks uzstriges. */
+    const justConnected=!firstStatusSeen&&!!(s&&s.ok);
+    if(justConnected){firstStatusSeen=true;setPageWaiting(false);}
     const was=statusData&&statusData.busy; statusData=s;
     // 1-32/1-33: busy may mean an SD job (delete/import), not a print - the
     // print UI must not appear then (its Stop/Pause would target nothing).
@@ -1262,7 +1278,9 @@ const applyStatus=s=>{
         show('prevNote',false);
         // Antraštėje dabar gali stovėti modelio vardas, tad „ar ji ne Model preview"
         // nebėra požymis, kad liko spausdinimo vaizdas - klausiam tiesiai.
-        if(!dashPreviewName&&busyPreviewShown)dashPreviewPlaceholder();
+        /* `justConnected` - kad uzrasas „Connecting to the printer..." butu pakeistas
+           i tikra bukle, kai atsakymas pagaliau ateina. */
+        if(!dashPreviewName&&(busyPreviewShown||justConnected))dashPreviewPlaceholder();
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -2743,7 +2761,10 @@ const dashPreviewPlaceholder=()=>{
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
   setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
-  paintPreviewProgress($('printPreviewCanvas'),'Pick a model and press Preview',null);
+  /* „Pasirink modeli" reiskia „printeris laisvas ir laukia". Kol atsakymo dar nebuvo,
+     to nezinom, tad sakom tiesa: dar jungiames (V 08-14). */
+  paintPreviewProgress($('printPreviewCanvas'),
+    firstStatusSeen?'Pick a model and press Preview':'Connecting to the printer...',null);
   showDetailToggle();
 };
 // Which printer session the saved preview belongs to: the printer's own uptime
