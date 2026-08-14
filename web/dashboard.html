@@ -1294,7 +1294,7 @@ const applyStatus=s=>{
           busyPreviewShown='live:'+s.model;
           paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);
         }else{
-          $('prevNote').textContent='Live 3D print progress isn’t available here — open Preview before starting a print to see it.';
+          $('prevNote').textContent='Live 3D print progress isn’t available here - open Preview before starting a print to see it.';
           show('prevNote',true);
           // Fill the canvas once (guarded): the RAM snapshot if the printer kept
           // one, otherwise a plain placeholder.
@@ -3354,15 +3354,15 @@ const printWaitInfo=()=>{
      „Stopping - finishing the current layer" (V 08-14). Sios trys zinutes yra apie SPAUDINI,
      tad ir salyga turi buti apie spaudini. */
   const printing=s.busy&&!(s.sdJob||'');
-  if(printing&&s.stopping)  return {v:'Stopping', tail:' — finishing the current layer, then the plate lifts', count:true};
-  if(printing&&s.pausing)   return {v:'Pausing',  tail:' — the print pauses after this layer', count:true};
-  if(printing&&s.resuming)  return {v:'Resuming', tail:' — the print is starting again', count:true};
+  if(printing&&s.stopping)  return {v:'Stopping', tail:' - finishing the current layer, then the plate lifts', count:true};
+  if(printing&&s.pausing)   return {v:'Pausing',  tail:' - the print pauses after this layer', count:true};
+  if(printing&&s.resuming)  return {v:'Resuming', tail:' - the print is starting again', count:true};
   // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
   // (printWaitSent) - the printer answers between layers, so hold the message.
   const req=pendingPrintCmd||printWaitSent;
-  if(req==='stop')   return {v:'Stop requested',   tail:' — waiting for the printer (it answers between layers)', count:false};
-  if(req==='pause')  return {v:'Pause requested',  tail:' — waiting for the printer (it answers between layers)', count:false};
-  if(req==='resume') return {v:'Resume requested', tail:' — waiting for the printer (it answers between layers)', count:false};
+  if(req==='stop')   return {v:'Stop requested',   tail:' - waiting for the printer (it answers between layers)', count:false};
+  if(req==='pause')  return {v:'Pause requested',  tail:' - waiting for the printer (it answers between layers)', count:false};
+  if(req==='resume') return {v:'Resume requested', tail:' - waiting for the printer (it answers between layers)', count:false};
   return null;
 };
 const renderPrintWait=()=>{
@@ -3544,7 +3544,7 @@ const loadConfig=async()=>{
        const r=$('calRaw'+k), g=$('calG'+k);
        if(document.activeElement!==r)r.value=x?x.raw:'';
        if(document.activeElement!==g)g.value=x?x.grams:'';
-       $('calMl'+k).textContent=x?x.ml:'\u2014';
+       $('calMl'+k).textContent=x?x.ml:'-';
        $('calDel'+k).style.display=x?'':'none';
        const u=$('calUse'+k); u.style.display=raw>0?'':'none';
        if(raw>0)u.textContent='\u2190 last print '+raw.toFixed(2)+' ml';
@@ -3562,10 +3562,10 @@ const loadConfig=async()=>{
                       ' + <b>'+fx.toFixed(2)+' ml</b> per print';}
      else if(n>=2) {bg=bdg('part','too close');
                       st='both samples are nearly the same size '+
-                      '\u2014 replace one with a <b>clearly different</b> print';}
+                      '- replace one with a <b>clearly different</b> print';}
      else if(n===1){bg=bdg('part','1 of 2');
                       st=lbl('estimates')+'\u00d7'+f.toFixed(3)+
-                      ' for now \u2014 weigh a <b>clearly different size</b> print next';}
+                      ' for now - weigh a <b>clearly different size</b> print next';}
      else          {bg=bdg('off','not calibrated');
                       st='estimates are raw geometry';}
      $('calState').innerHTML=st;
@@ -3752,7 +3752,7 @@ $('prep3dButton').addEventListener('click',async()=>{
     for(const m of models){
       if(statusData&&statusData.busy){note.textContent='Stopped - a print started.';break;}
       done++;
-      note.textContent=done+' / '+models.length+' \u2014 '+m.name;
+      note.textContent=done+' / '+models.length+' - '+m.name;
       if(await loadSlicesFromPrinter(m.name))continue;      // jau paruostas
       try{
         const info=await api('/api/files/model?name='+enc(m.name));
@@ -3770,7 +3770,7 @@ $('prep3dButton').addEventListener('click',async()=>{
         made++;
       }catch(e){}
     }
-    note.textContent='Done \u2014 '+made+' prepared, '+(models.length-made)+' already had data.';
+    note.textContent='Done - '+made+' prepared, '+(models.length-made)+' already had data.';
     /* Ciklas bendrame kese palieka PASKUTINI modeli, o „As printed" perpiesia
        is jo netikrindamas vardo - korteleje atsirasdavo svetimas modelis
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
@@ -3791,7 +3791,7 @@ $('prep3dButton').addEventListener('click',async()=>{
 
 const calDensPreview=()=>{
   const g=Number($('calDensG').value),ml=Number($('calDensMl').value);
-  $('calDensNow').textContent=(g>0&&ml>0)?(g/ml).toFixed(3):($('calDensCur').textContent||'\u2014');
+  $('calDensNow').textContent=(g>0&&ml>0)?(g/ml).toFixed(3):($('calDensCur').textContent||'-');
 };
 ['calDensG','calDensMl'].forEach(id=>$(id).addEventListener('input',calDensPreview));
 $('calDensButton').addEventListener('click',async()=>{
@@ -3821,7 +3821,7 @@ const calPost=async(slot,body,okMsg)=>{
   const rawEl=$('calRaw'+k), gEl=$('calG'+k);
   /* Rezultatas matomas dar nespaudus - tas pats principas kaip tankio eiluteje. */
   const prev=()=>{const g=Number(gEl.value),d=Number($('calDensCur').textContent)||1.1;
-    $('calMl'+k).textContent=g>0?(g/d).toFixed(2):'\u2014';};
+    $('calMl'+k).textContent=g>0?(g/d).toFixed(2):'-';};
   [rawEl,gEl].forEach(el=>{
     el.addEventListener('input',prev);
     el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('calSet'+k).click();}});
@@ -3884,7 +3884,9 @@ $('resumeDiscardButton').addEventListener('click',()=>resumeAct('/api/resume/dis
 const setDryRunButton=on=>{
   const b=$('dryRunToggle'); if(!b)return;
   b.dataset.on=on?'1':'';
-  b.textContent=on?'Dry run: ON \u2014 no UV':'Dry run: off';
+  /* Trumpiau ir be ilgo bruksnio: telefone \u201eDry run: ON - no UV" lauzesi i dvi
+     eilutes ir mygtukas isaugdavo (V 08-14). */
+  b.textContent=on?'Dry run (no UV)':'Dry run: off';
   b.style.borderColor=on?'var(--warncol)':'';
   b.style.color=on?'var(--warncol)':'';
   b.style.borderStyle=on?'solid':'';
