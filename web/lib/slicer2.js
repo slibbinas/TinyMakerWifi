@@ -94,6 +94,9 @@ export const CFG = {
   island_inner_step_mm:   0,
   island_thin_step_mm:    0,
   min_dist_from_outline_mm: 0,
+  /* 4-as kriterijus (V, 08-13): kiek toliausiai nuokabos vieta gali būti nuo
+     artimiausios atramos. Iš čia sėjamas salų ir pusiasalių vidus. */
+  coverage_max_mm:        3.0,
   max_dist_from_outline_mm: 0,
   thin_max_width_mm:      0,
   thick_min_width_mm:     0,
@@ -1348,6 +1351,46 @@ function insetPoints(paths, pts, cfg, medial) {
   return out;
 }
 
+/** Vidaus taškai pagal DANGOS kriterijų, ne pagal fiksuotą tinklelį.
+ *
+ *  Dedam tašką ten, kur nuo ploto iki artimiausios atramos toliausia, ir
+ *  kartojam, kol niekur nelieka toliau nei `coverage_max_mm`. Tai tiesiogiai
+ *  užrašytas 4-as kriterijus (V, 08-13) ir kartu „nė vieno taško daugiau" —
+ *  ciklas sustoja vos danga pasiekiama.
+ *
+ *  Anksčiau čia buvo `thick_inner_max_distance` tinklelis (6,5 mm). Ant didelės
+ *  plokščios nuokabos jis paremdavo tik pakraštį: kronšteino viršus (16×10 mm)
+ *  gaudavo vieną vidinį tašką, ir 17 mm² likdavo toliau nei 3 mm nuo bet ko
+ *  (išmatuota 08-13; PrusaSlicer ten deda keturis). */
+function coverInterior(paths, pbb, out, cfg) {
+  const step = 0.4;                       // tinklelis PAIEŠKAI, ne taškams
+  const cells = [];
+  for (let y = pbb[1] / SCALE; y <= pbb[3] / SCALE; y += step)
+    for (let x = pbb[0] / SCALE; x <= pbb[2] / SCALE; x += step)
+      if (pointInPaths(paths, x, y)) cells.push([x, y]);
+  if (!cells.length) return;
+  const d2 = cells.map(c => {
+    let m = Infinity;
+    for (const p of out) {
+      const v = (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2;
+      if (v < m) m = v;
+    }
+    return m;
+  });
+  const lim2 = cfg.coverage_max_mm ** 2;
+  for (let guard = 0; guard < 400; guard++) {
+    let best = -1, bestD = lim2;
+    for (let i = 0; i < cells.length; i++) if (d2[i] > bestD) { bestD = d2[i]; best = i; }
+    if (best < 0) break;                  // visur padengta
+    const p = cells[best];
+    out.push(p);
+    for (let i = 0; i < cells.length; i++) {
+      const v = (p[0] - cells[i][0]) ** 2 + (p[1] - cells[i][1]) ** 2;
+      if (v < d2[i]) d2[i] = v;
+    }
+  }
+}
+
 function walkRing(path, step, into) {
   const n = path.length;
   let total = 0;
@@ -1542,10 +1585,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               const rp = [];
               for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, rp);
               for (const q of insetPoints(paths, rp, cfg, true)) out.push(q);
-              const st = cfg.island_inner_step_mm;
-              for (let gy = Math.ceil(pbb[1] / SCALE / st) * st; gy <= pbb[3] / SCALE; gy += st)
-                for (let gx = Math.ceil(pbb[0] / SCALE / st) * st; gx <= pbb[2] / SCALE; gx += st)
-                  if (pointInPaths(shrunk, gx, gy)) out.push([gx, gy]);
+              coverInterior(shrunk, pbb, out, cfg);
             }
           };
 
