@@ -171,6 +171,13 @@ test('nė vienas stulpas neprasideda ore', async () => {
   for (const p of t.pillars) {
     if (p.bottom <= 1e-6) continue;                 // ant plokštės — gerai
     if (p.partial) continue;                        // remiasi į tiltą, ne į medžiagą
+    /* Inkaruotas stulpas baigiasi aukščiau paviršiaus TYČIA: likusį tarpą
+       uždengia apversta galvutė, kuri nusilaužia švariai (add_anchor,
+       cpp:684-706). Bet netikim vėliavėle — reikalaujam, kad inkaras iš tikrųjų
+       prasidėtų būtent šio stulpo apačioje. */
+    if (p.anchored && (t.bridges || []).some(b2 => b2.anchor &&
+        Math.hypot(b2.a[0] - p.x, b2.a[1] - p.y) < 1e-6 &&
+        Math.abs(b2.a[2] - p.bottom) < 1e-6)) continue;
     const hr = t.mesh.rayHit([p.x, p.y, p.bottom + eps], [0, 0, -1]);
     if (hr.inside || hr.dist <= tol) continue;      // įleista į medžiagą / guli ant jos
     bad.push({ x: +p.x.toFixed(2), y: +p.y.toFixed(2),

@@ -977,7 +977,14 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     if (h.rBack < cfg.head_back_radius_mm) hh = Math.max(hh, 0);
     else if (hh <= 0) continue;
     const bottom = Math.max(0, surface + hh);
-    if (h.junction[2] - bottom < cfg.base_height_mm) continue;   // galvutė atmetama
+    /* JOKIO minimalaus aukščio filtro: originale (cpp:684-706) po `h` patikros
+       stulpas statomas visada, koks trumpas bebūtų — `add_pillar(head.id,
+       hjp.z - endp.z)`. Čia buvo mano priedas „trumpesnis nei pėdos aukštis —
+       atmetam", ir jis tyliai išmesdavo galvutes, kurios į modelį atsiremia vos
+       0,14 mm žemiau (įdubose). Tokios galvutės likdavo NAŠLAITĖS: taškas
+       pasėtas, galvutė sukurta, o piešinyje nieko — biuste 8, „evil" 2, ir
+       būtent jos pulte matėsi kaip salos be atramos (08-14). */
+    if (h.junction[2] - bottom <= 1e-6) continue;   // išsigimęs, nulinio ilgio
     pillars.push({ x: h.junction[0], y: h.junction[1], top: h.junction[2],
                    bottom, rTop: h.rBack, rBase: h.rBack, head: i, bridges: 0,
                    onModel: true, anchored: hh > 1e-6 });
