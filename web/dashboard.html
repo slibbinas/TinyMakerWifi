@@ -3372,7 +3372,8 @@ const renderSdJob=s=>{
   const pos=(jt>0&&jd>0&&jd<=jt)?' '+jd+'/'+jt+' ('+Math.min(99,Math.round(jd*100/jt))+'%)':'';
   const txt=job==='delete'
     ?('Deleting '+name+pos+' - the printer is busy removing files, other SD actions wait...')
-    :('Importing '+name+pos+' - unpacking to the SD card can take a few minutes...');
+    // „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje.
+    :('Unpacking '+name+pos+' - writing the layers to the SD card takes a few minutes...');
   if(txt===sdJobCur&&e.textContent===txt)return;
   const firstShow=!sdJobCur;
   e.textContent=txt;e.classList.remove('warn');

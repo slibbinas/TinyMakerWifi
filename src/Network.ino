@@ -766,7 +766,10 @@ void handleUpdateFinish() {
 
 String printerStateText() {
   if (sdJobKind == "delete") return "Deleting model";
-  if (sdJobKind == "import") return "Importing model";
+  // „Unpacking", ne „Importing" (V sprendimas, SD-prog p.3): importas gali reiksti bet ka,
+  // o ispakavimas pasako, kas is tikruju vyksta - ir sutampa su printerio ekranu, kuris
+  // visa laika rase „Unpacking layers".
+  if (sdJobKind == "import") return "Unpacking model";
   if (screen == 1111 || screen == 1112 || screen == 11111 || screen == 11112 || screen == 11113) {
     String prefix = uvLedEnabled ? "" : "Testing - ";
     switch (current_state) {
