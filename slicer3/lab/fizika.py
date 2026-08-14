@@ -40,7 +40,8 @@ PX = 40.8 / 320.0          # mm/px — patikrinta: puodelio siena 8.99 vs 9.00
 LAYER = 0.05
 GAP_LIMIT = 3.0            # kriterijus 4
 BASE_MM = 1.2              # pagrindo/pado zona — ten platejimas ne nuokaba
-HEAD_PX = int(round(np.pi * (0.2 / PX) ** 2))   # kontakto ⌀0,4 plotas pikseliais
+HEAD_R_MM = 0.2            # kontakto spindulys (⌀0,4)
+HEAD_PX = int(round(np.pi * (HEAD_R_MM / PX) ** 2))   # jo plotas pikseliais
 
 
 def layers_of(path, first):
@@ -80,8 +81,18 @@ def measure(stl, path, first, oriented):
             if n:
                 held = set(np.unique(lab[prev_img]))
                 sz = ndimage.sum(img, lab, np.arange(1, n + 1))
-                r['islands'] += sum(1 for k in range(1, n + 1)
-                                    if k not in held and sz[k - 1] >= HEAD_PX)
+                cand = [k for k in range(1, n + 1)
+                        if k not in held and sz[k - 1] >= HEAD_PX]
+                if cand:
+                    # Sala skaiciuojama tik jei ji TIKRAI atskira: arciau nei
+                    # kontakto skersmuo nuo apacioje sukietintos medziagos ji
+                    # kietedama tiesiog prilimpa prie kaimyno. PrusaSlicer'io
+                    # 6 „salos" biuste visos buvo 0,26-0,77 mm atstumu ir
+                    # 10-17 px dydzio — statoko slaito krastai, ne broka (08-13).
+                    dd = ndimage.distance_transform_edt(~prev_img) * PX
+                    for k in cand:
+                        if float(dd[lab == k].min()) > 2 * HEAD_R_MM:
+                            r['islands'] += 1
             # 4 — danga: kiek toli naujas plotas nuo to, kas ji laiko.
             # Dvi isimtys, abi fizines:
             #  - PAGRINDAS (z < BASE_MM): ten padas tycia platejа i sonus, tai
