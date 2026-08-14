@@ -678,9 +678,13 @@ const api=async(path,opt,timeoutMs)=>{
          tad ka veikia, imam is paskutines busenos. */
       if(em==='printer busy'){
         const jb=(statusData&&statusData.sdJob)||'';
+        /* Jei busena dar nespejo pasikeisti (ispakavimas prasideda anksciau, nei ji
+           atnaujinama), nespejam - sakom neutraliai. Melagingas „busy printing" per
+           trynima buvo blogiau uz bendra sakini (V 08-14). */
         throw new Error(jb==='delete'?'The printer is deleting a model - this unlocks when it finishes.'
                        :jb==='import'?'The printer is unpacking a model - this unlocks when it finishes.'
-                       :'The printer is busy printing - this unlocks when the print ends.');
+                       :(statusData&&statusData.busy&&!jb)?'The printer is busy printing - this unlocks when the print ends.'
+                       :'The printer is busy - this unlocks when it finishes.');
       }
       throw new Error(em);}
     // Every JSON endpoint answers with an "ok" field; a 200 without one means
@@ -753,7 +757,7 @@ const checkUploadFits=(bytes,hintEl)=>{
   if(!sdFreeBytes)return true;
   const need=uploadRequiredBytes(bytes);
   if(need<=sdFreeBytes)return true;
-  hintEl.textContent='Not enough SD space. Need about '+formatBytes(need)+' free while importing; available '+formatBytes(sdFreeBytes)+'.';
+  hintEl.textContent='Not enough SD space. Need about '+formatBytes(need)+' free while unpacking; available '+formatBytes(sdFreeBytes)+'.';
   return false;
 };
 // One footer line for the whole card: model counts on the left, SD usage on the
@@ -1514,7 +1518,17 @@ const loadFiles=async()=>{
     show('filesFilter',filesItems.length>FILES_PER_PAGE);
     renderFiles();
     if(typeof renderGs==='function')renderGs(); // auto-tick "model on SD"
-  }catch(e){sdCountsStr='';updateSdUsage(null);   // stale counts under a "Retry" would be a lie
+  }catch(e){
+    /* „Uzimtas" nera klaida: sarasas tebegalioja, printeris tiesiog neatsakineja, kol
+       tvarko kortele. Virsuje (1502) tai jau numatyta, bet ten ziurima i PASKUTINE
+       busena - o ispakavimas prasideda anksciau, nei ji spėja pasikeisti, ir uzklausa
+       grizdavo su „busy". Tada sarasas dingdavo visai, nors turejo tik tapti neaktyvus
+       (V 08-14). Tikros klaidos (nutruks rysys) elgiasi kaip anksciau. */
+    if(/busy|unlocks when/i.test(e.message||'')){
+      if(!filesItems.length)restoreFilesCache();
+      renderFiles();show('filesFilter',false);return;
+    }
+    sdCountsStr='';updateSdUsage(null);   // stale counts under a "Retry" would be a lie
     // Leave the user a way back that isn't F5 (feedback #4: the list "was
     // gone" until a page refresh).
     list.innerHTML='<div class="hint warn">'+esc(e.message)+' <a href="#" onclick="loadFiles();return false">Retry</a></div>';}
@@ -3490,7 +3504,7 @@ const renderSdJob=s=>{
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
         loadFiles();
       }else if(sdJobLast==='import'){
-        msg('Model imported: '+shortName(sdJobLastName)+'.');
+        msg('Unpacked '+shortName(sdJobLastName)+'.');   // tas pats zodis kaip eigoje
         loadFiles();
       }
       sdJobLast='';sdJobLastName='';
@@ -3730,8 +3744,11 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
   // "queued" (1-33): the upload landed and the printer imports it from its idle
   // loop - the status-driven snackbar covers the wait, the finished model
   // announces itself via sdRev. Older sync answers keep the previous handling.
-  if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is importing it now.';}
-  else{$('uploadHint').textContent=(r&&r.renamed?'Imported as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncUploadGate();}});
+  /* Vienas zodis visam keliui: „Unpacking" / „Unpacked". Anksciau tas pats dalykas
+     vadinosi ir „importing", ir „imported", ir „uploaded" - telefone matei „Predator2
+     imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
+  if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
+  else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncUploadGate();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
