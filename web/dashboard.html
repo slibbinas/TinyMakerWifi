@@ -1340,7 +1340,6 @@ const applyStatus=s=>{
        ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers)))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
-      lastPrintModel=s.model;  // pasibaigus i korteles grazinsim buten ji (V 08-14)
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
          išvalyti. Anksčiau tai spręsdavo antraštės tekstas, bet joje dabar modelio
          vardas, o šioje (gyvo 3D) šakoje žymė nebūdavo nustatoma (auditas 08-13). */
@@ -1371,13 +1370,12 @@ const applyStatus=s=>{
         /* `justConnected` - kad uzrasas „Connecting to the printer..." butu pakeistas
            i tikra bukle, kai atsakymas pagaliau ateina. */
         if(!dashPreviewName&&(busyPreviewShown||justConnected))dashPreviewPlaceholder();
-        /* Spaudiniui pasibaigus korteleje lieka TAS PATS modelis, kuri ka tik spausdinom
-           (V pasirinkimas 08-14): pjuviai jau atmintyje, tad piesiasi is karto, o zmogus
-           mato, ka darė, o ne tuscia deze su kvietimu rinktis. */
-        if(printJustEnded&&lastPrintModel&&!sdJob){
-          const back=lastPrintModel; lastPrintModel='';
-          if(!dashPreviewName)dashPreview(enc(back));
-        }
+        /* ATSUKTA (V 08-14, vakaras). Buvau padaręs, kad pasibaigus spaudiniui korteleje
+           liktu ka tik spausdintas modelis. Praktikoje isejo blogiau: korteleje likdavo
+           GRUBUS spaudinio piesinys, o pultas jau laike ta modeli „perziurimu" - tad
+           paspaudus „Preview" ant jo nieko nevykdavo (dashPreview grizta, kai perziuros
+           vardas jau nustatytas), ir 3D uzsikraudavo tik pasirinkus kita modeli.
+           Grizom prie senos elgsenos: pasibaigus spaudiniui kortele issivalo. */
         /* Kortelės darbo metu (ispakavimas, trynimas, MUSU siuntimas) deze sake „Pick a
            model and press Preview", nors kitos vietos tuo metu rase, kad printeris
            uzimtas (V 08-14). Klausiam to paties klausimo kaip visur: `busyBoxText()`
@@ -1764,7 +1762,6 @@ let lastPrevFrac=-1;
 let liveHave=0,liveFetching=false;   // P-live: silhouettes pulled from the printer
 let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
 let sdBoxCur='';           // koks korteles darbo uzrasas jau nupiestas dezeje
-let lastPrintModel='';     // ka ka tik spausdinom - i ta grizta kortele pasibaigus
 const loadSavedPreview=name=>loadSavedPreviewTo($('modelPreviewCanvas'),name);
 const loadSavedPreviewTo=async(cv,name)=>{
   if(window.gl3dShow)gl3dShow(false);   // kesuota PNG - drobeje
