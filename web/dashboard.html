@@ -259,6 +259,10 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
        settled with V: preview, not beta), so the marker is always visible and
        clearly scoped to the Connect section - and never touched by Brian's
        hosted deploys, which only rewrite connectHostedRoot's innerHTML. -->
+  <!-- Connect programa ateina is serverio - jos mygtuku is vidaus uzrakinti negalim.
+       Todel uzimtam printeriui uzdedam savo uzdanga: veiksmai nepasiekiami, tekstas
+       matomas, ir pasakyta, kodel (V 08-14). -->
+  <div id='connectBusyNote' class='hint warn hidden' style='margin:0 0 10px'></div>
   <div id='connectHostedRoot'>
     <h2>TinyMaker Connect</h2>
     <div id='connectHostedStatus' class='hint'>Loading Connect from the configured server...</div>
@@ -3795,6 +3799,13 @@ const syncActionLocks=()=>{
   /* Sedint Settings skiltyje kortelės eilutės nesimato, tad KAS vyksta pasakom cia pat,
      po nustatymais - ir tikslu zodziu, ne „while printing" tada, kai printeris is tikruju
      ispakuoja is PrusaSlicer atsiusta faila (V 08-14). */
+  /* Connect programa - svetima: jos viduje mygtuku uzrakinti negalim, tad uzimtam
+     printeriui isjungiam paspaudimus visai jos daliai ir virsuje parasom, kodel. */
+  {const cr=$('connectHostedRoot'), cn=$('connectBusyNote');
+   if(cr){cr.style.pointerEvents=busy?'none':'';cr.style.opacity=busy?'.45':'';}
+   if(cn){cn.textContent=busy?('Connect actions are paused while '+(busyWhat()||'the printer is busy')+
+                               ' - they come back when it finishes.'):'';
+          cn.classList.toggle('hidden',!busy);}}
   const why=!wc?'':busyWhat();
   if(why!==syncActionLocks._why){
     syncActionLocks._why=why;
