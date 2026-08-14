@@ -183,14 +183,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button data-zoom='in' title='Zoom in'>+</button>
         </div>
       </div>
-      <!-- „Kaip spausdinama" yra VAIZDO rezimas, kaip narvas ar detalumas - tad ir
-           atrodo taip pat, ir stovi toje pacioje apatineje eileje (V 08-13).
-           Spausdinant GPU rodinio nera, tad su juo nesikerta. Senas jungiklis lieka
-           paslėptas: ji nustato Settings ir ant jo kabo `change` logika. -->
-      <button id='gl3dFlip' type='button' style='display:none;position:absolute;right:10px;bottom:8px;z-index:2'
-        title='Show the model as printed: upside down, under the rising plate'></button>
-      <label id='viewAsPrintedWrap' style='display:none'>
-        <input type='checkbox' id='viewAsPrinted'></label>
+      <!-- „As printed" (apverstas modelis) issimtas 08-14: V sprendimas - vaizdas vis
+           tiek nekoks, o funkcija tik gimde nesusikalbejima tarp perziuros ir spaudinio
+           rezimu. Modelis visada rodomas stacias. -->
     </div>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
     <!-- 0-26: the info line moved to the status panel rows; the card keeps
@@ -302,7 +297,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <label><span>Idle screen timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin stop (mid-print)</span></label>
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
-    <label class='check'><input name='preview_flip' id='cfgPreviewFlip' type='checkbox' value='1'><span>Default 3D view: as printed (upside down)</span></label>
     <label class='check'><input name='resume_enabled' id='cfgResumeEnabled' type='checkbox' value='1'><span>Resume after power loss</span></label>
     <label class='check'><input name='resume_precise' id='cfgResumePrecise' type='checkbox' value='1'><span>Precise resume checkpoints (finer recovery, more SD writes)</span></label>
   </div>
@@ -896,13 +890,13 @@ const uploadPreviewFromUrl=async(name,url,type)=>{
    sviesus paveiksliukas, o su ijungtu „as printed" - apverstas modelis. */
 const uploadFixedThumb=async(name,type)=>{
   const tmp=document.createElement('canvas');
-  const wasDark=PV_FORCE_DARK, wasFlip=VIEW_FLIP;
-  PV_FORCE_DARK=true; VIEW_FLIP=false;
+  const wasDark=PV_FORCE_DARK;
+  PV_FORCE_DARK=true;
   try{
     drawIso(tmp,1);                                  // pjuviai jau atmintyje - piesimas pigus
     await uploadModelPreview(name,await canvasBlob(tmp),type);
   }finally{
-    PV_FORCE_DARK=wasDark; VIEW_FLIP=wasFlip;
+    PV_FORCE_DARK=wasDark;
     /* Piesimo laukas (PREV_W/H) buvo perskaiciuotas pagal laikina drobe - grazinam ji
        perpiesdami tikraja; kartu grizta ir teisingos temos spalvos. */
     repaintPreviewForTheme();
@@ -1165,18 +1159,6 @@ const applyStatus=s=>{
     /* Spaudinio pradzia ir pabaiga - atskirai: nuo ju kabo vartymo perjungimas ir tai,
        kas lieka korteleje pasibaigus. */
     const printJustStarted=busyPrint&&!prevBusyPrint, printJustEnded=!busyPrint&&prevBusyPrint;
-    /* „As printed" yra SPAUDINIO vaizdas ir tik jo: apverstas modelis prasmingas tada,
-       kai jis tikrai kabo po plokste, o ramioje perziuroje zmogus sukioja ir zoomina
-       stati modeli (V 08-14). Todel spaudiniui prasidejus vaizdas imamas is printerio
-       nustatymo, spaudiniui pasibaigus - visada grazinamas stacias, o tarp ju perjungti
-       galima tik tol, kol spausdinama (mygtukas ir taip rodomas tik ten). */
-    {const wantFlip=busyPrint?PREF_FLIP:false;
-     if((!busyPrint&&VIEW_FLIP)||(printJustStarted&&VIEW_FLIP!==wantFlip)){
-       const c=$('viewAsPrinted');
-       if(c){c.checked=wantFlip;c.dispatchEvent(new Event('change'));}
-       else VIEW_FLIP=wantFlip;
-       if(window.syncFlipBtn)syncFlipBtn();
-     }}
     if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
     // Page ships version-agnostic (gzipped static shell); fill header from status.
     if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
@@ -1259,7 +1241,12 @@ const applyStatus=s=>{
     /* Procentai prie sluoksniu, o ne drobeje: skaiciu vieta yra busenos kortele, o
        piesinyje jie buvo neatzymimi, nesilauze ir kainavo perpiesima (V 08-13). */
     const lpct=(s.busy&&s.totalLayers>0)?' ('+Math.round(s.currentLayer/s.totalLayers*100)+'%)':'';
-    setText('layerValue',(s.layerText||'-')+lpct); setText('resinValue',s.resinText); if(!s.busy)setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime); tickLocalStatus();
+    setText('layerValue',(s.layerText||'-')+lpct);
+    /* Sunaudota derva - taip pat gramais, kaip ir „Resin left" (V 08-14). Tankis ateina
+       su nustatymais, tad papildomu uzklausu nereikia; jei ju dar nera - 1.1 g/ml. */
+    {const dens=Number(connectConfig&&connectConfig.resinDensity)||1.1;
+     const used=Number(s.resinUsedMl)||0;
+     setText('resinValue',(s.resinText||'-')+(used>0?' (~'+(used*dens).toFixed(1)+' g)':''));} if(!s.busy)setText('runValue',s.runTime); setText('remainingValue',eta?s.remainingTime+' · ~'+eta:s.remainingTime); tickLocalStatus();
     setText('vatValue',(s.vatGrams!==undefined?s.vatText+' (~'+s.vatGrams+' g)':s.vatText)+(s.vatLow?' (low!)':'')); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
@@ -1275,6 +1262,9 @@ const applyStatus=s=>{
     show('resumeBanner',!!rp);
     if(rp)setText('resumeBannerInfo',rp.model+' - '+rp.layer+' of '+rp.total+' layers were finished.');
     ['printLayerBox','printResinBox','printRunBox','printRemainingBox','printControls'].forEach(id=>show(id,busyPrint));
+    /* Ir atvirksciai: modelio eilutes grazinamos, kai spaudinio nebera. Be sito jos
+       likdavo paslėptos po kortelės darbo, ir kortele sokinedavo (V 08-14). */
+    if(typeof showModelInfoRows==='function')showModelInfoRows(!busyPrint);
     // Keep the SD manager card visible mid-print (user preference over the
     // 0.13.4 hide): the last-known list stays on screen, locked - no fresh
     // /api/files calls while printing (SD is busy feeding layers).
@@ -1309,7 +1299,6 @@ const applyStatus=s=>{
          antrasteje jis nukerpamas paskutinis. */
       $('printPreviewTitle').textContent='Printing '+
         Math.round(Math.min(1,s.currentLayer/s.totalLayers)*100)+'% · '+s.model;
-      $('gl3dFlip').style.display='flex'; if(window.syncFlipBtn)syncFlipBtn();
       setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
       show('printPreviewCard',true);
       const frac=Math.min(1,s.currentLayer/s.totalLayers);
@@ -1323,7 +1312,6 @@ const applyStatus=s=>{
       // when nothing is previewed. Busy without slices (print started on the
       // printer): drop a stale idle preview instead of showing a wrong model.
       show('printPreviewCard',true);
-      $('gl3dFlip').style.display='none';   // idle = irasyta PNG, ne gyvas 3D
       if(!busyPrint){   // idle OR an SD job - either way, not a print in progress
         show('prevNote',false);
         // Antraštėje dabar gali stovėti modelio vardas, tad „ar ji ne Model preview"
@@ -1345,7 +1333,12 @@ const applyStatus=s=>{
           const boxTxt=(sdJob==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
           if(boxTxt!==sdBoxCur){sdBoxCur=boxTxt;
             paintPreviewProgress($('printPreviewCanvas'),boxTxt,null);}
-        }else if(sdBoxCur){sdBoxCur='';}
+        }else if(sdBoxCur){
+          /* Darbui pasibaigus uzrasa BUTINA nuimti patiems: drobes daugiau niekas
+             nepiesia, tad „Unpacking X…" likdavo kabeti salia „Idle · Ready" (V 08-14). */
+          sdBoxCur='';
+          if(!dashPreviewName)dashPreviewPlaceholder();
+        }
         lastPrevFrac=-1;
         busyPreviewShown='';
       }else if(!slicesPrefetching){
@@ -1426,11 +1419,6 @@ const applyStatus=s=>{
       $('uploadHint').textContent=what+' '+shortName(s.sdJobName||'')+how+
         ' - SD actions come back when it finishes.';
     } else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
-    /* Sarasas perpiesamas TUOJ PAT, kai pasikeicia uzimtumas: jo mygtuku (Preview,
-       Start, Delete) uzraktas uzdedamas piesimo metu, o piesimas ivykdavo tik ka nors
-       perkrovus - todel iseigus i Settings ir grizus jie „staiga" pasidarydavo pilki,
-       o iki tol buvo gyvi (V 08-14). Cia tik vietinis perpiesimas, be uzklausu. */
-    if(was!==s.busy)renderFiles();
     if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
     prevBusyPrint=busyPrint;   // paskutinis dalykas: kita apklausa is cia mato perejima
 };
@@ -1718,12 +1706,10 @@ const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
 const showDetailToggle=()=>{
   const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
 };
-/* Vaizdo jungikliu atsiminimo KANONAS (V 08-14), kad ketvirtas nebutu daromas dar
-   kitaip: narvas ir detalumas - IRENGINIO nustatymas (localStorage, zr. tmViewCage /
-   tmViewDetail), o vartymas - VIENO SPAUDINIO dalykas: prasidejus imamas is printerio
-   nustatymo, pasibaigus dingsta. Nieko is to nesaugom sesijoje „iki kito karto". */
-let PREF_FLIP=false;    // printerio nustatymas: nuo ko pradeda SPAUDINIO vaizdas
-let VIEW_FLIP=false;    // dabartinis vaizdas; ne spausdinant - visada stacias
+/* Vaizdo jungikliu atsiminimo KANONAS (V 08-14): narvas ir detalumas - IRENGINIO
+   nustatymas (localStorage: tmViewCage / tmViewDetail). Trecio budo nera - „as printed"
+   (apverstas modelis) 08-14 isimtas visai: vaizdas vis tiek buvo nekoks, o rezimu
+   nesutapimai is jo augo patys. Modelis visada rodomas stacias. */
 let prevBusyPrint=false;   // ar praeita apklausa buvo spausdinama (spaudinio pradziai pagauti)
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
@@ -1807,15 +1793,10 @@ const MACH_DEEP=6;
    plokste yra masinos dalis, tad ji piesiama VISADA - ir tuscioje dezeje, ir krovimo
    metu (V 08-14: „tuscias kubas gi gali buti toks pat, tik be modelio"). Modelio reikia
    tik PAKELTAI plokstei - be jo nezinotume, i koki auksti kelti. */
-const plateZFor=()=>{
-  if(typeof slicesCache==='undefined'||!slicesCache||!(slicesCache.modelH>0)||
-     !slicesCache.slices||!slicesCache.slices.length)return 0;
-  /* Pakelta plokste rodoma tik tada, kai TAS modelis is tikruju rodomas: tuscioje
-     perziuroje kesas dar laiko praeita modeli, ir plokste kabodavo jo aukstyje (V 08-14). */
-  const showing=(typeof dashPreviewName!=='undefined'&&dashPreviewName===slicesCache.name)
-                ||(typeof statusData!=='undefined'&&statusData&&statusData.busy);
-  return (typeof VIEW_FLIP!=='undefined'&&VIEW_FLIP&&showing)?slicesCache.modelH:0;
-};
+/* Plokste visada dezes apacioje: pakelta ji buvo reikalinga tik apverstam „as printed"
+   vaizdui, kurio nebeliko (V 08-14). Funkcija palikta, nes ja klausia trys piesimo
+   vietos - taip nereikia ju liesti, o atsakymas dabar vienas. */
+const plateZFor=()=>0;
 const drawPlate=(ctx,z0,MX,MY,fromBelow)=>{
   const sk=pvSkin(), z1=z0+PLATE_T;
   const face=(pts,a)=>{ctx.fillStyle=sk.plate+a+')';ctx.beginPath();
@@ -1976,118 +1957,9 @@ const quad=(ctx,fill,pts)=>{
     if(n)ctx.lineTo(p.X,p.Y);else ctx.moveTo(p.X,p.Y);}
   ctx.closePath();ctx.fill();ctx.stroke();
 };
-// V 08-11: spausdinant (doneFrac<1) rodomas MASINOS KADRAS - taip, kaip
-// spausdintuvas dirba iš tikruju: plokste kyla, atspausdinta dalis kabo po ja
-// apversta, busimieji sluoksniai blyskiai skendi po dervos pavirsiumi. Baigus
-// (doneFrac>=1) - stacias modelis kaip visada; flip varnele ji apvercia.
-// Voxel piesimas ir seseliavimas VIENAS abiem keliams (solidVoxel/quad).
-const drawMach=(cv,doneFrac)=>{
-  /* Masinos vaizdas piesamas tik spausdinant, tad - visada grubus rinkinys (zr. ta pati
-     paaiskinima drawIsoGen: detalus kesas spausdinimo kelyje kainuoja per daug). */
-  const {slices,gw,gh,modelH}=coarseSlices();
-  /* TAS PATS kampas kaip staciame vaizde, tik ziurima is APACIOS - gylio koeficientas
-     neigiamas (V 08-14: kad vartant rombas nesikeistu). */
-  CAM_C=true;CAM_KY=-ISO_KY;CAM_ZC=34;
-  const ctx=pvFit(cv);ctx.clearRect(0,0,PREV_W,PREV_H);
-  /* Kadras skaiciuojamas atskirai, nes cia atskaitos taskas 34 mm ir i kadra iskaiciuota
-     PANARDINTA dalis (iki MACH_DEEP po dervos pavirsiumi). Auksciausias taskas:
-     (34+MACH_DEEP)*ISO_Z + 35.7*ISO_KY; zemiausias: -(34*ISO_Z + 35.7*ISO_KY). Suma =
-     (68+MACH_DEEP)*ISO_Z + 71.4*ISO_KY, o vidurys - MACH_DEEP*ISO_Z/2 zemiau lauko
-     vidurio. Be sito giliausi vaiduoklio taskai nukristu uz krasto. */
-  /* Gylis skaiciuojamas CIA ir naudojamas ir kadrui, ir paciam vaiduokliui - kitaip
-     6-10 mm modeliui kadre butu rezervuota ~11 % nereikalingo aukscio ir visas vaizdas
-     iseitu smulkesnis (auditas 08-14). */
-  const machDeep=Math.min(MACH_DEEP,Math.max(6,modelH));
-  const MACH_H_U=(68+machDeep)*ISO_Z+ISO_KY*(40.8+30.6);
-  PREV_S=Math.min(PREV_H*0.92/MACH_H_U, PREV_W*0.92/BOX_W_U);
-  CAM_CY=PREV_H/2-(machDeep*ISO_Z/2)*PREV_S;
-  const MX=40.8,MY=30.6,MZ=68;
-  // karkasas be plokstes plokstumos
-  const C=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0],[0,0,MZ],[MX,0,MZ],[MX,MY,MZ],[0,MY,MZ]];
-  ctx.strokeStyle=pvSkin().line;ctx.lineWidth=1;
-  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>{
-    const a=isoPt(...C[e[0]]),b=isoPt(...C[e[1]]);
-    ctx.beginPath();ctx.moveTo(a.X,a.Y);ctx.lineTo(b.X,b.Y);ctx.stroke();});
-  const N=slices.length;
-  const stepMm=modelH/Math.max(N-1,1);
-  const frontF=doneFrac*Math.max(N-1,1);
-  const plateZ=doneFrac*modelH;
-  const hx=MX/gw/2,hy=MY/gh/2,hz=stepMm/2;
-  // Painter nuo TOLIMIAUSIO: kamera zemiau horizonto, tad tolimiausia yra
-  // PLOKSTE (auksciausias z) - ji piesiama pirma; arciausiai - skenduolis po
-  // pavirsiumi. Pradinis variantas plokste piese paskutine ir ji uzdazydavo
-  // modeli (V pagavo stende 08-11).
-  // 1) plokste
-  drawPlate(ctx,plateZ,MX,MY,true);   // ta pati plokste kaip staciame vaizde (V 08-14)
-  // 2) kabantis stackas nuo plokstes zemyn (k=0 prie plokstes - tolimiausias)
-  NZS=-1;
-  // k rodomas tik kai frontas JI PASIEKE (frontF>k); ties 0% - nieko.
-  const kMax=Math.min(N-1,Math.ceil(frontF)-1);
-  for(let k=0;k<=kMax;k++){
-    const sl=slices[k];if(!sl)continue;
-    const z=plateZ-k*stepMm;
-    const t=k/Math.max(N-1,1);
-    const up=slices[k+1];
-    // Frontas isnyra palaipsniui, BET iskeptas sluoksnis turi atrodyti kietas:
-    // ties 1% aF buvo ~0.36 ir visas (vienintelis) pjuvis atrode blyskus (V 08-11).
-    const aF=k<Math.floor(frontF)?1:Math.max(0.55,Math.min(1,frontF-k));
-    if(aF<1){ctx.save();ctx.globalAlpha=aF;}
-    /* Priekinis pjuvis - PROPORCINGO STORIO (zr. ta pati paaiskinima drawIsoGen).
-       Cia spaudinys auga nuo plokstes ZEMYN, tad plonejantis pjuvis lieka prilipes
-       prie virsaus. Storio dalis imama BE 0.55 grindu - jos skirtos tik ryskumui. */
-    const fT=k<Math.floor(frontF)?1:Math.max(0.04,Math.min(1,frontF-k));
-    const hzK=hz*fT, zK=z+hz-hzK;
-    for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){
-      if(!sl[j*gw+i])continue;
-      const fTop=!up||!up[j*gw+i]||k===kMax;
-      const fRight=i===gw-1||!sl[j*gw+i+1];
-      const fLeft=j===gh-1||!sl[(j+1)*gw+i];
-      if(!(fTop||fRight||fLeft))continue;
-      const cx=(i+0.5)/gw*MX,cy=(j+0.5)/gh*MY;
-      machVoxel(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,zK,hx,hy,hzK);
-    }
-    if(aF<1)ctx.restore();
-  }
-  NZS=1;
-  // 3) dervos pavirsius z=0 (arciau uz stacka)
-  {
-    const f=[[0,0,0],[MX,0,0],[MX,MY,0],[0,MY,0]].map(p=>isoPt(...p));
-    ctx.fillStyle='rgba(110,140,165,0.15)';ctx.beginPath();
-    f.forEach((p,n)=>n?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));ctx.closePath();ctx.fill();
-    ctx.strokeStyle='rgba(140,170,195,0.5)';ctx.lineWidth=1.2;ctx.stroke();
-  }
-  /* 4) skenduolis - arciausiai kameros. Derva murkina, tad vaiduoklis gesta su gyliu.
-     Riba buvo 6 mm (V 08-11), bet prie jos 15 mm modelio apverstame vaizde vaiduoklio
-     PRAKTISKAI NEBUVO: vartant jis tai atsirasdavo, tai dingdavo (V 08-14). Dabar rodom
-     visa likusia dali, tik ne giliau kaip DEEP - ir su liekamuoju ryskumu, kad giliausi
-     taskai neistirptu i nieka. Kadras zemiau iskaiciuoja ta pati DEEP. */
-  {
-    // Cia rinkinys tas pats, kuri jau turim (mach vaizdas VISADA grubus) - tik trumpesni
-    // vardai, kad kilpa sutaptu su stacio vaizdo vaiduokliu.
-    const gs=slices, gwG=gw, ghG=gh, NG=gs.length;
-    const stepG=stepMm, frontG=frontF;
-    // Taskas - kaip staciame vaizde (zr. paaiskinima ten).
-    const mdot=Math.max(0.8,1/pvDpr(),Math.min(1.7,(MX/gwG)*0.866*PREV_S*0.55)), mo=mdot/2;
-    const sub=pvSkin().sub;   // po dervos - melsvas atspalvis, taip pat pagal tema
-    const deep=machDeep;   // tas pats, kuriuo skaiciuotas kadras (zr. auksciau)
-    for(let k=Math.min(NG-1,Math.ceil(frontG));k<NG;k++){
-      const sl=gs[k];if(!sl)continue;
-      const z=-(k-frontG)*stepG;
-      if(z<-deep)break;                   // giliau nebesimato
-      const mur=0.15+0.85*(1+z/deep);     // 1 prie pavirsiaus -> 0.15 ties giliausiu
-      for(let j=0;j<ghG;j++)for(let i=0;i<gwG;i++){
-        if(!sl[j*gwG+i])continue;
-        const edge=i+1>=gwG||!sl[j*gwG+i+1]||j+1>=ghG||!sl[(j+1)*gwG+i];
-        const p=isoPt((i+0.5)/gwG*MX,(j+0.5)/ghG*MY,z);
-        ctx.fillStyle=sub+((edge?0.56:0.07)*mur).toFixed(3)+')';
-        ctx.fillRect(p.X-mo,p.Y-mo,mdot,mdot);
-      }
-    }
-  }
-  /* Uzraso drobeje nera: vardas - korteles antrasteje, procentai - Layers eiluteje
-     (V 08-13). Grazinant sena piesima jis buvo netycia parsivilktas atgal. */
-  CAM_C=false;CAM_KY=ISO_KY;
-};
+/* Masinos kadras (apverstas spausdinimo vaizdas) isimtas 08-14 kartu su „as printed":
+   V sprendimas - vaizdas vis tiek nekoks, o del jo augo rezimu nesutapimai. Jei kada
+   prireiktu, istorija yra git'e (paskutine versija - commit pries si). */
 // Vieno voxelio piesimas mach rezimui: tas pats apsvietimas kaip drawIso
 // (gradientine normale), tik apatine puse vietoj virsutines (kamera zemiau).
 const machVoxel=(ctx,slices,gw,gh,k,i,j,t,fRight,fLeft,fTop,cx,cy,z,hx,hy,hz)=>{
@@ -2269,7 +2141,7 @@ function* drawSmoothGen(cv){
      procentai, ir jei deze butu nupiesta anksciau, keturkampiai gultu ant uzrasu. */
   const m=yield* smSubGen(smMeshGen(),0,0.75), {verts,quads,f,W,H,D,Wi,Hi,Di}=m;
   const ctx=drawVolumeBox(cv);
-  const FL=VIEW_FLIP;
+  const FL=false;   // „as printed" isimtas 08-14 - vaizdas visada stacias
   // -1: laukas turi apvada, tad tinklelio 1 atitinka modelio 0.
   const gx=v=>(v-1)/(Wi-1)*MX, gy=v=>(v-1)/(Hi-1)*MY;
   const gz=v=>{const t=(v-1)/(Di-1);return (FL?1-t:t)*modelH;};
@@ -2323,7 +2195,6 @@ function* drawIsoGen(cv,doneFrac){
   if(doneFrac<1&&window.gl3dShow)gl3dShow(false);
   // Masinos kadras - OPT-IN per ta pacia 'as printed' varnele (V 08-11):
   // be jos spausdinimo progresas piesamas senuoju staciu budu.
-  if(doneFrac<1&&VIEW_FLIP){drawMach(cv,doneFrac);return;}
   // Perziura ir baigtas spaudinys - glotnus pavirsius (#93). Gyvam progresui
   // lieka voxeliai: ten sluoksniai ateina po viena, o tinklelio perskaiciavimas
   // (~0.5 s) vyktu kas kelias sekundes.
@@ -2372,7 +2243,7 @@ function* drawIsoGen(cv,doneFrac){
   const N=slices.length;
   // Flip varnele: modelis apverstas (kaip kabo spausdinant). Trys dalykai kartu:
   // z -> (1-t), kaimynas up -> k-1, piesimo eile -> nuo virsaus zemyn (painter).
-  const FL=VIEW_FLIP;
+  const FL=false;   // „as printed" isimtas 08-14 - vaizdas visada stacias
   // Half-extents of one voxel cell - the quads are built around the centre.
   const hx=MX/gw/2,hy=MY/gh/2,hz=modelH/Math.max(N-1,1)/2;
   for(let n=0;n<N;n++){
@@ -2835,6 +2706,10 @@ const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;ren
 // has row mechanics - State, Resin left, the print-time boxes), not squeezed
 // into one line under the preview card. null hides the rows (placeholder,
 // print start - the print-time boxes take the same grid slots).
+/* Viena vieta, kur eilutes rodomos/slepiamos - kad jas butu galima grazinti ir tada,
+   kai `setModelInfoRows` niekas nekviecia (pvz. pasibaigus kortelės darbui). */
+const showModelInfoRows=on=>
+  ['modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,on));
 const setModelInfoRows=d=>{
   /* Modelio pavadinimas nebėra „parametras" šalia SD būsenos, o paties vaizdo antraštė:
      ten jis atsako į klausimą „ką aš matau", o būsenos kortelėje atlaisvina eilutę,
@@ -2844,8 +2719,11 @@ const setModelInfoRows=d=>{
      auga ir mažėja kraunant, o kartu šokinėja ir peržiūra po ja: trys skirtingi
      dydžiai vietoj vieno (V 08-13). Slepiam tik spausdinant, kai jų vietą užima
      spaudinio eilutės. */
-  const printing=!!(statusData&&statusData.busy);
-  ['modelLayersBox','modelTimeBox','modelResinBox'].forEach(id=>show(id,!printing));
+  /* „Spausdina" cia reiskia TIKRA spaudini: kortelės darbas (ispakavimas, trynimas) irgi
+     yra „busy", tad eilutes dingdavo ir per ji, o pasibaigus niekas ju negrazindavo -
+     kortele imdavo tampytis (V 08-14). */
+  const printing=!!(statusData&&statusData.busy&&!(statusData.sdJob||''));
+  showModelInfoRows(!printing);
   // Antraštę spausdinant valdo print keliai; SD darbas (import/delete) čia neskaitomas
   // spausdinimu, tad peržiūros vardas turi likti (auditas 08-13).
   if(!(printing&&!(statusData&&statusData.sdJob)))$('printPreviewTitle').textContent=d?d.name:'Model preview';
@@ -3734,12 +3612,8 @@ const loadConfig=async()=>{
                       st='estimates are raw geometry';}
      $('calState').innerHTML=st;
      const slot=$('calBadgeSlot'); if(slot)slot.innerHTML=bg;} $('cfgLowResinPause').checked=!!c.lowResinPause; $('cfgAskRefill').checked=!!c.askRefill;
-     /* Config duoda NUMATYTAJI vaizda; kortelės varnele - gyva busena, kuri
-        pradzioje nuo jo atsispiria (V 08-11). */
-     PREF_FLIP=!!c.previewFlip; $('cfgPreviewFlip').checked=PREF_FLIP;
-     /* Nustatymas NEBEKEICIA dabartinio vaizdo: jis yra tik spaudinio pradzios taskas
-        (V 08-14). Anksciau ijungtas jungiklis apversdavo ir ramias perziuras, o grizti
-        i stati vaizda nebuvo kaip - vartymo mygtukas rodomas tik spausdinant. */
+     /* `previewFlip` nebeskaitom: „as printed" isimtas (V 08-14). Printeryje laukas dar
+        yra, bet pultas juo nebesiremia ir formoje jo nebesiuncia. */
      $('cfgResumeEnabled').checked=!!c.resumeEnabled; $('cfgResumePrecise').checked=!!c.resumePrecise; $('cfgUiTimeout').value=c.uiTimeoutSecs; setDryRunButton(!!c.dryRun); $('cfgWifiEnabled').checked=!!c.wifiEnabled; $('cfgWebDashboardEnabled').checked=!!c.webDashboardEnabled; $('cfgBootUpdateCheck').checked=!!c.bootUpdateCheck; $('cfgStatsPing').checked=!!c.statsPing;
     $('cfgMqttEnabled').checked=!!c.mqttEnabled; $('cfgMqttHost').value=c.mqttHost||''; $('cfgMqttPort').value=c.mqttPort||1883; $('cfgMqttUser').value=c.mqttUser||''; $('cfgMqttPassword').value=''; $('cfgMqttTopic').value=c.mqttTopic||'TinyMaker';
     $('mqttHint').textContent=c.mqttPasswordSet?'Password is saved. Enter a new one only if you want to replace it.':'MQTT password is not set.';
@@ -3864,7 +3738,11 @@ const syncActionLocks=()=>{
                               :'Config locks automatically while the printer is busy.';
   }
   syncUploadGate();
-  renderFiles();   // eiluciu Preview/Start/Delete uzraktas uzdedamas piesimo metu
+  /* Sarasa perpiesam TIK kai pasikeicia uzrakto bukle. Kas apklausa perrasinejant
+     `innerHTML`, perpiesimas patekdavo tarp mygtuko paspaudimo pradzios ir pabaigos, ir
+     naršyklė paspaudimo neuzskaitydavo - „Start" reikedavo spausti du kartus (V 08-14). */
+  const rowSig=(busy?'1':'0')+(wc?'1':'0');
+  if(rowSig!==syncActionLocks._rows){syncActionLocks._rows=rowSig;renderFiles();}
 };
 const syncUploadGate=()=>{
   const s=statusData;
@@ -3909,29 +3787,6 @@ const syncCageBtn=()=>{const b=$('gl3dCage');if(!b||!window.gl3dCageOn)return;
 window.syncCageBtn=syncCageBtn;   // gl3d IIFE pakyla veliau - susivienodinam ten
 /* „Kaip spausdinama" mygtukas suka ta pati jungikli, kuri turi ir Settings - viena
    busena, du valdikliai (V 08-13). */
-/* Oranzine = busena ijungta/uzfiksuota (narvas, detalumas). Cia perjungiami DU
-   lygiaverciai vaizdai, tad spalva nesikeicia - keiciasi pati ikona: modelis stovi ant
-   ploksteles arba kabo po ja (V 08-13, bendras principas). */
-/* B variantas (V 08-13): plokste + kryptis, kur auga spaudinys. Prie 26 px tai
-   perskaitoma is karto - du elementai ir aiskus rysys. */
-const ICON_UPRIGHT="<svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor'"
-  +" stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'>"
-  +"<path d='M8 9.6 14 12.1 8 14.6 2 12.1z'/><path d='M8 8.2V2.4M5.6 4.6 8 2.2 10.4 4.6'/></svg>";
-const ICON_HANGING="<svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor'"
-  +" stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'>"
-  +"<path d='M8 1.4 14 3.9 8 6.4 2 3.9z'/><path d='M8 7.8v6M5.6 11.6 8 14 10.4 11.6'/></svg>";
-const syncFlipBtn=()=>{const b=$('gl3dFlip');if(!b)return;
-  b.innerHTML=VIEW_FLIP?ICON_HANGING:ICON_UPRIGHT;
-  b.title=VIEW_FLIP?'Hanging under the plate, as printed - tap for the upright view'
-                   :'Standing upright - tap to see it as printed, under the plate';
-  b.setAttribute('aria-label',b.title);};
-window.syncFlipBtn=syncFlipBtn;
-$('gl3dFlip').addEventListener('click',e=>{
-  e.stopPropagation();
-  const c=$('viewAsPrinted'); c.checked=!c.checked;
-  c.dispatchEvent(new Event('change'));
-  syncFlipBtn();
-});
 $('gl3dCage').addEventListener('click',e=>{
   e.stopPropagation();
   if(window.gl3dCage)gl3dCage(!gl3dCageOn());
@@ -3955,21 +3810,6 @@ $('gl3dDet').addEventListener('click',async e=>{
     if(dashPreviewName===name)await upgradeToSlices(name,d);
   }catch(e2){msg(e2.message,true);}
   finally{b.classList.remove('busy');}
-});
-
-$('viewAsPrinted').addEventListener('change',()=>{
-  VIEW_FLIP=$('viewAsPrinted').checked;
-  // Kesas privalo buti TO PACIO modelio, kuris rodomas: kitaip perpiestume
-  // svetima forma (auditas 08-12). Spausdinant kesas yra spaudinio.
-  const shown=dashPreviewName||((statusData&&statusData.busy)?slicesCache.name:'');
-  if(slicesCache.slices&&slicesCache.slices.length&&slicesCache.name===shown){
-    /* lastPrevFrac laiko paskutine PIESTA frakcija (-1 = dar nepiesta;
-       idle perziura visada 1). */
-    const cf=lastPrevFrac>=0?lastPrevFrac:1;
-    lastPrevFrac=-1;
-    drawIso($('printPreviewCanvas'),cf);
-    lastPrevFrac=cf;
-  }
 });
 
 /* Vienu ypu paruosia VISUS modelius: preload'as vieno atidarymo metu
@@ -4606,22 +4446,19 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   };
   const build=()=>{
     const m=smMesh(),{verts,quads,Wi,Hi,Di}=m,mh=slicesCache.modelH;
-    const k=slicesCache.name+':'+VIEW_FLIP+':'+m.key;
+    const k=slicesCache.name+':'+m.key;
     if(k===key3d)return true;
     key3d=k;
-    /* Plokste keliauja kartu su apvertimu. Tinklelis apverciamas zemiau (1-t), bet plokste
-       buvo palikta dezes apacioje - tad „as printed" vaizde modelis atrodydavo apverstas
-       ANT plokstes, o ne kabantis po ja, ir su 2D vaizdu nesutapdavo (V 08-14). 2D pusej
-       tas pats daroma per plateZFor(). */
-    { const py=(VIEW_FLIP?mh:0)-MZ/2;
-      if(plate)plate.position.y=py;
-      if(baseLine)baseLine.position.y=VIEW_FLIP?mh:0; }
+    /* Plokste - dezes apacioje. Apverstas vaizdas („as printed") isimtas 08-14, tad
+       cia nebeliko ka sekti; tas pats 2D puseje per plateZFor(). */
+    { if(plate)plate.position.y=-MZ/2;
+      if(baseLine)baseLine.position.y=0; }
     if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();}
     const pos=new Float32Array(verts.length),idx=[];
     for(let i=0;i<verts.length;i+=3){
       const t=(verts[i+2]-1)/(Di-1);          // -1: lauko apvadas
       pos[i]=(verts[i]-1)/(Wi-1)*MX-MX/2;
-      pos[i+1]=(VIEW_FLIP?1-t:t)*mh-MZ/2;
+      pos[i+1]=t*mh-MZ/2;
       pos[i+2]=(verts[i+1]-1)/(Hi-1)*MY-MY/2;
     }
     for(let q=0;q<quads.length;q+=4)idx.push(quads[q],quads[q+1],quads[q+2],quads[q],quads[q+2],quads[q+3]);
