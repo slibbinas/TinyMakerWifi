@@ -673,7 +673,16 @@ const api=async(path,opt,timeoutMs)=>{
     // The server's terse "printer busy" is technically right and humanly
     // useless - say why and when it passes.
     if(!r.ok||j.ok===false){const em=j.error||('HTTP '+r.status);
-      throw new Error(em==='printer busy'?'The printer is busy printing - this unlocks when the print ends.':em);}
+      /* „busy" nebutinai reiskia spaudini: printeris atsako taip pat ir tvarkydamas
+         kortele. Sakyti „busy printing" trynimo metu buvo tiesiog netiesa (V 08-14),
+         tad ka veikia, imam is paskutines busenos. */
+      if(em==='printer busy'){
+        const jb=(statusData&&statusData.sdJob)||'';
+        throw new Error(jb==='delete'?'The printer is deleting a model - this unlocks when it finishes.'
+                       :jb==='import'?'The printer is unpacking a model - this unlocks when it finishes.'
+                       :'The printer is busy printing - this unlocks when the print ends.');
+      }
+      throw new Error(em);}
     // Every JSON endpoint answers with an "ok" field; a 200 without one means
     // the answer arrived garbled (a truncated body from a memory-tight
     // printer). Returning {} here let undefined fields cascade into broken
@@ -3342,7 +3351,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;
-  ourSdJob=true;   // musu pacio pradetas darbas - eiga rodo kortele, snacko nereikia
+  setOurSdJob(true);   // musu pacio pradetas darbas - eiga rodo kortele, snacko nereikia
   msg('Deleting '+shortName(name)+' - large models take a while...',false,true);try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
@@ -3450,7 +3459,13 @@ let sdJobCur='',sdJobLast='',sdJobLastName='';
    Snackas skirtas darbams, atsiradusiems PATIEMS: PrusaSlicer „Send to printer",
    ikelimas is telefono, kito lango trynimas - tada be jo atrodytu, kad pultas be
    priezasties nustojo klausyti (V 08-14). */
-let ourSdJob=false;
+/* Zyme gyvena sessionStorage: perkrovus puslapi (F5) tas pats zmogus tame paciame
+   skirtuke matydavo „started from another device" apie savo paties trynima (V 08-14).
+   sessionStorage isnyksta uzdarius skirtuka, tad kitas langas svetimo darbo savu
+   nepalaikys. */
+let ourSdJob=(()=>{try{return sessionStorage.getItem('tmOurSdJob')==='1';}catch(e){return false;}})();
+const setOurSdJob=on=>{ourSdJob=on;try{on?sessionStorage.setItem('tmOurSdJob','1')
+  :sessionStorage.removeItem('tmOurSdJob');}catch(e){}};
 /* Ilgi vardai: pilnas vardas lieka SD sarase, o zinutese kerpam - kitaip viena
    zinute isaugdavo per pusę ekrano. */
 const shortName=(n,max=24)=>{n=String(n||'');return n.length>max?(n.slice(0,max-1)+'…'):n;};
@@ -3461,7 +3476,7 @@ const renderSdJob=s=>{
     /* Zyme nuimam TIK kai musu paciu veiksmas jau baigtas: tarp „failas issiustas"
        ir „printeris paskelbe darba" buna apklausu be darbo, ir per anksti nuimta
        zyme butu parodziusi snacka musu paciu ikelimui. */
-    if(!uploadBusy&&!deleteBusy)ourSdJob=false;
+    if(!uploadBusy&&!deleteBusy)setOurSdJob(false);
     if(sdJobCur){
       if(e.textContent===sdJobCur){e.textContent='';e.style.top='';}
       sdJobCur='';
@@ -3495,10 +3510,13 @@ const renderSdJob=s=>{
      tas pats skaicius jau stovi korteleje (V 08-14). Snacko darbas - pasakyti, KAS
      vyksta ir kodel pultas nebeatsakineja; KIEK nuejo - korteleje. Bakstelejus
      snacka nuslenkam prie tos korteles, tad skaiciai per viena palietima. */
+  /* Zinute nesako, IS KUR darbas atsirado: pultas to tiksliai nezino, o „started from
+     another device" apie savo paties trynima po F5 skambejo kvailai (V 08-14). Sako, KAS
+     vyksta ir kodel kitos SD komandos laukia. */
   const txt=job==='delete'
-    ?('Deleting '+shortName(name)+' - started from another device; other SD actions wait...')
+    ?('Deleting '+shortName(name)+' - the printer is busy removing files; other SD actions wait...')
     // „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje.
-    :('Unpacking '+shortName(name)+' - a model arrived from the slicer or another device...');
+    :('Unpacking '+shortName(name)+' - the printer is writing the layers to the SD card...');
   if(txt===sdJobCur&&e.textContent===txt)return;
   const firstShow=!sdJobCur;
   e.textContent=txt;e.classList.remove('warn');
@@ -3707,7 +3725,7 @@ const syncUploadGate=()=>{
 $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;
-  ourSdJob=true;   // ta pati taisykle kaip trynimui: eiga cia pat korteleje
+  setOurSdJob(true);   // ta pati taisykle kaip trynimui: eiga cia pat korteleje
   bgJob='Uploading the model';syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
   // "queued" (1-33): the upload landed and the printer imports it from its idle
   // loop - the status-driven snackbar covers the wait, the finished model
