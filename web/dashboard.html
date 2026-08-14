@@ -1237,18 +1237,9 @@ const applyStatus=s=>{
     setText('vatValue',(s.vatGrams!==undefined?s.vatText+' (~'+s.vatGrams+' g)':s.vatText)+(s.vatLow?' (low!)':'')); $('vatValue').style.color=s.vatLow?'#ff6b5f':'';
     const wc=s.webControl!==false;
     show('webControlBanner',!wc);
-    $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
-    $('dryRunToggle').disabled=!!s.busy||!wc;   // rezimo nekeisti spausdinant
-    /* Ir uzimtumas, ne vien „web valdymas": SD sarasas savo mygtukus (Preview, Delete)
-       spausdinant ir kortelės darbo metu jau uzrakina, o sis likdavo gyvas - spaudei ir
-       nieko nevykdavo (V 08-14). Vienas printeris, viena taisykle. */
-    $('modelStartButton').disabled=!wc||!!s.busy;
-    /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ikelimas, tad spausdinant
-       jo nera. Iki siol tai buvo VIENINTELIS mygtukas, kuris spausdinant vis tiek
-       spaudesi ir nieko nedarydavo, o kaimyniniai jau rode „negalima" (V 08-14).
-       Rakinam abu: ir korteles ikona, ir modelio skydelio „Share". */
-    {const shareLock=!wc||!!s.busy;
-     ['modelShareButton','dashShareButton'].forEach(id=>{const b=$(id);if(b)b.disabled=shareLock;});}
+    /* Visi veiksmu uzraktai - vienoje vietoje. Kas ka rakina ir kodel, surasyta
+       prie syncActionLocks(); cia tik kviečiam. */
+    syncActionLocks();
     // dashboard upload is UI-locked only - the slicer endpoint stays open
     syncUploadGate();
     show('dryRunBanner',!!s.dryRun);
@@ -1467,8 +1458,12 @@ const renderFiles=()=>{
   if(filesPage>=pages)filesPage=pages-1;
   if(filesPage<0)filesPage=0;
   const slice=items.slice(filesPage*FILES_PER_PAGE,(filesPage+1)*FILES_PER_PAGE);
-  const dis=(statusData&&(statusData.webControl===false||statusData.busy))?' disabled':'';
-  const busy=!!(statusData&&statusData.busy);
+  /* Uzimtumas TIK is busenos buvo per siauras: kol pats siunti faila ir printeris ji
+     ispakuoja, jis apskritai neatsakineja i apklausas, tad paskutine zinoma busena lieka
+     „Idle" ir sarasas atrodo laisvas - V 08-14 sugebejo tuo metu paspausti Start ir
+     gavo „Start this print?". Savo paties siuntimas/trynimas skaitomas taip pat. */
+  const busy=uiBusy();
+  const dis=(busy||(statusData&&statusData.webControl===false))?' disabled':'';
   // The busy case is already stated once, above the list (see loadConfig).
   let h='';
   if(!slice.length&&!busy)h+='<div class="hint">'+(q?'No models match the filter.':'No printable model folders or SL1/ZIP archives found.')+'</div>';
@@ -3298,7 +3293,12 @@ const retryPendingPrintCommand=async()=>{
     if(e.message.indexOf('not printing')>=0||e.message.indexOf('not paused')>=0){pendingPrintCmd='';printWaitSent='';msg(e.message,true);}
   }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
-const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
+const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;
+  /* Sargas pries pati klausima: mygtukas jau uzrakintas, bet iskvietimas ateina ir is
+     kortelės, ir is klaviaturos - o klausti „Start this print?", kai printeris tuo metu
+     ispakuoja, yra tiesiog netiesa (V 08-14). */
+  if(uiBusy()){msg('The printer is busy - wait until it finishes.',true);return;}
+  clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
     if(await uiConfirm('Did you refill the VAT since the last print?\nOK = yes (restart the estimate from a full VAT), Cancel = no.')){
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
@@ -3379,6 +3379,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 let deleteBusy=false;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;
   setOurSdJob(true);   // musu pacio pradetas darbas - eiga rodo kortele, snacko nereikia
+  renderFiles();       // sarasas uzsirakina is karto, nelaukiant printerio atsakymo
   msg('Deleting '+shortName(name)+' - large models take a while...',false,true);try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
@@ -3598,7 +3599,10 @@ const setConfigDisabled=disabled=>{document.querySelectorAll('#pane-print-cal in
 const configFormData=()=>{
   if(!connectConfig)throw new Error('Settings have not loaded yet - wait a moment and try again.');
   const fd=new URLSearchParams(new FormData($('configForm')));fd.append('connect_auto_backup_set','1');/* Zyma, kad tai PILNA forma: be jos printeris nuimtu varneliu nelaiko isjungimu (zr. formCheck). */fd.append('form_full','1');return fd;};
-const configIsLocallyLocked=()=>!!(statusData&&statusData.busy);
+/* Ir savo paties siuntimas/trynimas: tuo metu printeris neatsakineja, tad nustatymu
+   irasyti vis tiek nepavyktu. Iki 08-14 cia buvo tik `statusData.busy`, ir bendras
+   nustatymu atrakinimas atgal atrakindavo „Prepare 3D" po to, kai ji uzrakindavom. */
+const configIsLocallyLocked=()=>uiBusy();
 const updateNetworkFields=()=>{$('cfgWebDashboardEnabled').disabled=!$('cfgWifiEnabled').checked;};
 const confirmNetworkToggle=async e=>{
   if(e.target.checked){updateNetworkFields();return;}
@@ -3740,9 +3744,34 @@ $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();f
 // button proxies a hidden input, and an enabled button in front of a disabled
 // input is a control that silently does nothing. The hidden input carries no
 // disabled state at all: the button is the only gate.
+/* Vienas atsakymas visam pultui, ar dabar galima ko nors prasyti is printerio:
+   arba jis pats sako, kad uzimtas, arba MES ka tik uzemem ji siuntimu/trynimu, ir
+   iki pabaigos jis neatsakines. */
+const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy;
+/* Skelbiam CIA, ne prie savo mygtuko apacioje: `let` iki savo eilutes yra „negyvas",
+   ir uzraktu funkcija, kviečiama anksciau, luzdavo tyliai - kartu nueidavo ir visa
+   likusi jos dalis (stendas: „Prepare 3D" likdavo gyvas, o sarasas nebepersipiesdavo). */
+let prep3dRunning=false;   // savo darbo metu mygtuka valdo pats, ne busenos apklausa
+/* VIENA vieta, kur uzdedami visi veiksmu uzraktai. Anksciau kiekvienas mygtukas
+   turejo savo sakini skirtingose vietose, ir kaskart pamirsdavau po viena (V 08-14:
+   „gaunasi, kad as uz tave galvoju"). Kviečiama ir gavus busena, ir pradejus/baigus
+   savo siuntima ar trynima. */
+const syncActionLocks=()=>{
+  const s=statusData; if(!s)return;
+  const wc=s.webControl!==false, busy=uiBusy();
+  const set=(id,off)=>{const e=$(id);if(e)e.disabled=off;};
+  set('modelStartButton',!wc||busy);
+  set('dryRunToggle',!wc||busy);
+  set('vatRefillButton',(!!s.busy&&!s.canResume)||!wc||uploadBusy||deleteBusy);
+  set('dashShareButton',!wc||busy);
+  set('modelShareButton',!wc||busy);
+  if(!prep3dRunning)set('prep3dButton',!wc||busy);
+  syncUploadGate();
+  renderFiles();   // eiluciu Preview/Start/Delete uzraktas uzdedamas piesimo metu
+};
 const syncUploadGate=()=>{
   const s=statusData;
-  $('uploadButton').disabled=uploadBusy||!s||!!s.busy||s.sdReady===false||s.webControl===false;
+  $('uploadButton').disabled=!s||uiBusy()||s.sdReady===false||s.webControl===false;
   reassertBusy();
 };
 // One-click upload: the button opens the picker, a picked file submits the
@@ -3753,7 +3782,7 @@ $('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').c
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;
   setOurSdJob(true);   // ta pati taisykle kaip trynimui: eiga cia pat korteleje
-  bgJob='Uploading the model';syncUploadGate();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
+  bgJob='Uploading the model';syncActionLocks();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
   // "queued" (1-33): the upload landed and the printer imports it from its idle
   // loop - the status-driven snackbar covers the wait, the finished model
   // announces itself via sdRev. Older sync answers keep the previous handling.
@@ -3761,7 +3790,7 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
      vadinosi ir „importing", ir „imported", ir „uploaded" - telefone matei „Predator2
      imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
-  else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncUploadGate();}});
+  else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncActionLocks();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
@@ -3849,8 +3878,9 @@ $('viewAsPrinted').addEventListener('change',()=>{
 /* Vienu ypu paruosia VISUS modelius: preload'as vieno atidarymo metu
    paruosia tik ta viena, o greitai persokus per sarasa - nei vieno. */
 $('prep3dButton').addEventListener('click',async()=>{
-  if(statusData&&statusData.busy){msg('Not while printing - the SD card is busy.',true);return;}
+  if(uiBusy()){msg('The printer is busy - the SD card is not readable now.',true);return;}
   const btn=$('prep3dButton'), note=$('prep3dNote');
+  prep3dRunning=true;
   btn.disabled=true;
   /* Ruosiamas TIK grubus kesas - jis vienintelis ir saugomas kortelėje. Su
      ijungtu detaliu vaizdu ciklas butu skenaves po 72 sluoksnius modeliui,
@@ -3893,6 +3923,7 @@ $('prep3dButton').addEventListener('click',async()=>{
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
   finally{
+    prep3dRunning=false;
     btn.disabled=false;
     VIEW_DETAIL=wasDet;
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
