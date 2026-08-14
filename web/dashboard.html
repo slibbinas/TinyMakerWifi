@@ -1122,6 +1122,17 @@ const applyStatus=s=>{
     // 1-32/1-33: busy may mean an SD job (delete/import), not a print - the
     // print UI must not appear then (its Stop/Pause would target nothing).
     const sdJob=s.sdJob||'', busyPrint=!!s.busy&&!sdJob;
+    /* „As printed" yra SPAUDINIO vaizdas: mygtukas rodomas tik spausdinant, nes tik tada
+       modelis tikrai kabo po plokste. Bet busena likdavo visai sesijai, tad perjunges
+       vartyma spaudinio metu ir spaudini nutraukes, visus kitus modelius matydavai
+       apverstus (V 08-14). Spaudiniui pasibaigus grazinam printerio numatytaji vaizda. */
+    if(!busyPrint&&VIEW_FLIP!==PREF_FLIP){
+      const c=$('viewAsPrinted');
+      viewFlipTouched=false;                       // nuo cia vel galioja printerio nustatymas
+      if(c){c.checked=PREF_FLIP;c.dispatchEvent(new Event('change'));viewFlipTouched=false;}
+      else VIEW_FLIP=PREF_FLIP;
+      if(window.syncFlipBtn)syncFlipBtn();
+    }
     if(s&&s.ok)lastPollOkAt=Date.now();   // a real printer answer, not the local fabrication
     // Page ships version-agnostic (gzipped static shell); fill header from status.
     if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
