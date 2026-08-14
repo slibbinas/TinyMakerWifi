@@ -2335,9 +2335,9 @@ static void liveBase64(const uint8_t *in, int len, char *out) {
 // GET /api/live/slices?since=k - the P-live 3D stack (0.17). View-only and
 // RAM-only (no SD touch), so - unlike /api/files/layer - it is allowed to answer
 // mid-print: that is the whole point, a browser opened while printing gets the
-// growing 3D here. Returns the 64x48 1-bit silhouettes captured so far in slots
+// growing 3D here. Returns the LIVE_GW x LIVE_GH 1-bit silhouettes in slots
 // [since, captured); the browser delta-fetches when status.liveCaptured grows.
-// Streamed chunked so the worst case (36 slices ~= 18 KB) never allocates a big
+// Streamed chunked so the worst case (36 slices ~= 29 KB at 80x60) never allocates a big
 // String on the print-time heap.
 void handleApiLiveSlices() {
   bool live = printerBusy() && liveBuf && liveN > 0;
@@ -2368,7 +2368,7 @@ void handleApiLiveSlices() {
   head += ",\"model\":\"";  head += jsonEscape(live ? String(foldersel_long) : String(""));
   head += "\",\"slices\":[";
   server.sendContent(head);
-  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 384 -> 512 chars + nul
+  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 600 -> 800 chars + nul
   for (int k = since; k < last; k++) {
     liveBase64(liveBuf + (size_t)k * LIVE_SLICE_BYTES, LIVE_SLICE_BYTES, b64);
     server.sendContent(k > since ? ",\"" : "\"");

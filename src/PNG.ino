@@ -14,7 +14,7 @@ double resinEstimateMl = 0.0;         // filled by estimateResin()
 // ===================================================================================
 // A layer is already decoded pixel-by-pixel to expose it. On the ~36 layers the
 // dashboard samples for its isometric render we fold that same pass into a tiny
-// 64x48 1-bit silhouette and keep the growing stack in RAM. Any browser -
+// LIVE_GW x LIVE_GH 1-bit silhouette and keep the growing stack in RAM. Any browser -
 // including one opened mid-print, which cannot read layer PNGs off the locked SD
 // card - fetches the stack from /api/live/slices and grows the identical 3D.
 // The sampling mirrors dashboard.html fetchSlices(): N = min(36, layer_counter),
@@ -85,11 +85,10 @@ static bool livePrefillFromCache() {
     if (!f.seek(16 + (uint32_t)per * s) || f.read(src, per) != (int)per) { ok = false; break; }
     uint8_t *dst = liveBuf + (size_t)k * LIVE_SLICE_BYTES;
     memset(dst, 0, LIVE_SLICE_BYTES);
-    // Downsample gw x gh -> 64 x 48 by majority. 80x60 -> 64x48 blocks are only
-    // 1-2 cells wide, so here it is nearly a copy - the holes survive because the
-    // BROWSER already downsampled by majority into 80x60. The live capture's own
-    // rule ("any lit pixel fills the cell", straight from the printed PNG) is what
-    // closes them, and that path is not used for these slots.
+    // Downsample gw x gh -> LIVE_GW x LIVE_GH by majority. Nuo 08-14 gyvas tinklelis
+    // yra 80x60, t.y. TOKS PAT kaip keso - tad cia paprastas kopijavimas (blokas 1x1),
+    // ir tarpai tarp detales bei atramu islieka tokie patys kaip kompiuteryje. Kilpa
+    // palikta bendra: ji tvarko ir kita raiska (pvz. detalu 160x120 faila).
     for (int j = 0; j < LIVE_GH; j++) {
       int y0 = j * gh / LIVE_GH, y1 = (j + 1) * gh / LIVE_GH; if (y1 <= y0) y1 = y0 + 1;
       for (int i = 0; i < LIVE_GW; i++) {
@@ -176,7 +175,7 @@ void PNGDraw(PNGDRAW *pDraw) {
   // test on the unpacked RGB565 channels works fine here since slices are
   // pure black/white. Threshold ~50%.
 #if ENABLE_NETWORK
-  // P-live: on a sampled layer, fold this scanline into the 64x48 silhouette.
+  // P-live: on a sampled layer, fold this scanline into the LIVE_GW x LIVE_GH silhouette.
   // liveSlot >= 0 only inside print_next_png()'s capture window, so the estimate
   // and preview decode passes (liveBuf NULL / liveSlot -1) never touch it.
   bool liveCap = (liveSlot >= 0 && liveBuf && liveSrcW > 0 && liveSrcH > 0);

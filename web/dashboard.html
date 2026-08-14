@@ -1663,12 +1663,13 @@ const MACH_DEEP=6;
    pirma (kartu su deze). Apverstame ji virsuje, t.y. ARCIAUSIAI kameros - tada ja reikia
    piesti PASKUTINE, kitaip modelis ja uzdazo ir atrodo stovintis pries plokste, o ne
    kabantis po ja. Su sena 0.07 alfa to nesimatė, su nauja - matosi (auditas 08-14).
-   Grazina: -1 plokstes nera (tuscia perziura) · 0 apacioje · >0 pakelta i modelio auksti.
-   Butent -1, o ne null: su null uzrasas `if(pz)` atrodo teisingas ir tyliai veikia, o
-   `if(pz===0)` ir `if(pz)` yra lengva supainioti (auditas 08-14). */
+   Grazina: 0 plokste apacioje · >0 pakelta i modelio auksti. Neigiamos reiksmes nera:
+   plokste yra masinos dalis, tad ji piesiama VISADA - ir tuscioje dezeje, ir krovimo
+   metu (V 08-14: „tuscias kubas gi gali buti toks pat, tik be modelio"). Modelio reikia
+   tik PAKELTAI plokstei - be jo nezinotume, i koki auksti kelti. */
 const plateZFor=()=>{
   if(typeof slicesCache==='undefined'||!slicesCache||!(slicesCache.modelH>0)||
-     !slicesCache.slices||!slicesCache.slices.length)return -1;
+     !slicesCache.slices||!slicesCache.slices.length)return 0;
   /* Pakelta plokste rodoma tik tada, kai TAS modelis is tikruju rodomas: tuscioje
      perziuroje kesas dar laiko praeita modeli, ir plokste kabodavo jo aukstyje (V 08-14). */
   const showing=(typeof dashPreviewName!=='undefined'&&dashPreviewName===slicesCache.name)
@@ -1763,9 +1764,10 @@ const drawVolumeBox=cv=>{
 const paintPreviewProgress=(cv,label,frac)=>{
   if(window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
   const ctx=drawVolumeBox(cv);
-  // Pakelta plokste piesiama po modelio, tad krovimo/tuscios dezes keliuose jos
-  // niekas nenupiestu - o su ijungtu vartymu ji priklauso vaizdui (auditas 08-14).
-  { const pz=plateZFor(); if(pz>0)drawPlate(ctx,pz,40.8,30.6,false); }
+  /* Pakeltos plokstes cia NEPIESIAM. Buvo bandyta (auditas 08-14 pasiule), bet krovimo
+     bukleje modelio dar nera, o `plateZFor` spausdinant grazina KESE gulincio modelio
+     auksti - tad paspaudus kita modeli akimirkai pasirodydavo plokste, kabanti vidury
+     tuscios dezes (V 08-14). Krovimo vaizde plokste nieko nepasako. */
   /* Uzrasas ir juostele - drobes VIDURYJE ir vienas po kitu: taip jie skaitosi
      kaip viena zinute. Anksciau juostele buvo prilipdyta prie apatinio krasto,
      o istaisius dezes proporcijas jos apatine kraštine nusileido kaip tik ten
@@ -2870,6 +2872,7 @@ const dashPreview=async nameEnc=>{
   clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
+  if(window.gl3dResetView)gl3dResetView();   // peržiūra visada pradeda tuo paciu kampu
   clearPreviewStopped($('printPreviewCanvas'));   // naujas bandymas - senas „stopped" nebegalioja
   scrollPreviewIntoView();show('prevNote',false);
   fetchSlicesSeq++;                        // cancel a previous run right away
@@ -4286,6 +4289,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     const k=slicesCache.name+':'+VIEW_FLIP+':'+m.key;
     if(k===key3d)return true;
     key3d=k;
+    /* Plokste keliauja kartu su apvertimu. Tinklelis apverciamas zemiau (1-t), bet plokste
+       buvo palikta dezes apacioje - tad „as printed" vaizde modelis atrodydavo apverstas
+       ANT plokstes, o ne kabantis po ja, ir su 2D vaizdu nesutapdavo (V 08-14). 2D pusej
+       tas pats daroma per plateZFor(). */
+    { const py=(VIEW_FLIP?mh:0)-MZ/2;
+      if(plate)plate.position.y=py;
+      if(baseLine)baseLine.position.y=VIEW_FLIP?mh:0; }
     if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();}
     const pos=new Float32Array(verts.length),idx=[];
     for(let i=0;i<verts.length;i+=3){
@@ -4394,6 +4404,11 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   /* Centruojam TAI, KAS MATOMA: su narvu - visa turi, be narvo - pati modeli (V 08-13).
      Todel ir narvo perjungimas persicentruoja pats. */
   window.gl3dFrameAuto=()=>CAGE_ON?gl3dFrameVolume():gl3dFrameModel();
+  /* „Preview" visada pradeda nuo numatytojo kampo. Kadravimas (kuris ir atstato yaw/pitch)
+     praleidziamas, kai modelis jau paruostas - tad atidarius ta pati modeli antra karta
+     likdavo anksciau pasuktas vaizdas, ir jis nesutapdavo su 2D piesiniu (V 08-14: „reikia
+     to paties kampo ir tiek"). Sukioti po to galima kiek nori - tik startas vienodas. */
+  window.gl3dResetView=()=>{framedFor='';};
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
 })();
 </script>

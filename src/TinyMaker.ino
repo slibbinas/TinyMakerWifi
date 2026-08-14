@@ -733,10 +733,16 @@ float motor_updown_time_total; // Total time spent on motor movements
 // first-concatenated file) so Network.ino can serve it from /api/live/slices and
 // PNG.ino - both concatenated after this one - can fill it. See PNG.ino for the
 // capture logic and the LIVE_* geometry.
-#define LIVE_GW 64
-#define LIVE_GH 48
+/* 80x60, NE 64x48 (V 08-14): tai tas pats tinklelis, kuri turi narsykles kesas, tad
+   pries-uzpildymas is slices.tmv tampa paprastu kopijavimu, o telefonas mato lygiai ta
+   pati, ka ir kompiuteris. Prie 64x48 sumazinimas uzpildydavo ~19 % daugiau ploto -
+   tarpai tarp detales ir jos atramu suaugdavo (ismatuota 08-14 is tikru pjuviu).
+   Kaina: buferis 13.8 -> 21.6 KB (imamas spaudinio pradzioje) ir HTTP siuntinys
+   19 -> 29 KB (atiduodamas tik po homing'o, kai motoras stovi). */
+#define LIVE_GW 80
+#define LIVE_GH 60
 #define LIVE_MAX_SLICES 36
-#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 384 bytes, 1 bit/px
+#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 600 bytes, 1 bit/px
 uint8_t *liveBuf = NULL;   // LIVE_SLICE_BYTES * liveN, calloc'd per print (NULL = off)
 int liveN = 0;             // sampled slices for this print (<= 36)
 int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
@@ -745,7 +751,7 @@ int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
 // browser opened mid-print draw the un-printed part as a ghost: the live capture
 // alone only ever knows layers already exposed. No extra RAM - same buffer.
 bool livePrefilled = false;
-// Pilnas stekas atiduodamas tik ISEJUS is homing'o: 36 pjuviai = ~19 KB chunked, o
+// Pilnas stekas atiduodamas tik ISEJUS is homing'o: 36 pjuviai = ~29 KB chunked, o
 // homing'o cikle HTTP aptarnaujamas tarp zingsniu - toks siuntinys silpname WiFi
 // blokuoja `client.write` 1-3 s ir tiek laiko nekvieciamas `stepper.run()` (auditas
 // 08-14). Iki tol endpoint'as elgiasi kaip anksciau: atiduoda tik uzfiksuotus.
@@ -2320,12 +2326,13 @@ void loop() {
         }
 
         // P-live stekas paruostas dar PRIES hominga (zr. auksciau), o CIA jis atrakinamas
-        // atidavimui: homing'as baigtas, motoras nebesukasi, tad 19 KB siuntinys jau
-        // niekam netrukdo.
+        // atidavimui: homing'as baigtas. Tai NEREISKIA, kad motoras visai stovi - HTTP
+        // aptarnaujamas ir pauzes/atsaukimo liftu cikluose - bet ten zingsniai tik
+        // trukteli, o sluoksnio atplesimas HTTP visai neaptarnauja (auditas 08-14).
         #if ENABLE_NETWORK
         // Ne atsaukimo kelyje: po jo dar eina lift_finished_print() - kelios desimtys
         // sekundziu motoro darbo, HTTP aptarnaujamas kas 200 ms, o liveClear() tik gale.
-        // Atrakinus cia, 19 KB siuntinys pakliutu kaip tik i ta judesi (auditas 08-14).
+        // Atrakinus cia, 29 KB siuntinys pakliutu kaip tik i ta judesi (auditas 08-14).
         if (!homing_canceled && !print_canceled) liveReady = true;
         #endif
 

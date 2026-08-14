@@ -102,11 +102,13 @@ void telegramNotify(const String &text) {
   // one-shot read smaller than one layer PNG). Skipped on the cancel path
   // (tgNotifyCanceled fires ~20 lines before the print-exit free - a
   // re-capture there would be wasted SD work) and once the print is done.
-  // 16 KB slack + no SD re-init: see capturePreviewCache(). Best-effort -
-  // the largest renders (~70 KB) may not fit back into the mid-print heap;
-  // then the thumbnail 409s until print end, as it did before this fix.
+  // Slack 16 -> 12 KB (auditas 08-14): gyvas siluetu buferis paaugo 7,8 KB (80x60), tad
+  // su senu reikalavimu miniatiura po zinutes daug dazniau nebegriztu ir dingtu visam
+  // likusiam spaudiniui. 12 KB vis dar didesnis uz didziausia likusia mid-print
+  // alokacija (~12 KB statuso JSON String). Best-effort - didziausi renderiai (~70 KB)
+  // vis tiek gali netilpti; tada miniatiura 409'ina iki spaudinio pabaigos.
   if (hadPreview && printerBusy() && !print_canceled && !homing_canceled)
-    capturePreviewCache(16 * 1024, false);
+    capturePreviewCache(12 * 1024, false);
 }
 
 void tgNotifyFinished() {
