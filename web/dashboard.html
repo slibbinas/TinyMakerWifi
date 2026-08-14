@@ -135,7 +135,7 @@
         <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
              detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
              (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13). -->
-        <button id='stageOpen' type='button' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
+        <button id='stageOpen' type='button' style='visibility:hidden' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
       </span></div>
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
@@ -1290,6 +1290,9 @@ const applyStatus=s=>{
         }
       }
     }
+    /* Isdidinimo mygtukas - tik kai kortelėje stovi peržiūra (aštrus vaizdas).
+       Spausdinant ir tuščioje kortelėje jo nėra. */
+    if(window.setStageGrowUI)setStageGrowUI(!busyPrint&&!!dashPreviewName);
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
     pause.classList.toggle('hidden',showResume);
@@ -2693,7 +2696,10 @@ let dashPreviewName='',slicesPrefetching=false;
 // Single door for the previewed-model name: the SD list marks that row, so the
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
-const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();};
+const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();
+  /* Iskart, nelaukiant apklausos: atidarius perziura mygtukas turi atsirasti tuoj pat,
+     o ne po sekundes - kitaip atrodo, lyg butu uzstriges. */
+  if(window.setStageGrowUI)setStageGrowUI(!!n&&!(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
 // 0-26: the previewed model's identity lives on the STATUS panel (it already
 // has row mechanics - State, Resin left, the print-time boxes), not squeezed
 // into one line under the preview card. null hides the rows (placeholder,
@@ -3038,6 +3044,21 @@ const stageBox=on=>{
     if(window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
   }
 };
+/* Pailginti verta tik ten, kur yra ka pailginti: perziuroje piesiam smulkiai, o
+   spausdinant - stambiais taskeliais is 80x60 tinklelio, tad padidinus isauga tik
+   patys taskai (V 08-14). Todel spausdinant mygtuko nera.
+   `visibility`, ne `display`: vieta lieka ir antraste nesmukcioja - toks pat
+   sprendimas kaip Share mygtukui (:639). Pilkas neveikiantis mygtukas atmestas -
+   jis atrodo kaip gedimas, o ne kaip „cia to nereikia". */
+const setStageGrowUI=canGrow=>{
+  const b=$('stageOpen'); if(!b)return;
+  const st=$('previewStage');
+  /* Pirma grazinam iprasta auksti, tik tada slepiam: kitaip prasidejus spaudiniui
+     liktum pailgintame lange be mygtuko atgal (telefone `Esc` klavisas nepasiekiamas). */
+  if(!canGrow&&st&&st.classList.contains('stageBox'))stageBox(false);
+  b.style.visibility=canGrow?'':'hidden';
+};
+window.setStageGrowUI=setStageGrowUI;   // applyStatus gyvena auksciau uz si bloka
 $('stageOpen').addEventListener('click',()=>stageBox(!$('previewStage').classList.contains('stageBox')));
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&$('previewStage').classList.contains('stageBox')){e.preventDefault();stageBox(false);}
