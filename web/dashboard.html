@@ -3384,8 +3384,9 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
+  syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
   if(r&&r.queued){refreshStatus();return;}
-  msg('Deleted '+name+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;msg(e.message,true);}};
+  msg('Deleted '+shortName(name)+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;applyPendingPrintUi();
