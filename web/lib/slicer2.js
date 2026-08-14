@@ -1369,18 +1369,26 @@ function insetPoints(paths, pts, cfg, medial) {
  *  plokščios nuokabos jis paremdavo tik pakraštį: kronšteino viršus (16×10 mm)
  *  gaudavo vieną vidinį tašką, ir 17 mm² likdavo toliau nei 3 mm nuo bet ko
  *  (išmatuota 08-13; PrusaSlicer ten deda keturis). */
-function coverInterior(paths, pbb, out, cfg) {
+function coverInterior(paths, pbb, out, cfg, land) {
   const step = 0.4;                       // tinklelis PAIEŠKAI, ne taškams
   const cells = [];
   for (let y = pbb[1] / SCALE; y <= pbb[3] / SCALE; y += step)
     for (let x = pbb[0] / SCALE; x <= pbb[2] / SCALE; x += step)
       if (pointInPaths(paths, x, y)) cells.push([x, y]);
   if (!cells.length) return;
+  /* Dangą duoda ne tik atramos, bet ir SAUSUMA — tai, kas jau sukietinta žemiau
+     (pvz. sienelės, ant kurių guli plokštės kraštai). Be jos sėjom ir ten, kur
+     detalė jau laikosi pati: kronšteino viršus gaudavo 15 kontaktų vietoj
+     PrusaSlicer 6 prie tos pačios 2,91 mm dangos (08-14). */
   const d2 = cells.map(c => {
     let m = Infinity;
     for (const p of out) {
       const v = (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2;
       if (v < m) m = v;
+    }
+    if (land && land.length) {
+      const dl = pointInPaths(land, c[0], c[1]) ? 0 : distToPaths(land, c[0], c[1]);
+      if (dl * dl < m) m = dl * dl;
     }
     return m;
   });
@@ -1564,7 +1572,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
           /* Salos/pussalio sėja: plonoms dalims — „nugarkaulis", storoms —
              kontūras plius retas vidaus tinklelis. Ta pati taisyklė abiem, tad
              gyvena vienoje vietoje. */
-          const islandLike = (paths, pbb, out) => {
+          const islandLike = (paths, pbb, out, land) => {
             const thin = cfg.island_outline_step_mm / 2;
             const cin = new CL.ClipperOffset();
             cin.AddPaths(paths, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
@@ -1592,7 +1600,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               const rp = [];
               for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, rp);
               for (const q of insetPoints(paths, rp, cfg, true)) out.push(q);
-              coverInterior(shrunk, pbb, out, cfg);
+              coverInterior(shrunk, pbb, out, cfg, land);
             }
           };
 
@@ -1724,7 +1732,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                    `below_self_supported` — be šito 9 iš 12 jo taškų dubliavo
                    nuokabos taškus. */
                 const pen = [];
-                islandLike(pex, pathsBBox(pex), pen);
+                islandLike(pex, pathsBBox(pex), pen, clip);
                 const coast = grow(cfg.peninsula_self_supported_width_mm);
                 for (const [x, y] of pen)
                   if (distToPaths(coast, x, y) > landTol) free.push([x, y]);
