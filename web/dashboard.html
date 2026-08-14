@@ -128,14 +128,17 @@
   <section id='printPreviewCard' class='card'>
     <div class='cardHead'><h2 id='printPreviewTitle'>Model preview</h2>
       <span style='display:flex;gap:8px;align-items:center'>
+        <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
+             detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
+             (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13).
+             Jis - KAIREJE nuo Share: spausdinant jo nera, o rezervuota vieta lieka,
+             tad tuscias tarpas atsiranda viduryje, o ne tarp Share ir korteles krasto
+             (V 08-14: „beryšio, kai share kabo kazkur ne prie krasto"). -->
+        <button id='stageOpen' type='button' style='display:none' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
         <!-- Ikona ir VISADA ta pati vieta: tekstinis „Share" / „✓ Shared" keitė plotį,
              tad antraštė smukčiojo (V 08-13). Kai dalintis negalima - tik nematomas,
              bet vietos neatiduoda. -->
         <button id='dashShareButton' data-icon='1' type='button' aria-label='Share'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='3.6' r='1.9'/><circle cx='4' cy='8' r='1.9'/><circle cx='12' cy='12.4' r='1.9'/><path d='M5.7 7.1 10.3 4.5M5.7 8.9l4.6 2.6'/></svg></button>
-        <!-- Spausdinimo turis siauras ir aukstas, o kortele plati ir zema: modelio
-             detales korteleje nesimato. Mygtukas pailgina bloka iki turio proporciju
-             (Esc grazina), o kortele pagal nutylejima lieka kompaktiska (V 08-13). -->
-        <button id='stageOpen' type='button' style='visibility:hidden' title='Grow to the print volume' aria-label='Grow to the print volume'><svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg></button>
       </span></div>
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
@@ -3047,16 +3050,21 @@ const stageBox=on=>{
 /* Pailginti verta tik ten, kur yra ka pailginti: perziuroje piesiam smulkiai, o
    spausdinant - stambiais taskeliais is 80x60 tinklelio, tad padidinus isauga tik
    patys taskai (V 08-14). Todel spausdinant mygtuko nera.
-   `visibility`, ne `display`: vieta lieka ir antraste nesmukcioja - toks pat
-   sprendimas kaip Share mygtukui (:639). Pilkas neveikiantis mygtukas atmestas -
-   jis atrodo kaip gedimas, o ne kaip „cia to nereikia". */
+   Isimamas VISAI (`display`), ne paliekamas nematomas: nematomas rezervuotu vieta
+   ir Share atsidurtu ne prie korteles krasto, o kazkur viduryje - „berysio" (V 08-14).
+   Kad nieko nesistumdytu, markup'e sis mygtukas stovi KAIREJE nuo Share: dingsta
+   jis, o Share lieka toje pacioje vietoje prie krasto.
+   Pilkas neveikiantis mygtukas atmestas - jis atrodo kaip gedimas, o ne kaip
+   „cia to nereikia". */
 const setStageGrowUI=canGrow=>{
   const b=$('stageOpen'); if(!b)return;
   const st=$('previewStage');
   /* Pirma grazinam iprasta auksti, tik tada slepiam: kitaip prasidejus spaudiniui
      liktum pailgintame lange be mygtuko atgal (telefone `Esc` klavisas nepasiekiamas). */
   if(!canGrow&&st&&st.classList.contains('stageBox'))stageBox(false);
-  b.style.visibility=canGrow?'':'hidden';
+  /* Inline `display`, ne klase „hidden": pats mygtukas CSS'e turi `display:flex`,
+     tad klase pralaimetu (senas spastas - zr. dashboard-gotchas). */
+  b.style.display=canGrow?'flex':'none';
 };
 window.setStageGrowUI=setStageGrowUI;   // applyStatus gyvena auksciau uz si bloka
 $('stageOpen').addEventListener('click',()=>stageBox(!$('previewStage').classList.contains('stageBox')));
