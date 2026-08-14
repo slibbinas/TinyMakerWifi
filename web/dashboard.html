@@ -1387,6 +1387,11 @@ const applyStatus=s=>{
       $('uploadHint').textContent=what+' '+shortName(s.sdJobName||'')+how+
         ' - SD actions come back when it finishes.';
     } else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
+    /* Sarasas perpiesamas TUOJ PAT, kai pasikeicia uzimtumas: jo mygtuku (Preview,
+       Start, Delete) uzraktas uzdedamas piesimo metu, o piesimas ivykdavo tik ka nors
+       perkrovus - todel iseigus i Settings ir grizus jie „staiga" pasidarydavo pilki,
+       o iki tol buvo gyvi (V 08-14). Cia tik vietinis perpiesimas, be uzklausu. */
+    if(was!==s.busy)renderFiles();
     if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
