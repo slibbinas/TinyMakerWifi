@@ -3157,6 +3157,21 @@ const refreshModelThumb=async(name,cv)=>{
   try{await uploadModelPreview(name,await canvasBlob(cv),statusData&&Number(statusData.layerHeight)>0.06?'1':'05');}
   catch(e){}                               // patogumas, ne būtinybė - tyli klaida
 };
+/* Vienas kelias, kuriuo mygtukai suzino apie „shared": perklausiam printeri ir
+   atnaujinam abu (korteles ikona ir modelio skydelio mygtuka), jei jie rodo BUTENT
+   ta modeli. Tyliai - jei nepavyko, mygtukas tiesiog liks kaip buves. */
+const refreshShareState=async name=>{
+  try{
+    const d=await api('/api/files/model?name='+enc(name));
+    if(!d||d.name!==name)return;
+    const shared=!!(d.connectPublicId||'').length;
+    if(dashPreviewName===name)setShareUI('dashShareButton',connectIsReady(),shared);
+    if(selectedModel===name){
+      selectedModelConnectPublicId=d.connectPublicId||'';
+      setShareUI('modelShareButton',connectIsReady()&&!!selectedModel,shared);
+    }
+  }catch(e){}
+};
 const shareModel=async(name,btn)=>{
   /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ir ikelimas, tad
      apklausos nustoja atsakineti. Kol tai vyksta, snackbaras turi sakyti TIKSLIAI ka
@@ -3168,12 +3183,21 @@ const shareModel=async(name,btn)=>{
   if(btn){btn.disabled=true;btn.classList.add('btnBusy');btn.title='Sharing...';btn.setAttribute('aria-label','Sharing');}
   try{
     await loadConnectApp();
-    if(window.TinyMakerConnectShareModel)return await window.TinyMakerConnectShareModel(name);
-    throw new Error('Connect app did not expose sharing');
+    if(!window.TinyMakerConnectShareModel)throw new Error('Connect app did not expose sharing');
+    const r=await window.TinyMakerConnectShareModel(name);
+    /* Pasidalinus mygtukas turi TUOJ PAT pasakyti, kad modelis jau Connect'e. Iki siol
+       to nedare niekas: „shared" pozymi uzdeda tik modelio kortos uzkrovimas, tad iki
+       puslapio perkrovimo ikona atrode nepasidalinta ir buvo galima siusti antra karta
+       (V 08-14). Perklausiam printerio - jis viesaji ID jau issaugojes. */
+    await refreshShareState(name);
+    return r;
   }catch(e){msg(e.message,true);}
   finally{
     bgJob='';
-    if(btn){btn.disabled=false;btn.classList.remove('btnBusy');btn.title='Share';btn.setAttribute('aria-label','Share');}
+    /* Pavykus dalijimuisi teksto NEBEGRAZINAM i „Share" - ji ka tik nustate
+       setShareUI („Already on Connect..."), ir uzrasas vel meluotu. */
+    if(btn){btn.disabled=false;btn.classList.remove('btnBusy');
+      if(!btn.classList.contains('shared')){btn.title='Share';btn.setAttribute('aria-label','Share');}}
   }
 };
 window.shareModel=shareModel;
