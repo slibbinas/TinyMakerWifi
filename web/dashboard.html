@@ -3293,19 +3293,12 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   if(!force||!(slicesCache.name===name&&slicesCache.slices.length&&!cacheIsDetail())){
     try{
       if(slicesCache.name!==name||!slicesCache.slices.length){
-        msg('Preparing 3D progress preview...');
         const d=await api('/api/files/model?name='+enc(name));
         const layers=Number(d.printLayers)||Number(d.layers)||0;
-        // Big models take tens of seconds here and it looked like a hang
-        // (user finding): feed fetchSlices' per-layer progress into the toast.
-        // Progress updates rewrite the text directly - calling msg() each time
-        // restarts the slide-in animation and the toast flickers (user finding).
-        const progTxt=v=>'Preparing 3D progress preview - '+v.replace('Loading ','')+' (the print starts right after)';
-        const prog={set textContent(v){const e=$('statusMsg');
-          if(e.textContent.indexOf('Preparing 3D')===0){e.textContent=progTxt(v);clearTimeout(msg._t);}
-          else msg(progTxt(v));
-          // Starting from the SD row keeps the dashboard visible - mirror the
-          // progress onto the Print progress 3D box there.
+        /* Eiga rodoma TIK pacioje dezeje: ji cia pat, didele ir su juostele, o snackas
+           sake ta pati kita forma - dvi zinutes apie ta pati darba vienu metu (V 08-14).
+           Snackas lieka tam, ko dezeje nesimato (printerio darbai, klaidos). */
+        const prog={set textContent(v){
           /* TIK procentai skliaustuose: isbraukus visus ne-skaitmenis is
              „Loading 36/36 (100%)" likdavo 3636100, ir drobeje puikavosi
              „Preparing 3D preview 3636100%" (V 08-13). */
