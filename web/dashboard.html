@@ -1234,7 +1234,10 @@ const applyStatus=s=>{
     show('webControlBanner',!wc);
     $('vatRefillButton').disabled=(!!s.busy&&!s.canResume)||!wc;
     $('dryRunToggle').disabled=!!s.busy||!wc;   // rezimo nekeisti spausdinant
-    $('modelStartButton').disabled=!wc;
+    /* Ir uzimtumas, ne vien „web valdymas": SD sarasas savo mygtukus (Preview, Delete)
+       spausdinant ir kortelės darbo metu jau uzrakina, o sis likdavo gyvas - spaudei ir
+       nieko nevykdavo (V 08-14). Vienas printeris, viena taisykle. */
+    $('modelStartButton').disabled=!wc||!!s.busy;
     /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ikelimas, tad spausdinant
        jo nera. Iki siol tai buvo VIENINTELIS mygtukas, kuris spausdinant vis tiek
        spaudesi ir nieko nedarydavo, o kaimyniniai jau rode „negalima" (V 08-14).
