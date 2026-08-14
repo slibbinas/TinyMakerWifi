@@ -3591,7 +3591,7 @@ const setCfgPane=p=>{
   if(p==='about')renderAbout();  // fills the version/build cells
 };
 document.querySelectorAll('#cfgNav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();setCfgPane(a.dataset.pane);}));
-const setConfigDisabled=disabled=>{document.querySelectorAll('#pane-print-cal input,#pane-print-cal button,#pane-print-cal a,#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectBackupDownloadButton,#connectBackupRestoreButton').forEach(e=>{if(e.tagName==='A'){e.style.pointerEvents=disabled?'none':'';e.style.opacity=disabled?'.5':'';}else e.disabled=disabled;});$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;reassertBusy();};
+const setConfigDisabled=disabled=>{document.querySelectorAll('#pane-print-cal input,#pane-print-cal button,#pane-print-cal a,#configForm input,#configForm button,#configDefaultsButton,#configMqttResetButton,#backupDownloadButton,#backupSdButton,#restoreButton,#restoreSdButton,#connectBackupDownloadButton,#connectBackupRestoreButton,#restoreFile').forEach(e=>{if(e.tagName==='A'){e.style.pointerEvents=disabled?'none':'';e.style.opacity=disabled?'.5':'';}else e.disabled=disabled;});$('restoreSdButton').disabled=disabled||!sdBackupPresent;$('bootAnimSaveButton').disabled=disabled||bootAnimPending===null;reassertBusy();};
 // The auto-backup choice is a regular form checkbox now (Network > Connect);
 // the set-flag tells the firmware the field was intentionally present.
 // GUARD: an unloaded form serializes every checkbox as OFF - posting it once
@@ -3766,6 +3766,14 @@ const syncActionLocks=()=>{
   set('dashShareButton',!wc||busy);
   set('modelShareButton',!wc||busy);
   if(!prep3dRunning)set('prep3dButton',!wc||busy);
+  /* Nustatymu skiltis: jos uzraktas iki siol buvo uzdedamas TIK uzkraunant nustatymus,
+     t.y. po tinklo atsakymo - todel spausdinant „Save config" dar spejo pabuti gyvas
+     (stendas, 08-14). Perjungiam cia pat, ir tik kai busena tikrai pasikeicia - kitaip
+     kas dvi sekundes be reikalo pervaziuotume per visus nustatymu laukus. */
+  const cfgLock=busy||!wc;
+  if(cfgLock!==syncActionLocks._cfg&&typeof setConfigDisabled==='function'){
+    syncActionLocks._cfg=cfgLock; setConfigDisabled(cfgLock);
+  }
   syncUploadGate();
   renderFiles();   // eiluciu Preview/Start/Delete uzraktas uzdedamas piesimo metu
 };
