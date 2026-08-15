@@ -657,6 +657,39 @@ function centroidOf(cl, heads) {
 /** Etapai tokia pat tvarka, kaip DefaultSupportTree::execute():
  *  add_pinheads -> classify -> routing_to_ground -> routing_to_model ->
  *  interconnect_pillars -> merge_result. */
+/* „Atodūsis": kas 16 ms atiduodam giją naršyklei ir tuoj pat ją atsiimam.
+ *
+ * Be jo sliceris giją laiko IŠTISAI: išmatuota (`slicer-lab/blokavimas.mjs`)
+ * — biusto atramoms 4 ms laikmatis nesutiksėjo NĖ KARTO, t. y. kortelė būtų
+ * pakibusi visą tą laiką. `await` čia nepadeda: jis atiduoda valdymą tik
+ * mikroužduočių eilei, o perpiešimas ir laikmačiai lieka už durų.
+ *
+ * 16 ms riba — auditoriaus (Gemini, raštas 009) reikalavimas: 50 ms jau
+ * matomas kaip trūkčiojimas, o 16 ms išlaiko 60 kadrų per sekundę.
+ *
+ * Naršyklėje — `MessageChannel` (fone paliktame skirtuke naršyklė laikmačius
+ * pristabdo iki 1 k./s, ir `setTimeout` variantas ten užstrigtų — ta pati
+ * priežastis, dėl kurios pultas naudoja būtent jį). Node'e — `setImmediate`,
+ * kuris neužlaiko proceso pabaigos. */
+const ATODUSIS_MS = 16;
+const laikas = () => (typeof performance !== 'undefined' ? performance.now()
+                      : Number(process.hrtime.bigint() / 1000000n));
+const pauze = (typeof MessageChannel !== 'undefined' && typeof document !== 'undefined')
+  ? (() => {
+      const ch = new MessageChannel(), q = [];
+      ch.port1.onmessage = () => { const f = q.shift(); if (f) f(); };
+      return () => new Promise(r => { q.push(r); ch.port2.postMessage(0); });
+    })()
+  : () => new Promise(r => setImmediate(r));
+let atodusioNuo = laikas();
+/* Kviesti sunkiose kilpose. Pigus: kol 16 ms nepraėjo, tai tik du palyginimai. */
+const atodusis = async () => {
+  const t = laikas();
+  if (t - atodusioNuo < ATODUSIS_MS) return;
+  await pauze();
+  atodusioNuo = laikas();
+};
+
 /* `jauPts` — jau pasėti taškai. Reikalingi TIK vienam atvejui: kai medis
    perstatomas su atlaisvintu tarpu (žr. `relaxed` žemiau). Sėja apie tarpą
    nieko nežino (`samplePointsFromLayers` neskaito nei `clearance_mm`, nei
@@ -684,6 +717,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   /* --- 1 · add_pinheads (DefaultSupportTree.cpp:385) --------------------- */
   const heads = [];
   for (const p of pts) {
+    await atodusis();   // biustui sis etapas ~2,5 s vientisai
     /* Galvutė eina PAGAL paviršiaus normalę (originale nn = prisotinta
        normalė, DefaultSupportTree.cpp:462), o kabančio paviršiaus normalė jau
        rodo žemyn. Prisotinimas: polar = max(polar, PI - bridge_slope) reiškia,
@@ -914,6 +948,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   };
 
   for (const cl of clusters) {
+    await atodusis();
     const cIdx = centroidOf(cl, heads);
     addPillar(heads[cIdx], cIdx);
     for (const i of cl) {
@@ -1003,6 +1038,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
      pirmąsias pakopas 149 iš 182 atramų iškart atsidurdavo ant detalės
      (išmatuota 08-13). */
   for (const i of onModel) {
+    await atodusis();
     const h = heads[i];
     h.id = i;
     if (searchPillarAndConnect(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
@@ -1131,6 +1167,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   const donePairs = new Set();
   const order = pillars.map((p, i) => i);
   for (const i of order) {
+    await atodusis();   // narvo rizimas: kiekvienas stulpas su kaimynais
     const A = pillars[i];
     if (A.links >= cfg.pillar_cascade_neighbors) continue;
     const maxD = cfg.max_pillar_link_distance_mm *
@@ -1976,6 +2013,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
        atsiradusi sala nebūtų skirtumas ir liktų be nieko. */
     prevParts = parts;
     if (onProgress && (i % 32 === 0)) onProgress(i + 1, layers);
+    await atodusis();   // sunkiausias etapas - be sio narsykle stovetu 31 s
   }
   for (const k in T) T[k] = Math.round(T[k]);
   /* Naršyklėje `process` neegzistuoja, o `process?.env` nuo to neapsaugo —
