@@ -127,9 +127,16 @@ if (process.argv[5]) {
   const M = await import('file:///' + tmp.replace(/\\/g, '/') + '?t=' + Date.now());
   const b = readFileSync(process.argv[5]);
   const { positions } = M.parseSTL(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
-  const best = M.autoOrient(positions);
-  if (!best.fit.fits) best.tr.scale = best.fit.scaleToFit;
-  const placed = M.place(positions, best.tr);
+  /* RAW=1 — kaukė be `autoOrient`, kai sluoksniai pjaustyti `rawslices.mjs`
+     (kronšteinas, puodelis). Su neatitinkančia kaukė piešinys meluoja: pėdos
+     nusidažo detalės spalva ir atrodo, tarsi slicer'is būtų pridirbęs
+     (V pastaba 08-15). */
+  let placed = positions;
+  if (!process.env.RAW) {
+    const best = M.autoOrient(positions);
+    if (!best.fit.fits) best.tr.scale = best.fit.scaleToFit;
+    placed = M.place(positions, best.tr);
+  }
   modelMask = i => M.layerMask(placed, (i + 0.5) * M.LAYER_MM, null);
 }
 
@@ -146,7 +153,13 @@ const n = stack.length;
    pasitikrinam, kuris variantas sutampa geriau, ir pasukam. Be šito pusė
    detalės nusidažo supportų spalva (08-13). */
 let mirror = false;
-if (modelMask) {
+/* MIRROR=1|0 — priverstinis nustatymas. Atspėjimas simetriškam daiktui
+   (kronšteinas!) yra monetos metimas: sienelės sutampa abiem atvejais, o
+   asimetriškos pėdos tada nukrenta ant apverstos kaukės ir nusidažo detalės
+   spalva — atrodo, tarsi slicer'is būtų pridirbęs (V pastaba 08-15). */
+if (process.env.MIRROR !== undefined) {
+  mirror = process.env.MIRROR === '1';
+} else if (modelMask) {
   /* Vienas sluoksnis simetriškam daiktui (kaukolė!) duoda beveik lygiąsias —
      13012 prieš 13566. Imam kelis aukščius, kad asimetrija susidėtų. */
   let same = 0, flip = 0;
