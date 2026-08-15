@@ -1013,6 +1013,46 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
      pillar_cascade_neighbors jungčių; kiekviena pora jungiama vieną kartą
      (`pairs` aibė). Jungiant visas poras iš eilės narvas išeidavo dvigubai
      tankesnis nei PrusaSlicer'io (auditas + matavimas 08-13). */
+  /* Vienos poros jungimas — iškelta, nes tuo pačiu jungiami ir PAGALBINIAI
+     stulpai (žr. žemiau). */
+  const interconnectPair = (A, B) => {
+    const d = Math.hypot(A.x - B.x, A.y - B.y);
+      const bridgeDistance = d / Math.cos(-cfg.bridge_slope);
+    const zstep = d * Math.tan(-cfg.bridge_slope);
+    let sUp = A.top, sLo = B.top;
+    let eUp = Math.max(A.bottom, zmin), eLo = Math.max(B.bottom, zmin);
+    let ax = A.x, ay = A.y, bx = B.x, by = B.y;
+    if (sUp - eUp < 0 || sLo - eLo < 0) return false;
+    if (sUp < sLo) { [sUp, sLo] = [sLo, sUp]; [ax, bx] = [bx, ax]; [ay, by] = [by, ay]; }
+    if (eUp < eLo) [eUp, eLo] = [eLo, eUp];
+    let startz = (sLo - zstep < sUp) ? sLo - zstep : sLo;
+    if (sLo - eUp < Math.abs(zstep)) {
+      startz = Math.min(sUp, sLo - zstep);
+      const endz = Math.max(eUp + zstep, eLo);
+      const avail = startz - endz;
+      const rounds = Math.floor(avail / Math.abs(zstep));
+      startz -= 0.5 * (avail - rounds * Math.abs(zstep));
+    }
+    let a = [ax, ay, startz], b = [bx, by, startz + zstep];
+    let made = false, guard = 0;
+    while (b[2] >= eUp && guard++ < 200) {
+      /* Tikrinama STULPO spinduliu (`bridge_mesh_distance(sj, dir,
+         pillar.r_start)`, cpp:256), ne galvutės smaigalio — o smaigalys
+         dvigubai plonesnis. Su per plonu pluoštu jungtys prasispraudžia
+         pro vietas, kur jos netelpa: puodelio narvas išėjo su tankiu
+         zigzagu ten, kur etalonas turi vieną žiedą. Saugos atstumą 3
+         argumentų perkrova pasiskaičiuoja pati. */
+      const rLink = A.rTop || cfg.pillar_radius_mm;
+      if (beamHit(mesh, a, norm(sub(b, a)), rLink, rLink,
+                  passSafety(rLink, cfg)) >= bridgeDistance) {
+        links.push({ a: a.slice(), b: b.slice(), r: cfg.pillar_radius_mm });
+        made = true;
+      }
+      const t = a; a = b; b = [t[0], t[1], a[2] + zstep];
+    }
+    return made;
+  };
+
   for (const p of pillars) p.links = 0;
   const donePairs = new Set();
   const order = pillars.map((p, i) => i);
@@ -1037,39 +1077,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
       /* cpp:856 — plonesnis kaimynas praleidžiamas: jungtis turi eiti į bent
          tokį pat storą stulpą. */
       if ((B.rTop || cfg.pillar_radius_mm) < (A.rTop || cfg.pillar_radius_mm)) continue;
-      const bridgeDistance = d / Math.cos(-cfg.bridge_slope);
-      const zstep = d * Math.tan(-cfg.bridge_slope);
-      let sUp = A.top, sLo = B.top;
-      let eUp = Math.max(A.bottom, zmin), eLo = Math.max(B.bottom, zmin);
-      let ax = A.x, ay = A.y, bx = B.x, by = B.y;
-      if (sUp - eUp < 0 || sLo - eLo < 0) continue;
-      if (sUp < sLo) { [sUp, sLo] = [sLo, sUp]; [ax, bx] = [bx, ax]; [ay, by] = [by, ay]; }
-      if (eUp < eLo) [eUp, eLo] = [eLo, eUp];
-      let startz = (sLo - zstep < sUp) ? sLo - zstep : sLo;
-      if (sLo - eUp < Math.abs(zstep)) {
-        startz = Math.min(sUp, sLo - zstep);
-        const endz = Math.max(eUp + zstep, eLo);
-        const avail = startz - endz;
-        const rounds = Math.floor(avail / Math.abs(zstep));
-        startz -= 0.5 * (avail - rounds * Math.abs(zstep));
-      }
-      let a = [ax, ay, startz], b = [bx, by, startz + zstep];
-      let made = false, guard = 0;
-      while (b[2] >= eUp && guard++ < 200) {
-        /* Tikrinama STULPO spinduliu (`bridge_mesh_distance(sj, dir,
-           pillar.r_start)`, cpp:256), ne galvutės smaigalio — o smaigalys
-           dvigubai plonesnis. Su per plonu pluoštu jungtys prasispraudžia
-           pro vietas, kur jos netelpa: puodelio narvas išėjo su tankiu
-           zigzagu ten, kur etalonas turi vieną žiedą. Saugos atstumą 3
-           argumentų perkrova pasiskaičiuoja pati. */
-        const rLink = A.rTop || cfg.pillar_radius_mm;
-        if (beamHit(mesh, a, norm(sub(b, a)), rLink, rLink,
-                    passSafety(rLink, cfg)) >= bridgeDistance) {
-          links.push({ a: a.slice(), b: b.slice(), r: cfg.pillar_radius_mm });
-          made = true;
-        }
-        const t = a; a = b; b = [t[0], t[1], a[2] + zstep];
-      }
+      const made = interconnectPair(A, B);
       donePairs.add(key);
       if (made) {
         /* cpp:860-869 — jungtis SKAIČIUOJAMA tik tada, kai kaimynas nėra
@@ -1081,6 +1089,67 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
         if (hA < cfg.max_solo_pillar_height_mm || hB / hA > 0.5) A.links++;
         if (hB < cfg.max_solo_pillar_height_mm || hA / hB > 0.5)
           B.links = (B.links || 0) + 1;
+      }
+    }
+  }
+
+  /* Vienišam aukštam stulpui pristatomas PAGALBINIS (cpp:884-975). Kaskada
+     sujungia tik tai, kas turi kaimyną; likę vieniši aukšti stulpai originale
+     negalioja — jiems šalia pastatomas naujas stulpas ir su juo susijungiama,
+     kad ilgas plonas strypas nesiūbuotų ir nenulūžtų.
+       bridges > max_bridges_on_pillar -> 3 pagalbiniai
+       links < 2 ir aukštis > 35 mm    -> 2
+       links < 1 ir aukštis > 15 mm    -> 1
+     Vieta ieškoma ratu spinduliu 2×base_radius, 20 kampų; kandidatas tinka, kai
+     kelias žemyn laisvas IR pėda toliau nei base_safety nuo detalės. Šito etapo
+     neturėjom visai, ir „evil" bei biuste likdavo po vieną vienišą 15+ mm
+     stulpą (V pastaba 08-15). */
+  {
+    const gnd = 0, rSearch = 2 * cfg.base_radius_mm;
+    const minDist = cfg.pillar_base_safety_distance_mm + cfg.base_radius_mm + 1e-6;
+    const count = pillars.length;                 // naujų nebeapdorojam
+    for (let pid = 0; pid < count; pid++) {
+      const P = pillars[pid];
+      if (P.partial || P.onModel) continue;       // tik tie, kur stovi ant plokštės
+      const hgt = P.top - P.bottom;
+      let need = 0;
+      if ((P.bridges || 0) > cfg.max_bridges_on_pillar) need = 3;
+      else if ((P.links || 0) < 2 && hgt > cfg.max_dual_pillar_height_mm) need = 2;
+      else if ((P.links || 0) < 1 && hgt > cfg.max_solo_pillar_height_mm) need = 1;
+      need = Math.max(P.links || 0, need) - (P.links || 0);
+      if (need <= 0) continue;
+
+      let found = false, spts = null;
+      for (let k = 0; k < 20 && !found; k++) {
+        const alpha = k * 0.1 * Math.PI;
+        const cand = [];
+        for (let n = 0; n < need; n++) {
+          const ang = alpha + n * Math.PI / 3;
+          const sx = P.x + Math.cos(ang) * rSearch;
+          const sy = P.y + Math.sin(ang) * rSearch;
+          const sz = P.top - rSearch;
+          if (sz <= gnd + cfg.base_height_mm) break;
+          const r0 = P.rTop || cfg.pillar_radius_mm;
+          // kelias žemyn turi būti laisvas per visą aukštį
+          if (Number.isFinite(beamHit(mesh, [sx, sy, sz + r0], DOWN, r0, r0,
+                                      passSafety(r0, cfg)))) break;
+          // pėda neturi lįsti prie detalės (`squared_distance(gndsp) > min_dist`)
+          const hit = mesh.closestFace([sx, sy, gnd]);
+          if (hit && dist3d([sx, sy, gnd], hit.q) < minDist) break;
+          cand.push([sx, sy, sz]);
+        }
+        if (cand.length === need) { found = true; spts = cand; }
+      }
+      if (!found) continue;
+      for (const sp of spts) {
+        const np = { x: sp[0], y: sp[1], top: sp[2], bottom: gnd,
+                     rTop: P.rTop || cfg.pillar_radius_mm, rBase: cfg.base_radius_mm,
+                     head: -1, bridges: 0, links: 0, helper: true };
+        if (interconnectPair(P, np)) {
+          pillars.push(np);
+          P.links = (P.links || 0) + 1;
+          np.links = 1;
+        }
       }
     }
   }
@@ -1152,6 +1221,7 @@ export async function findOverhangs(pos, layers, onProgress) {
        jie „išnirdavo" ore: „evil" sluoksnyje z=1,55 — 5 salos be atramos iš 8
        (08-13). Vėliavėle prašom piešti nuo nulio, senojo elgesio neliečiant. */
     bracesFromZero: true,
+    padLayers: CFG.pad_layers,      // pado storis piešiant — iš to paties konfigo
     /* Piešiam SAVO matmenimis (žr. `discsFor`) — `layerMask` be šito imtų
        senojo modulio SUP konstantas. */
     discsFor: zz => discsFor({ pillars, braces }, zz, CFG),

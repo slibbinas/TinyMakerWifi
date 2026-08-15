@@ -1445,7 +1445,12 @@ export function layerMask(pos, z, sup) {
   rasterise(seg, grey, true, extra);
   // Padas — tas pats kelias kaip slice(): ne diskai, o gatavas pikselių žemėlapis.
   const layer = Math.round(z / LAYER_MM - 0.5);
-  if (sup && sup.pad && layer < SUP.padLayers)
+  /* Pado storis — iš TO PATIES konfigo, kuriuo skaičiuota. `SUP.padLayers` yra
+     senojo algoritmo 8 sluoksniai (0,4 mm), o slicer2 skaičiuoja 3 (0,15 mm,
+     `pad_wall_thickness`); dėl to mūsų raftas išeidavo 2,7× storesnis nei
+     PrusaSlicer'io (V pastaba 08-15). */
+  const padL = (sup && sup.padLayers) || SUP.padLayers;
+  if (sup && sup.pad && layer < padL)
     for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
   const out = new Uint8Array(RES.w * RES.h);
   for (let i = 0; i < out.length; i++) out[i] = Math.min(255, Math.round(grey[i] * 255));
