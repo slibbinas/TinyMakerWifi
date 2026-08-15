@@ -2687,10 +2687,17 @@ const paintStage=(cv,txt,n)=>{
    piesia procentus, o nuo ten jau lipdomas pats pavirsius - ten uzrasu nebededam,
    nes jie tryntu ta pati vaizda, kuris kaip tik ropoja i virsu. */
 const buildIso=async cv=>{
-  await paintStage(cv,'Building the 3D view…',slicesCache.slices.length);
-  await drawIsoAsync(cv,1,f=>{
-    if(f<0.74)paintPreviewProgress(cv,'Building the 3D view\n'+Math.round(f*100)+'%',f);
-  });
+  /* Pasizymim uzimtumo skaitikliu: du lygiagretus kvietimai (paspaudus du 3D
+     mygtukus vienas po kito) statytu du laukus - detaliame vaizde po ~75 MB -
+     i ta pacia drobe ir i ta pati SM kesa (auditas 08-15). Skaitiklis, tad su
+     upgradeToSlices nesikerta, o visi trys mygtukai prigesta kartu. */
+  setPreviewBusy(true);
+  try{
+    await paintStage(cv,'Building the 3D view…',slicesCache.slices.length);
+    await drawIsoAsync(cv,1,f=>{
+      if(f<0.74)paintPreviewProgress(cv,'Building the 3D view\n'+Math.round(f*100)+'%',f);
+    });
+  }finally{setPreviewBusy(false);}
 };
 // Shared voxel-preview pipeline: slices (with painted % progress) -> quick
 // resin estimate -> isometric render -> SD cache. Returns the quick estimate.
@@ -2720,7 +2727,9 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
      neatnaujinama - tad neikeliam „progreso uzraso" vietoj paveikslelio (V 08-13).
      `slicesCache.name` patikra - ta pati, kaip refreshModelThumb: statymas ilgas, o per
      ji galima persijungti i kita modeli. */
-  if(!cacheIsDetail()&&slicesCache.name===name)try{
+  // ...ir niekada is grynu kubeliu: i kortele turi keliauti tas pats vaizdas,
+  // kuri rodo printerio ekranas (auditas 08-15).
+  if(!cacheIsDetail()&&!VIEW_RAW&&slicesCache.name===name)try{
     await uploadFixedThumb(name,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
   }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
@@ -2962,7 +2971,7 @@ const dashPreview=async nameEnc=>{
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
   if(window.gl3dResetView)gl3dResetView();   // peržiūra visada pradeda tuo paciu kampu
-  { const cb=$('gl3dClipBar'); if(cb&&cb.classList.contains('on')){cb.classList.remove('on');syncClipBtn();} }
+  { const cb=$('gl3dClipBar'); if(cb){cb.classList.remove('on');$('gl3dClipRange').value=60;syncClipBtn();} }
   clearPreviewStopped($('printPreviewCanvas'));   // naujas bandymas - senas „stopped" nebegalioja
   scrollPreviewIntoView();show('prevNote',false);
   fetchSlicesSeq++;                        // cancel a previous run right away
@@ -3339,9 +3348,8 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
            tad F5 spausdinimo viduryje butu praradęs 3D progresa. Progresui
            detalumo nereikia. */
         const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
-        const wasRaw=VIEW_RAW; VIEW_RAW=false;
         try{await fetchSlices(name,layers,Number(d.heightMm)||layers*0.05,prog);}
-        finally{slicesPrefetching=false;VIEW_DETAIL=wasDet;VIEW_RAW=wasRaw;}
+        finally{slicesPrefetching=false;VIEW_DETAIL=wasDet;}
       }
     }catch(e){}
   }
@@ -3883,8 +3891,7 @@ $('prep3dButton').addEventListener('click',async()=>{
   /* Ruosiamas TIK grubus kesas - jis vienintelis ir saugomas kortelėje. Su
      ijungtu detaliu vaizdu ciklas butu skenaves po 72 sluoksnius modeliui,
      nieko neirases ir vis tiek parases „N prepared" (auditas 08-13). */
-  const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
-  const wasRaw=VIEW_RAW; VIEW_RAW=false;
+  const wasDet=VIEW_DETAIL; VIEW_DETAIL=false; VIEW_RAW=false;
   try{
     const d=await api('/api/files');
     const models=(d.items||[]).filter(it=>it.type==='model');
@@ -3924,7 +3931,10 @@ $('prep3dButton').addEventListener('click',async()=>{
   finally{
     prep3dRunning=false;
     btn.disabled=false;
-    VIEW_DETAIL=wasDet; VIEW_RAW=wasRaw;
+    VIEW_DETAIL=wasDet;
+    /* Kubeliu NEGRAZINAM: ciklas viska perpiese glotniai, tad mygtukas
+       turi rodyti tai, kas ekrane, o ne tai, kas buvo pries tai. */
+    $('gl3dRaw').classList.remove('on');
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
     // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
     if(wasDet)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
