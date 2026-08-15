@@ -1164,6 +1164,22 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     }
   }
 
+  /* Nė vienas stulpas nekyla aukščiau savo AUKŠČIAUSIO sujungimo (V taisyklė
+     08-15: „stulpas turėtų baigtis ties sujungimu"). Viršus prasmingas tik
+     tada, kai ten yra galvutė (tada `head >= 0`) arba kažkas prisikabina;
+     virš to strypas nieko nelaiko, tik eikvoja dervą ir lūžinėja. */
+  for (const p of pillars) {
+    if (p.head >= 0 || p.partial) continue;        // viršuje galvutė — paliekam
+    let hi = -Infinity;
+    for (const l of links)
+      for (const e of [l.a, l.b])
+        if (Math.hypot(e[0] - p.x, e[1] - p.y) < 1e-6) hi = Math.max(hi, e[2]);
+    for (const c of bridges)
+      for (const e of [c.a, c.b])
+        if (Math.hypot(e[0] - p.x, e[1] - p.y) < 1e-6) hi = Math.max(hi, e[2]);
+    if (Number.isFinite(hi) && hi > p.bottom && p.top - hi > 1e-6) p.top = hi;
+  }
+
   /* --- 6 · merge_result -------------------------------------------------- */
   lap('interconnect');
   /* Prasilenkimo tarpas (`clearance_mm`, 1 mm) yra PAGEIDAVIMAS, ne absoliutas.
