@@ -988,10 +988,16 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     if (h.junction[2] - bottom <= 1e-6) continue;   // išsigimęs, nulinio ilgio
     pillars.push({ x: h.junction[0], y: h.junction[1], top: h.junction[2],
                    bottom, rTop: h.rBack, rBase: h.rBack, head: i, bridges: 0,
-                   onModel: true, anchored: hh > 1e-6 });
-    if (hh > 1e-6)
-      // Atkarpa nuo stulpo galo iki `hitp` — vertikali, kai ašis sutampa, ir
-      // PASVIRUSI, kai ne (`taildir = (endp - hitp).normalized()`, cpp:706).
+                   onModel: true, anchored: true });
+    /* Inkaras dedamas VISADA, o ne tik kai `hh > 0`: originale `add_anchor`
+       kviečiamas besąlygiškai (cpp:706-716), tik plotis apkarpomas iki nulio.
+       Praleidus jį prie plonos galvutės, stulpo apačia likdavo kaboti virš
+       paviršiaus — „evil" ties z=24,8 tarpas 0,98 mm (sargas pagavo 08-15).
+       Tarpas atsiranda todėl, kad `groundHit` matuotas PLUOŠTU (su spinduliu ir
+       atsarga), tad jis sustoja anksčiau nei tikrasis paviršius `hitp`.
+       Atkarpa vertikali, kai ašis sutampa, ir pasvirusi, kai ne
+       (`taildir = (endp - hitp).normalized()`, cpp:706). */
+    if (dist3d([h.junction[0], h.junction[1], bottom], hitp) > 1e-6)
       bridges.push({ a: [h.junction[0], h.junction[1], bottom],
                      b: hitp.slice(), r: h.rBack, anchor: true });
     h.pillar = pillars.length - 1;
