@@ -1,5 +1,6 @@
 <!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>TinyMaker</title><link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%232fbf4f'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>"><link rel='manifest' href='/manifest.json'><meta name='theme-color' content='#1c1c1e'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black'><link rel='apple-touch-icon' href='/pwa-icon-192.png'><script>(function(){try{if(localStorage.getItem('tmTheme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script><style>:root{color-scheme:dark;--bg:#1c1c1e;--wrap:#232326;--card:#2a2a2e;--tile:#202024;--pv:#151517;--line:#3a3a3f;--line2:#555;--line3:#444;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--btnsec:#3c3c42;--btnsec-t:#eee;--danger:#7b2f2f;--dis:#555;--dis-t:#aaa;--overlay:rgba(20,20,22,.93);--dim:rgba(20,20,22,.6);--toast:#2e2e33;--toast-t:#fff;--warncol:#ffb15f;--banner:#3a2818;--warnbg:#3a2320;--subh:#98938a;--fwb:#777;--wbar:#4a4a50}[data-theme=light]{color-scheme:light;--bg:#eceef1;--wrap:#f8f9fa;--card:#fff;--tile:#f4f5f7;--pv:#e2e6ea;--line:#d9dbe0;--line2:#c2c6cd;--line3:#d0d3d8;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--btnsec:#dcdfe4;--btnsec-t:#26282c;--danger:#b23434;--dis:#c9ccd2;--dis-t:#82878f;--overlay:rgba(243,244,246,.93);--dim:rgba(100,104,112,.45);--toast:#f1f3f6;--toast-t:#1f2124;--warncol:#9a5b00;--banner:#fff1e0;--warnbg:#fdecec;--subh:#7a736a;--fwb:#9aa0a8;--wbar:#c8ccd2}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}.wrap{max-width:560px;margin:16px auto;padding:20px 18px;border:2px solid var(--accent);border-radius:14px;background:var(--wrap)}.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;position:relative}h1{margin:0;font-size:24px;color:var(--accent)}h2{font-size:17px;margin:0 0 12px;color:var(--text)}.fw{font-size:13px;color:var(--muted)}#gsBtn{color:var(--muted);font-size:16px;text-decoration:none;margin-left:6px}#gsBtn:hover{color:var(--text);text-decoration:none}#themeBtn{position:absolute;top:7px;right:0;color:var(--muted);font-size:18px;line-height:1;text-decoration:none}#themeBtn:hover{color:var(--text);text-decoration:none}.fwBadge{display:inline-block;margin-left:10px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);background:var(--tile);color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.2px;vertical-align:middle;text-decoration:none;cursor:pointer}.calRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem;min-height:38px}.calRow>.lbl{flex:0 0 92px;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}.calRow .grp{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.calRow input{margin:0;padding:6px 8px;font-size:.88rem;text-align:right}.calRow button{width:auto;margin:0;padding:8px 14px;font-size:.85rem;white-space:nowrap}.calSep{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}#calRaw1,#calRaw2{color:var(--muted);border-style:dashed}#calRaw1:focus,#calRaw2:focus{color:var(--text);border-style:solid}.calList{font-size:.88rem;line-height:1.9;display:flex;gap:2px 20px;flex-wrap:wrap;min-width:0}.calList>div{padding-left:1.4em;text-indent:-1.4em}@media(max-width:700px){.calRow{gap:6px;min-height:0;margin-bottom:4px}.calRow>.lbl{flex:0 0 auto}.calRow input{padding:6px}#calDensButton{width:100%;margin-top:4px}.calRow.sample .grp>.t{flex:0 0 84px}.calRow.sample{display:block}.calRow.sample>.lbl{display:block;margin:6px 0 0}.calRow.sample .grp{display:flex;margin:8px 0;flex-wrap:wrap}.calRow.sample+.calRow.sample{border-top:1px solid var(--line);margin-top:10px;padding-top:6px}}#gl3dHelpBtn{width:24px;height:24px;margin:0;padding:0;border-radius:50%;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;line-height:1;cursor:help;display:flex;align-items:center;justify-content:center}#gl3dHelpBtn:hover,#gl3dHelp.on #gl3dHelpBtn{color:var(--accent);border-color:var(--accent)}#gl3dHelpBox{display:none;margin-top:6px;padding:8px 11px;border-radius:8px;background:rgba(20,20,22,.92);border:1px solid var(--line);color:var(--text);font-size:.74rem;line-height:1.7;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}#gl3dHelp:hover #gl3dHelpBox,#gl3dHelp.on #gl3dHelpBox{display:block}@media(max-width:560px){#gl3dHelpBox{white-space:normal;max-width:70vw;line-height:1.55}}#gl3dPad,#gl3dRot{grid-template-columns:repeat(3,26px);grid-template-rows:repeat(3,26px);gap:2px}/* Viena horizontali eile: [] - +  (taip pat bus slicerio irankiuose, V 08-13). */
-#gl3dZoom{display:none;flex-direction:row;align-items:center}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dFlip{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dFlip:hover{color:var(--text);border-color:var(--line2)}/* 3D valdikliai turi ikaltus tamsius fonus - sviesioje temoje jie virsdavo juodais kvadrateliais su nematomomis ikonomis (V 08-13). Vaizdas dabar irgi sviesus, tad mygtukai turi buti sviesus permatomi. */[data-theme=light] #gl3dPad button,[data-theme=light] #gl3dRot button,[data-theme=light] #gl3dZoom button,[data-theme=light] #gl3dFlip,[data-theme=light] #gl3dHelpBtn{background:rgba(255,255,255,.82);border-color:var(--line2);color:var(--muted)}[data-theme=light] #gl3dPad button:hover,[data-theme=light] #gl3dRot button:hover,[data-theme=light] #gl3dZoom button:hover,[data-theme=light] #gl3dFlip:hover,[data-theme=light] #gl3dHelpBtn:hover{background:#fff;color:var(--text)}[data-theme=light] #gl3dHelpBox{background:rgba(255,255,255,.96);color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.18)}#gl3dCage svg{pointer-events:none}#gl3dFlip svg{pointer-events:none}#gl3dCage.off .bars{opacity:0}#gl3dCage.on{color:var(--accent);border-color:var(--accent)}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy,#gl3dRaw.busy{opacity:.5;cursor:progress}#gl3dClip svg,#gl3dRaw svg{pointer-events:none}#gl3dClip.on,#gl3dRaw.on{color:var(--accent);border-color:var(--accent)}#gl3dClipBar{display:none;position:absolute;left:10px;right:10px;bottom:42px;z-index:2}#gl3dClipBar.on{display:block}#gl3dClipBar input{width:100%;margin:0;padding:0;background:none;border:0}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.calLbl{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;margin-right:6px}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}.files .rowActions{width:228px;flex:0 0 auto}.files .rowActions button{flex:1 1 0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}.inPv{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#1f2124;font-size:11px;font-weight:600;vertical-align:middle}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}
+#gl3dZoom{display:none;flex-direction:row;align-items:center}#gl3dRot .gl3dLbl{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--muted2)}#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dFlip{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dFlip:hover{color:var(--text);border-color:var(--line2)}/* 3D valdikliai turi ikaltus tamsius fonus - sviesioje temoje jie virsdavo juodais kvadrateliais su nematomomis ikonomis (V 08-13). Vaizdas dabar irgi sviesus, tad mygtukai turi buti sviesus permatomi. */[data-theme=light] #gl3dPad button,[data-theme=light] #gl3dRot button,[data-theme=light] #gl3dZoom button,[data-theme=light] #gl3dFlip,[data-theme=light] #gl3dHelpBtn{background:rgba(255,255,255,.82);border-color:var(--line2);color:var(--muted)}[data-theme=light] #gl3dPad button:hover,[data-theme=light] #gl3dRot button:hover,[data-theme=light] #gl3dZoom button:hover,[data-theme=light] #gl3dFlip:hover,[data-theme=light] #gl3dHelpBtn:hover{background:#fff;color:var(--text)}[data-theme=light] #gl3dHelpBox{background:rgba(255,255,255,.96);color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.18)}#gl3dCage svg{pointer-events:none}#gl3dFlip svg{pointer-events:none}#gl3dCage.off .bars{opacity:0}#gl3dCage.on{color:var(--accent);border-color:var(--accent)}#gl3dDet svg{pointer-events:none}#gl3dDet .fine{opacity:0}#gl3dDet.on .fine{opacity:1}#gl3dDet.on{color:var(--accent);border-color:var(--accent)}#gl3dDet.busy,#gl3dRaw.busy{opacity:.5;cursor:progress}#gl3dClip svg,#gl3dRaw svg{pointer-events:none}#gl3dClip.on,#gl3dRaw.on{color:var(--accent);border-color:var(--accent)}#gl3dClipBar{display:none;position:absolute;left:10px;right:10px;bottom:42px;z-index:2}#gl3dClipBar.on{display:block}#gl3dClipBar input{width:100%;margin:0;padding:0;background:none;border:0}.calBadge{display:inline-block;padding:2px 9px;border-radius:999px;border:1px solid currentColor;background:var(--tile);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:1px;margin-right:4px}.calBadge.ok{color:var(--accent)}.calBadge.part{color:var(--warncol)}.calBadge.off{color:var(--muted)}.calLbl{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;margin-right:6px}.fwBadge:hover{color:var(--text);text-decoration:none}.fwBadge::before{content:'v'}.fwBadge:empty{display:none}.fwBadge.upd{color:var(--accent);border-color:var(--accent)}.fwBadge.upd::after{content:' ↑'}.gsRow{display:flex;gap:10px;border-top:1px solid var(--line);padding:9px 0;align-items:flex-start}.gsRow:first-child{border-top:0;padding-top:0}.gsMark{cursor:pointer;color:var(--muted);font-size:16px;width:22px;flex:0 0 auto;text-align:center;line-height:1.3}.gsMark.on{color:#2fbf4f;cursor:default}.qHelp{display:inline-block;margin-left:6px;width:16px;height:16px;line-height:15px;text-align:center;border:1px solid var(--line2);border-radius:50%;font-size:11px;color:var(--muted)}.qHelp:hover{color:var(--text);text-decoration:none}.card{background:var(--card);border:1px solid var(--line3);border-radius:10px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.label{font-size:12px;color:var(--muted)}.value{font-size:16px;margin-top:4px}.relNotes{display:inline-block;font-size:12px;margin-top:3px}.sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fa34d;vertical-align:middle;margin-left:4px}.sdot.stale{background:var(--warncol)}#syncNote{color:var(--warncol);margin-left:4px}#sdUsageBar.warn{background:var(--warncol)}#updFileCell{grid-column:1/-1}.cardHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.cardHead h2{margin:0}.files strong{font-size:14px;font-weight:600}/* Dvi FIKSUOTOS vietos: kaireje - Start arba krovimo suktukas, desineje - Delete. Todel Delete visada to paties plocio ir toje pacioje vietoje (V 08-16), o krovimo zyma stoja tiksliai ten, kur po sekundes atsiras Start - eilute nesokineja. Taikoma TIK eilutems: ta pacia klase turi ir puslapiavimo juosta saraso apacioje, o joje trys vaikai dvieju stulpeliu tinklelyje persilauztu (auditas 08-16). */.files .file .rowActions{width:228px;flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center}.files .file .rowActions>*{width:100%;margin:0}#uploadButton{width:228px;padding:12px 14px;font-size:15px}#dashShareButton,#modelShareButton{width:auto;padding:11px 16px;font-size:14px}#dashShareButton.shared,#modelShareButton.shared{background:none;color:var(--muted);cursor:default}#uploadButton.cta{background:var(--accent);color:#fff}.files{display:grid;gap:8px}.file{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:10px}.file:first-child{border-top:0}.rowActions{display:flex;gap:8px;align-items:center}.meta{font-size:12px;color:var(--muted2);margin-top:3px}.files .file{padding-left:9px}/* Eilute pati yra mygtukas: paspaudus krauna perziura, o veiksmai (Start/Delete) rodomi TIK pazymetoje eiluteje. Todel „In preview" piliules nebereikia - pazymeta eilute matosi is fono (V 08-16). *//* Vienodas eilutes aukstis pazymetai ir nepazymetai: be jo sarasas pasokteli, kai pazymejus atsiranda mygtukai (auditas 08-16). 44 px - ir mygtuko aukstis, ir patogus pirsto taikinys. */.files .file{cursor:pointer;padding-bottom:8px;min-height:44px}.files .file:focus-visible{outline:2px solid var(--accent);outline-offset:2px}/* Pazymetos eilutes fonas ispleciamas i abi puses (neigiamos parastes), o turinys lieka toje pacioje linijoje - kitaip Delete atsiduria prispaustas prie pat bloko krasto (V 08-16). Pazymeta eilute skiriasi VARDO spalva, ne krasto bruksniu: bruksnys pulto stiliuje buvo svetimkunis (V 08-16). *//* Tamsaus fono pazymetai eilutei NEBERA (V 08-16): ja ir taip pasako oranzinis vardas, piktogramos remelis ir atsirade mygtukai - fonas buvo ketvirtas tos pacios zinios kartojimas. Kartu dingo ir neigiamu parasciu gudrybe, tad turinys visose eilutese savaime stovi vienoje vertikaleje. */.files .file.sel strong,.files .file.sel .fico{color:var(--accent)}
+/* Maza piktograma: sluoksniai modeliui, deze archyvui. Piesiama pacio pulto, tad nieko nekainuoja - tikra miniatiura reikstu ~100 KB siuntima IS PRINTERIO kiekvienai eilutei. */.pager{display:flex;justify-content:center;align-items:center;gap:18px;margin-top:12px}.pager a,.pager .pgOff{padding:8px 10px;font-size:13px;font-weight:600;text-decoration:none}.pager .pgOff{color:var(--muted2);opacity:.5}.files .nm{display:flex;align-items:center;gap:8px}/* Visos eilutes - vienodo dydzio kvadratelis: jame arba modelio vaizdas, arba blankus zenklas, reiskiantis „vaizdo dar nera". Taip nuotrauka ir piestinis zenklas nebeatrodo kaip du skirtingi pasauliai (V 08-16). */.files .fico{flex:0 0 auto;width:26px;height:26px;border-radius:6px;color:var(--muted2)}.files svg.fico{background:var(--tile);border:1px solid var(--line);padding:4px}.files .ficoImg{background:var(--tile);border:1px solid var(--line);object-fit:contain}.files .file.sel .ficoImg{border-color:var(--accent)}.files .file.sel svg.fico{border-color:var(--accent)}.files .file .meta{margin-left:34px}.files .file:not(.locked):not(.sel):hover{background:var(--tile);border-radius:8px}.files .file.locked{cursor:default}.files .file .rowActions:empty{display:none}/* Siaurame ekrane veiksmai driekiasi per visa ploti. Sena taisykle media query'je (`.files .rowActions`) po sio pertaikymo nustojo galioti - musu selektorius specifiskesnis ir laimedavo net telefone (auditas 08-16). */@media(max-width:520px){.files .file .rowActions{width:100%}}.rowWait{display:flex;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:12px;white-space:nowrap}.rowSpin{display:inline-block;width:14px;height:14px;flex:0 0 auto;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.newPill{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;vertical-align:middle}.navTag{margin-left:6px;padding:0 5px;border-radius:999px;border:1px solid currentColor;opacity:.7;font-size:9px;font-weight:600;letter-spacing:.2px;vertical-align:middle}.connectTabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}.connectTabs button{width:auto;flex:0 0 auto;margin:0;padding:7px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer}.connectTabs button.active{background:none;color:var(--text);border-bottom-color:var(--accent)}.connectTabs button:hover{background:none;color:var(--text)}a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--link)}input[type=file],input[type=number],input[type=text],input[type=password],select{width:100%;margin:6px 0 12px;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--text)}label span{display:block;font-size:13px;color:var(--muted)}.configGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}.spanAll{grid-column:1/-1}.check{display:flex;align-items:center;gap:8px;margin:6px 0 12px}.check input{width:auto}.check span{display:inline;color:var(--text)}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.toolbar button,.toolbar .button{width:auto;flex:1;margin-top:0;background:var(--btnsec);color:var(--btnsec-t)}.toolbar .active{background:var(--accent);color:#fff}.wbars{display:inline-flex;gap:2px;align-items:flex-end;margin-left:8px;vertical-align:middle}.wbars i{width:4px;background:var(--wbar);border-radius:1px}.wbars i:nth-child(1){height:5px}.wbars i:nth-child(2){height:9px}.wbars i:nth-child(3){height:13px}.wbars i.on{background:#2fbf4f}.banner{background:var(--banner);border-color:var(--accent)}.banner strong{display:block;color:var(--warncol);margin-bottom:4px}.progress{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin:10px 0 16px}.progress span{display:block;height:100%;width:45%;background:var(--accent);animation:barMove 1.1s infinite linear}.storageBar{height:10px;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--bg);margin-top:8px}.storageBar span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}@keyframes barMove{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}button,.button{display:inline-block;width:100%;border:0;border-radius:8px;background:var(--accent);color:#fff;padding:12px 14px;margin-top:10px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}.small,.delete{width:auto;padding:9px 11px;font-size:13px}.delete{background:var(--danger);color:#fff}button:disabled{background:var(--dis);color:var(--dis-t);cursor:not-allowed}
 /* Antriniai mygtukai savo fona nurodo klase, tad ji nugalėdavo „uzrakinta" spalva:
    Start ir Delete pilkėdavo, o Preview ir Upload atrodydavo beveik gyvi, nors buvo
    uzrakinti taip pat (V 08-14). Uzrakintas mygtukas visur atrodo vienodai. */
@@ -817,6 +818,10 @@ const checkUploadFits=(bytes,hintEl)=>{
 let sdUsageKnown=false,sdCountsStr='';
 const sdFooterSync=()=>{
   show('sdUsageBox',sdUsageKnown||!!sdCountsStr);
+  /* Spausdinant sarasas rodomas is atminties ir neatsinaujina (kortele priklauso spausdintuvui;
+     patikra sdRev veikia tik laisvam printeriui) - taip printerio ekrane gali buti 13 modeliu, o
+     telefone 10 (V 08-16). Uzraso apie tai NERASOM (V 08-16): spausdinant sarasas ir taip
+     uzrakintas, tad veiksmo is to nebutu, o pasibaigus darbui jis atsinaujina pats. */
   setText('sdCountsText',sdCountsStr||'SD card');   // usage alone still needs a label
   show('sdUsageText',sdUsageKnown);      // a bar without numbers would be a guess
   show('sdUsageBarWrap',sdUsageKnown);
@@ -942,12 +947,101 @@ const uploadPreviewFromUrl=async(name,url,type)=>{
    visada vienodo pavidalo: stacia ir tamsi. Iki 08-14 ten keliaudavo tos pacios drobes
    kopija, tad i printeri patekdavo tai, kas tuo metu buvo naršyklėje - sviesioje temoje
    sviesus paveiksliukas, o su ijungtu „as printed" - apverstas modelis. */
+/* Saraso piktograma: is TO PACIO piesinio, kuris ka tik padarytas miniatiurai, tad
+   papildomo darbo nera nei narsyklei, nei printeriui. Paimam tik pati modeli (dezes
+   remelis ir fonas - pilki, modelis spalvotas), iskerpam kvadrata ir susmulkinam iki
+   56 px. Stende issiaiskinta, kad be sio iskirpimo ikona virsta tasku: dezė uzima
+   didziaja dali vaizdo (V 08-16). */
+const ICO_LS='tmIco:',ICO_PX=56,ICO_KEEP=24,ICO_SCAN=200;
+/* Sotumo riba. 40 buvo per arti plokstes briaunos (rgba 158,182,206 duoda ~48, o su
+   kita alfa - dar maziau): pakeitus palete bbox butu apglebes visa plokste ir ikona
+   tyliai virtusi tasku. Modelis oranzinis (232,114,12 -> 220), tad 60 palieka atsarga
+   i abi puses (auditas 08-16). */
+const ICO_SAT=60;
+const icoKeys=()=>{const a=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(ICO_LS)===0)a.push(k);}return a;};
+const icoDrop=name=>{try{localStorage.removeItem(ICO_LS+name);}catch(e){}};
+const saveRowIcon=(cv,name)=>{
+  if(VIEW_RAW)return;                                // kubeliai - diagnostika, ne i sarasa
+  try{
+    const w=cv.width,h=cv.height;
+    if(!w||!h)return;
+    /* Skenuojam SUMAZINTA kopija: atsieta drobe dauginama is irenginio tankio, tad
+       „720x420" realiai buna iki 2160x1260 - 2,7 mln. pikseliu ir ~11 MB vienam
+       paveiksliukui, o „Prepare 3D" cikle tai kartotusi kiekvienam modeliui
+       (auditas 08-16). Kelias pikselis paklaidos ribose nieko nekeicia. */
+    const k=Math.min(1,ICO_SCAN/Math.max(w,h)),sw=Math.max(8,Math.round(w*k)),sh=Math.max(8,Math.round(h*k));
+    const sc=document.createElement('canvas');sc.width=sw;sc.height=sh;
+    sc.getContext('2d').drawImage(cv,0,0,sw,sh);
+    const d=sc.getContext('2d').getImageData(0,0,sw,sh).data;
+    let x0=sw,y0=sh,x1=-1,y1=-1;
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
+      const i=(y*sw+x)*4,r=d[i],g=d[i+1],b=d[i+2];
+      if(d[i+3]>8&&Math.max(r,g,b)-Math.min(r,g,b)>ICO_SAT){   // sotus pikselis = modelis
+        if(x<x0)x0=x; if(y<y0)y0=y; if(x>x1)x1=x; if(y>y1)y1=y;
+      }
+    }
+    if(x1<0)return;                                  // modelio nerasta - piktogramos nera
+    const s=1/k,                                     // atgal i tikros drobes koordinates
+          side=Math.max(4,Math.round(Math.max(x1-x0,y1-y0)*1.12*s)),
+          cx=(x0+x1)/2*s,cy=(y0+y1)/2*s;
+    const ic=document.createElement('canvas');ic.width=ic.height=ICO_PX;
+    ic.getContext('2d').drawImage(cv,cx-side/2,cy-side/2,side,side,0,0,ICO_PX,ICO_PX);
+    const url=ic.toDataURL('image/png');
+    if(url.length>12000)return;                      // per sunki - geriau piestine
+    const rec=JSON.stringify({t:Date.now(),u:url});
+    try{localStorage.setItem(ICO_LS+name,rec);}
+    catch(e){
+      /* Vietos pritruko. Piktogramos yra patogumas, o toje pacioje saugykloje guli
+         pjuviai (`tmSlices`), be kuriu F5 spausdinimo viduryje prarastu 3D progresa -
+         tad pirma laukan visos piktogramos, tik tada bandom dar karta (auditas 08-16). */
+      icoKeys().forEach(k2=>{try{localStorage.removeItem(k2);}catch(_){}});
+      try{localStorage.setItem(ICO_LS+name,rec);}catch(_){return;}
+    }
+    /* Isnesam SENIAUSIAS. `localStorage.key()` tvarka nera chronologine, tad be laiko
+       zymos butu isnesama atsitiktine - kartais net ta pati, ka ka tik irasem. */
+    const all=icoKeys().map(k2=>{let t=0;try{t=(JSON.parse(localStorage.getItem(k2)||'{}').t)||0;}catch(_){}
+                                 return {k:k2,t:t};}).sort((a,b)=>a.t-b.t);
+    while(all.length>ICO_KEEP){const o=all.shift();try{localStorage.removeItem(o.k);}catch(_){}}
+    renderFiles();
+  }catch(e){}                                        // patogumas, ne butinybe
+};
+const rowIcon=name=>{
+  try{const v=localStorage.getItem(ICO_LS+name);if(!v)return '';
+      return v.charAt(0)==='{'?(JSON.parse(v).u||''):v;}catch(e){return '';}
+};
+/* Piktograma padaroma ir tada, kai pjuviai jau buvo paruosti anksciau: `uploadFixedThumb`
+   kelias suveikia tik PIRMA karta pjaustant, tad ant printerio, kur modeliai jau paruosti,
+   sarasas butu likes visai be piktogramu (auditas 08-16). Piesiam i maza drobe - pjuviai
+   atmintyje, tad tai pigu - ir tik jei piktogramos dar nera. */
+const rowIconNeeded=name=>!(!name||rowIcon(name)||VIEW_RAW)&&
+  !(!slicesCache.slices.length||slicesCache.name!==name||slicesCache.mode==='live');
+const ensureRowIcon=name=>{
+  if(!rowIconNeeded(name))return;
+  try{
+    const tmp=document.createElement('canvas');
+    const wasDark=PV_FORCE_DARK;PV_FORCE_DARK=true;
+    try{drawIso(tmp,1);saveRowIcon(tmp,name);}
+    finally{PV_FORCE_DARK=wasDark;repaintPreviewForTheme();}
+  }catch(e){}
+};
+/* Tas pats „Prepare 3D" ciklui: ten modeliu daug, tad piesiam DALIMIS (drawIsoAsync),
+   kad puslapis liktu gyvas ir naršyklė nesustingtu ties dešimtu modeliu. */
+const ensureRowIconAsync=async name=>{
+  if(!rowIconNeeded(name))return;
+  try{
+    const off=document.createElement('canvas');
+    const wasDark=PV_FORCE_DARK;PV_FORCE_DARK=true;
+    try{await drawIsoAsync(off,1);saveRowIcon(off,name);}
+    finally{PV_FORCE_DARK=wasDark;}
+  }catch(e){}
+};
 const uploadFixedThumb=async(name,type)=>{
   const tmp=document.createElement('canvas');
   const wasDark=PV_FORCE_DARK;
   PV_FORCE_DARK=true;
   try{
     drawIso(tmp,1);                                  // pjuviai jau atmintyje - piesimas pigus
+    saveRowIcon(tmp,name);                           // ta pati piesini - ir i saraso piktograma
     await uploadModelPreview(name,await canvasBlob(tmp),type);
   }finally{
     PV_FORCE_DARK=wasDark;
@@ -1352,6 +1446,11 @@ const applyStatus=s=>{
          išvalyti. Anksčiau tai spręsdavo antraštės tekstas, bet joje dabar modelio
          vardas, o šioje (gyvo 3D) šakoje žymė nebūdavo nustatoma (auditas 08-13). */
       busyPreviewShown='print:'+s.model;
+      /* Kiek spaudinys buvo nuejes, kai ji paskutini karta mateme. Pagal tai idle saka
+         atskiria BAIGTA spaudini nuo NUTRAUKTO: baigtam modelis korteleje lieka (V prase),
+         o nutraukus Stop jis turi dingti - kitaip po Stop korteleje stovi tas pats daiktas
+         ir atrodo, lyg niekas nebutu sustoje (V 08-16, testas nr. 12). */
+      lastPrintFrac=Math.min(1,s.currentLayer/s.totalLayers);
       /* Viena antrastes forma abiem sakoms (V 08-14): telefone, kol platforma dar
          leidziasi, pjuviu dar nera ir ten suveikdavo apatine saka - vienas irenginys
          rodydavo „Tooth · printing", kitas „Printing · 0%". Procentas pirmas: siauroje
@@ -1377,13 +1476,32 @@ const applyStatus=s=>{
         // nebėra požymis, kad liko spausdinimo vaizdas - klausiam tiesiai.
         /* `justConnected` - kad uzrasas „Connecting to the printer..." butu pakeistas
            i tikra bukle, kai atsakymas pagaliau ateina. */
+        /* Pasibaigus spaudiniui modelis LIEKA pasirinktas - kortele parodo ji is naujo,
+           normaliu 3D (pjuviai jau atmintyje), o eiluteje lieka gyvi Start (spausdinti
+           dar karta) ir Delete.
+           Kartą tai jau buvo bandyta ir atsukta (08-14): tada korteleje likdavo GRUBUS
+           spaudinio piesinys, o „Preview" ant to modelio nieko nedarydavo - vardas jau
+           nustatytas, tad kelio atgal nebuvo. Dabar aklavietes nera: piesinys perpiesamas
+           is pjuviu, o pats paspaudimas ant eilutes visada perkrauna perziura. */
+        if(busyPreviewShown.indexOf('print:')===0&&!s.busy){
+          const doneName=busyPreviewShown.slice(6);busyPreviewShown='';
+          /* `else` cia BUTINAS: zyme jau istrinta, tad zemiau esantis placeholder'is
+             nebesuveiktu ir korteleje amziams liktu paskutinis spaudinio kadras su
+             antraste „Printing 100%" (auditas 08-16). Pjuviai netinka, kai zmogus
+             ziuri detaliu vaizdu: spaudinio ruosa visada grubi (3395), tad tokiu
+             atveju elgiames kaip anksciau - kortele issivalo. */
+          /* `mode!=='live'` butinas: gyvo srauto kese yra TIK jau atspausdinti sluoksniai,
+             tad sustabdzius spaudini si vieta butu parodziusi nukirsta modeli kaip
+             pilna „Model preview" (auditas 08-16). Tokiu atveju - svarus placeholder'is. */
+          /* Modelis lieka ir BAIGUS, ir NUTRAUKUS (V 08-16). Buvau padaręs isimti nutrauktam,
+             bet nauda kita pusen: stabdai dazniausiai tam, kad pataisytum ir paleistum is naujo -
+             tada modelis jau pazymetas, Start po ranka. Kad spaudinio nebera, sako antraste
+             (vietoj „Printing 40% · vardas" - modelio vardas), dinge Pause/Stop ir atsirades Start. */
+          lastPrintFrac=0;
+          if(slicesFit(doneName)&&slicesCache.mode!=='live')dashPreview(enc(doneName),{scroll:false,silent:true});
+          else dashPreviewPlaceholder();
+        }
         if(!dashPreviewName&&(busyPreviewShown||justConnected))dashPreviewPlaceholder();
-        /* ATSUKTA (V 08-14, vakaras). Buvau padaręs, kad pasibaigus spaudiniui korteleje
-           liktu ka tik spausdintas modelis. Praktikoje isejo blogiau: korteleje likdavo
-           GRUBUS spaudinio piesinys, o pultas jau laike ta modeli „perziurimu" - tad
-           paspaudus „Preview" ant jo nieko nevykdavo (dashPreview grizta, kai perziuros
-           vardas jau nustatytas), ir 3D uzsikraudavo tik pasirinkus kita modeli.
-           Grizom prie senos elgsenos: pasibaigus spaudiniui kortele issivalo. */
         /* Kortelės darbo metu (ispakavimas, trynimas, MUSU siuntimas) deze sake „Pick a
            model and press Preview", nors kitos vietos tuo metu rase, kad printeris
            uzimtas (V 08-14). Klausiam to paties klausimo kaip visur: `busyBoxText()`
@@ -1430,7 +1548,7 @@ const applyStatus=s=>{
           busyPreviewShown='live:'+s.model;
           paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);
         }else{
-          $('prevNote').textContent='Live 3D print progress isn’t available here - open Preview before starting a print to see it.';
+          $('prevNote').textContent='Live 3D print progress isn’t available here - open the model in the SD card list before starting a print to see it.';
           show('prevNote',true);
           // Fill the canvas once (guarded): the RAM snapshot if the printer kept
           // one, otherwise a plain placeholder.
@@ -1532,7 +1650,16 @@ let filesItems=[],filesHidden=0,filesPage=0,filesQuery='',connectLocalModels={},
 // In-memory only: a reload means you have seen the current SD state.
 let newNames=new Set();
 const clearNew=n=>{if(newNames.delete(n))renderFiles();};
-const FILES_PER_PAGE=12;
+/* Apvalus skaicius, o ne 12 „is akies" (V 08-16). Nuo jo pats pasiskaiciuoja ir
+   puslapiavimas, ir kada rodyti filtro laukeli. */
+const FILES_PER_PAGE=10;
+/* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
+   Piesiama vietoje, be nieko is printerio. */
+const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
+  '<rect x="2" y="10" width="12" height="2.6" rx="1"/><rect x="3.5" y="6.4" width="9" height="2.6" rx="1" opacity=".7"/>'+
+  '<rect x="5" y="2.8" width="6" height="2.6" rx="1" opacity=".45"/></svg>';
+const FICO_ZIP='<svg class="fico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">'+
+  '<rect x="2.5" y="3" width="11" height="10" rx="1.8"/><path d="M8 3.4v9.2" stroke-dasharray="1.7 1.5"/></svg>';
 const renderFiles=()=>{
   const list=$('filesList');
   const q=filesQuery.toLowerCase();
@@ -1558,12 +1685,33 @@ const renderFiles=()=>{
     // nothing six times over (user finding). Only archives keep a subtitle,
     // where it carries real information: what it is and how big.
     const meta=it.type==='model'?'':'Archive - '+formatBytes(it.sizeBytes);
-    const inPv=it.type==='model'&&it.name===dashPreviewName;
-    const isNew=it.type==='model'&&newNames.has(it.name);
-    h+='<div class="file"><div><strong>'+esc(it.name)+'</strong>'+
-      (isNew?'<span class="newPill">New</span>':'')+(inPv?'<span class="inPv">In preview</span>':'')+(meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div><div class="rowActions">';
-    if(it.type==='model')h+='<button class="small button secondary"'+dis+' onclick="dashPreview(\''+enc(it.name)+'\')">Preview</button><button class="small"'+dis+' onclick="startPrint(\''+enc(it.name)+'\')">Start</button>';
-    h+='<button class="delete"'+dis+' onclick="deleteFile(\''+enc(it.name)+'\')">Delete</button></div></div>';
+    const isModel=it.type==='model';
+    /* Pazymeta eilute = tas modelis, kuris siuo metu perziuroje. Paspaudimas ant
+       eilutes ir yra „Preview" (mygtuko nebeliko), tad sarasas lieka vien vardai,
+       o veiksmai iskyla ten, kur ju reikia - pasirinktoje eiluteje. */
+    const sel=isModel&&it.name===dashPreviewName;
+    const loading=sel&&previewLoadingName===it.name;
+    const isNew=isModel&&newNames.has(it.name);
+    const ico=isModel?rowIcon(it.name):'';   // viena uzklausa i saugykla, ne dvi
+    const clickable=isModel&&!busy&&!(statusData&&statusData.webControl===false);
+    // Klaviatura: eilute yra mygtukas, tad ja galima pasiekti Tab'u ir paspausti Enter/tarpu
+    // (Preview mygtukas tai turejo savaime, o `div` be sio - ne).
+    h+='<div class="file'+(sel?' sel':'')+(clickable?'':' locked')+'" data-n="'+esc(it.name)+'"'+
+      (clickable?' tabindex="0" onclick="pickModel(\''+enc(it.name)+'\')"':'')+'><div><div class="nm">'+
+      (isModel?(ico?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">':FICO_MODEL):FICO_ZIP)+
+      '<strong>'+esc(it.name)+'</strong>'+
+      (isNew?'<span class="newPill">New</span>':'')+'</div>'+
+      (meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div><div class="rowActions">';
+    /* Kaireji langeli uzima Start arba krovimo zyma, o archyvams jis lieka tuscias -
+       taip Delete visose eilutese stovi vienoje vietoje ir yra vienodo plocio.
+       Start pasirodo tik uzsikrovus vaizdui: paleidi tai, ka MATAI. Delete laukti
+       neverciam - trinamas dazniausiai butent tas modelis, kurio nenori krauti. */
+    if(isModel&&sel)h+=(loading?'<span class="rowWait"><span class="rowSpin"></span>Loading…</span>'
+                               :'<button class="small"'+dis+' onclick="event.stopPropagation();startPrint(\''+enc(it.name)+'\')">Start</button>');
+    else if(!isModel)h+='<span></span>';
+    // Archyvams (ZIP/SL1) perziuros nera, tad ju vienintelis veiksmas rodomas visada.
+    if(!isModel||sel)h+='<button class="delete"'+dis+' onclick="event.stopPropagation();deleteFile(\''+enc(it.name)+'\')">Delete</button>';
+    h+='</div></div>';
   });
   // No models on the card -> Upload becomes the only meaningful action and
   // earns the accent; with models present the row Starts own it.
@@ -1579,8 +1727,28 @@ const renderFiles=()=>{
   if(filesHidden>0)sdCountsStr+=(sdCountsStr?' · ':'')+filesHidden+' hidden';
   $('sdCountsText').title=filesHidden>0?filesHidden+' other SD item(s) are not shown here':'';
   sdFooterSync();
-  if(pages>1)h+='<div class="rowActions" style="justify-content:center;margin-top:10px"><button class="small button secondary"'+(filesPage===0?' disabled':'')+' onclick="filesNav(-1)">&laquo; Prev</button><span class="meta">'+(filesPage+1)+' / '+pages+'</span><button class="small button secondary"'+(filesPage+1>=pages?' disabled':'')+' onclick="filesNav(1)">Next &raquo;</button></div>';
+  /* Puslapiavimas - NARSYMAS sarase, ne veiksmas su printeriu, tad tekstines nuorodos,
+     o ne mygtukai: trys pilki mygtukai konkuravo demesiu su Start ir Delete, nors ju
+     svoris visai kitas (V 08-16). Paspaudimo laukas platus - telefonui. */
+  if(pages>1){
+    const pg=(d,txt,off)=>off?'<span class="pgOff">'+txt+'</span>'
+                             :'<a href="#" onclick="filesNav('+d+');return false">'+txt+'</a>';
+    h+='<div class="pager">'+pg(-1,'&laquo; Prev',filesPage===0)+
+       '<span class="meta">'+(filesPage+1)+' / '+pages+'</span>'+
+       pg(1,'Next &raquo;',filesPage+1>=pages)+'</div>';
+  }
+  /* Sarasas perpiesamas visas, tad klaviatura pasirinkta eilute dingdavo kartu su fokusu
+     ir Tab pradedavo nuo virsaus (auditas 08-16). Grazinam fokusa i ta pacia eilute. */
+  const focRow=document.activeElement,
+        focName=(focRow&&focRow.classList&&focRow.classList.contains('file'))?focRow.getAttribute('data-n'):'';
   list.innerHTML=h;
+  if(focName)try{
+    const back=list.querySelector('.file[data-n="'+(window.CSS&&CSS.escape?CSS.escape(focName):focName)+'"]');
+    /* `preventScroll` butinas: po pelės paspaudimo eilute lieka fokusuota, ir baigus
+       krovima sarasas persipiestu bei nusluosstytu ka tik atlikta slinkima prie perziuros -
+       telefone puslapis nusoktu atgal zemyn (auditas 08-16). */
+    if(back&&back.focus)back.focus({preventScroll:true});
+  }catch(e){}
 };
 // The SD card cannot change while a print runs - it is locked for the printer's
 // own layer reads - so a list saved from before the print is guaranteed correct
@@ -1773,6 +1941,7 @@ const showDetailToggle=()=>{
 let prevBusyPrint=false;   // ar praeita apklausa buvo spausdinama (spaudinio pradziai pagauti)
 let slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
 let lastPrevFrac=-1;
+let lastPrintFrac=0;   // kiek spaudinys buvo nuejes, kai ji paskutini karta mateme
 let liveHave=0,liveFetching=false;   // P-live: silhouettes pulled from the printer
 let busyPreviewShown='';   // 0-19: model whose RAM-cached preview this page already fetched mid-print
 let sdBoxCur='';           // koks korteles darbo uzrasas jau nupiestas dezeje
@@ -2764,13 +2933,39 @@ const modelPreview=async()=>{
     if(selectedModel===name)drawVolumeBox($('modelPreviewCanvas'));
   }
 };
-// Dashboard preview: the SD row's Preview button renders straight into the
+// Dashboard preview: clicking an SD row renders straight into the
 // always-visible Model preview card (Print progress 3D while printing).
 let dashPreviewName='',slicesPrefetching=false;
+/* Kurio modelio vaizdas SIUO METU kraunamas. Tol, kol kraunasi, pazymetoje eiluteje
+   sukasi suktukas vietoj Start - telefone 3D dazniausiai lieka zemiau ekrano krasto,
+   tad eilute pati turi pasakyti, kad kazkas vyksta (V 08-16).
+   Sekam butent krovima, o ne „ar uzsikrove": krovimas visada baigiasi (ir pavykes, ir
+   ne), tad suktukas negali likti amzinai. Pries tai sekiau „paruosta", ir uzteko
+   pazymeti eilute nekraunant (startPrint is modelio lango), kad suktukas suktusi be
+   galo (auditas 08-16). */
+let previewLoadingName='';
+const setPreviewLoading=n=>{if(previewLoadingName===n)return;previewLoadingName=n;renderFiles();};
+/* SAVAS bandymo numeris. `fetchSlicesSeq` cia netinka: ji pasididina pati `fetchSlices`
+   (2620), tad palyginimas po jos visada nesutampa - butent nuo to speja komentaras ties
+   „Savo eiles numerio cia NEGALIMA" ir butent i tai iklimpau (auditas 08-16, antras ratas):
+   po sekmingo krovimo suktukas butu likes suktis amzinai. Sis skaitiklis kyla TIK naujam
+   perziuros bandymui, tad atsako i vieninteli klausima: ar sitas bandymas dar naujausias. */
+let previewRun=0;
+/* Vienintele durys is saraso i perziura. Uzrakinta (spausdinama, kortele dirba,
+   web valdymas isjungtas) - paspaudimas nieko nedaro; eilutes tada ir nera
+   spaudziamos, tai tik antra sarga. */
+window.pickModel=n=>{
+  if(uiBusy()||(statusData&&statusData.webControl===false))return;
+  dashPreview(n);   // tas pats vardas = perkrauti perziura (jokiu aklaviecziu)
+};
 // Single door for the previewed-model name: the SD list marks that row, so the
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
-const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;renderFiles();
+const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;
+  /* Kito modelio pasirinkimas nutraukia buvusi krovima, tad ir jo zyme cia pat nukrenta -
+     kitaip suktukas persoktu ant naujos eilutes (dashPreview zyme uzsideda is naujo). */
+  if(previewLoadingName&&previewLoadingName!==n)previewLoadingName='';
+  renderFiles();
   /* Iskart, nelaukiant apklausos: atidarius perziura mygtukas turi atsirasti tuoj pat,
      o ne po sekundes - kitaip atrodo, lyg butu uzstriges. */
   if(window.setStageGrowUI)setStageGrowUI(!!n&&!(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
@@ -2811,7 +3006,7 @@ const dashPreviewPlaceholder=()=>{
   /* „Pasirink modeli" reiskia „printeris laisvas ir laukia". Kol atsakymo dar nebuvo,
      to nezinom, tad sakom tiesa: dar jungiames (V 08-14). */
   paintPreviewProgress($('printPreviewCanvas'),
-    firstStatusSeen?'Pick a model and press Preview':'Connecting to the printer...',null);
+    firstStatusSeen?'Tap a model in the SD card list':'Connecting to the printer...',null);
   showDetailToggle();
 };
 // Which printer session the saved preview belongs to: the printer's own uptime
@@ -2828,6 +3023,12 @@ const forgetDashPreview=()=>{localStorage.removeItem('dashPreviewModel');localSt
 const restoreDashPreview=async()=>{
   const name=localStorage.getItem('dashPreviewModel')||'';
   if(!name)return dashPreviewPlaceholder();
+  /* Numeris pasiimamas ne cia, o TIK tada, kai sita funkcija tikrai perima kortele
+     (zemiau, prie `setDashPreviewName`). Kildamas anksciau jis nuvertindavo ka tik
+     zmogaus pradeta perziura: pirmo paspaudimo suktukas likdavo kabeti, nes jo paties
+     `finally` jau butu „pasenes" (auditas 08-16, trecias ratas). Boot metu tai realu -
+     sarasas nupiesiamas anksciau uz pirma busenos atsakyma, tad bakstelti spetum. */
+  let myRun=0;
   /* `uiBusy`, ne vien printerio vėliava: perkrovus puslapį per SAVO įkėlimą printeris
      dar tyli, ir atsistatydavo senas modelis, nors tuo metu vyko darbas (V 08-14). */
   if(uiBusy())return;   // darbas valdo kortele - jos neliečiam
@@ -2863,7 +3064,9 @@ const restoreDashPreview=async()=>{
     showDetailToggle();
     if((statusData&&statusData.busy)||dashPreviewName)return;
     if(!haveSlices&&(!hasVoxel||!d.resinEstimated))return dashPreviewPlaceholder();
+    myRun=++previewRun;        // nuo cia kortele musu
     setDashPreviewName(name);
+    setPreviewLoading(name);   // dar piesiam - eiluteje suktukas, ne Start
     // `cv` cia anksciau nebuvo apibreztas - ReferenceError palikdavo tuscia
     // langa kaskart perkrovus puslapi (V 08-12).
     const cv=$('printPreviewCanvas');
@@ -2891,6 +3094,7 @@ const restoreDashPreview=async()=>{
     if((e.message||'')==='model not found')forgetDashPreview();
     if(!dashPreviewName&&!(statusData&&statusData.busy))dashPreviewPlaceholder();
   }
+  finally{ if(myRun&&previewRun===myRun&&previewLoadingName===name)setPreviewLoading(''); }
 };
 // On the phone the preview card sits above the SD list, so a tap on Preview
 // or Start rendered into a card the user could not see - nothing seemed to
@@ -2930,6 +3134,7 @@ const upgradeToSlices=async(name,d)=>{
      24 px, kilnodavosi visas puslapis (ismatuota: doc 1650 <-> 1625). Drobe
      nieko nereflow'ina, tad problema dingsta is principo. */
   const cvp=$('printPreviewCanvas');
+  const myRun=previewRun;   // ar sita perziura dar naujausia (zr. zemiau, gaudykleje)
   const setN=t=>paintPreviewProgress(cvp,t,0);
   setN('Building the 3D view\u2026');
   setPreviewBusy(true);
@@ -2955,7 +3160,11 @@ const upgradeToSlices=async(name,d)=>{
     /* Cia krovimas nutrūksta perjungus vaizdą (openView pasididina
        fetchSlicesSeq). Gaudyklė buvo tyli, tad drobėje likdavo paskutinis
        skaičius ir atrodė, kad užstrigo (V 08-13). */
-    if(e&&e.message==='preview superseded'&&dashPreviewName===name)markPreviewStopped(cvp,name);
+    /* „Preview stopped" - tik jei perziuros niekas nepakeite. Paspaudus TA PACIA eilute
+       du kartus senasis fono darbas cia nukrenta, o naujasis jau sukasi: uzrasas blyksteledavo
+       ir tuoj pat dingdavo po „Preloading" (V 08-16, testas nr. 6). Numeris pasikeites =
+       yra kam piesti, tad tylim. */
+    if(e&&e.message==='preview superseded'&&dashPreviewName===name&&previewRun===myRun)markPreviewStopped(cvp,name);
   }
   finally{
     setPreviewBusy(false);    // uzimtumo zyma nuimama kartu su visu kitu
@@ -2965,23 +3174,35 @@ const upgradeToSlices=async(name,d)=>{
   }
 };
 
-const dashPreview=async nameEnc=>{
+const dashPreview=async(nameEnc,opts)=>{
   const name=decodeURIComponent(nameEnc);
   clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
   setDashPreviewName(name);
-  if(window.gl3dResetView)gl3dResetView();   // peržiūra visada pradeda tuo paciu kampu
-  { const cb=$('gl3dClipBar'); if(cb){cb.classList.remove('on');$('gl3dClipRange').value=60;syncClipBtn();} }
-  clearPreviewStopped($('printPreviewCanvas'));   // naujas bandymas - senas „stopped" nebegalioja
-  scrollPreviewIntoView();show('prevNote',false);
+  setPreviewLoading(name);                 // eiluteje: suktukas vietoj Start
   fetchSlicesSeq++;                        // cancel a previous run right away
+  const myRun=++previewRun;                // ar sitas bandymas dar naujausias
   const cv=$('printPreviewCanvas');
-  $('printPreviewTitle').textContent='Model preview';
-  $('printPreviewBarFill').style.width='0%';
-  setModelInfoRows(null);show('dashShareButton',false);
-  show('printPreviewCard',true);
-  paintPreviewProgress(cv,'Loading preview...',.05);
+  /* VISKAS po krovimo zymes - `try` viduje. Cia yra kvietimu, kurie gali mesti
+     sinchroniskai (pvz. `paintPreviewProgress`; `startPrint` ji ne veltui apgaubia
+     savo gaudykle), o funkcija kvieciama is `onclick` be `await` - toks metimas butu
+     dinges tyliai ir palikes amzina suktuka (auditas 08-16, trecias ratas). */
   try{
+    if(window.gl3dResetView)gl3dResetView();   // peržiūra visada pradeda tuo paciu kampu
+    { const cb=$('gl3dClipBar'),cr=$('gl3dClipRange');
+      // `cr` tikrinam atskirai: nuo tada, kai visa paruosa yra `try` viduje, cia kilęs
+      // TypeError virstu raudonu snacku su JS eilute zmogui po nosim (auditas 08-16).
+      if(cb){cb.classList.remove('on');if(cr)cr.value=60;syncClipBtn();} }
+    clearPreviewStopped(cv);   // naujas bandymas - senas „stopped" nebegalioja
+    /* Slinkti nereikia, kai perziura atsistato PATI (pasibaigus spaudiniui) - tada
+       puslapis pasoktu po zmogaus kojomis. Paspaudus eilute - slenkam kaip anksciau. */
+    if(!(opts&&opts.scroll===false))scrollPreviewIntoView();
+    show('prevNote',false);
+    $('printPreviewTitle').textContent='Model preview';
+    $('printPreviewBarFill').style.width='0%';
+    setModelInfoRows(null);show('dashShareButton',false);
+    show('printPreviewCard',true);
+    paintPreviewProgress(cv,'Loading preview...',.05);
     const d=await api('/api/files/model?name='+enc(name));
     if(dashPreviewName!==name)return;
     let resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
@@ -3013,6 +3234,7 @@ const dashPreview=async nameEnc=>{
       if(!resin&&mlEst){resin='~'+mlEst.toFixed(1)+' ml (quick)';setInfo();}
     }
     if(dashPreviewName!==name)return;
+    ensureRowIcon(name);     // jei saraso piktogramos dar nera - pasidarom is to, kas jau nupiesta
     setShareUI('dashShareButton',connectIsReady(),!!(d.connectPublicId||'').length);
     localStorage.setItem('dashPreviewModel',name);
     const bs=printerBootStamp();if(bs!==null)localStorage.setItem('dashPreviewBoot',String(bs));
@@ -3023,15 +3245,39 @@ const dashPreview=async nameEnc=>{
          likdavo paskutinis nupiestas skaicius - „94/240 (39%)" amzinai, ir
          atrodydavo, kad uzstrigo (V 08-13). Jei nauja perziura nepradeta,
          pasakom, kas ivyko, ir kviesciam pakartoti. */
-      if(dashPreviewName===name)markPreviewStopped(cv,name);
+      /* TIK jei tai vis dar naujausias bandymas. Du paspaudimai ant tos pacios
+         eilutes: antrasis nutraukia pirmaji, o vardas nepasikeites - be sio
+         patikrinimo pirmojo „nutraukta" uzrasas nusestu ant dar besikraunancio
+         vaizdo (auditas 08-16). Nutraukus is salies (isejus i kita vaizda, istrynus)
+         numeris NEpasikeicia, tad uzrasas su keliu atgal lieka - taip ir turi buti. */
+      if(dashPreviewName===name&&previewRun===myRun)markPreviewStopped(cv,name);
       return;
     }
     /* Nepavykes krovimas irgi turi ISEITI: anksciau drobeje likdavo negyvas
        „Preview failed", ir vienintelis kelias buvo perkrauti puslapi. Daznaiusia
        priezastis - printeris tuo metu aptarnavo kita langa ar siuntima (jis atsako po
        viena uzklausa), tad pakartojimas po kelių sekundžių paprastai pavyksta. */
+    /* Tylus rezimas - kai perziura atsistato PATI po spaudinio. Tada raudonas snackas
+       butu bausme uz sekminga spaudini: printeris tuo metu dar kelia platforma ir
+       gali neatsakyti (auditas 08-16). Rankiniam paspaudimui viskas kaip buvo. */
+    if(opts&&opts.silent){
+      // Tylu ekrane, bet ne visai: pedsakas konsoleje, kad butu ka gaudyti, jei kortele
+      // po spaudinio issivalytu del tikros klaidos, o ne del busenos (auditas 08-16).
+      try{console.warn('auto preview after print failed:',e.message);}catch(_){}
+      if(dashPreviewName===name&&previewRun===myRun)dashPreviewPlaceholder();
+      return;
+    }
     msg(e.message,true);
-    if(dashPreviewName===name)markPreviewStopped(cv,name,'Preview failed - '+e.message);
+    /* Nepavyko - drobeje lieka kelias atgal (paspausti ir bandyti is naujo), o eiluteje
+       suktukas uzsidaro pats zemiau esanciame `finally`: failas kortelėje sveikas,
+       nepavyko tik piesinys, tad Start lieka pasiekiamas. */
+    if(dashPreviewName===name&&previewRun===myRun)markPreviewStopped(cv,name,'Preview failed - '+e.message);
+  }
+  finally{
+    /* Krovimo zyme nuimama VISUOSE keliuose - ir pavykus, ir nepavykus, ir isejus per
+       ankstyva `return`. Sarga pagal SAVO bandymo numeri: senesnis bandymas neturi nuimti
+       zymes nuo naujesnio, kuris tuo metu jau sukasi. */
+    if(previewRun===myRun&&previewLoadingName===name)setPreviewLoading('');
   }
 };
 window.dashPreview=dashPreview;
@@ -3235,14 +3481,31 @@ const refreshModelThumb=async(name,cv)=>{
 const refreshShareState=async name=>{
   try{
     const d=await api('/api/files/model?name='+enc(name));
-    if(!d||d.name!==name)return;
+    if(!d||d.name!==name)return false;
     const shared=!!(d.connectPublicId||'').length;
     if(dashPreviewName===name)setShareUI('dashShareButton',connectIsReady(),shared);
     if(selectedModel===name){
       selectedModelConnectPublicId=d.connectPublicId||'';
       setShareUI('modelShareButton',connectIsReady()&&!!selectedModel,shared);
     }
-  }catch(e){}
+    return shared;
+  }catch(e){return false;}
+};
+/* Viesaji ID i modelio metaduomenis irraso Connect programele, gyvenanti NE musu
+   puseje (kraunama is connect.tinymakerwifi.com), tad musu klausimas gali ateiti
+   anksciau, nei ji spejo. Vieno karto uzteko ne visada: mygtukas likdavo „Share"
+   iki puslapio perkrovimo (V 08-16). Klausiam kelis kartus retejanciais tarpais ir
+   sustojam, vos gavus atsakyma - printeriui tai 1-4 lengvos uzklausos. */
+const refreshShareStateSoon=async name=>{
+  if(await refreshShareState(name))return;
+  for(const ms of [700,1500,3000]){
+    await new Promise(r=>setTimeout(r,ms));
+    /* Uzimtam printeriui neklausinejam: jis atsako 409 nepriliesdamas kortelės, tad
+       atsakymas vis tiek butu „dar ne", o uzklausos tik stumdytusi su busenos apklausa
+       (auditas 08-16). Pasidalijimas jau ivyko - zyme atsinaujins kita karta. */
+    if(uiBusy())return;
+    if(await refreshShareState(name))return;
+  }
 };
 const shareModel=async(name,btn)=>{
   /* Dalijimasis uzima ta pati vienintelį printerio rysi kaip ir ikelimas, tad
@@ -3261,7 +3524,10 @@ const shareModel=async(name,btn)=>{
        to nedare niekas: „shared" pozymi uzdeda tik modelio kortos uzkrovimas, tad iki
        puslapio perkrovimo ikona atrode nepasidalinta ir buvo galima siusti antra karta
        (V 08-14). Perklausiam printerio - jis viesaji ID jau issaugojes. */
-    await refreshShareState(name);
+    /* NElaukiam: dalijimasis jau baigtas, o perklausimai gali tesitis iki ~5 s. Laukiant
+       ju mygtukas butu likes uzrakintas su suktuku, o snackas sakes „printeris neatsako",
+       nors nieko nebevyksta (auditas 08-16). Busena atsinaujins pati, kai ateis atsakymas. */
+    refreshShareStateSoon(name);
     return r;
   }catch(e){msg(e.message,true);}
   finally{
@@ -3376,7 +3642,17 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;deleteBusy=true;
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;
+  /* Trynimas ir perziuros krovimas eina i ta pati vieninteli printerio rysi. Nuo tada,
+     kai Delete pasiekiamas tik pazymejus eilute (o pazymejimas paleidzia krovima), abu
+     darbai lengvai susitinka - tad krovima nutraukiam vietoj to, kad leistume jiems
+     stumdytis ir gauti timeout'a (auditas 08-16). Tik kai krovimas TIKRAI vyksta:
+     kitaip archyvo trynimas be reikalo pasididintu skaitikli. */
+  if(previewLoadingName)fetchSlicesSeq++;
+  /* Piktograma iseina kartu su modeliu: kitaip ikelus TA PATI varda is naujo sarase
+     kabotu senojo modelio vaizdas, kol kas nors ji persluoksniuos (auditas 08-16). */
+  icoDrop(name);
+  deleteBusy=true;
   renderFiles();       // sarasas uzsirakina is karto, nelaukiant printerio atsakymo
   /* Ta pati snacko forma kaip visiems ilgiems darbams; skaiciai atsiras, kai printeris
      paskelbs darba (iki tol - tik tekstas ir tuscia juostele). */
@@ -3696,6 +3972,16 @@ window.startPrint=startPrint;
 window.deleteFile=deleteFile;
 window.filesNav=d=>{filesPage+=d;renderFiles();};
 $('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
+/* Enter/tarpas ant pazymetos eilutes daro ta pati, ka paspaudimas. Klausom sarasa, o ne
+   kiekviena eilute atskirai - eilutes perpiesamos kas apklausa. */
+$('filesList').addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  /* Ne `role=button`: eiluteje viduje yra tikri mygtukai, o mygtukas mygtuke ekrano
+     skaitytuvams neteisinga. Pasiekiamuma duoda `tabindex` + sitas klausytojas. */
+  const row=e.target.closest?e.target.closest('.file[tabindex]'):null;
+  if(!row||row!==e.target)return;      // mygtukai eiluteje tvarkosi patys
+  e.preventDefault();row.click();
+});
 
 // One gate, one owner. Two places used to set this - one watching web control,
 // the other busy/sdReady - each overwriting the other and neither seeing the
@@ -3905,7 +4191,11 @@ $('prep3dButton').addEventListener('click',async()=>{
       if(statusData&&statusData.busy){note.textContent='Stopped - a print started.';break;}
       done++;
       note.textContent=done+' / '+models.length+' - '+m.name;
-      if(await loadSlicesFromPrinter(m.name))continue;      // jau paruostas
+      /* Jau paruostas - pjuviu is naujo neskaiciuojam, BET saraso piktograma pasidarom:
+         be sito ant printerio, kur visi modeliai seniai paruosti, „Prepare 3D" piktogramoms
+         nedarydavo nieko (V 08-16: „nepadejo"). Pjuviai ka tik atkeliavo i kesa, tad
+         piesinys pigus. */
+      if(await loadSlicesFromPrinter(m.name)){await ensureRowIconAsync(m.name);continue;}
       try{
         const info=await api('/api/files/model?name='+enc(m.name));
         const layers=Number(info.printLayers)||Number(info.layers)||0;
@@ -3918,6 +4208,7 @@ $('prep3dButton').addEventListener('click',async()=>{
            ir jo blaškyti nereikia. */
         const off=document.createElement('canvas');
         await drawIsoAsync(off,1);   // dalimis: ciklas sukasi fone, puslapis lieka gyvas
+        saveRowIcon(off,m.name);     // is to paties piesinio - ir saraso piktograma
         await refreshModelThumb(m.name,off);
         made++;
       }catch(e){}
