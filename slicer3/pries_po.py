@@ -21,16 +21,18 @@ EIL = [('biustas', 'woman-prusa.sl1', '_senas_biowoman.zip', 'one-biowoman.zip')
        ('puodelis', 'cup-prusa.sl1', '_senas_puodelis.zip', 'one-puodelis.zip')]
 
 
-def matuok(path):
+def matuok(path, first=LAYER):
+    """`first` - PIRMO sluoksnio storis. PrusaSlicer jis 0,3 mm, ne 0,05, ir
+    skaiciuojant vienodai jo dervos likdavo neuzskaityta (rasta 08-16)."""
     zf = zipfile.ZipFile(LAB + '/' + path)
     names = sorted(n for n in zf.namelist() if n.lower().endswith('.png'))
     kr_sl = kr_px = 0
     turis = 0.0
-    for n in names:
+    for i, n in enumerate(names):
         a = np.asarray(Image.open(io.BytesIO(zf.read(n))).convert('L')) > 127
         if not a.any():
             continue
-        turis += a.sum() * PX * PX * LAYER
+        turis += a.sum() * PX * PX * (first if i == 0 else LAYER)
         e = int(a[0].sum() + a[-1].sum() + a[:, 0].sum() + a[:, -1].sum())
         if e:
             kr_sl += 1
@@ -42,7 +44,7 @@ print('%-12s %-8s %7s %9s %9s' % ('modelis', 'kieno', 'kr.sl', 'kr.tasku', 'turi
 for vardas, ref, senas, naujas in EIL:
     for kas, f in (('Prusa', ref), ('pries', senas), ('PO', naujas)):
         try:
-            ks, kp, v = matuok(f)
+            ks, kp, v = matuok(f, 0.3 if kas == 'Prusa' else LAYER)
         except Exception as e:
             print('%-12s %-8s  (%s)' % (vardas, kas, e))
             continue
