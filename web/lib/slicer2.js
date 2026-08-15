@@ -137,6 +137,14 @@ export const CFG = {
   pad_brim_mm:           1.6,
   pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
   pad_layers:            6,     // 0.3 mm / 0.05
+  /* Kaklelio riba (auditorius, raštas 011) - 8-10x. TANKINIMO ČIA NĖRA, ir
+     tai sąmoninga: bandžiau (08-17) ties tokia vieta sėti tankiau, stulpų
+     grybo teste išėjo 33 vietoj 8, o santykis nepajudėjo nuo 17,0. Priežastis
+     matoma pjūviuose: kontaktas yra kūgio galiukas ⌀0,4 mm = 0,126 mm², tad
+     33 galiukai duoda 4,1 mm² - persidengimą lemia ne stulpų skaičius, o
+     kontakto skersmuo. Ta pačia proga išmatuota, kad PrusaSlicer ant to paties
+     grybo duoda 22,1x (mes 17,0), t. y. 10x ribos nepasiekia nė etalonas. */
+
   /* MŪSŲ, ne PrusaSlicer'io taisyklė. Plokštė 40,8 × 30,6 mm yra maža, ir
      dideliems modeliams atramos pėda nebetelpa — PrusaSlicer tokią tiesiog
      nukerta ties LCD kraštu (išmatuota 08-15: biuste 1453 taškai ties kraštu
@@ -870,6 +878,25 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   /* --- 3 · routing_to_ground (DefaultSupportTree.cpp:577) ---------------- */
   const pillars = [], bridges = [];
   const addPillar = (h, id) => {
+    /* SULIETIMAS (V pastebėjimas 08-16: „supportas suporte"). Prieš statant
+       naują stulpą pasižiūrim, ar greta jau nestovi toks, kurio ašis arčiau nei
+       spindulių suma IR kurio aukščio ruožas su mūsiškiu persikloja. Tokie du
+       stulpai spausdinami vienas kitame — ta pati derva du kartus.
+       Išmatuota prieš darant (`slicer-lab/persidengimai.mjs`): biuste viena
+       tokia pora ėjo greta 15,9 mm, „evil" — nė vienos.
+
+       Liejam TIK per `connectToNearpillar`, t. y. tik jei tiltas praeina visas
+       pluošto patikras. Neradus kelio statom kaip anksčiau: geriau perteklinis
+       stulpas nei galvutė be nieko. */
+    for (let k = 0; k < pillars.length; k++) {
+      const p = pillars[k];
+      const rr = h.rBack + (p.rTop || cfg.pillar_radius_mm);
+      if (Math.hypot(p.x - h.junction[0], p.y - h.junction[1]) >= rr) continue;
+      // ruožai turi persikloti — kitaip vienas virš kito, o ne šalia
+      if (Math.min(p.top, h.junction[2]) - Math.max(p.bottom, 0) <= 0.05) continue;
+      log.mergeTry = (log.mergeTry || 0) + 1;
+      if (connectToNearpillar(h, k)) { log.merged = (log.merged || 0) + 1; return k; }
+    }
     const p = { x: h.junction[0], y: h.junction[1],
                 top: h.junction[2], bottom: 0, rTop: h.rBack, rBase: cfg.base_radius_mm,
                 head: id, bridges: 0 };
@@ -1001,10 +1028,16 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     }
     let best = null;
     const step = Math.max(r, 1e-3);
-    /* Du praėjimai: pirma ieškom vietos su ATSARGA (pėda + apvadas), ir tik
-       neradę tenkinamės ta, kur telpa bent pėda. Taip atrama traukiama į vidų
-       tiek, kiek modelis leidžia, bet dėl to neprarandama pati atrama. */
-    for (const margin of [edgeStrict, edgeLoose]) {
+    /* Praėjimai iš eilės, nuo gražiausio prie priimtino:
+         1. pėda + apvadas telpa IR nestovim ant kito stulpo;
+         2. telpa bent pėda IR nestovim ant kito stulpo;
+         3. telpa bent pėda (persidengimas jau leidžiamas).
+       Trečias reikalingas todėl, kad perteklinis stulpas vis tiek geriau nei
+       galvutė be nieko. Persidengimo vengimas — V pastebėjimas („supportas
+       suporte", 08-16): dviese, kurių ašys arčiau nei spinduliai, spausdinama
+       ta pati derva du kartus. */
+    for (const [margin, vengti] of [[edgeStrict, true], [edgeLoose, true],
+                                    [edgeLoose, false]]) {
       if (best) break;
       for (let l = 0; l <= cfg.max_bridge_length_mm && !best; l += step)
         for (const d of dirs) {
@@ -1017,6 +1050,9 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
           // Nusileidimo taškas turi ir TILPTI ant plokštės - tiltas į kraštą
           // nieko neduoda, ten pėda vis tiek būtų nukirsta.
           if (!fitsWith(p[0], p[1], margin)) continue;
+          if (vengti && pillars.some(q =>
+                Math.hypot(q.x - p[0], q.y - p[1]) < r + (q.rTop || cfg.pillar_radius_mm) &&
+                Math.min(q.top, p[2]) - Math.max(q.bottom, gnd) > 0.05)) continue;
           // Tikras sprendimas — pluoštas su saugos atstumu.
           if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
           if (beamHit(mesh, src, d.n, r, r, sd) < l) continue;   // ir pats tiltas
@@ -1025,6 +1061,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
         }
     }
     if (!best) return false;
+    log.fromGround = (log.fromGround || 0) + 1;
     pillars.push({ x: best.p[0], y: best.p[1], top: best.p[2], bottom: gnd,
                    rTop: r, rBase: cfg.base_radius_mm, head: h.id, bridges: 0 });
     if (best.l > 1e-6) bridges.push({ a: src.slice(), b: best.p.slice(), r });
@@ -1096,6 +1133,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
        pasėtas, galvutė sukurta, o piešinyje nieko — biuste 8, „evil" 2, ir
        būtent jos pulte matėsi kaip salos be atramos (08-14). */
     if (h.junction[2] - bottom <= 1e-6) continue;   // išsigimęs, nulinio ilgio
+    log.fromModel = (log.fromModel || 0) + 1;
     pillars.push({ x: h.junction[0], y: h.junction[1], top: h.junction[2],
                    bottom, rTop: h.rBack, rBase: h.rBack, head: i, bridges: 0,
                    onModel: true, anchored: true });
