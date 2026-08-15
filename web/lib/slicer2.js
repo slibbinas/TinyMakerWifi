@@ -657,7 +657,13 @@ function centroidOf(cl, heads) {
 /** Etapai tokia pat tvarka, kaip DefaultSupportTree::execute():
  *  add_pinheads -> classify -> routing_to_ground -> routing_to_model ->
  *  interconnect_pillars -> merge_result. */
-export async function buildSupportTree(pos, cfg = CFG, onProgress) {
+/* `jauPts` — jau pasėti taškai. Reikalingi TIK vienam atvejui: kai medis
+   perstatomas su atlaisvintu tarpu (žr. `relaxed` žemiau). Sėja apie tarpą
+   nieko nežino (`samplePointsFromLayers` neskaito nei `clearance_mm`, nei
+   `safety_distance_mm`), tad antrą kartą ji duotų TĄ PATĮ rezultatą — o
+   kainuoja daugiausiai iš visų etapų: biustui 31 s iš 78 s (išmatuota
+   `slicer-lab/etapai.mjs`, 08-16). */
+export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   /* Etapų laikai — kad optimizuotume tai, kas iš tikrųjų lėta, o ne tai, kas
      atrodo lėta (pirmas spėjimas buvo krypties paieška, o kainavo visai kas
      kita). */
@@ -671,7 +677,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
   lap('index');
   /* Taškai iš SLUOKSNIŲ, kaip SupportPointGenerator; sena sėja pagal mesh
      veidų kampą lieka faile palyginimui, bet grandinėje nebenaudojama. */
-  const pts = await samplePointsFromLayers(pos, cfg, onProgress);
+  const pts = jauPts || await samplePointsFromLayers(pos, cfg, onProgress);
   log.sampled = pts.length;
   lap('sample');
 
@@ -1261,7 +1267,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     /* Tikrinam INDEKSĄ, ne `undefined`: nepavykus inkarui `h.pillar` lieka
        `pillars.length - 1` = −1, tad „undefined" patikra nieko negaudė. */
     const relaxed = { ...cfg, clearance_mm: cfg.safety_distance_mm };
-    const again = await buildSupportTree(pos, relaxed, onProgress);
+    const again = await buildSupportTree(pos, relaxed, onProgress, pts);
     again.log.relaxed = true;
     return again;
   }
