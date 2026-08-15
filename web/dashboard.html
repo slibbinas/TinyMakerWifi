@@ -3834,6 +3834,9 @@ const syncClipBtn=()=>{
 };
 $('gl3dClip').addEventListener('click',e=>{
   e.stopPropagation();
+  /* Spausdinant si drobe rodo spaudini - perpjautas pabaigos kadras tik
+     klaidintu (auditas 08-15). */
+  if(statusData&&statusData.busy){msg('Not while printing - this canvas is showing the print.',true);return;}
   const bar=$('gl3dClipBar'), on=!bar.classList.contains('on');
   bar.classList.toggle('on',on);
   if(window.gl3dClip)gl3dClip(on?(+$('gl3dClipRange').value)/100:null);
@@ -3852,7 +3855,7 @@ $('gl3dRaw').addEventListener('click',async e=>{
   /* Trys saugikliai, kaip ir prie detalaus vaizdo: buildIso nera reentrant, o
      spausdinant toje pacioje drobeje sukasi gyvas progresas. */
   if(b.classList.contains('busy'))return;
-  if(!dashPreviewName||slicesCache.slices.length<3)return;
+  if(prep3dRunning||!dashPreviewName||slicesCache.slices.length<3)return;
   if(statusData&&statusData.busy){msg('Not while printing - this canvas is showing the print.',true);return;}
   VIEW_RAW=!VIEW_RAW;
   b.classList.toggle('on',VIEW_RAW);
@@ -3891,7 +3894,8 @@ $('prep3dButton').addEventListener('click',async()=>{
   /* Ruosiamas TIK grubus kesas - jis vienintelis ir saugomas kortelėje. Su
      ijungtu detaliu vaizdu ciklas butu skenaves po 72 sluoksnius modeliui,
      nieko neirases ir vis tiek parases „N prepared" (auditas 08-13). */
-  const wasDet=VIEW_DETAIL; VIEW_DETAIL=false; VIEW_RAW=false;
+  const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
+  VIEW_RAW=false; $('gl3dRaw').classList.remove('on');   // ciklas piesia glotniai
   try{
     const d=await api('/api/files');
     const models=(d.items||[]).filter(it=>it.type==='model');
@@ -3932,9 +3936,6 @@ $('prep3dButton').addEventListener('click',async()=>{
     prep3dRunning=false;
     btn.disabled=false;
     VIEW_DETAIL=wasDet;
-    /* Kubeliu NEGRAZINAM: ciklas viska perpiese glotniai, tad mygtukas
-       turi rodyti tai, kas ekrane, o ne tai, kas buvo pries tai. */
-    $('gl3dRaw').classList.remove('on');
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
     // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
     if(wasDet)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
