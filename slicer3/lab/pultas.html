@@ -56,8 +56,12 @@ duoda „tik tiek atramų, kiek reikia".</p>
 <tr><td>11</td><td>žymių kiekis</td><td>valymo darbas ir vaizdas</td><td>kuo mažiau</td><td>fizika.py</td></tr>
 <tr><td>12</td><td>žymių tankis matomose vietose</td><td>ten, kur matosi</td><td>kuo mažiau</td><td>dar nedaroma</td></tr>
 </table></div>
+<div class="scroll"><table>
+<tr class="grp"><td colspan="5">Naujas kriterijus (V sprendimas 2026-08-15, po Gemini audito)</td></tr>
+<tr><td>13</td><td>uždaros ertmės („siurbtukai")</td><td>vakuumas kylant išplėštų modelį iš atramų</td><td>0</td><td>fizika.py</td></tr>
+</table></div>
 
-<h2>Kur esam <span class="pill">2026-08-15, po visų pataisų</span></h2>
+<h2>Kur esam <span class="pill">2026-08-15, po lygiuotės pataisos</span></h2>
 <div class="scroll"><table>
 <tr><th>modelis</th><th>kas</th><th class="n">salų</th><th class="n">danga</th>
     <th class="n">kaklelis</th><th class="n">plokštė</th><th class="n">derva</th>
@@ -67,7 +71,7 @@ duoda „tik tiek atramų, kiek reikia".</p>
     <td class="n">1</td><td class="n">1,18</td><td class="n">2,8</td><td class="n">264</td>
     <td class="n">981</td><td class="n">6 %</td><td class="n">318</td></tr>
 <tr><td><b>mūsų</b></td><td class="n warn">2</td><td class="n ok">1,28</td>
-    <td class="n ok">2,7</td><td class="n ok">281</td><td class="n warn">1010</td>
+    <td class="n ok">2,7</td><td class="n ok">281</td><td class="n">1010</td>
     <td class="n">6 %</td><td class="n ok">278</td></tr>
 
 <tr><td rowspan="2">evil</td><td class="small">PrusaSlicer</td>
@@ -78,18 +82,18 @@ duoda „tik tiek atramų, kiek reikia".</p>
     <td class="n">4 %</td><td class="n ok">142</td></tr>
 
 <tr><td rowspan="2">kronšteinas</td><td class="small">PrusaSlicer</td>
-    <td class="n">0</td><td class="n">2,91</td><td class="n">3,2</td><td class="n">353</td>
-    <td class="n">988</td><td class="n">57 %</td><td class="n">6</td></tr>
+    <td class="n">0</td><td class="n">2,91</td><td class="n">3,2</td><td class="n">335</td>
+    <td class="n">275</td><td class="n">16 %</td><td class="n">7</td></tr>
 <tr><td><b>mūsų</b></td><td class="n ok">0</td><td class="n ok">2,91</td>
-    <td class="n ok">3,2</td><td class="n ok">351</td><td class="n ok">323</td>
-    <td class="n ok">18 %</td><td class="n">15</td></tr>
+    <td class="n ok">3,2</td><td class="n ok">351</td><td class="n warn">323</td>
+    <td class="n">18 %</td><td class="n warn">15</td></tr>
 
 <tr><td rowspan="2">puodelis</td><td class="small">PrusaSlicer</td>
     <td class="n">0</td><td class="n">2,48</td><td class="n">2,9</td><td class="n">347</td>
     <td class="n">151</td><td class="n">7 %</td><td class="n">29</td></tr>
 <tr><td><b>mūsų</b></td><td class="n ok">0</td><td class="n ok">2,97</td>
     <td class="n ok">2,9</td><td class="n ok">318</td><td class="n warn">189</td>
-    <td class="n ok">9 %</td><td class="n ok">16</td></tr>
+    <td class="n">9 %</td><td class="n ok">16</td></tr>
 </table></div>
 <p class="small">Spalva rodo palyginimą su PrusaSlicer ir su riba: žalia — gerai
 arba geriau už jį, gelsva — prasčiau, raudona — laužo ribą arba gerokai prasčiau.
@@ -98,14 +102,16 @@ Danga ir apkrova — <b>blogiausias</b> viso spaudinio atvejis, ne vidurkis.</p>
 <div class="card">
 <b>Ką sako skaičiai</b>
 <ul>
-<li><b>Visi privalomi kriterijai tenkinami:</b> 0 stulpų ore, 0 kertančių detalę,
-    danga visur ≤3 mm, salų faktiškai nebeliko.</li>
-<li><b>Žymių visur mažiau nei PrusaSlicer:</b> 278 prieš 318, 142 prieš 148,
-    16 prieš 29.</li>
-<li><b>Derva po pado pataisos:</b> kronšteinui 3× mažiau (323 prieš 988),
-    puodeliui 189 prieš 151, biustui 1010 prieš 981, „evil" 615 prieš 588 —
-    visur tos pačios eilės arba geriau.</li>
-<li>Panašumo balas 77,9 — sąmoningai žemesnis, nes sėjam pagal savo kriterijus.</li>
+<li><b>⚠️ Ankstesni kronšteino skaičiai buvo klaidingi.</b> PrusaSlicer failas
+    pastumtas 3,8 mm, tad pusė modelio sienelių pateko į „atramų" plotą ir jo
+    derva rodė 988 mm³ vietoj ~275. Ištaisyta (`find_shift`), bet plonasieniam
+    kronšteinui lieka ±20 % neapibrėžtis.</li>
+<li><b>Dervos sunaudojam šiek tiek DAUGIAU visur</b> (+3 %, +5 %, +17 %, +25 %),
+    o ne mažiau, kaip atrodė anksčiau.</li>
+<li><b>Žymių darom mažiau</b> — 278 prieš 318, 142 prieš 148, 16 prieš 29;
+    išimtis kronšteinas (15 prieš 7).</li>
+<li><b>Uždarų ertmių nė viename modelyje nėra.</b> Puodelis NĖRA siurbtukas —
+    jis atsiveria į viršų, derva iš jo išteka.</li>
 </ul>
 </div>
 
