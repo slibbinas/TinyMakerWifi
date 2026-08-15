@@ -96,6 +96,12 @@ String sdJobName = "";              // model the job works on (shown in /api/sta
 String sdJobZipPath = "";           // import: uploaded archive waiting to be unpacked
 ModelImportOptions sdJobImportOptions;  // import: options captured from the upload request
 bool sdJobRunning = false;          // true while the job body executes (enables servicing)
+// SD-prog: how far the job is. The printer's own screen has shown this all
+// along ("Unpacking layers 120/240", the delete bar); the numbers simply never
+// reached /api/status, so every dashboard sat on a mute "Importing model" for
+// the whole minute. Defined here, not in Network.ino, because Folder.ino writes
+// them and precedes Network.ino in the .ino concatenation.
+int sdJobDone = 0, sdJobTotal = 0;  // 0/0 = no count available for this job
 // 0-28: SD content revision - bumped after any unpack/delete/import so every
 // dashboard reloads its SD list. Defined here (not Network.ino) because
 // Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.
@@ -727,13 +733,29 @@ float motor_updown_time_total; // Total time spent on motor movements
 // first-concatenated file) so Network.ino can serve it from /api/live/slices and
 // PNG.ino - both concatenated after this one - can fill it. See PNG.ino for the
 // capture logic and the LIVE_* geometry.
-#define LIVE_GW 64
-#define LIVE_GH 48
+/* 80x60, NE 64x48 (V 08-14): tai tas pats tinklelis, kuri turi narsykles kesas, tad
+   pries-uzpildymas is slices.tmv tampa paprastu kopijavimu, o telefonas mato lygiai ta
+   pati, ka ir kompiuteris. Prie 64x48 sumazinimas uzpildydavo ~19 % daugiau ploto -
+   tarpai tarp detales ir jos atramu suaugdavo (ismatuota 08-14 is tikru pjuviu).
+   Kaina: buferis 13.8 -> 21.6 KB (imamas spaudinio pradzioje) ir HTTP siuntinys
+   19 -> 29 KB (atiduodamas tik po homing'o, kai motoras stovi). */
+#define LIVE_GW 80
+#define LIVE_GH 60
 #define LIVE_MAX_SLICES 36
-#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 384 bytes, 1 bit/px
+#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 600 bytes, 1 bit/px
 uint8_t *liveBuf = NULL;   // LIVE_SLICE_BYTES * liveN, calloc'd per print (NULL = off)
 int liveN = 0;             // sampled slices for this print (<= 36)
 int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
+// Slots ABOVE liveCaptured hold the model's own silhouettes, pre-loaded from the
+// cached slice file at print start (SD is still free there). That is what lets a
+// browser opened mid-print draw the un-printed part as a ghost: the live capture
+// alone only ever knows layers already exposed. No extra RAM - same buffer.
+bool livePrefilled = false;
+// Pilnas stekas atiduodamas tik ISEJUS is homing'o: 36 pjuviai = ~29 KB chunked, o
+// homing'o cikle HTTP aptarnaujamas tarp zingsniu - toks siuntinys silpname WiFi
+// blokuoja `client.write` 1-3 s ir tiek laiko nekvieciamas `stepper.run()` (auditas
+// 08-14). Iki tol endpoint'as elgiasi kaip anksciau: atiduoda tik uzfiksuotus.
+bool liveReady = false;
 
 // UI Navigation Variables
 int setting_item;              // Current selected item in settings menu
@@ -2158,6 +2180,16 @@ void loop() {
             Transition_Exposure = resumeTransitionExposureSeed(resumeLayer);
           }
         }
+        #if ENABLE_NETWORK
+        // P-live stack BEFORE homing (V 08-14). Homing "can take minutes" (see the
+        // loop below), and until this ran a browser that joins in that window had
+        // nothing to draw but the flat preview PNG - so the phone showed a picture
+        // while the desktop already drew the 3D. Both values it needs are final
+        // here: layer_counter and, on resume, current_layer (set just above). SD is
+        // still free, same as capturePreviewCache. Freed at the single print exit,
+        // including the homing-abort path.
+        if (!print_canceled) liveBegin(layer_counter);
+        #endif
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -2293,11 +2325,16 @@ void loop() {
         }
         }
 
-        // P-live: allocate the per-print silhouette stack before the first
-        // layer decode, so every browser - including one opened mid-print, which
-        // cannot read the locked SD - can grow the live 3D. No-op without
-        // network; freed at the print's single exit (next to resumeClear).
-        if (!homing_canceled && !print_canceled) liveBegin(layer_counter);
+        // P-live stekas paruostas dar PRIES hominga (zr. auksciau), o CIA jis atrakinamas
+        // atidavimui: homing'as baigtas. Tai NEREISKIA, kad motoras visai stovi - HTTP
+        // aptarnaujamas ir pauzes/atsaukimo liftu cikluose - bet ten zingsniai tik
+        // trukteli, o sluoksnio atplesimas HTTP visai neaptarnauja (auditas 08-14).
+        #if ENABLE_NETWORK
+        // Ne atsaukimo kelyje: po jo dar eina lift_finished_print() - kelios desimtys
+        // sekundziu motoro darbo, HTTP aptarnaujamas kas 200 ms, o liveClear() tik gale.
+        // Atrakinus cia, 29 KB siuntinys pakliutu kaip tik i ta judesi (auditas 08-14).
+        if (!homing_canceled && !print_canceled) liveReady = true;
+        #endif
 
         // -------------------------------------------------------------------------------
         // Printing Loop

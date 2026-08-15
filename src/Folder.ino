@@ -138,6 +138,10 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
   dir = SD.open(path);
   if (!dir) return false;
   int done = 0;
+  // SD-prog: publish the total BEFORE the loop. The loop services status polls
+  // before it updates the count, so a total written per-iteration would let the
+  // first poll of a new job answer with the previous job's numbers.
+  if (showProgress) { sdJobDone = 0; sdJobTotal = total; }
   while (true) {
     File entry = dir.openNextFile();
     if (!entry) break;
@@ -152,11 +156,12 @@ bool deleteModelFolder(const char *path, bool showProgress = true) {
     sdJobService();   // keep answering status polls during a long delete (1-32)
     #endif
     done++;
-    if (showProgress && (done % 10 == 0 || done == total)) {
-      int w = (int)(136L * done / total);
-      if (w > 136) w = 136;
-      if (w > 0) gfx2->fillRect(12, 50, w, 12, ORANGE);
-    }
+    if (showProgress) sdJobDone = done;   // SD-prog: same number the screen bar uses
+    // Bar AND the count, like the unpack screen: if the printer bothers to show
+    // a progress screen, it should say how far it is, not just that it is alive
+    // (V 08-13). The model name on line2 gives way to the number - you just
+    // picked it on the previous screen, and the dashboard names it anyway.
+    if (showProgress && (done % 10 == 0 || done == total)) netProgressCount(done, total);
   }
   dir.close();
   return SD.rmdir(path);
@@ -228,11 +233,13 @@ void deleteSelectedModel(){
   // this runs in loop() context, so servicing HTTP here is safe.
   #if ENABLE_NETWORK
   sdJobKind = "delete"; sdJobName = String(foldersel_long); sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: never show the previous job's count
   #endif
   bool ok = selIsArchive ? SD.remove(path.c_str())
                          : deleteModelFolder(path.c_str());
   #if ENABLE_NETWORK
   sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  sdJobDone = sdJobTotal = 0;
   if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
   #endif
   gfx2->fillScreen(BLACK);

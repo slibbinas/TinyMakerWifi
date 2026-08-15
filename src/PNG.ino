@@ -14,7 +14,7 @@ double resinEstimateMl = 0.0;         // filled by estimateResin()
 // ===================================================================================
 // A layer is already decoded pixel-by-pixel to expose it. On the ~36 layers the
 // dashboard samples for its isometric render we fold that same pass into a tiny
-// 64x48 1-bit silhouette and keep the growing stack in RAM. Any browser -
+// LIVE_GW x LIVE_GH 1-bit silhouette and keep the growing stack in RAM. Any browser -
 // including one opened mid-print, which cannot read layer PNGs off the locked SD
 // card - fetches the stack from /api/live/slices and grows the identical 3D.
 // The sampling mirrors dashboard.html fetchSlices(): N = min(36, layer_counter),
@@ -40,8 +40,78 @@ void liveClear() {
   if (liveBuf) { free(liveBuf); liveBuf = NULL; }
   liveN = liveCaptured = liveNextK = liveNextLayer = 0;
   liveSlot = -1;
+  livePrefilled = false;
+  liveReady = false;
 #endif
 }
+
+#if ENABLE_NETWORK
+// Pre-load the whole stack with the model's own silhouettes from the cached
+// slice file (/<model>/slices.tmv, the same TMV2 the dashboard downloads). Runs
+// at print start only - the SD is still free there, and the no-SD-reads-mid-print
+// rule stays intact. Costs no extra RAM: it fills the buffer that already exists,
+// one slice at a time through a 600-byte scratch.
+//
+// Why: without it a browser opened mid-print gets only the layers the printer has
+// already photographed - no un-printed part to draw, and the live capture's
+// "any lit pixel fills the cell" rule also closes small holes (a ring reads as a
+// disc). The cached file is 80x60 with a majority rule, so both come back.
+static bool livePrefillFromCache() {
+  if (!liveBuf || liveN < 1) return false;
+  String path = "/" + String(foldersel_long) + "/slices.tmv";
+  File f = SD.open(path.c_str());
+  if (!f) return false;
+  uint8_t hdr[16];
+  if (f.read(hdr, 16) != 16 ||
+      hdr[0] != 'T' || hdr[1] != 'M' || hdr[2] != 'V' || hdr[3] != '2') { f.close(); return false; }
+  int gw = (hdr[4] << 8) | hdr[5];
+  int gh = (hdr[6] << 8) | hdr[7];
+  int nf = (hdr[8] << 8) | hdr[9];
+  // Tight bounds, not generous ones: this file arrives over HTTP from the browser,
+  // and only 80x60 / 160x120 are ever produced (packSlices). 512x512 would have
+  // asked for a 32 KB block right when the preview snapshot already holds 70-120 KB,
+  // plus ~9 M inner iterations before the first layer (auditas 08-14).
+  if (gw < 1 || gh < 1 || nf < 1 || gw > 160 || gh > 120 || nf > 512) { f.close(); return false; }
+  const size_t per = ((size_t)gw * gh + 7) / 8;
+  if ((uint32_t)f.size() < 16 + (uint32_t)per * nf) { f.close(); return false; }
+  uint8_t *src = (uint8_t *)malloc(per);
+  if (!src) { f.close(); return false; }
+  bool ok = true;
+  for (int k = 0; k < liveN && ok; k++) {
+    // Both stacks sample the same height uniformly, so slot k maps straight onto
+    // file slice k scaled by their counts.
+    int s = liveN > 1 ? (int)lroundf((float)k * (nf - 1) / (float)(liveN - 1)) : 0;
+    if (s < 0) s = 0; else if (s >= nf) s = nf - 1;
+    if (!f.seek(16 + (uint32_t)per * s) || f.read(src, per) != (int)per) { ok = false; break; }
+    uint8_t *dst = liveBuf + (size_t)k * LIVE_SLICE_BYTES;
+    memset(dst, 0, LIVE_SLICE_BYTES);
+    // Downsample gw x gh -> LIVE_GW x LIVE_GH by majority. Nuo 08-14 gyvas tinklelis
+    // yra 80x60, t.y. TOKS PAT kaip keso - tad cia paprastas kopijavimas (blokas 1x1),
+    // ir tarpai tarp detales bei atramu islieka tokie patys kaip kompiuteryje. Kilpa
+    // palikta bendra: ji tvarko ir kita raiska (pvz. detalu 160x120 faila).
+    for (int j = 0; j < LIVE_GH; j++) {
+      int y0 = j * gh / LIVE_GH, y1 = (j + 1) * gh / LIVE_GH; if (y1 <= y0) y1 = y0 + 1;
+      for (int i = 0; i < LIVE_GW; i++) {
+        int x0 = i * gw / LIVE_GW, x1 = (i + 1) * gw / LIVE_GW; if (x1 <= x0) x1 = x0 + 1;
+        int on = 0, tot = 0;
+        for (int y = y0; y < y1 && y < gh; y++)
+          for (int x = x0; x < x1 && x < gw; x++) {
+            long c = (long)y * gw + x;
+            tot++;
+            if (src[c >> 3] & (1 << (c & 7))) on++;
+          }
+        if (tot && on * 2 >= tot) {
+          int cell = j * LIVE_GW + i;
+          dst[cell >> 3] |= (uint8_t)(1 << (cell & 7));
+        }
+      }
+    }
+  }
+  free(src);
+  f.close();
+  return ok;
+}
+#endif
 
 // Called once at print start (total = layer_counter). Allocates the stack; on a
 // failed alloc the feature just stays off (liveBuf NULL) and the print is normal.
@@ -60,6 +130,10 @@ void liveBegin(int total) {
   liveNextK = 0;
   while (liveNextK < liveN && liveSampleLayer(liveNextK) <= current_layer) liveNextK++;
   liveNextLayer = liveNextK < liveN ? liveSampleLayer(liveNextK) : 0;
+  // Model silhouettes into every slot while the SD is still free. If it fails (no
+  // cached slice file, odd geometry) everything works exactly as before - just
+  // without the ghost for browsers that join mid-print.
+  livePrefilled = livePrefillFromCache();
 #endif
 }
 
@@ -101,7 +175,7 @@ void PNGDraw(PNGDRAW *pDraw) {
   // test on the unpacked RGB565 channels works fine here since slices are
   // pure black/white. Threshold ~50%.
 #if ENABLE_NETWORK
-  // P-live: on a sampled layer, fold this scanline into the 64x48 silhouette.
+  // P-live: on a sampled layer, fold this scanline into the LIVE_GW x LIVE_GH silhouette.
   // liveSlot >= 0 only inside print_next_png()'s capture window, so the estimate
   // and preview decode passes (liveBuf NULL / liveSlot -1) never touch it.
   bool liveCap = (liveSlot >= 0 && liveBuf && liveSrcW > 0 && liveSrcH > 0);

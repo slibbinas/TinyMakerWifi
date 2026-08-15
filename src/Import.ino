@@ -586,6 +586,10 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
   // Painted once; the loop below only grows the bar and rewrites the counter.
   netProgressStart("Unpacking layers", "");
+  // SD-prog: total known up front, so the first status poll of this job cannot
+  // answer with the previous one's numbers (the loop services polls before it
+  // updates the count).
+  sdJobDone = 0; sdJobTotal = summary.sourceLayers;
 
   if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
     delete zip; free(buf);
@@ -611,6 +615,7 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
     if (rc < 0) { ok = false; break; }
 
     done++;
+    sdJobDone = done;   // SD-prog: the same count the screen shows, to /api/status
     if (done % 20 == 0 || done == summary.sourceLayers)
       netProgressCount(done, summary.sourceLayers);
     #if ENABLE_NETWORK
@@ -703,10 +708,12 @@ void importSelectedArchive() {
   // the unpack loop answers status polls (1-33) - loop() context, so it's safe.
   #if ENABLE_NETWORK
   sdJobKind = "import"; sdJobName = name; sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: never show the previous job's count
   #endif
   bool ok = importZipModel(src.c_str(), name, options, result, error);
   #if ENABLE_NETWORK
   sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  sdJobDone = sdJobTotal = 0;
   if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
   #endif
   if (ok) {

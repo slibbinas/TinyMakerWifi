@@ -82,6 +82,26 @@ void netMessage(const char *line1, const char *line2) {
 }
 
 // Two text lines + bounded progress bar (WiFi connect / uploads / OTA / import)
+// Ilgas modelio vardas i 160 px eilute netilpdavo: Arduino_GFX ji tyliai perkelia
+// i kita eilute, ir vardas uzlipdavo ant progreso juostelės (V 08-14, „valentine-
+// heart-ring-model_tiles"). Trumpinam pagal TIKRA plotį, ne pagal simbolių skaičių:
+// „iiii" ir „WWWW" uzima skirtingai, o simboliu riba arba nukirpdavo per anksti,
+// arba vis tiek netilpdavo.
+static String fitToWidth(const char *s, int16_t maxW) {
+  if (!s || !*s) return String("");
+  int16_t x1, y1; uint16_t w, h;
+  gfx2->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  if ((int16_t)w <= maxW) return String(s);
+  String t(s);
+  while (t.length() > 1) {
+    t.remove(t.length() - 1);
+    String cand = t + "...";
+    gfx2->getTextBounds(cand.c_str(), 0, 0, &x1, &y1, &w, &h);
+    if ((int16_t)w <= maxW) return cand;
+  }
+  return String("...");
+}
+
 void netProgressStart(const char *line1, const char *line2) {
   uiWakeScreen();   // web update/upload progress must wake a blanked screen
   gfx2->fillScreen(BLACK);
@@ -89,9 +109,9 @@ void netProgressStart(const char *line1, const char *line2) {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(5, 18);
-  gfx2->print(line1);
+  gfx2->print(fitToWidth(line1, 150));   // 160 px ekranas, tekstas nuo x=5
   gfx2->setCursor(5, 38);
-  gfx2->print(line2);
+  gfx2->print(fitToWidth(line2, 150));
   gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
 }
 
@@ -114,7 +134,7 @@ void netProgressText(const char *line2) {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(5, 38);
-  gfx2->print(line2);
+  gfx2->print(fitToWidth(line2, 150));
 }
 
 // Bar + "done / total" counter. The dashboard tells uploaders to watch the layer

@@ -673,6 +673,16 @@ void handleUpdatePage() {
   server.send(200, "text/html", otaStyledPage(inner));
 }
 
+// "620 / 1424 KB" i progreso ekrana. Be alokaciju: OTA metu heap'as itemptas.
+static void otaProgressText(size_t done) {
+  char buf[24];
+  if (otaTotalBytes > 0)
+    snprintf(buf, sizeof buf, "%u / %u KB", (unsigned)(done / 1024), (unsigned)(otaTotalBytes / 1024));
+  else
+    snprintf(buf, sizeof buf, "%u KB", (unsigned)(done / 1024));
+  netProgressText(buf);
+}
+
 void handleUpdateUpload() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
@@ -700,13 +710,22 @@ void handleUpdateUpload() {
     Update.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 524288) { // redraw every 512 KB - see the upload handler note on SPI streaks
       otaShownBytes = up.totalSize;
-      String p = String(up.totalSize / 1024) + " KB";
+      // "620 / 1424 KB", ne vien "620 KB": be antro skaiciaus zinai, kad kazkas vyksta,
+      // bet ne ar liko sekunde, ar minute (V 08-13). Bendra dydi zinom is Content-Length;
+      // jei jo nebutu (0) - grizt prie vieno skaiciaus, o ne rodyt dalyba is nulio.
+      // char buferis, ne String: cia pats itempciausias heap'o momentas (Update.write
+      // i flash'a), o kaimyninis netProgressCount daro lygiai taip pat (auditas 08-13).
+      otaProgressText(up.totalSize);
       netProgressBar(up.totalSize, otaTotalBytes);
-      netProgressText(p.c_str());
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
     if (otaBlocked) return;
+    // Paskutinis perpiesimas: su 512 KB zingsniu skaitiklis niekada nepasiekdavo
+    // galo ir ekrane amzinai likdavo "1024 / 1425 KB" - atrode, kad pakibo
+    // (auditas 08-13).
+    otaProgressText(up.totalSize);
+    netProgressBar(up.totalSize, otaTotalBytes);
     if (Update.end(true)) otaWebOk = true;
     DBG("Web OTA end: %u bytes, ok=%d\n", up.totalSize, otaWebOk);
   }
@@ -747,7 +766,10 @@ void handleUpdateFinish() {
 
 String printerStateText() {
   if (sdJobKind == "delete") return "Deleting model";
-  if (sdJobKind == "import") return "Importing model";
+  // „Unpacking", ne „Importing" (V sprendimas, SD-prog p.3): importas gali reiksti bet ka,
+  // o ispakavimas pasako, kas is tikruju vyksta - ir sutampa su printerio ekranu, kuris
+  // visa laika rase „Unpacking layers".
+  if (sdJobKind == "import") return "Unpacking model";
   if (screen == 1111 || screen == 1112 || screen == 11111 || screen == 11112 || screen == 11113) {
     String prefix = uvLedEnabled ? "" : "Testing - ";
     switch (current_state) {
@@ -2316,9 +2338,9 @@ static void liveBase64(const uint8_t *in, int len, char *out) {
 // GET /api/live/slices?since=k - the P-live 3D stack (0.17). View-only and
 // RAM-only (no SD touch), so - unlike /api/files/layer - it is allowed to answer
 // mid-print: that is the whole point, a browser opened while printing gets the
-// growing 3D here. Returns the 64x48 1-bit silhouettes captured so far in slots
+// growing 3D here. Returns the LIVE_GW x LIVE_GH 1-bit silhouettes in slots
 // [since, captured); the browser delta-fetches when status.liveCaptured grows.
-// Streamed chunked so the worst case (36 slices ~= 18 KB) never allocates a big
+// Streamed chunked so the worst case (36 slices ~= 29 KB at 80x60) never allocates a big
 // String on the print-time heap.
 void handleApiLiveSlices() {
   bool live = printerBusy() && liveBuf && liveN > 0;
@@ -2326,6 +2348,12 @@ void handleApiLiveSlices() {
   int since = server.hasArg("since") ? server.arg("since").toInt() : 0;
   if (since < 0) since = 0;
   if (since > cap) since = cap;
+  // Pre-loaded stack: the FULL fetch also carries the slots above `captured` -
+  // they hold the model's own silhouettes, which is the un-printed part the
+  // browser draws as a ghost. Deltas keep returning only real captures, so a
+  // freshly exposed layer overwrites its pre-loaded slot.
+  // liveReady: homing'o metu pilno steko NEATIDUODAM - zr. paaiskinima prie vėliavos.
+  int last = (live && livePrefilled && liveReady && since == 0) ? liveN : cap;
   float modelH = live ? layer_counter * Layer_Height : 0;
 
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);   // chunked
@@ -2336,14 +2364,15 @@ void handleApiLiveSlices() {
   head += ",\"gh\":";       head += String(LIVE_GH);
   head += ",\"n\":";        head += String(live ? liveN : 0);
   head += ",\"captured\":"; head += String(cap);
+  head += ",\"prefilled\":"; head += (live && livePrefilled && liveReady) ? "true" : "false";
   head += ",\"since\":";    head += String(since);
   head += ",\"layers\":";   head += String(live ? layer_counter : 0);
   head += ",\"modelH\":";   head += String(modelH, 2);
   head += ",\"model\":\"";  head += jsonEscape(live ? String(foldersel_long) : String(""));
   head += "\",\"slices\":[";
   server.sendContent(head);
-  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 384 -> 512 chars + nul
-  for (int k = since; k < cap; k++) {
+  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 600 -> 800 chars + nul
+  for (int k = since; k < last; k++) {
     liveBase64(liveBuf + (size_t)k * LIVE_SLICE_BYTES, LIVE_SLICE_BYTES, b64);
     server.sendContent(k > since ? ",\"" : "\"");
     server.sendContent(b64);
@@ -2405,7 +2434,12 @@ void handleApiStatus() {
   out += sdJobKind;
   out += "\",\"sdJobName\":\"";
   out += jsonEscape(sdJobName);
-  out += "\"";
+  // SD-prog: how far it is. The printer's screen has always shown this; the
+  // dashboards only ever got the noun. 0/0 = this job has no count.
+  out += "\",\"sdJobDone\":";
+  out += sdJobDone;          // String() temporaries add nothing here, and this
+  out += ",\"sdJobTotal\":"; // answer is built for every client every 2 s
+  out += sdJobTotal;
   // 0-33: the boot resume prompt is up - the dashboard offers the same three
   // answers remotely. Valid ONLY while screen 427 shows (any button press at
   // the printer consumes it - the safety rule: remote resume only while the
@@ -3797,6 +3831,7 @@ void sdJobRun() {
   if (sdJobKind.length() == 0 || sdJobRunning) return;
   uiWakeScreen();   // web-started work must be visible on the printer
   sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: a fresh job starts with no count yet
   if (sdJobKind == "delete") {
     String path = "/" + sdJobName;
     // Same screen the printer-menu delete shows - without it the LCD looked
@@ -3826,6 +3861,7 @@ void sdJobRun() {
   }
   sdJobRunning = false;
   sdJobKind = ""; sdJobName = ""; sdJobZipPath = "";
+  sdJobDone = sdJobTotal = 0;   // SD-prog: stale numbers would outlive the job
   screen1();   // the progress screen overwrote whatever was shown
 }
 
