@@ -25,9 +25,13 @@ if (process.argv[3] !== 'raw') {
 
 /* Tiksintis laikmatis - musu „naršyklės gyvybės" matuoklis. */
 let prev = performance.now(), worst = 0, tikai = 0;
+const pradzia = performance.now();
+const ilgos = [];
 const t = setInterval(() => {
   const now = performance.now();
-  worst = Math.max(worst, now - prev);
+  const d = now - prev;
+  if (d > 100) ilgos.push([((now - pradzia) / 1000).toFixed(1), d.toFixed(0)]);
+  worst = Math.max(worst, d);
   prev = now;
   tikai++;
 }, 4);
@@ -52,4 +56,5 @@ console.log(`${process.argv[2]}
   atramos                     ${tSup.toFixed(0)} ms
   60 sluoksniu                ${tSl.toFixed(0)} ms (vienas iki ${vienas.toFixed(1)} ms)
   ILGIAUSIA PAUZE be atodusio ${worst.toFixed(0)} ms
+  ilgos pauzes (>100 ms)      ${ilgos.map(x=>x[1]+' ms ties '+x[0]+' s').join(', ') || 'nera'}
   laikmatis (4 ms) tikseio    ${tikai} k. - jei 0, gija buvo uzimta VISA laika`);

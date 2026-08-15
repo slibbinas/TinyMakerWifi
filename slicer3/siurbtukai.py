@@ -31,6 +31,7 @@ MODELIAI = {
     'kronsteinas': ('bracket2.stl', False),
     'puodelis': ('cup.stl', False),
     'ertme-testas': ('ertme-testas.stl', False),
+    'kaklelis-testas': ('kaklelis-testas.stl', False),
 }
 
 

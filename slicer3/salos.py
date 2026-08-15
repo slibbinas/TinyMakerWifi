@@ -30,6 +30,8 @@ MODELIAI = {
     'evil': ('evil-prusa.sl1', 'one-evil.zip', 0.3, 'evil-placed.stl', True),
     'kronsteinas': ('bracket-up-prusa.sl1', 'one-kronsteinas.zip', 0.3, 'bracket2.stl', False),
     'puodelis': ('cup-prusa.sl1', 'one-puodelis.zip', 0.3, 'cup.stl', False),
+    'ertme-testas': ('nera.sl1', 'one-ertme-testas.zip', 0.05, 'ertme-testas.stl', False),
+    'kaklelis-testas': ('nera.sl1', 'one-kaklelis-testas.zip', 0.05, 'kaklelis-testas.stl', False),
 }
 
 

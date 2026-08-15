@@ -1,0 +1,373 @@
+<!doctype html><meta charset="utf-8"><title>3D peržiūra - pulto piešėju</title>
+<style>
+:root{--bg:#151517;--fg:#e8ecef;--muted:#7c848c;--line:#2a2f34;--card:#1c1c1e;--accent:#e08a4f}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:13px Segoe UI,sans-serif;margin:0;padding:8px;overflow:hidden}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+select,button{background:var(--card);color:var(--fg);border:1px solid var(--line);
+  border-radius:6px;padding:4px 9px;font:13px inherit}
+button{cursor:pointer} button.on{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;gap:8px;height:calc(100vh - 58px)}
+.cell{flex:1;border:1px solid var(--line);border-radius:8px;background:var(--card);
+  position:relative;overflow:hidden}
+.gl{position:absolute;inset:0;display:none}
+.gl canvas{width:100%;height:100%;display:block}
+canvas.plok{display:block;background:var(--bg);width:100%}
+.cap{position:absolute;bottom:6px;left:12px;font-size:11px;color:var(--muted);
+  letter-spacing:.06em;pointer-events:none;text-shadow:0 1px 3px #000}
+.hint{color:var(--muted);font-size:12px}
+.ram{position:absolute;border:2px solid #e5786d;pointer-events:none;border-radius:3px}
+.ram b{position:absolute;top:-17px;left:0;font-size:11px;color:#e5786d}
+#zymos{position:fixed;right:14px;top:46px;width:290px;max-height:46vh;overflow:auto;
+  background:rgba(28,28,30,.94);border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;font-size:12px}
+#zymos ol{margin:5px 0 0;padding-left:17px} #zymos li{margin:4px 0;color:var(--muted)}
+#zymos li b{color:var(--fg)}
+#slapta{position:fixed;left:-9999px;top:0;visibility:hidden}
+</style>
+<div class="bar">
+  <select id="modelis"></select>
+  <button id="atramos" class="on">atramos kita spalva</button>
+  <button id="salos" class="on">salos raudonai</button>
+  <button id="siurbtukai" class="on">siurbtukai geltonai</button>
+  <button id="kubeliai">gryni kubeliai</button>
+  <button id="sinchro" class="on">sukti abu kartu</button>
+  <button id="zymeti">žymėti sritį</button>
+  <button id="valyti">valyti žymes</button>
+  <button id="atstatyti">atstatyti vaizdą</button>
+  <label class="hint">pjūvis
+    <select id="ash"><option value="">nėra</option><option value="2">Z (aukštis)</option>
+      <option value="0">X</option><option value="1">Y</option></select>
+    <input id="pjuvis" type="range" min="0" max="1000" value="500" style="vertical-align:middle;width:130px">
+    <button id="kryptis">apversti</button></label>
+  <span class="hint">tempti - sukti · dešinė/Shift - stumti · ratukas - artinti ·
+    <b id="bus">…</b></span>
+</div>
+<div class="row" id="r">
+  <div class="cell" id="c_prusa"><div class="gl" id="gl_prusa"></div>
+    <canvas class="plok" id="cv_prusa"></canvas><div class="cap" id="ca_prusa"></div></div>
+  <div class="cell" id="c_musu"><div class="gl" id="gl_musu"></div>
+    <canvas class="plok" id="cv_musu"></canvas><div class="cap" id="ca_musu"></div></div>
+</div>
+<div id="zymos"><b>Žymės</b> <span class="hint">(rašomos į 3d/zymos.json)</span>
+  <div class="hint" id="tuscia">Įjunk „žymėti sritį" ir apibrėžk vietą tempdamas.</div>
+  <ol id="sar"></ol></div>
+<!-- Pulto GPU modulis siu elementu tikisi. Cia jie nereikalingi, bet turi buti. -->
+<div id="slapta">
+  <div id="gl3dHelp"><button id="gl3dHelpBtn"></button><div id="gl3dHelpBox"></div></div>
+  <div id="gl3dPad"></div><div id="gl3dRot"></div><div id="gl3dZoom"></div>
+  <canvas id="printPreviewCanvas"></canvas>
+</div>
+<script>
+const SARASAS=__DATA__;
+const $=id=>document.getElementById(id);
+let slicesCache={name:'',mode:'',slices:[],gw:160,gh:120,modelH:0,layers:0};
+let VIEW_FLIP=false, VIEW_DETAIL=false, NZS=1, GA_E=0.20, GA_I=0.05;
+let GLOTNU=true, ZOOM=1, stage=null;
+/* Nuo PR #104 pats pultas turi grynu kubeliu jungikli - naudojam JI, o ne
+   savo. Be sios eilutes istrauktas kodas kristu su ReferenceError, ir
+   pultas tyliai nusileistu i letaji drobes kelia (taip ir buvo 08-16). */
+let VIEW_RAW=false;
+const DET_GW=320;
+const gl3dShow=()=>false;                 // pakeis GPU modulis, kai uzsikraus
+const smRun=it=>{let r;while(!(r=it.next()).done);return r.value;};
+const cacheIsDetail=()=>slicesCache.gw>=DET_GW;
+const statusData={busy:true};
+let dashPreviewName='';
+let KY_UP=0.35;
+__CODE__
+
+/* Du prisilietimai prie pulto drobes kodo (GPU dalies pakeitimai surasyti
+   generatoriuje): GLOTNU jungiklis ir ZOOM. Drobe cia lieka tik atsargai -
+   jei vaizdo plokste neprieinama. */
+const pvSetField=(w,h)=>{pvSetFieldReal(w,h);
+  PREV_S*=ZOOM; PREV_CY=PREV_H/2+BOX_CY_U*PREV_S;};
+const unpack=(b64,per,n,gw,gh)=>{const raw=atob(b64),sl=[];
+  for(let k=0;k<n;k++){const s=new Uint8Array(gw*gh);
+    for(let c=0;c<gw*gh;c++){const byte=raw.charCodeAt(k*per+(c>>3));if(byte>>(c&7)&1)s[c]=1;}
+    sl.push(s);} return sl;};
+__GPU__
+
+const SEL=$('modelis'), BUS=$('bus');
+const PUSES=['prusa','musu'];
+const modeliai=[...new Set(Object.keys(SARASAS).map(k=>k.split('_')[0]))];
+SEL.innerHTML=modeliai.map(m=>'<option>'+m+'</option>').join('');
+let D={}, I={}, zymejimas=false, zymos=[], sinchro=true, atramosOn=true;
+let salosOn=true, siurbtukaiOn=true, kubeliai=false, ash=null, pjuvioVieta=0.5, kryptis=1;
+let ERTMES=null;
+const MX=40.8, MY=30.6, MZ=68;
+
+/* Pjuvis. Slankiklis 0..1 verciamas i milimetrus nuo dezes centro pagal tai,
+   kuria asi pjaunam (Z aukstis 68 mm, X 40,8, Y 30,6). */
+function pjauti(kas){
+  if(!I[kas]) return false;
+  aktyvus(kas);
+  const f=I[kas].win.gl3dPjuvis; if(!f) return false;
+  if(ash===null) return f(null);
+  /* Z slankiklis eina per MODELIO auksti, ne per 68 mm deze: kitaip 15 mm
+     puodeliui butu naudinga tik pirma slankiklio desimtadalis. */
+  if(ash===2){
+    const mh=Math.max(...PUSES.map(k=>(D[k]&&D[k].mh)||0))||MZ;
+    return f(2,pjuvioVieta*mh-MZ/2,kryptis);
+  }
+  return f(ash,(pjuvioVieta-0.5)*[MX,MY][ash],kryptis);
+}
+
+/* Atramu spalva. Pulto tinklelis suneriamas is TU PACIU pjuviu, tad kiekviena
+   virsune pataiko i konkretu langeli - pasiziurim, ar tas langelis buvo atrama
+   (kauke paruosta atskirai: pjuvis minus modelio pjuvis). */
+let SUP=null;
+window.spalvink=null;
+const spalvinti=(verts,Wi,Hi,Di)=>{
+  const n=verts.length/3, col=new Float32Array(n*3);
+  const {sup,gw,gh,nn}=SUP;
+  for(let v=0;v<n;v++){
+    const x=Math.round(verts[v*3]-1), y=Math.round(verts[v*3+1]-1),
+          z=Math.round((verts[v*3+2]-1)*(nn-1)/(Di-1));
+    let a=false;
+    for(let dz=-1;dz<=1&&!a;dz++)for(let dy=-1;dy<=1&&!a;dy++)for(let dx=-1;dx<=1&&!a;dx++){
+      const k=z+dz, j=y+dy, i=x+dx;
+      if(k<0||k>=nn||j<0||j>=gh||i<0||i>=gw)continue;
+      if(sup[k][j*gw+i])a=true;
+    }
+    if(a){col[v*3]=0.36;col[v*3+1]=0.72;col[v*3+2]=1.0;}      // atrama - melsva
+    else {col[v*3]=0.91;col[v*3+1]=0.45;col[v*3+2]=0.05;}     // detale - oranzine
+  }
+  return col;
+};
+
+async function krauti(){
+  BUS.textContent='kraunama…'; D={};
+  for(const kas of PUSES){
+    const f=SARASAS[SEL.value+'_'+kas]; if(!f) continue;
+    const d=await (await fetch(f.p)).json();
+    d.sl=unpack(d.b64,d.per,d.n,d.gw,d.gh);
+    if(d.sup64) d.sup=unpack(d.sup64,d.per,d.n,d.gw,d.gh);
+    delete d.b64; delete d.sup64;
+    // Neparemtos salos (skaiciuoja `salos.py` ta pacia taisykle kaip fizika.py)
+    d.salos=await fetch(SEL.value+'_'+kas+'_salos.json')
+      .then(r=>r.ok?r.json():[]).catch(()=>[]);
+    D[kas]=d;
+  }
+  /* Uzdaros ertmes yra modelio savybe, ne slicerio, tad failas vienas abiem. */
+  ERTMES=await fetch(SEL.value+'_ertmes.json')
+    .then(r=>r.ok?r.json():null).catch(()=>null);
+  await rodyti3D();
+}
+
+async function rodyti3D(){
+  // Modelis be PrusaSlicer atitikmens (pvz. ertmiu testas) - tuscios puses
+  // nerodom, kad neatrodytu, jog kazkas nepavyko.
+  for(const kas of PUSES) $('c_'+kas).style.display=D[kas]?'':'none';
+  for(const kas of PUSES){
+    const d=D[kas]; if(!d) continue;
+    if(!I[kas]){
+      await MK3D('gl_'+kas);
+      I[kas]={win:{gl3dShow:window.gl3dShow,gl3dFrameAuto:window.gl3dFrameAuto,
+                   gl3dFrameVolume:window.gl3dFrameVolume,gl3dFrameModel:window.gl3dFrameModel,
+                   gl3dResetView:window.gl3dResetView,gl3dCage:window.gl3dCage,
+                   gl3dCageOn:window.gl3dCageOn,gl3dTheme:window.gl3dTheme,
+                   gl3dPick:window.gl3dPick,gl3dHost:window.gl3dHost,
+                   // BUTINA: be siu dvieju abu vaizdai kviestu paskutinio
+                   // sukurto vaizdo funkcijas, ir pjuvis veiktu tik desinei (08-15)
+                   gl3dPjuvis:window.gl3dPjuvis,gl3dSalos:window.gl3dSalos,
+                   gl3dErtmes:window.gl3dErtmes,
+                   gl3dBusena:window.gl3dBusena}};
+      if(I[kas].win.gl3dHost) pele(I[kas].win.gl3dHost,kas);
+    }
+    aktyvus(kas);
+    // Rakte turi buti VISOS geometrija keiciancios jungtys — kitaip pultas
+    // grazintu sena tinkleli is keso ir atrodytu, kad jungiklis neveikia.
+    slicesCache={name:SEL.value+'_'+kas+(atramosOn?'_sp':'')+(kubeliai?'_kub':''),
+                 mode:'detail',slices:d.sl,
+                 gw:d.gw,gh:d.gh,modelH:d.mh,layers:d.layers};
+    SUP={sup:d.sup||[],gw:d.gw,gh:d.gh,nn:d.n};
+    window.spalvink=(atramosOn&&d.sup)?spalvinti:null;
+    window.beGlotninimo=kubeliai; VIEW_RAW=kubeliai;
+    const t0=performance.now();
+    const ok=I[kas].win.gl3dShow?I[kas].win.gl3dShow(true):false;
+    if(!ok){ drobe(kas); continue; }
+    // Pjuvis ir salos — PO piesimo: medziaga sukuriama is naujo kas karta.
+    const pjOk=pjauti(kas);
+    if(I[kas].win.gl3dSalos)I[kas].win.gl3dSalos(
+      salosOn?(d.salos||[]).map(s=>[s.x,s.y,s.z]):[]);
+    if(I[kas].win.gl3dErtmes)I[kas].win.gl3dErtmes(
+      (siurbtukaiOn&&ERTMES)?ERTMES.taskai:[], ERTMES?ERTMES.langelis:[1,1,1]);
+    $('cv_'+kas).style.display='none';
+    $('ca_'+kas).textContent=(kas==='prusa'?'PRUSASLICER':'MŪSŲ')+' · '+d.layers+
+      ' sluoksniai · '+d.mh+' mm · '+d.gw+'×'+d.gh+'×'+d.n+
+      ' · salų '+((d.salos||[]).length)+
+      ((ERTMES&&ERTMES.kiek)?(' · ertmių '+ERTMES.kiek+' ('+ERTMES.turis+' mm³)'):'')+
+      // Jei kada vel atrodys, kad pjuvis neveikia — `gl3dBusena()` pasako
+      // TIESA (kiek plokstumu ir kuriam vaizdui), o ne spejima.
+      (ash!==null?(' · pjūvis '+(pjOk?'✓':'NEPAVYKO')):'')+
+      (kubeliai?' · gryni kubeliai':'')+' · '+
+      ((performance.now()-t0)/1000).toFixed(1)+' s';
+  }
+  BUS.textContent=(window.DBG3D?'vaizdo plokštė ('+window.DBG3D+')':'drobė')+
+    ' · sukioti galima laisvai';
+  perpiestiRamus();
+}
+
+/* Kiekvienas vaizdas turi savo uzdaryta aplinka, o pulto modulis skelbia savo
+   funkcijas i `window`. Pries kviesdami - grazinam to vaizdo rinkini. */
+const aktyvus=kas=>Object.assign(window,I[kas].win);
+
+/* Atsarginis kelias: jei vaizdo plokstes nera, piesiam ta pacia geometrija ant
+   drobes (letai, bet veikia). */
+function drobe(kas){
+  const c=$('cv_'+kas); c.style.display='block';
+  c.style.height=(innerHeight-56)+'px';
+  GLOTNU=true; try{smRun(drawIsoGen(c,1.0));}catch(e){}
+}
+
+/* ---- zymejimas ---------------------------------------------------------- */
+function pele(host,kas){
+  let r0=null, box=null;
+  host.addEventListener('pointerdown',e=>{
+    if(!zymejimas) return;
+    e.stopPropagation(); e.preventDefault();
+    const b=host.getBoundingClientRect();
+    r0={x:e.clientX-b.left,y:e.clientY-b.top};
+    box=document.createElement('div'); box.className='ram';
+    host.parentNode.appendChild(box);
+  },true);
+  host.addEventListener('pointermove',e=>{
+    if(!r0) return; e.stopPropagation();
+    const b=host.getBoundingClientRect();
+    const x=e.clientX-b.left, y=e.clientY-b.top;
+    box.style.left=Math.min(x,r0.x)+'px'; box.style.top=Math.min(y,r0.y)+'px';
+    box.style.width=Math.abs(x-r0.x)+'px'; box.style.height=Math.abs(y-r0.y)+'px';
+  },true);
+  host.addEventListener('pointerup',e=>{
+    if(!r0) return; e.stopPropagation();
+    const b=host.getBoundingClientRect();
+    const r={x0:Math.min(r0.x,e.clientX-b.left),x1:Math.max(r0.x,e.clientX-b.left),
+             y0:Math.min(r0.y,e.clientY-b.top),y1:Math.max(r0.y,e.clientY-b.top)};
+    r0=null; box.remove(); box=null;
+    if(r.x1-r.x0<6||r.y1-r.y0<6) return;
+    sritis(kas,host,r);
+  },true);
+  /* Sinchroninis sukimas. Anksciau persiusdavau ta pacia pele antram vaizdui,
+     bet ratukas ir stumimas priklauso nuo zymeklio vietos, tad kampai po kiek
+     laiko issiskirdavo (V 08-15). Dabar tiesiog KOPIJUOJAM kampus - nukrypti
+     nebeimanoma. */
+  for(const t of ['pointerdown','wheel'])
+    host.addEventListener(t,()=>{aktyviVieta=kas;},true);
+}
+
+let aktyviVieta='prusa';
+(function sekti(){
+  requestAnimationFrame(sekti);
+  if(!sinchro||!window.__kam) return;
+  const a=window.__kam['gl_'+aktyviVieta]; if(!a) return;
+  const s=a.imk();
+  for(const kas of PUSES){
+    if(kas===aktyviVieta) continue;
+    const b=window.__kam['gl_'+kas]; if(!b) continue;
+    const t=b.imk();
+    if(t.yaw===s.yaw&&t.pitch===s.pitch&&t.dist===s.dist&&
+       t.tgt[0]===s.tgt[0]&&t.tgt[1]===s.tgt[1]&&t.tgt[2]===s.tgt[2]) continue;
+    b.dek(s);
+  }
+})();
+
+/* Sriti verciam i milimetrus SPINDULIAIS i tikra pavirsiu - tas pats
+   pasirinkimo budas, kaip pele pulte. */
+function sritis(kas,host,r){
+  aktyvus(kas);
+  const pick=window.gl3dPick; if(!pick) return;
+  const b=host.getBoundingClientRect();
+  const d=D[kas];
+  let n=0,xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9,zmin=1e9,zmax=-1e9;
+  const N=12;
+  for(let a=0;a<=N;a++)for(let c=0;c<=N;c++){
+    const px=r.x0+(r.x1-r.x0)*a/N, py=r.y0+(r.y1-r.y0)*c/N;
+    const p=pick(px/b.width*2-1, -(py/b.height*2-1)); if(!p) continue;
+    const X=p[0]+MX/2, Y=p[2]+MY/2, Z=p[1]+MZ/2;
+    n++;
+    if(X<xmin)xmin=X; if(X>xmax)xmax=X;
+    if(Y<ymin)ymin=Y; if(Y>ymax)ymax=Y;
+    if(Z<zmin)zmin=Z; if(Z>zmax)zmax=Z;
+  }
+  if(!n){ BUS.textContent='toje vietoje modelio nėra'; return; }
+  // Kiek toje deVeje langeliu ir kiek is ju atramu - is TU PACIU pjuviu.
+  let lang=0, atr=0;
+  for(let k=0;k<d.n;k++){
+    const z=k/(d.n-1)*d.mh; if(z<zmin-0.3||z>zmax+0.3) continue;
+    for(let j=0;j<d.gh;j++){const Y=(j+0.5)*MY/d.gh; if(Y<ymin-0.3||Y>ymax+0.3) continue;
+      for(let i=0;i<d.gw;i++){const X=(i+0.5)*MX/d.gw; if(X<xmin-0.3||X>xmax+0.3) continue;
+        if(!d.sl[k][j*d.gw+i]) continue;
+        lang++; if(d.sup&&d.sup[k][j*d.gw+i]) atr++;}}
+  }
+  const nr=zymos.length+1;
+  const past=prompt('Žymė #'+nr+' · '+(kas==='prusa'?'PrusaSlicer':'mūsų')+
+    '\nx '+xmin.toFixed(1)+'…'+xmax.toFixed(1)+
+    ' · y '+ymin.toFixed(1)+'…'+ymax.toFixed(1)+
+    ' · z '+zmin.toFixed(1)+'…'+zmax.toFixed(1)+' mm'+
+    '\nlangelių '+lang+', iš jų atramų '+atr+
+    '\n\nKas čia negerai?','');
+  if(past===null) return;
+  const z={nr:nr,kas:kas,modelis:SEL.value,
+    sritis:{x:[+xmin.toFixed(2),+xmax.toFixed(2)],y:[+ymin.toFixed(2),+ymax.toFixed(2)],
+            z:[+zmin.toFixed(2),+zmax.toFixed(2)]},
+    langeliu:lang, atramu:atr, pastaba:past,
+    px:[r.x0,r.y0,r.x1-r.x0,r.y1-r.y0]};
+  zymos.push(z); sarasas(); perpiestiRamus();
+  fetch('/zyme',{method:'POST',headers:{'Content-Type':'application/json'},
+                 body:JSON.stringify(z)}).catch(function(){});
+}
+
+function perpiestiRamus(){
+  document.querySelectorAll('.ram').forEach(e=>e.remove());
+  for(const z of zymos){
+    const cell=$('c_'+z.kas); if(!cell) continue;
+    const b=document.createElement('div'); b.className='ram';
+    b.style.left=z.px[0]+'px'; b.style.top=z.px[1]+'px';
+    b.style.width=z.px[2]+'px'; b.style.height=z.px[3]+'px';
+    b.innerHTML='<b>#'+z.nr+'</b>'; cell.appendChild(b);
+  }
+}
+
+function sarasas(){
+  $('tuscia').style.display=zymos.length?'none':'';
+  $('sar').innerHTML=zymos.map(function(z){
+    return '<li><b>#'+z.nr+'</b> '+(z.kas==='prusa'?'Prusa':'mūsų')+' · z '+
+      z.sritis.z.join('…')+' mm · '+z.langeliu+' lang. (atramų '+z.atramu+')<br>'+
+      (z.pastaba||'-')+'</li>';}).join('');
+}
+
+SEL.onchange=krauti;
+$('zymeti').onclick=e=>{zymejimas=!zymejimas; e.target.classList.toggle('on',zymejimas);};
+$('sinchro').onclick=e=>{sinchro=!sinchro; e.target.classList.toggle('on',sinchro);};
+$('atramos').onclick=e=>{atramosOn=!atramosOn; e.target.classList.toggle('on',atramosOn);
+  rodyti3D();};
+$('siurbtukai').onclick=e=>{siurbtukaiOn=!siurbtukaiOn;
+  e.target.classList.toggle('on',siurbtukaiOn);
+  for(const kas of PUSES){ if(!I[kas]||!D[kas])continue; aktyvus(kas);
+    if(window.gl3dErtmes)window.gl3dErtmes(
+      (siurbtukaiOn&&ERTMES)?ERTMES.taskai:[], ERTMES?ERTMES.langelis:[1,1,1]); }};
+$('salos').onclick=e=>{salosOn=!salosOn; e.target.classList.toggle('on',salosOn);
+  for(const kas of PUSES){ if(!I[kas]||!D[kas])continue; aktyvus(kas);
+    if(window.gl3dSalos)window.gl3dSalos(
+      salosOn?(D[kas].salos||[]).map(s=>[s.x,s.y,s.z]):[]); }};
+$('kubeliai').onclick=e=>{kubeliai=!kubeliai; e.target.classList.toggle('on',kubeliai);
+  BUS.textContent='perskaičiuojamas paviršius…'; setTimeout(rodyti3D,30);};
+$('ash').onchange=e=>{ash=e.target.value===''?null:+e.target.value;
+  for(const kas of PUSES) pjauti(kas);};
+$('pjuvis').oninput=e=>{pjuvioVieta=+e.target.value/1000;
+  for(const kas of PUSES) pjauti(kas);};
+$('kryptis').onclick=()=>{kryptis=-kryptis; for(const kas of PUSES) pjauti(kas);};
+$('valyti').onclick=()=>{zymos=[];sarasas();perpiestiRamus();};
+$('atstatyti').onclick=()=>{for(const kas of PUSES){ if(!I[kas])continue; aktyvus(kas);
+  if(window.gl3dFrameAuto)window.gl3dFrameAuto();}};
+addEventListener('resize',()=>{for(const kas of PUSES){ if(!I[kas])continue; aktyvus(kas);
+  if(window.gl3dShow)window.gl3dShow(true);}});
+const par=new URLSearchParams(location.search);
+if(par.get('m'))SEL.value=par.get('m');
+/* ?pj=2&pjv=0.5 — pjuvis is karto (patogu ir man patikrai, ir nuorodai). */
+if(par.get('pj')!==null){ash=+par.get('pj'); $('ash').value=par.get('pj');
+  if(par.get('pjv')){pjuvioVieta=+par.get('pjv'); $('pjuvis').value=pjuvioVieta*1000;}}
+if(par.get('kub')){kubeliai=true; $('kubeliai').classList.add('on');}
+krauti();
+</script>
