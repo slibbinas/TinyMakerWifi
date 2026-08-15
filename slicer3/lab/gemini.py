@@ -154,10 +154,20 @@ TXT['problemos'] = """
     taškuoti raštai ant veido). Aš jų beveik nededu: mano dangos taisyklė (3 mm)
     tokių vietų „nemato", nes jos formaliai laikosi pačios. Nežinau, ar tai
     privalumas (mažiau žymių) ar rizika (nukars smulkios klostės).</li>
-<li><b>Du kabantys kelmeliai.</b> „Evil" pagrinde du 1,35 mm stulpai turi
-    galvutes (remia taškus ties z≈3,5), bet neturi nė vienos jungties su
-    kaimynais ir atrodo pamesti. PrusaSlicer tame aukštyje turi 10 atramų, aš 13.
-    Neaišku, ar jie reikalingi, ar mano sėja ten per tanki.</li>
+<li><b>Perteklinės atramos prie pagrindo (svarbiausia).</b> Ties „Evil" pagrindu
+    turiu daug daugiau atramų nei etalonas, ir dalis jų — trumpi 1,35 mm kelmeliai,
+    kurie baigiasi ties z≈3,5:
+    <table><tr><th>aukštis</th><th>z=2</th><th>z=3</th><th>z=4</th><th>z=5</th><th>z=8</th></tr>
+    <tr><td>PrusaSlicer</td><td>13</td><td>15</td><td>16</td><td>19</td><td>14</td></tr>
+    <tr><td><b>mano</b></td><td>22</td><td>29</td><td>20</td><td>24</td><td>19</td></tr></table>
+    Tarp z=3 ir z=4 mano skaičius krenta 29 → 20, t. y. ~9 atramos ten baigiasi;
+    PrusaSlicer'io eina 15 → 16, nesibaigia nė viena. Išmatavau tą nuokabą:
+    naujo ploto juosta ten yra <b>ne platesnė nei 0,128 mm</b> (tai vieno
+    pikselio riba mano rastre, tikroji dar siauresnė) — t. y. beveik vertikali
+    siena. Mano savilaikio filtras meta tik tai, kas siauriau nei
+    <code>sluoksnis / tan(45°) = 0,05 mm</code>, tad tokia juosta prasprūsta.
+    <b>Klausimas: kokia teisinga riba?</b> Ar Prusa čia naudoja `diff_ex` su
+    `ApplySafetyOffset`, ar visai kitą kriterijų?</li>
 <li><b>Derva.</b> Biustui sunaudoju 1060 mm³ prieš etalono 981, puodeliui 189
     prieš 151 — nors žymių visur turiu mažiau. Vadinasi mano atramos ilgesnės
     arba storesnės, o ne tankesnės. Iš dalies tai mano paties 1 mm tarpo kaina
@@ -220,17 +230,33 @@ code{font:13px ui-monospace,Consolas,monospace;background:#f2f0ec;padding:1px 4p
 """
 for _k, _v in list(TXT.items()):
     HTML = HTML.replace('{{%s}}' % _k.upper(), _v)
-HTML = HTML.replace('{{PAV}}', '\n'.join([
-    img('evil', 'Evil. Kairėje matyti, kaip PrusaSlicer nusėja visą paviršių '
-                'smulkiais kontaktais (taškuoti raštai ant veido ir kūno); mano '
-                'pusėje paviršius švarus, remiama tik iš išorės.'),
-    img('biowoman', 'Biustas. Mano atramos stovi toliau nuo kūno (1 mm tarpas) '
-                    'ir sudaro išorinį narvą.'),
-    img('kronsteinas', 'Kronšteinas: didelė plokščia nuokaba. Dervos sunaudoju '
-                       '2,5 karto mažiau prie tos pačios dangos. Kairėje spalvos '
-                       'vietomis susikeitusios — piešėjo, ne slicerio dalykas.'),
-    img('puodelis', 'Puodelis: staigi atbraila ties 9 mm. Rezultatai beveik '
-                    'sutampa.')]))
+VIEWS = os.path.join(LAB, 'views')
+
+
+def views(name, cap):
+    out = ['<h3>%s</h3><p class="small">%s</p>' % (name.capitalize(), cap)]
+    for ang, txt in (('35', 'is priekio-kaires'), ('155', 'is uzpakalio-kaires'),
+                     ('275', 'is desines')):
+        f = os.path.join(VIEWS, '%s-%s.png' % (name, ang))
+        if not os.path.exists(f):
+            continue
+        b = base64.b64encode(io.open(f, 'rb').read()).decode()
+        out.append('<figure><img src="data:image/png;base64,%s">'
+                   '<figcaption>%s, %s (kaireje PrusaSlicer, desineje mano)</figcaption>'
+                   '</figure>' % (b, name, txt))
+    return chr(10).join(out)
+
+
+HTML = HTML.replace('{{PAV}}', chr(10).join([
+    views('evil', 'Kaireje matyti, kaip PrusaSlicer nuseja visa pavirsiu smulkiais '
+                  'kontaktais (taskuoti rastai ant veido ir kuno); mano puseje '
+                  'pavirsius svarus, remiama tik is isores.'),
+    views('biowoman', 'Mano atramos stovi toliau nuo kuno (1 mm tarpas) ir sudaro '
+                      'isorini narva; jo — arciau ir ispina.'),
+    views('kronsteinas', 'Didele plokscia nuokaba virsuje. Dervos sunaudoju 2,5 karto '
+                         'maziau prie tos pacios dangos. Kaireje spalvos vietomis '
+                         'susikeitusios — piesejo, ne slicerio dalykas.'),
+    views('puodelis', 'Staigi atbraila ties 9 mm. Rezultatai beveik sutampa.')]))
 HTML = HTML.replace('{{PROMPT}}', PROMPT)
 
 io.open(OUT, 'w', encoding='utf-8').write(HTML)
