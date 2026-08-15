@@ -238,6 +238,11 @@ def main():
           ('', '', 'vnt', 'mm', 'kartai', 'mm2', 'mm3', 'modelio', 'vnt'))
     for name in names:
         stl, ref, first, zs, oriented = score.MODELS[name]
+        # 13 — uzdaros ertmes: modelio savybe, tad matuojama karta, ne kiekvienam
+        cav_v, cav_n = suction(stl, oriented)
+        if cav_n:
+            print('   ! %s: %d uzdaros ertmes, didziausia %.0f mm3 — vakuumo rizika'
+                  % (name, cav_n, cav_v))
         ours = 'one-%s.zip' % name
         score.slice_ours(stl, ours, oriented)
         for who, p, f in (('PrusaSlicer', ref, first), ('musu', ours, 0.05)):
