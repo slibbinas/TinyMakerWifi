@@ -137,6 +137,18 @@ export const CFG = {
   pad_brim_mm:           1.6,
   pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
   pad_layers:            6,     // 0.3 mm / 0.05
+  /* MŪSŲ, ne PrusaSlicer'io taisyklė. Plokštė 40,8 × 30,6 mm yra maža, ir
+     dideliems modeliams atramos pėda nebetelpa — PrusaSlicer tokią tiesiog
+     nukerta ties LCD kraštu (išmatuota 08-15: biuste 1453 taškai ties kraštu
+     prieš mūsų 806, „evil" 112 prieš 0). Nukirsta pėda = stulpas, stovintis
+     ant nieko. Todėl pėdai, kuri netelpa, pirma ieškom kelio Į VIDŲ.
+     `null` = skaičiuojam patys: tilpti PRIVALO pėdos diskas
+     (`base_radius_mm`). Pado apvado čia NEskaičiuojam, nors iš pradžių
+     skaičiavau: jis yra dekoratyvus sijonas aplink padą, ir nukirstas jis
+     stulpo ant nieko nepalieka. Su apvadu (riba 3,1 mm) biuste atsirado
+     TREČIA sala ties z = 43,3 — atrama pasitraukė per toli į vidų ir paliko
+     lopinėlį be dangos (išmatuota 08-15). */
+  plate_edge_margin_mm:  null,
 };
 
 /* `SampleConfigFactory::create` (SLA/SupportIslands/SampleConfigFactory.cpp:55,
@@ -755,6 +767,27 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
   if (onProgress) onProgress(pts.length, pts.length);
 
   /* --- 2 · classify (DefaultSupportTree.cpp:528) ------------------------- */
+  /* Ar atramos pėda telpa ant plokštės. Skaičiuojam ne „nuo akies": pėda yra
+     `base_radius_mm` spindulio diskas, o aplink jį dar spausdinamas pado
+     apvadas — abu turi tilpti į 40,8 × 30,6 mm ekraną (modelio koordinatės
+     centruotos ties nuliu). */
+  /* DVI ribos, ir eiliškumas svarbus:
+       PLATI  — pėda + pado apvadas: gražiausia, viskas telpa su atsarga;
+       SIAURA — tik pėdos diskas: dar priimtina, apvadas gali būti apkarpytas.
+     Tilto nusileidimo taško ieškom PIRMA su plačiąja; neradę — su siaurąja; ir
+     tik tada leidžiam stotis ties kraštu. Vien plačioji buvo per griežta
+     (biuste atsirado trečia sala), vien siauroji — per atlaidi (puodelis liko
+     su 180 taškų ties kraštu). Kaskada duoda abu (išmatuota 08-16). */
+  const edgeStrict = cfg.plate_edge_margin_mm != null ? cfg.plate_edge_margin_mm
+                   : cfg.base_radius_mm + cfg.pad_brim_mm;
+  const edgeLoose = cfg.plate_edge_margin_mm != null ? cfg.plate_edge_margin_mm
+                  : cfg.base_radius_mm;
+  const fitsWith = (x, y, m) => Math.abs(x) <= PLATE.x / 2 - m &&
+                                Math.abs(y) <= PLATE.y / 2 - m;
+  const footFits = (x, y) => fitsWith(x, y, edgeLoose);
+  log.edgeForced = 0;    // pėdų, kurioms neleidom stotis ties kraštu
+  log.edgeSaved = 0;     // iš jų — kiek pavyko nuvesti į vidų
+
   const ground = [], onModel = [];
   for (let i = 0; i < heads.length; i++) {
     const h = heads[i];
@@ -767,7 +800,18 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
        perkrova, kuri saugos atstumą PASISKAIČIUOJA pati — tai ne „be atsargos". */
     const scan = beamHitFull(mesh, h.junction, DOWN, h.rBack, h.rBack,
                              bridgeSafety(h.rBack, cfg));
-    if (!(scan.dist < INF)) ground.push(i);
+    if (!(scan.dist < INF)) {
+      /* Kelias žemyn laisvas, BET pėda nubėgtų už ekrano krašto. Tokią galvutę
+         siunčiam tuo pačiu keliu kaip „ant modelio": pirma kabinam prie
+         kaimyninio stulpo, tada ieškom tilto į vidų. Paskutinė išeitis (jei nė
+         vienas nepavyksta) — vis dėlto pastatyti ties kraštu: nukirsta atrama
+         vis tiek geriau nei jokios (žr. routing_to_model pabaigą). */
+      if (!footFits(h.junction[0], h.junction[1])) {
+        h.edgeForced = true;
+        log.edgeForced++;
+        onModel.push(i);
+      } else ground.push(i);
+    }
     else if (cfg.ground_facing_only) continue;
     else {
       h.onModel = true;
@@ -916,20 +960,29 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
     }
     let best = null;
     const step = Math.max(r, 1e-3);
-    for (let l = 0; l <= cfg.max_bridge_length_mm && !best; l += step)
-      for (const d of dirs) {
-        if (l > d.lmax) continue;
-        const p = add(src, mul(d.n, l));
-        if (p[2] <= gnd + cfg.base_height_mm) continue;
-        /* Pigus atmetimas: viena ašis. Beveik visi kandidatai krenta čia, ir
-           brangaus pluošto jiems nebereikia. */
-        if (mesh.rayHit(p, DOWN).dist < p[2] - gnd) continue;
-        // Tikras sprendimas — pluoštas su saugos atstumu.
-        if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
-        if (beamHit(mesh, src, d.n, r, r, sd) < l) continue;   // ir pats tiltas
-        best = { l, p };
-        break;
-      }
+    /* Du praėjimai: pirma ieškom vietos su ATSARGA (pėda + apvadas), ir tik
+       neradę tenkinamės ta, kur telpa bent pėda. Taip atrama traukiama į vidų
+       tiek, kiek modelis leidžia, bet dėl to neprarandama pati atrama. */
+    for (const margin of [edgeStrict, edgeLoose]) {
+      if (best) break;
+      for (let l = 0; l <= cfg.max_bridge_length_mm && !best; l += step)
+        for (const d of dirs) {
+          if (l > d.lmax) continue;
+          const p = add(src, mul(d.n, l));
+          if (p[2] <= gnd + cfg.base_height_mm) continue;
+          /* Pigus atmetimas: viena ašis. Beveik visi kandidatai krenta čia, ir
+             brangaus pluošto jiems nebereikia. */
+          if (mesh.rayHit(p, DOWN).dist < p[2] - gnd) continue;
+          // Nusileidimo taškas turi ir TILPTI ant plokštės - tiltas į kraštą
+          // nieko neduoda, ten pėda vis tiek būtų nukirsta.
+          if (!fitsWith(p[0], p[1], margin)) continue;
+          // Tikras sprendimas — pluoštas su saugos atstumu.
+          if (beamHit(mesh, p, DOWN, r, r, sd) < p[2] - gnd) continue;
+          if (beamHit(mesh, src, d.n, r, r, sd) < l) continue;   // ir pats tiltas
+          best = { l, p };
+          break;
+        }
+    }
     if (!best) return false;
     pillars.push({ x: best.p[0], y: best.p[1], top: best.p[2], bottom: gnd,
                    rTop: r, rBase: cfg.base_radius_mm, head: h.id, bridges: 0 });
@@ -946,8 +999,12 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
   for (const i of onModel) {
     const h = heads[i];
     h.id = i;
-    if (searchPillarAndConnect(h)) continue;
-    if (connectToGround(h)) continue;              // vidurinė pakopa (cpp:778)
+    if (searchPillarAndConnect(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
+    if (connectToGround(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
+    /* Krašto atvejis: kelio į vidų neradom. Geriau atrama, kurios pėda bus
+       apkarpyta ekrano krašto, nei visai jokios — be jos ta vieta liktų sala.
+       (Būtent taip elgiasi ir PrusaSlicer, tik jis kitaip ir nebando.) */
+    if (h.edgeForced) { addPillar(h, i); continue; }
     /* connect_to_model_body (cpp:670-706). Originale atramos taškas imamas iš
        DVIEJŲ matavimų: pluošto skeno iš classify (`hit`) ir spindulio palei
        AŠĮ (`center_hit = m_sm.emesh.query_ray_hit(hjp, DOWN)`), o galutinis —
@@ -1140,6 +1197,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
           const sy = P.y + Math.sin(ang) * rSearch;
           const sz = P.top - rSearch;
           if (sz <= gnd + cfg.base_height_mm) break;
+          if (!footFits(sx, sy)) break;   // pagalbinė pėda irgi turi tilpti
           const r0 = P.rTop || cfg.pillar_radius_mm;
           // kelias žemyn turi būti laisvas per visą aukštį
           if (Number.isFinite(beamHit(mesh, [sx, sy, sz + r0], DOWN, r0, r0,
