@@ -124,6 +124,7 @@ export const CFG = {
      pad_brim_size 1.6. full_height = wall_height + wall_thickness. */
   pad_thickness_mm:      0.15,
   pad_brim_mm:           1.6,
+  pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
   pad_layers:            3,     // 0.15 mm / 0.05
 };
 
@@ -1227,7 +1228,8 @@ export async function buildPad(pos, pillars, cfg = CFG) {
   const CL = (await import('./clipper.js')).default;
   const seg = [];
   sliceAt(pos, cfg.pad_thickness_mm * 0.5, seg);
-  const paths = stitch(seg);
+  const foot = stitch(seg);          // pačios detalės pėdsakas
+  const paths = foot.slice();
   for (const p of pillars)
     if (p.bottom <= 1e-6) paths.push(circlePath(p.x, p.y, cfg.base_radius_mm));
   if (!paths.length) return null;
@@ -1241,8 +1243,27 @@ export async function buildPad(pos, pillars, cfg = CFG) {
   // Apvadas: offset brim_size_mm.
   const co = new CL.ClipperOffset();
   co.AddPaths(united, CL.JoinType.jtRound, CL.EndType.etClosedPolygon);
-  const grown = new CL.Paths();
+  let grown = new CL.Paths();
   co.Execute(grown, cfg.pad_brim_mm * SCALE);
+
+  /* `pad_around_object = 1` su `pad_object_gap = 1` (V profilis, prusa-full.ini):
+     padas yra ŽIEDAS aplink detalę, o ne kilimas po ja — detalė pirmu sluoksniu
+     lipa tiesiai prie plokštės. Iki šiol klojom ir po detale, ir tai buvo
+     didžiausia dervos eilutė: puodeliui 94 mm³ iš 230 (41 %), kai visos atramos
+     kartu sudaro 136 (išmatuota 08-15). */
+  if (cfg.pad_object_gap_mm > 0 && foot.length) {
+    const go = new CL.ClipperOffset();
+    go.AddPaths(foot, CL.JoinType.jtRound, CL.EndType.etClosedPolygon);
+    const gap = new CL.Paths();
+    go.Execute(gap, cfg.pad_object_gap_mm * SCALE);
+    const cut = new CL.Clipper();
+    cut.AddPaths(grown, CL.PolyType.ptSubject, true);
+    cut.AddPaths(gap, CL.PolyType.ptClip, true);
+    const ring = new CL.Paths();
+    cut.Execute(CL.ClipType.ctDifference, ring,
+                CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+    grown = ring;
+  }
 
   // Į kaukę: skenavimo eilutės per gautus poligonus.
   const W = RES.w, H = RES.h;
