@@ -1149,6 +1149,16 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress) {
           pillars.push(np);
           P.links = (P.links || 0) + 1;
           np.links = 1;
+          /* Ir TILTAS nuo vieniso stulpo viršaus į pagalbinio viršų
+             (`add_bridge(pillarsp, s)`, cpp:975-977). Be jo pagalbinio galas
+             styro į nieką: zigzagas prisikabina žemiau, o virš jo lieka
+             3 mm bereikalingo strypo — būtent tą V ir pamatė (08-15). */
+          const topA = [P.x, P.y, P.top], topB = [np.x, np.y, np.top];
+          const need = dist3d(topA, topB);
+          const rB = P.rTop || cfg.pillar_radius_mm;
+          if (beamHit(mesh, topA, norm(sub(topB, topA)), rB, rB,
+                      passSafety(rB, cfg)) >= need)
+            bridges.push({ a: topA, b: topB, r: rB });
         }
       }
     }
