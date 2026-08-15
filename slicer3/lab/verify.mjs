@@ -10,9 +10,16 @@ const M = await import('file:///' + MOD.replace(/\\/g, '/') + '?t=' + Date.now()
 const buf = readFileSync(process.argv[2]);
 const { positions } = M.parseSTL(
   buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-const best = M.autoOrient(positions);
-if (!best.fit.fits) best.tr.scale = best.fit.scaleToFit;
-const placed = M.place(positions, best.tr);
+/* RAW=1 — netaikom autoOrient. Be sito kronsteinas apverciamas taip, kad
+   nuokabu nebelieka, ir sargas tikrina tuscia rinkini (0/0). */
+let placed;
+if (process.env.RAW) {
+  placed = positions;
+} else {
+  const best = M.autoOrient(positions);
+  if (!best.fit.fits) best.tr.scale = best.fit.scaleToFit;
+  placed = M.place(positions, best.tr);
+}
 const t = await M.buildSupportTree(placed, M.CFG);
 console.log('modulis %s v%s · stulpu %d · tiltu %d · jungciu %d',
   MOD.split('/').pop(), M.VERSION, t.pillars.length, t.bridges.length, t.links.length);
