@@ -110,6 +110,12 @@ export const CFG = {
      nuo galvutės. */
   minimal_part_radius_mm: 0.2,
   critical_angle:        Math.PI / 4,  // support_critical_angle 45
+  /* Savilaikio riba. Geometriškai tai sluoksnio postūmis prie kritinio kampo
+     (0,05 mm), bet fiziškai riba didesnė: UV šviesa dervoje išsisklaido
+     ~0,05-0,1 mm plačiau nei LCD kaukė, tad siauresnė juosta susikietina su
+     kaimynu ir atramos nereikia. Auditoriaus (Gemini) siūlymas 08-15;
+     išmatuota: „evil" pagrinde dingsta visi 7 kelmeliai, stulpų 25 -> 18. */
+  self_support_mm:       0.10,
   /* Klasteriai: du taškai jungiasi į vieną stulpą, jei XY atstumas mažesnis
      nei 2 × base_radius IR 3D atstumas mažesnis nei max_bridge_length
      (DefaultSupportTree.cpp:565-571). */
@@ -122,10 +128,15 @@ export const CFG = {
   pillar_connection_mode: 'zigzag',   // support_pillar_connection_mode
   /* SLA/Pad.hpp + V profilis: pad_wall_height 0, pad_wall_thickness 0.15,
      pad_brim_size 1.6. full_height = wall_height + wall_thickness. */
-  pad_thickness_mm:      0.15,
+  /* Pado storis 0,3 mm = 6 sluoksniai. V taisyklė iš praktikos (08-15): per
+     plonas — mentele neužgriebsi (tikra bėda), per storas — sunkiau atlenkti,
+     bet atšaldžius platformą atšoka (nepatogumas). Rizika asimetriška, tad
+     klystam į storesnę pusę. PrusaSlicer čia turi 0,3 mm (vienas jo storesnis
+     pirmas sluoksnis) ir V žodžiais „jo raftas idealus". Buvo 0,15. */
+  pad_thickness_mm:      0.3,
   pad_brim_mm:           1.6,
   pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
-  pad_layers:            3,     // 0.15 mm / 0.05
+  pad_layers:            6,     // 0.3 mm / 0.05
 };
 
 /* `SampleConfigFactory::create` (SLA/SupportIslands/SampleConfigFactory.cpp:55,
@@ -1751,7 +1762,12 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                peršoka ploto ribą, ir ant vertikalios sienos atsiranda 13 taškų.
                Galvučių jie negauna, bet užima įtakos spindulį ir nutildo tikrą
                nuokabą aukščiau (puodelio atbraila: 13 atramų vietoj ~16). */
-            const selfSup = LAYER_MM / Math.tan(cfg.critical_angle);
+            /* Savilaikio riba. Geometriškai tai sluoksnio postūmis prie
+               kritinio kampo (0,05 mm), bet FIZIŠKAI riba didesnė: UV šviesa
+               dervoje išsisklaido ~0,05-0,1 mm plačiau nei LCD kaukė, tad
+               siauresnė juosta tiesiog susikietina su kaimynu. Auditorius
+               (Gemini, 08-15) siūlo 0,15 mm — TIKRINAMA. */
+            const selfSup = cfg.self_support_mm || (LAYER_MM / Math.tan(cfg.critical_angle));
             const thinOut = new CL.ClipperOffset();
             for (const oex of toExPolys(CL, over))
               thinOut.AddPaths(oex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
