@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="lt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0-16 geležies testai</title>
+<style>
+:root{--bg:#141416;--card:#1b1b1e;--line:#2c2c31;--text:#e8e8ea;--muted:#9a9aa2;
+ --accent:#ff8a1e;--ok:#3ec46d;--bad:#e0616b;--tile:#232327}
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:var(--bg);color:var(--text);
+ font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:19px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.bar{position:sticky;top:0;background:var(--bg);padding:10px 0 12px;border-bottom:1px solid var(--line);
+ margin-bottom:14px;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count{font-weight:700}
+button{background:var(--tile);color:var(--text);border:1px solid var(--line);border-radius:8px;
+ padding:8px 13px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.grp{margin:0 0 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.grp>h2{margin:0;padding:11px 14px;font-size:14px;background:var(--tile);
+ border-bottom:1px solid var(--line);letter-spacing:.2px}
+.t{display:grid;grid-template-columns:26px 1fr auto;gap:10px;padding:11px 14px;
+ border-bottom:1px solid var(--line);align-items:start}
+.t:last-child{border-bottom:0}
+.t.ok{background:rgba(62,196,109,.07)}
+.t.bad{background:rgba(224,97,107,.09)}
+.n{color:var(--muted);font-size:12px;padding-top:2px}
+.q b{display:block;margin-bottom:2px}
+.q span{color:var(--muted);font-size:13px}
+.act{display:flex;gap:6px}
+.act button{padding:5px 10px;font-size:12px;min-width:34px}
+.act button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.warn{border-left:3px solid var(--accent)}
+.note{padding:10px 14px;color:var(--muted);font-size:12.5px;background:rgba(255,138,30,.06)}
+textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:var(--text);
+ border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 monospace}
+</style></head><body>
+
+<h1>0.17 · dervų profiliai — geležies testai</h1>
+<div class="sub">Build <b>e6ba98a</b>, 2026-08-16 13:39. Biblioteka gyva gh-pages. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.</div>
+
+<div class="bar">
+  <span class="count" id="cnt">0 / 0</span>
+  <button onclick="setAll('ok')">Visi ✓</button>
+  <button onclick="setAll('')">Išvalyti</button>
+  <button onclick="copyReport()">Kopijuoti ataskaitą</button>
+</div>
+
+<div id="list"></div>
+<textarea id="out" placeholder="Ataskaita atsiras paspaudus „Kopijuoti""></textarea>
+
+<script>
+const G=[
+ ["A · Pirmas paleidimas",[
+  ["Ištrauk SD kortelę, perkrauk printerį. Pulte atidaryk dervos eilutę.","Fast ir Slow sąraše yra, pasirenkami. Kortelės nereikia."],
+  ["Įdėk kortelę atgal, perkrauk.","Pagrindiniame lange dervos eilutė rodo aktyvų profilį su aukščiu."],
+ ]],
+ ["B · Perjungimas iš pagrindinio lango",[
+  ["Perjunk į kitą dervą, kai laukai nekeisti.","Persijungia tyliai, be klausimų. Žinutė „Now printing with…“."],
+  ["Settings → pakeisk Base exposure, negrįžk. Pagrindiniame lange perjunk dervą.","Klausia: Save first / Switch anyway / Cancel."],
+  ["Pasirink „Save first“.","Įrašo TĄ reikšmę, kurią matei ekrane (ne senąją). Patikrink grįžęs į profilį."],
+  ["Pakartok ir pasirink „Cancel“.","Niekas nepasikeitė - lieka ta pati derva ir tos pačios reikšmės."],
+ ]],
+ ["C · Sluoksnio aukštis — rizikingiausia",[
+  ["Settings → Resin: pakeisk aukštį į 0,10, Save as… „test-010“.","Naujas profilis sąraše su „· 0.10 mm“."],
+  ["Perjunk tarp „test-010“ ir Fast.","Layer height laukas persijungia 0,10 ↔ 0,05 kartu su ekspozicija."],
+  ["⚠️ Atidaryk modelį (peržiūra su Start), TADA perjunk į kitą aukštį.","Peržiūra persiskaičiuoja: sluoksnių skaičius ir laikas pasikeičia. NELIEKA senų."],
+  ["Po to paspausk Start (dry run!).","Spausdina teisingą sluoksnių skaičių, ne pusę modelio."],
+ ]],
+ ["D · Redagavimas",[
+  ["Pakeisk bet kurį Resin kortelės lauką.","Atsiranda nuoroda „Discard changes“."],
+  ["Paspausk „Discard changes“.","Laukai grįžta į profilio reikšmes, nuoroda dingsta."],
+  ["Pakeisk ir paspausk Save.","Įrašo ir į printerį, ir į profilį. Perkrovus reikšmė išlieka."],
+  ["Save as… su vardu „mano derva“.","Mūsų dialogas (ne naršyklės „localhost says“). Sukuria „mano-derva“."],
+  ["Pasirink savo profilį → Rename…","Pervadina. Įsiūtam profiliui mygtuko nėra."],
+  ["Redaguok Fast ir išsaugok → atsiranda „Reset to factory“.","Paspaudus grįžta 18 / 8,0 / 4."],
+  ["Modale ištrink savo profilį (✕).","Klausia patvirtinimo; ištrynus grįžta į Slow."],
+ ]],
+ ["E · Printerio ekranas",[
+  ["Advanced → Resin → Profile: spausk kelis kartus.","Ciklas eina per Fast, Slow ir kortelės profilius, reikšmės keičiasi."],
+  ["Perjungęs ekrane, pažiūrėk į pultą.","Pultas rodo tą patį profilį (gali reikėti sekundės)."],
+ ]],
+ ["F · Naujienos sąraše",[
+  ["Pažiūrėk SD sąrašą.","Prie modelių: laikas ir dydis (pvz. „about 2h 46m · 19 MB“)."],
+  ["Seniems modeliams dydžio nėra - atidaryk vieną.","Atidarius ir grįžus, tas modelis jau rodo dydį."],
+  ["Perjunk dervą su kitu aukščiu ir pažiūrėk sąrašą.","Laikai pasikeitė VISIEMS modeliams. Dydžiai - ne."],
+ ]],
+ ["G · Svėrimas ir kalibracija",[
+  ["Settings → Resin calibration: įvesk pasverto vato gramus.","Peržiūra rodo ml dar prieš spaudžiant Set."],
+  ["Paspausk Set.","Likutis pagrindiniame lange pasikeitė į tą patį skaičių."],
+  ["Patikrink, ar tankis rodo aktyvios dervos.","Perjungus dervą tankis pasikeičia kartu."],
+ ]],
+ ["H · Apsaugos",[
+  ["Pradėk dry run. Bandyk perjungti dervą.","Neleidžia (mygtukas neaktyvus arba klaida)."],
+  ["Spausdinant atidaryk Settings → Resin.","Laukai pilki, Save neveikia."],
+  ["Biblioteka: pagrindinio lango sąraše jos NĖRA, Settings - yra.","Pagrindiniame tik tavo dervos; Settings apačioje „Tested resin library“."],
+ ]],
+ ["I · Biblioteka (nauja - gyvai iš gh-pages)",[
+  ["Pagrindinio lango dervų sąraše pažiūrėk apačią.","Eilutė „N tested resins available“. Katalogo ir Install ten NĖRA."],
+  ["Paspausk tą eilutę.","Nuveda į Settings ir atidaro pasirinkimą su „Tested resin library“."],
+  ["Settings pasirinkime pažiūrėk biblioteką.","Trys: SUNLU Tough (su ✓ tested by), Anycubic WW Clear ir Black (be ženkliuko)."],
+  ["Paspausk Install ties SUNLU Tough.","Atsiranda kortelėje; sąraše jo nebelieka bibliotekos dalyje."],
+  ["Pasirink įdiegtą SUNLU ir pažiūrėk laukus.","18 s base, 8,0 s regular, 4 base sluoksniai, tankis 1,157."],
+  ["Paspausk „Buy“ ties Anycubic.","Atsidaro gamintojo puslapis naujame skirtuke (laikina nuoroda testui)."],
+  ["Išjunk telefono/kompiuterio internetą, atidaryk Settings pasirinkimą.","Rašo, kad bibliotekos nepavyko pasiekti, ir siūlo „refresh“ - ne tyli tuštuma."],
+  ["Įjunk internetą, spausk „refresh“.","Sąrašas grįžta be puslapio perkrovimo."],
+ ]],
+ ["J · Atsarginė kopija",[
+  ["Settings → Backup → parsisiųsk, tada atkurk.","Aktyvaus profilio vardas ir vato svoris grįžta."],
+ ]],
+];
+let S=JSON.parse(localStorage.getItem('t016')||'{}');
+function render(){
+ const L=document.getElementById('list'); L.innerHTML='';
+ let n=0,done=0;
+ G.forEach(([title,items],gi)=>{
+  const d=document.createElement('div'); d.className='grp';
+  d.innerHTML='<h2>'+title+'</h2>';
+  items.forEach(([q,exp],ii)=>{
+   const id=gi+'-'+ii; n++; const st=S[id]||'';
+   if(st)done++;
+   const row=document.createElement('div');
+   row.className='t'+(st==='ok'?' ok':st==='bad'?' bad':'')+(q.indexOf('⚠️')>=0?' warn':'');
+   row.innerHTML='<div class="n">'+n+'</div><div class="q"><b>'+q+'</b><span>'+exp+'</span></div>'+
+     '<div class="act"><button data-i="'+id+'" data-v="ok" class="'+(st==='ok'?'on':'')+'">✓</button>'+
+     '<button data-i="'+id+'" data-v="bad" class="'+(st==='bad'?'on':'')+'">✗</button></div>';
+   d.appendChild(row);
+  });
+  L.appendChild(d);
+ });
+ document.getElementById('cnt').textContent=done+' / '+n;
+ L.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+   const i=b.dataset.i; S[i]=(S[i]===b.dataset.v)?'':b.dataset.v;
+   localStorage.setItem('t016',JSON.stringify(S)); render();});
+}
+function setAll(v){S={};if(v){G.forEach((g,gi)=>g[1].forEach((x,ii)=>S[gi+'-'+ii]=v));}
+ localStorage.setItem('t016',JSON.stringify(S));render();}
+function copyReport(){
+ let t='0.17 dervų profiliai - geležies testai (build e6ba98a)\n\n';
+ G.forEach(([title,items],gi)=>{t+=title+'\n';
+  items.forEach(([q],ii)=>{const s=S[gi+'-'+ii];t+='  '+(s==='ok'?'[v]':s==='bad'?'[X]':'[ ]')+' '+q+'\n';});
+  t+='\n';});
+ document.getElementById('out').value=t;
+ document.getElementById('out').select();
+ try{document.execCommand('copy');}catch(e){}
+}
+render();
+</script>
+</body></html>
