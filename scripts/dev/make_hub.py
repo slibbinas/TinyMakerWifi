@@ -21,6 +21,8 @@ OUT = os.path.join(HERE, "index.html")
 CATALOG = {
     "testai-0-16.html": ("Geležies testai · 0.17 dervų profiliai",
         "Punktai su ✓/✗ ir pastabomis; apačioje ataskaita kopijavimui.", "testai"),
+    "busenos.html": ("Būsenų žemėlapis",
+        "Kur printeris gali būti, kaip pereina ir kas kurioje būsenoje uždrausta.", "testai"),
     "scenarijai.html": ("Naudojimo scenarijai",
         "Kaip žmogus iš tikrųjų naudoja pultą: prielaidos, tikslas, žingsniai, rezultatas.", "testai"),
     "demo.html": ("Pulto demo",

@@ -1473,14 +1473,33 @@ void screenResumeHeightChanged(){
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(6, 16);
-  gfx2->println("Layer height changed");
+  gfx2->println("Layer height is");
   gfx2->setCursor(6, 34);
-  gfx2->println("after this print - it");
+  gfx2->println("not this print's -");
   gfx2->setCursor(6, 52);
   gfx2->println("cannot be resumed.");
   delay(3500);
   // No screen1() here: the caller puts the resume prompt back up, and drawing
   // the main menu in between only flashed it for a frame.
+}
+
+/**
+ * @brief Gamyklinio atstatymo patvirtinimas (ekranas 313). Isvardija tai, ko
+ * neatstatysi: dervos kalibracija ir profilio redagavima.
+ */
+void screenFactoryConfirm(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Reset all settings?");
+  gfx2->setCursor(6, 34);
+  gfx2->println("Resin calibration");
+  gfx2->setCursor(6, 52);
+  gfx2->println("is erased too.");
+  uiButtons("Back", "Reset", 0x879F);
+  screen = 313;
 }
 
 /**
@@ -3121,13 +3140,10 @@ void screen311(){
       screen = 311;
     }
     else{
-      // "Back to Default" Selected -> the SAME full reset the dashboard does
-      // (profile name, its overlay, calibration, stale lists) - not just the
-      // EEPROM block, or the two paths drift apart (audit 08-16).
-      resetEverythingToFactory();
-
-      setting_item = 11;
-      screen31DOWN(); // Refresh Screen
+      // "Back to Default" -> KLAUSIAM pirma. Sis mygtukas dabar istrina ir
+      // dervos kalibracija (pacio pasvertos gramu poros), ir profilio redagavima -
+      // dalykus, kuriu neatstatysi. Vieno paspaudimo tam per mazai (audit 08-16).
+      screenFactoryConfirm();
     }
   }
   delay(300);

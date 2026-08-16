@@ -1,0 +1,148 @@
+<meta charset="utf-8">
+<title>TinyMaker - būsenų žemėlapis</title>
+<style>
+:root{color-scheme:light;
+ --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
+ --accent:#f07a1a;--code:#eef0f3;
+ --ok:#1f9d4d;--okbg:#e8f6ee;--warn:#b97a10;--warnbg:#fdf3e0;--bad:#d7454f;--badbg:#fdeaea}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);padding:26px 16px 70px;
+ font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:1.35rem;margin:0 0 4px}
+h1 .dot{color:var(--accent)}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 18px}
+.rule{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+ border-radius:10px;padding:12px 16px;margin:0 0 22px;font-size:.88rem}
+h2{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+ margin:28px 0 12px;font-weight:700}
+.flow{display:flex;flex-direction:column;gap:0}
+.st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px}
+.st.hot{border-color:var(--accent)}
+.st h3{margin:0 0 6px;font-size:1rem;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.st h3 code{font-size:.72rem;color:var(--muted);background:var(--code);padding:1px 6px;border-radius:5px}
+.st p{margin:0 0 8px;font-size:.87rem}
+.gate{display:flex;flex-wrap:wrap;gap:6px}
+.g{font-size:.75rem;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.g-ok{background:var(--okbg);color:var(--ok)}
+.g-no{background:var(--badbg);color:var(--bad)}
+.g-w{background:var(--warnbg);color:var(--warn)}
+.arr{align-self:center;color:var(--muted);font-size:1.1rem;padding:7px 0;text-align:center;line-height:1.25}
+.arr b{display:block;color:var(--text);font-size:.8rem;font-weight:600}
+.arr span{font-size:.75rem}
+.branch{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:6px 0}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-bottom:16px}
+table{border-collapse:collapse;width:100%;font-size:.85rem;background:var(--card);
+ border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th{background:var(--code);color:var(--muted);text-align:left;font-size:.72rem;
+ text-transform:uppercase;letter-spacing:.05em;padding:9px 12px}
+td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+td:first-child{font-weight:600;white-space:nowrap}
+.foot{margin-top:26px;font-size:.78rem;color:var(--muted)}
+@media(max-width:620px){table,thead,tbody,tr,th,td{display:block}th{display:none}
+ tr{border-top:1px solid var(--line)}td{border:0;padding:4px 12px}td:first-child{padding-top:10px}}
+</style>
+<div class="wrap">
+<h1>TinyMaker <span class="dot">·</span> būsenų žemėlapis</h1>
+<p class="sub">Kur printeris gali būti, kaip iš vienos būsenos patenka į kitą ir kas kurioje
+uždrausta. Scenarijų G ir H skyriai iš esmės yra šito žemėlapio kraštinės.</p>
+
+<div class="rule"><b>Viena taisyklė, iš kurios seka visos kitos:</b> ESP32 aptarnauja
+<b>vieną</b> užklausą vienu metu, o SD kortelė priklauso spaudiniui. Todėl beveik kiekvienas
+draudimas žemiau yra ne kaprizas, o „šitas darbas jau užėmė vienintelį kelią".</div>
+
+<div class="leg">
+  <span><span class="g g-ok">leidžiama</span> veikia normaliai</span>
+  <span><span class="g g-no">draudžiama</span> atmetama su paaiškinimu</span>
+  <span><span class="g g-w">su sąlyga</span> leidžiama, bet kažkas patikrinama</span>
+</div>
+
+<h2>Pagrindinis kelias</h2>
+<div class="flow">
+
+<div class="st"><h3>Laisvas <code>Idle</code></h3>
+<p>Nieko nespausdina, kortelė laisva. Čia praleidžiama dauguma laiko ir daroma dauguma darbų.</p>
+<div class="gate">
+<span class="g g-ok">derva</span><span class="g g-ok">nustatymai</span><span class="g g-ok">trynimas</span>
+<span class="g g-ok">įkėlimas</span><span class="g g-ok">peržiūra</span><span class="g g-ok">firmware</span>
+<span class="g g-ok">gamyklinis atstatymas</span>
+</div></div>
+
+<div class="arr">↓<b>pasirenki modelį</b><span>pulte eilutė arba printerio Print meniu</span></div>
+
+<div class="st hot"><h3>Modelis paruoštas <code>screen 111</code></h3>
+<p>Sluoksniai suskaičiuoti, laikas ir ml apskaičiuoti, laukiama Start. <b>Čia gyvena šios
+dienos sarga:</b> paruoštas modelis įsimena, kokiam sluoksnio aukščiui skaičiuotas.</p>
+<div class="gate">
+<span class="g g-ok">derva</span><span class="g g-w">Start: jei aukštis pasikeitė, sluoksniai perskaičiuojami</span>
+<span class="g g-w">jei sluoksnių 0 - atsisako startuoti</span>
+</div></div>
+
+<div class="arr">↓<b>Start</b><span>pulte arba mygtuku (gali įsiterpti „VAT pripiltas?" ir mažos dervos įspėjimas)</span></div>
+
+<div class="st hot"><h3>Spausdina <code>busy</code></h3>
+<p>Kortelė ir vienintelis ryšys priklauso spaudiniui. Pultas gyvas, bet tik žiūrėjimui:
+progresas ir 3D vaizdas imami iš atminties, ne iš kortelės.</p>
+<div class="gate">
+<span class="g g-no">derva</span><span class="g g-no">nustatymai</span><span class="g g-no">trynimas</span>
+<span class="g g-no">įkėlimas</span><span class="g g-no">firmware</span>
+<span class="g g-ok">Pauzė</span><span class="g g-ok">Stop</span><span class="g g-ok">stebėjimas</span>
+</div></div>
+
+<div class="branch">
+  <div class="st"><h3>Pauzė</h3>
+  <p>Plokštė pakelta, laukiama žmogaus. Iš čia arba Resume, arba Stop. Derva vis dar užrakinta:
+  spaudinys nebaigtas.</p>
+  <div class="gate"><span class="g g-ok">Resume</span><span class="g g-ok">Stop</span><span class="g g-no">nustatymai</span></div></div>
+
+  <div class="st"><h3>Baigta / nutraukta</h3>
+  <p>Plokštė pakelta, UV išjungtas. Modelis kortelėje lieka; siūloma įvesti pasvertus gramus
+  kalibracijai.</p>
+  <div class="gate"><span class="g g-ok">viskas, kaip Idle</span></div></div>
+</div>
+
+<div class="arr">↑<b>grįžtama į Laisvą</b></div>
+</div>
+
+<h2>Šalutiniai keliai</h2>
+<div class="branch">
+
+<div class="st"><h3>Baigėsi derva</h3>
+<p>Printeris pats sustoja ties riba, praneša pulte ir Telegram. Papylus ir paspaudus
+„VAT refilled" tęsia kaip po įprastos pauzės.</p>
+<div class="gate"><span class="g g-ok">papildyti ir tęsti</span><span class="g g-no">keisti dervą</span></div></div>
+
+<div class="st"><h3>Kortelės darbas <code>sdJob</code></h3>
+<p>Išpakavimas ar trynimas vyksta printerio laisvame cikle. Trumpam elgiasi kaip spausdinimas:
+kortelė užimta, kiti kortelės darbai laukia.</p>
+<div class="gate"><span class="g g-no">kitas kortelės darbas</span><span class="g g-no">Start</span><span class="g g-ok">stebėjimas</span></div></div>
+
+<div class="st hot"><h3>Srovė dingo <code>screen 427</code></h3>
+<p>Po įkrovos kabo klausimas „Power restored" su trimis atsakymais: tęsti, pakelti plokštę,
+atmesti. <b>Kol jis kabo, kiekvienas nustatymų kelias atmetamas</b> - kitaip pasikeitęs
+sluoksnio aukštis nuleistų plokštę į jau atspausdintą detalę.</p>
+<div class="gate">
+<span class="g g-no">derva</span><span class="g g-no">nustatymai</span><span class="g g-no">atstatymas iš kopijos</span>
+<span class="g g-no">gamyklinis atstatymas</span>
+<span class="g g-w">Resume: dar kartą tikrinamas aukštis; nesutapus atsisako</span>
+</div></div>
+</div>
+
+<h2>Kas ką užrakina (santrauka)</h2>
+<table>
+<tr><th>Veiksmas</th><th>Laisvas</th><th>Paruoštas</th><th>Spausdina</th><th>Pauzė</th><th>Resume klausimas</th></tr>
+<tr><td>Dervos perjungimas</td><td>taip</td><td>taip, peržiūra persiskaičiuoja</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Nustatymų išsaugojimas</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Atstatymas iš kopijos</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Gamyklinis atstatymas</td><td>taip (klausia)</td><td>taip (klausia)</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Modelio trynimas</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Įkėlimas iš slicer'io</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>3D peržiūra</td><td>taip</td><td>taip</td><td>iš atminties</td><td>iš atminties</td><td>ne</td></tr>
+<tr><td>Firmware atnaujinimas</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>ne</td></tr>
+<tr><td>Start</td><td>taip</td><td>taip</td><td>ne</td><td>ne</td><td>per Resume</td></tr>
+</table>
+
+<p class="foot">Kur tikrinama: scenarijų skyriai <b>G</b> (kai veiksmai kertasi) ir <b>H</b>
+(spausdinimo komplikacijos). Pasikeitus elgsenai - atnaujinti ir čia, ir veiksmų matricoje.
+Šaltinis: scripts/dev/busenos.html</p>
+</div>

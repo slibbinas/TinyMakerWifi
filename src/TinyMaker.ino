@@ -1553,15 +1553,20 @@ bool handleUiTimeout() {
  * blank/corrupt EEPROM at boot and by Settings -> "Back to Default".
  * Layer_Height is stored x100 (10 -> 0.10 mm).
  */
+// -------------------------------------------------------------------------------
 // Gamyklinis atstatymas yra daugiau nei EEPROM blokas: dervos profilio vardas
 // turi sekti skaicius, jo overlay failas - dingti, o kiekvienas atidarytas pultas
 // suzinoti, kad jo sarasai pasene. Abu keliai (printerio Settings ir
 // /api/config/defaults) eina per SITA funkcija, kad nebeissiskirtu (auditas 08-16).
 void resetEverythingToFactory() {
   resinProfileName = "slow";
+  // Overlay turi dingti ir tinklo neturinciame build'e: ten dervu meniu irgi yra,
+  // ir „slow" grazintu sena redagavima, kai masina jau suka gamyklinius skaicius.
+  // Guard'as tik aplink sdCardReady() - jis vienintelis gyvena Network.ino viduje.
   #if ENABLE_NETWORK
-  if (sdCardReady()) SD.remove(resinProfilePath("slow").c_str());
+  if (sdCardReady())
   #endif
+    SD.remove(resinProfilePath("slow").c_str());
   lastPrintRawMl = -1;
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putString("resinProf", resinProfileName);
@@ -1572,7 +1577,8 @@ void resetEverythingToFactory() {
   resetSettingsToDefault();
   resinClearCalibration();
   resinDensity = RESIN_DENSITY_DEF;
-  saveDeviceConfig();
+  // saveDeviceConfig() - kvieciancio reikalas: web kelias po sito dar keicia savo
+  // laukus ir issaugo viena kartu (kitaip NVS butu rasomas du kartus is eiles).
 }
 
 void resetSettingsToDefault() {
@@ -2007,6 +2013,10 @@ void loop() {
         break;
       case 431:                 // About -> System menu (About stays selected)
       screen44();
+        break;
+      case 313:                 // "Reset all settings?" -> Back = nieko nedarom
+      setting_item = 11;
+      screen31DOWN();
         break;
       case 311:
       if(setting_item_updown == 1){
@@ -3076,6 +3086,12 @@ void loop() {
         break;
       case 442:                 // WiFi prompt -> Reboot: apply the toggle now
         applyWifiToggleAndReboot();
+        break;
+      case 313:                 // "Reset all settings?" -> Reset (OK)
+        resetEverythingToFactory();
+        saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
+        setting_item = 11;      // griztam i sarasa vienu punktu auksciau, kad
+        screen31DOWN();         // „Back to Default" is karto vel neatsivertu
         break;
       case 311:
       if(setting_item_updown == 1){

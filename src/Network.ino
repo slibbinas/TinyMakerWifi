@@ -1827,7 +1827,7 @@ void resetWebConfigToDefaults() {
   // Everything the printer's own "Back to Default" does - one source, so the
   // two entry points cannot drift (audit 08-16): factory numbers, the factory
   // resin name, its overlay off the card, calibration cleared, lists marked stale.
-  resetEverythingToFactory();
+  resetEverythingToFactory();   // issaugom viena karta, apacioje
   uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
   uvLedEnabled = true;
   wifiEnabled = true;
@@ -3711,6 +3711,8 @@ void handleApiResinProfileSelect() {
   if (!resinProfileExists(name)) { sendApiError(404, "profile not found"); return; }
   if (!applyResinProfile(name)) { sendApiError(500, "could not read the profile"); return; }
   sdRev++;   // per-model times come from this profile - every list is now stale
+             // (savePrintSettings bumps it too; a double step is harmless - the
+             //  dashboard only compares the number with the one it last saw)
   tinymakerConnectScheduleBackup();   // as every other settings path does
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
 }
