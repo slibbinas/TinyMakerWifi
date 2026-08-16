@@ -689,6 +689,10 @@ void handleApiConnectRestore() {
     sendApiError(409, "printer busy");
     return;
   }
+  // A cloud backup carries the layer height, and the resume prompt is answered
+  // later: the same gate as every other settings route (audit 08-16). The
+  // printer is not "busy" while that prompt stands.
+  if (rejectIfResumePending()) return;
 
   String backupJson;
   uint32_t epoch = 0;

@@ -130,7 +130,6 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info);
 String resinProfilePath(const String &name);
 int listResinProfiles(String out[], int maxN);
 bool resinProfileExists(const String &name);
-bool resinProfileEdited(const String &name);
 String resinProfileDisplay(const String &name);
 bool applyResinProfile(const String &name);
 bool writeResinProfile(const String &name, const String &display);

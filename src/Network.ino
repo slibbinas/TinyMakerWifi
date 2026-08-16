@@ -534,8 +534,9 @@ void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
 void handleApiFileModelPreview() {
   // 0-19: while printing, the active model's preview is served from the RAM
   // snapshot - no SD touch, so the no-SD-reads-mid-print rule still holds.
-  // The type arg is ignored here: the snapshot already matches the active
-  // layer height. Other models (or no snapshot) fall through to the 409.
+  // The type arg is ignored here: one snapshot is taken per print, and the
+  // picture is the same model at any layer height (see openModelRender).
+  // Other models (or no snapshot) fall through to the 409.
   if (printerBusy() && previewCacheBuf && server.arg("name") == previewCacheModel) {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.setContentLength(previewCacheLen);
