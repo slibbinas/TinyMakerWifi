@@ -72,7 +72,30 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 .rbIcon:hover:not(:disabled){color:var(--text);background:var(--btnsec)}
 .rbIcon:disabled{opacity:.35;background:transparent}
 .rbIcon.rbDel{color:var(--danger)}
-</style></head><body><main class='wrap'>
+/* ---- Sliceris (0.17 SL-mod), perkelta is experimental2 ---------------- Atskiru bloku gale SAMONINGAI: taip matosi, kas atejo su sliceriu, ir ji galima nuimti vienu gabalu. Kelios taisykles kartoja jau esamas su tomis paciomis reiksmemis (pvz. #uploadButton) - tik prisideda slicerio selektorius; jokia esama elgsena nesikeicia. */#gl3dTools{display:none;flex-direction:row}
+#gl3dLayer{display:none}
+#gl3dLayerRange{writing-mode:vertical-lr;direction:rtl;width:22px;flex:1;margin:0;padding:0;background:transparent;border:0;accent-color:var(--accent)}
+#slicerFacts>div{position:relative;padding-left:14px;margin-top:3px;min-height:1.3em}
+#slicerFacts>div:empty{display:none}
+#slicerFacts>div::before{content:'\2022';position:absolute;left:2px;color:var(--muted)}
+#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}
+#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}
+#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}
+#gl3dPop span{color:var(--muted)}
+#gl3dPop input[type=number]::-webkit-inner-spin-button{opacity:1;height:20px}
+#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}
+#gl3dPop input[type=checkbox]{width:auto;margin:0}
+#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+#popDone:hover{color:var(--text)}
+#slicerReview{display:none!important}
+#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}
+#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}
+#gl3dTools button.on .soft{opacity:1}
+#gl3dTools button.on .sharp{opacity:0}
+#gl3dDet svg,#gl3dTools svg{pointer-events:none}
+#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}
+#slicerCard{order:-1}</style></head><body><main class='wrap'>
 <div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker<a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
 <section id='resumeBanner' class='card banner hidden'>
@@ -256,8 +279,53 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
      perziura kaireje, o telefone viena stulpeliu eile isvyniojama kaip
      perziura -> sliceris -> SD manager (V 08-17). -->
   <section id='slicerCard' class='card hidden'>
-    <h2>Slicer <span id='slicerState' class='navTag'></span></h2>
-    <div id='slicerBody' style='font-size:.95rem;color:var(--muted)'></div>
+    <div class='cardHead'><h2>Slice an STL <span id='slicerState' class='navTag'></span></h2>
+      <button id='slicerToggle' class='button secondary' type='button'
+              style='margin-top:0'>Open</button></div>
+    <div id='slicerBody' style='display:none'>
+      <div id='slicerTools' class='toolbar' style='margin-top:0'>
+        <button id='slicerAutoFit' class='button secondary' type='button' disabled
+                title='Turn it, and scale only if it does not fit'>Auto fit</button>
+        <button id='slicerFlat' class='button secondary' type='button' disabled
+                title='Put the widest flat face down on the plate'>Lay flat</button>
+        <button id='slicerFlip' class='button secondary' type='button' disabled
+                title='Turn the model upside down'>Flip over</button>
+        <button id='slicerRotX' class='button secondary' type='button' disabled
+                title='Tilt forward a quarter turn'>Tilt 90°</button>
+        <button id='slicerRotZ' class='button secondary' type='button' disabled
+                title='Spin on the plate a quarter turn'>Rotate 90°</button>
+      </div>
+      <div id='slicerFit' style='display:none'></div>
+      <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
+      <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
+
+      <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
+      <div class='calRow' style='margin-top:6px;gap:8px'>
+        <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
+          <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
+        <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
+      </div>
+      <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
+      <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
+        <button id='slicerDiscardLink' class='button secondary' type='button'
+                style='visibility:hidden;flex:0 0 auto;min-height:28px;height:28px;padding:0 12px;font-size:.8rem'>Discard</button>
+        <!-- Eiga po tuo mygtuku, kuris ja sukele (V 08-12). -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:right'></span>
+      </div>
+      <div class='calRow' style='margin-top:6px;gap:8px'>
+        <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters - longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
+        <button id='slicerSave' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Save to printer</button>
+      </div>
+      <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
+           tad jos neatrode kaip vienas sarasas (V 08-12). -->
+      <div id='slicerFacts'>
+      <div id='slicerDims'></div>
+      <div id='slicerInfo'>No file loaded yet.</div>
+      <div>Layers are 0.05 mm, as for every model.</div>
+      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - nothing to set.</div>
+      <div id='slicerIslands'></div>
+      </div>
+    </div>
   </section>
   </div>
 
@@ -1769,12 +1837,18 @@ const refreshSlicerCard=()=>{
   show('slicerCard',on);
   if(!on)return;
   const live=!!(statusData&&statusData.slicerOn);
-  const card=$('slicerCard'),st=$('slicerState'),b=$('slicerBody');
+  const card=$('slicerCard'),st=$('slicerState'),tg=$('slicerToggle');
   card.style.opacity=live?'':'.55';
-  if(st)st.textContent=live?'ready':'not active';
-  if(b)b.textContent=live
-    ? 'The slicer module is live on this printer.'
-    : 'Unlocked, but the module is not active on this printer yet - it switches itself on once installed.';
+  if(st)st.textContent=live?'':'not active';
+  /* I slicerBody NERASOM: nuo 0.17 jame gyvena tikras UI (failo pasirinkimas,
+     irankiai, faktai), ir textContent ji istrintu. Busena rodo tik zymele
+     antrasteje, o neaktyvus modulis uzrakina atidarymo mygtuka - kortele lieka
+     matoma, kad butu aisku, jog toks dalykas yra. */
+  if(tg){
+    tg.disabled=!live;
+    tg.title=live?'':'The slicer module is not active on this printer yet';
+  }
+  if(!live&&typeof slicerOpen==='function')slicerOpen(false);
 };
 const slicerTap=()=>{
   const now=Date.now();
