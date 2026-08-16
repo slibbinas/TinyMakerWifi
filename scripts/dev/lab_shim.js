@@ -13,7 +13,10 @@
   // tad perimam būtent ten — taip abu algoritmai eina per tą patį kelią kaip
   // gyvai, be jokių apeidinėjimų.
   var ALT = 'slicer2';
-  var useAlt = localStorage.getItem('labAlt') === '1';
+  /* Pagal nutylėjimą — NAUJAS algoritmas: jis jau paskelbtas naudotojams
+     (gh-pages `lib/slicer.js` = slicer2 turinys), tad stendas turi rodyti tai,
+     ką žmogus gauna, o senasis lieka palyginimui (08-17). */
+  var useAlt = localStorage.getItem('labAlt') !== '0';
   (function hookLoader() {
     var real = window.loadModule;
     Object.defineProperty(window, 'loadModule', {
@@ -66,6 +69,14 @@
       btn.onclick = function () { load(m.name, true); };
       b.appendChild(btn);
     });
+    var disk = document.createElement('button');
+    disk.type = 'button';
+    disk.className = 'button secondary';
+    disk.style.cssText = 'width:auto;flex:0 0 auto';
+    disk.textContent = 'iš disko…';
+    disk.onclick = function () { FILE.click(); };
+    b.appendChild(disk);
+
     /* Kuris algoritmas dirba — matosi VISADA (užrašas), o mygtukas tik keičia.
        Anksčiau mygtuko tekstas bandė būti ir viena, ir kita, ir buvo neaišku,
        ar tai būsena, ar veiksmas (V 08-13). */
@@ -107,45 +118,110 @@
     if (n) n.textContent = s + '  ·  ' + algoName();
   }
 
-  // Įkelia STL taip, tarsi jį būtų pasirinkęs žmogus — per tą patį <input>,
+  // Paduoda STL taip, tarsi jį būtų pasirinkęs žmogus — per tą patį <input>,
   // kad veiktų visa esama grandinė, o ne apeitas jos gabalas.
+  function feed(f, slice, tries) {
+    var me = ++SEQ;   // kiekvienas naujas įkėlimas nutildo ankstesnio laukimą,
+                      // kitaip po pakartojimo Slice būtų paspaustas du kartus.
+    var inp = document.getElementById('slicerFile');
+    var dt = new DataTransfer();
+    dt.items.add(f);
+    inp.files = dt.files;
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    say(f.name + ' — įkelta');
+    if (!slice) return;
+    /* Pultas STL priima tik pasikrovus slicerio moduliui; iki tol `change`
+       nueina į niekur ir stendas lieka ties „Choose an STL file". Vietoj
+       ilgesnės pauzės — pakartojam patį įkėlimą, kol mygtukai atsirakina
+       (V 08-17: po perkrovimo su nauju moduliu nesulaukdavo Slice). */
+    var left = tries === undefined ? 6 : tries;
+    setTimeout(function () {
+      if (me !== SEQ) return;
+      var fit = document.getElementById('slicerAutoFit');
+      var go = document.getElementById('slicerGo');
+      var dead = (!fit || fit.disabled) && (!go || go.disabled);
+      if (dead && left > 0) { say('kartojam įkėlimą…'); feed(f, slice, left - 1); }
+    }, 1500);
+    // Slice mygtukas atsiranda tik apdorojus STL; laukiam, kol atsirakins.
+    var t0 = Date.now();
+    var fitted = false;   // vienam įkėlimui, ne vienam mygtukui: kraunant kitą
+                          // modelį „Fit" turi suveikti iš naujo (08-17).
+    (function wait() {
+      if (me !== SEQ) return;
+      /* Testiniai modeliai už plokštę didesni, o Slice lieka užrakintas, kol
+         daiktas netelpa — tad sumažinam PIRMIAU, nepriklausomai nuo Slice
+         būsenos. Anksčiau laukiau Slice ir tik tada spaudžiau „Fit", ir
+         stendas įstrigdavo ties „nesulaukiau Slice mygtuko" (08-13). */
+      var fit = document.getElementById('slicerAutoFit');
+      if (fit && !fit.disabled && !fitted) {
+        fitted = true;
+        fit.click();
+        setTimeout(wait, 400);
+        return;
+      }
+      var go = document.getElementById('slicerGo');
+      if (go && !go.disabled) { say('slicinam…'); go.click(); return; }
+      if (Date.now() - t0 > 20000) { say('nesulaukiau Slice mygtuko'); return; }
+      setTimeout(wait, 200);
+    })();
+  }
+
   function load(file, slice) {
     say('kraunam ' + file + '…');
     fetch('/models/' + encodeURIComponent(file)).then(function (r) {
       if (!r.ok) throw new Error(r.status + ' ' + file);
       return r.arrayBuffer();
     }).then(function (buf) {
-      var inp = document.getElementById('slicerFile');
-      var dt = new DataTransfer();
-      dt.items.add(new File([buf], file, { type: 'model/stl' }));
-      inp.files = dt.files;
-      inp.dispatchEvent(new Event('change', { bubbles: true }));
-      say(file + ' — įkelta');
-      if (!slice) return;
-      // Slice mygtukas atsiranda tik apdorojus STL; laukiam, kol atsirakins.
-      var t0 = Date.now();
-      (function wait() {
-        /* Testiniai modeliai už plokštę didesni, o Slice lieka užrakintas, kol
-           daiktas netelpa — tad sumažinam PIRMIAU, nepriklausomai nuo Slice
-           būsenos. Anksčiau laukiau Slice ir tik tada spaudžiau „Fit", ir
-           stendas įstrigdavo ties „nesulaukiau Slice mygtuko" (08-13). */
-        var fit = document.getElementById('slicerAutoFit');
-        if (fit && !fit.disabled && !fit.dataset.labDone) {
-          fit.dataset.labDone = '1';
-          fit.click();
-          setTimeout(wait, 400);
-          return;
-        }
-        var go = document.getElementById('slicerGo');
-        if (go && !go.disabled) { say('slicinam…'); go.click(); return; }
-        if (Date.now() - t0 > 20000) { say('nesulaukiau Slice mygtuko'); return; }
-        setTimeout(wait, 200);
-      })();
+      feed(new File([buf], file, { type: 'model/stl' }), slice);
     }).catch(function (e) { say('klaida: ' + e.message); });
   }
 
+  /* Bet koks STL iš disko: mygtuku arba numetus ant lango. Stendo modeliai yra
+     tik greitieji mygtukai, o ne visas sąrašas — V turi savų modelių aplankų
+     (08-17). Numetimas priimamas visame lange, kad nereikėtų taikytis. */
+  function diskInput() {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.stl';
+    inp.style.display = 'none';
+    inp.onchange = function () { if (inp.files[0]) feed(inp.files[0], true); };
+    document.body.appendChild(inp);
+    return inp;
+  }
+
+  function dropZone() {
+    var veil = document.createElement('div');
+    veil.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;' +
+      'align-items:center;justify-content:center;font-size:1.4rem;font-weight:600;' +
+      'color:#fff;background:rgba(20,60,120,.55);border:3px dashed #7ab6ff;' +
+      'pointer-events:none';
+    veil.textContent = 'paleisk STL čia';
+    document.body.appendChild(veil);
+    var depth = 0;   // dragenter/dragleave kyla ir vaikams; be skaitiklio
+                     // šydas mirksi vos pelei perėjus kitą elementą.
+    window.addEventListener('dragenter', function (e) {
+      e.preventDefault(); depth++; veil.style.display = 'flex';
+    });
+    window.addEventListener('dragover', function (e) { e.preventDefault(); });
+    window.addEventListener('dragleave', function () {
+      if (--depth <= 0) { depth = 0; veil.style.display = 'none'; }
+    });
+    window.addEventListener('drop', function (e) {
+      e.preventDefault(); depth = 0; veil.style.display = 'none';
+      var f = e.dataTransfer && e.dataTransfer.files[0];
+      if (!f) return;
+      if (!/\.stl$/i.test(f.name)) { say('ne STL: ' + f.name); return; }
+      feed(f, true);
+    });
+  }
+
+  var FILE = null;
+  var SEQ = 0;
+
   function start() {
     hideChrome();
+    FILE = diskInput();
+    dropZone();
     bar();
     var tg = document.getElementById('slicerToggle');
     var body = document.getElementById('slicerBody');
