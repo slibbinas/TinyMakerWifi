@@ -5174,6 +5174,18 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
 (async()=>{
   let T=null,src='';
   const tryLoad=async(u,label)=>{try{const m=await import(u);src=label;return m;}catch(e){return null;}};
+  /* Bendras moduliu kroviklis (0.17 SL-mod). Pirma printerio kortele, tada musu
+     gh-pages - tas pats kelias, kaip three.js: be interneto veikia, o su juo
+     pasiima, jei kortelej dar nera.
+     URL turi buti PRISEGTAS prie versijos, ne „slicer.js": 08-16 lygiagreti sesija
+     po tuo pačiu vardu paskelbe 2.0.1-dev, kuris nebeeksportuoja parseSTL,
+     autoOrient, fitCheck, bounds, toSceneMesh, supportMesh - t. y. butent to, ka
+     pultas kviecia. `?v=` yra tik keso lauziklis, versijos jis NEparenka. */
+  window.loadModule=async(name,ver,cdnUrl)=>{
+    let mod=await tryLoad('/lib/'+name+'.js?v='+ver,'SD');
+    if(!mod&&cdnUrl)mod=await tryLoad(cdnUrl,'web');
+    return mod;
+  };
   /* Musu pačių paskelbta, prie versijos prisegta kopija - tas pats saltinis,
      kuriuo printeris jau pasitiki firmware atnaujinimams. Svetimas CDN
      nenaudojamas: pultas si faila importuoja kaip SAVO origin'o skripta,
@@ -5570,6 +5582,80 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      likdavo anksciau pasuktas vaizdas, ir jis nesutapdavo su 2D piesiniu (V 08-14: „reikia
      to paties kampo ir tiek"). Sukioti po to galima kiek nori - tik startas vienodas. */
   window.gl3dResetView=()=>{framedFor='';CLIP=null;clipTaikyk();};
+
+  /* ---- Tiltelis sliceriui (0.17 SL-mod) --------------------------------------
+     Visa scena, kamera, pjuvis ir three.js krovimas jau yra virsuje - sliceriui
+     truksta tik keliu duru i ja. Modelio tinklelis ateina ne is SD sluoksniu, o
+     tiesiai is naršyklėje supjaustyto STL, tad jam reikia savo iejimo.
+     Perkelta is experimental2, kur ta grandine buvo isbandyta ant gelezies. */
+  let supMesh=null;
+
+  // Modelio tinklelis is slicerio (Float32Array pozicijos). home===false: tas pats
+  // modelis, tik pakeistas - kameros neliesti.
+  window.gl3dMesh=(positions,home)=>{
+    try{
+      if(!ren)init();
+      const cv=$('printPreviewCanvas');
+      host.style.display='block';          // PRIES matavima, kitaip clientWidth=0
+      const w=host.clientWidth||cv.clientWidth||720,h=host.clientHeight||cv.clientHeight||420;
+      ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();
+      if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();}
+      const geo=new T.BufferGeometry();
+      geo.setAttribute('position',new T.BufferAttribute(positions,3));
+      geo.computeVertexNormals();
+      mesh=new T.Mesh(geo,new T.MeshStandardMaterial({color:0xe8720c,roughness:.55,
+        metalness:.12,side:T.DoubleSide}));
+      scene.add(mesh);
+      /* Kesas privalo nusimusti: kitas iprastos perziuros piesimas kitaip parodytu
+         SLICERIO tinkleli kaip jau paruosta modeli (tas pats raštas kaip build()). */
+      key3d='';framedFor='';
+      geo.computeBoundingBox();
+      const bb=geo.boundingBox,ctr=new T.Vector3(),sz=new T.Vector3();
+      bb.getCenter(ctr);bb.getSize(sz);
+      if(home!==false&&typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+      clipTaikyk();                        // medziaga nauja - pjuvis is naujo
+      ren.render(scene,cam);
+      return true;
+    }catch(e){return false;}
+  };
+
+  /* Atramos - ATSKIRA medziaga ir spalva, ne to paties tinklelio dalis: V 08-16
+     pastebejo, kad be to nesimato, kur baigiasi detale ir prasideda atrama. */
+  window.gl3dSupports=positions=>{
+    if(!ren)return false;
+    if(supMesh){scene.remove(supMesh);supMesh.geometry.dispose();
+                supMesh.material.dispose();supMesh=null;}
+    if(!positions||!positions.length){if(scene&&cam)ren.render(scene,cam);return false;}
+    const geo=new T.BufferGeometry();
+    geo.setAttribute('position',new T.BufferAttribute(positions,3));
+    geo.computeVertexNormals();
+    supMesh=new T.Mesh(geo,new T.MeshStandardMaterial({color:0x8fa8c8,roughness:.75,
+      metalness:.05,side:T.DoubleSide}));
+    // Tas pats pjuvis kaip modeliui - kitaip slankiklis pjautu tik detale.
+    if(mesh&&mesh.material&&mesh.material.clippingPlanes)
+      supMesh.material.clippingPlanes=mesh.material.clippingPlanes;
+    scene.add(supMesh);
+    if(scene&&cam)ren.render(scene,cam);
+    return true;
+  };
+
+  // Kadruoja modeli KARTU su atramomis (gl3dFrameModel mato tik modeli).
+  window.gl3dFrameAll=()=>{
+    if(!ren||!scene||!cam)return false;
+    const box=new T.Box3();
+    for(const m of [mesh,supMesh]) if(m){
+      m.geometry.computeBoundingBox();
+      box.union(m.geometry.boundingBox);
+    }
+    if(box.isEmpty())return false;
+    const c=new T.Vector3(),s=new T.Vector3();
+    box.getCenter(c);box.getSize(s);
+    return frameBox(c,s.x/2,s.y/2,s.z/2);
+  };
+
+  // Sliceris pakeite tinkleli uz musu nugaros - kitas piesimas privalo persistatyti.
+  window.key3dReset=()=>{key3d='';framedFor='';};
+
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
 })();
 </script>
