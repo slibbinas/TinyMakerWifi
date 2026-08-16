@@ -20,7 +20,7 @@ button:hover{border-color:var(--accent)}
 .grp{margin:0 0 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
 .grp>h2{margin:0;padding:11px 14px;font-size:14px;background:var(--tile);
  border-bottom:1px solid var(--line);letter-spacing:.2px}
-.t{display:grid;grid-template-columns:26px 1fr auto;gap:10px;padding:11px 14px;
+.t{display:grid;grid-template-columns:22px auto 1fr;gap:10px;padding:11px 14px;
  border-bottom:1px solid var(--line);align-items:start}
 .t:last-child{border-bottom:0}
 .t.ok{background:rgba(31,157,77,.10)}
@@ -28,10 +28,18 @@ button:hover{border-color:var(--accent)}
 .n{color:var(--muted);font-size:12px;padding-top:2px}
 .q b{display:block;margin-bottom:2px}
 .q span{color:var(--muted);font-size:13px}
-.act{display:flex;gap:6px}
+.act{display:flex;gap:6px;padding-top:1px}
 .act button{padding:5px 10px;font-size:12px;min-width:34px}
 .act button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .warn{border-left:3px solid var(--accent)}
+/* Telefone trys stulpeliai teksta suspaudzia i ~120 px juostele, o pastabu
+   laukelis isvis nebetelpa. Todel siaurame ekrane mygtukai lieka kaireje, bet
+   savo eiluteje, o tekstas gauna visa ploti (V testuoja telefonu). */
+@media(max-width:560px){
+ .t{grid-template-columns:22px 1fr;gap:8px 10px}
+ .t .act{grid-column:2}
+ .t .q{grid-column:1/-1}
+}
 .q input.nt{display:block;width:100%;margin-top:7px;background:var(--bg);color:var(--text);
  border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:13px/1.4 inherit}
 .q input.nt:focus{outline:none;border-color:var(--accent)}
@@ -168,10 +176,11 @@ function render(){
    const row=document.createElement('div');
    row.className='t'+(st==='ok'?' ok':st==='bad'?' bad':'')+(q.indexOf('⚠️')>=0?' warn':'');
    const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-   row.innerHTML='<div class="n">'+n+'</div><div class="q"><b>'+q+'</b><span>'+exp+'</span>'+
-     '<input class="nt" data-nt="'+id+'" value="'+esc(N[id]||'')+'" placeholder="pastaba (skaičiai, kuriame įrenginyje, kas ne taip)"></div>'+
+   row.innerHTML='<div class="n">'+n+'</div>'+
      '<div class="act"><button data-i="'+id+'" data-v="ok" class="'+(st==='ok'?'on':'')+'">✓</button>'+
-     '<button data-i="'+id+'" data-v="bad" class="'+(st==='bad'?'on':'')+'">✗</button></div>';
+     '<button data-i="'+id+'" data-v="bad" class="'+(st==='bad'?'on':'')+'">✗</button></div>'+
+     '<div class="q"><b>'+q+'</b><span>'+exp+'</span>'+
+     '<input class="nt" data-nt="'+id+'" value="'+esc(N[id]||'')+'" placeholder="pastaba (skaičiai, kuriame įrenginyje, kas ne taip)"></div>';
    d.appendChild(row);
   });
   L.appendChild(d);
