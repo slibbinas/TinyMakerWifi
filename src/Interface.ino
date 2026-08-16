@@ -1499,7 +1499,7 @@ void screenFactoryConfirm(){
   gfx2->setCursor(6, 34);
   gfx2->println("Resin profile and");
   gfx2->setCursor(6, 52);
-  gfx2->println("weighings go too.");
+  gfx2->println("go. Then reboots.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
   // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas

@@ -152,7 +152,9 @@ while a power-loss resume is pending (409): the second half of an interrupted
 print has to come out with the same exposure as the first. **The same 409 guards every
 other route that can move the layer height**: `/api/config`,
 `/api/config/defaults`, `/api/config/restore`, `/api/config/restore/sd` and
-`/api/connect/restore`. That is because
+`/api/connect/restore`. `POST /api/print/start` and `POST /api/files/delete` refuse
+too: the plate is still in the vat with an unfinished object, and the record points at
+that very model. That is because
 the resume move is computed from the layer height in force when Resume is
 pressed, and a changed height would drive the plate into the cured object. The
 press itself re-checks, and refuses on the printer if the height no longer

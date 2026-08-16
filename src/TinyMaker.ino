@@ -1579,7 +1579,7 @@ void resetEverythingToFactory() {
   resinClearCalibration();
   resinDensity = RESIN_DENSITY_DEF;
   // Iranginio nustatymai - cia pat, kad printerio mygtukas atstatytu tiek pat, kiek
-  // pulto: klausimas „Reset all settings?" zada visus (auditas 08-16).
+  // pulto: klausimas "Reset settings?" zada ir siuos (auditas 08-16).
   uiTimeoutSecs = 60;
   uvLedEnabled = true;
   wifiEnabled = true;
