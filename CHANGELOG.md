@@ -13,6 +13,46 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased] — 0.17
+
+### Added
+
+- **Named resin profiles** (plan 0-16). A profile is the whole print recipe for
+  one resin: base and regular exposure, base and transition layers, all four
+  lift settings, the resin's density and its weighing calibration. Switching
+  resin is one press instead of nine fields, and a value that took an exposure
+  test to find can no longer be lost to a stray edit.
+  - Two profiles are **built into the firmware** — `Fast` and `Slow` — so the
+    picker is never empty: no SD card, no network, after a factory reset. Fast
+    carries the values measured on this printer (18 s / 8.0 s / 4 base layers,
+    density 1.157); Slow is the factory set.
+  - Editing a built-in writes an **overlay file** on the card that shadows the
+    flash values; "Reset to factory" deletes it. Everything else lives in
+    `/resin/*.json` — installed from the gh-pages library or saved by hand.
+  - **Layer height is part of the profile**, because exposure without it is only
+    half a number: 0.05 mm needs less light than 0.10 mm. Two profiles for one
+    resin is the normal case, exactly like a slicer's material x layer-height
+    rows. VAT size, the low-resin levels and the pause lift stay outside - those
+    describe the printer, not the resin.
+  - Picked from the **main dashboard view**, next to how much resin is left -
+    which resin is in the vat is state, not a setting. The same row in Settings
+    opens the recipe underneath it. Switching asks first if the values on screen
+    have not been saved yet.
+  - Printer screen: Advanced → Resin → **Resin profile** cycles and applies.
+    Creating, renaming and deleting stay in the dashboard — there is no keyboard
+    at the printer.
+- **Resin left, by weight**. Enter the empty vat's weight once, then weigh the
+  vat and the printer works out the millilitres left, instead of assuming a full
+  vat from the marker.
+- **Per-model print time in the SD list** (plan EST-model), recomputed from the
+  resin profile in force — switch profile and every row updates.
+
+### Fixed
+
+- The offline demo dashboard read no POST parameters at all: it expected a
+  string body while the app sends `URLSearchParams`, so every simulated action
+  silently lost its arguments.
+
 ## [0.16.2] — 2026-08-03 (beta)
 
 Beta fixes and polish on top of 0.16.0.

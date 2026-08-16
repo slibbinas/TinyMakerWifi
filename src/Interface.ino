@@ -189,15 +189,18 @@ bool bootAnimShuffleSelected(const String &name) {
   return name == BOOTANIM_SHUFFLE;
 }
 
-// Keep only [a-z0-9-_], lowercase, <=40 chars; never empty (used as a filename).
-String sanitizeAnimName(const String &in) {
+// Keep only [a-z0-9-_], lowercase, <=40 chars. Used as a filename, so it must
+// never come out empty - hence the fallback. Callers that would rather reject
+// a name with nothing usable in it (the resin routes: "!!!" should be a 400,
+// not a file called "downloaded") pass an empty fallback and check the result.
+String sanitizeSlug(const String &in, const char *fallback) {
   String out;
   for (size_t i = 0; i < in.length() && out.length() < 40; i++) {
     char c = in[i];
     if (c >= 'A' && c <= 'Z') c += 32;
     if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') out += c;
   }
-  return out.length() ? out : String("downloaded");
+  return out.length() ? out : String(fallback);
 }
 
 // Fill out[] with the .tmb basenames (no extension) in /bootanim; returns count.
@@ -230,19 +233,25 @@ bool bootAnimExists(const String &name) {
   return ok;
 }
 
-// "cure-line" -> "Cure Line" for the menu value / dashboard label.
-String bootAnimDisplay(const String &name) {
-  if (name.length() == 0) return "Default";
-  if (bootAnimShuffleSelected(name)) return "Shuffle";
+// "cure-line" -> "Cure Line". Shared by the boot-animation menu and the resin
+// profile list (ResinProfile.ino), which names files the same slug way.
+String slugToTitle(const String &slug) {
   String out;
   bool up = true;
-  for (size_t i = 0; i < name.length(); i++) {
-    char c = name[i];
+  for (size_t i = 0; i < slug.length(); i++) {
+    char c = slug[i];
     if (c == '-' || c == '_') { out += ' '; up = true; }
     else if (up) { out += (char)toupper(c); up = false; }
     else out += c;
   }
   return out;
+}
+
+// "cure-line" -> "Cure Line" for the menu value / dashboard label.
+String bootAnimDisplay(const String &name) {
+  if (name.length() == 0) return "Default";
+  if (bootAnimShuffleSelected(name)) return "Shuffle";
+  return slugToTitle(name);
 }
 
 // Advanced-menu cycle order: Default ("") -> Shuffle (when useful) -> each file -> back to Default.
@@ -630,7 +639,11 @@ int advancedGroupItemCount(int g) {
     if (wifiEnabled && advancedMqttConfigured()) count++;
     return count;
   }
-  if (g == 2) return 10;  // refilled, stop chk, stop ml, warn ml, ask refill, power resume, resume mode, pause lift, exp test, dry run
+  // 0.17 0-16: the profile picker goes first. Resetting a profile to factory
+  // is NOT here: at the printer one OK would wipe a tuned exposure with no way
+  // to confirm, and the dashboard already asks before doing it (same split as
+  // boot animations - the printer picks, the dashboard manages).
+  if (g == 2) return 11;
   if (g == 3) return 2;  // idle timeout, boot animation
   return 0;
 }
@@ -646,8 +659,10 @@ int advancedGroupItem(int g, int pos) {
     return 8;                                                 // Boot update (last)
   }
   if (g == 2) {
-    const int items[10] = {3, 4, 5, 16, 6, 13, 14, 15, 9, 2};  // refilled, stop chk, stop ml, warn ml, ask, power resume, resume mode, pause lift, exp test, dry run
-    if (pos >= 1 && pos <= 10) return items[pos - 1];
+    // profile, refilled, stop chk, stop ml, warn ml, ask, power resume,
+    // resume mode, pause lift, exp test, dry run
+    const int items[11] = {17, 3, 4, 5, 16, 6, 13, 14, 15, 9, 2};
+    if (pos >= 1 && pos <= 11) return items[pos - 1];
   }
   if (g == 3) {
     if (pos == 1) return 1;   // Idle timeout
@@ -677,6 +692,7 @@ String advancedLabel(int item) {
   if (item == 14) return "Resume mode";  // 0.17 1-38b: Balanced vs Precise checkpoint cadence
   if (item == 15) return "Pause lift";   // 0.17 #82: pause plate-lift height for inspection
   if (item == 16) return "Warn (ml)";    // 0.17 #40: low-resin WARN level
+  if (item == 17) return "Resin profile";  // 0.17 0-16
   return "";
 }
 
@@ -704,6 +720,30 @@ String advancedValue(int item) {
   if (item == 14) return resumePrecise ? "Precise" : "Balanced";
   if (item == 15) return String(pauseLiftMm) + " mm";
   if (item == 16) return String(lowResinWarnMl) + " ml";
+  if (item == 17) {
+    // Cached. Drawing the menu asks for this on every repaint, and a miss costs
+    // an SD open plus a byte-by-byte read of the profile file - enough to make
+    // the buttons feel sluggish. resinProfileRev invalidates it whenever a
+    // profile is applied, written or deleted (from the screen or the dashboard).
+    static String cachedName = "\x01";   // impossible slug - forces a first fill
+    static uint32_t cachedRev = 0;
+    static String cachedVal;
+    if (cachedName != resinProfileName || cachedRev != resinProfileRev) {
+      cachedName = resinProfileName;
+      cachedRev = resinProfileRev;
+      if (resinProfileName.length() == 0) cachedVal = "Not set";
+      else {
+        ResinProfileInfo info;
+        if (!resinProfileInfo(resinProfileName, info))
+          cachedVal = slugToTitle(resinProfileName) + " (missing)";
+        else {
+          cachedVal = info.display;
+          if (info.edited) cachedVal += " *";   // * = edited built-in
+        }
+      }
+    }
+    return cachedVal;
+  }
   return "";
 }
 
@@ -832,6 +872,13 @@ void advancedOptionsSelect() {
     else if (lowResinWarnMl < 12) lowResinWarnMl = 12;
     else if (lowResinWarnMl < 15) lowResinWarnMl = 15;
     else lowResinWarnMl = 3;
+  } else if (id == 17) {
+    // 0.17 0-16: cycle Fast -> Slow -> each profile on the card -> Fast. The
+    // pick applies immediately; applyResinProfile() persists everything itself
+    // (and remembers the replaced exposures, so the dashboard Undo still works).
+    applyResinProfile(nextResinProfile(resinProfileName));
+    screenAdvancedOptions();
+    return;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK

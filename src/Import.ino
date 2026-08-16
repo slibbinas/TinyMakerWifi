@@ -8,6 +8,8 @@
  */
 
 #include <unzipLIB.h>      // bitbank2 (include is unconditional on purpose)
+#include <new>              // std::nothrow - the core builds with -fno-exceptions,
+                           // so a plain `new` would abort instead of returning null
 
 // Separate File handle for the unzipper - do NOT reuse the global
 // 'myfile' from PNG.ino (it belongs to the PNGdec callbacks).
@@ -157,7 +159,7 @@ float iniReadNumber(const char *text, const char *key) {
 
 bool scanZipModel(const char *zipPath, ModelSummary &summary) {
   char entry[256];
-  UNZIP *zip = new UNZIP();
+  UNZIP *zip = new (std::nothrow) UNZIP();
   if (!zip) return false;
 
   int minN = 0x7FFFFFFF, total = 0;
@@ -261,6 +263,12 @@ bool writeModelMetadataFile(const String &destDir, const String &name,
   f.print(",\n");
   f.print("  \"archive_size_bytes\": ");
   f.print(summary.sizeBytes);
+  // What the model actually occupies on the card, as opposed to the archive it
+  // arrived in. Absent for models imported before 0.17.
+  if (summary.folderBytes > 0) {
+    f.print(",\n  \"folder_bytes\": ");
+    f.print(summary.folderBytes);
+  }
   if (summary.slicedLayerHeightMm > 0) {
     f.print(",\n  \"sliced_layer_height_mm\": ");
     f.print(String(summary.slicedLayerHeightMm, 3));
@@ -365,7 +373,10 @@ bool replaceJsonStringField(String &json, const char *key, const String &value) 
   return true;
 }
 
-bool readJsonNumberField(const String &json, const char *key, double &value) {
+// Reads the number as written, zero and negative included. readJsonNumberField()
+// below is the model.json flavour, where 0 means "no value" - resin profiles need
+// the plain reader, because 0.00 is a legitimate plate-film offset (0.17 0-16).
+bool readJsonNumberAny(const String &json, const char *key, double &value) {
   String needle = "\"";
   needle += key;
   needle += "\":";
@@ -381,7 +392,11 @@ bool readJsonNumberField(const String &json, const char *key, double &value) {
   }
   if (valEnd <= valStart) return false;
   value = json.substring(valStart, valEnd).toDouble();
-  return value > 0;
+  return true;
+}
+
+bool readJsonNumberField(const String &json, const char *key, double &value) {
+  return readJsonNumberAny(json, key, value) && value > 0;
 }
 
 bool readJsonStringField(const String &json, const char *key, String &value) {
@@ -456,6 +471,29 @@ void backfillModelMetadataLayers(const String &name, int sourceLayers) {
   ModelImportOptions createOptions;
   createOptions.source = "unknown";
   writeModelMetadataFile("/" + name, name, summary, createOptions);
+}
+
+// Add up one model folder. O(layers) for a SINGLE model, which is fine on
+// demand - doing it for every row of the file list is what made that list slow.
+// Used to fill in models imported before folder_bytes existed.
+uint32_t sdFolderBytes(const String &name) {
+  File dir = SD.open(("/" + name).c_str());
+  if (!dir) return 0;
+  uint32_t total = 0;
+  File e;
+  while ((e = dir.openNextFile())) {
+    if (!e.isDirectory()) total += (uint32_t)e.size();
+    e.close();
+  }
+  dir.close();
+  return total;
+}
+
+bool setModelMetadataFolderBytes(const String &name, uint32_t bytes) {
+  String json;
+  if (!readModelMetadataJson(name, json)) return false;
+  if (!replaceJsonNumberField(json, "folder_bytes", String(bytes))) return false;
+  return writeModelMetadataJson(name, json);
 }
 
 bool getModelMetadataResin(const String &name, double &resinMl) {
@@ -557,7 +595,7 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
   // UNZIP object is ~40 KB -> allocate on heap only while unpacking.
   // Never make it global/static (overflows WROOM DRAM at link time).
-  UNZIP *zip = new UNZIP();
+  UNZIP *zip = new (std::nothrow) UNZIP();
   uint8_t *buf = (uint8_t *)malloc(BUFSZ);
   if (!zip || !buf) {
     if (zip) delete zip;
@@ -608,8 +646,10 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
     if (zip->openCurrentFile() != UNZ_OK) { out.close(); ok = false; break; }
     int rc;
-    while ((rc = zip->readCurrentFile(buf, BUFSZ)) > 0)
+    while ((rc = zip->readCurrentFile(buf, BUFSZ)) > 0) {
       out.write(buf, rc);
+      summary.folderBytes += (uint32_t)rc;   // free: these bytes are in hand
+    }
     zip->closeCurrentFile();
     out.close();
     if (rc < 0) { ok = false; break; }
