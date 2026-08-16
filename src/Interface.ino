@@ -1500,6 +1500,10 @@ void screenFactoryConfirm(){
   gfx2->println("is erased too.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
+  // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas
+  // prasvystu nepastebetas (o laikant toliau - kartotusi kas puse sekundes).
+  // Ta pati idioma, kaip kitose patvirtinimo vietose (audit 08-16).
+  while (digitalRead(buttonOK) == LOW) delay(10);
 }
 
 /**

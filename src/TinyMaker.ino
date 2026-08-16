@@ -1549,10 +1549,12 @@ bool handleUiTimeout() {
 // ===================================================================================
 /**
  * @brief Write factory-default print settings to EEPROM and reload them into
- * the live globals. Single source of truth for the defaults, used both on a
- * blank/corrupt EEPROM at boot and by Settings -> "Back to Default".
- * Layer_Height is stored x100 (10 -> 0.10 mm).
+ * the live globals. Single source of truth for the NUMBERS; the full factory
+ * reset (profile name, overlay, calibration) lives in resetEverythingToFactory()
+ * below and calls this. Layer_Height is stored x100 (10 -> 0.10 mm).
  */
+void resetSettingsToDefault();
+
 // -------------------------------------------------------------------------------
 // Gamyklinis atstatymas yra daugiau nei EEPROM blokas: dervos profilio vardas
 // turi sekti skaicius, jo overlay failas - dingti, o kiekvienas atidarytas pultas
@@ -1567,9 +1569,8 @@ void resetEverythingToFactory() {
   if (sdCardReady())
   #endif
     SD.remove(resinProfilePath("slow").c_str());
-  lastPrintRawMl = -1;
+  lastPrintRawMl = -1;   // resinProf irasys saveDeviceConfig(), cia tik sitas
   sysPrefs.begin("tinymaker", false);
-  sysPrefs.putString("resinProf", resinProfileName);
   sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
   sysPrefs.end();
   resinProfileRev++;
@@ -1577,8 +1578,25 @@ void resetEverythingToFactory() {
   resetSettingsToDefault();
   resinClearCalibration();
   resinDensity = RESIN_DENSITY_DEF;
-  // saveDeviceConfig() - kvieciancio reikalas: web kelias po sito dar keicia savo
-  // laukus ir issaugo viena kartu (kitaip NVS butu rasomas du kartus is eiles).
+  // Iranginio nustatymai - cia pat, kad printerio mygtukas atstatytu tiek pat, kiek
+  // pulto: klausimas „Reset all settings?" zada visus (auditas 08-16).
+  uiTimeoutSecs = 60;
+  uvLedEnabled = true;
+  wifiEnabled = true;
+  webDashboardEnabled = true;
+  bootUpdateCheckEnabled = true;
+  resumeEnabled = true;
+  resumePrecise = false;
+  pauseLiftMm = 20;
+  // „Undo" turi rodyti i tai, kas buvo pakeista, o po atstatymo tokio dalyko nera.
+  prevRegularExposure = 0;
+  prevBaseExposure = 0;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUShort("prevRegDs", 0);
+  sysPrefs.putUChar("prevBaseS", 0);
+  sysPrefs.end();
+  // saveDeviceConfig() - kvieciancio reikalas (LCD ir web kviecia po viena karta);
+  // jis irgi irasys resinProf, tad cia to nekartojam.
 }
 
 void resetSettingsToDefault() {
@@ -3090,8 +3108,8 @@ void loop() {
       case 313:                 // "Reset all settings?" -> Reset (OK)
         resetEverythingToFactory();
         saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
-        setting_item = 11;      // griztam i sarasa vienu punktu auksciau, kad
-        screen31DOWN();         // „Back to Default" is karto vel neatsivertu
+        setting_item = 11;      // atgal i sarasa; screen31DOWN() ji vel paryskins
+        screen31DOWN();         // ties „Back to Default" - reikia naujo paspaudimo
         break;
       case 311:
       if(setting_item_updown == 1){

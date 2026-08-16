@@ -1404,6 +1404,9 @@ void handleApiFileLayer() {
 
 void handleApiFileDelete() {
   if (rejectIfWebControlOff()) return;
+  // Nebaigtas spaudinys laukia atsakymo, o jo irasas rodo i modeli kortelėje -
+  // istrynus ji tesimas nebeturetu is ko vykti (auditas 08-16).
+  if (rejectIfResumePending()) return;
   String error;
   if (!deleteSdItem(server.arg("name"), error)) {
     int code = 400;
@@ -1827,15 +1830,9 @@ void resetWebConfigToDefaults() {
   // Everything the printer's own "Back to Default" does - one source, so the
   // two entry points cannot drift (audit 08-16): factory numbers, the factory
   // resin name, its overlay off the card, calibration cleared, lists marked stale.
-  resetEverythingToFactory();   // issaugom viena karta, apacioje
-  uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
-  uvLedEnabled = true;
-  wifiEnabled = true;
-  webDashboardEnabled = true;
-  bootUpdateCheckEnabled = true;
-  resumeEnabled = true;
-  resumePrecise = false;
-  pauseLiftMm = 20;   // 0.17 #82
+  // Viskas - bendroje funkcijoje (ir iranginio nustatymai): pulto ir printerio
+  // mygtukas atstato tiek pat. Cia lieka tik issaugojimas.
+  resetEverythingToFactory();
   saveDeviceConfig();
 }
 
@@ -2193,6 +2190,8 @@ void mqtt_loop() {
 
 void handleApiPrintStart() {
   if (rejectIfWebControlOff()) return;
+  // Pirma atsakyk apie nebaigta spaudini: plokste tebera ten, kur nutruko darbas.
+  if (rejectIfResumePending()) return;
   // Low-resin pre-start check (mirrors the LCD screen 114 warning). The
   // browser confirms and retries with force=1.
   if (!server.hasArg("force") && !printerBusy() &&
