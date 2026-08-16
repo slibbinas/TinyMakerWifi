@@ -41,6 +41,11 @@ function png(w, h, grey) {
     chunk('IHDR', ih), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
 
+/* Laboratorijoje atramu atsarga = 0: PrusaSlicer etalonas pjausto 100 %
+   dydzio, ir mazindami savo modeli lygintume skirtingus daiktus. Programoje
+   atsarga lieka 3,1 mm (zr. `setFitMargin`). */
+if (M.setFitMargin) M.setFitMargin(+(process.env.MARGIN || 0));
+
 const buf = readFileSync(process.argv[2]);
 const { positions } = M.parseSTL(
   buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
