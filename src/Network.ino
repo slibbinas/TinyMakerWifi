@@ -2572,6 +2572,13 @@ void handleApiStatus() {
      aktyvu Start mygtuka darbui, kuri printeris atmes (08-17). */
   out += ",\"resinSet\":";
   out += (resinProfileName.length() ? "true" : "false");
+  /* Sliceris irgi CIA, ne vien /api/config: pultas ji skaito is apklausos
+     (statusData.slicerOn), o config'a - tik atsidarant. Be sitos eilutes
+     slicerio kortele visada rodytu „not active", nors jungiklis butu ijungtas,
+     ir modulio ant gelezies isvis nebutu imanoma isbandyti. /api/config lauka
+     paliekam - ji skaito nustatymu forma (rado lygiagreti sesija, 08-17). */
+  out += ",\"slicerOn\":";
+  out += (slicerModuleOn ? "true" : "false");
   // 0-33: the boot resume prompt is up - the dashboard offers the same three
   // answers remotely. Valid ONLY while screen 427 shows (any button press at
   // the printer consumes it - the safety rule: remote resume only while the
