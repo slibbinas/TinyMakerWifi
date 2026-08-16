@@ -1613,7 +1613,6 @@ const applyResinProfile=async(name)=>{
     }
   }
   try{await api('/api/resin-profile/select',{method:'POST',body:new URLSearchParams({name})});
-    msg('Now printing with "'+resinTitle(name)+'".');
     await loadConfig();loadResinProfiles();}
   catch(e){msg(e.message,true);}
 };
@@ -3336,8 +3335,10 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
     const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
     const img=new Image();
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
-    if(mode==='source05')url+='&source=1';
-    else if(mode==='print1')url+='&layer_height=0.10';
+    // source=1 = the files as sliced, no printer-side re-mapping. Anything but
+    // the explicit "as printed at 0.10" view wants the model itself.
+    if(mode==='print1')url+='&layer_height=0.10';
+    else url+='&source=1';
     img.src=url;
     // A hung request used to stall the preview forever with no way out -
     // give every layer fetch a hard timeout (user finding, 0.14.3).
@@ -3469,7 +3470,9 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
 const modelPreview=async()=>{
   if(!selectedModel)return;
   const name=selectedModel;
-  const layers=parseInt($('modelPrintLayers').textContent)||parseInt($('modelLayers').textContent)||0;
+  // Source layers, not print layers - see the note at fetchSlicesInner:
+  // the preview must not change with the resin profile.
+  const layers=parseInt($('modelLayers').textContent)||parseInt($('modelPrintLayers').textContent)||0;
   if(!layers)return;
   const modelH=parseFloat($('modelHeight').textContent)||layers*0.05;
   show('previewWrap',true);show('prevSpin',false);
@@ -3685,7 +3688,7 @@ const refreshDashModelInfo=async()=>{
    lieka irasyti prie modelio (V 08-12). */
 const upgradeToSlices=async(name,d)=>{
   if(statusData&&statusData.busy)return;          // SD priklauso spaudiniui
-  const layers=Number(d.printLayers)||Number(d.layers)||0;
+  const layers=Number(d.sourceLayers)||Number(d.layers)||0;
   if(!layers)return;
   /* Savo eiles numerio cia NEGALIMA: fetchSlices skaitikli pasididina pats,
      tad palyginimas po jo visada nesutapdavo ir 37 s darbas buvo ismetamas
@@ -3790,7 +3793,7 @@ const dashPreview=async(nameEnc,opts)=>{
       await loadSavedPreviewTo(cv,name);
       if(dashPreviewName===name)upgradeToSlices(name,d);   // fone -> 3D
     }else{
-      const layers=Number(d.printLayers)||Number(d.layers)||0;
+      const layers=Number(d.sourceLayers)||Number(d.layers)||0;
       const mlEst=await renderVoxelPreview(cv,name,layers,Number(d.heightMm)||layers*0.05);
       if(dashPreviewName!==name)return;
       if(!resin&&mlEst){resin='~'+mlEst.toFixed(1)+' ml (quick)';setInfo();}
@@ -4148,7 +4151,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
     try{
       if(slicesCache.name!==name||!slicesCache.slices.length){
         const d=await api('/api/files/model?name='+enc(name));
-        const layers=Number(d.printLayers)||Number(d.layers)||0;
+        const layers=Number(d.sourceLayers)||Number(d.layers)||0;
         /* Eiga rodoma TIK pacioje dezeje: ji cia pat, didele ir su juostele, o snackas
            sake ta pati kita forma - dvi zinutes apie ta pati darba vienu metu (V 08-14).
            Snackas lieka tam, ko dezeje nesimato (printerio darbai, klaidos). */
@@ -4756,7 +4759,7 @@ $('prep3dButton').addEventListener('click',async()=>{
       if(await loadSlicesFromPrinter(m.name)){await ensureRowIconAsync(m.name);continue;}
       try{
         const info=await api('/api/files/model?name='+enc(m.name));
-        const layers=Number(info.printLayers)||Number(info.layers)||0;
+        const layers=Number(info.sourceLayers)||Number(info.layers)||0;
         if(!layers)continue;
         await fetchSlices(m.name,layers,Number(info.heightMm)||layers*0.05,{set textContent(v){}});
         await saveSlicesToPrinter(m.name);
