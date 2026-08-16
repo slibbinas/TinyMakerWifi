@@ -16,13 +16,43 @@ Import("env")
 import gzip
 import io
 import os
+import sys
 import zlib
 
 proj = env["PROJECT_DIR"]
 src = os.path.join(proj, "web", "dashboard.html")
 out = os.path.join(proj, "src", "dashboard_html_gz.h")
 
-html = io.open(src, "rb").read()
+# Comments are 34 % of the dashboard by weight and ~60 KB of flash once gzipped.
+# They stay in web/dashboard.html and in git; only the copy that goes into the
+# firmware loses them. scripts/dev/test_strip.py proves nothing but comments go.
+sys.path.insert(0, os.path.join(proj, "scripts"))
+from strip_html_comments import strip_comments
+
+raw = io.open(src, encoding="utf-8").read()
+stripped = strip_comments(raw)
+# Guard: every line that carries code must survive. The stripper only removes
+# whole-line comments, so anything else disappearing means it mis-tracked a
+# template literal - fail the build rather than flash a broken dashboard.
+_kept = set(l.strip() for l in stripped.splitlines() if l.strip())
+_in_block = _in_html = False
+for _line in raw.splitlines():
+    _s = _line.strip()
+    if _in_block:
+        if "*/" in _s: _in_block = False
+        continue
+    if _in_html:
+        if "-->" in _s: _in_html = False
+        continue
+    if _s.startswith("/*") and "*/" not in _s: _in_block = True; continue
+    if _s.startswith("<!--") and "-->" not in _s: _in_html = True; continue
+    if not _s or _s.startswith("//") or _s.startswith("/*") or _s.startswith("<!--"):
+        continue
+    if not any(c in _s for c in "=(){};<>"):
+        continue
+    if _s not in _kept:
+        raise SystemExit("[gen_dashboard_gz] comment strip dropped code: " + _s[:90])
+html = stripped.encode("utf-8")
 # mtime=0: gzip embeds a timestamp in its header by default, which would make the
 # blob differ on every build even when the HTML is unchanged - defeating the
 # write-only-if-changed guard below and forcing a full-TU recompile each time.
@@ -49,6 +79,7 @@ new = "\n".join(lines)
 old = io.open(out, encoding="utf-8").read() if os.path.exists(out) else ""
 if new != old:
     io.open(out, "w", encoding="utf-8").write(new)
-    print("[gen_dashboard_gz] wrote %d gz bytes (from %d raw)" % (len(gz), len(html)))
+    print("[gen_dashboard_gz] wrote %d gz bytes (from %d raw, %d after comment strip)"
+          % (len(gz), len(raw.encode("utf-8")), len(html)))
 else:
     print("[gen_dashboard_gz] up to date (%d gz bytes)" % len(gz))

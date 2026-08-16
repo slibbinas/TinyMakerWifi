@@ -1,0 +1,19 @@
+{
+  "name": "SUNLU Tough",
+  "layer_height": 0.05,
+  "base_exposure": 18,
+  "regular_exposure": 8.0,
+  "base_layers": 4,
+  "transition_layers": 5,
+  "slow_lift_distance": 1,
+  "fast_lift_distance": 2,
+  "slow_lift_feedrate": 40,
+  "fast_lift_feedrate": 50,
+  "drop_back_feedrate": 50,
+  "density": 1.157,
+  "cal_factor": 1.092,
+  "cal_fixed_ml": 0.39,
+  "tested_by": "TinyMakerWiFi",
+  "tested_on": "2026-08",
+  "buy_url": "https://www.sunlu.com/"
+}

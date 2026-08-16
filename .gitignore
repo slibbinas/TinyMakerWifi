@@ -34,3 +34,6 @@ scripts/dev/demo.html
 scripts/dev/dragonhead-live.raw
 scripts/dev/dragonhead-slices.json
 scripts/dev/model-slices/
+
+# Python bytecode from the build scripts
+scripts/__pycache__/

@@ -46,7 +46,8 @@ var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposur
   connectPublishToken:'',connectLastStatus:'',
   tgEnabled:false,tgTokenSet:false,tgTokenTail:'',tgChat:'',
   waEnabled:false,waKeySet:false,waKeyTail:'',waPhone:'',
-  dcEnabled:false,dcHookSet:false,dcHookTail:''};
+  dcEnabled:false,dcHookSet:false,dcHookTail:'',
+  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157};   // 0.17 0-16
 
 // name -> [printLayers, heightMm, estSecs, resinMl, shape]
 var MODELS={
@@ -62,6 +63,22 @@ var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'bunny',display:'Bunny',sizeBytes:537612},
   {name:'malfunction',display:'Malfunction',sizeBytes:1433612},
   {name:'resin-drip',display:'Resin Drip',sizeBytes:588812}]};
+
+// 0.17 0-16: the two built-in profiles plus one saved by "the user", so the
+// demo shows all three row shapes (built-in, edited built-in, own profile).
+var RESIN={ok:true,selected:'fast',profiles:[
+  {name:'fast',display:'Fast resin',builtin:true,edited:false,layerHeight:0.05,
+   baseExposure:18,regularExposure:8.0,baseLayers:4,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.157,calFactor:1.092,calFixedMl:0.39,calSamples:0},
+  {name:'slow',display:'Slow resin',builtin:true,edited:false,layerHeight:0.05,
+   baseExposure:35,regularExposure:14.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
+  {name:'anycubic-ww-clear',display:'Anycubic WW Clear',builtin:false,edited:false,layerHeight:0.10,testedBy:'TinyMakerWiFi',testedOn:'2026-08',
+   baseExposure:30,regularExposure:11.5,baseLayers:3,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:2}]};
 
 var UPDATE={ok:true,installed:'0.15.4',latest:'0.15.4',state:0,hasUpdate:false,allowed:true};
 
@@ -79,7 +96,10 @@ function modelMeta(name){var m=MODELS[name];if(!m)return null;
     heightMm:m[1],estimatedSecs:m[2],estimatedTime:estTime(m[2]),
     preview:false,preview05:false,preview1:false,resinEstimated:true,resinMl:m[3]};}
 function filesPayload(){
-  var items=Object.keys(MODELS).map(function(n){return {name:n,type:'model',printable:true,sizeBytes:'0'};});
+  // estimatedSecs: 0.17 EST-model - the per-model time the SD list shows.
+  var items=Object.keys(MODELS).map(function(n){
+    return {name:n,type:'model',printable:true,sizeBytes:'0',estimatedSecs:MODELS[n][2],
+      folderBytes:String(MODELS[n][0]*46000)};});   // ~46 KB per layer, as measured
   return {ok:true,sdReady:true,usageKnown:true,totalBytes:'248512512',
     freeBytes:'218304512',usedBytes:'30208000',usagePct:12,items:items,hiddenCount:3};}
 
@@ -174,7 +194,10 @@ window.fetch=function(path,opt){
   });};
 
 function route(path,opt){
-  var body=typeof opt.body==='string'?opt.body:'';
+  // The app posts URLSearchParams, not strings - without toString() every
+  // bodyVal() below read an empty body and POSTs silently lost their arguments.
+  var body=typeof opt.body==='string'?opt.body
+          :(opt.body&&typeof opt.body.toString==='function'?opt.body.toString():'');
   function bodyVal(key){var m=body.match(new RegExp('(?:^|&)'+key+'=([^&]*)'));return m?decodeURIComponent(m[1].replace(/\+/g,' ')):'';}
 
   if(path.indexOf('/api/status')===0)return jresp(currentStatus());
@@ -221,6 +244,30 @@ function route(path,opt){
   if(path.indexOf('/api/boot-anim/preview')===0)return jresp({ok:true,note:'demo: pretend the printer screen just played it'});
   if(path.indexOf('/api/boot-anim/install')===0)return jresp({ok:false,error:'Demo mode: no SD card to install to'},400);
   if(path.indexOf('/api/boot-anim')===0)return jresp(BOOTANIM);
+  // 0.17 0-16: resin profiles. Selecting one rewrites the config the same way
+  // the firmware does, so the Print fields visibly follow the pick.
+  if(path.indexOf('/api/resin-profile/select')===0){
+    var pick=null,nm=bodyVal('name');
+    for(var pi=0;pi<RESIN.profiles.length;pi++)if(RESIN.profiles[pi].name===nm)pick=RESIN.profiles[pi];
+    if(!pick)return jresp({ok:false,error:'profile not found'},404);
+    RESIN.selected=nm;CONFIG.resinProfile=nm;
+    CONFIG.baseExposure=pick.baseExposure;CONFIG.regularExposure=pick.regularExposure;
+    CONFIG.baseLayers=pick.baseLayers;CONFIG.transitionLayers=pick.transitionLayers;
+    CONFIG.slowLiftDistance=pick.slowLiftDistance;CONFIG.fastLiftDistance=pick.fastLiftDistance;
+    CONFIG.slowLiftFeedrate=pick.slowLiftFeedrate;CONFIG.fastLiftFeedrate=pick.fastLiftFeedrate;
+    CONFIG.dropBackFeedrate=pick.dropBackFeedrate;CONFIG.resinDensity=pick.density;
+    CONFIG.layerHeight=pick.layerHeight;
+    return jresp({ok:true,selected:nm});}
+  if(path.indexOf('/api/resin-profile/save')===0||path.indexOf('/api/resin-profile/rename')===0||
+     path.indexOf('/api/resin-profile/delete')===0)
+    return jresp({ok:false,error:'Demo mode: no SD card to write profiles to'},400);
+  if(path.indexOf('/api/resin-profile')===0)return jresp(RESIN);
+  if(path.indexOf('/api/vat/weight')===0){
+    var g=Number(bodyVal('grams'))||0,empty=Number(CONFIG.vatEmptyG)||0;
+    if(!(g>0)||g<empty)return jresp({ok:false,error:'that is lighter than the empty vat'},400);
+    STATUS.vatRemainingMl=Math.min(CONFIG.vatMl,(g-empty)/(CONFIG.resinDensity||1.1));
+    STATUS.vatText=STATUS.vatRemainingMl.toFixed(1)+' ml';
+    return jresp({ok:true,vatRemainingMl:STATUS.vatRemainingMl.toFixed(1)});}
   if(path.indexOf('/api/telegram/test')===0||path.indexOf('/api/whatsapp/test')===0||path.indexOf('/api/discord/test')===0)
     return jresp({ok:true});
   if(path.indexOf('/api/connect')===0)return jresp({ok:false,error:'Demo mode: TinyMaker Connect needs a real printer'},400);

@@ -996,6 +996,7 @@ void sendApiError(int code, const char *message) {
 
 void sendApiOk(const String &extra) {
   String out = "{\"ok\":true";
+  out.reserve(extra.length() + 24);   // the body is copied here in full
   if (extra.length() > 0) {
     out += ",";
     out += extra;
@@ -1057,7 +1058,9 @@ void handleApiFiles() {
   // upload+unpack the heap is fragmented, and a failed String append is SILENT
   // - the list went out truncated and the dashboard's SD manager "disappeared"
   // (external beta report, feedback #4).
-  out.reserve(12288);
+  // 0.17 EST-model added ~20 B per row on top of the ~190 B it already used,
+  // and 64 rows have to fit with room to spare - see the silent-append note.
+  out.reserve(15360);
   out += ",\"usageKnown\":";
   out += usageOk ? "true" : "false";
   out += ",\"totalBytes\":\"";
@@ -1087,7 +1090,10 @@ void handleApiFiles() {
       skipped++;
       continue;
     }
-    if (shown >= 64) {
+    // Long model names (up to 100 chars) make a row far bigger than the
+    // ~210 B average, so cap on the buffer too - a String that outgrows
+    // its reservation fails its append SILENTLY on a fragmented heap.
+    if (shown >= 64 || out.length() > 14000) {
       skipped++;
       continue;
     }
@@ -1108,11 +1114,37 @@ void handleApiFiles() {
     out += uint64Json(bytes);
     out += "\"";
     if (isDir) {
-      String publicId;
-      if (getModelMetadataConnectPublicId(name, publicId)) {
-        out += ",\"connectPublicId\":\"";
-        out += jsonEscape(publicId);
-        out += "\"";
+      // ONE model.json read per row, reused for both fields. Two helpers would
+      // mean two SD opens per model, and this loop already runs 64 times.
+      String meta;
+      if (readModelMetadataJson(name, meta)) {
+        String publicId;
+        if (readJsonStringField(meta, "connect_public_id", publicId)) {
+          out += ",\"connectPublicId\":\"";
+          out += jsonEscape(publicId);
+          out += "\"";
+        }
+        // 0.17 EST-model: the time each model needs WITH the resin in force.
+        // Recomputed on the way out (like R-cal does with ml) rather than read
+        // from the file, so switching profile refreshes every row at once. A
+        // model without metadata simply has no time - re-scanning its layers
+        // here is the O(models x layers) walk that was deliberately removed.
+        // Rides along on the model.json read the row already does, so the file
+        // list gets folder sizes back without the O(models x layers) walk that
+        // made it slow enough to remove in the first place.
+        double fb = 0;
+        if (readJsonNumberField(meta, "folder_bytes", fb)) {
+          out += ",\"folderBytes\":\"";
+          out += uint64Json((uint64_t)fb);
+          out += "\"";
+        }
+        double layers = 0;
+        ModelSummary est;
+        if (readJsonNumberField(meta, "source_layers", layers) &&
+            modelSummaryFromSourceLayers((int)layers, est)) {
+          out += ",\"estimatedSecs\":";
+          out += String(est.estimatedSecs);
+        }
       }
     }
     out += "}";
@@ -1182,6 +1214,19 @@ void handleApiFileModel() {
     out += ",\"connectPublicId\":\"";
     out += jsonEscape(connectPublicId);
     out += "\"";
+  }
+
+  // Opening a model is the one moment we are already busy with just this one,
+  // so fill in the folder size for anything imported before 0.17 recorded it.
+  // After this the file list shows it like any other model.
+  {
+    String meta;
+    double have = 0;
+    if (readModelMetadataJson(name, meta) &&
+        !readJsonNumberField(meta, "folder_bytes", have)) {
+      uint32_t fb = sdFolderBytes(name);
+      if (fb > 0) setModelMetadataFolderBytes(name, fb);
+    }
   }
 
   double ml = 0;
@@ -1400,6 +1445,7 @@ String configJson() {
   bool mqttConfigured = mqttEnabled || mqttHost.length() > 0 || mqttUser.length() > 0 ||
                         mqttPass.length() > 0 || mqttPort != 1883 || mqttTopic != "TinyMaker";
   String out = "\"locked\":";
+  out.reserve(2560);   // ~98 appends incl. four sub-JSONs; a failed one is silent
   out += printerBusy() ? "true" : "false";
   out += ",\"layerHeight\":";
   out += String(Layer_Height, 2);
@@ -1439,6 +1485,12 @@ String configJson() {
   out += String(resinFixedMl, 2);
   out += ",\"resinDensity\":";
   out += String(resinDensity, 3);
+  out += ",\"slicerOn\":";                  // 0.17 SL-mod: module live?
+  out += slicerModuleOn ? "true" : "false";
+  out += ",\"resinProfile\":\"";            // 0.17 0-16: the profile in force
+  out += jsonEscape(resinProfileName);
+  out += "\",\"vatEmptyG\":";               // moulded constant unless someone re-weighed it
+  out += String(vatEmptyG, 2);
   out += ",\"lastPrintRawMl\":";            // -1 = nothing to calibrate against yet
   out += String(lastPrintRawMl, 2);
   {
@@ -1570,6 +1622,16 @@ void applyConfigRequest() {
       resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
     }
   }
+  // 0.17 0-16: normally the moulded constant, but a replaced or different vat
+  // can be weighed once from the calibration card.
+  if (server.hasArg("vat_empty_g")) {
+    float g = server.arg("vat_empty_g").toFloat();
+    if (g > 0.0f && g <= VAT_EMPTY_G_MAX) vatEmptyG = g;
+  }
+  // Only ever set explicitly: formCheck would read its ABSENCE from the normal
+  // settings form as "switch it off", and the form does not carry this field.
+  if (server.hasArg("slicer_on"))
+    slicerModuleOn = server.arg("slicer_on") == "1" || server.arg("slicer_on") == "true";
   askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
   previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
@@ -2125,6 +2187,24 @@ void handleApiVatRefilled() {
   sendApiOk(out);
 }
 
+// POST /api/vat/weight  body: grams=<full vat on the scale>
+// 0.17 0-16: the mark answers "full or not", a scale answers "how much". Its own
+// route rather than a /api/config field, because it is a one-shot action - as a
+// form field every later Save would re-apply the same stale weighing (and a
+// partial config POST is how the printer lost all its toggles twice in August).
+void handleApiVatWeight() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  float grams = server.arg("grams").toFloat();
+  if (!(grams > 0 && grams <= VAT_EMPTY_G_MAX)) { sendApiError(400, "weigh the full vat in grams"); return; }
+  if (vatEmptyG <= 0) { sendApiError(409, "weigh the empty vat first (Print settings)"); return; }
+  if (grams < vatEmptyG) { sendApiError(400, "that is lighter than the empty vat"); return; }
+  vatSetFromWeight(grams);
+  String out = "\"vatRemainingMl\":";
+  out += String(vatRemaining(), 1);
+  sendApiOk(out);
+}
+
 // R-cal (0.17): turn one weighed print into the white-pixel -> ml correction.
 // The user posts the GRAMS the scale measured (vat before minus vat after); the
 // factor is measured_ml / lastPrintRawMl, so it never compounds with the factor
@@ -2394,6 +2474,7 @@ void handleApiStatus() {
   // lacks it as a truncated/garbled body. Status and the boot-anim list were
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
+  out.reserve(2048);   // 132 appends, polled mid-print; a failed one is silent
   out += "\"firmwareVersion\":\"";
 #ifdef FIRMWARE_VERSION
   out += jsonEscape(FIRMWARE_VERSION);
@@ -3057,7 +3138,7 @@ void handleApiBootAnimInstall() {
     return;
   }
 
-  String slug = sanitizeAnimName(server.arg("name"));
+  String slug = sanitizeSlug(server.arg("name"));
 
   netProgressStart("Boot animation:", "downloading");
 
@@ -3440,7 +3521,7 @@ void handleLibThreeUploadDone() {
 void handleApiBootAnimFile() {
   if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
-  String name = sanitizeAnimName(server.arg("name"));
+  String name = sanitizeSlug(server.arg("name"));
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
 
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
@@ -3463,7 +3544,7 @@ void handleApiBootAnimSelect() {
   if (rejectIfBusy()) return;
   String name = server.arg("name");
   name.trim();
-  if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeAnimName(name);
+  if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeSlug(name);
   if (bootAnimShuffleSelected(name)) {
     String names[2];
     if (listBootAnims(names, 2) < 2) { sendApiError(409, "shuffle needs at least two animations"); return; }
@@ -3481,7 +3562,7 @@ void handleApiBootAnimDelete() {
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
-  name = sanitizeAnimName(name);
+  name = sanitizeSlug(name);
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   SD.remove(path.c_str());
@@ -3510,6 +3591,200 @@ void handleApiBootAnimPreview() {
   uiWakeScreen();               // display may be blanked by the UI timeout
   playTmbByName(name);
   screen1();
+}
+
+// ---- Resin profiles (0.17 0-16) -------------------------------------------
+// A print waiting to be resumed after a power cut is not "busy" yet, but its
+// second half must come out with the same exposure as its first. Changing the
+// recipe in that window would silently split one model into two settings.
+bool rejectIfResumePending() {
+  // screen 427 as well as the flag: a resume prompt reached through the SD
+  // settings-restore path (426 -> finishRestorePromptBoot -> screenResumePrompt)
+  // stands on screen without the boot flag ever being set.
+  if (!resumeBootPending && screen != 427) return false;
+  sendApiError(409, "a print is waiting to be resumed - finish or cancel it first");
+  return true;
+}
+
+// Same shape as the boot-animation endpoints above: the printer keeps a folder
+// of named profiles, one is active, and the dashboard stages a pick before
+// applying it. Every route is behind rejectIfBusy() - swapping exposure values
+// mid-print would change the running job.
+
+// GET /api/resin-profile - the picker: built-ins, then the card, plus which one
+// is active. One file read per profile (resinProfileInfo), and no sdCardReady()
+// gate on purpose: without a card the two built-ins are still perfectly usable,
+// and an empty picker would look like a broken feature.
+void handleApiResinProfileList() {
+  if (rejectIfBusy()) return;
+  String names[RESIN_MAX_PROFILES];
+  int n = listResinProfiles(names, RESIN_MAX_PROFILES);
+  String out = "{\"ok\":true,\"selected\":\"" + jsonEscape(resinProfileName) + "\",\"profiles\":[";
+  out.reserve(4096);   // typical 2-5 profiles; the length guard below caps the rest
+  bool first = true;   // NOT the loop index: a skipped unreadable file would
+                       // otherwise leave a stray comma and break the whole list
+  for (int i = 0; i < n; i++) {
+    ResinProfileInfo info;
+    if (!resinProfileInfo(names[i], info)) continue;
+    if (out.length() > 9500) break;   // before the comma: a break after one
+                                      // would leave invalid JSON
+    if (!first) out += ",";
+    first = false;
+    const ResinProfileValues &v = info.v;
+    out += "{\"name\":\"" + jsonEscape(names[i]) + "\"";
+    out += ",\"display\":\"" + jsonEscape(info.display) + "\"";
+    out += ",\"layerHeight\":" + String(v.layerHeight, 2);
+    out += ",\"builtin\":" + String(info.builtin ? "true" : "false");
+    out += ",\"edited\":" + String(info.edited ? "true" : "false");
+    out += ",\"baseExposure\":" + String(v.baseExposure);
+    out += ",\"regularExposure\":" + String(v.regularDs / 10.0f, 1);
+    out += ",\"baseLayers\":" + String(v.baseLayers);
+    out += ",\"transitionLayers\":" + String(v.transitionLayers);
+    out += ",\"slowLiftDistance\":" + String(v.slowLiftDist);
+    out += ",\"fastLiftDistance\":" + String(v.fastLiftDist);
+    out += ",\"slowLiftFeedrate\":" + String(v.slowLiftFeed);
+    out += ",\"fastLiftFeedrate\":" + String(v.fastLiftFeed);
+    out += ",\"dropBackFeedrate\":" + String(v.dropBackFeed);
+    out += ",\"density\":" + String(v.density, 3);
+    out += ",\"calFactor\":" + String(v.calFactor, 3);
+    out += ",\"calFixedMl\":" + String(v.fixedMl, 2);
+    out += ",\"calSamples\":" + String((v.calRawA > 0 ? 1 : 0) + (v.calRawB > 0 ? 1 : 0));
+    if (info.meta.testedBy.length())
+      out += ",\"testedBy\":\"" + jsonEscape(info.meta.testedBy) + "\"";
+    if (info.meta.testedOn.length())
+      out += ",\"testedOn\":\"" + jsonEscape(info.meta.testedOn) + "\"";
+    if (info.meta.buyUrl.length())
+      out += ",\"buyUrl\":\"" + jsonEscape(info.meta.buyUrl) + "\"";
+    out += "}";
+  }
+  out += "]}";
+  server.send(200, "application/json", out);
+}
+
+// POST /api/resin-profile/select  body: name=<slug>
+void handleApiResinProfileSelect() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (!resinProfileExists(name)) { sendApiError(404, "profile not found"); return; }
+  if (!applyResinProfile(name)) { sendApiError(500, "could not read the profile"); return; }
+  sdRev++;   // per-model times come from this profile - every list is now stale
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/save  body: name=<slug>&display=<label>[&mode=new]
+// Writes the CURRENT settings into that profile. For a built-in this is the
+// overlay that shadows the flash values; for anything else it is a plain save.
+// mode=new is "Save current as...": it refuses to land on a name that already
+// exists, so a new profile can never silently overwrite Fast or somebody's own.
+void handleApiResinProfileSave() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (name.length() == 0) { sendApiError(400, "name required"); return; }
+  if (server.arg("mode") == "new" &&
+      (resinBuiltinIndex(name) >= 0 || resinProfileFileExists(name))) {
+    sendApiError(409, "a profile with that name already exists");
+    return;
+  }
+  String display = formString("display", "", 40);
+  bool ok;
+  if (server.hasArg("base_exposure")) {
+    // Values came with the request - this is the dashboard installing a library
+    // profile it fetched itself. Clamped exactly like a hand-typed config, and
+    // NOT applied: installing a profile should not change what is set right now.
+    ResinProfileValues v;
+    resinProfileFromCurrent(v);      // anything not sent keeps a sane value
+    v.baseExposure = formLong("base_exposure", v.baseExposure, 5, 60);
+    if (server.hasArg("regular_exposure")) {
+      float rs = server.arg("regular_exposure").toFloat();
+      if (rs > 0) v.regularDs = constrain((long)lroundf(rs * 10.0f), 10L, 300L);
+    }
+    v.baseLayers = formLong("base_layers", v.baseLayers, 1, 8);
+    v.transitionLayers = formLong("transition_layers", v.transitionLayers, 0, 10);
+    v.slowLiftDist = formLong("slow_lift_distance", v.slowLiftDist, 1, 3);
+    v.fastLiftDist = formLong("fast_lift_distance", v.fastLiftDist, 1, 3);
+    v.slowLiftFeed = formLong("slow_lift_feedrate", v.slowLiftFeed, 20, 50);
+    v.fastLiftFeed = formLong("fast_lift_feedrate", v.fastLiftFeed, 20, 50);
+    v.dropBackFeed = formLong("drop_back_feedrate", v.dropBackFeed, 20, 50);
+    if (server.hasArg("density")) {
+      float d = server.arg("density").toFloat();
+      if (d >= 0.8f && d <= 2.0f) v.density = d;
+    }
+    if (server.hasArg("cal_factor")) {
+      float c = server.arg("cal_factor").toFloat();
+      v.calFactor = (c >= RESIN_CAL_MIN && c <= RESIN_CAL_MAX) ? c : 1.0f;
+    }
+    if (server.hasArg("cal_fixed_ml")) {
+      float fx = server.arg("cal_fixed_ml").toFloat();
+      v.fixedMl = (fx >= 0.0f && fx <= RESIN_FIXED_MAX) ? fx : 0.0f;
+    }
+    // A library profile brings no weighing of its own - and inheriting ours
+    // would tie somebody else's numbers to our samples.
+    v.calRawA = v.calGramsA = v.calRawB = v.calGramsB = -1;
+    if (server.hasArg("layer_height")) {
+      float lh = server.arg("layer_height").toFloat();
+      if (lh > 0) v.layerHeight = lh < 0.075f ? 0.05f : 0.10f;
+    }
+    ResinProfileMeta meta;
+    meta.testedBy = formString("tested_by", "", 40);
+    meta.testedOn = formString("tested_on", "", 20);
+    // Only our own catalogue may supply a link: anything else would let a page
+    // the user visits plant an arbitrary URL into the printer's profile list.
+    String buy = formString("buy_url", "", 120);
+    if (buy.startsWith("https://tinymakerwifi.com/") ||
+        buy.startsWith("https://slibbinas.github.io/"))
+      meta.buyUrl = buy;
+    ok = writeResinProfileValues(name, display, v, meta);
+  } else {
+    ok = writeResinProfile(name, display);
+    if (ok) { resinProfileName = name; saveDeviceConfig(); }
+  }
+  if (!ok) { sendApiError(500, "could not write the profile"); return; }
+  sdRev++;  // 0-28
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/delete  body: name=<slug>
+// A built-in cannot be removed - deleting it drops the overlay and restores the
+// factory values, which is what the dashboard shows as "Reset to factory".
+void handleApiResinProfileDelete() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (!resinProfileFileExists(name)) { sendApiError(404, "profile not found"); return; }
+  if (!deleteResinProfile(name)) { sendApiError(500, "could not delete the profile"); return; }
+  sdRev++;  // 0-28
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/rename  body: name=<slug>&to=<slug>
+void handleApiResinProfileRename() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String from = sanitizeSlug(server.arg("name"), "");
+  String to = sanitizeSlug(server.arg("to"), "");
+  if (!resinProfileFileExists(from)) { sendApiError(404, "profile not found"); return; }
+  if (resinBuiltinIndex(from) >= 0) { sendApiError(409, "a built-in profile cannot be renamed"); return; }
+  if (to.length() == 0 || to == from) { sendApiError(400, "new name required"); return; }
+  if (resinBuiltinIndex(to) >= 0 || resinProfileFileExists(to)) {
+    sendApiError(409, "a profile with that name already exists");
+    return;
+  }
+  if (!SD.rename(resinProfilePath(from).c_str(), resinProfilePath(to).c_str())) {
+    sendApiError(500, "could not rename the profile");
+    return;
+  }
+  if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
+  sdRev++;  // 0-28
+  sendApiOk("\"name\":\"" + jsonEscape(to) + "\"");
 }
 
 // PWA icon bytes live in PwaIcon.ino, which the Arduino builder concatenates
@@ -3703,6 +3978,7 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/vat/weight", HTTP_POST, handleApiVatWeight);   // 0.17 0-16
   server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);
   server.on("/api/update/install", HTTP_POST, handleApiUpdateInstall);
@@ -3724,6 +4000,11 @@ void network_setup() {
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
   server.on("/api/boot-anim/install", HTTP_POST, handleApiBootAnimInstall);
+  server.on("/api/resin-profile", HTTP_GET, handleApiResinProfileList);          // 0.17 0-16
+  server.on("/api/resin-profile/select", HTTP_POST, handleApiResinProfileSelect);
+  server.on("/api/resin-profile/save", HTTP_POST, handleApiResinProfileSave);
+  server.on("/api/resin-profile/delete", HTTP_POST, handleApiResinProfileDelete);
+  server.on("/api/resin-profile/rename", HTTP_POST, handleApiResinProfileRename);
   server.on("/api/files/local", HTTP_POST, finishUpload, handleUploadData);
 
   // Plain endpoint for curl / UVtools testing:

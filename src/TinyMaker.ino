@@ -74,6 +74,73 @@ extern double resinEstimateMl;
 // (TinyMaker.ino is prepended first) every estimate site shares one formula,
 // which is also the single place the R-cal factor hooks into.
 #define PX_AREA_MM2 0.01626
+// Resin profiles (ResinProfile.ino) - declared here because Interface.ino and
+// Network.ino come before it in the .ino concatenation order.
+#define RESIN_MAX_PROFILES 16
+// A profile is the whole print recipe: everything that decides how the print
+// comes out. What stays outside describes the MACHINE and changes nothing about
+// the result - VAT size and empty weight, the low-resin warning levels, "ask
+// about refill", the pause inspection lift and the screen sleep.
+//
+// Layer height is IN (V 08-16). Exposure without it is an incomplete recipe -
+// 0.05 mm needs less light than 0.10 mm - so two profiles for one resin is the
+// normal case, exactly like a slicer's "material x layer height" rows. It also
+// makes the flat-print mismatch LESS likely, not more: today the printer's
+// height and the slicer profile are matched by hand in two separate places,
+// which is how that bug happened at all. LH-chk still checks the file itself.
+struct ResinProfileValues {
+  float layerHeight;   // mm - only 0.05 or 0.10 exist on this machine
+  long baseExposure;   // whole seconds (EEPROM addr 2)
+  long regularDs;      // deciseconds (0.17 0-3)
+  uint8_t baseLayers;
+  uint8_t transitionLayers;
+  uint8_t slowLiftDist, fastLiftDist;      // mm
+  int slowLiftFeed, fastLiftFeed, dropBackFeed;   // mm/min
+  float density;       // g/ml
+  float calFactor;     // R-cal slope
+  float fixedMl;       // R-cal per-print offset (ml)
+  // The weighed samples travel WITH the resin. They are grams measured against
+  // one particular resin, so leaving them on the machine would let the next
+  // weighing fit a line through two different resins - and would make the
+  // dashboard call a never-weighed resin "calibrated". -1 = no sample.
+  float calRawA, calGramsA, calRawB, calGramsB;
+};
+// Provenance travels WITH the profile, not just in the gh-pages catalogue: once
+// installed, a profile still has to be able to say who tested it and where to
+// buy it, otherwise the badge disappears exactly when the resin starts being
+// used (V 08-16). Empty = unknown, which is the normal case for a profile the
+// user saved themselves.
+struct ResinProfileMeta {
+  String testedBy;     // who printed with it - "" for a self-made profile
+  String testedOn;     // when, free text ("2026-08")
+  String buyUrl;       // affiliate/redirect link, shown only when present
+};
+// One read of the profile file answers everything the list needs.
+struct ResinProfileInfo {
+  ResinProfileValues v;
+  ResinProfileMeta meta;
+  String display;
+  bool builtin;
+  bool edited;         // a built-in with an overlay file on the card
+};
+void resinProfileFromCurrent(ResinProfileValues &v);
+bool resinProfileValues(const String &name, ResinProfileValues &v);
+bool resinProfileInfo(const String &name, ResinProfileInfo &info);
+String resinProfilePath(const String &name);
+int listResinProfiles(String out[], int maxN);
+bool resinProfileExists(const String &name);
+bool resinProfileEdited(const String &name);
+String resinProfileDisplay(const String &name);
+bool applyResinProfile(const String &name);
+bool writeResinProfile(const String &name, const String &display);
+bool writeResinProfileValues(const String &name, const String &display,
+                             const ResinProfileValues &vals, const ResinProfileMeta &meta);
+bool deleteResinProfile(const String &name);
+String nextResinProfile(const String &current);
+String sanitizeSlug(const String &in, const char *fallback = "downloaded");
+int resinBuiltinIndex(const String &name);
+bool resinProfileFileExists(const String &name);
+
 inline double pxToMlRaw(unsigned long px, float layerH) {
   return (double)px * PX_AREA_MM2 * layerH / 1000.0;   // RAW - no calibration
 }
@@ -187,10 +254,33 @@ float lastPrintRawMl = -1;          // NVS "lastPrintMl": RAW ml of the last pri
                                     // (-1 = none yet) - the calibration reference
 double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the factor
 
+// 0.17 0-16: the resin profile in force. Only the slug is stored - the values
+// themselves live in the ordinary settings, because applying a profile just
+// copies them there (see ResinProfile.ino). "" = none picked yet.
+// 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
+// setting, not a web lookup - it has to work with no internet, and switching it
+// must not need a firmware release or a git push. No UI writes it; the slicer
+// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
+bool slicerModuleOn = false;
+
+String resinProfileName = "";
+// Bumped whenever a profile is applied, written or deleted, so the LCD menu
+// knows when its cached label went stale (0.17 0-16).
+uint32_t resinProfileRev = 0;
+// Weight of the empty vat (g). One moulded part, one tool, no custom vats -
+// so this is a constant of the machine, not something to ask the user for
+// (V 08-16). Density is the number that actually varies, and that one lives in
+// the resin profile. Weighing the vat then gives the remaining ml exactly,
+// instead of trusting the marker.
+#define VAT_EMPTY_G_DEF 56.56f   // measured on the reference printer, 08-09
+#define VAT_EMPTY_G_MAX 500.0f
+float vatEmptyG = VAT_EMPTY_G_DEF;
+
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
 void cleanupManagedSdTemps();
+
 
 // Total print time, persisted in NVS (survives firmware re-flash, unlike the
 // EEPROM settings area). Written rarely - only at print end/cancel - to spare
@@ -348,6 +438,13 @@ void loadDeviceConfig() {
   if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
   resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
+  // A printer that has never picked a profile is running the factory values,
+  // which is exactly what "slow" holds - so name it instead of saying "not set".
+  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  resinProfileName = sysPrefs.getString("resinProf", "slow");   // 0.17 0-16
+  if (resinProfileName.length() == 0) resinProfileName = "slow";
+  vatEmptyG = sysPrefs.getFloat("vatEmptyG", VAT_EMPTY_G_DEF);
+  if (!(vatEmptyG > 0.0f && vatEmptyG <= VAT_EMPTY_G_MAX)) vatEmptyG = VAT_EMPTY_G_DEF;
   calRawA  = sysPrefs.getFloat("calRawA", -1);  calMeasA = sysPrefs.getFloat("calMeasA", -1);
   calRawB  = sysPrefs.getFloat("calRawB", -1);  calMeasB = sysPrefs.getFloat("calMeasB", -1);
   // A NaN here would print as a bare nan in /api/config and break the whole JSON.
@@ -412,6 +509,9 @@ void saveDeviceConfig() {
   sysPrefs.putFloat("resinCal", resinCalFactor);       // R-cal 0.17
   sysPrefs.putFloat("resinFixed", resinFixedMl);
   sysPrefs.putFloat("resinDens", resinDensity);
+  sysPrefs.putBool("slicerOn", slicerModuleOn);        // 0.17 SL-mod
+  sysPrefs.putString("resinProf", resinProfileName);   // 0.17 0-16
+  sysPrefs.putFloat("vatEmptyG", vatEmptyG);
   sysPrefs.putFloat("calRawA", calRawA);   sysPrefs.putFloat("calMeasA", calMeasA);
   sysPrefs.putFloat("calRawB", calRawB);   sysPrefs.putFloat("calMeasB", calMeasB);
   sysPrefs.putUChar("calUnit", 1);         // calMeas* = grams
@@ -793,6 +893,23 @@ void vatMarkRefilled() {
   saveVatRemaining();
 }
 
+// 0.17 0-16: set the remaining resin from a weighing instead of the mark. The
+// mark answers "full or not"; the scale answers "how much", which is what the
+// low-resin logic and the per-model estimate actually work with. Needs the empty
+// vat's weight (a machine property) and the resin's density (from the profile).
+// Returns false when either is missing or the number makes no sense.
+bool vatSetFromWeight(float grams) {
+  if (vatEmptyG <= 0 || resinDensity <= 0) return false;
+  float ml = (grams - vatEmptyG) / resinDensity;
+  if (ml < 0) ml = 0;
+  if (ml > (float)Vat_Capacity_Ml) ml = (float)Vat_Capacity_Ml;
+  vatRemainingMl = ml;
+  lowResinNotified = false;
+  lowResinPreWarned = false;   // a re-measure re-arms the warning, like a refill
+  saveVatRemaining();
+  return true;
+}
+
 // System State
 int current_layer = 0; // Current layer being printed
 int current_state = 0; // Current printing state
@@ -907,6 +1024,7 @@ String backupEscape(const String &v) {
 
 String buildConfigBackupJson(bool includeSecrets = true) {
   String out = "{\"backupVersion\":1,\"firmware\":\"";
+  out.reserve(2560);   // ~127 appends; one caller runs with TLS allocated
 #ifdef FIRMWARE_VERSION
   out += FIRMWARE_VERSION;
 #endif
@@ -951,6 +1069,10 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += String(resinFixedMl, 2);
   out += ",\"resinDensity\":";
   out += String(resinDensity, 3);
+  out += ",\"resinProfile\":\"";   // 0.17 0-16: the slug; the file itself lives on the card
+  out += backupEscape(resinProfileName);
+  out += "\",\"vatEmptyG\":";
+  out += String(vatEmptyG, 2);
   out += ",\"calRawA\":";   out += String(calRawA, 2);
   out += ",\"calMeasA\":";  out += String(calMeasA, 2);
   out += ",\"calRawB\":";   out += String(calRawB, 2);
@@ -1128,6 +1250,11 @@ void applyConfigBackup(const String &j) {
     if (fx >= 0.0f && fx <= RESIN_FIXED_MAX) resinFixedMl = fx;
     float dn = (float)backupNum(j, "resinDensity", resinDensity);
     if (dn >= 0.8f && dn <= 2.0f) resinDensity = dn;
+    // 0.17 0-16: only the name comes back - the profile file lives on the card,
+    // so a restore onto a different card simply leaves the values as restored.
+    resinProfileName = sanitizeSlug(backupStr(j, "resinProfile", resinProfileName), "");
+    float ve = (float)backupNum(j, "vatEmptyG", vatEmptyG);
+    if (ve > 0.0f && ve <= VAT_EMPTY_G_MAX) vatEmptyG = ve;
     // Samples travel with the factor - otherwise a restored printer reports
     // "not calibrated" and the next weighing starts the pair over.
     calRawA  = (float)backupNum(j, "calRawA", calRawA);
@@ -1259,6 +1386,12 @@ void finishRestorePromptBoot() {
     screenResumePrompt();
     return;
   }
+  // Past this point no resume is waiting any more: the prompt was answered and
+  // the checkpoint is gone. The flag used to stay up until a resumed print
+  // actually started, so after a Discard it was never lowered at all - which
+  // left anything gated on it (the boot update check, and since 0-16 the resin
+  // profile routes) blocked until the next reboot.
+  resumeBootPending = false;
   // The user just answered the prompt with a button press. If that finger is
   // still down when network_setup runs, its "hold BACK at power-on = erase
   // WiFi credentials" emergency check mistakes the held Discard press for
