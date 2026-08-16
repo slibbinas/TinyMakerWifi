@@ -1618,7 +1618,7 @@ const applyResinProfile=async(name)=>{
        skaiciai (sluoksniai, laikas, ml) pasensta ta pacia akimirka. Perskaiciuojam
        tyliai - snackbaro cia nereikia, skaiciai pasako patys (V 08-16). */
     refreshDashModelInfo();
-    if(selectedModel&&$('modelPanel')&&$('modelPanel').offsetParent!==null)modelDetails(enc(selectedModel));}
+    if(selectedModel&&$('modelPanel')&&!$('modelPanel').classList.contains('hidden'))modelDetails(enc(selectedModel));}
   catch(e){msg(e.message,true);}
 };
 const resetResinRow=async(p)=>{
@@ -1992,7 +1992,11 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length
        /* Tas pats vardas, kitas turinys: perpjaustytas ar pakeistas failas. Be sio
           patikrinimo visa spaudini rodytume SENA geometrija (auditas 08-14). */
-       ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers&&slicesCache.layers!==2*s.totalLayers)))fetchLiveSlices(s.model,0);
+       ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers
+          /* 480 vs 240 yra tas pats modelis TIK prie 0,10 (printeris poruoja du
+             pjuvius). Be sio aukscio patikrinimo perpjaustytas to paties vardo
+             modelis praeitu pro sarga ir visa spaudini piestume sena geometrija. */
+          &&!(slicesCache.layers===2*s.totalLayers&&Number(s.layerHeight)>0.06))))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
@@ -2399,8 +2403,9 @@ const modelDetails=async(nameEnc,estimate)=>{
       // used only when the exact resin is also known - otherwise we need the
       // slices anyway for the quick estimate. Runs are sequenced, so browsing
       // to another model or leaving the view supersedes this one.
-      const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
-      const hasVoxel=lh1?d.preview1:d.preview05;
+      // Bet kuris irasytas vaizdas tinka: piesinys nuo sluoksnio aukscio
+      // nepriklauso, o printeris atiduoda ta, kuris yra (audit 08-16).
+      const hasVoxel=d.preview1||d.preview05;
       if(hasVoxel&&d.resinEstimated){
         try{await loadSavedPreview(name);}
         catch(e){modelPreview();}
@@ -3633,7 +3638,7 @@ const restoreDashPreview=async()=>{
   try{
     const d=await api('/api/files/model?name='+enc(name));
     if((statusData&&statusData.busy)||dashPreviewName)return;
-    const hasVoxel=(statusData?Number(statusData.layerHeight)>0.06:!!d.preview1)?d.preview1:d.preview05;
+    const hasVoxel=d.preview1||d.preview05;   // either render, see the note above
     /* Pjuviai atkurimui tinka taip pat, kaip miniatiura - ir duoda tikra 3D,
        tad ju ieskom PIRMA. Anksciau butinai reikejo miniatiuros. */
     const haveSlices=slicesFit(name)||await loadSlicesFromPrinter(name,f=>{
@@ -3747,7 +3752,7 @@ const upgradeToSlices=async(name,d)=>{
        TIK 'preview superseded', o sluoksnio timeout'as ar 409 dingdavo be zenklo -
        drobeje amzinai likdavo paskutinis skaicius („uzstrigo ties 221/240", V 08-16). */
     if(dashPreviewName===name&&previewRun===myRun)
-      markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+e.message);
+      markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+((e&&e.message)||'the printer did not answer'));
   }
   finally{
     setPreviewBusy(false);    // uzimtumo zyma nuimama kartu su visu kitu
@@ -3791,8 +3796,7 @@ const dashPreview=async(nameEnc,opts)=>{
     let resin=d.resinEstimated?Number(d.resinMl).toFixed(1)+' ml':'';
     const setInfo=()=>setModelInfoRows({name:d.name,layers:d.printLayers||d.layers,time:d.estimatedTime,resin});
     setInfo();
-    const lh1=statusData?Number(statusData.layerHeight)>0.06:!!d.preview1;
-    const hasVoxel=lh1?d.preview1:d.preview05;
+    const hasVoxel=d.preview1||d.preview05;   // either render, see the note above
     /* 3D pagal nutylejima (V 08-12). Eile: atmintis -> pjuviu failas prie
        modelio -> sena miniatiura + fono paruosimas -> pilnas skenavimas. */
     showDetailToggle();

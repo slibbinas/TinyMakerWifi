@@ -46,7 +46,9 @@ static const ResinBuiltin RESIN_BUILTIN[] = {
   { "fast", "Fast resin", "", "", "",
     { 0.05f, 18, 80,  4, 5, 1, 2, 40, 50, 50, 1.157f, 1.092f, 0.39f, -1, -1, -1, -1 } },
   { "slow", "Slow resin (factory)", "", "", "",
-    { 0.05f, 35, 140, 2, 5, 1, 2, 40, 50, 50, 1.100f, 1.000f, 0.00f, -1, -1, -1, -1 } },
+    // 0.10 mm, not 0.05: this profile IS resetSettingsToDefault() (EEPROM addr 1
+    // = 10), and the two have to agree or the name lies about the machine.
+    { 0.10f, 35, 140, 2, 5, 1, 2, 40, 50, 50, 1.100f, 1.000f, 0.00f, -1, -1, -1, -1 } },
 };
 #define RESIN_BUILTIN_COUNT ((int)(sizeof(RESIN_BUILTIN) / sizeof(RESIN_BUILTIN[0])))
 
@@ -159,6 +161,11 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
   if (!resinProfileReadJson(name, json)) return known;
   info.edited = info.builtin;   // the file shadows the flash values
   ResinProfileValues &v = info.v;
+  // ...but a file that happens to hold the factory numbers is not an edit. The
+  // badge (and "Reset to factory" with it) has to mean something changed, so the
+  // values are compared at the end of this function, not just the file's
+  // existence (audit 08-16).
+  ResinProfileValues factory = info.v;
 
   double d = 0;
   // Only two heights physically exist here; anything else rounds the same way
@@ -207,6 +214,12 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
   String pretty;
   if (!info.builtin && readJsonStringField(json, "name", pretty) && pretty.length())
     info.display = pretty;
+
+  // The badge means "these numbers are not the factory ones" - an overlay that
+  // holds the factory values (or one left behind by an older factory recipe) is
+  // not an edit, and offering "Reset to factory" for it says nothing true.
+  if (info.edited && memcmp(&info.v, &factory, sizeof(ResinProfileValues)) == 0)
+    info.edited = false;
   return true;
 }
 
@@ -271,6 +284,9 @@ bool applyResinProfile(const String &name) {
   // The last print's raw ml belonged to the OLD resin: left standing, the next
   // weighing would calibrate this profile against someone else's print.
   lastPrintRawMl = -1;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);   // RAM alone would come back
+  sysPrefs.end();
 
   resinProfileName = name;
   resinProfileRev++;

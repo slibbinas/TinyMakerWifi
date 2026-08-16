@@ -1462,7 +1462,7 @@ void screen111(){
 
 
 /**
- * @brief Screen 112: Height Warning
+ * @brief Screen 112: Height Warning (see the resume screen just above)
  * Displays warning if object height exceeds build volume.
  */
 /**

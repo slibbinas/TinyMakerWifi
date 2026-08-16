@@ -1961,6 +1961,7 @@ void loop() {
         finishRestorePromptBoot();
         break;
       case 427:                 // power-loss resume prompt -> Discard
+        resumeBootPending = false;   // gate down: the prompt is gone (audit 08-16)
         resumeClear();
         finishRestorePromptBoot();
         break;
@@ -2038,6 +2039,7 @@ void loop() {
       screen = 111;             // unless the model needs more than a full VAT)
         break;
       case 427:                 // UP on resume prompt -> lift plate only (0-2)
+      resumeBootPending = false;   // gate down: the prompt is gone (audit 08-16)
       resumeRaisePlateAndDiscard();
       finishRestorePromptBoot();   // continue the normal boot (network etc.)
         break;
@@ -2309,15 +2311,21 @@ void loop() {
         resumeStartPrint = false;
         resumeBootPending = false;   // boot-update check may run again later
         if (resuming) {
-          if (resumePhase == 0) { screen1(); break; }   // nothing loaded
+          if (resumePhase == 0) { savePrintActiveFlag(false); screen1(); break; }   // nothing loaded
           /* Aukstis pasikeite tarp klausimo ir Resume? Toliau einantis judesys
              skaiciuojamas is DABARTINIO aukscio: prie 0.10 -> 0.05 plokste butu
              nuleista i puse tikro aukscio, t. y. i jau isspausdinta detale (FEP,
              derva, Z). Geriau atsisakyti tesimo, nei sulaužyti. */
           if (resumeLayerHeightCm > 0 &&
               resumeLayerHeightCm != (int)lroundf(Layer_Height * 100)) {
-            resumePhase = 0;
+            // Nothing started, so nothing may stay armed: the print-active flag
+            // was set a few lines up and would report a crash on the next boot.
+            savePrintActiveFlag(false);
+            // Back to the prompt, NOT to the menu: the plate still stands in the
+            // vat, and the prompt is the only place with "lift the plate" and
+            // "discard". The record stays - put the height back and Resume works.
             screenResumeHeightChanged();
+            screenResumePrompt();
             break;
           }
           strlcpy(foldersel_long, resumeFolder, sizeof(foldersel_long));

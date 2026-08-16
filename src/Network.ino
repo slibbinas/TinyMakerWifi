@@ -1214,7 +1214,7 @@ void handleApiFileModel() {
   bool preview05 = sdPathExists("/" + name + "/preview05s.png");
   bool preview1 = sdPathExists("/" + name + "/preview1s.png");
   bool previewLegacy = sdPathExists("/" + name + "/preview.png");
-  // Either render counts (see modelRenderPath): the picture is the same model
+  // Either render counts (see openModelRender): the picture is the same model
   // at any layer height, so a resin switch must not make it "missing".
   bool previewExists = preview1 || preview05 || previewLegacy;
   out += previewExists ? "true" : "false";
