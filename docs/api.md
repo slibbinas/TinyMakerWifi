@@ -118,7 +118,7 @@ homing diagnostics.
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/config` | GET/POST | full settings read / form-encoded save |
-| `/api/config/defaults` | POST | factory print/web settings |
+| `/api/config/defaults` | POST | factory print/web settings, and with them the resin: the active profile returns to `slow`, its overlay is deleted from the card and the resin calibration is cleared. The printer's own "Back to Default" does the same and then reboots (the device flags only take effect at boot) |
 | `/api/config/mqtt/defaults`, `/api/config/connect/defaults` | POST | reset one integration |
 | `/api/config/backup` | GET | JSON backup download (includes secrets — handle with care) |
 | `/api/config/backup/sd` | POST | write the backup to the SD card |

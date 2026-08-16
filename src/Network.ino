@@ -89,8 +89,8 @@ WebServer server(80);
 //
 // Dvi salygos, ne viena: Connect UI veikia MUSU puslapio viduje ir kreipiasi i
 // API savo kodu, be musu antrastes - ji islaiko Origin patikra. Svetimas
-// puslapis nepraeina nei vienos: antrastes jis nepridės (reiketu preflight, o
-// i OPTIONS printeris neatsako), o Origin turės savo.
+// puslapis nepraeina nei vienos: antrastes jis neprides (reiketu preflight, o
+// i OPTIONS printeris neatsako), o Origin tures savo.
 bool requestFromOwnUi() {
   // SVETIMAS Origin atmetamas VISADA, net su musu antraste: taip taisykle lieka
   // vienareiksme ("is musu puslapio ar ne"), o ne dvieju keliu kombinacija.
@@ -491,10 +491,11 @@ void freePreviewCache() {
 // models on this card and force a full re-render for an image that cannot
 // differ (measured 08-16). Empty return = neither exists.
 File openModelRender(const String &name) {
-  String at1 = "/" + name + "/preview1s.png";
-  String at05 = "/" + name + "/preview05s.png";
-  File f = SD.open((Layer_Height > 0.06 ? at1 : at05).c_str());
-  if (!f) f = SD.open((Layer_Height > 0.06 ? at05 : at1).c_str());
+  // Antra eilute sudedam tik jei pirmos nepakako: si funkcija pasiekiama ir
+  // spausdinant (Telegram re-capture), tad be reikalo nealokuojam (audit 08-16).
+  bool tall = (Layer_Height > 0.06);
+  File f = SD.open(("/" + name + (tall ? "/preview1s.png" : "/preview05s.png")).c_str());
+  if (!f) f = SD.open(("/" + name + (tall ? "/preview05s.png" : "/preview1s.png")).c_str());
   return f;   // invalid = neither exists
 }
 
@@ -1404,7 +1405,7 @@ void handleApiFileLayer() {
 
 void handleApiFileDelete() {
   if (rejectIfWebControlOff()) return;
-  // Nebaigtas spaudinys laukia atsakymo, o jo irasas rodo i modeli kortelėje -
+  // Nebaigtas spaudinys laukia atsakymo, o jo irasas rodo i modeli korteleje -
   // istrynus ji tesimas nebeturetu is ko vykti (auditas 08-16).
   if (rejectIfResumePending()) return;
   String error;
@@ -1598,11 +1599,11 @@ String configJson() {
 
 // HTML varnele, kai ji nuimta, formoje NESIUNCIAMA, tad sis endpoint'as skaite
 // „nera = isjungta". Pultui tai teisinga (jis siuncia visa forma), bet bet kokia
-// dalinė uzklausa isjungdavo visus 13 jungikliu iskart, tarp ju WiFi - printeris
+// daline uzklausa isjungdavo visus 13 jungikliu iskart, tarp ju WiFi - printeris
 // dingdavo is tinklo. Taip nutiko du kartus (08-11, 08-12).
 //
 // Pultas savo forma pazymi `form_full`. Be sios zymos varneles, kuriu uzklausoje
-// nera, paliekamos kaip buvo: dalinė uzklausa gali ijungti, bet ne isjungti.
+// nera, paliekamos kaip buvo: daline uzklausa gali ijungti, bet ne isjungti.
 static bool formFullPost = false;
 static inline bool formCheck(const char *name, bool cur) {
   if (server.hasArg(name)) return true;
@@ -2468,7 +2469,7 @@ void handleApiLiveSlices() {
   // they hold the model's own silhouettes, which is the un-printed part the
   // browser draws as a ghost. Deltas keep returning only real captures, so a
   // freshly exposed layer overwrites its pre-loaded slot.
-  // liveReady: homing'o metu pilno steko NEATIDUODAM - zr. paaiskinima prie vėliavos.
+  // liveReady: homing'o metu pilno steko NEATIDUODAM - zr. paaiskinima prie veliavos.
   int last = (live && livePrefilled && liveReady && since == 0) ? liveN : cap;
   float modelH = live ? layer_counter * Layer_Height : 0;
 
@@ -3629,7 +3630,7 @@ void handleApiBootAnimPreview() {
   restoreIdleScreen();
 }
 
-// ---- Resin profiles (0.17 0-16) -------------------------------------------
+// ---- UI restore + resin profiles (0.17 0-16) ------------------------------
 // A print waiting to be resumed after a power cut is not "busy" yet, but its
 // second half must come out with the same exposure as its first. Changing the
 // recipe in that window would silently split one model into two settings.
@@ -3638,7 +3639,13 @@ void handleApiBootAnimPreview() {
 // dingtu is ekrano, veliavele liktu pakelta, ir visi nustatymu bei spausdinimo
 // keliai atsakinetu „laukia spaudinys", kai atsakyti nebebutu kur (auditas 08-16).
 void restoreIdleScreen() {
-  if (resumeBootPending) { screenResumePrompt(); return; }
+  // Tesimas jau pradedamas - siuo ciklu ekranas priklauso jam, nepiesiam nieko:
+  // kitaip klausimas grizu ant jo, o paspaudimas butu nutildytas (audit 08-16).
+  if (resumeStartPrint) return;
+  // Ta pati salyga, kaip rejectIfResumePending: veliavele ARBA klausimas ekrane.
+  // Aukscio atsisakymo saka grazina 427 jau nuleidusi veliavele - ir tas klausimas
+  // taip pat neturi buti uzpiestas, nes tik jame liko „pakelti plokste".
+  if (resumeBootPending || screen == 427) { screenResumePrompt(); return; }
   screen1();
 }
 

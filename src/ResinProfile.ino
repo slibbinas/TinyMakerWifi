@@ -279,11 +279,15 @@ bool applyResinProfile(const String &name) {
   rememberPrevBaseExposure(replacedBaseS);
   rememberPrevRegularExposure(replacedRegDs);
   // The last print's raw ml belonged to the OLD resin: left standing, the next
-  // weighing would calibrate this profile against someone else's print.
-  lastPrintRawMl = -1;
-  sysPrefs.begin("tinymaker", false);
-  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);   // RAM alone would come back
-  sysPrefs.end();
+  // weighing would calibrate this profile against someone else's print. Picking
+  // the SAME profile again (or dropping its overlay) is not a resin change, so
+  // the weighing survives that (audit 08-16).
+  if (name != resinProfileName) {
+    lastPrintRawMl = -1;
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);   // RAM alone would come back
+    sysPrefs.end();
+  }
 
   resinProfileName = name;
   resinProfileRev++;

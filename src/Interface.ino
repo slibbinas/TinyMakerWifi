@@ -83,8 +83,8 @@ void netMessage(const char *line1, const char *line2) {
 
 // Two text lines + bounded progress bar (WiFi connect / uploads / OTA / import)
 // Ilgas modelio vardas i 160 px eilute netilpdavo: Arduino_GFX ji tyliai perkelia
-// i kita eilute, ir vardas uzlipdavo ant progreso juostelės (V 08-14, „valentine-
-// heart-ring-model_tiles"). Trumpinam pagal TIKRA plotį, ne pagal simbolių skaičių:
+// i kita eilute, ir vardas uzlipdavo ant progreso juosteles (V 08-14, „valentine-
+// heart-ring-model_tiles"). Trumpinam pagal TIKRA ploti, ne pagal simboliu skaiciu:
 // „iiii" ir „WWWW" uzima skirtingai, o simboliu riba arba nukirpdavo per anksti,
 // arba vis tiek netilpdavo.
 static String fitToWidth(const char *s, int16_t maxW) {
@@ -1484,8 +1484,10 @@ void screenResumeHeightChanged(){
 }
 
 /**
- * @brief Gamyklinio atstatymo patvirtinimas (ekranas 313). Isvardija tai, ko
- * neatstatysi: dervos kalibracija ir profilio redagavima.
+ * @brief Gamyklinio atstatymo patvirtinimas (ekranas 313). Ivardija tai, ko
+ * neatstatysi - dervos profili ir sverimus - ir kad po to printeris persikrauna.
+ * Nustatymai, kuriu SIS mygtukas neliecia: MQTT, pranesimai, Connect poravimas,
+ * boot animacija, WiFi kredencialai.
  */
 void screenFactoryConfirm(){
   uiFrame(RED);
@@ -1493,11 +1495,11 @@ void screenFactoryConfirm(){
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(6, 16);
-  gfx2->println("Reset everything?");
+  gfx2->println("Reset settings?");
   gfx2->setCursor(6, 34);
-  gfx2->println("Resin + WiFi too,");
+  gfx2->println("Resin profile and");
   gfx2->setCursor(6, 52);
-  gfx2->println("then it reboots.");
+  gfx2->println("weighings go too.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
   // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas

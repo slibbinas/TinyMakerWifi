@@ -1,12 +1,12 @@
 /**
  * @file TinyMaker-Firmware-v1-0-2.ino
- * @author Tinymaker Team (Original), Viktoras Šidlauskas (Modified)
+ * @author Tinymaker Team (Original), Viktoras Sidlauskas (Modified)
  * @version 1.0.2-vs-wifi-0.1
  * @date 2027-07-26
  * @brief Main firmware for Tinymaker MSLA 3D Printer.
  *
  * board ESP32-WROOM-32E-N4
- * Modifications by Viktoras Šidlauskas slibbinas@gmail.com
+ * Modifications by Viktoras Sidlauskas slibbinas@gmail.com
  *
  * This file handles the entire print process, UI interaction, motor control, and UV exposure logic. 
  *
@@ -2032,7 +2032,7 @@ void loop() {
       case 431:                 // About -> System menu (About stays selected)
       screen44();
         break;
-      case 313:                 // "Reset all settings?" -> Back = nieko nedarom
+      case 313:                 // "Reset settings?" -> Back = nieko nedarom
       setting_item = 11;
       screen31DOWN();
         break;
@@ -2315,7 +2315,7 @@ void loop() {
         /* Paskutinis patikrinimas pries pajudant: ar sluoksniu skaicius vis dar
            tos pacios dervos? Perjungus profili is narsykles tarp „paruosta" ir
            „Start" (VAT klausimas, mazos dervos ispejimas) skaicius liktu senas -
-           prie 0.10 -> 0.05 butu atspausdinta tik apatine pusė. Perskaiciuojam
+           prie 0.10 -> 0.05 butu atspausdinta tik apatine puse. Perskaiciuojam
            tik tada, kai aukstis tikrai kitas (V klausimas, 08-16). */
         if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) {
           screen111();
@@ -2404,7 +2404,7 @@ void loop() {
           /* Aukstis pasikeite tarp klausimo ir Resume? Toliau einantis judesys
              skaiciuojamas is DABARTINIO aukscio: prie 0.10 -> 0.05 plokste butu
              nuleista i puse tikro aukscio, t. y. i jau isspausdinta detale (FEP,
-             derva, Z). Geriau atsisakyti tesimo, nei sulaužyti. */
+             derva, Z). Geriau atsisakyti tesimo, nei sulauzyti. */
           if (resumeLayerHeightCm > 0 &&
               resumeLayerHeightCm != (int)lroundf(Layer_Height * 100)) {
             // Nothing started, so nothing may stay armed: the print-active flag
@@ -3105,10 +3105,10 @@ void loop() {
       case 442:                 // WiFi prompt -> Reboot: apply the toggle now
         applyWifiToggleAndReboot();
         break;
-      case 313:                 // "Reset all settings?" -> Reset (OK)
+      case 313:                 // "Reset settings?" -> Reset (OK)
         resetEverythingToFactory();
         saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
-        /* Debesu kopija cia NEplanuojama sąmoningai: planas gyvena RAM'e su 3 s
+        /* Debesu kopija cia NEplanuojama samoningai: planas gyvena RAM'e su 3 s
            delsa (tinymakerConnectScheduleBackup), o mes po 1,2 s perkraunam - jis
            nespetu isvykti. Nustatymai jau NVS, o debesu kopija atsinaujins per
            pirma kita pakeitima. Web kelias planuoja, nes ten perkrovimo nera.
