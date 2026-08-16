@@ -1,0 +1,17 @@
+{
+  "name": "Anycubic Water-Washable Clear",
+  "layer_height": 0.05,
+  "base_exposure": 35,
+  "regular_exposure": 14.0,
+  "base_layers": 2,
+  "transition_layers": 5,
+  "slow_lift_distance": 1,
+  "fast_lift_distance": 2,
+  "slow_lift_feedrate": 40,
+  "fast_lift_feedrate": 50,
+  "drop_back_feedrate": 50,
+  "density": 1.1,
+  "cal_factor": 1.0,
+  "cal_fixed_ml": 0.0,
+  "buy_url": "https://www.anycubic.com/"
+}
