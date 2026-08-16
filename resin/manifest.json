@@ -13,14 +13,14 @@
       "name": "anycubic-ww-clear",
       "display": "Anycubic Water-Washable Clear",
       "file": "anycubic-ww-clear.json",
-      "layerHeight": 0.05,
+      "layerHeight": 0.10,
       "buyUrl": "https://www.anycubic.com/"
     },
     {
       "name": "anycubic-ww-black",
       "display": "Anycubic Water-Washable Black",
       "file": "anycubic-ww-black.json",
-      "layerHeight": 0.05,
+      "layerHeight": 0.10,
       "buyUrl": "https://www.anycubic.com/"
     }
   ]
