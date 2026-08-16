@@ -244,19 +244,22 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          browser doesn't have), so say so plainly under a "Printing NN%" bar. -->
     <div id='prevNote' class='hint hidden' style='text-align:center;margin-top:6px'></div>
   </section>
-  </div>
 
   <!-- 0.17 SL-mod: the slicer's future home. Two independent gates (V 08-16):
      the seven-tap gesture only unlocks the UI, and the module's own manifest
      decides whether it is offered at all. The gesture will be found and posted
      on a forum sooner or later; the server-side flag is what stays ours.
-     Vieta: PO peruziura, ne pries ja. Sis pultas pirmiausia yra apie spausdinima,
-     o sliceris yra irankis salia jo - virsuje jis nustumdavo tai, del ko puslapis
-     atidaromas (V 08-17). -->
-<section id='slicerCard' class='card hidden'>
-  <h2>Slicer <span id='slicerState' class='navTag'></span></h2>
-  <div id='slicerBody' style='font-size:.95rem;color:var(--muted)'></div>
-</section>
+     Vieta: #homeLeft VIDUJE, iskart po 3D peruziuros. Prie >=1000 px #homeView
+     yra dvieju stulpeliu tinklelis, tad kortele PALIKTA uz #homeLeft tapdavo
+     savarankisku tinklelio elementu ir nukrisdavo i DESINI stulpeli, o SD manager
+     nusistumdavo eilute zemyn. Cia SD manager lieka desineje, sliceris - po
+     perziura kaireje, o telefone viena stulpeliu eile isvyniojama kaip
+     perziura -> sliceris -> SD manager (V 08-17). -->
+  <section id='slicerCard' class='card hidden'>
+    <h2>Slicer <span id='slicerState' class='navTag'></span></h2>
+    <div id='slicerBody' style='font-size:.95rem;color:var(--muted)'></div>
+  </section>
+  </div>
 
   <section id='sdSection' class='card'>
     <!-- Upload lives in the card header: a fixed spot that never slides with
