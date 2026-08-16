@@ -31,6 +31,10 @@ button:hover{border-color:var(--accent)}
 .act button{padding:5px 10px;font-size:12px;min-width:34px}
 .act button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .warn{border-left:3px solid var(--accent)}
+.q input.nt{display:block;width:100%;margin-top:7px;background:var(--bg);color:var(--text);
+ border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:13px/1.4 inherit}
+.q input.nt:focus{outline:none;border-color:var(--accent)}
+.q input.nt::placeholder{color:var(--muted);opacity:.7}
 .note{padding:10px 14px;color:var(--muted);font-size:12.5px;background:rgba(255,138,30,.06)}
 textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:var(--text);
  border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 monospace}
@@ -132,6 +136,7 @@ const G=[
  ]],
 ];
 let S=JSON.parse(localStorage.getItem('t016')||'{}');
+let N=JSON.parse(localStorage.getItem('t016n')||'{}');   // pastabos, viena eilutei
 function render(){
  const L=document.getElementById('list'); L.innerHTML='';
  let n=0,done=0;
@@ -143,7 +148,9 @@ function render(){
    if(st)done++;
    const row=document.createElement('div');
    row.className='t'+(st==='ok'?' ok':st==='bad'?' bad':'')+(q.indexOf('⚠️')>=0?' warn':'');
-   row.innerHTML='<div class="n">'+n+'</div><div class="q"><b>'+q+'</b><span>'+exp+'</span></div>'+
+   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+   row.innerHTML='<div class="n">'+n+'</div><div class="q"><b>'+q+'</b><span>'+exp+'</span>'+
+     '<input class="nt" data-nt="'+id+'" value="'+esc(N[id]||'')+'" placeholder="pastaba (skaičiai, kuriame įrenginyje, kas ne taip)"></div>'+
      '<div class="act"><button data-i="'+id+'" data-v="ok" class="'+(st==='ok'?'on':'')+'">✓</button>'+
      '<button data-i="'+id+'" data-v="bad" class="'+(st==='bad'?'on':'')+'">✗</button></div>';
    d.appendChild(row);
@@ -154,13 +161,21 @@ function render(){
  L.querySelectorAll('button').forEach(b=>b.onclick=()=>{
    const i=b.dataset.i; S[i]=(S[i]===b.dataset.v)?'':b.dataset.v;
    localStorage.setItem('t016',JSON.stringify(S)); render();});
+ /* Pastaba issaugoma rasant ir BE perpiesimo - kitaip po kiekvienos raides
+    dingtu ivedimo vieta. */
+ L.querySelectorAll('input.nt').forEach(inp=>inp.oninput=()=>{
+   const i=inp.dataset.nt; if(inp.value)N[i]=inp.value; else delete N[i];
+   localStorage.setItem('t016n',JSON.stringify(N));});
 }
 function setAll(v){S={};if(v){G.forEach((g,gi)=>g[1].forEach((x,ii)=>S[gi+'-'+ii]=v));}
+ else{N={};localStorage.setItem('t016n','{}');}   // „Išvalyti" nuima ir pastabas
  localStorage.setItem('t016',JSON.stringify(S));render();}
 function copyReport(){
- let t='0.17 dervų profiliai - geležies testai (build e6ba98a)\n\n';
+ let t='0.17 dervų profiliai - geležies testai (build cc99f0f)\n\n';
  G.forEach(([title,items],gi)=>{t+=title+'\n';
-  items.forEach(([q],ii)=>{const s=S[gi+'-'+ii];t+='  '+(s==='ok'?'[v]':s==='bad'?'[X]':'[ ]')+' '+q+'\n';});
+  items.forEach(([q],ii)=>{const id=gi+'-'+ii,s=S[id];
+   t+='  '+(s==='ok'?'[v]':s==='bad'?'[X]':'[ ]')+' '+q+'\n';
+   if(N[id])t+='      pastaba: '+N[id]+'\n';});
   t+='\n';});
  document.getElementById('out').value=t;
  document.getElementById('out').select();
