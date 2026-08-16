@@ -110,12 +110,34 @@ export const CFG = {
      nuo galvutės. */
   minimal_part_radius_mm: 0.2,
   critical_angle:        Math.PI / 4,  // support_critical_angle 45
+  /* Nuo kokio pavirsiaus statumo atrama laikoma beprasme. Fizinis kriterijus -
+     `critical_angle` (45), bet ties juo briaunos normale iseina lygiai -0,71, o
+     cos(45) = -0,7071, ir teiseti taskai iskrisdavo del slankiojo kablelio.
+     Buvo 60 (mano atsarga „is nuovokos"); auditorius (Gemini, 027 · 4.2)
+     nurode, kad 60 per konservatyvu ir teisingiau likti prie fizinio kampo su
+     nedidele tolerancija - 45 + 3. */
+  steep_head_angle:      48 * Math.PI / 180,
   /* Savilaikio riba. Geometriškai tai sluoksnio postūmis prie kritinio kampo
      (0,05 mm), bet fiziškai riba didesnė: UV šviesa dervoje išsisklaido
      ~0,05-0,1 mm plačiau nei LCD kaukė, tad siauresnė juosta susikietina su
      kaimynu ir atramos nereikia. Auditoriaus (Gemini) siūlymas 08-15;
-     išmatuota: „evil" pagrinde dingsta visi 7 kelmeliai, stulpų 25 -> 18. */
-  self_support_mm:       0.10,
+     išmatuota: „evil" pagrinde dingsta visi 7 kelmeliai, stulpų 25 -> 18.
+     0,10 -> 0,15 (jo 031 · 1): biustui stulpų 40 -> 34, salų nepadaugėjo.
+
+     0,15 -> 1,50 (V klausimas 08-20: „jei siena vertikali, kam atrama?").
+     Ten buvo ne siena, o laiptelis: ties z = 1,4 mm aplink cokolį atsiveria
+     24,7 mm² naujo ploto, suskilusio į 46 gabaliukus po 0,3-0,8 mm pločio.
+     Jie per siauri būti „pusiasaliu" (tam reikia 2 mm), tad krisdavo į
+     paprastos nuokabos kelią, kur galiojo mano 0,15 mm riba - dešimt kartų
+     griežtesnė nei ta, kurią libslic3r taiko PLATIEMS iškyšuliams
+     (`peninsula_self_supported_width` = 1,5). Asimetrija buvo atvirkščia
+     sveikam protui, tad abu keliai dabar matuojami TA PACIA riba.
+     Matas - atstumas nuo kranto, ne gabaliuko ilgis: 0,5 mm atbraila prie
+     sienos iškrinta, o 5 mm „pirštas" iš modelio lieka su atramomis.
+     Išmatuota: biustui stulpų 34 -> 27 ir 4 -> 0 kontaktų žemiau 4 mm;
+     kronšteinas nepajudėjo (15); ties 1,0 mm rezultatas jau toks pat, tad
+     riba nejautri. */
+  self_support_mm:       1.50,
   /* Klasteriai: du taškai jungiasi į vieną stulpą, jei XY atstumas mažesnis
      nei 2 × base_radius IR 3D atstumas mažesnis nei max_bridge_length
      (DefaultSupportTree.cpp:565-571). */
@@ -144,6 +166,13 @@ export const CFG = {
      Dabar sejam nuo pado virsaus: kas zemiau - guli ant pado arba ant pacios
      plokstes. */
   seed_from_mm:          null,   // null = pad_thickness_mm
+  /* Kiek kontaktas turi buti virs pado, kad atrama butu prasminga. Zemiau to
+     stulpo nelieka (0,00-0,30 mm „kelmelis"), o pado apskritimas pridedamas.
+     ISMATUOTA (08-20) su 0,5 mm: statCiam biustui padas -34 %, bet paguldytam
+     +3 salos - per bukas irankis, tad IsJungta. Ta pati nauda be zalos duoda
+     „pusiasaliui tik krantas" (zr. `islandLike` tikKrantas). Paliktas kaip
+     jungiklis, jei prireiktu kartoti bandyma. */
+  min_head_gap_mm:       null,
   pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
   pad_layers:            6,     // 0.3 mm / 0.05
   /* Kaklelio riba (auditorius, raštas 011) - 8-10x. TANKINIMO ČIA NĖRA, ir
@@ -747,6 +776,18 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     /* `if (polar < PI - normal_cutoff_angle) return;` (cpp:441) — normalė,
        rodanti beveik tiksliai į viršų, taško netenka. */
     if (dir[2] > Math.cos(Math.PI - cfg.normal_cutoff_angle)) continue;
+    /* Status pavirsius laikosi PATS - atrama jam beprasme (V 08-20).
+       Seja taskus gamina is sluoksniu skirtumo ir visiems duoda normale
+       [0,0,-1]; tikroji pavirsiaus normale paaiskeja tik cia. Biuste taip
+       atsirado trys atramos ant 85-94 laipsniu sienos - jos prilipdavo prie
+       cokolio sono is salies, o PrusaSlicer ten neturi nieko.
+       Riba - tas pats `support_critical_angle` (45), kuriuo matuojam viska. */
+    /* Riba NE ties paciu kritiniu kampu (45), o su atsarga: briaunoje normale
+       iseina lygiai -0,71, o cos(45) = -0,7071, ir dalis teisetu tasku iskrisdavo
+       vien del slankiojo kablelio - kronsteino danga soko 2,91 -> 3,31 mm.
+       Gaudom tik tai, kas TIKRAI stacia (nuo 60 laipsniu). */
+    if (nAt && cfg.skip_steep_heads !== false &&
+        nAt[2] > -Math.cos(cfg.steep_head_angle) && !p.island) continue;
     const maxDown = -Math.cos(cfg.bridge_slope);   // -0.707 prie 45°
     if (dir[2] > maxDown) {
       // per mažas polinkis žemyn — pakreipiam iki leistinos ribos
@@ -829,6 +870,13 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
       if (!(dz > 1e-6)) continue;                  // kotelis eina i sona - nera ka trumpinti
       const naujas = (p.pos[2] - grindys) / dz;
       if (naujas <= 1e-6) continue;                // kontaktas ir taip ant pado
+      /* Kelmelio riba (V zymes #1/#2, 08-20). Kontaktas vos virs pado duoda
+         stulpa 0,00-0,30 mm - jis nieko nelaiko (virsus = pado virsus), bet
+         atsinesa savo pado apskritima. Biusto cokolio viduje tokiu buvo 34, ir
+         padas isputo iki 749 mm2 (PrusaSlicer ten neturi nieko, 424 mm2).
+         null = riba isjungta, elgesys kaip iki siol. */
+      if (cfg.min_head_gap_mm != null && p.pos[2] - grindys < cfg.min_head_gap_mm)
+        continue;
       width = naujas;
       rBack = Math.min(rBack, cfg.head_fallback_radius_mm);   // trumpas = plonas
       junction = add(p.pos, mul(dir, width));
@@ -1100,6 +1148,62 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     return true;
   };
 
+  /* Kelias į plokštę PER TARPINĮ TAŠKĄ (V pastebėjimas 08-20: „supportą galėtų
+     vesti nuo žemės, bet atsispiria nuo detalės; Prusoje stulpas eina nuo
+     plokštės ir keičia kampą").
+
+     Vienos pakopos paieška (`connectToGround`) yra tiltas + vertikalus stulpas.
+     Kai po visais 48 krypčių nusileidimo taškais vėl yra modelis, ji pralaimi -
+     išmatuota: iš 69 713 kandidatų 81 % krenta būtent dėl to. Čia leidžiam
+     ANTRĄ tiltą: nusileidžiam ne iki plokštės, o iki tarpinio taško, ir iš jo
+     bandom iš naujo. Fiziškai tai ta pati laužta linija, kurią PrusaSlicer
+     piešia aplink kliūtį.
+
+     Brangu, tad taikom tik toms galvutėms, kurios kitaip atsiremtų į patį
+     modelį, ir tik retesniu krypčių tinkleliu. */
+  const connectToGroundVia = h => {
+    /* IŠJUNGTA (išmatuota 08-20). Nauda: biustui tiltų ant modelio 12 -> 10,
+       kelių į plokštę 2 -> 9. Kaina: derva 859 -> 1067 mm³ (daugiau nei
+       PrusaSlicer 1047), stulpų 27 -> 29, laikas 40 -> 69 s. Du tiltai
+       neverti 208 mm³ ir pusės minutės; auditorius (Gemini, 037 · 3.1) priėjo
+       prie to paties nepriklausomai. Kodas lieka - jungiklis `cascade_bridges`,
+       - nes su kitokia geometrija (plokštesniu modeliu, didesne plokšte)
+       sandėris gali būti kitoks. */
+    if (cfg.cascade_bridges !== true) return false;
+    const src = h.junction, r = h.rBack, sd = passSafety(r, cfg);
+    const gnd = cfg.object_elevation_mm;
+    const grindysG = cfg.seed_from_mm != null ? cfg.seed_from_mm : cfg.pad_thickness_mm;
+    if (src[2] <= gnd + grindysG) return false;
+    /* Tarpinių taškų imam MAŽAI: du ilgius ir dvi pasvirimo pakopas. Pilnas
+       tinklelis (3 × 8 × ~20 ilgių) kiekvienam kvietė 48 krypčių paiešką iš
+       naujo, ir biusto skaičiavimas iš 40 s virto 193 s - naršyklei netinka.
+       Su siauresniu tinkleliu nauda išlieka beveik ta pati. */
+    for (let k = 2; k <= 3; k++) {                 // tik pasvirusios kryptys
+      const polar = Math.PI - (k / 3) * cfg.bridge_slope;
+      const st = Math.sin(polar), ct = Math.cos(polar);
+      for (let a = 0; a < 8; a++) {
+        const az = (a / 8) * 2 * Math.PI;
+        const n = [st * Math.cos(az), st * Math.sin(az), ct];
+        for (const frac of [1.0, 0.6]) {
+          const l = cfg.max_bridge_length_mm * frac;
+          const mid = add(src, mul(n, l));
+          if (mid[2] <= gnd + grindysG) continue;
+          if (beamHit(mesh, src, n, r, r, sd) < l) continue;   // tiltas užstotas
+          /* Iš tarpinio taško - ta pati vienos pakopos paieška. Jei pavyksta,
+             ji pati įrašo stulpą; mums lieka pridėti pirmąjį tiltą. */
+          const fiktyvi = { junction: mid, rBack: r, id: h.id };
+          if (connectToGround(fiktyvi)) {
+            bridges.push({ a: src.slice(), b: mid.slice(), r });
+            h.pillar = fiktyvi.pillar;
+            log.cascade = (log.cascade || 0) + 1;
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   /* --- 4 · routing_to_model (DefaultSupportTree.cpp:760-789) ------------- */
   /* Tvarka originale griežta: pirma ieškom stulpo šalia, tada kelio į plokštę,
      ir tik kaip PASKUTINĖ išeitis remiamės į patį modelį. Praleidus dvi
@@ -1111,6 +1215,9 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     h.id = i;
     if (searchPillarAndConnect(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
     if (connectToGround(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
+    /* Antra pakopa - laužtas kelias per tarpinį tašką. Tik dabar, kai tiesus
+       kelias nepavyko, ir dar PRIEŠ remiantis į modelį. */
+    if (connectToGroundVia(h)) { if (h.edgeForced) log.edgeSaved++; continue; }
     /* Krašto atvejis: kelio į vidų neradom. Geriau atrama, kurios pėda bus
        apkarpyta ekrano krašto, nei visai jokios — be jos ta vieta liktų sala.
        (Būtent taip elgiasi ir PrusaSlicer, tik jis kitaip ir nebando.) */
@@ -1511,8 +1618,22 @@ export async function buildPad(pos, pillars, cfg = CFG) {
   const CL = (await import('./clipper.js')).default;
   const seg = [];
   sliceAt(pos, cfg.pad_thickness_mm * 0.5, seg);
-  const foot = stitch(seg);          // pačios detalės pėdsakas
-  const paths = foot.slice();
+  /* Detalės pėdsakas - be SKYLIŲ. Tuščiavidurio daikto pėdsakas yra žiedas, ir
+     apvadas prilipdavo ne tik iš išorės, bet ir į skylės vidų: biusto cokolio
+     dugne dėl to atsirasdavo antras, vidinis pado žiedas, kurio PrusaSlicer
+     neturi (jo `pad_around_object` eina tik aplink išorinį kontūrą). Skylės
+     vidus - detalės vidus, ten pado vieta nėra (V 08-20). */
+  const foot = (() => {
+    const visi = stitch(seg);
+    if (!visi.length) return visi;
+    const c0 = new CL.Clipper();
+    c0.AddPaths(visi, CL.PolyType.ptSubject, true);
+    const tr = new CL.PolyTree();
+    c0.Execute(CL.ClipType.ctUnion, tr,
+               CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+    return toExPolys(CL, tr).map(e => e[0]);      // tik išoriniai kontūrai
+  })();
+  const pedos = [];                  // atramų pėdos - be apvado, žr. žemiau
   for (const p of pillars)
     if (p.bottom <= 1e-6) {
       /* Pado apskritimas - TIKRO pedos plocio, ne visada pilno. Trumpam
@@ -1523,21 +1644,26 @@ export async function buildPad(pos, pillars, cfg = CFG) {
       const rTop = p.rTop || cfg.pillar_radius_mm;
       const pedaH = Math.min(cfg.base_height_mm, Math.max(1e-6, p.top - p.bottom));
       const rBase = rTop + (cfg.base_radius_mm - rTop) * (pedaH / cfg.base_height_mm);
-      paths.push(circlePath(p.x, p.y, rBase));
+      pedos.push(circlePath(p.x, p.y, rBase));
     }
-  if (!paths.length) return null;
+  if (!foot.length && !pedos.length) return null;
 
-  // Sujungiam viską į vieną figūrą (non-zero, kaip libslic3r).
-  const c = new CL.Clipper();
-  c.AddPaths(paths, CL.PolyType.ptSubject, true);
-  const united = new CL.Paths();
-  c.Execute(CL.ClipType.ctUnion, united, CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-
-  // Apvadas: offset brim_size_mm.
+  /* APVADAS - tik aplink DETALĘ, ne aplink kiekvieną pėdą.
+     `pad_brim_size` originale plečia pado kontūrą, o pad_around_object padas
+     eina aplink objektą; atskirai stovinti atrama lieka su plika Ø3 mm pėda.
+     Mes apvadą dėjom visiems, tad Ø3 pėda virsdavo Ø6,2 disku, gretimos
+     susiliedavo, ir vietoj siauro žiedo gaudavosi blynas: biusto pirmas
+     sluoksnis 594 mm² prieš PrusaSlicer 424 (V klausimas 08-20). */
   const co = new CL.ClipperOffset();
-  co.AddPaths(united, CL.JoinType.jtRound, CL.EndType.etClosedPolygon);
+  if (foot.length) co.AddPaths(foot, CL.JoinType.jtRound, CL.EndType.etClosedPolygon);
+  const platus = new CL.Paths();
+  if (foot.length) co.Execute(platus, cfg.pad_brim_mm * SCALE);
+
+  const c = new CL.Clipper();
+  if (platus.length) c.AddPaths(platus, CL.PolyType.ptSubject, true);
+  if (pedos.length) c.AddPaths(pedos, platus.length ? CL.PolyType.ptClip : CL.PolyType.ptSubject, true);
   let grown = new CL.Paths();
-  co.Execute(grown, cfg.pad_brim_mm * SCALE);
+  c.Execute(CL.ClipType.ctUnion, grown, CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
 
   /* `pad_around_object = 1` su `pad_object_gap = 1` (V profilis, prusa-full.ini):
      padas yra ŽIEDAS aplink detalę, o ne kilimas po ja — detalė pirmu sluoksniu
@@ -1832,7 +1958,15 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
       for (const ex of expolys) {
         const bb = pathsBBox(ex);
         /* `get_small_parts` (SPG.cpp:1032): neatspausdinamos dalys išmetamos
-           dar prieš sėją, kitaip kiekvienas mesh triukšmo taškelis virsta sala. */
+           dar prieš sėją, kitaip kiekvienas mesh triukšmo taškelis virsta sala.
+
+           Bet jos IŠLIEKA „sausuma" kitam sluoksniui. Buvo `continue`, t. y.
+           dalis dingdavo ir iš `prevParts`, ir virš jos gulintis sluoksnis
+           nebematydavo po savimi nieko - biusto postamento apačioje (daug
+           smulkių rašto dalių) tai davė 24 taškus, pažymėtus kaip SALA, ties
+           z = 0,475 mm. PATIKRINTA IR ATMESTA: `below` ten ir taip nebuvo
+           tuščias (dalis viena, 28 mm), o taškai atėjo iš pusiasalio kelio.
+           Taisyklė be liudytojo neįvedama, tad lieka kaip buvo. */
         if (Math.max(bb[2] - bb[0], bb[3] - bb[1]) < 2 * minR) continue;
 
         /* Siejam su ankstesnio sluoksnio dalimis TIKRU persidengimu, ne
@@ -1886,7 +2020,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
           /* Salos/pussalio sėja: plonoms dalims — „nugarkaulis", storoms —
              kontūras plius retas vidaus tinklelis. Ta pati taisyklė abiem, tad
              gyvena vienoje vietoje. */
-          const islandLike = (paths, pbb, out, land) => {
+          const islandLike = (paths, pbb, out, land, tikKrantas = false) => {
             const thin = cfg.island_outline_step_mm / 2;
             const cin = new CL.ClipperOffset();
             cin.AddPaths(paths, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
@@ -1914,7 +2048,15 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
               const rp = [];
               for (const ring of paths) walkRing(ring, cfg.island_outline_step_mm, rp);
               for (const q of insetPoints(paths, rp, cfg, true)) out.push(q);
-              coverInterior(shrunk, pbb, out, cfg, land);
+              /* Vidaus tinklelis - TIK saloms. Pusiasaliui originalas sėja
+                 vien krantą (`is_outline`, SPG.cpp:675-680), ir tai ne
+                 smulkmena: biusto cokolis tuščiaviduris, o ties z = 0,5 mm jį
+                 uždaro 400 mm² „lubos". Kaip pusiasalis jos gaudavo 24 vidaus
+                 taškus, iš jų 34 stulpus 0,00-0,30 mm, ir padas išpūsdavo iki
+                 749 mm² (PrusaSlicer ten neturi nė vienos atramos, 424 mm²).
+                 Kranto taškai iškrinta patys - jie arti sienelės, kuri tas
+                 lubas ir laiko. (V žymės #1/#2, 08-20.) */
+              if (!tikKrantas) coverInterior(shrunk, pbb, out, cfg, land);
             }
           };
 
@@ -2050,8 +2192,48 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                    (cpp:675-680). Mūsų pussalio vidinė riba kaip tik ir eina per
                    `below_self_supported` — be šito 9 iš 12 jo taškų dubliavo
                    nuokabos taškus. */
+                /* Vidaus tinklelis - tik tada, kai pusiasalis TIKRAI kabo ore.
+                   Skiriam du dalykus, kurie geometriškai atrodo vienodai:
+
+                   - DANGTIS: naujas plotas uždaro apatinio sluoksnio SKYLĘ
+                     (biusto cokolis tuščiaviduris, ties z = 0,5 mm jį uždaro
+                     400 mm² „lubos"). Jį per visą perimetrą laiko sienelė, ir
+                     PrusaSlicer ten neturi nė vienos atramos. Vidaus tinklelis
+                     davė 11 beprasmių stulpų ir padą 749 mm² vietoj 594.
+                   - IŠSIKIŠIMAS: plotas išeina už apatinio silueto (kronšteino
+                     lentyna). Čia vidaus tinklelis BŪTINAS - be jo danga šoko
+                     2,91 -> 5,25 mm, t. y. virš 3 mm ribos (išmatuota 08-20).
+
+                   Skirtumas matuojamas taip: užpildom apatinio sluoksnio skyles
+                   ir žiūrim, ar pusiasalis lieka viduje. (V žymės #1/#2.) */
+                const uzpildytas = (() => {
+                  const c = new CL.Clipper();
+                  c.AddPaths(clip, CL.PolyType.ptSubject, true);
+                  const tr = new CL.PolyTree();
+                  c.Execute(CL.ClipType.ctUnion, tr,
+                            CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+                  return toExPolys(CL, tr).map(e => e[0]);   // tik išoriniai kontūrai
+                })();
+                const cd = new CL.Clipper();
+                cd.AddPaths(pex, CL.PolyType.ptSubject, true);
+                if (uzpildytas.length) cd.AddPaths(uzpildytas, CL.PolyType.ptClip, true);
+                const lauke = new CL.Paths();
+                cd.Execute(CL.ClipType.ctDifference, lauke,
+                           CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+                const dangtis = lauke.length === 0;
+
+                /* Dangtis nesejamas VISAI - nei vidus, nei krantas. Krantas
+                   remiasi i pacia sienele, kuri ji ir laiko, o vidus be kranto
+                   neturi ka daryti. PrusaSlicer biusto cokolio luboms neduoda
+                   nė vienos atramos; mes duodavom 13 palei sienele ir 11 viduje,
+                   ir butent jos isputdavo pada (V zymes #1/#2, 08-20). */
+                if (dangtis) continue;
                 const pen = [];
-                islandLike(pex, pathsBBox(pex), pen, clip);
+                islandLike(pex, pathsBBox(pex), pen, clip, dangtis);
+                /* PATIKRINTA IR ATMESTA (08-20): tikrinta, ar taskas nera
+                   „sausumos" juostos VIDUJE. Nieko nekeicia - `pex` jau yra
+                   sritis PO atimimo, tad jos taskai is principo uz juostos
+                   ribos (isSpausdinta: visi 13 gulejo 0,20 mm nuo coast). */
                 const coast = grow(cfg.peninsula_self_supported_width_mm);
                 for (const [x, y] of pen)
                   if (distToPaths(coast, x, y) > landTol) free.push([x, y]);

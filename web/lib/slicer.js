@@ -101,7 +101,11 @@ export function detailBudget(pos) {
 /* Rotations are kept as whole quarter turns plus a scale, so the numbers stay
    exact and the user can always get back to where they were. */
 export function makeTransform() {
-  return { rx: 0, ry: 0, rz: 0, scale: 1 };   // rx/ry/rz in quarter turns
+  /* `rzDeg` - laisvas posukis apie vertikale, laipsniais, taikomas PO ketvirCiu.
+     Ketvirciai lieka tikslus (vartotojas visada gali griZti), o laisvas kampas
+     reikalingas sutalpinimui: plokSte 40,8 x 30,6 mm, o jos istrizaine 51 mm,
+     tad pailgas modelis istrizai telpa gerokai didesnis (V klausimas 08-20). */
+  return { rx: 0, ry: 0, rz: 0, rzDeg: 0, scale: 1 };
 }
 
 function rotateQuarter(x, y, n) {
@@ -114,12 +118,15 @@ function rotateQuarter(x, y, n) {
 export function place(pos, tr) {
   const out = new Float32Array(pos.length);
   const s = tr.scale;
+  const fi = (tr.rzDeg || 0) * Math.PI / 180;
+  const cf = Math.cos(fi), sf = Math.sin(fi);
   for (let i = 0; i < pos.length; i += 3) {
     let x = pos[i] * s, y = pos[i + 1] * s, z = pos[i + 2] * s;
     let r;
     r = rotateQuarter(y, z, tr.rx); y = r[0]; z = r[1];
     r = rotateQuarter(z, x, tr.ry); z = r[0]; x = r[1];
     r = rotateQuarter(x, y, tr.rz); x = r[0]; y = r[1];
+    if (fi) { const tx = x; x = tx * cf - y * sf; y = tx * sf + y * cf; }
     out[i] = x; out[i + 1] = y; out[i + 2] = z;
   }
   const b = bounds(out);
@@ -159,6 +166,92 @@ export function fitCheck(size, margin = FIT_MARGIN_MM) {   // zr. setFitMargin
     axis,
     scaleToFit: worst > 1 ? Math.floor((1 / worst) * 1000) / 1000 : 1
   };
+}
+
+/* Sutalpinimas istrizai: plokSte 40,8 x 30,6 mm, jos istrizaine 51 mm.
+   Pailgas modelis, gultas isilgai, remiasi i 40,8; pasuktas apie vertikale jis
+   gali buti gerokai ilgesnis. Iki 08-20 sukinejom tik ketvirCiais, tad ta
+   atsarga likdavo nepanaudota, o modelis be reikalo mazinamas (V klausimas). */
+
+/** XY apvalkalas (Andrew monotone chain) is „juostu ekstremumu".
+ *
+ *  Visu virsuniu rusiuoti neapsimoka (biuste ju 900 tukstanciu), o apvalkalo
+ *  taskas visada yra savo juostos krastinis taskas, tad pirma atrenkam po du
+ *  taskus is kiekvienos juostos - lieka keli tukstanCiai. Juostu 1024, tad
+ *  paklaida mazesne nei 0,05 mm, t. y. po vieno sluoksnio. */
+function hullXY(pos) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) {
+    if (pos[i] < x0) x0 = pos[i];
+    if (pos[i] > x1) x1 = pos[i];
+    if (pos[i + 1] < y0) y0 = pos[i + 1];
+    if (pos[i + 1] > y1) y1 = pos[i + 1];
+  }
+  const N = 1024;
+  const dx = (x1 - x0) / N || 1, dy = (y1 - y0) / N || 1;
+  const yMin = new Float64Array(N).fill(Infinity), yMax = new Float64Array(N).fill(-Infinity);
+  const xMin = new Float64Array(N).fill(Infinity), xMax = new Float64Array(N).fill(-Infinity);
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], y = pos[i + 1];
+    const cx = Math.min(N - 1, Math.max(0, Math.floor((x - x0) / dx)));
+    const cy = Math.min(N - 1, Math.max(0, Math.floor((y - y0) / dy)));
+    if (y < yMin[cx]) yMin[cx] = y;
+    if (y > yMax[cx]) yMax[cx] = y;
+    if (x < xMin[cy]) xMin[cy] = x;
+    if (x > xMax[cy]) xMax[cy] = x;
+  }
+  const pts = [];
+  for (let c = 0; c < N; c++) {
+    const x = x0 + (c + 0.5) * dx, y = y0 + (c + 0.5) * dy;
+    if (yMin[c] !== Infinity) { pts.push([x, yMin[c]], [x, yMax[c]]); }
+    if (xMin[c] !== Infinity) { pts.push([xMin[c], y], [xMax[c], y]); }
+  }
+  pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [], upper = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+      lower.pop();
+    lower.push(p);
+  }
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+      upper.pop();
+    upper.push(p);
+  }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+
+/** Geriausias posukis apie vertikale, laipsniais (0-90).
+ *
+ *  Renkam ta kampa, kuriame modelis maziausiai virsija plokSte (`worst`); jei
+ *  keli lygus - ta, kuris turi daugiausiai atsargos. Zingsnis 1 laipsnis: ties
+ *  0,5 rezultatas nesikeitė nei vienam is keturiu modeliu, o laiko dvigubai. */
+export function bestZAngle(pos, margin = FIT_MARGIN_MM) {
+  const h = hullXY(pos);
+  if (h.length < 3) return { deg: 0, worst: Infinity };
+  let zmin = Infinity, zmax = -Infinity;
+  for (let i = 2; i < pos.length; i += 3) {
+    if (pos[i] < zmin) zmin = pos[i];
+    if (pos[i] > zmax) zmax = pos[i];
+  }
+  const hz = zmax - zmin;
+  let best = null;
+  for (let deg = 0; deg < 90; deg++) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [px, py] of h) {
+      const x = px * c - py * s, y = px * s + py * c;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const f = fitCheck([x1 - x0, y1 - y0, hz], margin);
+    if (!best || f.worst < best.worst - 1e-9) best = { deg, worst: f.worst };
+  }
+  return best;
 }
 
 /* How much surface would actually rest on the plate in this orientation:
@@ -208,6 +301,18 @@ export function autoOrient(pos) {
     const b = bounds(place(pos, tr));
     const f = fitCheck(b.size);
     if (f.worst < best.fit.worst - 1e-6) best = { score: best.score, tr, size: b.size, fit: f };
+  }
+  /* Ir tik dabar - laisvas kampas. KetvirCiai lieka pirmi, kad iprastas atvejis
+     (staCiakampis daiktas isilgai plokstes) neimtu nereikalingo posukio; istrizai
+     sukam tik tada, kai tai TIKRAI padeda. */
+  /* Ir tik tada, kai kitaip NETELPA. Kol telpa, istrizas posukis butu grazus
+     skaiCiuose (`worst` truputi mazesnis), bet zmogui - keistas: puodelis
+     apskritas, o sliceris ji pasuktu 37 laipsniu be jokios naudos. */
+  const kampas = best.fit.fits ? { deg: 0 } : bestZAngle(place(pos, best.tr));
+  if (kampas.deg && kampas.worst < best.fit.worst - 1e-3) {
+    const tr = Object.assign({}, best.tr, { rzDeg: kampas.deg });
+    const b = bounds(place(pos, tr));
+    best = { score: best.score, tr, size: b.size, fit: fitCheck(b.size) };
   }
   return best;
 }
