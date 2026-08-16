@@ -1493,11 +1493,11 @@ void screenFactoryConfirm(){
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(6, 16);
-  gfx2->println("Reset all settings?");
+  gfx2->println("Reset everything?");
   gfx2->setCursor(6, 34);
-  gfx2->println("Resin calibration");
+  gfx2->println("Resin + WiFi too,");
   gfx2->setCursor(6, 52);
-  gfx2->println("goes, then reboot.");
+  gfx2->println("then it reboots.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
   // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas

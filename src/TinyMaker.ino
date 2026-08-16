@@ -3108,7 +3108,11 @@ void loop() {
       case 313:                 // "Reset all settings?" -> Reset (OK)
         resetEverythingToFactory();
         saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
-        /* Perkraunam. Atstatymas grazina ir WiFi bei pulto jungiklius, o jie
+        /* Debesu kopija cia NEplanuojama sąmoningai: planas gyvena RAM'e su 3 s
+           delsa (tinymakerConnectScheduleBackup), o mes po 1,2 s perkraunam - jis
+           nespetu isvykti. Nustatymai jau NVS, o debesu kopija atsinaujins per
+           pirma kita pakeitima. Web kelias planuoja, nes ten perkrovimo nera.
+           Perkraunam. Atstatymas grazina ir WiFi bei pulto jungiklius, o jie
            isijungia tik per paleidima: be perkrovimo ekranas sakytu „ijungta",
            o radijas liktu isjunges - butent tokia nesutaptis atsirado, kai sis
            mygtukas gavo irenginio nustatymus (mano paties analize 08-16).

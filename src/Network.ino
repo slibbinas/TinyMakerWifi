@@ -294,7 +294,7 @@ void finishUpload() {
       netMessage("Upload blocked", "No SD card");
     }
     delay(1500);
-    screen1();
+    restoreIdleScreen();
     return;
   }
 
@@ -321,7 +321,7 @@ void finishUpload() {
       server.send(409, "application/json", out);
       netMessage("Upload blocked", "Model exists");
       delay(1500);
-      screen1();
+      restoreIdleScreen();
       return;
     }
 
@@ -362,7 +362,7 @@ void finishUpload() {
   netMessage("Upload FAILED", modelName.c_str());
   delay(1500);
   // Redraw UI - upload messages overwrote whatever screen was shown.
-  screen1();
+  restoreIdleScreen();
 }
 
 void handlePreviewUploadData() {
@@ -774,7 +774,7 @@ void handleUpdateFinish() {
       "<div class='hint'>Check the firmware.bin file and try again.</div>"));
     netMessage("Update FAILED", "");
     delay(1500);
-    screen1();
+    restoreIdleScreen();
   }
 }
 
@@ -1464,7 +1464,7 @@ bool queueModelPrint(const String &requestedName, String &error) {
 
   if (!prepareSelectedPrintPreview()) {
     delay(1000);
-    screen1();
+    restoreIdleScreen();
     error = "model is not printable";
     return false;
   }
@@ -2934,7 +2934,7 @@ void otaFlashUrl(const String &url, const char *subtitle) {
   if (ret == HTTP_UPDATE_FAILED) {   // on success the ESP reboots itself
     netMessage("Update FAILED", httpUpdate.getLastErrorString().c_str());
     delay(1800);
-    screen1();
+    restoreIdleScreen();
   }
 }
 
@@ -3184,7 +3184,7 @@ void handleApiBootAnimInstall() {
   bool ok;
   if (url.startsWith("https://")) { secure.setInsecure(); ok = http.begin(secure, url); }
   else                            { ok = http.begin(plain, url); }
-  if (!ok) { sendApiError(502, "could not start download"); netMessage("Boot animation", "download failed"); delay(1200); screen1(); return; }
+  if (!ok) { sendApiError(502, "could not start download"); netMessage("Boot animation", "download failed"); delay(1200); restoreIdleScreen(); return; }
 
   http.setTimeout(12000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -3197,7 +3197,7 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(502, (String("download HTTP ") + code).c_str());
     netMessage("Boot animation", "download failed");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -3225,7 +3225,7 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(422, "not a TMB1 animation");
     netMessage("Boot animation", "invalid file");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -3241,7 +3241,7 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(422, "not a TMB1 animation");
     netMessage("Boot animation", "invalid file");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
   const size_t expectedBytes = 12 + (size_t)animW * animH * 2 * animN;
@@ -3250,7 +3250,7 @@ void handleApiBootAnimInstall() {
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
   SD.remove(savePath.c_str());
   File out = SD.open(savePath.c_str(), FILE_WRITE);
-  if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); screen1(); return; }
+  if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); restoreIdleScreen(); return; }
 
   const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
   bool tooBig = false;
@@ -3289,7 +3289,7 @@ void handleApiBootAnimInstall() {
     SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
     sendApiError(413, "animation too large");
     netMessage("Boot animation", "file too large");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -3304,7 +3304,7 @@ void handleApiBootAnimInstall() {
                  " of " + String((unsigned long)expectedBytes) + " bytes";
     sendApiError(502, err.c_str());
     netMessage("Boot animation", "download incomplete");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -3316,7 +3316,7 @@ void handleApiBootAnimInstall() {
   sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
   netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
   delay(1200);
-  screen1();
+  restoreIdleScreen();
 }
 
 // GET /api/boot-anim - list installed animations + which one is active.
@@ -3626,13 +3626,22 @@ void handleApiBootAnimPreview() {
   sendApiOk("");
   uiWakeScreen();               // display may be blanked by the UI timeout
   playTmbByName(name);
-  screen1();
+  restoreIdleScreen();
 }
 
 // ---- Resin profiles (0.17 0-16) -------------------------------------------
 // A print waiting to be resumed after a power cut is not "busy" yet, but its
 // second half must come out with the same exposure as its first. Changing the
 // recipe in that window would silently split one model into two settings.
+// Tinklo darbas baigesi ir reikia atstatyti ekrana. Jei nebaigtas spaudinys dar
+// laukia atsakymo, grazinam KLAUSIMA, o ne pagrindini meniu: kitaip klausimas
+// dingtu is ekrano, veliavele liktu pakelta, ir visi nustatymu bei spausdinimo
+// keliai atsakinetu „laukia spaudinys", kai atsakyti nebebutu kur (auditas 08-16).
+void restoreIdleScreen() {
+  if (resumeBootPending) { screenResumePrompt(); return; }
+  screen1();
+}
+
 bool rejectIfResumePending() {
   // screen 427 as well as the flag: a resume prompt reached through the SD
   // settings-restore path (426 -> finishRestorePromptBoot -> screenResumePrompt)
@@ -4084,7 +4093,7 @@ void network_setup() {
   ArduinoOTA.onError([](ota_error_t e) {
     netMessage("OTA FAILED", "");
     delay(1200);
-    screen1();
+    restoreIdleScreen();
   });
   ArduinoOTA.begin();
 
@@ -4189,7 +4198,7 @@ void sdJobRun() {
   sdJobRunning = false;
   sdJobKind = ""; sdJobName = ""; sdJobZipPath = "";
   sdJobDone = sdJobTotal = 0;   // SD-prog: stale numbers would outlive the job
-  screen1();   // the progress screen overwrote whatever was shown
+  restoreIdleScreen();   // the progress screen overwrote whatever was shown
 }
 
 void network_loop() {
