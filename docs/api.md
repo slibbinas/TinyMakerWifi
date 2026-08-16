@@ -150,7 +150,7 @@ homing diagnostics.
 All four mutating resin routes are idle-only (`rejectIfBusy`) and also refuse
 while a power-loss resume is pending (409): the second half of an interrupted
 print has to come out with the same exposure as the first. **The same 409 guards every
-other route that can move a setting**: `/api/config`,
+other route that can move the layer height**: `/api/config`,
 `/api/config/defaults`, `/api/config/restore`, `/api/config/restore/sd` and
 `/api/connect/restore`. That is because
 the resume move is computed from the layer height in force when Resume is

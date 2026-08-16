@@ -200,10 +200,10 @@ uint32_t resumeElapsedSecs = 0;     // print time elapsed at the checkpoint
 uint32_t resumeUvLedSecs = 0;       // uvLedSessionMs (as secs) at the checkpoint
 char resumeFolder[101] = "";        // model folder of the interrupted print
 // Layer height of the interrupted print, in hundredths of a mm. resumeLoad()
-// checks it at boot, but the prompt stands there while the browser is already
-// up: a settings restore, a factory reset or a resin profile can still move
-// the height before Resume is pressed - and the recovery move is computed from
-// the height in force THEN. Re-checked at the press (audit 08-16).
+// checks it at boot, and the recovery move is computed from the height in force
+// when Resume is finally pressed - so it is checked again there. Every route
+// that could move the height in between now answers 409 while the prompt
+// stands; this is the belt behind those braces (audit 08-16).
 int resumeLayerHeightCm = -1;
 
 // Print-list selection kind: false = model folder (OK prints), true =
@@ -1232,6 +1232,13 @@ static long backupClamp(double v, long lo, long hi) {
 // Apply a backup: same value clamps as the web config form (applyConfigRequest),
 // so a hand-edited or stale file can't smuggle absurd values in.
 void applyConfigBackup(const String &j) {
+  // A restore swaps the whole recipe, resin name included: the last print was
+  // made with the resin being replaced, so a weighing against it would
+  // calibrate a stranger's print (same trap as a profile switch, audit 08-16).
+  lastPrintRawMl = -1;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
+  sysPrefs.end();
   Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
   Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 5, 60);   // 0.17 0-3: base min 5 s
   // 0.17 0-3: backup stores Regular in SECONDS (downgrade-readable); convert to
@@ -2269,7 +2276,7 @@ void loop() {
             startFromResin = false; webStartPrint = false;
             resumeStartPrint = false; resinWarnAccepted = false; refillAsked = false;
             #if ENABLE_NETWORK
-            freePreviewCache();   // up to 120 KB held for a print that is not happening
+            freePreviewCache();   // nothing is printing - do not sit on the snapshot
             #endif
             screen112();
             break;

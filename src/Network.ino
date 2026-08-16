@@ -1825,6 +1825,11 @@ void resetWebConfigToDefaults() {
   // Factory numbers are the factory resin's, so the name has to follow them -
   // otherwise the row keeps naming a resin whose values are gone (audit 08-16).
   resinProfileName = "slow";   // saveDeviceConfig() below persists it
+  // ...and the overlay has to go with it. Left on the card, picking "slow" would
+  // load the old customisation while the machine runs the factory numbers - the
+  // name would lie again, which is exactly what this line set out to fix. Only
+  // the profile we name here is touched; the card's own profiles stay.
+  if (sdCardReady()) SD.remove(resinProfilePath("slow").c_str());
   // The last print was made with the resin being reset away; a weighing against
   // it would calibrate the factory profile from a stranger's print.
   lastPrintRawMl = -1;
@@ -3795,6 +3800,7 @@ void handleApiResinProfileSave() {
   }
   if (!ok) { sendApiError(500, "could not write the profile"); return; }
   sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // every settings path does this
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
 }
 
@@ -3810,6 +3816,7 @@ void handleApiResinProfileDelete() {
   if (!resinProfileFileExists(name)) { sendApiError(404, "profile not found"); return; }
   if (!deleteResinProfile(name)) { sendApiError(500, "could not delete the profile"); return; }
   sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // deleting the active one reloads settings
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
 }
 
@@ -3834,6 +3841,7 @@ void handleApiResinProfileRename() {
   }
   if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
   sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // the stored profile name may have changed
   sendApiOk("\"name\":\"" + jsonEscape(to) + "\"");
 }
 

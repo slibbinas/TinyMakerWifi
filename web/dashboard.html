@@ -1384,7 +1384,7 @@ const resinMarkDirty=()=>{
   // active built-in has an overlay, whether or not the fields were touched.
   const p=resinById(resinSel);
   const rb=$('resinResetButton');
-  if(rb)rb.classList.toggle('hidden',!(p&&p.builtin&&(p.overlay||p.edited)));
+  if(rb)rb.classList.toggle('hidden',!(p&&p.builtin&&p.overlay));
   const rn=$('resinRenameButton');
   if(rn)rn.classList.toggle('hidden',!(p&&!p.builtin));
 };
@@ -1464,7 +1464,7 @@ const renderResinModal=()=>{
     del.textContent=p.builtin?'↺':'✕';   // both render in the UI font; the bin emoji did not
     // „Reset to factory" nuima FAILA, ne skirtuma: overlay su gamyklinemis
     // reiksmemis zenkliuko nebeturi, bet ji vis tiek reikia kur nors istrinti.
-    del.disabled=p.builtin&&!(p.overlay||p.edited);
+    del.disabled=p.builtin&&!p.overlay;
     del.addEventListener('click',async()=>{
       closeResinModal();
       if(p.builtin)await resetResinRow(p); else await deleteResinRow(p);
@@ -1610,19 +1610,22 @@ const applyResinProfile=async(name)=>{
     }
   }
   try{await api('/api/resin-profile/select',{method:'POST',body:new URLSearchParams({name})});
-    await loadConfig();loadResinProfiles();
-    /* Sluoksnio aukstis keiciasi kartu su derva, tad kortelės ir modelio langelio
-       skaiciai (sluoksniai, laikas, ml) pasensta ta pacia akimirka. Perskaiciuojam
-       tyliai - snackbaro cia nereikia, skaiciai pasako patys (V 08-16). */
-    refreshDashModelInfo();
-    if(selectedModel&&$('modelPanel')&&!$('modelPanel').classList.contains('hidden'))modelDetails(enc(selectedModel));}
+    await loadConfig();await loadResinProfiles();
+    /* Sluoksnio aukstis keiciasi kartu su derva, tad kortelės skaiciai (sluoksniai,
+       laikas, ml) pasensta ta pacia akimirka. Perskaiciuojam tyliai - snackbaro cia
+       nereikia, skaiciai pasako patys (V 08-16). Po viena, ne kartu: printeris
+       aptarnauja po viena uzklausa. Modelio langelio cia neliečiam - jis matomas tik
+       savo vaizde, o ten skaiciai paimami is naujo ji atidarius. */
+    await refreshDashModelInfo();}
   catch(e){msg(e.message,true);}
 };
 const resetResinRow=async(p)=>{
   if(!await uiConfirm('Reset "'+p.display+'" back to its factory values?',{danger:true}))return;
   try{await api('/api/resin-profile/delete',{method:'POST',body:new URLSearchParams({name:p.name})});
     msg('"'+p.display+'" is back to factory values.');
-    await loadConfig();loadResinProfiles();}
+    // Factory values can mean a different layer height, so the card's numbers are
+    // as stale as after a switch - refresh them the same way.
+    await loadConfig();await loadResinProfiles();await refreshDashModelInfo();}
   catch(e){msg(e.message,true);}
 };
 const deleteResinRow=async(p)=>{
@@ -3356,7 +3359,10 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
         // give every layer fetch a hard timeout (user finding, 0.14.3).
         await new Promise((res,rej)=>{const t=setTimeout(()=>{img.src='';rej(new Error('layer '+li+' timed out - try again'));},20000);img.onload=()=>{clearTimeout(t);res();};img.onerror=()=>{clearTimeout(t);rej(new Error('layer '+li+' failed to load'));};});
         break;
-      }catch(err){ if(attempt>=1||mySeq!==fetchSlicesSeq)throw err; }
+      }catch(err){
+        if(attempt>=1||mySeq!==fetchSlicesSeq)throw err;
+        await new Promise(r=>setTimeout(r,400));   // let the printer finish whatever took its turn
+      }
     }
     /* Mazinam OR budu, ne vidurkiu: uztenka vieno uzdegto pikselio, kad
        langelis butu pilnas. Vidurkis nuzudydavo supportus, siauresnius nei
