@@ -2,19 +2,10 @@
 <title>TinyMaker - naudojimo scenarijai</title>
 <style>
 :root{
+  color-scheme:light;
   --bg:#f7f7f8; --card:#fff; --text:#1d1f24; --muted:#6b7280; --border:#e3e5ea;
   --accent:#f07a1a; --code:#eef0f3;
   --ok:#1f9d4d; --okbg:#e8f6ee; --warn:#b97a10; --warnbg:#fdf3e0; --mut:#6b7280; --mutbg:#eef0f3;
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#8b93a1; --border:#2a2e37;
-  --accent:#ff9740; --code:#242832;
-  --ok:#4fd08a; --okbg:#173327; --warn:#e0a030; --warnbg:#33290f; --mut:#8b93a1; --mutbg:#242832;
-}}
-:root[data-theme="dark"]{
-  --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#8b93a1; --border:#2a2e37;
-  --accent:#ff9740; --code:#242832;
-  --ok:#4fd08a; --okbg:#173327; --warn:#e0a030; --warnbg:#33290f; --mut:#8b93a1; --mutbg:#242832;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);padding:26px 16px 70px;
