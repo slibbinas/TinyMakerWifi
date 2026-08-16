@@ -223,6 +223,13 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <div id='previewStage'>
       <canvas id='printPreviewCanvas' style='width:100%;display:block;border:1px solid var(--line);border-radius:8px;background:var(--pv)'></canvas>
       <div id='gl3d' style='display:none;position:absolute;inset:0;border-radius:8px;overflow:hidden'>
+        <!-- Sliceris (0.17 SL-mod): tikras sluoksnio pjuvis - tiksliai tas juodai
+             baltas vaizdas, kuris keliauja i archyva ir i printeri, nedidintas ir
+             neglotnintas. Guli PO valdikliais (z-index 1), tad slankiklis ir
+             mygtukai lieka pasiekiami. -->
+        <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;background:#000'>
+          <canvas id='slicerMaskCv' width='320' height='240' style='width:100%;height:100%;object-fit:contain;image-rendering:pixelated'></canvas>
+        </div>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
           <div id='gl3dHelpBox'>
@@ -251,8 +258,36 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button id='gl3dDet' type='button' title='Detailed view: the full resolution the printer slices at, and twice the slices. Takes a few seconds to build each time you switch it on.'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><rect x='1.9' y='1.9' width='12.2' height='12.2' rx='1.6'/><path d='M8 1.9v12.2M1.9 8h12.2'/><g class='fine' stroke-width='.85'><path d='M4.95 1.9v12.2M11.05 1.9v12.2M1.9 4.95h12.2M1.9 11.05h12.2'/></g></svg></button>
           <button id='gl3dClip' type='button' title='Cut the model at a height - look inside for hollows and inner supports'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round'><path d='M3 10.5 8 8.2l5 2.3-5 2.3z'/><path d='M3 10.5V7M13 10.5V7'/><path d='M1.5 5.2h13' stroke-dasharray='2 1.6'/></svg></button>
           <button id='gl3dRaw' type='button' title='Raw voxels: no smoothing, so you see the real 0.13 mm steps'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2 12.5h3v-3h3v-3h3v-3h3'/></svg></button>
+          <button id='gl3dMask' type='button' style='display:none' title='True layer: the exact black-and-white shape of this layer, with no smoothing and no zoom. This is where thin supports can be checked - the smoothed 3D view loses them. Shown the same way round as the model; the file sent to the printer is mirrored, as the screen needs it.'><svg viewBox='0 0 16 16' width='15' height='15' fill='none' stroke='currentColor' stroke-width='1' stroke-linejoin='round'><rect x='2.5' y='2.5' width='11' height='11' rx='1'/><path d='M6.17 2.5v11M9.83 2.5v11M2.5 6.17h11M2.5 9.83h11'/><path d='M6.17 6.17h3.66v3.66H6.17z' fill='currentColor' stroke='none'/></svg></button>
           <button data-zoom='out' title='Zoom out'>&minus;</button>
           <button data-zoom='in' title='Zoom in'>+</button>
+        </div>
+        <!-- Slicerio irankiai ant paties vaizdo: modelis matomas, ir sukiojant ji
+             nereikia akiu mesti i kortele (V 08-12). -->
+        <div id='gl3dTools' style='display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:2;gap:2px'>
+          <button data-tool='fit' title='Auto fit - turn, and scale only if it does not fit'>&#9906;</button>
+          <button data-tool='flat' title='Lay flat - widest face down'>&#11027;</button>
+          <button data-tool='flip' title='Flip over'>&#8645;</button>
+          <button data-tool='tilt' title='Tilt 90 - falls forward'>&#8635;</button>
+          <button data-tool='rot'  title='Rotate 90 - spins on the plate'>&#10227;</button>
+          <button data-tool='scale'  title='Scale - make the part bigger or smaller'>%</button>
+          <button data-tool='detail' title='Soften edges - edge pixels print grey, so the stair steps stop showing. Costs nothing in time or resin.'><svg viewBox='0 0 16 16' width='15' height='15' fill='none' stroke='currentColor' stroke-width='1.3'><rect class='sharp' x='3.2' y='3.2' width='9.6' height='9.6' rx='.5'/><rect class='soft' x='3.2' y='3.2' width='9.6' height='9.6' rx='4.2'/></svg></button>
+        </div>
+        <!-- Nustatymai popup'e virs juostos: reikalingi retai, tad korteleje
+             jiems nuolatines vietos neskiriam (V 08-12). -->
+        <div id='gl3dPop' style='display:none'>
+          <div id='gl3dPopScale' class='popRow'>
+            <input id='popScaleRange' type='range' min='10' max='300' value='100'>
+            <input id='popScalePct' type='number' min='10' max='300' step='1'><span>%</span>
+            <input id='popScaleMm' type='number' min='1' max='68' step='0.1'><span>mm</span>
+          </div>
+          <button id='popDone' title='Done'>&#10003;</button>
+        </div>
+        <!-- Vertikalus, kaip visuose slicer'iuose: modelis auga i virsu, tad ir
+             valdiklis eina i virsu (V 08-12). -->
+        <div id='gl3dLayer' style='display:none;position:absolute;right:9px;top:96px;bottom:46px;z-index:2;flex-direction:column;align-items:center;gap:6px'>
+          <span id='gl3dLayerNo'></span>
+          <input id='gl3dLayerRange' type='range' min='1' max='2' value='1'>
         </div>
       </div>
       <!-- „As printed" (apverstas modelis) issimtas 08-14: V sprendimas - vaizdas vis
@@ -260,6 +295,14 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
            rezimu. Modelis visada rodomas stacias. -->
     </div>
     <div class='storageBar'><span id='printPreviewBarFill'></span></div>
+    <!-- Ta pati vieta, kaip progreso juostele: spausdinant ji rodo, kiek
+         nuspausdinta, o pjaustant leidzia ta pati auksti valdyti. Viena juosta
+         po paveiksleliu, viena prasme (V 08-12). -->
+    <div id='slicerReview' class='calRow' style='display:none;margin-top:6px'>
+      <span class='lbl'>Height</span>
+      <input id='slicerLayer' type='range' min='1' max='2' value='1' style='flex:1;min-width:110px'>
+      <span id='slicerLayerNo' style='color:var(--muted);font-size:.85rem;min-width:104px'></span>
+    </div>
     <!-- 0-26: the info line moved to the status panel rows; the card keeps
          only the 3D view with its small name overlay.
          prevNote: shown on a cold device mid-print - the RAM snapshot is the
@@ -351,6 +394,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       <div class='meta' style='display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px'><span id='sdCountsText'>SD card</span><span id='sdUsageText'>-</span></div>
       <div id='sdUsageBarWrap' class='storageBar'><span id='sdUsageBar'></span></div>
     </div>
+    <!-- Sliceriui atsidarius modeliu sarasas suskleidziamas: peruziura tuo metu
+         priklauso sliceriui, ir du modeliai viename lange tik klaidintu. -->
+    <div id='sdCollapsedHint' class='hint' style='display:none;margin-top:8px'>Model list hidden while the slicer is open.</div>
   </section>
 </div>
 
@@ -5042,6 +5088,585 @@ $('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Mar
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
+/* ==== Sliceris: STL -> sluoksniai -> kortele (0.17 SL-mod) ==============
+   Perkelta is experimental2, kur si grandine buvo isbandyta ant gelezies.
+   Modulis PRISEGTAS prie slicer-0.9.0.js: judantis slicer.js jau yra
+   2.0.1-dev ir nebeeksportuoja parseSTL/autoOrient/fitCheck/bounds/
+   toSceneMesh/supportMesh - butent to, ka sitas blokas kviecia. */
+/* ---- Slicer (B etapas): STL -> matmenys -> telpa/netelpa ---------------- */
+let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
+/* Kamera persistato tik naujam failui: kitaip kiekvienas perpiesimas ja
+   pertaikydavo, ir mastelio pokytis ekrane dingdavo (V 08-12). */
+let slicerHome=true;
+let slicerFileName='';
+/* Kol slicer'is piesia i perziuros kortele, ji yra JO. Be sios veliaveles
+   busenos apklausa po sekundes padeda tuscia vietele ir vaizdas dingsta
+   (V 08-12). Spaudinys vis tiek svarbesnis - zr. busyPrint saka. */
+let slicerOwnsPreview=false;
+const slicerSay=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
+const slicerBusyStop=()=>{
+  if(statusData&&statusData.busy){msg('Not while printing.',true);return true;}
+  return false;
+};
+/* Kelias nuoseklus, tad oranzinis tik tas zingsnis, kuris einamas: kitaip
+   visi trys atrodo vienodai svarbus (V 08-12). */
+const slicerStep=()=>{
+  const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
+  const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
+  set('slicerChoose',!loaded);
+  set('slicerGo',loaded&&!sliced);
+  set('slicerSave',sliced);
+};
+const slicerButtons=on=>{
+  ['slicerAutoFit','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
+    .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
+  /* Ta pati busena ir ant vaizdo esantiems - jie tik kita to paties veido puse. */
+  const t=$('gl3dTools');
+  if(t){t.querySelectorAll('button').forEach(b=>{b.disabled=!on;});
+        t.style.display=on&&slicerOwnsPreview?'flex':'none';
+    const pp=$('gl3dPop');
+    if(pp&&pp.style.display!=='none'){
+      if(t.style.display==='none')pp.style.display='none';   /* vaizdo nebera */
+      else t.style.display='none';                            /* dar atidarytas */
+    }}
+  slicerStep();
+};
+
+/* Vienu metu reikalingas tik vienas is dvieju: SD sarasas atsako i klausima
+   „ka spausdinti", slicer'is - „is ko padaryti". Todel atidarius viena, kitas
+   susiskleidzia (V 08-12). Vietos rodiklis LIEKA matomas: kuriant modeli
+   verta matyti, kiek kortelėje liko. */
+const sdCollapse=on=>{
+  ['uploadForm','filesFilter','filesList'].forEach(id=>{
+    const e=$(id); if(e)e.style.display=on?'none':'';
+  });
+  const h=$('sdCollapsedHint'); if(h)h.style.display=on?'block':'none';
+};
+$('slicerToggle').addEventListener('click',async()=>{
+  const body=$('slicerBody'), open=body.style.display!=='none';
+  if(open){body.style.display='none';$('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
+    sdCollapse(false); slicerReset(); slicerOwns(false);
+    dashPreviewPlaceholder(); return;}
+  body.style.display='block';$('slicerToggle').textContent='Close';$('slicerToggle').classList.add('narrow');sdCollapse(true);
+  /* Perziuroje galejo kaboti visai kitas failas - jis ne slicer'io, tad
+     vaizdas isvalomas, kad neatrodytu ikeltas (V 08-12). */
+  slicerReset(); slicerOwns(false); dashPreviewPlaceholder();
+  if(slicerMod)return;
+  slicerSay('slicerInfo','Loading the slicer…');
+  /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
+     kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
+  /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
+     naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
+  const SV='0.9.0';
+  slicerMod=await loadModule('slicer-'+SV,SV,
+      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js')
+  slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
+                                  :'The slicer module could not be loaded.');
+});
+
+/* Bet koks pakeitimas panaikina supjaustyta rezultata: kitaip „Save"
+   siulytu issaugoti tai, ko ekrane jau nebera (V 08-12). */
+const slicerInvalidate=()=>{
+  if(typeof slicerOut==='undefined'||!slicerOut)return;
+  slicerOut=null;
+  $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+  $('slicerSave').disabled=true;
+  $('slicerDiscardLink').style.visibility='hidden';
+  $('slicerProg').textContent='Settings changed — slice again to save.';
+  slicerStep();
+};
+const slicerRender=()=>{
+  slicerInvalidate();
+  const S=slicerMod;
+  const placed=S.place(slicerRaw,slicerTr);
+  const b=S.bounds(placed), f=S.fitCheck(b.size);
+  {const n=slicerRaw.length/9;
+   let vd,col;
+   if(f.fits){vd='fits the build volume';col='var(--muted)';}
+   /* Verdiktas mini ir autofita: anksciau siule tik pasukti ar sumazinti
+      ranka, nors mygtukas daro abu iskart (V 08-12). */
+   /* Mygtukas STOVI pranesime. Anksciau pranesimas buvo desineje, o mygtukas,
+      kuri jis liepia spausti, - kitame korteles gale; akis eina per visa
+      kortele ir atgal (V 08-13). */
+   else{vd='too large — '+f.axis+' +'+Math.round((f.worst-1)*100)
+        +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
+        +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
+        +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
+        +'Fit it</button> or turn it by hand';col='var(--warncol)';}
+   if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
+   /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
+      to paties pobudzio pastabos apie sluoksnius (V 08-12). */
+   $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
+   {const fh=$('slicerFitHere');
+    if(fh)fh.addEventListener('click',()=>$('slicerAutoFit').click());}
+   $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
+     b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
+     +' mm  ·  '+n.toLocaleString()+' triangles';}
+  const fit=$('slicerFit');
+  if(f.fits){
+    fit.textContent='Fits the build volume.';
+    fit.style.color='var(--muted)';
+    /* Masteli slėpti, kai jis pradeda tikti, - kaip tik atvirksciai, nei
+       reikia: sumazinai iki telpancio ir pakoreguoti nebegali (V 08-12).
+       Slepiamas tik ispejimas, ne valdiklis. */
+    {const pr=$('popScaleRange'),pp=$('popScalePct'),pm=$('popScaleMm'),pc=Math.round(slicerTr.scale*100);
+     if(pr)pr.value=pc; if(pp)pp.value=pc; if(pm)pm.value=b.size[2].toFixed(1);}
+  }else{
+    fit.textContent='Too large — the '+f.axis+' is '+Math.round((f.worst-1)*100)
+      +'% over. Turning it often solves this; scaling changes the part’s real size.';
+    fit.style.color='var(--warncol)';
+    {const pr=$('popScaleRange'),pp=$('popScalePct'),pm=$('popScaleMm'),pc=Math.round(slicerTr.scale*100);
+     if(pr)pr.value=pc; if(pp)pp.value=pc; if(pm)pm.value=b.size[2].toFixed(1);}
+  }
+  /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
+  const tri=slicerRaw.length/9;
+  if(slicerBudget&&tri>slicerBudget)
+    fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
+      +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
+  {const ab=document.querySelector("#gl3dTools [data-tool='detail']");
+   if(ab)ab.classList.toggle('on',$('slicerAA').checked);}
+  if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed),slicerHome);
+  slicerHome=false;
+  slicerOwns(true);
+  {const t=$('gl3dTools'); if(t)t.style.display='flex';}
+  $('printPreviewTitle').textContent='Slicer preview';
+  show('printPreviewCard',true);
+};
+
+$('slicerFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f||!slicerMod)return;
+  if(slicerBusyStop())return;
+  slicerHome=true;                 // naujas failas - vaizda pastatom is naujo
+  slicerSay('slicerInfo','Reading '+f.name+'…');slicerSay('slicerFit','');
+  try{
+    const buf=await f.arrayBuffer();
+    const r=slicerMod.parseSTL(buf);
+    /* Senas rezultatas nuvalomas PRIES nauja modeli: kitaip jo duomenys
+       gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
+    slicerOut=null;
+    slicerRaw=r.positions; slicerFileName=f.name;
+    slicerBudget=slicerMod.detailBudget(slicerRaw);
+    const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
+    slicerTr=best.tr;
+    slicerButtons(true);
+    /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
+       issisaugodavo ne tuo pavadinimu (V 08-12). */
+      $('slicerName').value=f.name.replace(/\.stl$/i,'')
+        .replace(/[^A-Za-z0-9_-]/g,'').slice(0,14);   // ilgesnis netelpa printerio ekrane
+    $('slicerGo').disabled=false;
+    slicerRender();
+  }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
+});
+
+/* Autofit = pasuka + sumazina TIK jei netelpa, ir apie tai pasako. Mazinimas
+   keicia tikra detales dydi, tad tylus jis nebuna niekada (V 08-12). */
+$('slicerAutoFit').addEventListener('click',()=>{
+  if(!slicerRaw)return;
+  const s0=slicerTr.scale;
+  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
+  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+  const f=slicerMod.fitCheck(b.size);
+  if(!f.fits){
+    slicerTr.scale*=f.scaleToFit;
+    msg('Turned and scaled to '+Math.round(slicerTr.scale*100)+'% so it fits.');
+  }else msg('Turned \u2014 it already fits, nothing was scaled.');
+  slicerRender();
+});
+$('slicerFlat').addEventListener('click',()=>{
+  if(!slicerRaw)return; const s=slicerTr.scale;
+  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});
+$('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx+=2;slicerRender();}});
+$('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx++;slicerRender();}});
+$('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerTr.rz++;slicerRender();}});
+/* Pjaustymas ir issaugojimas. Archyvas keliauja ESAMU ikelimo keliu - tuo
+   paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
+let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
+
+/* Tikra sluoksnio kauke. 3D vaizdas glotnina pavirsiu, tad plona 0.4 mm supporto
+   gija jame tiesiog dingsta - o butent ja ir reikia patikrinti. Cia rodoma ta
+   pati PNG, kuri keliauja i archyva: nedidinta, be glotninimo. Nieko naujo
+   neskaiciuojam - failai jau atmintyje (V 08-13). */
+let slicerMaskOn=false, slicerView=0;
+function slicerMaskDraw(n){
+  const box=$('slicerMask'), cv=$('slicerMaskCv');
+  if(!box||!cv||!slicerMaskOn||!slicerOut||!slicerOut.files)return;
+  const i=Math.max(1,Math.min(slicerOut.layers,n||1))-1;
+  const f=slicerOut.files[i];
+  if(!f||!f.data)return;
+  const url=URL.createObjectURL(new Blob([f.data],{type:'image/png'}));
+  const im=new Image();
+  im.onload=()=>{
+    const ctx=cv.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(im,0,0);
+    /* Supportai perpiesiami KITA spalva. Sluoksnio nuotrauka juoda-balta -
+       is jos neatskirsi, kur detale, o kur atrama; o butent tai ir reikia
+       matyti (V 08-13, butina). Spalva tik ekrane - i archyva keliauja
+       nepaliesta nuotrauka. */
+    const s=slicerOut.supports;
+    if(s&&s.list&&s.list.length&&slicerMod&&slicerMod.pillarDiscs){
+      const z=(i+0.5)*0.05, pad=slicerMod.SUP?slicerMod.SUP.padMm:1.5;
+      let d=slicerMod.pillarDiscs(s.list,z);
+      if(z>=pad&&s.braceList&&slicerMod.braceDiscs)
+        d=d.concat(slicerMod.braceDiscs(s.braceList,z));
+      const P=slicerMod.PLATE, sx=cv.width/P.x, sy=cv.height/P.y;
+      ctx.fillStyle='#7ea6d8';
+      for(const c of d){
+        ctx.beginPath();
+        ctx.arc((c.x+P.x/2)*sx,(c.y+P.y/2)*sy,Math.max(0.8,c.r*sx),0,6.2832);
+        ctx.fill();
+      }
+    }
+    URL.revokeObjectURL(url);
+  };
+  im.onerror=()=>URL.revokeObjectURL(url);
+  im.src=url;
+  box.style.display='block';
+}
+function slicerMaskSet(on){
+  slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
+  const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
+  const box=$('slicerMask'), cv=$('slicerMaskCv');
+  if(!slicerMaskOn){
+    if(box)box.style.display='none';
+    /* Drobe isvaloma: kitaip kitas ijungimas trumpam parodytu sena sluoksni. */
+    if(cv){const c=cv.getContext('2d'); c&&c.clearRect(0,0,cv.width,cv.height);}
+    return;
+  }
+  /* Slankiklio prasme dviejuose rezimuose skiriasi: 3D jis sako „kiek aukscio
+     rodyti" (gale - visas daiktas), kaukeje - „kuri sluoksni rodyti" (gale -
+     pati virsune, dazniausiai juodas kvadratas). Todel ijungiant kauke ties
+     pabaiga persistojam i vidury: kitaip mygtukas atrodo negyvas (V 08-13). */
+  const sl=$('slicerLayer');
+  let n=Number(sl&&sl.value)||slicerOut.layers;
+  if(n>=slicerOut.layers)n=Math.max(1,Math.round(slicerOut.layers/2));
+  slicerShowLayer(n);
+}
+/* Supportai atsiranda patys, tad kortelei lieka tik pasakyti, kas gavosi -
+   jokiu nustatymu neatsiranda (V 08-12). */
+const SUP_IDLE='Supports and a raft are added on their own, wherever the part hangs - nothing to set.';
+function slicerSupportFacts(s){
+  const a=$('slicerSupports'), b=$('slicerIslands');
+  if(!a||!b)return;
+  b.textContent='';
+  if(s===null){a.textContent=SUP_IDLE;return;}              // dar nepjaustyta
+  /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
+     matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
+  if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
+  a.textContent=s.pillars
+    ?'Supports: '+s.pillars+(s.pillars===1?' pillar':' pillars')
+      +(s.onModel?' ('+s.onModel+' standing on the part itself)':'')
+      +(s.raft?' · raft on':'')
+    :'No supports needed - nothing on this part hangs in the air.';
+  /* Supportai patys pasitikrina: suslicinus SU jais dar kartą ieškoma kabanciu
+     vietu. Jei atsirado nauju - tai MUSU pacio klaida, ir apie ja butina
+     pasakyti, o ne tyliai issaugoti (V 08-13). */
+  b.textContent=s.hanging
+    ?'⚠ '+s.hanging+' support'+(s.hanging===1?'':'s')+' would print hanging in the air - do not save this, tell the maintainer.'
+    :s.islands
+      ?s.islands+(s.islands===1?' spot starts':' spots start')+' in mid-air (the lowest at layer '
+        +s.firstIsland+') - all held by supports.'
+      :'';
+  b.style.color=s.hanging?'#e8a020':'';
+}
+/* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
+   pati kauke. Anksciau trys vietos slepe tik slankikli. */
+function slicerLayerUI(on){
+  const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
+  const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
+  if(!on){slicerMaskSet(false); slicerView=0;
+          if(window.gl3dSupports)gl3dSupports(null);}
+  else slicerSetView(slicerView);
+}
+const VIEW_TITLES=[
+  '3D with supports — shapes, not pictures. Click for the printed layers.',
+  'Printed layers — exactly what the printer builds. Click for one true layer.',
+  'True layer — one picture, no smoothing. Click to go back to 3D.'];
+function slicerSetView(v){
+  slicerView=((v%3)+3)%3;
+  const b=$('gl3dMask');
+  if(b){b.classList.toggle('on',slicerView!==0); b.title=VIEW_TITLES[slicerView];}
+  slicerMaskSet(slicerView===2);
+  if(slicerView!==2)slicerBuildView();
+  const sl=$('slicerLayer');
+  if(slicerOut&&sl)slicerShowLayer(Number(sl.value)||slicerOut.layers);
+}
+
+/* Slankiklis valdo AUKSTI, ne rodo atskira pjuvi: tas pats pieseejas, kuris
+   piesia spausdinimo progresa, tik frakcija ateina is slankiklio, o ne is
+   printerio. Vienas algoritmas visur (V 08-12). */
+/* Tinklelis sulipdomas VIENA karta (visas daiktas), o slankiklis tik judina
+   pjovimo plokstuma. Anksciau iki 100 % piese vienas pieseejas, o ties 100 %
+   perjungdavo i kita - vaizdas soktelėdavo (V 08-12). */
+/* Trys vaizdai to paties rezultato, ir slankiklis veikia visuose:
+   0 - tikra geometrija: modelis ir supportai kaip daiktai, ne kaip nuotrauku
+       krūva. Cia matosi, kokios formos supportas ir kur jis liečia detale.
+   1 - suslicinti sluoksniai: ka spausdintuvas TIKRAI padarys, su visais
+       laipteliais.
+   2 - viena tikra kauke: vieno sluoksnio nuotrauka be jokio glotninimo.
+   (V 08-13: „matom 3D su suportais, 2d slicinta ir 3d slicinta".) */
+const slicerGeomView=(home)=>{
+  if(!slicerRaw||!slicerTr||!slicerMod||!slicerMod.supportMesh)return false;
+  const placed=slicerMod.place(slicerRaw,slicerTr);
+  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
+  const s=slicerOut&&slicerOut.supports;
+  if(window.gl3dSupports)
+    gl3dSupports(s&&s.list&&s.list.length
+      ?slicerMod.toSceneMesh(slicerMod.supportMesh(s.list,s.braceList)):null);
+  /* Ka tik suslicinta - vaizdas pastatomas taip, kad DAIKTAS SU SUPPORTAIS
+     tilptu visas. Anksciau kamera likdavo ten, kur buvo, ir modelis atsirasdavo
+     kazkur lango apacioje (V 08-13). Perjungiant rezimus kameros neliecia -
+     zmogus ka tik pats prisitaike zvilgsni. */
+  if(home&&window.gl3dFrameAll)gl3dFrameAll();
+  return !!window.gl3dClip;
+};
+const slicerBuildView=(home)=>{
+  if(!slicerOut)return false;
+  if(slicerView===0){slicerOwns(true);
+    if(window.key3dReset)key3dReset();
+    return slicerGeomView(home);}
+  if(window.gl3dSupports)gl3dSupports(null);
+  if(!slicerOut.preview)return false;
+  const p=slicerOut.preview;
+  slicesCache={name:'‹slicer›:'+(slicerFileName||'?')+':'+slicerOut.layers+':'+p.modelH.toFixed(2),mode:'current',slices:p.slices,
+               gw:p.gw,gh:p.gh,modelH:p.modelH,layers:slicerOut.layers};
+  /* Naujas pjaustymas privalo persipiesti nuo nulio, nesvarbu, ka kesas
+     mano: vien vardo uzteko, kad antras modelis pakliutu ant pirmojo
+     geometrijos ir atrodytu istemptas (V 08-12). */
+  if(window.key3dReset)key3dReset();
+  lastPrevFrac=-1;
+  slicerOwns(true);
+  drawIso($('printPreviewCanvas'),1);   // visas daiktas + GPU
+  return !!window.gl3dClip;
+};
+const slicerShowLayer=n=>{
+  if(!slicerOut)return;
+  const mm=n*0.05;
+  if(window.gl3dClip)gl3dClip(n>=slicerOut.layers?null:mm);
+  if(slicerMaskOn)slicerMaskDraw(n);
+  const txt=mm.toFixed(2)+' mm  ('+n+' / '+slicerOut.layers+')';
+  $('slicerLayerNo').textContent=txt;
+  /* Sluoksnio numeris PRIE paties slankiklio - taip daro visi slicer'iai. */
+  {const N=$('gl3dLayerNo'); if(N)N.textContent=n+' / '+slicerOut.layers;}
+  {const R=$('gl3dLayerRange'); if(R&&Number(R.value)!==n)R.value=n;}
+  {const H=$('slicerLayer'); if(H&&Number(H.value)!==n)H.value=n;}
+};
+
+$('slicerGo').addEventListener('click',async()=>{
+  if(!slicerRaw||!slicerMod)return;
+  if(slicerBusyStop())return;
+  const placed=slicerMod.place(slicerRaw,slicerTr);
+  const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
+  if(!f.fits){msg('It does not fit yet \u2014 turn or scale it first.',true);return;}
+  const go=$('slicerGo'), prog=$('slicerProg');
+  go.disabled=true; slicerButtons(false);
+  try{
+    prog.textContent='Slicing\u2026';
+    const t0=performance.now();
+    /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
+       trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
+       pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
+    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked},
+      (done,total,phase)=>{
+        const f=phase==='scan'?done/total*0.3
+               :phase==='draw'?0.3+done/total*0.7
+               :done/total;                      // senas modulis - viena faze
+        const pct=Math.round(f*100);
+        const what=phase==='scan'?'Looking for overhangs':'Slicing';
+        prog.textContent=what+' '+pct+'%  ('+done+' / '+total+' layers)';
+        paintPreviewProgress($('printPreviewCanvas'),what+' '+pct+'%',f);
+      });
+    /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
+       imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
+    const c=connectConfig||{};
+    const ml=(r.rawMl*(Number(c.resinCalFactor)||1)+(Number(c.resinFixedMl)||0));
+    /* Nesaugom is karto: pirma parodom, ka gavom. Issaugojimas - atskiras
+       sprendimas, kai sluoksniai atrodo teisingai (V 08-12). */
+    if(!r.files){slicerOut=null;
+      prog.textContent='The slicer module is out of date \u2014 reload the page (Ctrl+F5).';
+      return;}
+    slicerOut=r; slicerOut.ml=ml;
+    slicerSupportFacts(r.supports);
+    prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
+    const sl=$('slicerLayer');
+    sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
+    $('slicerReview').style.display='flex';
+    show('printPreviewBarFill',false);
+    {const R=$('gl3dLayerRange');
+     if(R){R.min=1;R.max=r.layers;R.value=r.layers;}
+     slicerLayerUI(true);}
+    slicerBuildView(true);        // ka tik suslicinta -> parodyti visa
+    $('slicerName').disabled=false;
+    /* Tas pats modelis du kartus nepjaunamas: mygtukas atsirakina tik kai
+       kas nors pasikeicia arba ikeliamas naujas failas (V 08-12). */
+    $('slicerGo').disabled=true;
+    /* Vienintelis dalykas, kuri dar reikia irasyti, - tad kursorius ten. */
+    $('slicerName').focus();
+    $('slicerSave').disabled=false;
+    $('slicerDiscardLink').style.visibility='visible';
+    slicerStep();
+    slicerShowLayer(Number(sl.value));
+  }catch(e){
+    prog.textContent=e.message;
+    msg(e.message,true);
+  }finally{ go.disabled=false; slicerButtons(true); }
+});
+
+$('slicerAA').addEventListener('change',()=>slicerInvalidate());
+/* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
+   pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
+/* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne
+   pasirinkima. Uzraktas budavo dedamas tik PO slicinimo, todel su ikeltu
+   modeliu mygtukas vis dar persijungdavo ir gadindavo vaizda (V 08-12). */
+const slicerDetLock=on=>{
+  const b=$('gl3dDet'); if(!b)return;
+  if(on){b.classList.add('on');b.disabled=true;
+         b.title='Slicer preview is always detailed';}
+  else{b.disabled=false;b.title='Detailed view';
+       b.classList.toggle('on',VIEW_DETAIL);}
+};
+/* Apatineje juostoje trys grupes: sukimas (kaireje), irankiai (viduryje),
+   detalumas+priartinimas (desineje). Scale eilutei reikia VISO plocio -
+   kitaip patvirtinimo varnele uzlipa ant kaimynu (V 08-12). */
+const POP_ROW={gl3dTools:'flex',gl3dRot:'grid',gl3dZoom:'flex'};
+const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
+  const e=$(id); if(e)e.style.display=show?POP_ROW[id]:'none';});
+/* Vaizdo savininkas ir detalumo uzraktas keiciasi KARTU. Anksciau uzraktas
+   buvo dedamas rankomis, ir is penkiu vietu, kur vaizdas pereina kitam,
+   atrakinimas buvo tik vienoje - todel po spausdinimo ar uzdarius sliceri
+   mygtukas likdavo uzrakintas (V 08-12). */
+const slicerOwns=v=>{slicerOwnsPreview=v; slicerDetLock(v); if(!v)slicerLayerUI(false);};
+/* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
+   negali persekioti tarp atidarymu (V 08-12). */
+const slicerReset=()=>{
+  slicerOut=null; slicerRaw=null; slicerTr=null; slicerBudget=0;
+  slicerFileName=''; slicerHome=true;
+  slicerButtons(false);
+  $('slicerGo').disabled=true; $('slicerSave').disabled=true;
+  $('slicerName').value=''; $('slicerName').disabled=true;
+  $('slicerFile').value='';
+  $('slicerDims').textContent=''; $('slicerProg').textContent='';
+  $('slicerInfo').textContent='Choose an STL file to begin.';
+  $('slicerDiscardLink').style.visibility='hidden';
+  slicerSupportFacts(null);
+  if(window.gl3dClip)gl3dClip(null);
+};
+const popClose=()=>{
+  const p=$('gl3dPop'); if(!p||p.style.display==='none')return;
+  p.style.display='none'; popRow(true);
+};
+/* Popup'ai NIEKO neskaiciuoja patys - tik persiuncia i esamus laukus. */
+const popScaleApply=pct=>{
+  if(!slicerRaw)return;
+  const v=Math.max(.1,Math.min(3,pct/100));
+  slicerTr.scale=v; slicerRender();
+};
+$('popScaleRange').addEventListener('input',e=>popScaleApply(Number(e.target.value)));
+$('popScalePct').addEventListener('change',e=>popScaleApply(Number(e.target.value)));
+/* Aukstis milimetrais: zmogus dazniau zino, kokio dydzio nori daiktas, nei
+   kiek procentu tam reikia (V 08-12). */
+$('popScaleMm').addEventListener('change',e=>{
+  if(!slicerRaw)return;
+  const want=Number(e.target.value); if(!(want>0))return;
+  const now=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size[2];
+  if(now>0)popScaleApply(slicerTr.scale*(want/now)*100);
+});
+$('slicerLayer').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
+/* Kaukes jungiklis stovi salia priartinimo, nes tai to paties vaizdo kita puse. */
+{const b=$('gl3dMask');
+ if(b){b.addEventListener('click',e=>{e.stopPropagation();slicerSetView(slicerView+1);});
+       b.addEventListener('pointerdown',e=>e.stopPropagation());}}
+$('gl3dLayerRange').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
+$('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
+
+$('slicerSave').addEventListener('click',async()=>{
+  if(!slicerOut)return;
+  if(slicerBusyStop())return;
+  const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
+  if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
+  slicerOut.name=nm;
+  const btn=$('slicerSave'), prog=$('slicerProg');
+  btn.disabled=true;
+  try{
+    const fd=new FormData();
+    fd.append('file',slicerOut.blob,slicerOut.name+'.zip');
+    const MB=b=>(b/1048576).toFixed(1);
+    /* Dydi zinom iki baito - archyva pagaminom patys, tad eiga tikra, ne
+       apsimestine. XHR, nes fetch nepranesa, kiek isejo (V 08-12). */
+    await new Promise((res,rej)=>{
+      const x=new XMLHttpRequest();
+      x.open('POST','/api/files/local');
+      x.setRequestHeader('X-TinyMaker','1');
+      x.upload.onprogress=e=>{
+        if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
+        const p=Math.round(e.loaded/e.total*100);
+        prog.textContent='Uploading '+p+'%  ('+MB(e.loaded)+' / '+MB(e.total)+' MB)';
+        paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total);
+      };
+      x.onload=()=>x.status<400?res():rej(new Error('upload failed ('+x.status+')'));
+      x.onerror=()=>rej(new Error('upload failed - connection lost'));
+      x.ontimeout=()=>rej(new Error('upload timed out'));
+      x.timeout=300000;
+      x.send(fd);
+    });
+    /* Ikelta dar nereiskia paruosta: printeris dabar ISPAKUOJA archyva ir tuo
+       metu SD priklauso jam. Laukiam, kol atsileis - kitaip pasakytume
+       „issaugota", o modelio sarase dar nebutu (V 08-12). */
+    prog.textContent='Unpacking on the printer \u2026';
+    paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null);
+    for(let i=0;i<180;i++){
+      await new Promise(r=>setTimeout(r,1000));
+      try{
+        const st=await api('/api/status',null,8000);
+        if(!st.busy||st.sdJob!=='import')break;
+        prog.textContent='Unpacking on the printer \u2026 ('+(i+1)+' s)';
+      }catch(e){}
+    }
+    const done=slicerOut;
+    msg('\u201c'+done.name+'\u201d is on the printer.');
+    prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
+      +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
+    /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
+       reikstu, kad atidarius is naujo slicer'is pamena sena STL ir supjaustytu
+       ji antra karta (V 08-12). Uzdarymas - kas kita, ten darbas lieka. */
+    slicerOut=null; slicerRaw=null; slicerTr=null; slicerBudget=0;
+    slicerButtons(false);
+    $('slicerGo').disabled=true;
+    $('slicerName').value=''; $('slicerName').disabled=true;
+    $('slicerFile').value='';
+    $('slicerInfo').textContent='Choose an STL file to begin.';
+    $('slicerFit').textContent='';
+    $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+    $('slicerSave').disabled=true;
+    $('slicerDiscardLink').style.visibility='hidden';
+    /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
+    $('slicerBody').style.display='none';
+    $('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
+    sdCollapse(false);
+    loadFiles&&loadFiles();
+  }catch(e){ prog.textContent=e.message; msg(e.message,true); }
+  finally{
+    btn.disabled=false;
+    /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
+       (V 08-12: pranesimas liko, nors failas seniai suejo). */
+    slicerOwns(false);
+    if(window.gl3dClip)gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
+    {const t=$('gl3dTools'); if(t)t.style.display='none';}
+    slicerDetLock(false);
+    dashPreviewPlaceholder();
+  }
+});
+
+$('slicerDiscardLink').addEventListener('click',e=>{
+  e.preventDefault(); slicerOut=null;
+  $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+  $('slicerSave').disabled=true;
+  $('slicerDiscardLink').style.visibility='hidden';
+  $('slicerProg').textContent='Discarded. Adjust and slice again.';
+  slicerRender();
+});
+
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
