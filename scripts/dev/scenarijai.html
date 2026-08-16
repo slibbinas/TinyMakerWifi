@@ -151,12 +151,12 @@ Kiti veiksmai su kortele tuo metu mandagiai atmetami.</dd>
 pasikeičia į tą patį skaičių.</dd>
 </dl></div>
 
-<div class="s"><h3><span class="nr">B4</span> Dervos įsidiegimas iš bibliotekos <span class="pill p-ok">patikrinta</span></h3>
+<div class="s"><h3><span class="nr">B4</span> Dervos įsidiegimas iš bibliotekos <span class="pill p-no">netikrinta</span></h3>
 <dl class="f">
 <dt>Prielaidos</dt><dd>Naršyklė turi internetą (biblioteką traukia ji, ne printeris).</dd>
 <dt>Tikslas</dt><dd>Gauti paruoštą receptą, o ne vesti skaičius ranka.</dd>
 <dt>Žingsniai</dt><dd><ol><li>Settings → dervos pasirinkimas → „Tested resin library".</li><li>Ties norima paspausti Install.</li></ol></dd>
-<dt>Rezultatas</dt><dd>Trys dervos sąraše (SUNLU Tough su ženkliuku „tested", du Anycubic be jo). Įdiegta atsiranda
+<dt>Rezultatas</dt><dd>Trys dervos sąraše (patikrinta: manifestas gyvas, SUNLU Tough su ženkliuku „tested", du Anycubic be jo). Pats Install NEtikrintas - jis rašo į kortelę, tad palikta tau. Įdiegta atsiranda
 kortelėje ir pasirinkime; bibliotekos dalyje jos nebelieka. Pagrindiniame lange biblioteka NErodoma.</dd>
 </dl></div>
 
@@ -169,13 +169,13 @@ kortelėje ir pasirinkime; bibliotekos dalyje jos nebelieka. Pagrindiniame lange
 Nustatymai ir dervos profilis išlieka.</dd>
 </dl></div>
 
-<div class="s"><h3><span class="nr">B6</span> Du įrenginiai vienu metu <span class="pill p-ok">patikrinta</span></h3>
+<div class="s"><h3><span class="nr">B6</span> Du įrenginiai vienu metu <span class="pill p-no">netikrinta</span></h3>
 <dl class="f">
 <dt>Prielaidos</dt><dd>Pultas atidarytas telefone ir kompiuteryje.</dd>
 <dt>Tikslas</dt><dd>Žiūrėti iš dviejų vietų nieko nesugadinant.</dd>
 <dt>Žingsniai</dt><dd><ol><li>Abu langus palikti atidarytus.</li><li>Viename atlikti veiksmą (perjungti dervą, atidaryti modelį).</li></ol></dd>
 <dt>Rezultatas</dt><dd>Abu langai gyvi, užklausos neužstringa, būsenos pasikeitimą pamato abu.
-(Patikrinta: 24 lygiagrečios užklausos, visos 200, be klaidų.)</dd>
+(Patikrinta tik dalis: 24 lygiagrečios užklausos iš VIENO lango - visos 200, be klaidų. Ar du langai mato vienas kito veiksmą, netikrinta.)</dd>
 </dl></div>
 
 <div class="s"><h3><span class="nr">B7</span> Atsarginė kopija ir atkūrimas <span class="pill p-hw">reikia geležies</span></h3>
@@ -230,6 +230,27 @@ Kol kabo klausimas, nustatymų keisti iš naršyklės neleidžiama (409).</dd>
 <dt>Žingsniai</dt><dd><ol><li>Po įkrovos pakeisti profilį.</li><li>Spausti Resume.</li></ol></dd>
 <dt>Rezultatas</dt><dd>Ekranas: „Layer height changed after this print - it cannot be resumed", grįžta klausimas
 su galimybe pakelti plokštę arba atmesti. Plokštė NEJUDA žemyn.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C6</span> Gamyklinis atstatymas prie printerio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Printeris nespausdina. <b>Naujas ekranas - iš naršyklės jo paspausti neįmanoma.</b></dd>
+<dt>Tikslas</dt><dd>Netyčia neprarasti kalibracijos ir dervos derinimo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Settings → nueiti iki „Back to Default" ir paspausti OK.</li>
+<li><b>Palaikyti OK ~2 sekundes</b> (būtent čia buvo klaida).</li>
+<li>Atleisti, perskaityti klausimą, paspausti Back.</li>
+<li>Pakartoti ir šįkart patvirtinti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Palaikius OK klausimas LIEKA ekrane (nepraslysta, nesikartoja).
+Back nieko nekeičia. Patvirtinus: gamykliniai skaičiai, derva „Slow resin (factory)", kalibracija tuščia.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C7</span> Kortelė be sluoksnių <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Aplankas kortelėje be .png failų (galima susikurti tuščią). <b>Naujas ekranas.</b></dd>
+<dt>Tikslas</dt><dd>Suprasti tikrą priežastį, o ne skaityti apie darbo zonos aukštį.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Print meniu pasirinkti tą aplanką.</li></ol></dd>
+<dt>Rezultatas</dt><dd>„No layers found in this model - the card may be at fault", Back grąžina į sąrašą.
+Senas tekstas apie darbo zonos aukštį NErodomas.</dd>
 </dl></div>
 
 <h2>D · Spausdinimo metu</h2>
