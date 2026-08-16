@@ -67,6 +67,8 @@ var BOOTANIM={ok:true,selected:'rippleboot',animations:[
 // 0.17 0-16: the two built-in profiles plus one saved by "the user", so the
 // demo shows all three row shapes (built-in, edited built-in, own profile).
 var RESIN={ok:true,selected:'fast',profiles:[
+  // Abu isiuti profiliai - svarus (edited:false, overlay:false), kaip po pirmo
+  // paleidimo; redaguoto profilio pavyzdys demo nebereikalingas.
   {name:'fast',display:'Fast resin',builtin:true,edited:false,overlay:false,layerHeight:0.05,
    baseExposure:18,regularExposure:8.0,baseLayers:4,transitionLayers:5,
    slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,

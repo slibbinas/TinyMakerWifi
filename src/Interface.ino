@@ -1484,6 +1484,25 @@ void screenResumeHeightChanged(){
 }
 
 /**
+ * @brief Nera sluoksniu: kortele neatidave nei vieno .png. Atskiras nuo screen112,
+ * nes ten rasoma apie darbo zonos auksti, o cia priezastis visai kita (audit 08-16).
+ */
+void screenNoLayers(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("No layers found");
+  gfx2->setCursor(6, 34);
+  gfx2->println("in this model - the");
+  gfx2->setCursor(6, 52);
+  gfx2->println("card may be at fault.");
+  uiButton(0, "Back", ORANGE);
+  screen = 112;   // Back veikia taip pat, kaip is aukscio ispejimo
+}
+
+/**
  * @brief Screen 112: Height Warning
  * Displays warning if object height exceeds build volume.
  */

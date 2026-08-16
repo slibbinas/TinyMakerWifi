@@ -1803,7 +1803,7 @@ bool prepareSelectedPrintPreview() {
   layer_counter--;
 
   if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
-    screen112();
+    if (layer_counter <= 0) screenNoLayers(); else screen112();
     return false;
   }
 
@@ -2297,6 +2297,7 @@ void loop() {
           // 0.10 mm the upper bound is twice as generous as the staging one -
           // that path has already refused anything near it.)
           if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
+            bool tuscia = (layer_counter <= 0);
             // Consume the start request like the two exits above do. Left
             // standing it re-fires the OK branch every pass, and the next
             // screen would start a print nobody asked for (audit 08-16).
@@ -2305,7 +2306,7 @@ void loop() {
             #if ENABLE_NETWORK
             freePreviewCache();   // nothing is printing - do not sit on the snapshot
             #endif
-            screen112();
+            if (tuscia) screenNoLayers(); else screen112();
             break;
           }
         }
