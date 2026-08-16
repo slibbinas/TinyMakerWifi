@@ -484,15 +484,28 @@ void freePreviewCache() {
 // mid-print allocation). allowSdInit: print start may re-init a failed SD
 // (sdCardReady -> SD.begin); mid-print must not re-init the shared VSPI bus -
 // if the card errored, SD.open below just fails and the cache stays empty.
+// The saved 3D render does not depend on the layer height: the dashboard draws
+// the model from the source slices, so the same picture is right whatever resin
+// is loaded. Prefer the file rendered at this height, but take the other one
+// rather than none - switching resin used to blank the picture on 8 of the 12
+// models on this card and force a full re-render for an image that cannot
+// differ (measured 08-16). Empty return = neither exists.
+File openModelRender(const String &name) {
+  String at1 = "/" + name + "/preview1s.png";
+  String at05 = "/" + name + "/preview05s.png";
+  File f = SD.open((Layer_Height > 0.06 ? at1 : at05).c_str());
+  if (!f) f = SD.open((Layer_Height > 0.06 ? at05 : at1).c_str());
+  return f;   // invalid = neither exists
+}
+
 void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   freePreviewCache();
   if (allowSdInit && !sdCardReady()) return;
   String name = String(foldersel_long);
   if (!name.length()) return;
-  // Same pick as the serve path below: the render matching the active layer
-  // height, legacy single preview as the fallback.
-  String path = Layer_Height > 0.06 ? "/" + name + "/preview1s.png" : "/" + name + "/preview05s.png";
-  File f = SD.open(path.c_str());
+  // Same pick as the serve path below: our render, legacy single preview as
+  // the fallback.
+  File f = openModelRender(name);
   if (!f) f = SD.open(("/" + name + "/preview.png").c_str());   // slicer'io, kaip ir buvo
   if (!f) return;
   size_t sz = f.size();
@@ -547,14 +560,13 @@ void handleApiFileModelPreview() {
   }
 
   String previewType = server.arg("type");
-  String path;
-  if (previewType == "05") path = "/" + name + "/preview05s.png";
-  else if (previewType == "1") path = "/" + name + "/preview1s.png";
+  File f;
+  if (previewType == "05") f = SD.open(("/" + name + "/preview05s.png").c_str());
+  else if (previewType == "1") f = SD.open(("/" + name + "/preview1s.png").c_str());
   // One consistent look (user decision): our voxel render everywhere; the
   // archive/slicer thumbnail is only the fallback when no render is cached
   // yet - it is big (slow off the SD), soft when scaled, and off-style.
-  else path = Layer_Height > 0.06 ? "/" + name + "/preview1s.png" : "/" + name + "/preview05s.png";
-  File f = SD.open(path.c_str());
+  else f = openModelRender(name);      // either render, see the note above it
   if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
   if (!f) {
     sendApiError(404, "preview not found");
@@ -1202,7 +1214,9 @@ void handleApiFileModel() {
   bool preview05 = sdPathExists("/" + name + "/preview05s.png");
   bool preview1 = sdPathExists("/" + name + "/preview1s.png");
   bool previewLegacy = sdPathExists("/" + name + "/preview.png");
-  bool previewExists = (Layer_Height > 0.06 ? preview1 : preview05) || previewLegacy;
+  // Either render counts (see modelRenderPath): the picture is the same model
+  // at any layer height, so a resin switch must not make it "missing".
+  bool previewExists = preview1 || preview05 || previewLegacy;
   out += previewExists ? "true" : "false";
   out += ",\"preview05\":";
   out += preview05 ? "true" : "false";
@@ -1705,6 +1719,9 @@ void handleApiConfigGet() {
 void handleApiConfigSave() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
+  // Layer height lives in here, and the resume prompt is answered later - see
+  // the note at resumeLayerHeightCm. Same reason on restore/defaults below.
+  if (rejectIfResumePending()) return;
 
   bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
@@ -1750,6 +1767,7 @@ void handleApiConfigBackupSd() {
 void handleApiConfigRestore() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
   String body = server.arg("plain");
   if (body.length() < 10 || backupNum(body, "backupVersion", 0) < 1) {
     sendApiError(400, "not a TinyMaker backup file");
@@ -1773,6 +1791,7 @@ void handleApiConfigRestore() {
 void handleApiConfigRestoreSd() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
   if (!sdCardReady()) {
     sendApiError(409, "SD card not ready");
     return;
@@ -1797,6 +1816,13 @@ void handleApiConfigRestoreSd() {
 }
 
 void resetWebConfigToDefaults() {
+  // Factory numbers are the factory resin's, so the name has to follow them -
+  // otherwise the row keeps naming a resin whose values are gone (audit 08-16).
+  resinProfileName = "slow";
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putString("resinProf", resinProfileName);
+  sysPrefs.end();
+  resinProfileRev++;
   resetSettingsToDefault();
   resinClearCalibration();   // R-cal: a stale factor would silently skew every
                              // resin number after a "reset to defaults"
@@ -1839,6 +1865,7 @@ void resetConnectConfigToDefaults() {
 void handleApiConfigDefaults() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
 
   resetWebConfigToDefaults();
   tinymakerConnectScheduleBackup();
@@ -3679,6 +3706,7 @@ void handleApiResinProfileSelect() {
   if (!resinProfileExists(name)) { sendApiError(404, "profile not found"); return; }
   if (!applyResinProfile(name)) { sendApiError(500, "could not read the profile"); return; }
   sdRev++;   // per-model times come from this profile - every list is now stale
+  tinymakerConnectScheduleBackup();   // as every other settings path does
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
 }
 

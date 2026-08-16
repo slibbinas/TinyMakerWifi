@@ -229,6 +229,7 @@ bool applyResinProfile(const String &name) {
   ResinProfileValues v;
   if (!resinProfileValues(name, v)) return false;
   bool heightChanged = (v.layerHeight != Layer_Height);
+  long replacedBaseS = Base_Exposure, replacedRegDs = Regular_Exposure;
 
   Layer_Height = v.layerHeight;
   Base_Exposure = v.baseExposure;
@@ -262,6 +263,15 @@ bool applyResinProfile(const String &name) {
   if (calRawA > 0 || calRawB > 0)
     resinFitCalibration();          // re-derive factor/fixed at THIS density
 
+  // Dashboard "Undo" offers the exposure this switch replaced. Without these
+  // it offered whatever an unrelated edit left behind, and one click wrote a
+  // stranger's number into the new resin (audit 08-16).
+  rememberPrevBaseExposure(replacedBaseS);
+  rememberPrevRegularExposure(replacedRegDs);
+  // The last print's raw ml belonged to the OLD resin: left standing, the next
+  // weighing would calibrate this profile against someone else's print.
+  lastPrintRawMl = -1;
+
   resinProfileName = name;
   resinProfileRev++;
   savePrintSettings();
@@ -270,7 +280,11 @@ bool applyResinProfile(const String &name) {
   // pairs two 0.05 mm slices). Re-run the preview so the count, the height and
   // the time estimate match the profile now in force - otherwise Start would
   // print half the model, or run past the last slice.
-  if (heightChanged && (screen == 111 || screen == 113 || screen == 114))
+  /* 111 = paruostas modelis, 114 = mazos dervos ispejimas. 113 CIA NEGALIMA:
+     tai „Delete model?" patvirtinimas, ir jis tyliai virstu print preview su
+     [Start] po pirstu (auditas 08-16). 115 (VAT klausimas) dengia stagedLayerHeight
+     sarga pries pat starta. */
+  if (heightChanged && (screen == 111 || screen == 114))
     screen111();
   return true;
 }

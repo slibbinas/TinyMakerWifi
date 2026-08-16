@@ -1411,7 +1411,11 @@ void screen111(){
   } while(entry);
   layer_counter --;
 
-  // Calculate motor timing  
+  // Whose height this count belongs to - checked again at Start, in case the
+  // resin (and with it the layer height) changed while the model stood staged.
+  stagedLayerHeight = Layer_Height;
+
+  // Calculate motor timing
   get_motor_updown_time();
 
   // Calculate height
@@ -1461,6 +1465,26 @@ void screen111(){
  * @brief Screen 112: Height Warning
  * Displays warning if object height exceeds build volume.
  */
+/**
+ * @brief Resume refused: the layer height is not the one this print was made
+ * with. The recovery move is derived from the height in force, so continuing
+ * would drive the plate to the wrong place - say so and go home.
+ */
+void screenResumeHeightChanged(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Layer height changed");
+  gfx2->setCursor(6, 34);
+  gfx2->println("after this print - it");
+  gfx2->setCursor(6, 52);
+  gfx2->println("cannot be resumed.");
+  delay(3500);
+  screen1();
+}
+
 void screen112(){
   uiFrame(RED);
   gfx2->fillRoundRect(9, 4, 5, 10, 1, RED);

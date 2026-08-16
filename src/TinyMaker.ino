@@ -146,6 +146,11 @@ inline double pxToMlRaw(unsigned long px, float layerH) {
 }
 bool estimateResin();               // returns true if user chose Start
 bool startFromResin = false;        // set when Start pressed on resin screen
+// The layer height in force when the staged model counted its layers. A resin
+// profile carries its own height, so a switch from the browser between staging
+// and Start would otherwise print with the old count - half the model at
+// 0.10 -> 0.05, or past the last slice the other way (V asked, 08-16).
+float stagedLayerHeight = -1;
 bool webStartPrint = false;         // set by the web SD manager after preview validation
 bool webResumePrint = false;        // set by the web dashboard while paused
 
@@ -194,6 +199,12 @@ double resumeResinMl = 0;           // resinUsedMl at the checkpoint
 uint32_t resumeElapsedSecs = 0;     // print time elapsed at the checkpoint
 uint32_t resumeUvLedSecs = 0;       // uvLedSessionMs (as secs) at the checkpoint
 char resumeFolder[101] = "";        // model folder of the interrupted print
+// Layer height of the interrupted print, in hundredths of a mm. resumeLoad()
+// checks it at boot, but the prompt stands there while the browser is already
+// up: a settings restore, a factory reset or a resin profile can still move
+// the height before Resume is pressed - and the recovery move is computed from
+// the height in force THEN. Re-checked at the press (audit 08-16).
+int resumeLayerHeightCm = -1;
 
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
@@ -2237,6 +2248,13 @@ void loop() {
             break;
           }
         }
+        /* Paskutinis patikrinimas pries pajudant: ar sluoksniu skaicius vis dar
+           tos pacios dervos? Perjungus profili is narsykles tarp „paruosta" ir
+           „Start" (VAT klausimas, mazos dervos ispejimas) skaicius liktu senas -
+           prie 0.10 -> 0.05 butu atspausdinta tik apatine pusė. Perskaiciuojam
+           tik tada, kai aukstis tikrai kitas (V klausimas, 08-16). */
+        if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) screen111();
+
         resinWarnAccepted = false;
         refillAsked = false;      // re-ask on the next print
         startFromResin = false;   // consume the resin-screen Start request
@@ -2292,6 +2310,16 @@ void loop() {
         resumeBootPending = false;   // boot-update check may run again later
         if (resuming) {
           if (resumePhase == 0) { screen1(); break; }   // nothing loaded
+          /* Aukstis pasikeite tarp klausimo ir Resume? Toliau einantis judesys
+             skaiciuojamas is DABARTINIO aukscio: prie 0.10 -> 0.05 plokste butu
+             nuleista i puse tikro aukscio, t. y. i jau isspausdinta detale (FEP,
+             derva, Z). Geriau atsisakyti tesimo, nei sulaužyti. */
+          if (resumeLayerHeightCm > 0 &&
+              resumeLayerHeightCm != (int)lroundf(Layer_Height * 100)) {
+            resumePhase = 0;
+            screenResumeHeightChanged();
+            break;
+          }
           strlcpy(foldersel_long, resumeFolder, sizeof(foldersel_long));
           foldersel = String(resumeFolder);
           layer_counter = resumeTotal;

@@ -148,6 +148,7 @@ bool resumeLoad() {
   if (layer < 0 || layer >= total) return false;
   if (ph == 'S' && layer != 0) return false;
   if (lh != lroundf(Layer_Height * 100)) return false;   // setting changed
+  resumeLayerHeightCm = (int)lh;   // re-checked again when Resume is pressed
   if (pos < 0 || pos > (long)(max_height * steps_mm)) return false;
   if (live < 0) live = 0;                                    // relabel-only value; keep in range
   else if (live > (long)(max_height * steps_mm)) live = pos; // implausible -> fall back to exact base

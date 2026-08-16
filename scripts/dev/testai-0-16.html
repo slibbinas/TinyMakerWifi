@@ -36,8 +36,8 @@ textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:va
  border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 monospace}
 </style></head><body>
 
-<h1>0.17 · dervų profiliai — geležies testai</h1>
-<div class="sub">Build <b>e6ba98a</b>, 2026-08-16 13:39. Biblioteka gyva gh-pages. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.</div>
+<h1>0.17 · dervų profiliai - geležies testai</h1>
+<div class="sub">Build <b>042b15c+</b>, 2026-08-16 16:30. Biblioteka gyva gh-pages. Grupė <b>K</b> - šios sesijos pataisos, pradėk nuo jos. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.</div>
 
 <div class="bar">
   <span class="count" id="cnt">0 / 0</span>
@@ -56,12 +56,12 @@ const G=[
   ["Įdėk kortelę atgal, perkrauk.","Pagrindiniame lange dervos eilutė rodo aktyvų profilį su aukščiu."],
  ]],
  ["B · Perjungimas iš pagrindinio lango",[
-  ["Perjunk į kitą dervą, kai laukai nekeisti.","Persijungia tyliai, be klausimų. Žinutė „Now printing with…“."],
+  ["Perjunk į kitą dervą, kai laukai nekeisti.","Persijungia tyliai: JOKIO snackbaro. Eilutė rodo naują dervą, laukai - naujas reikšmes."],
   ["Settings → pakeisk Base exposure, negrįžk. Pagrindiniame lange perjunk dervą.","Klausia: Save first / Switch anyway / Cancel."],
   ["Pasirink „Save first“.","Įrašo TĄ reikšmę, kurią matei ekrane (ne senąją). Patikrink grįžęs į profilį."],
   ["Pakartok ir pasirink „Cancel“.","Niekas nepasikeitė - lieka ta pati derva ir tos pačios reikšmės."],
  ]],
- ["C · Sluoksnio aukštis — rizikingiausia",[
+ ["C · Sluoksnio aukštis - rizikingiausia",[
   ["Settings → Resin: pakeisk aukštį į 0,10, Save as… „test-010“.","Naujas profilis sąraše su „· 0.10 mm“."],
   ["Perjunk tarp „test-010“ ir Fast.","Layer height laukas persijungia 0,10 ↔ 0,05 kartu su ekspozicija."],
   ["⚠️ Atidaryk modelį (peržiūra su Start), TADA perjunk į kitą aukštį.","Peržiūra persiskaičiuoja: sluoksnių skaičius ir laikas pasikeičia. NELIEKA senų."],
@@ -107,6 +107,28 @@ const G=[
  ]],
  ["J · Atsarginė kopija",[
   ["Settings → Backup → parsisiųsk, tada atkurk.","Aktyvaus profilio vardas ir vato svoris grįžta."],
+ ]],
+ ["K · Peržiūra ir dervos perjungimas (pataisyta 08-16 vakare)",[
+  ["Įjunk detalų vaizdą. Prie Slow (0,10) atidaryk scull.","Modelis pilnas: nieko neperpjauta per pusę, centras vietoje."],
+  ["Perjunk į Fast (0,05) ir atidaryk scull dar kartą.","Vaizdas TIKSLIAI toks pat, kaip prie 0,10. Piešimas nuo dervos nebepriklauso."],
+  ["Tas pats su dragonHead ir ScreamingEvil.","Abu vienodi prie abiejų aukščių."],
+  ["Perjunk dervą pagrindiniame lange, žiūrėk į kortelę.","Jokio snackbaro. Layers/Time/Resin persiskaičiuoja patys: scull 0,05 → 480 ir ~2h 16m, 0,10 → 240 ir ~1h 32m."],
+  ["Kraunant peržiūrą („Building the 3D view N/240“) paspausk kito modelio eilutę.","Senas krovimas nutrūksta, prasideda naujas. Sustingusio skaičiaus nelieka."],
+  ["Kraunant peržiūrą ištrink kitą modelį (kortelę užima SD darbas).","Peržiūra arba pabaigia, arba rašo „Preview stopped … click to load again“. Amžinai sustingęs skaičius = ✗."],
+  ["Paspausk ant sustojusio vaizdo.","Krovimas prasideda iš naujo."],
+  ["dragonHead (turi tik 0,10 kartos paveikslėlį): perjunk į 0,05 ir atidaryk.","Paveikslėlis NEDINGSTA ir nereikia laukti perpiešimo."],
+  ["⚠️ DRY RUN. Prie printerio paspausk Start, kol kabo „VAT refilled?“, telefone perjunk dervą į kitą aukštį, tada patvirtink Start.","Spausdina TEISINGĄ skaičių pagal naują dervą (0,05 → 480, 0,10 → 240), ne senąjį."],
+  ["⚠️ DRY RUN prie 0,10 su jau paruoštu 3D.","Kortelė 3D neperkrauna iš naujo, vaiduoklis (neatspausdinta dalis) matomas nuo pirmo sluoksnio."],
+ ]],
+ ["L · Saugikliai (antrasis auditas, 08-16 vakare)",[
+  ["⚠️ DRY RUN. Paleisk, po kelių sluoksnių išjunk maitinimą. Įjungęs, kol ekrane kabo „Resume?“, telefone bandyk perjungti dervą, Reset to defaults ir Restore backup.","VISI trys atsisako: „a print is waiting to be resumed“. Nustatymai nepasikeičia."],
+  ["Tada prie printerio spausk Resume.","Tęsia normaliai nuo to paties sluoksnio."],
+  ["⚠️ Pakartok, bet aukštį pakeisk PRIE PRINTERIO (Advanced → Resin → Profile su kitu aukščiu), tada Resume.","Ekranas: „Layer height changed after this print - it cannot be resumed“ ir grįžta į pradžią. Plokštė NEJUDA žemyn."],
+  ["Prie printerio palaikyk OK ant modelio („Delete model?“), tuo metu telefone perjunk dervą su kitu aukščiu.","Klausimas LIEKA. Jei virsta į peržiūrą su [Start] - ✗ (pirštas jau ant OK)."],
+  ["Perjunk dervą, tada Settings pažiūrėk Undo prie ekspozicijos.","Siūlo tą reikšmę, kurią perjungimas ką tik pakeitė (ne senesnę, svetimą)."],
+  ["Perjunk dervą ir pažiūrėk Resin calibration kortelę.","Nebesiūlo kalibruoti pagal paskutinį spaudinį - jis buvo su kita derva."],
+  ["Settings → Reset to defaults.","Dervos eilutė rodo „Slow resin (factory)“, ne senąjį pavadinimą."],
+  ["Perjunk dervą, palauk ~pusę minutės (jei Connect įjungtas).","Debesų kopija atsinaujina: po restore grįžta NAUJOS dervos reikšmės."],
  ]],
 ];
 let S=JSON.parse(localStorage.getItem('t016')||'{}');
