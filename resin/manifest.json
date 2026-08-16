@@ -2,7 +2,7 @@
   "profiles": [
     {
       "name": "sunlu-tough",
-      "display": "SUNLU Tough",
+      "display": "SUNLU Toughness Resin",
       "file": "sunlu-tough.json",
       "layerHeight": 0.05,
       "testedBy": "TinyMakerWiFi",
