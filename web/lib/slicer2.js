@@ -814,15 +814,25 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
                        need(rBack), safetyDistance(rBack, cfg));
     }
     if (!(hit > need(rBack))) continue;            // netelpa — taško atsisakom
-    const junction = add(p.pos, mul(dir, width));
-    /* Jungtis turi tilpti VIRS pado, ne virs pedos aukscio. Buvo
-       `base_height_mm` (1,0 mm), ir del to paguldyto modelio apacioje
-       galvutes tiesiog iskrisdavo: kontaktas ties z = 0,7 duoda jungti maziau
-       nei per 1,0, tad taskas buvo pasetas, o galvute - ne. Butent tai palikdavo
-       14 salu biuste ant sono (ismatuota 08-19). Pado virsus - realus fizinis
-       apribojimas: zemiau jo stulpo nebus. */
-    if (junction[2] < (cfg.seed_from_mm != null ? cfg.seed_from_mm
-                                                : cfg.pad_thickness_mm)) continue;
+    let junction = add(p.pos, mul(dir, width));
+    /* Grindys - pado virsus. Zemiau ju stulpo nebus, tad jungtis ten neturi ko
+       veikti. Buvo `base_height_mm` (1,0 mm) ir galvute tiesiog ISMESTA - o
+       kotelis yra 3 mm ilgio, tad kiekvienas kontaktas ARCIAU nei 3 mm nuo
+       plokstes duodavo jungti po zeme ir dingdavo. Butent tai palikdavo salas
+       paguldyto modelio apacioje (ismatuota 08-19: biuste 13, ir visos
+       ties z = 0,65-4,45 mm).
+       Dabar galvutes NEMETAM, o TRUMPINAM iki grindu - taip daro ir originalas
+       plonoms galvutems (`lmin` = 0, DefaultSupportTree.cpp:455). */
+    const grindys = cfg.seed_from_mm != null ? cfg.seed_from_mm : cfg.pad_thickness_mm;
+    if (junction[2] < grindys) {
+      const dz = -dir[2];                          // kiek nusileidziam per 1 ilgio
+      if (!(dz > 1e-6)) continue;                  // kotelis eina i sona - nera ka trumpinti
+      const naujas = (p.pos[2] - grindys) / dz;
+      if (naujas <= 1e-6) continue;                // kontaktas ir taip ant pado
+      width = naujas;
+      rBack = Math.min(rBack, cfg.head_fallback_radius_mm);   // trumpas = plonas
+      junction = add(p.pos, mul(dir, width));
+    }
     heads.push({ pos: p.pos, dir, rBack, width, junction, pillar: -1, onModel: false });
   }
   log.heads = heads.length;
@@ -1019,7 +1029,12 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   const connectToGround = h => {
     const src = h.junction, r = h.rBack, sd = passSafety(r, cfg);
     const gnd = cfg.object_elevation_mm;
-    if (src[2] <= gnd + cfg.base_height_mm) return false;
+    /* Grindys - pado virsus, ne pedos aukstis. Su `base_height_mm` (1,0 mm)
+       tiltas i plokste atsisakydavo dirbti visai zemai, ir zemos galvutes
+       likdavo be nieko - trecia ta pati prielaida „prie plokstes laikosi
+       pats" (dvi kitos - sejoje ir galvuciu statyme, 08-19). */
+    const grindysG = cfg.seed_from_mm != null ? cfg.seed_from_mm : cfg.pad_thickness_mm;
+    if (src[2] <= gnd + grindysG) return false;
     /* Kryptys paruošiamos vieną kartą, o ilgis auga VISOMS iš karto: pirmas
        radinys tada ir yra trumpiausias tiltas, ir paieška nutrūksta. Anksčiau
        kiekviena kryptis buvo perrenkama iki galo — maršrutizacija truko 8,7 s. */
@@ -1059,7 +1074,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
         for (const d of dirs) {
           if (l > d.lmax) continue;
           const p = add(src, mul(d.n, l));
-          if (p[2] <= gnd + cfg.base_height_mm) continue;
+          if (p[2] <= gnd + grindysG) continue;
           /* Pigus atmetimas: viena ašis. Beveik visi kandidatai krenta čia, ir
              brangaus pluošto jiems nebereikia. */
           if (mesh.rayHit(p, DOWN).dist < p[2] - gnd) continue;
@@ -1499,7 +1514,17 @@ export async function buildPad(pos, pillars, cfg = CFG) {
   const foot = stitch(seg);          // pačios detalės pėdsakas
   const paths = foot.slice();
   for (const p of pillars)
-    if (p.bottom <= 1e-6) paths.push(circlePath(p.x, p.y, cfg.base_radius_mm));
+    if (p.bottom <= 1e-6) {
+      /* Pado apskritimas - TIKRO pedos plocio, ne visada pilno. Trumpam
+         stulpeliui peda nupjauta ties jo virsumi (zr. `pillarDiscs2`), tad
+         imant cia visada `base_radius_mm` padas isputdavo be reikalo: biuste
+         33 kelmeliai po 0,30 mm pridejo po 3 mm skersmens apskritima, ir pado
+         plotas soko 285 -> 647 mm2 (ismatuota 08-19). */
+      const rTop = p.rTop || cfg.pillar_radius_mm;
+      const pedaH = Math.min(cfg.base_height_mm, Math.max(1e-6, p.top - p.bottom));
+      const rBase = rTop + (cfg.base_radius_mm - rTop) * (pedaH / cfg.base_height_mm);
+      paths.push(circlePath(p.x, p.y, rBase));
+    }
   if (!paths.length) return null;
 
   // Sujungiam viską į vieną figūrą (non-zero, kaip libslic3r).
@@ -2092,9 +2117,16 @@ export function pillarDiscs2(pillars, z, cfg = CFG) {
     if (z > p.top || z < p.bottom) continue;
     let r = p.rTop || cfg.pillar_radius_mm;
     const up = z - p.bottom;
-    if (p.bottom <= 1e-6 && up < cfg.base_height_mm) {
-      const t = up / cfg.base_height_mm;
-      r = cfg.base_radius_mm + (r - cfg.base_radius_mm) * t;
+    /* Pedos aukstis - ne daugiau nei pats stulpas. Trumpam stulpeliui pilno
+       plocio peda yra platesne uz ji pati: 0,5 mm stulpelis gaudavo 3 mm
+       skersmens pagrinda, ir biusto derva soktelejo 955 -> 1069 mm3 su pado
+       plotu 285 -> 647 mm2 (ismatuota 08-19). Kugio slaitas lieka tas pats,
+       tik nupjautas ties stulpo virsumi. */
+    const pedaH = Math.min(cfg.base_height_mm, Math.max(1e-6, p.top - p.bottom));
+    if (p.bottom <= 1e-6 && up < pedaH) {
+      const t = up / pedaH;
+      const rBase = r + (cfg.base_radius_mm - r) * (pedaH / cfg.base_height_mm);
+      r = rBase + (r - rBase) * t;
     }
     out.push({ x: p.x, y: p.y, r });
   }
