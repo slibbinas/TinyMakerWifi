@@ -1178,11 +1178,6 @@ const uploadFixedThumb=async(name,type)=>{
     repaintPreviewForTheme();
   }
 };
-const localPreviewBlob=async(name,type)=>{
-  const r=await fetch('/api/files/model/preview?name='+enc(name)+'&type='+enc(type)+'&r='+Date.now(),{cache:'no-store'});
-  if(!r.ok)throw new Error('saved preview '+type+' failed to load');
-  return await r.blob();
-};
 /* Kai patys pradedam darba, kuris uzima vienintelį printerio rysi (dalijimasis,
    ikelimas), cia iraso zmogiska jo pavadinima - tada tyla paaiskinama tiksliai, o ne
    spejant (V 08-13). Tuscia = nezinom, kas vyksta. */
@@ -1389,7 +1384,7 @@ const resinMarkDirty=()=>{
   // active built-in has an overlay, whether or not the fields were touched.
   const p=resinById(resinSel);
   const rb=$('resinResetButton');
-  if(rb)rb.classList.toggle('hidden',!(p&&p.builtin&&p.edited));
+  if(rb)rb.classList.toggle('hidden',!(p&&p.builtin&&(p.overlay||p.edited)));
   const rn=$('resinRenameButton');
   if(rn)rn.classList.toggle('hidden',!(p&&!p.builtin));
 };
@@ -1467,7 +1462,9 @@ const renderResinModal=()=>{
     del.type='button';del.className='rbIcon rbDel';
     del.title=p.builtin?'Back to factory values':'Delete this profile';
     del.textContent=p.builtin?'↺':'✕';   // both render in the UI font; the bin emoji did not
-    del.disabled=p.builtin&&!p.edited;
+    // „Reset to factory" nuima FAILA, ne skirtuma: overlay su gamyklinemis
+    // reiksmemis zenkliuko nebeturi, bet ji vis tiek reikia kur nors istrinti.
+    del.disabled=p.builtin&&!(p.overlay||p.edited);
     del.addEventListener('click',async()=>{
       closeResinModal();
       if(p.builtin)await resetResinRow(p); else await deleteResinRow(p);
@@ -1996,7 +1993,7 @@ const applyStatus=s=>{
           /* 480 vs 240 yra tas pats modelis TIK prie 0,10 (printeris poruoja du
              pjuvius). Be sio aukscio patikrinimo perpjaustytas to paties vardo
              modelis praeitu pro sarga ir visa spaudini piestume sena geometrija. */
-          &&!(slicesCache.layers===2*s.totalLayers&&Number(s.layerHeight)>0.06))))fetchLiveSlices(s.model,0);
+          &&!(slicesCache.layers>=2*s.totalLayers&&slicesCache.layers<=2*s.totalLayers+1&&Number(s.layerHeight)>0.06))))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
@@ -3344,10 +3341,9 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
     if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');
     const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
-    // source=1 = the files as sliced, no printer-side re-mapping. Anything but
-    // the explicit "as printed at 0.10" view wants the model itself.
-    if(mode==='print1')url+='&layer_height=0.10';
-    else url+='&source=1';
+    // source=1 = the files as sliced, no printer-side re-mapping: the picture is
+    // the model, not the printer's plan for it.
+    url+='&source=1';
     /* Vieno sluoksnio suklupimas nekainuoja viso krovimo: ESP32 aptarnauja po
        viena uzklausa, tad sluoksnis gali netekti eiles busenos apklausai ar SD
        darbui. Klausiam dar karta ir tik tada pasiduodam (V 08-16). */

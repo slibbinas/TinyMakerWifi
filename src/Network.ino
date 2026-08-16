@@ -503,8 +503,8 @@ void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   if (allowSdInit && !sdCardReady()) return;
   String name = String(foldersel_long);
   if (!name.length()) return;
-  // Same pick as the serve path below: our render, legacy single preview as
-  // the fallback.
+  // Same pick as the serve path below: either saved render (the picture does
+  // not depend on the layer height), legacy single preview as the fallback.
   File f = openModelRender(name);
   if (!f) f = SD.open(("/" + name + "/preview.png").c_str());   // slicer'io, kaip ir buvo
   if (!f) return;
@@ -579,7 +579,12 @@ void handleApiFileModelPreview() {
   uint8_t buf[512];
   int n;
   WiFiClient client = server.client();
-  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  // ~100 KB into a browser that walked away holds the only request thread; the
+  // layer stream got this guard, this one is the same file, only bigger.
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if (!client.connected()) break;
+    client.write(buf, n);
+  }
   f.close();
 }
 
@@ -1818,9 +1823,12 @@ void handleApiConfigRestoreSd() {
 void resetWebConfigToDefaults() {
   // Factory numbers are the factory resin's, so the name has to follow them -
   // otherwise the row keeps naming a resin whose values are gone (audit 08-16).
-  resinProfileName = "slow";
+  resinProfileName = "slow";   // saveDeviceConfig() below persists it
+  // The last print was made with the resin being reset away; a weighing against
+  // it would calibrate the factory profile from a stranger's print.
+  lastPrintRawMl = -1;
   sysPrefs.begin("tinymaker", false);
-  sysPrefs.putString("resinProf", resinProfileName);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
   sysPrefs.end();
   resinProfileRev++;
   resetSettingsToDefault();
@@ -3672,6 +3680,10 @@ void handleApiResinProfileList() {
     out += ",\"layerHeight\":" + String(v.layerHeight, 2);
     out += ",\"builtin\":" + String(info.builtin ? "true" : "false");
     out += ",\"edited\":" + String(info.edited ? "true" : "false");
+    // Separate from "edited": the badge means the numbers differ, this means
+    // there is a file to delete. An overlay holding the factory values is not
+    // an edit, but Reset still has to be able to remove it (audit 08-16).
+    out += ",\"overlay\":" + String(info.hasFile ? "true" : "false");
     out += ",\"baseExposure\":" + String(v.baseExposure);
     out += ",\"regularExposure\":" + String(v.regularDs / 10.0f, 1);
     out += ",\"baseLayers\":" + String(v.baseLayers);

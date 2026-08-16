@@ -71,11 +71,6 @@ bool resinProfileFileExists(const String &name) {
   return ok;
 }
 
-// A built-in whose values have been overwritten by the user.
-bool resinProfileEdited(const String &name) {
-  return resinBuiltinIndex(name) >= 0 && resinProfileFileExists(name);
-}
-
 // Fill out[] with the .json basenames in /resin, built-in slugs skipped (they
 // are listed from flash instead, with the overlay merged in). Returns count.
 int listResinProfileFiles(String out[], int maxN) {
@@ -138,6 +133,7 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
   int b = resinBuiltinIndex(name);
   info.builtin = (b >= 0);
   info.edited = false;
+  info.hasFile = false;
   info.display = info.builtin ? String(RESIN_BUILTIN[b].display) : slugToTitle(name);
   bool known = false;
   // Every field needs a sane starting value BEFORE the file is read: a card
@@ -159,6 +155,7 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
 
   String json;
   if (!resinProfileReadJson(name, json)) return known;
+  info.hasFile = true;          // there is something on the card to delete
   info.edited = info.builtin;   // the file shadows the flash values
   ResinProfileValues &v = info.v;
   // ...but a file that happens to hold the factory numbers is not an edit. The

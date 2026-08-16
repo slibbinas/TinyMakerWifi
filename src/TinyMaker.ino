@@ -121,7 +121,8 @@ struct ResinProfileInfo {
   ResinProfileMeta meta;
   String display;
   bool builtin;
-  bool edited;         // a built-in with an overlay file on the card
+  bool edited;         // a built-in whose numbers differ from the flash ones
+  bool hasFile;        // an overlay file exists on the card (may equal factory)
 };
 void resinProfileFromCurrent(ResinProfileValues &v);
 bool resinProfileValues(const String &name, ResinProfileValues &v);
@@ -2255,7 +2256,26 @@ void loop() {
            „Start" (VAT klausimas, mazos dervos ispejimas) skaicius liktu senas -
            prie 0.10 -> 0.05 butu atspausdinta tik apatine pusė. Perskaiciuojam
            tik tada, kai aukstis tikrai kitas (V klausimas, 08-16). */
-        if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) screen111();
+        if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) {
+          screen111();
+          // A card that misreads at exactly this moment would otherwise start a
+          // print of nothing: the plate goes down and the job "finishes" with no
+          // layer ever exposed. (The count here is already the PRINT count, so at
+          // 0.10 mm the upper bound is twice as generous as the staging one -
+          // that path has already refused anything near it.)
+          if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
+            // Consume the start request like the two exits above do. Left
+            // standing it re-fires the OK branch every pass, and the next
+            // screen would start a print nobody asked for (audit 08-16).
+            startFromResin = false; webStartPrint = false;
+            resumeStartPrint = false; resinWarnAccepted = false; refillAsked = false;
+            #if ENABLE_NETWORK
+            freePreviewCache();   // up to 120 KB held for a print that is not happening
+            #endif
+            screen112();
+            break;
+          }
+        }
 
         resinWarnAccepted = false;
         refillAsked = false;      // re-ask on the next print
@@ -2311,7 +2331,14 @@ void loop() {
         resumeStartPrint = false;
         resumeBootPending = false;   // boot-update check may run again later
         if (resuming) {
-          if (resumePhase == 0) { savePrintActiveFlag(false); screen1(); break; }   // nothing loaded
+          if (resumePhase == 0) {           // nothing loaded
+            savePrintActiveFlag(false);
+            #if ENABLE_NETWORK
+            freePreviewCache();
+            #endif
+            screen1();
+            break;
+          }
           /* Aukstis pasikeite tarp klausimo ir Resume? Toliau einantis judesys
              skaiciuojamas is DABARTINIO aukscio: prie 0.10 -> 0.05 plokste butu
              nuleista i puse tikro aukscio, t. y. i jau isspausdinta detale (FEP,
@@ -2321,9 +2348,13 @@ void loop() {
             // Nothing started, so nothing may stay armed: the print-active flag
             // was set a few lines up and would report a crash on the next boot.
             savePrintActiveFlag(false);
+            #if ENABLE_NETWORK
+            freePreviewCache();   // the browser's snapshot, for a print that is not happening
+            #endif
             // Back to the prompt, NOT to the menu: the plate still stands in the
             // vat, and the prompt is the only place with "lift the plate" and
-            // "discard". The record stays - put the height back and Resume works.
+            // "discard" - the two things left to do. (Changing the height back is
+            // not one of them: every settings route is closed while it stands.)
             screenResumeHeightChanged();
             screenResumePrompt();
             break;

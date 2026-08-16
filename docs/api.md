@@ -67,8 +67,8 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `/api/files` | GET | SD inventory (models + archives) with sizes and free space |
 | `/api/files/model` | GET | one model's details; `name=`, optional `estimate=1` for the resin estimate |
 | `/api/files/model/metadata` | POST | update model metadata (`model.json`) |
-| `/api/files/model/preview` | GET/POST | fetch / store the cached preview PNG; `name=`, `type=05|1`. While printing, the **active** model's preview is served from a RAM snapshot taken at print start (`type` ignored — the snapshot matches the active layer height); other names, or a snapshot that did not fit in heap, answer `409` (0-19) |
-| `/api/files/layer` | GET | a single layer PNG (browser-side slicing/preview) |
+| `/api/files/model/preview` | GET/POST | fetch / store the cached preview PNG; `name=`, `type=05|1`. While printing, the **active** model's preview is served from a RAM snapshot taken at print start (`type` ignored); other names, or a snapshot that did not fit in heap, answer `409` (0-19) |
+| `/api/files/layer` | GET | a single layer PNG (browser-side slicing/preview). `source=1` (what the dashboard always sends) makes `i` the file number; without it `i` is a PRINT layer and 0.10 mm maps it to every other file |
 | `/api/files/delete` | POST | delete an SD item; `name=` |
 | `/upload` | POST | multipart model upload (`.sl1`/`.zip`); fields: `file`, `action=replace|rename` on a 409 name conflict, `source`, optional Connect credits fields |
 | `/api/files/local` | POST | the same upload path with the OctoPrint shape — PrusaSlicer "Send to printer" |
@@ -149,7 +149,18 @@ homing diagnostics.
 
 All four mutating resin routes are idle-only (`rejectIfBusy`) and also refuse
 while a power-loss resume is pending (409): the second half of an interrupted
-print has to come out with the same exposure as the first.
+print has to come out with the same exposure as the first. **The same 409 now
+guards every other route that can move a setting** — `/api/config`,
+`/api/config/defaults`, `/api/config/restore`, `/api/config/restore/sd` — because
+the resume move is computed from the layer height in force when Resume is
+pressed, and a changed height would drive the plate into the cured object. The
+press itself re-checks, and refuses on the printer if the height no longer
+matches the record.
+
+`GET /api/resin-profile` lists each profile with `edited` (its numbers differ
+from the built-in ones) and `overlay` (a file exists on the card). They are not
+the same thing: an overlay holding the factory values is not an edit, but it is
+still there to delete.
 
 ## Static
 

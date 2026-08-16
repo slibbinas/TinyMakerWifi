@@ -1462,13 +1462,10 @@ void screen111(){
 
 
 /**
- * @brief Screen 112: Height Warning (see the resume screen just above)
- * Displays warning if object height exceeds build volume.
- */
-/**
  * @brief Resume refused: the layer height is not the one this print was made
  * with. The recovery move is derived from the height in force, so continuing
- * would drive the plate to the wrong place - say so and go home.
+ * would drive the plate to the wrong place - say so, and let the caller put
+ * the resume prompt back up (lift / discard are still there).
  */
 void screenResumeHeightChanged(){
   uiFrame(RED);
@@ -1482,9 +1479,14 @@ void screenResumeHeightChanged(){
   gfx2->setCursor(6, 52);
   gfx2->println("cannot be resumed.");
   delay(3500);
-  screen1();
+  // No screen1() here: the caller puts the resume prompt back up, and drawing
+  // the main menu in between only flashed it for a frame.
 }
 
+/**
+ * @brief Screen 112: Height Warning
+ * Displays warning if object height exceeds build volume.
+ */
 void screen112(){
   uiFrame(RED);
   gfx2->fillRoundRect(9, 4, 5, 10, 1, RED);
