@@ -1,0 +1,87 @@
+<meta charset="utf-8">
+<title>TinyMaker - vietinis ūkis</title>
+<style>
+:root{color-scheme:light;
+ --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
+ --accent:#f07a1a;--code:#eef0f3;
+ --ok:#1f9d4d;--okbg:#e8f6ee;--warn:#b97a10;--warnbg:#fdf3e0;
+ --old:#d7454f;--oldbg:#fdeaea;--mut:#6b7280;--mutbg:#eef0f3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);padding:28px 16px 70px;
+ font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:960px;margin:0 auto}
+h1{font-size:1.35rem;margin:0 0 4px}
+h1 .dot{color:var(--accent)}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 18px}
+.rule{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+ border-radius:10px;padding:11px 15px;margin:0 0 20px;font-size:.87rem}
+h2{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+ margin:26px 0 10px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:11px}
+.c{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;
+ padding:13px 15px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s}
+.c:hover{border-color:var(--accent);transform:translateY(-1px)}
+.ct{display:flex;align-items:baseline;gap:9px;margin-bottom:5px}
+.cn{font-weight:700;font-size:.95rem}
+.cp{color:var(--text);font-size:.85rem;margin-bottom:7px}
+.cm{color:var(--muted);font-size:.76rem}
+.pill{margin-left:auto;flex:0 0 auto;padding:2px 9px;border-radius:999px;
+ font-size:.7rem;font-weight:700;white-space:nowrap}
+.p-ok{background:var(--okbg);color:var(--ok)}
+.p-warn{background:var(--warnbg);color:var(--warn)}
+.p-old{background:var(--oldbg);color:var(--old)}
+.p-mut,.p-ext{background:var(--mutbg);color:var(--mut)}
+code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:.85em}
+.arch{margin-top:26px}
+.arch summary{cursor:pointer;font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;
+ color:var(--muted);font-weight:700;margin-bottom:10px}
+.foot{margin-top:28px;font-size:.78rem;color:var(--muted)}
+</style>
+<div class="wrap">
+<h1>TinyMaker <span class="dot">·</span> vietinis ūkis</h1>
+<p class="sub">Viskas, kas leidžiasi iš localhost. Sugeneruota 2026-08-16 19:31 · 5 gyvi puslapiai.</p>
+
+<h2>Testai ir scenarijai</h2>
+<div class="grid"><a class="c" href="scenarijai.html">
+  <div class="ct"><span class="cn">Naudojimo scenarijai</span><span class="pill p-ok">šviežias</span></div>
+  <div class="cp">Kaip žmogus iš tikrųjų naudoja pultą: prielaidos, tikslas, žingsniai, rezultatas.</div>
+  <div class="cm">2026-08-16 19:20 · 6c3f8a0 · 35 KB</div>
+</a>
+<a class="c" href="testai-0-16.html">
+  <div class="ct"><span class="cn">Geležies testai · 0.17 dervų profiliai</span><span class="pill p-ok">šviežias</span></div>
+  <div class="cp">Punktai su ✓/✗ ir pastabomis; apačioje ataskaita kopijavimui.</div>
+  <div class="cm">2026-08-16 19:11 · 8201857 · 16 KB</div>
+</a></div>
+
+<h2>Stendai ir prototipai</h2>
+<div class="grid"><a class="c" href="demo.html">
+  <div class="ct"><span class="cn">Pulto demo</span><span class="pill p-ok">šviežias</span></div>
+  <div class="cp">Visas dashboard be printerio (suklastoti duomenys). Generuoja build_demo.py.</div>
+  <div class="cm">2026-08-16 14:25 · 393 KB</div>
+</a>
+<a class="c" href="nav-prototype.html">
+  <div class="ct"><span class="cn">Navigacijos prototipas</span><span class="pill p-warn">26 d.</span></div>
+  <div class="cp">Senas pulto navigacijos eskizas iš 0.15 laikų.</div>
+  <div class="cm">2026-07-20 21:53 · 14 KB</div>
+</a>
+<a class="c" href="voxel-preview-lab.html">
+  <div class="ct"><span class="cn">3D peržiūros stendas</span><span class="pill p-ok">šviežias</span></div>
+  <div class="cp">Modelio piešimas be printerio: modelis, režimas, progresas, visi variantai greta.</div>
+  <div class="cm">2026-08-16 08:45 · 26 KB</div>
+</a></div>
+
+<h2>Kitur</h2>
+<div class="grid"><a class="c" href="http://localhost:8080/3d/pultas.html">
+  <div class="ct"><span class="cn">3D pultas su žymėmis</span><span class="pill p-ext">kitas portas</span></div>
+  <div class="cp">Mūsų ir Prusos pjūviai greta; pažymėjus sritį gaunamos mm koordinatės.</div>
+  <div class="cm">paleisti: <code>python pultas3d.py</code></div>
+</a>
+<a class="c" href="http://tinymaker.local/" target="_blank">
+  <div class="ct"><span class="cn">Printerio pultas</span><span class="pill p-ext">printeris</span></div>
+  <div class="cp">Tikras printeris: būsena, modeliai, dervos, nustatymai.</div>
+  <div class="cm">visada įjungtas</div>
+</a></div>
+<p class="foot">Pultas generuojamas: <code>python scripts/dev/make_hub.py</code> (serveris:
+<code>python -m http.server 8899</code> iš <code>scripts/dev/</code>). Naują puslapį įrašyk į
+<code>CATALOG</code> skripto viršuje - be aprašymo jis rodomas kaip nežinomas.</p>
+</div>

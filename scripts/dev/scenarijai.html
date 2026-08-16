@@ -269,8 +269,222 @@ to paties sluoksnio.</dd>
 tęsia.</dd>
 </dl></div>
 
-<h2>E · Sąmoningai neįtraukta</h2>
-<div class="s"><h3><span class="nr">E</span> Kodėl šitų netikrinam</h3>
+<h2>E · Trynimas ir kortelės tvarkymas</h2>
+<div class="s"><h3><span class="nr">E1</span> Modelio trynimas iš pulto <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelėje modelis, kurio nebereikia; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Atlaisvinti vietą nelaukiant prie ekrano.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Eilutėje paspausti „Delete“.</li><li>Patvirtinti.</li><li>Nelaukiant pabaigos paspausti kitą modelį ir bandyti atidaryti peržiūrą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Rodoma „Deleting X“ visuose įrenginiuose. Peržiūra arba palaukia, arba pasako, kad kortelė užimta, bet NELIEKA sustingusio skaičiaus. Baigus sąrašas atsinaujina pats, ištrinto modelio nebėra.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">E2</span> Trinamas tas modelis, kuris atidarytas kortelėje <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Modelio peržiūra atidaryta pagrindiniame lange.</dd>
+<dt>Tikslas</dt><dd>Neturi likti kortelės su neegzistuojančiu modeliu.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Palikti modelį atidarytą.</li><li>Tame pačiame lange (arba kitame įrenginyje) jį ištrinti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Kortelė išsivalo pati, peržiūra dingsta, „Start“ nebesiūlomas. Nespaudžiama į tuščią vietą.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">E3</span> Trynimas kraunant peržiūrą <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta 3D krovimas („Building the 3D view N/240“).</dd>
+<dt>Tikslas</dt><dd>Vienas darbas neturi pakabinti kito.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Kraunant paspausti kito modelio „Delete“.</li><li>Patvirtinti.</li><li>Stebėti peržiūros drobę.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Peržiūra arba pabaigia, arba parodo „Preview stopped … click to load again“. Trynimas įvyksta. Sustingęs skaičius = klaida.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">E4</span> Bandymas trinti spausdinant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys (dry run testui).</dd>
+<dt>Tikslas</dt><dd>Nesugadinti vykstančio spaudinio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Bandyti ištrinti bet kurį modelį iš pulto.</li><li>Bandyti ištrinti spausdinamą modelį.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Abu mandagiai atmetami su paaiškinimu; spaudinys nepaliestas, pultas nesulūžta.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">E5</span> Archyvo (.zip/.sl1) ištrynimas <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelėje yra archyvas, kuris neišpakuotas.</dd>
+<dt>Tikslas</dt><dd>Išvalyti tai, kas neišsipakavo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Archyvo eilutėje paspausti „Delete“.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Archyvas dingsta iš karto (vienas failas, ne šimtai), sąrašas atsinaujina. Modeliams tas pats mygtukas dirba fone.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">E6</span> Vietos kortelėje pabaiga <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelė beveik pilna.</dd>
+<dt>Tikslas</dt><dd>Suprasti, kodėl įkėlimas nepavyko.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Įkelti didelį modelį, kuriam vietos nepakanka.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Aiški žinutė apie vietos trūkumą (ne tyli klaida); laisvos vietos juosta rodo tikrą likutį; pusiau įkeltas failas nelieka kortelėje.</dd>
+</dl></div>
+<h2>F · 3D peržiūros įrankiai</h2>
+<div class="s"><h3><span class="nr">F1</span> Detalaus vaizdo jungiklis <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Modelis atidarytas.</dd>
+<dt>Tikslas</dt><dd>Pasirinkti tarp greito ir tikslaus vaizdo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Įjungti detalų vaizdą.</li><li>Palaukti, kol persikraus.</li><li>Išjungti atgal.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Detaliame matosi plonos atramos; perjungus atgal grįžta greitasis. Abu kartus modelis pilnas, ne perpjautas, ir nepriklauso nuo pasirinktos dervos.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">F2</span> Vaizdo sukimas ir priartinimas <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>3D vaizdas užsikrovęs.</dd>
+<dt>Tikslas</dt><dd>Apžiūrėti modelį iš visų pusių prieš spausdinant.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pasukti pele arba pirštu.</li><li>Priartinti.</li><li>Perjungti į kitą modelį ir grįžti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Sukasi sklandžiai, neužstringa; grįžus vaizdas atsistato, o ne krenta į tuščią drobę.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">F3</span> Padidintas peržiūros langas <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>3D vaizdas užsikrovęs.</dd>
+<dt>Tikslas</dt><dd>Pažiūrėti detales dideliame lange.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paspausti išdidinimo mygtuką.</li><li>Grįžti atgal.</li><li>Perjungti į kitą vaizdą (Settings) ir grįžti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Blokas išsiplečia ir susitraukia tuo pačiu mygtuku; ikona atitinka būseną; perjungus vaizdą blokas nelieka išsiplėtęs.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">F4</span> Temos perjungimas piešiant <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta 3D krovimas.</dd>
+<dt>Tikslas</dt><dd>Tamsi/šviesi tema neturi sugadinti piešinio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Kraunant perjungti temą.</li><li>Palaukti pabaigos.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Vaizdas persipiešia teisingomis spalvomis, progresas nedingsta, drobė nelieka juoda ant šviesios temos.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">F5</span> „Prepare 3D for all“ <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Keli modeliai be išsaugoto vaizdo; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Vieną kartą palaukti, o paskui visi atsidaro greitai.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paleisti paruošimą visiems.</li><li>Netrukdyti, kol dirba.</li><li>Po to atidaryti kelis modelius iš eilės.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Progresas matomas, printeris tuo metu neužsiima kitais darbais; baigus kiekvienas modelis atsidaro iš karto ir turi paveikslėlį sąraše.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">F6</span> Peržiūra iškart po spaudinio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Ką tik baigtas spaudinys.</dd>
+<dt>Tikslas</dt><dd>Pasižiūrėti, ką atspausdino, be perkrovimo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Baigus spaudinį paspausti tą patį modelį.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Rodo pilną modelį (ne tik atspausdintą dalį) ir nereikalauja iš naujo skenuoti visų sluoksnių.</dd>
+</dl></div>
+<h2>G · Kai veiksmai kertasi</h2>
+<div class="s"><h3><span class="nr">G1</span> Įkėlimas kraunant peržiūrą <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta 3D krovimas; PrusaSlicer paruoštas siųsti.</dd>
+<dt>Tikslas</dt><dd>Du darbai su kortele vienu metu neturi sugriauti nė vieno.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Kraunant peržiūrą paleisti siuntimą iš slicer'io.</li><li>Stebėti abu.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Įkėlimas priimamas, išpakavimas laukia savo eilės (arba peržiūra mandagiai nutrūksta su užrašu). Nė vienas nelieka pusiaukelėje be žinutės.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">G2</span> Dervos perjungimas kraunant peržiūrą <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta 3D krovimas.</dd>
+<dt>Tikslas</dt><dd>Perjungimas neturi palikti pusinio vaizdo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Kraunant perjungti dervą su kitu sluoksnio storiu.</li><li>Palaukti pabaigos.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Piešinys nesikeičia (jis nuo dervos nepriklauso), kortelės skaičiai persiskaičiuoja. Jei krovimas nutrūko, drobėje užrašas su galimybe bandyti iš naujo.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">G3</span> Du įrenginiai daro skirtingus dalykus <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Pultas atidarytas telefone ir kompiuteryje.</dd>
+<dt>Tikslas</dt><dd>Vienas nemato kito veiksmo kaip gedimo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Telefone perjungti dervą.</li><li>Tuo pat metu kompiuteryje atidaryti kitą modelį.</li><li>Tada kompiuteryje ištrinti modelį, o telefone tuo metu spausti „Start“.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Kiekvienas veiksmas arba įvyksta, arba gauna aiškų atsisakymą. Jokių tylių klaidų, abu langai lieka gyvi ir rodo tą pačią būseną.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">G4</span> Printerio mygtukas ir pultas tą pačią sekundę <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Printeris nespausdina; pultas atidarytas.</dd>
+<dt>Tikslas</dt><dd>Prie mašinos esantis žmogus turi pirmenybę, bet niekas nesulūžta.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Prie printerio pasirinkti modelį ir spausti Start.</li><li>Tą pačią akimirką pulte spausti Start kitam modeliui.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Prasideda vienas spaudinys, antras gauna „printer busy“. Pulte rodomas TAS modelis, kuris tikrai spausdinamas.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">G5</span> Nustatymų saugojimas vykstant kortelės darbui <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta išpakavimas arba trynimas.</dd>
+<dt>Tikslas</dt><dd>Nustatymai neturi būti įrašyti pusiau.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Darbo metu Settings pakeisti ekspoziciją ir spausti Save.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Arba palaukia, arba atmeta su paaiškinimu. NIEKADA nepriima dalinės formos (taip du kartus buvo išjungti visi jungikliai).</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">G6</span> Firmware atnaujinimas netinkamu metu <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys arba kortelės darbas.</dd>
+<dt>Tikslas</dt><dd>Neatnaujinti per patį darbą.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Bandyti paleisti atnaujinimą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Neleidžiama su aiškia priežastimi; pasibaigus darbui - leidžiama.</dd>
+</dl></div>
+<h2>H · Spausdinimo komplikacijos</h2>
+<div class="s"><h3><span class="nr">H1</span> Srovė dingsta ekspozicijos metu <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys (dry run).</dd>
+<dt>Tikslas</dt><dd>Tęsti nuo teisingo sluoksnio, o ne nuo pradžios.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Nutraukti maitinimą, kai UV šviečia.</li><li>Įjungti.</li><li>Pasirinkti Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Klausimas „Power restored“; tęsia nuo to paties sluoksnio, plokštė nusileidžia į teisingą aukštį, sluoksnių skaičius toks pat, kaip buvo.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H2</span> Srovė dingsta plokštei judant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys (dry run).</dd>
+<dt>Tikslas</dt><dd>Neįspausti plokštės į FEP po atsistatymo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Nutraukti maitinimą judesio metu.</li><li>Įjungti.</li><li>Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Prieš leidžiantis printeris pirma nulupa (lėtas pakėlimas), tada leidžiasi. Plokštė neatsiremia jėga.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H3</span> Srovė dingsta pauzės metu <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Spaudinys pauzėje, plokštė pakelta.</dd>
+<dt>Tikslas</dt><dd>Atsistatyti iš pauzės, ne iš vidurio sluoksnio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pauzė.</li><li>Nutraukti maitinimą.</li><li>Įjungti.</li><li>Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Plokštė iškart leidžiasi į kitą sluoksnį be papildomo lupimo; spaudinys tęsiamas.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H4</span> Resume po pakeisto sluoksnio storio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kaip H1, bet po įkrovos pakeičiamas dervos profilis su kitu storiu.</dd>
+<dt>Tikslas</dt><dd>Neleisti plokštei nusileisti į jau atspausdintą detalę.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Po įkrovos prie printerio pakeisti profilį.</li><li>Spausti Resume.</li><li>Po pranešimo pabandyti pakelti plokštę (UP) ir atmesti (Back).</li></ol></dd>
+<dt>Rezultatas</dt><dd>„Layer height changed after this print - it cannot be resumed“, grįžta klausimas, plokštė NEJUDA žemyn. Pakėlimas ir atmetimas veikia.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H5</span> Bandymas keisti nustatymus kabant Resume klausimui <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Po srovės dingimo ekrane kabo „Power restored“.</dd>
+<dt>Tikslas</dt><dd>Nustatymai neturi pasikeisti po kojomis.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Telefone bandyti: perjungti dervą, Reset to defaults, Restore iš kopijos, Restore iš Connect.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Visi keturi atsako „a print is waiting to be resumed“; nustatymai nepasikeičia.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H6</span> Atmetus spaudinį - grįžimas į darbą <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kabo Resume klausimas.</dd>
+<dt>Tikslas</dt><dd>Po atmetimo printeris ir pultas turi būti visiškai laisvi.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Ekrane pasirinkti atmesti (arba pakelti plokštę).</li><li>Telefone pakeisti bet kurį nustatymą.</li><li>Perkrauti printerį.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Nustatymai keičiasi normaliai (jokio 409), po perkrovimo klausimas nebesikartoja, pultas nesako, kad printeris mirė spausdindamas.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H7</span> Kortelė ištraukta spausdinant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys (dry run).</dd>
+<dt>Tikslas</dt><dd>Suprasti, kas atsitiko, ir nesugadinti mašinos.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Ištraukti kortelę spausdinimo metu.</li><li>Stebėti ekraną ir pultą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Spaudinys sustabdomas su aiškia priežastimi; UV išjungiamas; plokštė nelieka prispausta; pultas rodo tą patį, ką ekranas.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H8</span> WiFi dingsta spausdinant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys; pultas atidarytas telefone.</dd>
+<dt>Tikslas</dt><dd>Spaudinys svarbesnis už tinklą.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Išjungti router'į arba nueiti iš zonos.</li><li>Grįžti po kelių minučių.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Spausdinimas nenutrūksta. Pultas parodo, kad ryšio nėra, o grįžus pats atsistato be perkrovimo, progresas teisingas (ne nuo nulio).</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H9</span> Naršyklė uždaryta spausdinant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys.</dd>
+<dt>Tikslas</dt><dd>Pultas nėra spaudinio dalis.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Uždaryti pultą.</li><li>Po kelių minučių atidaryti iš naujo.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Spaudinys nepaliestas; atsidaręs pultas rodo teisingą progresą ir 3D su vaiduokliu, nereikalaudamas nieko skenuoti iš naujo.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H10</span> Derva baigiasi vidury spaudinio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Likutis artėja prie ribos.</dd>
+<dt>Tikslas</dt><dd>Papildyti ir tęsti, o ne prarasti spaudinį.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Leisti likučiui nukristi.</li><li>Papilti dervos.</li><li>Paspausti „VAT refilled“ ir Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Printeris sustoja pats, praneša pulte ir Telegram; po papildymo likutis atstatomas, spaudinys tęsiamas.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H11</span> Spaudinio stabdymas iš pulto <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys.</dd>
+<dt>Tikslas</dt><dd>Sustabdyti saugiai, kai matai, kad nepavyksta.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paspausti Stop.</li><li>Palaukti pranešime nurodyto laiko.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Pranešimas su trukme visuose įrenginiuose; printeris baigia sluoksnį, pakelia plokštę, UV išjungtas; kortelėje nelieka „spausdinama“ požymio.</dd>
+</dl></div>
+<div class="s"><h3><span class="nr">H12</span> Spaudinys baigėsi <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Paskutinis sluoksnis.</dd>
+<dt>Tikslas</dt><dd>Sužinoti, kad galima eiti nuimti.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Palaukti pabaigos.</li><li>Pažiūrėti pultą ir Telegram.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Būsena „Finished“, plokštė pakelta, pranešimas atėjo; modelis kortelėje lieka matomas, kalibracijai pasiūloma įvesti pasvertus gramus.</dd>
+</dl></div>
+<h2>Z · Sąmoningai neįtraukta</h2>
+<div class="s"><h3><span class="nr">Z</span> Kodėl šitų netikrinam</h3>
 <dl class="f">
 <dt>Netikrinam</dt><dd><ol>
 <li><b>Dervos perjungimas tarp sluoksnių.</b> Fiziškai neįmanoma: derva keičiama tik sustabdžius ir išplovus vatą.</li>

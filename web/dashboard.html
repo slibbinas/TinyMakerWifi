@@ -1619,6 +1619,15 @@ const applyResinProfile=async(name)=>{
     await refreshDashModelInfo();}
   catch(e){msg(e.message,true);}
 };
+/* Defaults ir visi restore keliai perraso ta pati, ka dervos perjungimas: sluoksnio
+   auksti, ekspozicijas ir aktyvaus profilio varda. Vadinasi ir atnaujinti reikia to
+   paties trejeto - kitaip Home eilute rodo istrinta profili, o kortele senus skaicius
+   (auditas 08-16). Po viena, ne kartu: printeris aptarnauja po viena uzklausa. */
+const refreshAfterSettingsSwap=async()=>{
+  await loadConfig();
+  await loadResinProfiles();
+  await refreshDashModelInfo();
+};
 const resetResinRow=async(p)=>{
   if(!await uiConfirm('Reset "'+p.display+'" back to its factory values?',{danger:true}))return;
   try{await api('/api/resin-profile/delete',{method:'POST',body:new URLSearchParams({name:p.name})});
@@ -3362,6 +3371,7 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
       }catch(err){
         if(attempt>=1||mySeq!==fetchSlicesSeq)throw err;
         await new Promise(r=>setTimeout(r,400));   // let the printer finish whatever took its turn
+        if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');   // superseded DURING the pause
       }
     }
     /* Mazinam OR budu, ne vidurkiu: uztenka vieno uzdegto pikselio, kad
@@ -4675,8 +4685,8 @@ $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   if(!await uiConfirm(text,{danger:!next,ok:next?'Enable':'Disable'})){el.checked=!next;return;}
 });
 $('connectBackupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/connect/backup',{cache:'no-store'});if(!r.ok){let j={};try{j=await r.json();}catch(e){}throw new Error(j.error||('backup failed (HTTP '+r.status+')'));}const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-connect-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Connect backup downloaded.');}catch(e){msg(e.message,true);loadConfig();}});
-$('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
-$('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings?':'Reset config to defaults?',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');loadConfig();}catch(e){msg(e.message,true);}});
+$('connectBackupRestoreButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the TinyMaker Connect backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/connect/restore',{method:'POST'},12000);msg('Settings restored from Connect backup.');await refreshAfterSettingsSwap();refreshStatus();}catch(e){msg(e.message,true);loadConfig();}});
+$('configDefaultsButton').addEventListener('click',async()=>{const keep=$('configDefaultsButton').textContent.indexOf('integrations')>=0;if(!await uiConfirm(keep?'Reset config to defaults and keep integration settings? Any edit to the factory resin profile is removed too.':'Reset config to defaults? Any edit to the factory resin profile is removed too.',{danger:true}))return;try{await api('/api/config/defaults',{method:'POST'});msg(keep?'Defaults restored. Integration settings kept.':'Defaults restored.');await refreshAfterSettingsSwap();}catch(e){msg(e.message,true);}});
 /* Tankio matuoklis: X g is Y ml. Rankenos buvo netycia istrintos perrasant
    kortele i dvi eilutes (auditor find, 08-11) - mygtukas liko negyvas. */
 /* Vaizdo jungiklis: perpiesiam is kesuotu sluoksniu, nieko neuzklausiant. */
@@ -4884,8 +4894,8 @@ $('connectCopyRecoveryButton').addEventListener('click',async()=>{const v=$('con
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
 $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');loadConfig();}catch(e){msg(e.message,true);}});
 $('restoreButton').addEventListener('click',()=>$('restoreFile').click());
-$('restoreSdButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the SD card backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/config/restore/sd',{method:'POST'});msg('Settings restored from SD backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
-$('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!await uiConfirm('Restore all settings from '+f.name+'? Current settings will be overwritten.',{danger:true}))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');loadConfig();refreshStatus();}catch(e){msg(e.message,true);}});
+$('restoreSdButton').addEventListener('click',async()=>{if(!await uiConfirm('Restore all settings from the SD card backup? Current settings will be overwritten.',{danger:true}))return;try{await api('/api/config/restore/sd',{method:'POST'});msg('Settings restored from SD backup.');await refreshAfterSettingsSwap();refreshStatus();}catch(e){msg(e.message,true);}});
+$('restoreFile').addEventListener('change',async()=>{const f=$('restoreFile').files[0];$('restoreFile').value='';if(!f)return;if(!await uiConfirm('Restore all settings from '+f.name+'? Current settings will be overwritten.',{danger:true}))return;try{const t=await f.text();await api('/api/config/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:t});msg('Settings restored from backup.');await refreshAfterSettingsSwap();refreshStatus();}catch(e){msg(e.message,true);}});
 /* Banneris nieko nejungia - tik parodo, KUR yra vienintelis jungiklis. */
 $('dryRunBanner').addEventListener('click',()=>{
   const w=$('dryRunToggle'); if(!w)return;

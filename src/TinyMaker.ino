@@ -976,6 +976,10 @@ static void eepromWriteU16(int addr, uint16_t v) {
 }
 
 void savePrintSettings() {
+  // Per-modelio sluoksniai ir laikai skaiciuojami is Layer_Height, tad bet kuris
+  // sio bloko irasymas gali padaryti atidarytu pultu sarasus pasenusius - nesvarbu,
+  // ar spausta pulte, ar prie printerio (auditas 08-16).
+  sdRev++;
   EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, Layer_Height * 100);
   EEPROM.write(2, Base_Exposure);
@@ -1235,10 +1239,7 @@ void applyConfigBackup(const String &j) {
   // A restore swaps the whole recipe, resin name included: the last print was
   // made with the resin being replaced, so a weighing against it would
   // calibrate a stranger's print (same trap as a profile switch, audit 08-16).
-  lastPrintRawMl = -1;
-  sysPrefs.begin("tinymaker", false);
-  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
-  sysPrefs.end();
+  lastPrintRawMl = -1;   // persisted with the rest, at the end of this function
   Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
   Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 5, 60);   // 0.17 0-3: base min 5 s
   // 0.17 0-3: backup stores Regular in SECONDS (downgrade-readable); convert to
@@ -1351,7 +1352,11 @@ void applyConfigBackup(const String &j) {
   sysPrefs.putULong("uvLedSecs", totalUvLedSecs);
   sysPrefs.putUShort("prevRegDs", 0);
   sysPrefs.putUChar("prevBaseS", 0);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);   // see the top of this function
   sysPrefs.end();
+  // Per-model times and layer counts are computed from Layer_Height, which this
+  // function just replaced: every open list is stale until it refetches.
+  sdRev++;
 }
 
 bool sdBackupExists() {
@@ -1548,6 +1553,28 @@ bool handleUiTimeout() {
  * blank/corrupt EEPROM at boot and by Settings -> "Back to Default".
  * Layer_Height is stored x100 (10 -> 0.10 mm).
  */
+// Gamyklinis atstatymas yra daugiau nei EEPROM blokas: dervos profilio vardas
+// turi sekti skaicius, jo overlay failas - dingti, o kiekvienas atidarytas pultas
+// suzinoti, kad jo sarasai pasene. Abu keliai (printerio Settings ir
+// /api/config/defaults) eina per SITA funkcija, kad nebeissiskirtu (auditas 08-16).
+void resetEverythingToFactory() {
+  resinProfileName = "slow";
+  #if ENABLE_NETWORK
+  if (sdCardReady()) SD.remove(resinProfilePath("slow").c_str());
+  #endif
+  lastPrintRawMl = -1;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putString("resinProf", resinProfileName);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
+  sysPrefs.end();
+  resinProfileRev++;
+  sdRev++;              // sluoksnio aukstis - gamyklinis: visi sarasai pasene
+  resetSettingsToDefault();
+  resinClearCalibration();
+  resinDensity = RESIN_DENSITY_DEF;
+  saveDeviceConfig();
+}
+
 void resetSettingsToDefault() {
   EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, 10);   // Layer_Height     -> 0.10 mm

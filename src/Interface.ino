@@ -3102,9 +3102,10 @@ void screen311(){
       screen = 311;
     }
     else{
-      // "Back to Default" Selected -> Reset EEPROM to factory defaults
-      // (shared with setup(); defined in TinyMaker.ino)
-      resetSettingsToDefault();
+      // "Back to Default" Selected -> the SAME full reset the dashboard does
+      // (profile name, its overlay, calibration, stale lists) - not just the
+      // EEPROM block, or the two paths drift apart (audit 08-16).
+      resetEverythingToFactory();
 
       setting_item = 11;
       screen31DOWN(); // Refresh Screen

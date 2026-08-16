@@ -1824,23 +1824,10 @@ void handleApiConfigRestoreSd() {
 void resetWebConfigToDefaults() {
   // Factory numbers are the factory resin's, so the name has to follow them -
   // otherwise the row keeps naming a resin whose values are gone (audit 08-16).
-  resinProfileName = "slow";   // saveDeviceConfig() below persists it
-  // ...and the overlay has to go with it. Left on the card, picking "slow" would
-  // load the old customisation while the machine runs the factory numbers - the
-  // name would lie again, which is exactly what this line set out to fix. Only
-  // the profile we name here is touched; the card's own profiles stay.
-  if (sdCardReady()) SD.remove(resinProfilePath("slow").c_str());
-  // The last print was made with the resin being reset away; a weighing against
-  // it would calibrate the factory profile from a stranger's print.
-  lastPrintRawMl = -1;
-  sysPrefs.begin("tinymaker", false);
-  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
-  sysPrefs.end();
-  resinProfileRev++;
-  resetSettingsToDefault();
-  resinClearCalibration();   // R-cal: a stale factor would silently skew every
-                             // resin number after a "reset to defaults"
-  resinDensity = RESIN_DENSITY_DEF;
+  // Everything the printer's own "Back to Default" does - one source, so the
+  // two entry points cannot drift (audit 08-16): factory numbers, the factory
+  // resin name, its overlay off the card, calibration cleared, lists marked stale.
+  resetEverythingToFactory();
   uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
   uvLedEnabled = true;
   wifiEnabled = true;
