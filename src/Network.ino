@@ -1335,8 +1335,10 @@ bool deleteSdItem(const String &requestedName, String &error) {
 
 // GET /api/files/layer?name=X&i=N - one sliced-layer PNG straight from SD.
 // Feeds the dashboard's 3D preview (the browser renders; the ESP32 only
-// streams files). i is a PRINT layer index - mapped to the source file the
-// same way print_next_png() does (0.10 mm mode uses every other file).
+// streams files). With source=1 (what the dashboard always sends - the picture
+// must not change with the resin) i IS the file number. Without it, i is a
+// PRINT layer index, mapped the same way print_next_png() does: at 0.10 mm the
+// printer pairs two 0.05 mm slices, so it reads every other file.
 // Read-only, so allowed with Web control off; blocked while printing (SD busy).
 void handleApiFileLayer() {
   if (rejectIfBusy()) return;
@@ -1369,7 +1371,14 @@ void handleApiFileLayer() {
   uint8_t buf[512];
   int n;
   WiFiClient client = server.client();
-  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  // Stop the moment the browser walks away (its layer fetch times out after
+  // 20 s and drops the image). Writing on into a dead socket held the single
+  // request thread and made the NEXT layer late too - which is how one stalled
+  // layer turned into a stalled preview (V: frozen at 221/240, 08-16).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if (!client.connected()) break;
+    client.write(buf, n);
+  }
   f.close();
 }
 

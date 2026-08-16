@@ -1613,7 +1613,12 @@ const applyResinProfile=async(name)=>{
     }
   }
   try{await api('/api/resin-profile/select',{method:'POST',body:new URLSearchParams({name})});
-    await loadConfig();loadResinProfiles();}
+    await loadConfig();loadResinProfiles();
+    /* Sluoksnio aukstis keiciasi kartu su derva, tad kortelės ir modelio langelio
+       skaiciai (sluoksniai, laikas, ml) pasensta ta pacia akimirka. Perskaiciuojam
+       tyliai - snackbaro cia nereikia, skaiciai pasako patys (V 08-16). */
+    refreshDashModelInfo();
+    if(selectedModel&&$('modelPanel')&&$('modelPanel').offsetParent!==null)modelDetails(enc(selectedModel));}
   catch(e){msg(e.message,true);}
 };
 const resetResinRow=async(p)=>{
@@ -1987,7 +1992,7 @@ const applyStatus=s=>{
     if(busyPrint&&s.model&&s.liveN>0&&(slicesCache.name!==s.model||!slicesCache.slices.length
        /* Tas pats vardas, kitas turinys: perpjaustytas ar pakeistas failas. Be sio
           patikrinimo visa spaudini rodytume SENA geometrija (auditas 08-14). */
-       ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers)))fetchLiveSlices(s.model,0);
+       ||(slicesCache.layers&&s.totalLayers&&slicesCache.layers!==s.totalLayers&&slicesCache.layers!==2*s.totalLayers)))fetchLiveSlices(s.model,0);
     if(busyPrint&&s.model&&s.totalLayers>0&&slicesCache.name===s.model&&slicesCache.slices.length){
       setDashPreviewName('');  // the print takes the card over from an idle preview
       /* Pažymim, kad kortelę užėmė spaudinys: pagal tai idle šaka žino, kad ją reikia
@@ -3333,16 +3338,25 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
   for(let k=0;k<N;k++){
     if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');
     const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
-    const img=new Image();
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
     // source=1 = the files as sliced, no printer-side re-mapping. Anything but
     // the explicit "as printed at 0.10" view wants the model itself.
     if(mode==='print1')url+='&layer_height=0.10';
     else url+='&source=1';
-    img.src=url;
-    // A hung request used to stall the preview forever with no way out -
-    // give every layer fetch a hard timeout (user finding, 0.14.3).
-    await new Promise((res,rej)=>{const t=setTimeout(()=>{img.src='';rej(new Error('layer '+li+' timed out - try again'));},20000);img.onload=()=>{clearTimeout(t);res();};img.onerror=()=>{clearTimeout(t);rej(new Error('layer '+li+' failed to load'));};});
+    /* Vieno sluoksnio suklupimas nekainuoja viso krovimo: ESP32 aptarnauja po
+       viena uzklausa, tad sluoksnis gali netekti eiles busenos apklausai ar SD
+       darbui. Klausiam dar karta ir tik tada pasiduodam (V 08-16). */
+    let img;
+    for(let attempt=0;;attempt++){
+      img=new Image();
+      img.src=url+(attempt?'&r='+attempt:'');
+      try{
+        // A hung request used to stall the preview forever with no way out -
+        // give every layer fetch a hard timeout (user finding, 0.14.3).
+        await new Promise((res,rej)=>{const t=setTimeout(()=>{img.src='';rej(new Error('layer '+li+' timed out - try again'));},20000);img.onload=()=>{clearTimeout(t);res();};img.onerror=()=>{clearTimeout(t);rej(new Error('layer '+li+' failed to load'));};});
+        break;
+      }catch(err){ if(attempt>=1||mySeq!==fetchSlicesSeq)throw err; }
+    }
     /* Mazinam OR budu, ne vidurkiu: uztenka vieno uzdegto pikselio, kad
        langelis butu pilnas. Vidurkis nuzudydavo supportus, siauresnius nei
        2 px = 0.26 mm - jie dingdavo prie pat detales ir likdavo tarpai
@@ -3729,7 +3743,11 @@ const upgradeToSlices=async(name,d)=>{
        du kartus senasis fono darbas cia nukrenta, o naujasis jau sukasi: uzrasas blyksteledavo
        ir tuoj pat dingdavo po „Preloading" (V 08-16, testas nr. 6). Numeris pasikeites =
        yra kam piesti, tad tylim. */
-    if(e&&e.message==='preview superseded'&&dashPreviewName===name&&previewRun===myRun)markPreviewStopped(cvp,name);
+    /* Kiekviena klaida palieka pesciomis pasiekiama vaizda. Anksciau cia iskrisdavo
+       TIK 'preview superseded', o sluoksnio timeout'as ar 409 dingdavo be zenklo -
+       drobeje amzinai likdavo paskutinis skaicius („uzstrigo ties 221/240", V 08-16). */
+    if(dashPreviewName===name&&previewRun===myRun)
+      markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+e.message);
   }
   finally{
     setPreviewBusy(false);    // uzimtumo zyma nuimama kartu su visu kitu
