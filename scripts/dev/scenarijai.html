@@ -1,0 +1,296 @@
+<meta charset="utf-8">
+<title>TinyMaker - naudojimo scenarijai</title>
+<style>
+:root{
+  --bg:#f7f7f8; --card:#fff; --text:#1d1f24; --muted:#6b7280; --border:#e3e5ea;
+  --accent:#f07a1a; --code:#eef0f3;
+  --ok:#1f9d4d; --okbg:#e8f6ee; --warn:#b97a10; --warnbg:#fdf3e0; --mut:#6b7280; --mutbg:#eef0f3;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#8b93a1; --border:#2a2e37;
+  --accent:#ff9740; --code:#242832;
+  --ok:#4fd08a; --okbg:#173327; --warn:#e0a030; --warnbg:#33290f; --mut:#8b93a1; --mutbg:#242832;
+}}
+:root[data-theme="dark"]{
+  --bg:#15171c; --card:#1c1f26; --text:#e6e8ec; --muted:#8b93a1; --border:#2a2e37;
+  --accent:#ff9740; --code:#242832;
+  --ok:#4fd08a; --okbg:#173327; --warn:#e0a030; --warnbg:#33290f; --mut:#8b93a1; --mutbg:#242832;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);padding:26px 16px 70px;
+ font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:1.35rem;margin:0 0 4px}
+h1 .dot{color:var(--accent)}
+.sub{color:var(--muted);font-size:.86rem;margin:0 0 18px}
+.rule{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--accent);
+ border-radius:10px;padding:12px 16px;margin:0 0 20px;font-size:.9rem}
+h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+ margin:30px 0 10px;font-weight:700}
+.s{background:var(--card);border:1px solid var(--border);border-radius:12px;
+ padding:14px 16px;margin:0 0 12px}
+.s h3{margin:0 0 10px;font-size:.98rem;display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.s h3 .nr{color:var(--accent);font-weight:700;flex:0 0 auto}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;
+ white-space:nowrap;margin-left:auto}
+.p-ok{background:var(--okbg);color:var(--ok)}
+.p-hw{background:var(--warnbg);color:var(--warn)}
+.p-no{background:var(--mutbg);color:var(--mut)}
+.f{display:grid;grid-template-columns:104px 1fr;gap:4px 14px;font-size:.88rem}
+.f dt{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;padding-top:2px}
+.f dd{margin:0}
+.f ol{margin:0;padding-left:18px}
+.f ol li{margin-bottom:2px}
+.found{margin-top:9px;padding:8px 11px;border-radius:8px;background:var(--warnbg);
+ color:var(--warn);font-size:.83rem}
+code{background:var(--code);padding:1px 5px;border-radius:5px;font-size:.85em}
+.foot{margin-top:26px;font-size:.8rem;color:var(--muted)}
+@media(max-width:620px){.f{grid-template-columns:1fr;gap:2px}.f dt{margin-top:7px}}
+</style>
+<div class="wrap">
+<h1>TinyMaker <span class="dot">·</span> naudojimo scenarijai</h1>
+<p class="sub">Kaip žmogus iš tikrųjų naudoja pultą ir printerį. Kiekvienas scenarijus: prielaidos,
+tikslas, žingsniai, rezultatas. Sudaryta 2026-08-16, build <code>6c3f8a0</code>. Sąrašas pildomas.</p>
+
+<div class="rule"><b>Ženklai:</b>
+<span class="pill p-ok">patikrinta</span> praėjo automatinę patikrą per naršyklę tą dieną ·
+<span class="pill p-hw">reikia geležies</span> tikrinama ranka prie printerio (dažnai dry run) ·
+<span class="pill p-no">netikrinta</span> dar niekas netikrino.
+<br>Rezultatas rašomas taip, kad būtų galima pasakyti „taip" arba „ne" nežiūrint į kodą.</div>
+
+<h2>A · Kasdienis darbas pulte</h2>
+
+<div class="s"><h3><span class="nr">A1</span> Pirmas žvilgsnis telefone <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Printeris įjungtas, tame pačiame WiFi, nespausdina.</dd>
+<dt>Tikslas</dt><dd>Per vieną žvilgsnį suprasti, ar printeris laisvas, kokia derva įdėta ir kiek jos liko.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Atsidaryti <code>tinymaker.local</code>.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Matosi būsena, dervos eilutė su pavadinimu ir sluoksnio storiu, likutis ml (ir gramais),
+modelių sąrašas su spausdinimo laiku bei dydžiu. Jokių tuščių laukų su brūkšniais.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A2</span> Modelio peržiūra prieš spausdinant <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelėje yra bent vienas modelis; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Pamatyti, KĄ atspausdinsiu, prieš liejant dervą.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paspausti modelio eilutę.</li><li>Palaukti, kol susirenka vaizdas.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Kortelėje 3D modelis, po juo sluoksnių skaičius, laikas ir ml. Atsiranda „Start".
+Modelis pilnas, ne perpjautas, centre.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A3</span> Nekantrus vartotojas <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Bent du modeliai; detalus vaizdas įjungtas.</dd>
+<dt>Tikslas</dt><dd>Persigalvojus pusiaukelėje nieko nepakibtų.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paspausti vieną modelį.</li><li>Nelaukiant, kol užsikraus, paspausti kitą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Senas krovimas nutrūksta, naujas užsikrauna iki galo. Nelieka amžinai sustingusio
+skaičiaus; jei kas nepavyko, drobėje užrašas su galimybe bandyti iš naujo.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A4</span> Dervos perjungimas prieš spausdinant <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Bent du profiliai su skirtingu sluoksnio storiu; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Įpyliau kitą dervą - vienu veiksmu persijungia visas receptas.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pagrindiniame lange paspausti dervos eilutę.</li><li>Pasirinkti kitą dervą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Persijungia tyliai, be jokio pranešimo. Eilutė rodo naują dervą, o kortelės skaičiai
+(sluoksniai, laikas, ml) persiskaičiuoja patys. Modelio piešinys NESIKEIČIA.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A5</span> Perjungimas su neišsaugotu derinimu <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Settings atidaryta, viename dervos lauke pakeista reikšmė, neišsaugota.</dd>
+<dt>Tikslas</dt><dd>Neprarasti ką tik išderintos ekspozicijos (taip ji buvo prarasta 08-12).</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pakeisti Base exposure.</li><li>Nesaugant perjungti dervą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Klausia: Save first / Switch anyway / Cancel. „Save first" įrašo TĄ reikšmę, kuri matoma
+ekrane. „Cancel" nieko nekeičia.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A6</span> Nustatymo pakeitimas ir persigalvojimas <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Settings → Print.</dd>
+<dt>Tikslas</dt><dd>Vienas kelias atgal, be atskirų „undo" prie kiekvieno lauko.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pakeisti bet kurį dervos lauką.</li><li>Paspausti „Discard changes".</li></ol></dd>
+<dt>Rezultatas</dt><dd>Nuoroda atsiranda tik pakeitus; paspaudus laukai grįžta į profilio reikšmes, o į printerį
+niekas neišsiųsta.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A7</span> Sąrašo naršymas <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelėje daugiau modelių, nei telpa į vieną puslapį.</dd>
+<dt>Tikslas</dt><dd>Rasti modelį, kurio nesimato iš karto.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Nuslinkti į sąrašo apačią.</li><li>Paspausti „Next".</li><li>Grįžti atgal.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Puslapiai keičiasi, eilutės tvarkingos, laikai ir dydžiai rodomi ir antrame puslapyje.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">A8</span> Spausdinimo paleidimas iš pulto <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Modelis atidarytas, vate yra dervos, plokštė švari.</dd>
+<dt>Tikslas</dt><dd>Paleisti tai, ką matau ekrane.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Paspausti „Start".</li><li>Atsakyti į klausimą apie vatą (jei rodomas).</li></ol></dd>
+<dt>Rezultatas</dt><dd>Būsena virsta „Printing", sluoksnių skaičius atitinka tą, kurį rodė peržiūra.
+Kiti įrenginiai tai pamato per kelias sekundes.</dd>
+</dl></div>
+
+<h2>B · Rečiau, bet svarbu</h2>
+
+<div class="s"><h3><span class="nr">B1</span> Modelio atsiuntimas iš PrusaSlicer <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>PrusaSlicer nustatytas siųsti į printerį; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Modelis atsiranda printeryje be kortelės nešiojimo.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Slicer'yje „Send to printer".</li><li>Žiūrėti pultą.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Pulte rodoma „Unpacking X", visuose įrenginiuose. Baigus modelis sąraše su ženkleliu „New",
+su laiku ir dydžiu.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B2</span> Seno modelio ištrynimas <span class="pill p-no">netikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kortelėje modelis, kurio nebereikia; printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Atlaisvinti vietą nelaukiant prie ekrano.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Eilutėje paspausti „Delete".</li><li>Patvirtinti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Rodoma „Deleting X" visuose įrenginiuose, pultas lieka gyvas, sąrašas atsinaujina pats.
+Kiti veiksmai su kortele tuo metu mandagiai atmetami.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B3</span> Likučio nustatymas pasveriant vatą <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Svarstyklės; žinomas tuščio vato svoris (įsiūta 56,56 g).</dd>
+<dt>Tikslas</dt><dd>Tikslus likutis vietoj spėjimo pagal markerį.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pasverti pilną vatą.</li><li>Settings → įvesti gramus.</li><li>Paspausti Set.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Dar prieš spaudžiant matomas apskaičiuotas ml; paspaudus likutis pagrindiniame lange
+pasikeičia į tą patį skaičių.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B4</span> Dervos įsidiegimas iš bibliotekos <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Naršyklė turi internetą (biblioteką traukia ji, ne printeris).</dd>
+<dt>Tikslas</dt><dd>Gauti paruoštą receptą, o ne vesti skaičius ranka.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Settings → dervos pasirinkimas → „Tested resin library".</li><li>Ties norima paspausti Install.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Trys dervos sąraše (SUNLU Tough su ženkliuku „tested", du Anycubic be jo). Įdiegta atsiranda
+kortelėje ir pasirinkime; bibliotekos dalyje jos nebelieka. Pagrindiniame lange biblioteka NErodoma.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B5</span> Firmware atnaujinimas <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Atsinaujinti nenešant kabelio prie kompiuterio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Settings → Update.</li><li>Paleisti atnaujinimą.</li><li>Palaukti perkrovimo.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Progresas, tada printeris persikrauna ir puslapiai patys atsinaujina į naują versiją.
+Nustatymai ir dervos profilis išlieka.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B6</span> Du įrenginiai vienu metu <span class="pill p-ok">patikrinta</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Pultas atidarytas telefone ir kompiuteryje.</dd>
+<dt>Tikslas</dt><dd>Žiūrėti iš dviejų vietų nieko nesugadinant.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Abu langus palikti atidarytus.</li><li>Viename atlikti veiksmą (perjungti dervą, atidaryti modelį).</li></ol></dd>
+<dt>Rezultatas</dt><dd>Abu langai gyvi, užklausos neužstringa, būsenos pasikeitimą pamato abu.
+(Patikrinta: 24 lygiagrečios užklausos, visos 200, be klaidų.)</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">B7</span> Atsarginė kopija ir atkūrimas <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Nustatymai suderinti taip, kaip patinka.</dd>
+<dt>Tikslas</dt><dd>Nepradėti nuo nulio, jei kas nutiktų.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Settings → Backup → parsisiųsti.</li><li>Ką nors pakeisti.</li><li>Atkurti iš failo.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Grįžta ir ekspozicijos, ir aktyvios dervos pavadinimas, ir tuščio vato svoris.
+Po atkūrimo kalibracija nesiūlo remtis senos dervos spaudiniu.</dd>
+</dl></div>
+
+<h2>C · Prie printerio</h2>
+
+<div class="s"><h3><span class="nr">C1</span> Spausdinimas be tinklo <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>WiFi išjungtas arba router'is nepasiekiamas; kortelė įdėta.</dd>
+<dt>Tikslas</dt><dd>Printeris lieka printeriu ir be interneto.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Print meniu pasirinkti modelį.</li><li>Paleisti.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Viskas veikia kaip anksčiau; dervos profiliai (bent du įsiūti) pasiekiami Advanced meniu.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C2</span> Dervos perjungimas prie printerio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Printeris nespausdina.</dd>
+<dt>Tikslas</dt><dd>Perjungti be telefono.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Advanced → Resin → Profile.</li><li>Spausti kelis kartus.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Ciklas eina per abu įsiūtus ir kortelės profilius; reikšmės keičiasi iškart, pultas parodo tą patį.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C3</span> Trynimas prie printerio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Print meniu, pažymėtas nereikalingas modelis.</dd>
+<dt>Tikslas</dt><dd>Išvalyti kortelę be kompiuterio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Palaikyti OK ant modelio.</li><li>Patvirtinti „Delete".</li></ol></dd>
+<dt>Rezultatas</dt><dd>Klausiama patvirtinimo (raudonas rėmelis), ištrynus sąrašas atsinaujina ir pulte.
+Klausimas NEVIRSTA kitu ekranu, jei tuo metu kas nors keičia nustatymus iš pulto.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C4</span> Srovės dingimas spausdinant <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys (testui - dry run).</dd>
+<dt>Tikslas</dt><dd>Neprarasti kelių valandų darbo dėl minutės be elektros.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Nutraukti maitinimą.</li><li>Įjungti.</li><li>Ekrane pasirinkti Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Tęsia nuo to paties sluoksnio, plokštė nusileidžia į teisingą vietą.
+Kol kabo klausimas, nustatymų keisti iš naršyklės neleidžiama (409).</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">C5</span> Resume po pasikeitusio sluoksnio storio <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Kaip C4, bet po įjungimo prie printerio pakeičiamas dervos profilis su kitu storiu.</dd>
+<dt>Tikslas</dt><dd>Neleisti plokštei nusileisti į jau atspausdintą detalę.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Po įkrovos pakeisti profilį.</li><li>Spausti Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Ekranas: „Layer height changed after this print - it cannot be resumed", grįžta klausimas
+su galimybe pakelti plokštę arba atmesti. Plokštė NEJUDA žemyn.</dd>
+</dl></div>
+
+<h2>D · Spausdinimo metu</h2>
+
+<div class="s"><h3><span class="nr">D1</span> Stebėjimas iš kitos patalpos <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys.</dd>
+<dt>Tikslas</dt><dd>Matyti, kiek liko, nevaikštant prie printerio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Atsidaryti pultą telefone.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Progresas, likęs laikas, augantis 3D vaizdas su „vaiduokliu" (dar neatspausdinta dalis).
+Printeris dėl to nesulėtėja - sluoksniai imami iš atminties, ne iš kortelės.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">D2</span> Bandymas keisti tai, ko keisti negalima <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys.</dd>
+<dt>Tikslas</dt><dd>Netyčia nesugadinti vykstančio spaudinio.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Bandyti perjungti dervą.</li><li>Bandyti ištrinti modelį.</li><li>Bandyti išsaugoti nustatymus.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Visi trys mandagiai atmetami su paaiškinimu; spaudinys nepaliestas, pultas nesulūžta.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">D3</span> Pauzė ir tęsimas iš pulto <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Vyksta spaudinys.</dd>
+<dt>Tikslas</dt><dd>Stabtelėti (pvz. papilti dervos) ir tęsti.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Pauzė.</li><li>Palaukti, kol pakels plokštę.</li><li>Resume.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Pranešimai su laukimo trukme matomi VISUOSE įrenginiuose; po Resume spausdinama toliau nuo
+to paties sluoksnio.</dd>
+</dl></div>
+
+<div class="s"><h3><span class="nr">D4</span> Baigiasi derva <span class="pill p-hw">reikia geležies</span></h3>
+<dl class="f">
+<dt>Prielaidos</dt><dd>Likutis artėja prie ribos.</dd>
+<dt>Tikslas</dt><dd>Nepamesti spaudinio dėl tuščio vato.</dd>
+<dt>Žingsniai</dt><dd><ol><li>Leisti likučiui nukristi žemiau ribos.</li></ol></dd>
+<dt>Rezultatas</dt><dd>Printeris pats sustoja, praneša visuose įrenginiuose ir Telegram; papylus ir paspaudus Resume
+tęsia.</dd>
+</dl></div>
+
+<h2>E · Sąmoningai neįtraukta</h2>
+<div class="s"><h3><span class="nr">E</span> Kodėl šitų netikrinam</h3>
+<dl class="f">
+<dt>Netikrinam</dt><dd><ol>
+<li><b>Dervos perjungimas tarp sluoksnių.</b> Fiziškai neįmanoma: derva keičiama tik sustabdžius ir išplovus vatą.</li>
+<li><b>Du žmonės paleidžia spaudinį tuo pačiu metu.</b> Antras gauna „printer busy"; scenarijus tas pats, kaip D2.</li>
+<li><b>Profilio failo redagavimas ranka kortelėje.</b> Retas; firmware bet kokią reikšmę apkarpo į leistinas ribas, tad blogiausia - grįš ne ta reikšmė, ne gedimas.</li>
+<li><b>Kortelės perkėlimas į kitą printerį tęsiant spaudinį.</b> Nėra tokio naudojimo; resume įrašas susietas su ta mašina.</li>
+<li><b>Spausdinimas be kortelės.</b> Nėra iš ko spausdinti; tikrinam tik tai, kad meniu neužlūžtų (C1).</li>
+</ol></dd>
+</dl></div>
+
+<p class="foot">Pildoma: naują scenarijų dėti į tą pačią sekciją, numeruoti toliau, būseną žymėti tais pačiais
+ženklais. Rasti gedimai keliauja į testų pultą kaip atskira eilutė, o pataisyti - atgal į scenarijų kaip
+„patikrinta". Šaltinis: memory/scenarijai.html</p>
+</div>
