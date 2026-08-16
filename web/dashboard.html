@@ -5157,7 +5157,12 @@ $('slicerToggle').addEventListener('click',async()=>{
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
   /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
      naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
-  const SV='0.9.0';
+  /* 2.0.0 - naujasis atramu algoritmas. Prisegtas visas rinkinys: pats modulis
+     importuoja slicer-core-2.0.0.js prisegtu vardu, o tas - clipper-6.4.2.js,
+     tad po juo niekas nebeplaukioja. Patikrinta ne grep'u, o tikru importu:
+     slicer-2.0.0.js atiduoda visus 13 vardu, kuriuos sitas pultas kviecia
+     (jis perduoda bazes API toliau). Keiciant versija uztenka sios eilutes. */
+  const SV='2.0.0';
   slicerMod=await loadModule('slicer-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js')
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
