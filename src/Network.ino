@@ -1485,6 +1485,8 @@ String configJson() {
   out += String(resinFixedMl, 2);
   out += ",\"resinDensity\":";
   out += String(resinDensity, 3);
+  out += ",\"slicerOn\":";                  // 0.17 SL-mod: module live?
+  out += slicerModuleOn ? "true" : "false";
   out += ",\"resinProfile\":\"";            // 0.17 0-16: the profile in force
   out += jsonEscape(resinProfileName);
   out += "\",\"vatEmptyG\":";               // moulded constant unless someone re-weighed it
@@ -1626,6 +1628,10 @@ void applyConfigRequest() {
     float g = server.arg("vat_empty_g").toFloat();
     if (g > 0.0f && g <= VAT_EMPTY_G_MAX) vatEmptyG = g;
   }
+  // Only ever set explicitly: formCheck would read its ABSENCE from the normal
+  // settings form as "switch it off", and the form does not carry this field.
+  if (server.hasArg("slicer_on"))
+    slicerModuleOn = server.arg("slicer_on") == "1" || server.arg("slicer_on") == "true";
   askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
   previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);

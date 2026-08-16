@@ -257,6 +257,12 @@ double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the fact
 // 0.17 0-16: the resin profile in force. Only the slug is stored - the values
 // themselves live in the ordinary settings, because applying a profile just
 // copies them there (see ResinProfile.ino). "" = none picked yet.
+// 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
+// setting, not a web lookup - it has to work with no internet, and switching it
+// must not need a firmware release or a git push. No UI writes it; the slicer
+// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
+bool slicerModuleOn = false;
+
 String resinProfileName = "";
 // Bumped whenever a profile is applied, written or deleted, so the LCD menu
 // knows when its cached label went stale (0.17 0-16).
@@ -434,6 +440,7 @@ void loadDeviceConfig() {
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
   // A printer that has never picked a profile is running the factory values,
   // which is exactly what "slow" holds - so name it instead of saying "not set".
+  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
   resinProfileName = sysPrefs.getString("resinProf", "slow");   // 0.17 0-16
   if (resinProfileName.length() == 0) resinProfileName = "slow";
   vatEmptyG = sysPrefs.getFloat("vatEmptyG", VAT_EMPTY_G_DEF);
@@ -502,6 +509,7 @@ void saveDeviceConfig() {
   sysPrefs.putFloat("resinCal", resinCalFactor);       // R-cal 0.17
   sysPrefs.putFloat("resinFixed", resinFixedMl);
   sysPrefs.putFloat("resinDens", resinDensity);
+  sysPrefs.putBool("slicerOn", slicerModuleOn);        // 0.17 SL-mod
   sysPrefs.putString("resinProf", resinProfileName);   // 0.17 0-16
   sysPrefs.putFloat("vatEmptyG", vatEmptyG);
   sysPrefs.putFloat("calRawA", calRawA);   sysPrefs.putFloat("calMeasA", calMeasA);

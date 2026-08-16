@@ -1733,38 +1733,24 @@ $('vatEmptyEdit').addEventListener('click',async e=>{
   catch(err){msg(err.message,true);}
 });
 // ---- Slicer gate (0.17 SL-mod) ---------------------------------------------
-// Seven taps on the version badge unlock the slicer card. That is only the
-// FIRST gate: the card then asks the module's manifest whether it is available,
-// so switching the feature on stays a server decision, not a firmware one.
-// Nothing here loads or runs the slicer - that lands when the module ships.
-const SLICER_MANIFEST='https://slibbinas.github.io/TinyMakerWifi/lib/slicer.json';
+// Two independent gates (V 08-16). The seven-tap gesture only unlocks the CARD -
+// it is a discoverability lock, and it will end up on a forum sooner or later.
+// Whether the slicer is actually LIVE comes from the printer itself (slicerOn),
+// so it works with no internet and switching it needs neither a firmware
+// release nor a git push. Nothing here loads the module; that lands with it.
 let slicerTaps=0,slicerTapAt=0;
 const slicerUnlocked=()=>{try{return localStorage.getItem('tmSlicer')==='1';}catch(e){return false;}};
-const setSlicerState=(tag,text)=>{
-  const st=$('slicerState'),b=$('slicerBody');
-  if(st)st.textContent=tag;
-  if(b)b.textContent=text;
-};
-const refreshSlicerCard=async()=>{
+const refreshSlicerCard=()=>{
   const on=slicerUnlocked();
   show('slicerCard',on);
   if(!on)return;
-  setSlicerState('checking','Looking for the slicer module...');
-  try{
-    const ctl=new AbortController();
-    const t=setTimeout(()=>ctl.abort(),7000);
-    const r=await fetch(SLICER_MANIFEST,{cache:'no-store',signal:ctl.signal});
-    clearTimeout(t);
-    if(!r.ok)throw new Error('http '+r.status);
-    const m=await r.json();
-    if(m.available){
-      setSlicerState('ready','Slicer module '+(m.version||'')+' is available. Installing it onto the SD card comes with the module itself.');
-    }else{
-      setSlicerState('off',m.note||'The slicer module is published but switched off for now.');
-    }
-  }catch(e){
-    setSlicerState('none','No slicer module published yet - this is where it will appear.');
-  }
+  const live=!!(statusData&&statusData.slicerOn);
+  const card=$('slicerCard'),st=$('slicerState'),b=$('slicerBody');
+  card.style.opacity=live?'':'.55';
+  if(st)st.textContent=live?'ready':'not active';
+  if(b)b.textContent=live
+    ? 'The slicer module is live on this printer.'
+    : 'Unlocked, but the module is not active on this printer yet - it switches itself on once installed.';
 };
 const slicerTap=()=>{
   const now=Date.now();
