@@ -5570,6 +5570,41 @@ const popClose=()=>{
   const p=$('gl3dPop'); if(!p||p.style.display==='none')return;
   p.style.display='none'; popRow(true);
 };
+
+/* Irankiu juostos ant vaizdo valdiklis. Perkeldamas ji pirma karta praleidau -
+   mygtukai matesi, bet nieko nedare (V 08-17: „toolsai yra bet neveiksnus").
+   Jie nieko neskaiciuoja patys: kiekvienas tik paspaudzia atitinkama korteles
+   mygtuka, kuris CSS'e pasleptas (#slicerTools{display:none}). Viena logika, du
+   pavidalai - kortele lieka vieninteliu tikruoju saltiniu.
+   Kabinam PAGRINDINEJE srityje, ne 3D IIFE viduje: ten popRow/popClose dar
+   nebutu inicializuoti tuo metu, kai trys.js baigia kroviesi. */
+{
+  const tls=document.getElementById('gl3dTools');
+  if(tls)tls.addEventListener('click',e=>{
+    const t=e.target&&e.target.dataset&&e.target.dataset.tool; if(!t)return;
+    e.stopPropagation();
+    /* Minkstinimas turi tik dvi busenas, tad pats zenklas ir yra jungiklis -
+       popup'as tam butu tuscias langas (V 08-12). */
+    if(t==='detail'){
+      const c=$('slicerAA'); if(!c)return;
+      c.checked=!c.checked;
+      e.target.classList.toggle('on',c.checked);
+      slicerInvalidate();
+      return;
+    }
+    if(t==='scale'){
+      const p=$('gl3dPop'); if(!p)return;
+      if(p.style.display!=='none')popClose();
+      else{p.style.display='flex';popRow(false);}
+      return;
+    }
+    const id={fit:'slicerAutoFit',flat:'slicerFlat',flip:'slicerFlip',
+              tilt:'slicerRotX',rot:'slicerRotZ'}[t];
+    const b=id&&$(id); if(b&&!b.disabled)b.click();
+  });
+  const pd=document.getElementById('popDone');
+  if(pd)pd.addEventListener('click',e=>{e.stopPropagation();popClose();});
+}
 /* Popup'ai NIEKO neskaiciuoja patys - tik persiuncia i esamus laukus. */
 const popScaleApply=pct=>{
   if(!slicerRaw)return;
@@ -6326,6 +6361,15 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const bb=geo.boundingBox,ctr=new T.Vector3(),sz=new T.Vector3();
       bb.getCenter(ctr);bb.getSize(sz);
       if(home!==false&&typeof setHome==='function')setHome(ctr,Math.max(sz.x,sz.y,sz.z));
+      /* Valdikliu grupes. Perkeldamas si gabala pirma karta juos PRALEIDAU, tad
+         slicerio rezime likdavo tik apatine irankiu juosta, o sukimo, stumimo ir
+         priartinimo padai nepasirodydavo - modelio nebuvo kaip pasukti (V 08-17).
+         Kiekvienam savas display: zoom yra flex, pagalba block, padai grid. */
+      const rodyk=id=>{const e=$(id);if(e)e.style.display=
+        id==='gl3dZoom'?'flex':(id==='gl3dHelp'?'block':'grid');};
+      rodyk('gl3dHelp');rodyk('gl3dPad');rodyk('gl3dRot');rodyk('gl3dZoom');
+      // Lango didinimas: sliceryje jis lygiai toks pat naudingas, kaip perziuroje.
+      if(typeof setStageGrowUI==='function')setStageGrowUI(true);
       clipTaikyk();                        // medziaga nauja - pjuvis is naujo
       ren.render(scene,cam);
       return true;
