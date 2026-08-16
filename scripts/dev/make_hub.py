@@ -81,7 +81,7 @@ def card(r, archived=False):
     meta = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["mtime"]))
     if r["ver"]: meta += " · " + html.escape(r["ver"])
     meta += " · %d KB" % r["kb"]
-    return ("""<a class="c" href="{href}">
+    return ("""<a class="c" href="{href}" target="_blank" rel="noopener">
   <div class="ct"><span class="cn">{title}</span><span class="pill {cls}">{pill}</span></div>
   <div class="cp">{purpose}</div>
   <div class="cm">{meta}</div>
@@ -89,24 +89,59 @@ def card(r, archived=False):
                 purpose=html.escape(r["purpose"] or "Be aprašymo - arba aprašyk, arba archyvuok."),
                 meta=meta)
 
+MEM = os.path.join(os.path.expanduser("~"), ".claude", "projects",
+                   "C--Users-SViktoras-Documents-PlatformIO-Projects-TinyMakerWiFi", "memory")
+LOCAL = os.path.join(HERE, "local")
+PLANAI = [
+    ("planas.html", "Planas (vidinis)",
+     "Visas darbu planas: busenos, sprintai, idejos. Kopija atnaujinama kas paleidima."),
+    ("team-roadmap.html", "Komandos roadmap",
+     "Ka mato Brianas ir Tanneris: be vidines virtuves. Kopija is memory."),
+]
+
+def copy_plans():
+    """Planu kopijos i local/, kad tas pats serveris juos atiduotu."""
+    out = []
+    if not os.path.isdir(MEM):
+        return out
+    if not os.path.isdir(LOCAL):
+        os.makedirs(LOCAL)
+    for name, title, purpose in PLANAI:
+        src = os.path.join(MEM, name)
+        if not os.path.isfile(src):
+            continue
+        try:
+            data = io.open(src, encoding="utf-8", errors="replace").read()
+            io.open(os.path.join(LOCAL, name), "w", encoding="utf-8", newline="").write(data)
+        except OSError:
+            continue
+        st = os.stat(src)          # data ir dydis - is ORIGINALO, ne kopijos
+        out.append({"file": "local/" + name, "title": title, "purpose": purpose,
+                    "mtime": st.st_mtime, "kb": round(st.st_size / 1024),
+                    "ver": "", "days": int((time.time() - st.st_mtime) / 86400),
+                    "group": "planai"})
+    return out
+
+
 def main():
     live = rows(HERE)
+    planai = copy_plans()
     arch = rows(ARCH)
-    groups = [("Testai ir scenarijai", "testai"), ("Stendai ir prototipai", "stendai")]
+    groups = [("Testai ir scenarijai", "testai"), ("Planai", "planai"),
+              ("Stendai ir prototipai", "stendai")]
     body = []
     for label, key in groups:
-        items = [r for r in live if r["group"] == key]
+        items = [r for r in (live + planai) if r["group"] == key]
         if not items: continue
         body.append("<h2>%s</h2>\n<div class=\"grid\">%s</div>" %
                     (label, "\n".join(card(r) for r in items)))
 
     kitur = "\n".join(
-        """<a class="c" href="{u}"{t}>
+        """<a class="c" href="{u}" target="_blank" rel="noopener">
   <div class="ct"><span class="cn">{n}</span><span class="pill p-ext">{tag}</span></div>
   <div class="cp">{d}</div>
   <div class="cm">{cmd}</div>
 </a>""".format(u=html.escape(u), n=html.escape(n), d=html.escape(d),
-               t=' target="_blank"' if u.startswith("http://tinymaker") else "",
                tag="kitas portas" if "localhost" in u else "printeris",
                cmd=("paleisti: <code>%s</code>" % html.escape(c)) if c else "visada įjungtas")
         for n, u, d, c in KITUR)
@@ -123,7 +158,7 @@ def main():
             "iš naujo.</div>" % (AGE_OLD, ", ".join(html.escape(r["file"]) for r in stale))) if stale else ""
 
     page = TEMPLATE.format(body="\n\n".join(body), note=note,
-                           gen=time.strftime("%Y-%m-%d %H:%M"), n=len(live))
+                           gen=time.strftime("%Y-%m-%d %H:%M"), n=len(live) + len(planai))
     io.open(OUT, "w", encoding="utf-8", newline="").write(page)
     print("pultas: %s (%d gyvi, %d archyve)" % (OUT, len(live), len(arch)))
 
