@@ -135,6 +135,15 @@ export const CFG = {
      pirmas sluoksnis) ir V žodžiais „jo raftas idealus". Buvo 0,15. */
   pad_thickness_mm:      0.3,
   pad_brim_mm:           1.6,
+  /* Nuo kokio auksCio sejam atramu taskus. Buvo `base_height_mm` (1,0 mm) su
+     prielaida „prie pat plokstes laikosi pats". Staciam modeliui tai tiesa -
+     ten pirmas milimetras yra pagrindas ant pado. PAGULDYTAM netiesa: jo
+     apacia prasideda daugybe ploneliu dryzeliu, ir dalis ju atsiranda ten, kur
+     po jais nieko nera. Ismatuota (pasukimu testai, 08-19): biustas ant sono
+     turi 14 neparemtu salu, „evil" 9, ir VISOS ties z = 0,1-1,4 mm.
+     Dabar sejam nuo pado virsaus: kas zemiau - guli ant pado arba ant pacios
+     plokstes. */
+  seed_from_mm:          null,   // null = pad_thickness_mm
   pad_object_gap_mm:     1.0,   // pad_object_gap — tarpas tarp pado ir detales
   pad_layers:            6,     // 0.3 mm / 0.05
   /* Kaklelio riba (auditorius, raštas 011) - 8-10x. TANKINIMO ČIA NĖRA, ir
@@ -806,7 +815,14 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     }
     if (!(hit > need(rBack))) continue;            // netelpa — taško atsisakom
     const junction = add(p.pos, mul(dir, width));
-    if (junction[2] < cfg.base_height_mm) continue;
+    /* Jungtis turi tilpti VIRS pado, ne virs pedos aukscio. Buvo
+       `base_height_mm` (1,0 mm), ir del to paguldyto modelio apacioje
+       galvutes tiesiog iskrisdavo: kontaktas ties z = 0,7 duoda jungti maziau
+       nei per 1,0, tad taskas buvo pasetas, o galvute - ne. Butent tai palikdavo
+       14 salu biuste ant sono (ismatuota 08-19). Pado virsus - realus fizinis
+       apribojimas: zemiau jo stulpo nebus. */
+    if (junction[2] < (cfg.seed_from_mm != null ? cfg.seed_from_mm
+                                                : cfg.pad_thickness_mm)) continue;
     heads.push({ pos: p.pos, dir, rBack, width, junction, pillar: -1, onModel: false });
   }
   log.heads = heads.length;
@@ -1836,7 +1852,7 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
             active.delete(k);
         }
 
-        if (z >= cfg.base_height_mm) {
+        if (z >= (cfg.seed_from_mm != null ? cfg.seed_from_mm : cfg.pad_thickness_mm)) {
           // Nuokaba = ši dalis MINUS po ja esančios dalys.
           const cand = [];      // per įtakos spindulio filtrą
           const free = [];      // BE filtro — salos ir pussaliai (SPG.cpp:300,316)
