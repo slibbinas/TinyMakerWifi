@@ -2265,8 +2265,13 @@ const applyStatus=s=>{
       }
     }
     /* Isdidinimo mygtukas - tik kai kortelėje stovi peržiūra (aštrus vaizdas).
-       Spausdinant ir tuščioje kortelėje jo nėra. */
-    if(window.setStageGrowUI)setStageGrowUI(!busyPrint&&!!dashPreviewName);
+       Spausdinant ir tuščioje kortelėje jo nėra.
+       Sliceris skaitomas TAIP PAT: jam `dashPreviewName` tuscias (peruziura tuo
+       metu priklauso jam), tad be sios salygos apklausa mygtuka nuslepdavo po
+       sekundes, nors gl3dMesh ji ka tik parode - dideliame modelyje sukiotis
+       buvo neimanoma (V 08-17). */
+    if(window.setStageGrowUI)
+      setStageGrowUI(!busyPrint&&(!!dashPreviewName||slicerOwnsPreview===true));
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
     pause.classList.toggle('hidden',showResume);
@@ -6268,6 +6273,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const pb=$('gl3dPad'); if(pb)pb.style.display='grid';
       const rb=$('gl3dRot'); if(rb)rb.style.display='grid';
       const zb=$('gl3dZoom'); if(zb)zb.style.display='flex';
+      /* Grazinam tai, ka slicerio rezimas paslepia (zr. SLICER_HIDE gl3dMesh
+         viduje): cia jau yra tikri sluoksniai, tad narvas, pjuvis, vokseliai ir
+         detalus vaizdas vel turi prasme. Be sito jie liktu dinge visam seansui. */
+      SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='';});
       if(window.syncCageBtn)syncCageBtn();   // narvo jungiklis rodo isaugota busena
       return true;
     }catch(e){host.style.display='none';if(stage)stage.classList.remove('stageTall');if(cvEl)cvEl.style.visibility='';return false;}
@@ -6337,6 +6346,9 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      tiesiai is naršyklėje supjaustyto STL, tad jam reikia savo iejimo.
      Perkelta is experimental2, kur ta grandine buvo isbandyta ant gelezies. */
   let supMesh=null;
+  /* Mygtukai, kurie turi prasme TIK supjaustytiems duomenims. Sliceryje jie
+     slepiami (nera ko pjauti, nera voksleliu), o gl3dShow juos grazina. */
+  const SLICER_HIDE=['gl3dCage','gl3dDet','gl3dClip','gl3dRaw'];
 
   // Modelio tinklelis is slicerio (Float32Array pozicijos). home===false: tas pats
   // modelis, tik pakeistas - kameros neliesti.
@@ -6368,6 +6380,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const rodyk=id=>{const e=$(id);if(e)e.style.display=
         id==='gl3dZoom'?'flex':(id==='gl3dHelp'?'block':'grid');};
       rodyk('gl3dHelp');rodyk('gl3dPad');rodyk('gl3dRot');rodyk('gl3dZoom');
+      /* Priartinimo grupeje pas MUS gyvena ir narvas, pjuvis, vokseliai bei
+         detalus vaizdas - experimental2 ju ten neturejo. Visi keturi turi prasme
+         tik SUPJAUSTYTIEMS duomenims: sliceryje dar nera ka pjauti nei rodyti
+         vokseliais, o „detalus vaizdas" dar ir maisosi su slicerio „minkstinimu"
+         (panasi ikona, kitas dalykas). Be to su sesiais mygtukais grupe
+         persidengia su irankiu juosta (V 08-17). Paliekam tik priartinima. */
+      SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='none';});
       // Lango didinimas: sliceryje jis lygiai toks pat naudingas, kaip perziuroje.
       if(typeof setStageGrowUI==='function')setStageGrowUI(true);
       clipTaikyk();                        // medziaga nauja - pjuvis is naujo
