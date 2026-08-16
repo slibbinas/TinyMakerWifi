@@ -2,8 +2,8 @@
 '
 ' Nuoroda ant darbastalio be sito neveiktu: puslapiai guli faile, o jiems reikia
 ' serverio (dalis dalyku nesikrauna is file://). Sitas paleidejas:
-'   1. susiranda scripts/dev katalog?  (pagrindinis repo arba laikinas worktree),
-'   2. persigeneruoja puita, kad datos butu tikros,
+'   1. susiranda scripts/dev kataloga (paprastai ta pati, kur guli sitas failas),
+'   2. persigeneruoja pulta, kad datos butu tikros,
 '   3. pakelia serveri TIK jei jo dar nera (antras paspaudimas nedubliuoja),
 '   4. atidaro narsykle.
 ' Langas nerodomas - jokio juodo lango mirksejimo.
@@ -15,10 +15,13 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 
 url = "http://localhost:8899/"
 
-' Kur gali gyventi scripts/dev: pirma pagrindinis repo, tada laikinas worktree.
+' Kur gali gyventi scripts/dev: pirma sito failo paties katalogas (tada veikia ir
+' pagrindiniame repo, ir worktree kopijoje, ir repo perkelus), tada numatytoji
+' vieta. Ikoduoti kelio su vartotojo vardu cia negalima - kitam zmogui neveiktu,
+' o worktree kelias dar ir laikinas.
 dirs = Array( _
-  "C:\Users\SViktoras\Documents\PlatformIO\Projects\TinyMakerWiFi\scripts\dev", _
-  "C:\Users\SViktoras\Documents\PlatformIO\Projects\TinyMakerWiFi\.claude\worktrees\tesiam-643fe8\scripts\dev")
+  fso.GetParentFolderName(WScript.ScriptFullName), _
+  sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\Documents\PlatformIO\Projects\TinyMakerWiFi\scripts\dev")
 
 devDir = ""
 For i = 0 To UBound(dirs)
@@ -34,7 +37,7 @@ End If
 py = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\.platformio\penv\Scripts\python.exe"
 If Not fso.FileExists(py) Then py = "python"
 
-' 1. Sviezios datos ir „kandidatai i archyva" - kaskart atidarant.
+' 1. Sviezios datos ir "kandidatai i archyva" - kaskart atidarant.
 sh.Run """" & py & """ """ & devDir & "\make_hub.py""", 0, True
 
 ' 2. Serveris - tik jei dar negyvas.

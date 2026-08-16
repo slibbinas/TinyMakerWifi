@@ -50,7 +50,12 @@ textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:va
 </style></head><body>
 
 <h1>0.17 · dervų profiliai - geležies testai</h1>
-<div class="sub">Build <b>8201857</b>, 2026-08-16 20:10. Biblioteka gyva gh-pages. Grupė <b>K</b> - šios sesijos pataisos, pradėk nuo jos; <b>N</b> - bendras naudojimas iš scenarijų sąrašo. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.</div>
+<div class="sub">Build <b id="bld">?</b>. Biblioteka gyva gh-pages. Pradėk nuo grupių <b>0</b>, <b>0b</b>, <b>0c</b> - tai printerio ekranai ir 08-17 audito radiniai, kurių iš naršyklės patikrinti neįmanoma. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.
+<br><span style="color:var(--muted)">Prieš pradėdamas patikrink, kad printerio Settings → About rodo tą patį build'ą.</span></div>
+
+<div style="margin:8px 0 14px;font-size:13px;color:var(--muted)">Šalia:
+<a href="index.html">← ūkis</a> · <a href="busenos.html">būsenų žemėlapis</a> ·
+<a href="scenarijai.html">scenarijai</a> · <b>geležies testai</b></div>
 
 <div class="bar">
   <span class="count" id="cnt">0 / 0</span>
@@ -63,11 +68,35 @@ textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:va
 <textarea id="out" placeholder="Ataskaita atsiras paspaudus „Kopijuoti""></textarea>
 
 <script>
+/* Build'as VIENOJE vietoje. Anksciau jis buvo irasytas dviese - antrasteje
+   „8201857", ataskaitoje „cc99f0f" - ir abu pasene bei nesutapo tarpusavyje,
+   tad nukopijuota ataskaita meluodavo, kuris build tikrintas (08-17). */
+const BUILD='(dar neirasytas)';
 const G=[
  ["0 · PIRMA: nauji printerio ekranai (iš naršyklės netikrinami)",[
-  ["Settings → „Back to Default“ → paspausk OK ir PALAIKYK ~2 s.","Klausimas „Reset all settings?“ lieka ekrane: nepraslysta ir nesikartoja. Atleidus - Back grąžina be pakeitimų."],
-  ["Pakartok ir patvirtink „Reset“.","Gamykliniai skaičiai, derva „Slow resin (factory)“, kalibracija tuščia, pulte skaičiai persiskaičiuoja."],
+  ["Settings → „Back to Default“ → paspausk OK ir PALAIKYK ~2 s.","Klausimas lieka ekrane: nepraslysta ir nesikartoja. Atleidus - Back grąžina be pakeitimų."],
+  ["Perskaityk tą klausimą iki galo.","Trys pilnos eilutės: „Reset settings? / Resin profile and / weighings. Reboots.“ Sakinys nenutrūkęs, netrūksta žodžio, nė viena eilutė neišeina už rėmelio. (08-16 buvo likę „Resin profile and go.“)"],
+  ["Pakartok ir patvirtink „Reset“.","Gamykliniai skaičiai, derva „Slow resin (factory)“, kalibracija tuščia, pulte skaičiai persiskaičiuoja. Printeris <b>persikrauna</b>."],
+  ["Po atstatymo pasirink Fast ir pažiūrėk reikšmes.","18 / 8,0 / 4 - gamyklinės. Jei rodo tavo senas redaguotas reikšmes, fast.json overlay liko nenuimtas (08-17 pataisa)."],
+  ["Po atstatymo Settings → Resin calibration.","Tuščio vato svoris grįžęs į gamyklinį 56,56 g, ne tavo pasvertas."],
   ["Print meniu pasirink aplanką be sluoksnių (tuščią).","„No layers found in this model - the card may be at fault“, Back grąžina į sąrašą."],
+ ]],
+ ["0b · 08-17 auditas: derva nepasirinkta (NAUJA, iš naršyklės netikrinama)",[
+  ["Pulte ištrink AKTYVŲ savo profilį. Prie printerio atidaryk modelį ir spausk Start.","Ekranas „Resin not set / Pick a resin before printing.“ su mygtukais Back ir Slow. <b>Spaudinys NEPRASIDEDA</b>: plokštė nejuda, homing neprasideda."],
+  ["Tame ekrane spausk Back.","Grįžta į modelio peržiūrą. Niekas nepasileidžia, derva lieka nepasirinkta."],
+  ["Spausk Start dar kartą, tada dešinį mygtuką „Slow“.","Užsideda „Slow resin (factory)“ ir grįžta į peržiūrą su persiskaičiuotais sluoksniais. <b>Spaudinys vis dar neprasideda</b> - Start reikia paspausti atskirai."],
+  ["Dabar spausk Start.","Spausdina teisingą sluoksnių skaičių pagal Slow (0,10 mm)."],
+  ["⚠️ SVARBIAUSIAS. Ištrink aktyvų profilį, išjunk maitinimą, įjunk. Advanced → Resin.","Rodo „Not set - blocked“. <b>NE</b> „Slow resin (factory)“. Anksčiau vardas tyliai virsdavo Slow, o mašina suko ištrinto profilio skaičiais."],
+  ["Toje pačioje būsenoje Advanced → Resin → Resin profile, vienas OK.","Užsideda „Fast resin“ - iš aklavietės išeinama vienu paspaudimu."],
+  ["Ta pati būsena, bet žiūrėk į pultą.","Dervos eilutė: „Not set - printing is blocked“. Start mygtukai (ir sąraše, ir modelio kortelėje) neaktyvūs."],
+  ["Atidaryk pultą DVIEJUOSE įrenginiuose. Viename ištrink aktyvų profilį.","Antrame per ~2 s Start irgi užsirakina pats, be perkrovimo."],
+  ["Atkurk atsarginę kopiją, padarytą TOJE būsenoje (be dervos).","Po atkūrimo vėl „Not set - blocked“, o ne tyliai užsidėjęs Slow."],
+  ["Ištrauk SD kortelę su pasirinkta derva.","Vardas LIEKA, rodo „(missing)“, spausdinti vis tiek leidžia - reikšmės EEPROM'e tos pačios. Tai ne ta pati būsena kaip „not set“."],
+ ]],
+ ["0c · 08-17 auditas: kiti radiniai (prie printerio)",[
+  ["Įdiek bibliotekos „Anycubic Water-Washable Clear“ ir prie printerio atidaryk Advanced → Resin.","Ilgas vardas <b>apkirptas</b> ir telpa į vieną eilutę. Jei užlipa ant gretimo įrašo - ✗ (buvo 229 px prie 150 px eilutės)."],
+  ["Į kortelę įdėk sugadintą /resin/xxx.json (pvz. tuščią failą). Advanced → Resin → Resin profile, spausk kelis kartus.","Ciklas <b>nesustoja</b>: peršoka sugadintą ir eina toliau. Anksčiau mygtukas mirdavo visam laikui, be jokio pranešimo."],
+  ["Perjunk dervą PRIE PRINTERIO, palauk ~pusę minutės (jei Connect įjungtas).","Debesų kopija atsinaujina taip pat, kaip perjungus pulte. Anksčiau šitas kelias kopijos nepaleisdavo."],
  ]],
  ["A · Pirmas paleidimas",[
   ["Ištrauk SD kortelę, perkrauk printerį. Pulte atidaryk dervos eilutę.","Fast ir Slow sąraše yra, pasirenkami. Kortelės nereikia."],
@@ -116,10 +145,10 @@ const G=[
  ["I · Biblioteka (nauja - gyvai iš gh-pages)",[
   ["Pagrindinio lango dervų sąraše pažiūrėk apačią.","Eilutė „N tested resins available“. Katalogo ir Install ten NĖRA."],
   ["Paspausk tą eilutę.","Nuveda į Settings ir atidaro pasirinkimą su „Tested resin library“."],
-  ["Settings pasirinkime pažiūrėk biblioteką.","Trys: SUNLU Tough (su ✓ tested by), Anycubic WW Clear ir Black (be ženkliuko)."],
-  ["Paspausk Install ties SUNLU Tough.","Atsiranda kortelėje; sąraše jo nebelieka bibliotekos dalyje."],
+  ["Settings pasirinkime pažiūrėk biblioteką.","Trys: SUNLU Toughness Resin (su ✓ tested by, 0,05 mm), Anycubic WW Clear ir Black - be ženkliuko ir <b>0,10 mm</b> (08-17: buvo 0,05 su 14 s ekspozicija, t. y. dviguba energija)."],
+  ["Paspausk Install ties SUNLU Toughness Resin.","Atsiranda kortelėje; sąraše jo nebelieka bibliotekos dalyje."],
   ["Pasirink įdiegtą SUNLU ir pažiūrėk laukus.","18 s base, 8,0 s regular, 4 base sluoksniai, tankis 1,157."],
-  ["Paspausk „Buy“ ties Anycubic.","Atsidaro gamintojo puslapis naujame skirtuke (laikina nuoroda testui)."],
+  ["„Buy“ mygtuko NEIEŠKOK - jo neturi būti niekur.","Nei bibliotekos eilutėse, nei įdiegtuose profiliuose. Taip ir turi būti: firmware priima tik mūsų domenų nuorodas, o manifeste kol kas gamintojų. Vieta laukia realių adresų. Jei „Buy“ vis dėlto matosi - ✗."],
   ["Išjunk telefono/kompiuterio internetą, atidaryk Settings pasirinkimą.","Rašo, kad bibliotekos nepavyko pasiekti, ir siūlo „refresh“ - ne tyli tuštuma."],
   ["Įjunk internetą, spausk „refresh“.","Sąrašas grįžta be puslapio perkrovimo."],
  ]],
@@ -204,7 +233,7 @@ function setAll(v){S={};if(v){G.forEach((g,gi)=>g[1].forEach((x,ii)=>S[gi+'-'+ii
  else{N={};localStorage.setItem('t016n','{}');}   // „Išvalyti" nuima ir pastabas
  localStorage.setItem('t016',JSON.stringify(S));render();}
 function copyReport(){
- let t='0.17 dervų profiliai - geležies testai (build cc99f0f)\n\n';
+ let t='0.17 dervų profiliai - geležies testai (build '+BUILD+')\n\n';
  G.forEach(([title,items],gi)=>{t+=title+'\n';
   items.forEach(([q],ii)=>{const id=gi+'-'+ii,s=S[id];
    t+='  '+(s==='ok'?'[v]':s==='bad'?'[X]':'[ ]')+' '+q+'\n';
@@ -214,6 +243,7 @@ function copyReport(){
  document.getElementById('out').select();
  try{document.execCommand('copy');}catch(e){}
 }
+document.getElementById('bld').textContent=BUILD;
 render();
 </script>
 </body></html>

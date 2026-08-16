@@ -49,6 +49,53 @@ unless noted. Community contributors are tagged inline.
 
 ### Fixed
 
+- **A print of zero layers could be started.** The guard before Start compares
+  the layer count against the height it was counted with - but switching resin
+  re-counted the model and re-stamped that height, which disarmed the guard, and
+  the "no layers" check lived inside it. If the card misread during that
+  re-count, the preview showed `Layers: 0` with Start still live, and the plate
+  would go down and the job "finish" without a single exposure. Counting and
+  refusing now travel together in one place.
+- **Printing with no resin selected.** Deleting the active profile left the
+  printer with no profile name but with the deleted profile's exposure still in
+  EEPROM, and printing carried on with that ghost recipe. Worse, after a reboot
+  the empty name was silently renamed to `Slow resin (factory)` without applying
+  its values, so the machine claimed one recipe and ran another. Printing is now
+  refused until a resin is picked, at the printer (a new screen, with a one-press
+  way out) and in the dashboard (409, and the Start buttons lock themselves
+  within one poll on every open dashboard).
+- **Factory reset left half the resin state behind.** Only the `Slow` overlay was
+  removed, so `Fast` came back with pre-reset edits; the empty vat weight also
+  survived, although the confirmation promises the weighings go. The
+  confirmation screen itself had lost a word mid-sentence and no longer warned
+  about the reboot it performs.
+- **One damaged `/resin/*.json` killed the printer's Resin profile button** for
+  good: the failed profile did not become current, so the next press offered the
+  same broken file again, with no message - and the dashboard hides such an
+  entry, so the cause was invisible.
+- **A long profile name broke the Advanced menu layout.** Our own published
+  "Anycubic Water-Washable Clear" is 229 px on a 150 px row, and Arduino_GFX
+  silently wraps, so it landed on the next entry. Clipped now, like every other
+  variable-width text.
+- **The resin library shipped two profiles that would over-expose.** Both
+  Anycubic entries carried the factory 35 s / 14.0 s recipe with the layer height
+  halved to 0.05 mm - the same energy on half the layer. They are 0.10 mm now,
+  and still carry no `tested by` badge.
+- Preview drew the printer's plan instead of the model, so switching to a
+  0.05 mm profile cut a model in half on screen (plan PV-resin-bug); a single
+  lost slice froze it at `Building the 3D view N/240` for good.
+- Saving a profile *with values* onto the profile that is currently active wrote
+  the file without applying it, so the printer named one recipe and ran another.
+- A profile file missing some keys inherited those values from whatever resin
+  happened to be loaded, so the same file described different recipes at
+  different times.
+- Switching resin at the printer did not schedule the Connect backup, although
+  the same change from the dashboard did.
+- A `buy` link read from a card was only checked for `https://`, not against the
+  catalogue allowlist that the write path uses, so a prepared card could put an
+  arbitrary link in the dashboard looking like a printer recommendation.
+- Settings, backup restore, model deletion and print start now refuse with 409
+  while a resume is waiting to be answered.
 - The offline demo dashboard read no POST parameters at all: it expected a
   string body while the app sends `URLSearchParams`, so every simulated action
   silently lost its arguments.

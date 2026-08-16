@@ -47,6 +47,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `canPause`, `canResume`, `canStop` | which controls are valid right now |
 | `phaseTotalMs`, `phaseElapsedMs` | live phase countdown (0 = unknown) |
 | `layerHeight`, `dryRun` | active settings snapshot |
+| `resinSet` | `false` when no resin profile is selected — `/api/print/start` refuses with 409 until one is picked, so a client should disable its Start controls. Lives here rather than in `/api/config` on purpose: this is polled, so a second open dashboard learns about a deleted profile within one poll (0-16) |
 | `wifiRssi`, `wifiText`, `ip` | connectivity |
 | `sdReady`, `sdText` | SD card state (`Locked` while printing) |
 | `lifetimePrintSecs/Time`, `uvLedSecs/Time` | lifetime counters |
@@ -81,7 +82,7 @@ retries with `action`.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/print/start` | POST | start a model (`name=`); a low-resin state answers `{"warning":"low_resin",...}` first — confirm and retry with `force=1` |
+| `/api/print/start` | POST | start a model (`name=`); a low-resin state answers `{"warning":"low_resin",...}` first — confirm and retry with `force=1`. Refuses with `409 {"error":"no resin selected - pick a resin before printing"}` when no resin profile is set (see `resinSet` below): without one the printer does not know which exposure to use |
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags) |
 | `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |

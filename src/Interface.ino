@@ -731,7 +731,9 @@ String advancedValue(int item) {
     if (cachedName != resinProfileName || cachedRev != resinProfileRev) {
       cachedName = resinProfileName;
       cachedRev = resinProfileRev;
-      if (resinProfileName.length() == 0) cachedVal = "Not set";
+      // „- blocked", nes nuo 08-17 tuscias vardas nera vien tuscias laukas:
+      // spausdinti neleidziama, kol derva nepasirinkta. 118 px prie 150 px.
+      if (resinProfileName.length() == 0) cachedVal = "Not set - blocked";
       else {
         ResinProfileInfo info;
         if (!resinProfileInfo(resinProfileName, info))
@@ -754,7 +756,12 @@ void drawAdvancedRow(int pos, int y, bool selected) {
   gfx2->setCursor(5, y + 15);
   gfx2->print(advancedLabel(id));
   gfx2->setCursor(5, y + 33);
-  gfx2->print(advancedValue(id));
+  /* Kitos desimt reiksmiu trumpos („On", „20 mm", „5 ml"), bet dervos profilio
+     vardas ateina is failo ir nera ribojamas: musu pacius paskelbtas „Anycubic
+     Water-Washable Clear" yra ~200 px prie 160 px eilutes, o Arduino_GFX toki
+     tyliai perkelia i kita eilute ir jis uzlipa ant gretimo iraso. Ta pati yda,
+     del kurios atsirado uiFitText() (auditas 08-17). */
+  gfx2->print(uiFitText(advancedValue(id), 150));
 }
 
 void screenAdvancedOptions() {
@@ -876,7 +883,26 @@ void advancedOptionsSelect() {
     // 0.17 0-16: cycle Fast -> Slow -> each profile on the card -> Fast. The
     // pick applies immediately; applyResinProfile() persists everything itself
     // (and remembers the replaced exposures, so the dashboard Undo still works).
-    applyResinProfile(nextResinProfile(resinProfileName));
+    /* Vienas sugadintas /resin/*.json duoda false, o resinProfileName lieka
+       senas - tad kitas paspaudimas nextResinProfile() skaiciuotu nuo TO PATIES
+       vardo ir grazintu ta pati sugadinta faila. Mygtukas butu mires visam
+       laikui, be jokio pranesimo, o pultas toki irasa dar ir paslepia, tad
+       priezasties nesimatytu. Todel einam sarasu toliau. Iki built-in visada
+       prieinam (ju reiksmes flash'e, jos negali nenuskaityti), tad ciklas
+       visada kuo nors baigiasi (auditas 08-17). */
+    String cand = nextResinProfile(resinProfileName);
+    for (int tries = 0; tries < RESIN_MAX_PROFILES && cand.length(); tries++) {
+      if (applyResinProfile(cand)) break;
+      String next = nextResinProfile(cand);
+      if (next == cand) break;      // vienintelis sarase, ir tas pats sugadintas
+      cand = next;
+    }
+    // applyResinProfile() jau issaugojo viska pats, bet Connect kopija liko
+    // nepainformuota: si saka grizdavo PRIES bendra kvietima zemiau, tad tas
+    // pats veiksmas is pulto i debesi patekdavo, o is mygtuko - ne (audit 08-17).
+    #if ENABLE_NETWORK
+    tinymakerConnectScheduleBackup();
+    #endif
     screenAdvancedOptions();
     return;
   }
@@ -1456,6 +1482,56 @@ void screen111(){
   uiButtons("Back", "Start", 0x879F);
   screen = 111;
 }
+
+/* screen111() perskaiciuoja sluoksnius IR perraso stagedLayerHeight. Butent ta
+   reiksme lygina sarga pries Start, tad kiekvienas screen111() kvietimas ta sarga
+   nuginkluoja - o sluoksniu patikra gyveno JOS viduje. Taip 08-16 pataisa (dervos
+   perjungimas perskaiciuoja peruziura) tyliai atidare kelia nulio sluoksniu
+   spaudiniui. Todel perskaiciavimas ir atsisakymas nuo dabar keliauja kartu,
+   vienoje vietoje, o ne kartojami kiekviename kvietimo taske (auditas 08-17).
+   Grazina false, jei modelis atmestas - ekranas tada jau pakeistas. */
+bool screen111Checked() {
+  screen111();
+  if (layer_counter > 0 && layer_counter <= MAX_LAYER_FILES) return true;
+  bool tuscia = (layer_counter <= 0);
+  // Nesuvartota starto uzklausa kitame cikle vel issaudytu OK saka, ir kitas
+  // ekranas paleistu spaudini, kurio niekas neprase (auditas 08-16).
+  startFromResin = false; webStartPrint = false; resumeStartPrint = false;
+  resinWarnAccepted = false; refillAsked = false;
+  #if ENABLE_NETWORK
+  freePreviewCache();   // niekas nespausdins - nera ko laikyti nuotraukos
+  #endif
+  if (tuscia) screenNoLayers(); else screen112();
+  return false;
+}
+
+/**
+ * @brief Screen 116: no resin profile is selected, so printing is refused.
+ *
+ * Tuscias resinProfileName reiskia, kad masina NEZINO, kokia derva vate: taip
+ * lieka istrynus aktyvu profili arba atkurus kopija su tuscia lauku. Anksciau
+ * tokia busena buvo tyli - spausdinti leisdavo su istrinto profilio skaiciais.
+ * Desinys mygtukas uzdeda gamyklini „Slow", kad butu akivaizdus kelias laukan;
+ * spaudinys NEPRASIDEDA, Start reikia paspausti atskirai (V, 08-17).
+ */
+void screenNoResin(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Resin not set");
+  gfx2->setCursor(6, 34);
+  // 92 / 132 / 57 px prie 152 px ribos - ismatuota FreeSans8pt7b, ne is akies.
+  gfx2->println("Pick a resin before");
+  gfx2->setCursor(6, 52);
+  gfx2->println("printing.");
+  uiButtons("Back", "Slow", 0x879F);
+  screen = 116;
+  // Laikomas OK butu perskaitytas kaip atsakymas ir klausimas prasvystu - ta
+  // pati idioma kaip ekranuose 313 ir 115.
+  while (digitalRead(buttonOK) == LOW) delay(10);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1499,7 +1575,10 @@ void screenFactoryConfirm(){
   gfx2->setCursor(6, 34);
   gfx2->println("Resin profile and");
   gfx2->setCursor(6, 52);
-  gfx2->println("go. Then reboots.");
+  // 119 px ir 144 px prie 152 px ribos (x=6, vidinis remelis iki 158) - ismatuota
+  // sriftu FreeSans8pt7b, ne is akies. 08-16 perrasant dingo zodis ir liko
+  // „Resin profile and go", o perspejimas apie perkrovima buvo prarastas.
+  gfx2->println("weighings. Reboots.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
   // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas

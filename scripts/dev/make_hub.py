@@ -165,7 +165,7 @@ def main():
     print("pultas: %s (%d gyvi, %d archyve)" % (OUT, len(live), len(arch)))
 
 TEMPLATE = """<meta charset="utf-8">
-<title>TinyMaker - vietinis ūkis</title>
+<title>TinyMaker ūkis</title>
 <style>
 :root{{color-scheme:light;
  --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
@@ -204,7 +204,7 @@ code{{background:var(--code);padding:1px 5px;border-radius:5px;font-size:.85em}}
 .foot{{margin-top:28px;font-size:.78rem;color:var(--muted)}}
 </style>
 <div class="wrap">
-<h1>TinyMaker <span class="dot">·</span> vietinis ūkis</h1>
+<h1>TinyMaker <span class="dot">·</span> ūkis</h1>
 <p class="sub">Viskas, kas leidžiasi iš localhost. Sugeneruota {gen} · {n} gyvi puslapiai.</p>
 {note}
 {body}

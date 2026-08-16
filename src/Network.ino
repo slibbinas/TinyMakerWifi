@@ -2193,6 +2193,14 @@ void handleApiPrintStart() {
   if (rejectIfWebControlOff()) return;
   // Pirma atsakyk apie nebaigta spaudini: plokste tebera ten, kur nutruko darbas.
   if (rejectIfResumePending()) return;
+  /* Be dervos masina nezino, kokia ekspozicija spausdinti: EEPROM tuo metu laiko
+     istrinto profilio skaicius. 409, ne 400 - tai busenos konfliktas, kaip
+     „printer busy". Narsykle sia eilute parodo be papildomo kodo (startPrint()
+     gale yra msg(e.message,true)). Ta pati sarga LCD puseje - ekranas 116. */
+  if (resinProfileName.length() == 0) {
+    sendApiError(409, "no resin selected - pick a resin before printing");
+    return;
+  }
   // Low-resin pre-start check (mirrors the LCD screen 114 warning). The
   // browser confirms and retries with force=1.
   if (!server.hasArg("force") && !printerBusy() &&
@@ -2558,6 +2566,12 @@ void handleApiStatus() {
   out += sdJobDone;          // String() temporaries add nothing here, and this
   out += ",\"sdJobTotal\":"; // answer is built for every client every 2 s
   out += sdJobTotal;
+  /* Ar derva pasirinkta. Turi buti BUTENT cia, o ne /api/config: pultas
+     apklausia /api/status kas 2 s, o config'a skaito tik atsidaromas - antras
+     atidarytas pultas apie profilio istrynima kitaip nesuzinotu ir rodytu
+     aktyvu Start mygtuka darbui, kuri printeris atmes (08-17). */
+  out += ",\"resinSet\":";
+  out += (resinProfileName.length() ? "true" : "false");
   // 0-33: the boot resume prompt is up - the dashboard offers the same three
   // answers remotely. Valid ONLY while screen 427 shows (any button press at
   // the printer consumes it - the safety rule: remote resume only while the
@@ -3085,7 +3099,7 @@ void drawWifiBadge() {
 // Boot-animation install: the printer pulls a TMB1 file from a trusted URL and
 // stores it in the /bootanim library, then makes it the active boot animation.
 // The URL is allowlisted to hosts we control (gh-pages default library and the
-// configured Connect server) — anything else goes onto the SD card by hand.
+// configured Connect server) - anything else goes onto the SD card by hand.
 //   POST /api/boot-anim/install   body: url=<allowlisted .tmb url>&name=<slug>
 String bootAnimMetadataPath(const String &name) {
   return String(BOOTANIM_DIR) + "/" + name + ".json";
@@ -3672,7 +3686,13 @@ void handleApiResinProfileList() {
   String names[RESIN_MAX_PROFILES];
   int n = listResinProfiles(names, RESIN_MAX_PROFILES);
   String out = "{\"ok\":true,\"selected\":\"" + jsonEscape(resinProfileName) + "\",\"profiles\":[";
-  out.reserve(4096);   // typical 2-5 profiles; the length guard below caps the rest
+  /* Rezervas turi buti VIRS savo paties ribos, kaip /api/files kelyje (zemiau
+     reserve(15360) prie 14000 ribos). Buvo 4096 prie 9500 ribos, o vienas
+     profilis uzima ~430 B: nuo ~10 profiliu (leidziama 16) String pradetu augti
+     po 16 B ir vienam atsakymui tektu keli simtai realloc'u su pakeltu WiFi
+     steku - tyliai fragmentuota kruva vietoj vieno kartinio rezervo.
+     Rado abu auditai, 08-17. */
+  out.reserve(9728);
   bool first = true;   // NOT the loop index: a skipped unreadable file would
                        // otherwise leave a stray comma and break the whole list
   for (int i = 0; i < n; i++) {
@@ -3793,16 +3813,25 @@ void handleApiResinProfileSave() {
     meta.testedOn = formString("tested_on", "", 20);
     // Only our own catalogue may supply a link: anything else would let a page
     // the user visits plant an arbitrary URL into the printer's profile list.
+    // Ta pati patikra kaip skaitant faila is korteles - viena vieta, kad abu
+    // keliai nebegaletu issiskirti (saugumo auditas 08-17).
     String buy = formString("buy_url", "", 120);
-    if (buy.startsWith("https://tinymakerwifi.com/") ||
-        buy.startsWith("https://slibbinas.github.io/"))
-      meta.buyUrl = buy;
+    if (resinBuyUrlAllowed(buy)) meta.buyUrl = buy;
     ok = writeResinProfileValues(name, display, v, meta);
   } else {
     ok = writeResinProfile(name, display);
     if (ok) { resinProfileName = name; saveDeviceConfig(); }
   }
   if (!ok) { sendApiError(500, "could not write the profile"); return; }
+  /* Reiksmiu saka SAMONINGAI netaiko - diegiant bibliotekos profili dabartiniai
+     nustatymai keistis neturi. Bet jei rasoma ant AKTYVAUS profilio, tai jau ne
+     diegimas: profilis IR yra dabartiniai nustatymai. Be sito printeris rodytu
+     profili X (o resinProfileRev++ dar ir atnaujintu LCD uzrasa), o suktusi
+     senais skaiciais - lygiai tas pats vardo ir reiksmiu prasilenkimas, kuri
+     visa si sesija ir taiso. Resume sarga auksciau jau praeita, tad aukscio
+     pakeitimas cia saugus (auditas 08-17). */
+  if (server.hasArg("base_exposure") && name == resinProfileName)
+    applyResinProfile(name);
   sdRev++;  // 0-28
   tinymakerConnectScheduleBackup();   // every settings path does this
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");

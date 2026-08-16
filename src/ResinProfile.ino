@@ -63,6 +63,17 @@ String resinProfilePath(const String &name) {
   return String(RESIN_DIR) + "/" + name + ".json";
 }
 
+/* Kas gali tiekti „Buy" nuoroda. Viena vieta abiem keliams: irasant per
+   /api/resin-profile/save IR skaitant faila is korteles. Anksciau skaitymo
+   kelias tikrino tik „https://", tad kazkieno paruosta kortele galejo idejti i
+   pulta melyna nuoroda, atrodancia kaip printerio rekomendacija (saugumo
+   auditas, LOW, 08-17). Pabaigos „/" butinas: be jo pratektu
+   „https://tinymakerwifi.com.evil.tld/" ir „https://tinymakerwifi.com@evil.tld/". */
+bool resinBuyUrlAllowed(const String &u) {
+  return u.startsWith("https://tinymakerwifi.com/") ||
+         u.startsWith("https://slibbinas.github.io/");
+}
+
 bool resinProfileFileExists(const String &name) {
   if (name.length() == 0) return false;
   File f = SD.open(resinProfilePath(name).c_str());
@@ -148,7 +159,17 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
     info.meta.testedOn = RESIN_BUILTIN[b].testedOn;
     info.meta.buyUrl = RESIN_BUILTIN[b].buyUrl;
     known = true;
-  } else resinProfileFromCurrent(info.v);
+  } else {
+    /* Sekla NE is gyvu nustatymu. Failas, kuriame trukstamas koks nors raktas,
+       tada paveldedavo ta reiksme, kuri atsitiktinai ikelta klausimo metu: tas
+       PATS failas duodavo skirtingus skaicius priklausomai nuo aktyvios dervos,
+       A -> B -> A negrazindavo pradiniu reiksmiu, o pulto palyginimas „reiksmes
+       ekrane skiriasi" lygino su judanciu taikiniu. Gamyklinis „slow" - pastovus
+       atskaitos taskas (auditas 08-17). Musu bibliotekos failai turi visus
+       raktus, tad jiems niekas nesikeicia. */
+    int sb = resinBuiltinIndex("slow");
+    info.v = RESIN_BUILTIN[sb >= 0 ? sb : 0].v;
+  }
   // Samples come from the file or not at all - never inherited from whatever
   // resin happens to be loaded right now.
   info.v.calRawA = info.v.calGramsA = info.v.calRawB = info.v.calGramsB = -1;
@@ -202,8 +223,8 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info) {
   readJsonStringField(json, "tested_by", info.meta.testedBy);
   readJsonStringField(json, "tested_on", info.meta.testedOn);
   if (readJsonStringField(json, "buy_url", info.meta.buyUrl) &&
-      !info.meta.buyUrl.startsWith("https://"))
-    info.meta.buyUrl = "";   // only https links, whatever the file says
+      !resinBuyUrlAllowed(info.meta.buyUrl))
+    info.meta.buyUrl = "";   // only our own catalogue, whatever the file says
 
   // A built-in keeps its own name. Otherwise a hand-dropped /resin/fast.json
   // with "name": "My resin" would quietly rename the flash profile, and the
@@ -227,12 +248,6 @@ bool resinProfileValues(const String &name, ResinProfileValues &v) {
   return true;
 }
 
-String resinProfileDisplay(const String &name) {
-  if (name.length() == 0) return "None";
-  ResinProfileInfo info;
-  if (!resinProfileInfo(name, info)) return slugToTitle(name);
-  return info.display;
-}
 
 // Copy a profile into the live settings and persist them the ordinary way.
 bool applyResinProfile(const String &name) {
@@ -301,8 +316,15 @@ bool applyResinProfile(const String &name) {
      tai „Delete model?" patvirtinimas, ir jis tyliai virstu print preview su
      [Start] po pirstu (auditas 08-16). 115 (VAT klausimas) dengia stagedLayerHeight
      sarga pries pat starta. */
-  if (heightChanged && (screen == 111 || screen == 114))
-    screen111();
+  // screen111Checked(), o ne screen111(): perskaiciavimas nuginkluoja sarga pries
+  // Start, tad atsisakymas privalo keliauti kartu su juo (auditas 08-17).
+  /* 116 („Resin not set") CIA BUTINAS: be jo pasirinkus derva is pulto printerio
+     ekranas toliau sakytu „Resin not set", o jo desinys mygtukas perrasytu ka tik
+     pasirinkta derva gamykliniu Slow. Perpiesiam ir tada, kai aukstis nepasikeite -
+     pasikeite pats atsakymas i klausima „ar derva pasirinkta" (auditas 08-17). */
+  if (screen == 116) screen111Checked();
+  else if (heightChanged && (screen == 111 || screen == 114))
+    screen111Checked();
   return true;
 }
 
@@ -415,6 +437,18 @@ bool writeResinProfile(const String &name, const String &display) {
   ResinProfileInfo old;
   if (resinProfileInfo(name, old)) meta = old.meta;   // keep who tested it
   return writeResinProfileValues(name, display, v, meta);
+}
+
+/* Gamyklinis atstatymas nuima VISU isiutu profiliu overlay failus. Anksciau
+   buvo nuimamas tik „slow", tad /resin/fast.json islikdavo ir po atstatymo Fast
+   grazindavo vartotojo senus redaguotus skaicius - nors patvirtinimo ekranas
+   zadejo, kad dervos profilis atsistato. Ciklas, o ne dvi eilutes, kad tretias
+   isiutas profilis nebutu vel pamirstas (auditas 08-17).
+   Kviecia resetEverythingToFactory(); RESIN_BUILTIN cia pat, o TinyMaker.ino jo
+   nemato (jis suklijuojamas pirmas). */
+void resinDropBuiltinOverlays() {
+  for (int i = 0; i < RESIN_BUILTIN_COUNT; i++)
+    SD.remove(resinProfilePath(RESIN_BUILTIN[i].slug).c_str());
 }
 
 // Built-in: drop the overlay and go back to the flash values. Anything else:

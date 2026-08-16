@@ -130,7 +130,6 @@ bool resinProfileInfo(const String &name, ResinProfileInfo &info);
 String resinProfilePath(const String &name);
 int listResinProfiles(String out[], int maxN);
 bool resinProfileExists(const String &name);
-String resinProfileDisplay(const String &name);
 bool applyResinProfile(const String &name);
 bool writeResinProfile(const String &name, const String &display);
 bool writeResinProfileValues(const String &name, const String &display,
@@ -449,11 +448,15 @@ void loadDeviceConfig() {
   if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
   resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
-  // A printer that has never picked a profile is running the factory values,
-  // which is exactly what "slow" holds - so name it instead of saying "not set".
   slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  /* Rakto NERA (svarus NVS) -> „slow", ir tai tiesa: EEPROM tada tikrai laiko
+     gamyklinius skaicius, o „slow" butent jie ir yra.
+     Raktas YRA, bet tuscias -> paliekam tuscia. Anksciau cia stovejo prievarta
+     i „slow" reiksmiu NEPRITAIKIUS, tad istrynus aktyvu profili po perkrovimo
+     masina sakydavo „Slow resin (factory)", o suktusi istrinto profilio
+     skaiciais. Tuscia busena buvo bent sazininga; ta - ne. Dabar tuscias vardas
+     ka nors reiskia: spausdinti neleidziama, kol derva nepasirinkta (V, 08-17). */
   resinProfileName = sysPrefs.getString("resinProf", "slow");   // 0.17 0-16
-  if (resinProfileName.length() == 0) resinProfileName = "slow";
   vatEmptyG = sysPrefs.getFloat("vatEmptyG", VAT_EMPTY_G_DEF);
   if (!(vatEmptyG > 0.0f && vatEmptyG <= VAT_EMPTY_G_MAX)) vatEmptyG = VAT_EMPTY_G_DEF;
   calRawA  = sysPrefs.getFloat("calRawA", -1);  calMeasA = sysPrefs.getFloat("calMeasA", -1);
@@ -1547,14 +1550,6 @@ bool handleUiTimeout() {
 // ===================================================================================
 // Settings
 // ===================================================================================
-/**
- * @brief Write factory-default print settings to EEPROM and reload them into
- * the live globals. Single source of truth for the NUMBERS; the full factory
- * reset (profile name, overlay, calibration) lives in resetEverythingToFactory()
- * below and calls this. Layer_Height is stored x100 (10 -> 0.10 mm).
- */
-void resetSettingsToDefault();
-
 // -------------------------------------------------------------------------------
 // Gamyklinis atstatymas yra daugiau nei EEPROM blokas: dervos profilio vardas
 // turi sekti skaicius, jo overlay failas - dingti, o kiekvienas atidarytas pultas
@@ -1568,7 +1563,7 @@ void resetEverythingToFactory() {
   #if ENABLE_NETWORK
   if (sdCardReady())
   #endif
-    SD.remove(resinProfilePath("slow").c_str());
+    resinDropBuiltinOverlays();   // ne vien „slow": fast.json irgi (auditas 08-17)
   lastPrintRawMl = -1;   // resinProf irasys saveDeviceConfig(), cia tik sitas
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
@@ -1578,6 +1573,10 @@ void resetEverythingToFactory() {
   resetSettingsToDefault();
   resinClearCalibration();
   resinDensity = RESIN_DENSITY_DEF;
+  // Tuscio vato svoris irgi yra SVERIMAS, o patvirtinimo ekranas zada, kad
+  // sverimai dingsta. Be sito po atstatymo likutis ml butu skaiciuojamas is
+  // seno vartotojo svorio, o ekranas sakytu kitaip (auditas 08-17).
+  vatEmptyG = VAT_EMPTY_G_DEF;
   // Iranginio nustatymai - cia pat, kad printerio mygtukas atstatytu tiek pat, kiek
   // pulto: klausimas "Reset settings?" zada ir siuos (auditas 08-16).
   uiTimeoutSecs = 60;
@@ -1599,6 +1598,12 @@ void resetEverythingToFactory() {
   // jis irgi irasys resinProf, tad cia to nekartojam.
 }
 
+/**
+ * @brief Write factory-default print settings to EEPROM and reload them into
+ * the live globals. Single source of truth for the NUMBERS; the full factory
+ * reset (profile name, overlay, calibration) lives in resetEverythingToFactory()
+ * above and calls this. Layer_Height is stored x100 (10 -> 0.10 mm).
+ */
 void resetSettingsToDefault() {
   EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, 10);   // Layer_Height     -> 0.10 mm
@@ -1831,8 +1836,12 @@ bool prepareSelectedPrintPreview() {
     return false;
   }
 
-  screen111();
-  return true;
+  /* screen111Checked(), o ne screen111(): ji skaiciuoja sluoksnius DAR KARTA, ir
+     butent tas antrasis skaiciavimas uzraso stagedLayerHeight. Tikrinant tik
+     pirmaji (virsuje), kortele suklydusi tarp dvieju skaiciavimu duotu ta pacia
+     skyle, kuria sis paketas ir uzdaro: „Layers: 0" su gyvu Start, o sarga case
+     111 nepasileistu, nes aukstis nepasikeites (auditas 08-17). */
+  return screen111Checked();
 }
 
 // ===================================================================================
@@ -1890,8 +1899,14 @@ void loop() {
       counter --;
       folderDown(root);
         break;
+      /* Visur screen111Checked(), ne screen111(): KIEKVIENAS perpiesimas is naujo
+         uzraso stagedLayerHeight ir tuo nuginkluoja sarga pries Start. Invariantas
+         galioja visiems kvietimams, kitaip kitas auditas ras ta pati (08-17). */
       case 114:                 // low-resin warning -> back to preview
-      screen111();
+      screen111Checked();
+        break;
+      case 116:                 // "Resin not set" -> Back = nieko nekeiciam
+      screen111Checked();       // derva lieka nepasirinkta, Start ir toliau atsisakys
         break;
       case 115:                 // "VAT refilled?" -> Back = no, start as-is
       refillAsked = true;
@@ -2092,7 +2107,7 @@ void loop() {
         resinNeedForModelMl = (float)resinEstimateMl;  // fresh full-model need
         startFromResin = true;  // Start pressed -> print starts in OK handler
       } else
-        screen111();            // Back pressed -> redraw preview (Height/Time)
+        screen111Checked();     // Back pressed -> redraw preview (Height/Time)
         break;
       case 114:                 // UP on low-resin warning -> "Refilled" shortcut
       vatMarkRefilled();
@@ -2280,6 +2295,21 @@ void loop() {
       prepareSelectedPrintPreview();
       }
         break;
+      case 116:                 // "Resin not set" -> OK = uzsidedam gamyklini Slow
+        /* Uzdedam ir GRIZTAM i peruziura, spaudinio NEPALEIDZIAM: pirstas cia
+           buvo pakeltas del dervos, ne del starto, o Start turi likti atskiras
+           samoningas paspaudimas. screen111Checked(), nes applyResinProfile()
+           vidinis perskaiciavimas cia nesuveikia (screen == 116), o be patikros
+           liktu ta pati nulio sluoksniu skyle (08-17). */
+        if (applyResinProfile("slow")) screen111Checked();
+        else screen111Checked();   // slow yra flash'e, tad praktiskai nepasiekiama
+        /* BUTINA. Be sito laikomas OK kitame cikle butu perskaitytas jau ekrane
+           111 kaip „Start", o jei ijungtas „VAT refilled?" - dar ir atsakytu i ji
+           taip. Vienas ilgesnis paspaudimas ant „Slow" paleistu spaudini, nors
+           sitas ekranas pazada priesingai. Rado auditas 08-17 - tai buvo mano
+           paties naujo ekrano skyle, ta pati klase kaip 313 ir screenDeleteConfirm. */
+        while (digitalRead(buttonOK) == LOW) delay(10);
+        break;
       case 114:                 // low-resin warning -> OK = "Start anyway"
         resinWarnAccepted = true;
         startFromResin = true;  // re-enters the start path on the next pass
@@ -2292,6 +2322,20 @@ void loop() {
         screen = 111;
         break;
       case 111: {
+        /* Ar masina apskritai zino, kokia derva vate? Tuscias vardas lieka
+           istrynus aktyvu profili arba atkurus kopija su tusciu lauku, o
+           EEPROM tuo metu tebelaiko to istrinto profilio ekspozicija. Anksciau
+           cia nebuvo jokios patikros - spausdinimas prasidedavo su vaiduokliska
+           recepture. Resume praleidziamas TYCIA: tesiamas spaudinys jau turi
+           savo receptura, o kol stovi „Resume?", dervos pasirinkti neimanoma
+           (visi /api/resin-profile/* keliai atsako 409), tad blokavimas butu
+           aklaviete (V rado 08-17). */
+        if (!resumeStartPrint && resinProfileName.length() == 0) {
+          startFromResin = false; webStartPrint = false;
+          resinWarnAccepted = false; refillAsked = false;
+          screenNoResin();
+          break;
+        }
         // "VAT refilled?" ask before every print (optional, System > Advanced).
         // The web start path asks in the browser instead (see startPrint JS).
         if (askRefillEnabled && !refillAsked && !webStartPrint && !resumeStartPrint) {
@@ -2317,26 +2361,12 @@ void loop() {
            „Start" (VAT klausimas, mazos dervos ispejimas) skaicius liktu senas -
            prie 0.10 -> 0.05 butu atspausdinta tik apatine puse. Perskaiciuojam
            tik tada, kai aukstis tikrai kitas (V klausimas, 08-16). */
+        // A card that misreads at exactly this moment would otherwise start a
+        // print of nothing: the plate goes down and the job "finishes" with no
+        // layer ever exposed. screen111Checked() daro abu dalykus kartu - jis
+        // vienintelis vieta, kur perskaiciavimas ir atsisakymas nebeissiskiria.
         if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) {
-          screen111();
-          // A card that misreads at exactly this moment would otherwise start a
-          // print of nothing: the plate goes down and the job "finishes" with no
-          // layer ever exposed. (The count here is already the PRINT count, so at
-          // 0.10 mm the upper bound is twice as generous as the staging one -
-          // that path has already refused anything near it.)
-          if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
-            bool tuscia = (layer_counter <= 0);
-            // Consume the start request like the two exits above do. Left
-            // standing it re-fires the OK branch every pass, and the next
-            // screen would start a print nobody asked for (audit 08-16).
-            startFromResin = false; webStartPrint = false;
-            resumeStartPrint = false; resinWarnAccepted = false; refillAsked = false;
-            #if ENABLE_NETWORK
-            freePreviewCache();   // nothing is printing - do not sit on the snapshot
-            #endif
-            if (tuscia) screenNoLayers(); else screen112();
-            break;
-          }
+          if (!screen111Checked()) break;
         }
 
         resinWarnAccepted = false;

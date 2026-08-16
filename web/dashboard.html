@@ -161,7 +161,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          widget and ate a stats cell (V 08-16). -->
     <div class='resinBar' id='homeResinBar'>
       <button id='homeResinButton' class='rbPick' type='button'>
-        <span class='rbName' id='homeResinName'>&mdash;</span><span class='rbCaret'>&#9662;</span>
+        <span class='rbName' id='homeResinName'>-</span><span class='rbCaret'>&#9662;</span>
       </button>
     </div>
     <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'>
@@ -171,15 +171,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
         style='width:auto;flex:1 1 160px'>Dry run: off</button>
     </div>
   </section>
-
-  <!-- 0.17 SL-mod: the slicer's future home. Two independent gates (V 08-16):
-     the seven-tap gesture only unlocks the UI, and the module's own manifest
-     decides whether it is offered at all. The gesture will be found and posted
-     on a forum sooner or later; the server-side flag is what stays ours. -->
-<section id='slicerCard' class='card hidden'>
-  <h2>Slicer <span id='slicerState' class='navTag'></span></h2>
-  <div id='slicerBody' style='font-size:.95rem;color:var(--muted)'></div>
-</section>
 
 <section id='printControls' class='card hidden'>
     <h2>Print controls</h2>
@@ -255,6 +246,18 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   </section>
   </div>
 
+  <!-- 0.17 SL-mod: the slicer's future home. Two independent gates (V 08-16):
+     the seven-tap gesture only unlocks the UI, and the module's own manifest
+     decides whether it is offered at all. The gesture will be found and posted
+     on a forum sooner or later; the server-side flag is what stays ours.
+     Vieta: PO peruziura, ne pries ja. Sis pultas pirmiausia yra apie spausdinima,
+     o sliceris yra irankis salia jo - virsuje jis nustumdavo tai, del ko puslapis
+     atidaromas (V 08-17). -->
+<section id='slicerCard' class='card hidden'>
+  <h2>Slicer <span id='slicerState' class='navTag'></span></h2>
+  <div id='slicerBody' style='font-size:.95rem;color:var(--muted)'></div>
+</section>
+
   <section id='sdSection' class='card'>
     <!-- Upload lives in the card header: a fixed spot that never slides with
          the list length (a bottom placement floated - user finding), small
@@ -290,7 +293,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <div><div class='label'>Estimated time</div><div id='modelTime' class='value'>-</div></div>
     <div id='modelResinBox' class='hidden'><div class='label'>Resin needed</div><div id='modelResin' class='value'>-</div></div>
   </div>
-  <div id='modelFlatWarn' class='hidden' style='margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(232,160,32,.15);border:1px solid #e8a020;color:#e8a020;font-size:13px'>&#9888; Sliced at <b><span id='modelFlatVal'>?</span>&nbsp;mm</b>, not 0.05&nbsp;mm &mdash; the printer assumes 0.05&nbsp;mm, so this may print <b>flat</b>. Re-slice with a 0.05&nbsp;mm layer height.</div>
+  <div id='modelFlatWarn' class='hidden' style='margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(232,160,32,.15);border:1px solid #e8a020;color:#e8a020;font-size:13px'>&#9888; Sliced at <b><span id='modelFlatVal'>?</span>&nbsp;mm</b>, not 0.05&nbsp;mm - the printer assumes 0.05&nbsp;mm, so this may print <b>flat</b>. Re-slice with a 0.05&nbsp;mm layer height.</div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div id='modelActions' class='actions'>
     <button id='modelBackButton' class='button secondary spanAll' type='button'>Back to dashboard</button>
@@ -363,7 +366,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <h2>Resin</h2>
   <div class='resinBar'>
     <button id='cfgResinButton' class='rbPick' type='button'>
-      <span class='rbName' id='cfgResinName'>&mdash;</span><span class='rbCaret'>&#9662;</span>
+      <span class='rbName' id='cfgResinName'>-</span><span class='rbCaret'>&#9662;</span>
     </button>
   </div>
   <div class='configGrid grid4'>
@@ -379,7 +382,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <label><span>Drop back feedrate</span><input name='drop_back_feedrate' id='cfgDropBackFeedrate' type='number' min='20' max='50' step='10'></label>
   </div>
   <div class='hint'>A profile is a <b>starting point</b>. This printer's colour screen
-    absorbs UV, so manufacturer tables read far too short here &mdash; run the exposure
+    absorbs UV, so manufacturer tables read far too short here - run the exposure
     test with your resin, then save the result.</div>
   <div class='actions'>
     <button id='resinSaveButton' type='button'>Save</button>
@@ -409,7 +412,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <div class='subhead' style='margin-top:0'>Resin left, by weight</div>
 
   <div style='font-size:.95rem;margin-bottom:12px'>The marker on the vat says <i>full or not</i>.
-    A scale says <i>how much</i> &mdash; and that is the number the low-resin warning and the
+    A scale says <i>how much</i> - and that is the number the low-resin warning and the
     per-model estimate actually work with.</div>
     <div class='calSplit'>
   <div class='calBody'>
@@ -417,19 +420,19 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <span class='lbl'>Vat now weighs</span>
     <span class='grp'><input id='vatWeighG' type='number' min='0.1' max='500' step='0.01'
       placeholder='0.00' style='width:84px'> g</span>
-    <span class='grp'>= <b id='vatWeighMl'>&mdash;</b> ml left</span>
+    <span class='grp'>= <b id='vatWeighMl'>-</b> ml left</span>
     <button id='vatWeighButton' class='button' type='button' title='Sets the remaining resin from this weighing'>Set</button>
   </div>
   </div>
-<div class='hint'>(weight &minus; empty vat <b id='vatEmptyShow'>&mdash;</b> g) &divide; profile
+<div class='hint'>(weight &minus; empty vat <b id='vatEmptyShow'>-</b> g) &divide; profile
     density. <a href='#' id='vatEmptyEdit' style='color:var(--link)'>Vat differs? Weigh it</a>
     <input name='vat_empty_g' id='cfgVatEmptyG' type='hidden'></div>
   </div>
 
   <div class='subhead'>Density</div>
 
-  <div style='font-size:.95rem;margin-bottom:12px'>Currently <b id='calDensCur'>&mdash;</b> g/ml
-    &mdash; this is what turns the grams you weigh into ml.</div>
+  <div style='font-size:.95rem;margin-bottom:12px'>Currently <b id='calDensCur'>-</b> g/ml
+    - this is what turns the grams you weigh into ml.</div>
     <div class='calSplit'>
   <div class='calBody'>
 <div class='calRow'>
@@ -438,12 +441,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       placeholder='0.00' style='width:76px'> g</span>
     <span class='grp'>of <input id='calDensMl' type='number' min='1' max='100' step='0.1'
       style='width:64px'> ml</span>
-    <span class='grp'>= <b id='calDensNow'>&mdash;</b> g/ml</span>
+    <span class='grp'>= <b id='calDensNow'>-</b> g/ml</span>
     <button id='calDensButton' class='button' type='button' title='Saves the measured density and re-fits both samples'>Set</button>
   </div>
   </div>
 <div class='hint'>Fill the vat to its marker, weigh it empty and full, and enter the difference
-    against the vat size &mdash; or weigh a syringe. Changing this re-fits both samples below, so the
+    against the vat size - or weigh a syringe. Changing this re-fits both samples below, so the
     calibration stays correct.</div>
   </div>
 
@@ -461,7 +464,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <span class='grp'><span class='t'>&rarr; weighed</span> <input id='calG1' type='number' min='0.1' max='5000'
       step='0.01' placeholder='0.00' style='width:74px'> g
       <button id='calSet1' class='button' type='button' title='Saves this sample and recalculates the correction'>Set</button></span>
-    <span class='grp' style='flex:1 1 auto'>= <b id='calMl1'>&mdash;</b> ml
+    <span class='grp' style='flex:1 1 auto'>= <b id='calMl1'>-</b> ml
       <span class='act' style='margin-left:auto;display:inline-flex'>
         <button id='calDel1' class='button secondary' type='button' title='Forget this sample'
           style='font-size:.78rem;padding:6px 10px'>Clear sample 1</button></span></span>
@@ -475,7 +478,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <span class='grp'><span class='t'>&rarr; weighed</span> <input id='calG2' type='number' min='0.1' max='5000'
       step='0.01' placeholder='0.00' style='width:74px'> g
       <button id='calSet2' class='button' type='button' title='Saves this sample and recalculates the correction'>Set</button></span>
-    <span class='grp' style='flex:1 1 auto'>= <b id='calMl2'>&mdash;</b> ml
+    <span class='grp' style='flex:1 1 auto'>= <b id='calMl2'>-</b> ml
       <span class='act' style='margin-left:auto;display:inline-flex'>
         <button id='calDel2' class='button secondary' type='button' title='Forget this sample'
           style='font-size:.78rem;padding:6px 10px'>Clear sample 2</button></span></span>
@@ -603,7 +606,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   </div>
 <div class='card'>
   <h2 style='margin-bottom:4px'>3D previews</h2>
-  <div style='font-size:.9rem;margin-bottom:10px'>Models show a real, turnable 3D view once their slice data is prepared. A model prepares itself the first time you open it &mdash; this does the whole card in one go.</div>
+  <div style='font-size:.9rem;margin-bottom:10px'>Models show a real, turnable 3D view once their slice data is prepared. A model prepares itself the first time you open it - this does the whole card in one go.</div>
   <div class='calRow'>
     <span class='lbl'>All models</span>
     <button id='prep3dButton' class='button secondary' type='button' style='width:auto'>Prepare 3D for all models</button>
@@ -1390,7 +1393,10 @@ const resinMarkDirty=()=>{
 };
 // Both rows show the same thing, refreshed together so they cannot disagree.
 const renderResinBars=()=>{
-  const t=resinSel?resinTitle(resinSel):'not set';
+  // „not set" buvo per svelnu: nuo 08-17 tai ne tuscias laukas, o busena, kurioje
+  // printeris spausdinti atsisako. Eilute pati yra mygtukas i profiliu sarasa,
+  // tad ir kelias laukan cia pat, vienu paspaudimu.
+  const t=resinSel?resinTitle(resinSel):'Not set - printing is blocked';
   const p=resinById(resinSel);
   // Main view: what it is. Settings: what it is set to. The exposure numbers
   // are noise next to the vat, and the point of the row there is recognition.
@@ -1723,7 +1729,7 @@ $('resinDiscardButton').addEventListener('click',e=>{
 const vatWeighPreview=()=>{
   const g=Number($('vatWeighG').value),e=Number($('cfgVatEmptyG').value)||0;
   const d=Number($('calDensCur').textContent)||0;
-  $('vatWeighMl').textContent=(g>0&&e>0&&d>0&&g>=e)?((g-e)/d).toFixed(1):'—';
+  $('vatWeighMl').textContent=(g>0&&e>0&&d>0&&g>=e)?((g-e)/d).toFixed(1):'-';
 };
 $('vatWeighG').addEventListener('input',vatWeighPreview);
 $('vatWeighButton').addEventListener('click',async()=>{
@@ -2242,7 +2248,10 @@ const renderFiles=()=>{
      „Idle" ir sarasas atrodo laisvas - V 08-14 sugebejo tuo metu paspausti Start ir
      gavo „Start this print?". Savo paties siuntimas/trynimas skaitomas taip pat. */
   const busy=uiBusy();
-  const dis=(busy||(statusData&&statusData.webControl===false))?' disabled':'';
+  // resinSet===false: derva nepasirinkta, printeris tokia uzklausa atmes su 409,
+  // tad Start neturi atrodyti gyvas nei cia, nei modelio kortoje (08-17).
+  const noResin=statusData&&statusData.resinSet===false;
+  const dis=(busy||noResin||(statusData&&statusData.webControl===false))?' disabled':'';
   // The busy case is already stated once, above the list (see loadConfig).
   let h='';
   if(!slice.length&&!busy)h+='<div class="hint">'+(q?'No models match the filter.':'No printable model folders or SL1/ZIP archives found.')+'</div>';
@@ -4172,6 +4181,11 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      kortelės, ir is klaviaturos - o klausti „Start this print?", kai printeris tuo metu
      ispakuoja, yra tiesiog netiesa (V 08-14). */
   if(uiBusy()){msg('The printer is busy - wait until it finishes.',true);return;}
+  /* Derva nepasirinkta: mygtukai jau uzrakinti, bet sitas iskvietimas ateina ir
+     is klaviaturos, ir is kortelės - tas pats raštas kaip uiBusy() virs. Be sito
+     vartotojas gautu „Start this print?" ir tik po patvirtinimo - 409 (08-17). */
+  if(statusData&&statusData.resinSet===false){
+    msg('No resin selected - pick a resin before printing.',true);return;}
   clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
     if(await uiConfirm('Did you refill the VAT since the last print?\nOK = yes (restart the estimate from a full VAT), Cancel = no.')){
@@ -4621,7 +4635,8 @@ const syncActionLocks=()=>{
   const s=statusData; if(!s)return;
   const wc=s.webControl!==false, busy=uiBusy();
   const set=(id,off)=>{const e=$(id);if(e)e.disabled=off;};
-  set('modelStartButton',!wc||busy);
+  const noResin=s.resinSet===false;   // 08-17: be dervos printeris atmeta su 409
+  set('modelStartButton',!wc||busy||noResin);
   set('dryRunToggle',!wc||busy);
   set('vatRefillButton',(!!s.busy&&!s.canResume)||!wc||uploadBusy||deleteBusy);
   set('homeResinButton',!!s.busy||!wc||uploadBusy||deleteBusy);   // 0.17 0-16
