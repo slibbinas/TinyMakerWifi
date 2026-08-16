@@ -3108,8 +3108,23 @@ void loop() {
       case 313:                 // "Reset all settings?" -> Reset (OK)
         resetEverythingToFactory();
         saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
-        setting_item = 11;      // atgal i sarasa; screen31DOWN() ji vel paryskins
-        screen31DOWN();         // ties „Back to Default" - reikia naujo paspaudimo
+        /* Perkraunam. Atstatymas grazina ir WiFi bei pulto jungiklius, o jie
+           isijungia tik per paleidima: be perkrovimo ekranas sakytu „ijungta",
+           o radijas liktu isjunges - butent tokia nesutaptis atsirado, kai sis
+           mygtukas gavo irenginio nustatymus (mano paties analize 08-16).
+           Web kelio tai neliecia: ten perkrovimas nutrauktu atsakyma, o su
+           isjungtu WiFi i pulta apskritai nepatektum. */
+        gfx2->fillScreen(BLACK);
+        uiFrame(ORANGE);
+        gfx2->setFont(&FreeSans8pt7b);
+        gfx2->setTextColor(WHITE);
+        gfx2->setTextSize(1);
+        gfx2->setCursor(8, 21);
+        gfx2->print("Settings reset.");
+        gfx2->setCursor(8, 43);
+        gfx2->print("Restarting...");
+        delay(1200);
+        ESP.restart();
         break;
       case 311:
       if(setting_item_updown == 1){

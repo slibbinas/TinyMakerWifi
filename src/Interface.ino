@@ -1497,7 +1497,7 @@ void screenFactoryConfirm(){
   gfx2->setCursor(6, 34);
   gfx2->println("Resin calibration");
   gfx2->setCursor(6, 52);
-  gfx2->println("is erased too.");
+  gfx2->println("goes, then reboot.");
   uiButtons("Back", "Reset", 0x879F);
   screen = 313;
   // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas
