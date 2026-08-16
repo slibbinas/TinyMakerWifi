@@ -132,9 +132,24 @@ export function place(pos, tr) {
 
 /* -------------------------------------------------------------------- fit */
 
+/* Atramoms reikia vietos APLINK modeli: pedos spindulys (1,5 mm) ir pado
+   apvadas (1,6 mm). Skaiciuojant sutalpinima i visa plokste, modelis, kuris
+   „vos telpa", reiskia, kad jo atramos NETELPA - jos nupjaunamos ties LCD
+   krastu, o stulpas lieka stoveti ant nieko (V pastebejimas, 08-19).
+   `fitCheck(size, 0)` - sazininga isimtis tam, kas nori spausdinti iki pat
+   krastu: tada atramas i vidu traukia XY krasto taisykle (slicer2). */
+let FIT_MARGIN_MM = 3.1;
+/** Atsarga atramoms aplink modeli, mm. `0` - modelis gali uzimti visa plokste
+ *  (tada atramas i vidu traukia XY krasto taisykle). Laboratorijai butinas
+ *  nulis: PrusaSlicer etalonas pjausto 100 % dydzio, ir mazinant musu modeli
+ *  palyginimas taptu apie skirtingus daiktus. */
+export const setFitMargin = mm => { FIT_MARGIN_MM = Math.max(0, +mm || 0); };
+export const getFitMargin = () => FIT_MARGIN_MM;
+
 /** fits, plus the scale that would make it fit and which axis is the problem. */
-export function fitCheck(size) {
-  const room = [PLATE.x, PLATE.y, PLATE.z];
+export function fitCheck(size, margin = FIT_MARGIN_MM) {   // zr. setFitMargin
+  const room = [Math.max(1, PLATE.x - 2 * margin),
+                Math.max(1, PLATE.y - 2 * margin), PLATE.z];
   const over = [size[0] / room[0], size[1] / room[1], size[2] / room[2]];
   const worst = Math.max(over[0], over[1], over[2]);
   const axis = ['width', 'depth', 'height'][over.indexOf(worst)];

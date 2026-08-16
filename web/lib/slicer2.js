@@ -19,7 +19,7 @@
 import {
   PLATE, PIXEL_MM, RES, LAYER_MM, SUP,
   parseSTL, bounds, surfaceArea, detailBudget, makeTransform, place, fitCheck,
-  autoOrient, toSceneMesh, sliceAt, layerMask, zipStore,
+  autoOrient, toSceneMesh, sliceAt, layerMask, zipStore, setFitMargin, getFitMargin,
   pillarDiscs, braceDiscs, supportMesh,
   slice as sliceBase,
 } from './slicer.js';
@@ -27,7 +27,7 @@ import {
 export {
   PLATE, PIXEL_MM, RES, LAYER_MM, SUP,
   parseSTL, bounds, surfaceArea, detailBudget, makeTransform, place, fitCheck,
-  autoOrient, toSceneMesh, sliceAt, layerMask, zipStore,
+  autoOrient, toSceneMesh, sliceAt, layerMask, zipStore, setFitMargin, getFitMargin,
   supportMesh,
 };
 export { pillarDiscs2 as pillarDiscs, braceDiscs2 as braceDiscs };
