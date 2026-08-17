@@ -3860,7 +3860,15 @@ void handleApiResinProfileDelete() {
   sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
 }
 
-// POST /api/resin-profile/rename  body: name=<slug>&to=<slug>
+// POST /api/resin-profile/rename  body: name=<slug>&to=<slug>[&display=<label>]
+//
+// The name a human reads lives INSIDE the file ("name") and wins over the file
+// name, so a plain SD.rename() renamed nothing anyone could see (V 08-17). This
+// writes the label too - and writes it the safe way round: the NEW file first,
+// the old one deleted only once the new one has landed. writeResinProfileValues()
+// starts by deleting the file it is about to write, so rewriting in place would
+// mean a card hiccup takes the profile - and its weighed calibration - with it
+// (third audit, 08-17).
 void handleApiResinProfileRename() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
@@ -3870,31 +3878,27 @@ void handleApiResinProfileRename() {
   String to = sanitizeSlug(server.arg("to"), "");
   if (!resinProfileFileExists(from)) { sendApiError(404, "profile not found"); return; }
   if (resinBuiltinIndex(from) >= 0) { sendApiError(409, "a built-in profile cannot be renamed"); return; }
-  if (to.length() == 0 || to == from) { sendApiError(400, "new name required"); return; }
-  if (resinBuiltinIndex(to) >= 0 || resinProfileFileExists(to)) {
+  if (to.length() == 0) { sendApiError(400, "new name required"); return; }
+  // to == from is NOT an error: the slug drops capitals and punctuation, so
+  // "sunlu tough" -> "SUNLU Tough Resin!" is the same slug and a different name.
+  // Rejecting it refused the commonest rename there is (third audit, 08-17).
+  if (to != from && (resinBuiltinIndex(to) >= 0 || resinProfileFileExists(to))) {
     sendApiError(409, "a profile with that name already exists");
     return;
   }
-  if (!SD.rename(resinProfilePath(from).c_str(), resinProfilePath(to).c_str())) {
-    sendApiError(500, "could not rename the profile");
-    return;
+  ResinProfileInfo info;
+  if (!resinProfileInfo(from, info)) { sendApiError(500, "could not read the profile"); return; }
+  // No label from the caller: keep the one the file already carries. Falling
+  // back to the slug would quietly flatten "SUNLU Toughness Resin" for anyone
+  // following the documented name=&to= form.
+  String label = formString("display", "", 40);
+  if (label.length() == 0) label = info.display;
+  if (!writeResinProfileValues(to, label, info.v, info.meta)) {
+    sendApiError(500, "could not write the renamed profile");
+    return;   // the original is untouched
   }
-  // The name a human sees lives INSIDE the file ("name"), not in the file name -
-  // resinProfileInfo() reads it and it wins over the slug. Renaming the file
-  // alone therefore renamed nothing the user can see: the card kept showing the
-  // old label for good (V 08-17, proven on the printer with a scratch profile).
-  // Values and provenance are read back and written out untouched; only the
-  // label changes. Without a label from the dashboard the slug is the honest
-  // fallback, which is exactly what a profile with no stored name shows.
-  {
-    ResinProfileInfo info;
-    if (resinProfileInfo(to, info)) {
-      String label = formString("display", "", 40);
-      if (label.length() == 0) label = slugToTitle(to);
-      if (!writeResinProfileValues(to, label, info.v, info.meta))
-        DBGLN("rename: label rewrite failed");
-    }
-  }
+  if (to != from && !SD.remove(resinProfilePath(from).c_str()))
+    DBGLN("rename: old profile file left behind");   // a copy, not a loss
   if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
   sdRev++;  // 0-28
   tinymakerConnectScheduleBackup();   // the stored profile name may have changed

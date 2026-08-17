@@ -812,13 +812,14 @@ $('slicerSave').addEventListener('click',async()=>{
      neskaitom", tad su dar nenuvalyta `statusData.busy` ji grizdavo nieko
      neatnaujinusi - ir „rename" salyga visada kristu i atsargini varianta,
      butent tada, kai jos labiausiai reikia (antras auditas 08-17).
-     20 zingsniu po 300 ms: vienas apklausos bandymas turi 4 s riba, tad i 3 s
-     biudzeta jis netilpdavo. */
-  for(let i=0;i<20&&typeof uiBusy==='function'&&uiBusy();i++){
-    try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
-    if(typeof uiBusy==='function'&&!uiBusy())break;   // paskutinis miegas be reikalo
-    await new Promise(r=>setTimeout(r,300));
-  }
+     Riba - LAIKRODIS, ne zingsniai: viena apklausa gali uztrukti iki 4 s, tad
+     „20 x 300 ms" blogiausiu atveju butu virtes puse minutes (trecias auditas). */
+  {const until=Date.now()+6000;
+   while(Date.now()<until&&typeof uiBusy==='function'&&uiBusy()){
+     try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
+     if(typeof uiBusy==='function'&&!uiBusy())break;
+     await new Promise(r=>setTimeout(r,300));
+   }}
   try{ if(loadFiles)await loadFiles(); }catch(e){}
   /* KURIS modelis atsirado. Prasytas vardas NETINKA, jei ejom „rename" keliu:
      printeris tada issaugo kitu vardu (`uniqueModelName`, Import.ino), o `/upload`
