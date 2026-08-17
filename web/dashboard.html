@@ -2386,8 +2386,14 @@ const renderFiles=()=>{
        taip Delete visose eilutese stovi vienoje vietoje ir yra vienodo plocio.
        Start pasirodo tik uzsikrovus vaizdui: paleidi tai, ka MATAI. Delete laukti
        neverciam - trinamas dazniausiai butent tas modelis, kurio nenori krauti. */
-    if(isModel&&sel)h+=(loading?'<span class="rowWait"><span class="rowSpin"></span>Loading…</span>'
-                               :'<button class="small"'+dis+' onclick="event.stopPropagation();startPrint(\''+enc(it.name)+'\')">Start</button>');
+    /* Krovimosi metu „Start" NEBEDINGSTA - jame tik atsiranda suktukas. Anksciau
+       mygtuka pakeisdavo uzrasas „Loading…", tad atrodydavo, kad veiksmas uzdraustas,
+       o laukti tekdavo minutemis. Paspaudimas krovimosi metu nieko negadina: sluoksniu
+       kelias pats nutraukia ankstesni bandyma, ir tie patys sluoksniai iskart kyla jau
+       spaudinio paruosimui (V sprendimas 08-18; ankstesnis „paleidi tai, ka MATAI"
+       08-16 keiciamas samoningai). */
+    if(isModel&&sel)h+='<button class="small"'+dis+' onclick="event.stopPropagation();startPrint(\''+enc(it.name)+'\')">'+
+                       (loading?'<span class="rowSpin" style="margin-right:6px;vertical-align:-2px"></span>':'')+'Start</button>';
     else if(!isModel)h+='<span></span>';
     // Archyvams (ZIP/SL1) perziuros nera, tad ju vienintelis veiksmas rodomas visada.
     if(!isModel||sel)h+='<button class="delete"'+dis+' onclick="event.stopPropagation();deleteFile(\''+enc(it.name)+'\')">Delete</button>';
@@ -4348,6 +4354,9 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* Snacko cia NEBERA: mygtukai uzsirakina ta pacia akimirka, o kai apklausa
      nespeja, ji pati pasako priezasti (`bgJob`). Du pranesimai apie ta pati is
      eiles buvo triukmas (V 08-17). */
+  /* Perziuros krovimo zyme nuimama: nuo cia darba perima spaudinio paruosimas, ir
+     eiluteje besisukantis suktukas rodytu jau nebevykstanti darba (V 08-18). */
+  if(typeof setPreviewLoading==='function')setPreviewLoading('');
   startBusy=true; bgJob='Preparing the print'; syncActionLocks();
   try{
   // prefetch slices for the 3D progress view (best effort - the print starts

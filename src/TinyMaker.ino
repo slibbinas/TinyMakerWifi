@@ -131,6 +131,7 @@ String resinProfilePath(const String &name);
 int listResinProfiles(String out[], int maxN);
 bool resinProfileExists(const String &name);
 bool applyResinProfile(const String &name);
+void publishStopEstimate();   // Motor.ino - stabdymo laukimo ivertis
 bool writeResinProfile(const String &name, const String &display);
 bool writeResinProfileValues(const String &name, const String &display,
                              const ResinProfileValues &vals, const ResinProfileMeta &meta);
@@ -2872,6 +2873,7 @@ void loop() {
               screen1111_state();
               screen1111UP();
               print_canceled = true;
+              publishStopEstimate();
               print_paused = false;
               }  
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){

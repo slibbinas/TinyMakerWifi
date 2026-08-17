@@ -117,6 +117,7 @@ void turn_on_LED(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
+      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -143,21 +144,6 @@ void turn_on_LED(){
   // arithmetic lift_finished_print() does - distance over speed - just started a
   // little earlier. That lift recomputes it exactly when it begins, so the number
   // only sharpens.
-  if (print_canceled) {
-    long target = (long)(max_height * steps_mm);
-    // Dry run parks at the pause height, not at the top - same rule as the lift.
-    if (!uvLedEnabled) {
-      long dryTarget = stepper.currentPosition() + (long)pauseLiftMm * steps_mm;
-      if (dryTarget < target) target = dryTarget;
-    }
-    float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
-    long stepsToGo = target - stepper.currentPosition();
-    if (stepsToGo > 0 && stepsPerSec > 1.0f) {
-      phaseStartMs = millis();
-      phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
-    } else {
-      phaseTotalMs = 0;
-    }
-  }
+  if (print_canceled) publishStopEstimate();   // zr. Motor.ino
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }

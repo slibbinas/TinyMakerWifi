@@ -188,6 +188,7 @@ void lift_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
+      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -296,6 +297,7 @@ void lower_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
+      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -324,6 +326,35 @@ void lower_print(){
  * @brief Lift Finished Print
  * Lifts the platform to the maximum height after printing is complete.
  */
+/* „Kada sustos" - vienas skaicius visam stabdymo laukimui (V 08-17/18).
+   Nutraukimas priimamas penkiose vietose (ekrano mygtukas per ekspozicija ir per
+   lifta, web komanda, spausdinimo ciklas), o iki siol nė viena ju nieko neskelbdavo:
+   ekspozicijos skaitiklis buvo nunulinamas, o savo trukme paskelbdavo tik galutinis
+   pakelimas - tad pirmoji laukimo dalis eidavo be jokio skaiciaus.
+   Cia skaiciuojam ta pati, ka zmogus ir klausia: kiek liko iki plokstes virsuje.
+   Likusi einamosios fazes dalis (ekspozicija ar judesys) plius pakelimo trukme is
+   atstumo ir greicio. Galutinis pakelimas veliau persiskaiciuoja tiksliai, tad
+   ivertis tik pagereja. */
+void publishStopEstimate() {
+  unsigned long remain = 0;
+  if (phaseTotalMs > 0) {
+    unsigned long el = millis() - phaseStartMs;
+    if (el < phaseTotalMs) remain = phaseTotalMs - el;
+  }
+  long target = (long)(max_height * steps_mm);
+  // Dry run parkuojasi ties pauzes aukstumu, ne virsuje - ta pati taisykle, kaip lifte.
+  if (!uvLedEnabled) {
+    long dryTarget = stepper.currentPosition() + (long)pauseLiftMm * steps_mm;
+    if (dryTarget < target) target = dryTarget;
+  }
+  float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
+  long stepsToGo = target - stepper.currentPosition();
+  unsigned long lift = (stepsToGo > 0 && stepsPerSec > 1.0f)
+                     ? (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f) : 0;
+  phaseStartMs = millis();
+  phaseTotalMs = remain + lift;
+}
+
 void lift_finished_print(){
   /* Dry run pabaigoje (ir ji atsaukus) kelti iki pat virsaus nera ko: nieko
      neatspausdinta, nuimti nera ko, o kelias uztrunka desimtis sekundziu ir testuojant
