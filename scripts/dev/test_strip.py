@@ -18,9 +18,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from strip_html_comments import strip_comments   # noqa: E402
+from assemble_dashboard import assemble          # noqa: E402
 
-src = io.open(os.path.join(os.path.dirname(ROOT), "web", "dashboard.html"),
-              encoding="utf-8").read()
+# The assembled page is what the build actually strips and gzips - testing the
+# bare web/dashboard.html would leave the slicer's own comments unchecked.
+src = assemble(os.path.dirname(ROOT))
 out = strip_comments(src)
 
 print("raw   %8d B" % len(src.encode("utf-8")))

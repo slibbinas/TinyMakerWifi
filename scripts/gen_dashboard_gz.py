@@ -1,8 +1,15 @@
 """PlatformIO pre-script: gzip web/dashboard.html into src/dashboard_html_gz.h.
 
-The dashboard (HTML+CSS+JS) is authored as one static file in web/dashboard.html
-and served pre-compressed with Content-Encoding: gzip. Storing the ~43 KB gzip
-blob instead of ~143 KB of PROGMEM string literals frees ~99 KB of flash.
+The dashboard (HTML+CSS+JS) is authored in web/dashboard.html and served
+pre-compressed with Content-Encoding: gzip. Storing the ~43 KB gzip blob instead
+of ~143 KB of PROGMEM string literals frees ~99 KB of flash.
+
+Since 0.17 the slicer's own pieces live in web/parts/ and the page carries
+`#include` markers where they go - two sessions work on this project at once
+(one on the printer, one on the slicer) and they were writing into the same
+file from two branches. scripts/assemble_dashboard.py splices them back here,
+at build time, so the browser still receives one file and the flash cost is
+unchanged: the assembled bytes are identical to the single-file page.
 
 The page is version-agnostic: #fwVersion / #fwBuild fill from /api/status at
 runtime, so no build-time splice is needed and the whole page compresses cleanly.
@@ -20,7 +27,6 @@ import sys
 import zlib
 
 proj = env["PROJECT_DIR"]
-src = os.path.join(proj, "web", "dashboard.html")
 out = os.path.join(proj, "src", "dashboard_html_gz.h")
 
 # Comments are 34 % of the dashboard by weight and ~60 KB of flash once gzipped.
@@ -28,8 +34,12 @@ out = os.path.join(proj, "src", "dashboard_html_gz.h")
 # firmware loses them. scripts/dev/test_strip.py proves nothing but comments go.
 sys.path.insert(0, os.path.join(proj, "scripts"))
 from strip_html_comments import strip_comments
+from assemble_dashboard import assemble
 
-raw = io.open(src, encoding="utf-8").read()
+# The page plus web/parts/* - see the module docstring. A part that changes
+# changes these bytes, so the write-only-if-changed guard below still triggers
+# the rebuild it should.
+raw = assemble(proj)
 stripped = strip_comments(raw)
 # Guard: every line that carries code must survive. The stripper only removes
 # whole-line comments, so anything else disappearing means it mis-tracked a

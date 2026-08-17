@@ -57,6 +57,26 @@ Arduino-style: all `.ino` files in `src/` are concatenated into one translation 
 
 `lib/` holds four vendor-verified libraries unpacked from the original TinyMaker3D `Firmware/Libraries/*.zip` — **do not replace with registry versions** (APIs changed): `AccelStepper` 1.64, `Arduino_GFX` 1.2.0, `PNGdec` 1.0.1, `SdFat` 1.1.2.
 
+### Pultas: `web/dashboard.html` + `web/parts/`
+
+Pultas gzip'inamas ir įdedamas į flash'ą. Nuo 0.17 **slicerio dalys gyvena
+`web/parts/`** (`slicer.css`, `slicer-view.html`, `slicer-card.html`,
+`slicer.js`, `slicer-3d-bridge.js`), o pulte jų vietoje stovi žymė
+`<!--#include parts/…-->` (CSS/JS kontekste - `/*#include …*/`).
+[scripts/assemble_dashboard.py](scripts/assemble_dashboard.py) sulipdo juos
+**build metu**; naršyklė gauna vieną failą kaip anksčiau, flash'ui kaina nulinė.
+
+**Kodėl:** prie projekto dirba dvi sesijos - viena prie printerio, kita prie
+slicerio - ir abi rašė į tą patį failą iš skirtingų šakų. Riba dabar tokia:
+printerio pusė valdo `dashboard.html` ir firmware, slicerio pusė - `web/parts/*`
+ir `web/lib/slicer*.js`. Kelios vietos, kur sliceris tikrai lenda į pulto vidų
+(3D vaizdo perdanga, `applyStatus` kabliukai), lieka pulte kaip pavieniai
+iškvietimai; jas keičia printerio pusė.
+
+Bet kas, kas skaito pultą (stendai, demo, testai), turi imti jį **per
+`assemble()`**, ne tiesiai iš failo - kitaip slicerio ten paprasčiausiai nebus.
+Patikra: `python scripts/assemble_dashboard.py --check <senas failas>`.
+
 Build-time switches (top of `TinyMaker.ino`):
 ```cpp
 #define ENABLE_NETWORK       1   // 0 = original network-free firmware
