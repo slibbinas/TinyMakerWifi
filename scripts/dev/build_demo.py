@@ -13,11 +13,32 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DASH = os.path.join(HERE, "..", "..", "web", "dashboard.html")
+PROJ = os.path.normpath(os.path.join(HERE, "..", ".."))
+DASH = os.path.join(PROJ, "web", "dashboard.html")
 SHIM = os.path.join(HERE, "demo_shim.js")
+SCRIPTS = os.path.join(PROJ, "scripts")
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "demo.html")
 
-html = io.open(DASH, encoding="utf-8", errors="replace").read()
+
+def dashboard():
+    """Pultas taip, kaip ji mato narsykle.
+
+    Nuo 2026-08-17 slicerio dalys guli atskirai (`web/parts/*`), o pulte ju
+    vietoje stovi `#include` zymes; sulipdo `scripts/assemble_dashboard.py`
+    build metu. Skaitant faila tiesiai gautum pulta BE slicerio ir tikrintum
+    ne ta puslapi - i tai jau ikrito kita sesija per pirma patikra.
+
+    Salyga, o ne besalyginis importas: tas skriptas atkeliauja su ju saka, o
+    stendas turi veikti ir pries merge, ir po jo, be rankinio perjungimo.
+    """
+    if os.path.exists(os.path.join(SCRIPTS, "assemble_dashboard.py")):
+        sys.path.insert(0, SCRIPTS)
+        from assemble_dashboard import assemble
+        return assemble(PROJ)
+    return io.open(DASH, encoding="utf-8", errors="replace").read()
+
+
+html = dashboard()
 
 # The dashboard is now version-agnostic (fwVersion/data-build start empty and
 # fill from /api/status). The demo's mock status must report a real version:
