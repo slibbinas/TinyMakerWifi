@@ -1731,8 +1731,13 @@ $('resinRenameButton').addEventListener('click',async()=>{
   if(label===null)return;
   const to=resinSlug(label);
   if(!to){msg('That name has no letters or digits to use.',true);return;}
-  try{await api('/api/resin-profile/rename',{method:'POST',body:new URLSearchParams({name:p.name,to})});
-    msg('Renamed to "'+label+'".');await loadConfig();loadResinProfiles();}
+  /* `display` BUTINAS: slug'as yra tik failo vardas, o zmogui rodomas pavadinimas
+     guli failo viduje. Be sio lauko printeris atstatytu varda is slug'o, ir
+     „Sunlu Toughness Resin" pavirstu „Sunlu Toughness Resin" tik atsitiktinai -
+     bet kokia didzioji raide ar skyryba dingtu (V 08-17). */
+  try{await api('/api/resin-profile/rename',{method:'POST',
+        body:new URLSearchParams({name:p.name,to,display:label})});
+    msg('Renamed to "'+label+'".');await loadConfig();await loadResinProfiles();}
   catch(e){msg(e.message,true);}
 });
 $('resinResetButton').addEventListener('click',async e=>{

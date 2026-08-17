@@ -3879,6 +3879,22 @@ void handleApiResinProfileRename() {
     sendApiError(500, "could not rename the profile");
     return;
   }
+  // The name a human sees lives INSIDE the file ("name"), not in the file name -
+  // resinProfileInfo() reads it and it wins over the slug. Renaming the file
+  // alone therefore renamed nothing the user can see: the card kept showing the
+  // old label for good (V 08-17, proven on the printer with a scratch profile).
+  // Values and provenance are read back and written out untouched; only the
+  // label changes. Without a label from the dashboard the slug is the honest
+  // fallback, which is exactly what a profile with no stored name shows.
+  {
+    ResinProfileInfo info;
+    if (resinProfileInfo(to, info)) {
+      String label = formString("display", "", 40);
+      if (label.length() == 0) label = slugToTitle(to);
+      if (!writeResinProfileValues(to, label, info.v, info.meta))
+        DBGLN("rename: label rewrite failed");
+    }
+  }
   if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
   sdRev++;  // 0-28
   tinymakerConnectScheduleBackup();   // the stored profile name may have changed
