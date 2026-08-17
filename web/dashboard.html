@@ -2643,6 +2643,7 @@ const loadSavedPreviewTo=async(cv,name)=>{
   }catch(e){}
   ctx.clearRect(0,0,PREV_W,PREV_H);
   if(rot)ctx.filter='hue-rotate('+rot+'deg)';
+  if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;   // paveiksliukas irgi nuima uzrasa
   ctx.drawImage(img,0,0,PREV_W,PREV_H);
   ctx.filter='none';
   show('previewWrap',true);
@@ -2776,7 +2777,13 @@ const drawVolumeBox=cv=>{
 // box plus an orange progress bar underneath - the usual "image loading" look.
 // White label everywhere; the brand orange is reserved for the progress bar
 // itself (drawn only when frac is a number - the slice-by-slice render).
+/* Kas PASKUTINIS pieste ant drobes uzrasa. Reikia perpiesimui: pakeitus lauko dydi
+   (lango mygtukas, temos keitimas) drobe isvaloma, o „Unpacking…" ar „Uploading…"
+   nauju pranesimu nesiuncia - jie ateina retai arba is viso po viena. Be sito
+   didinant langa ispakavimo metu likdavo juoda deze be teksto (V 08-17). */
+let lastPreviewMsg=null;
 const paintPreviewProgress=(cv,label,frac)=>{
+  if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg={label:label,frac:frac};
   if(window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
   const ctx=drawVolumeBox(cv);
   /* Pakeltos plokstes cia NEPIESIAM. Buvo bandyta (auditas 08-14 pasiule), bet krovimo
@@ -3272,7 +3279,10 @@ function* drawIsoGen(cv,doneFrac){
 /* Du budai paleisti TA PATI piesima: vientisai (gyvas spausdinimo progresas - ten
    piesiami voxeliai, tai pigu) ir dalimis su procentais (perziuros glotnus vaizdas,
    kur skaiciavimo yra kelioms sekundems). */
-const drawIso=(cv,doneFrac)=>smRun(drawIsoGen(cv,doneFrac));
+/* Modelis ant drobes = uzraso nebera: kitaip pakeitus lauko dydį perpiešimas
+   grąžintų seną žinutę („Loading preview…") vietoj paties modelio (V 08-17). */
+const drawIso=(cv,doneFrac)=>{if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;
+  return smRun(drawIsoGen(cv,doneFrac));};
 const drawIsoAsync=(cv,doneFrac,onProg)=>smRunAsync(drawIsoGen(cv,doneFrac),onProg);
 /* Pjuviu kesas SALIA MODELIO (V 08-12): 36 PNG traukimas ~37 s, o sis failas
    21 KB ir ateina per <1 s - butent tai leidzia rodyti 3D pagal nutylejima,
@@ -4017,6 +4027,15 @@ const repaintPreviewForTheme=()=>{
   const cv=$('printPreviewCanvas'), gl=$('gl3d');
   if(!cv)return;
   if(gl&&gl.style.display==='block')return;      // virsuje GPU - drobes nesimato
+  /* Kortelės darbas (ispakavimas, trynimas) NĖRA spausdinimas: `busy` tada irgi
+     true, ir zemiau esanti saka piestu spaudinio vaizda is tusciu sluoksniu -
+     gaudavosi juoda deze vietoj „Unpacking…" (V 08-17). Uzrasas turi pirmenybe
+     visada, kai jis buvo paskutinis dalykas ant drobes ir printeris nespausdina. */
+  const sdJobNow=!!(statusData&&statusData.sdJob);
+  if(lastPreviewMsg&&(!(statusData&&statusData.busy)||sdJobNow)){
+    paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac);
+    return;
+  }
   if(statusData&&statusData.busy){
     /* Nelaukiam kitos apklausos (iki 2 s) - iki jos senas piesinys butu tempiamas i nauja
        bloka (V 08-14: „tarpe gaunam 1 s istempyto vaizdo"). Piesiam is karto su ta pacia
