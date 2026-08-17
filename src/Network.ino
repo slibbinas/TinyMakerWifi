@@ -3771,6 +3771,9 @@ void handleApiResinProfileSave() {
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = sanitizeSlug(server.arg("name"), "");
   if (name.length() == 0) { sendApiError(400, "name required"); return; }
+  // Reserved for the firmware's own scratch files, which the picker does not
+  // list: saving one would make an active profile nobody can see (seventh audit).
+  if (name.startsWith("__")) { sendApiError(400, "that name is reserved"); return; }
   if (server.arg("mode") == "new" &&
       (resinBuiltinIndex(name) >= 0 || resinProfileFileExists(name))) {
     sendApiError(409, "a profile with that name already exists");
@@ -3899,9 +3902,12 @@ void handleApiResinProfileRename() {
   // A leftover __rn_tmp after a card failure is visible and holds the data;
   // nothing is ever deleted before the new copy exists.
   const char *TMP = "__rn_tmp";
-  // A profile really called __rn_tmp would have the swap delete its own original.
-  // Absurd, and one line to close.
-  if (from == TMP || to == TMP) { sendApiError(409, "that name is reserved"); return; }
+  // Names starting with __ are the firmware's own scratch space and are not
+  // listed as profiles, so one must never become a destination: it would exist
+  // on the card and show up nowhere (seventh audit, 08-17). `from` is refused
+  // for a different reason - the swap would write over the file it is reading.
+  if (to.startsWith("__")) { sendApiError(409, "that name is reserved"); return; }
+  if (from.startsWith("__")) { sendApiError(409, "that profile cannot be renamed"); return; }
   SD.remove(resinProfilePath(TMP).c_str());   // stale one from an earlier failure
   if (!writeResinProfileValues(TMP, label, info.v, info.meta)) {
     sendApiError(500, "could not write the renamed profile");
@@ -3909,8 +3915,13 @@ void handleApiResinProfileRename() {
   }
   SD.remove(resinProfilePath(to).c_str());    // to == from: the old copy goes here
   if (!SD.rename(resinProfilePath(TMP).c_str(), resinProfilePath(to).c_str())) {
-    sendApiError(500, "the renamed profile is on the card as __rn_tmp");
-    return;   // data is safe under the temporary name
+    // The data is safe, but it is sitting under a name nothing lists - so move it
+    // somewhere the user can actually see and re-save it (seventh audit, 08-17).
+    if (SD.rename(resinProfilePath(TMP).c_str(), resinProfilePath("rn-recovered").c_str()))
+      sendApiError(500, "could not rename - the profile is saved as rn-recovered");
+    else
+      sendApiError(500, "could not rename - the profile is on the card as __rn_tmp");
+    return;
   }
   bool oldLeft = false;
   if (to != from && !SD.remove(resinProfilePath(from).c_str())) {
