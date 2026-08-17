@@ -87,7 +87,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #gl3dPop input[type=checkbox]{width:auto;margin:0}
 #popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
 #popDone:hover{color:var(--text)}
-#slicerReview{display:none!important}
 #gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}
 #gl3dTools button:disabled{opacity:.35;cursor:not-allowed}
@@ -302,11 +301,11 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <!-- Ta pati vieta, kaip progreso juostele: spausdinant ji rodo, kiek
          nuspausdinta, o pjaustant leidzia ta pati auksti valdyti. Viena juosta
          po paveiksleliu, viena prasme (V 08-12). -->
-    <div id='slicerReview' class='calRow' style='display:none;margin-top:6px'>
-      <span class='lbl'>Height</span>
-      <input id='slicerLayer' type='range' min='1' max='2' value='1' style='flex:1;min-width:110px'>
-      <span id='slicerLayerNo' style='color:var(--muted);font-size:.85rem;min-width:104px'></span>
-    </div>
+    <!-- „Height" eilute isimta 08-17. Ji cia stovejo kaip antra progreso juostos
+         prasme (spausdinant - kiek nuspausdinta, pjaustant - kuris aukstis), bet
+         slankiklis netrukus persikele ANT paties vaizdo, o eilute liko paslepta
+         `!important` - t. y. niekada nesimate. Liko tik tyliu busenos laikytoju:
+         kitas kodas skaite jos `value`. Dabar auksti laiko `slicerLayerN`. -->
     <!-- 0-26: the info line moved to the status panel rows; the card keeps
          only the 3D view with its small name overlay.
          prevNote: shown on a cold device mid-print - the RAM snapshot is the
@@ -5231,7 +5230,7 @@ $('slicerToggle').addEventListener('click',async()=>{
 const slicerInvalidate=()=>{
   if(typeof slicerOut==='undefined'||!slicerOut)return;
   slicerOut=null;
-  $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+  show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
   $('slicerProg').textContent='Settings changed — slice again to save.';
@@ -5359,6 +5358,10 @@ let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
    pati PNG, kuri keliauja i archyva: nedidinta, be glotninimo. Nieko naujo
    neskaiciuojam - failai jau atmintyje (V 08-13). */
 let slicerMaskOn=false, slicerView=0;
+/* Einamas sluoksnis. Iki 08-17 ji laike paslepto lauko `value` - elementas buvo
+   nematomas, bet kodas ji skaite kaip busena. Dabar busena yra busena, o vienintelis
+   slankiklis (`#gl3dLayerRange`) tik ja rodo. */
+let slicerLayerN=1;
 function slicerMaskDraw(n){
   const box=$('slicerMask'), cv=$('slicerMaskCv');
   if(!box||!cv||!slicerMaskOn||!slicerOut||!slicerOut.files)return;
@@ -5409,8 +5412,7 @@ function slicerMaskSet(on){
      rodyti" (gale - visas daiktas), kaukeje - „kuri sluoksni rodyti" (gale -
      pati virsune, dazniausiai juodas kvadratas). Todel ijungiant kauke ties
      pabaiga persistojam i vidury: kitaip mygtukas atrodo negyvas (V 08-13). */
-  const sl=$('slicerLayer');
-  let n=Number(sl&&sl.value)||slicerOut.layers;
+  let n=slicerLayerN||slicerOut.layers;
   if(n>=slicerOut.layers)n=Math.max(1,Math.round(slicerOut.layers/2));
   slicerShowLayer(n);
 }
@@ -5446,7 +5448,7 @@ function slicerSupportFacts(s){
 function slicerLayerUI(on){
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
   const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
-  if(!on){slicerMaskSet(false); slicerView=0;
+  if(!on){slicerMaskSet(false); slicerView=0; slicerLayerN=1;
           if(window.gl3dSupports)gl3dSupports(null);}
   else slicerSetView(slicerView);
 }
@@ -5460,8 +5462,7 @@ function slicerSetView(v){
   if(b){b.classList.toggle('on',slicerView!==0); b.title=VIEW_TITLES[slicerView];}
   slicerMaskSet(slicerView===2);
   if(slicerView!==2)slicerBuildView();
-  const sl=$('slicerLayer');
-  if(slicerOut&&sl)slicerShowLayer(Number(sl.value)||slicerOut.layers);
+  if(slicerOut)slicerShowLayer(slicerLayerN||slicerOut.layers);
 }
 
 /* Slankiklis valdo AUKSTI, ne rodo atskira pjuvi: tas pats pieseejas, kuris
@@ -5518,15 +5519,13 @@ const slicerBuildView=(home)=>{
 const slicerShowLayer=n=>{
   if(!slicerOut)return;
   if(statusData&&statusData.busy)return;   // ta pati priezastis, kaip slicerRender
+  slicerLayerN=n;
   const mm=n*0.05;
   if(gl3dUp())gl3dClip(n>=slicerOut.layers?null:mm);
   if(slicerMaskOn)slicerMaskDraw(n);
-  const txt=mm.toFixed(2)+' mm  ('+n+' / '+slicerOut.layers+')';
-  $('slicerLayerNo').textContent=txt;
   /* Sluoksnio numeris PRIE paties slankiklio - taip daro visi slicer'iai. */
   {const N=$('gl3dLayerNo'); if(N)N.textContent=n+' / '+slicerOut.layers;}
   {const R=$('gl3dLayerRange'); if(R&&Number(R.value)!==n)R.value=n;}
-  {const H=$('slicerLayer'); if(H&&Number(H.value)!==n)H.value=n;}
 };
 
 $('slicerGo').addEventListener('click',async()=>{
@@ -5566,9 +5565,7 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerSupportFacts(r.supports);
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
       +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
-    const sl=$('slicerLayer');
-    sl.min=1; sl.max=r.layers; sl.value=r.layers;   // pradzioj - visas daiktas
-    $('slicerReview').style.display='flex';
+    slicerLayerN=r.layers;                          // pradzioj - visas daiktas
     show('printPreviewBarFill',false);
     {const R=$('gl3dLayerRange');
      if(R){R.min=1;R.max=r.layers;R.value=r.layers;}
@@ -5684,7 +5681,6 @@ $('popScaleMm').addEventListener('change',e=>{
   const now=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size[2];
   if(now>0)popScaleApply(slicerTr.scale*(want/now)*100);
 });
-$('slicerLayer').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
 /* Kaukes jungiklis stovi salia priartinimo, nes tai to paties vaizdo kita puse. */
 {const b=$('gl3dMask');
  if(b){b.addEventListener('click',e=>{e.stopPropagation();slicerSetView(slicerView+1);});
@@ -5701,14 +5697,29 @@ $('slicerSave').addEventListener('click',async()=>{
   const btn=$('slicerSave'), prog=$('slicerProg');
   btn.disabled=true;
   try{
-    const fd=new FormData();
-    fd.append('file',slicerOut.blob,slicerOut.name+'.zip');
     const MB=b=>(b/1048576).toFixed(1);
     /* Dydi zinom iki baito - archyva pagaminom patys, tad eiga tikra, ne
-       apsimestine. XHR, nes fetch nepranesa, kiek isejo (V 08-12). */
-    await new Promise((res,rej)=>{
+       apsimestine. XHR, nes fetch nepranesa, kiek isejo (V 08-12).
+       Grazina konflikto duomenis, jei toks vardas jau yra, arba null. */
+    const send=action=>new Promise((res,rej)=>{
+      const fd=new FormData();
+      if(action)fd.append('action',action);
+      fd.append('source','slicer');
+      /* ZALIA reiksme, ne `slicerOut.ml`: kalibracija (`resinCalFactor`,
+         `resinFixedMl`) pritaikoma printeryje ISDUODANT (R-cal, Network.ino),
+         tad atsiuntus jau kalibruota ji suveiktu du kartus. Be sio lauko
+         printeris veliau pats perskaito visus sluoksnius nuo korteles ir
+         suskaiciuoja ta pati, ka narsykle jau zino (auditas 08-17). */
+      if(slicerOut.rawMl>0)fd.append('resin_ml',String(slicerOut.rawMl));
+      fd.append('file',slicerOut.blob,slicerOut.name+'.zip');
       const x=new XMLHttpRequest();
-      x.open('POST','/api/files/local');
+      /* `/upload`, o ne `/api/files/local`: pastarasis su tusciu veiksmu
+         SAMONINGAI reiskia \u201eperrasyk" - tuo keliu eina PrusaSlicer, kuris i
+         klausima atsakyti negaletu. Sliceris yra pulto dalis, tad jam priklauso
+         tas pats kelias ir tas pats klausimas, kaip pulto ikelimui: kitaip tas
+         pats daiktas, suslicintas antra karta, nutrindavo sena modeli tylomis
+         (auditas 08-17). */
+      x.open('POST','/upload');
       x.setRequestHeader('X-TinyMaker','1');
       x.upload.onprogress=e=>{
         if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
@@ -5716,12 +5727,24 @@ $('slicerSave').addEventListener('click',async()=>{
         prog.textContent='Uploading '+p+'%  ('+MB(e.loaded)+' / '+MB(e.total)+' MB)';
         paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total);
       };
-      x.onload=()=>x.status<400?res():rej(new Error('upload failed ('+x.status+')'));
+      x.onload=()=>{
+        if(x.status<400){res(null);return;}
+        let d=null; try{d=JSON.parse(x.responseText);}catch(err){}
+        if(x.status===409&&d&&d.conflict){res(d);return;}
+        rej(new Error('upload failed ('+x.status+')'));
+      };
       x.onerror=()=>rej(new Error('upload failed - connection lost'));
       x.ontimeout=()=>rej(new Error('upload timed out'));
       x.timeout=300000;
       x.send(fd);
     });
+    {const conflict=await send('');
+     if(conflict){
+       /* Tas pats langelis, kaip pulto ikelimui - su abieju modeliu palyginimu. */
+       const choice=await uploadConflictChoice(conflict);
+       if(choice!=='replace'&&choice!=='rename')throw new Error('Save cancelled');
+       await send(choice);
+     }}
     /* Ikelta dar nereiskia paruosta: printeris dabar ISPAKUOJA archyva ir tuo
        metu SD priklauso jam. Laukiam, kol atsileis - kitaip pasakytume
        „issaugota", o modelio sarase dar nebutu (V 08-12). */
@@ -5749,7 +5772,7 @@ $('slicerSave').addEventListener('click',async()=>{
     $('slicerFile').value='';
     $('slicerInfo').textContent='Choose an STL file to begin.';
     $('slicerFit').textContent='';
-    $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+    show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
     $('slicerSave').disabled=true;
     $('slicerDiscardLink').style.visibility='hidden';
     /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
@@ -5772,7 +5795,7 @@ $('slicerSave').addEventListener('click',async()=>{
 
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
-  $('slicerReview').style.display='none';show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
+  show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
   $('slicerProg').textContent='Discarded. Adjust and slice again.';
