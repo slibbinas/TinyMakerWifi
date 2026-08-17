@@ -116,7 +116,7 @@ const slicerInvalidate=()=>{
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
-  $('slicerProg').textContent='Settings changed — slice again to save.';
+  $('slicerProg').textContent='Settings changed - slice again to save.';
   slicerStep();
 };
 /* Spaudinys uz sliceri svarbesnis - ir cia, ne tik ties trimis mygtukais, kurie
@@ -128,6 +128,29 @@ const slicerInvalidate=()=>{
    gl3dClip - butent ta veiksma pjuvio mygtukas atskirai draudzia spausdinant.
    Tyliai, be zinutes: sios funkcijos kvieciamos ir savaime (perpiesimas), tad
    snakas cia lystu ir be zmogaus paspaudimo (auditas 08-17). */
+/* Mastelio valdikliai seka TIKRA masteli, o ne atvirksciai.
+   Kodel atskira funkcija: slankiklio riba buvo 10 %, o didelis modelis telpa tik
+   ties 2,7 % - tada valdiklis rode 10 (naršyklė reiksme apkerpa pati), ir vos ji
+   paliesdavai, modelis vel isaugdavo iki netelpancio. Zmogui tai atrode „autofit
+   sumazino, o vis tiek sako per didelis" (V 08-17). Todel apacia nusileidzia iki
+   to, ko reikia SIAM modeliui, o ne iki is anksto isspausto skaiciaus. */
+const slicerScaleUI=b=>{
+  const pr=$('popScaleRange'),pp=$('popScalePct'),pm=$('popScaleMm');
+  const pct=slicerTr.scale*100;
+  /* Po kablelio - tik ten, kur be jo skaicius meluotu (2,7 % vs „3 %").
+     Apvalinam ZEMYN, ne i artimiausia: 30,5 % pavirtes „31 %" vel netilptu, tad
+     vien valdiklio bakstelejimas modeli issprogdintu uz plokstes ribu. Zemyn
+     apvalintas skaicius blogiausiu atveju sumazina plauko storiu. */
+  const shown=pct<10?Math.floor(pct*10)/10:Math.floor(pct);
+  /* Apacia - puse dabartinio mastelio, bet ne aukstesne uz iprastus 10 % ir ne
+     zemesne uz absoliucia riba: taip slankiklyje visada lieka vietos ir i viena,
+     ir i kita puse, o iprastu dydziu modeliams elgsena nesikeicia. */
+  const floor=Math.max(SCALE_MIN_PCT,Math.min(10,Math.floor(pct*5)/10));
+  const step=pct<10?0.1:1;
+  if(pr){pr.min=floor; pr.step=step; pr.value=shown;}
+  if(pp){pp.min=floor; pp.step=step; pp.value=shown;}
+  if(pm)pm.value=b.size[2].toFixed(1);
+};
 const slicerRender=()=>{
   if(statusData&&statusData.busy)return;
   slicerInvalidate();
@@ -142,7 +165,7 @@ const slicerRender=()=>{
    /* Mygtukas STOVI pranesime. Anksciau pranesimas buvo desineje, o mygtukas,
       kuri jis liepia spausti, - kitame korteles gale; akis eina per visa
       kortele ir atgal (V 08-13). */
-   else{vd='too large — '+f.axis+' +'+Math.round((f.worst-1)*100)
+   else{vd='too large - '+f.axis+' +'+Math.round((f.worst-1)*100)
         +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
         +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
@@ -163,15 +186,12 @@ const slicerRender=()=>{
     /* Masteli slėpti, kai jis pradeda tikti, - kaip tik atvirksciai, nei
        reikia: sumazinai iki telpancio ir pakoreguoti nebegali (V 08-12).
        Slepiamas tik ispejimas, ne valdiklis. */
-    {const pr=$('popScaleRange'),pp=$('popScalePct'),pm=$('popScaleMm'),pc=Math.round(slicerTr.scale*100);
-     if(pr)pr.value=pc; if(pp)pp.value=pc; if(pm)pm.value=b.size[2].toFixed(1);}
   }else{
-    fit.textContent='Too large — the '+f.axis+' is '+Math.round((f.worst-1)*100)
+    fit.textContent='Too large - the '+f.axis+' is '+Math.round((f.worst-1)*100)
       +'% over. Turning it often solves this; scaling changes the part’s real size.';
     fit.style.color='var(--warncol)';
-    {const pr=$('popScaleRange'),pp=$('popScalePct'),pm=$('popScaleMm'),pc=Math.round(slicerTr.scale*100);
-     if(pr)pr.value=pc; if(pp)pp.value=pc; if(pm)pm.value=b.size[2].toFixed(1);}
   }
+  slicerScaleUI(b);
   /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
   const tri=slicerRaw.length/9;
   if(slicerBudget&&tri>slicerBudget)
@@ -222,8 +242,9 @@ $('slicerAutoFit').addEventListener('click',()=>{
   const f=slicerMod.fitCheck(b.size);
   if(!f.fits){
     slicerTr.scale*=f.scaleToFit;
-    msg('Turned and scaled to '+Math.round(slicerTr.scale*100)+'% so it fits.');
-  }else msg('Turned \u2014 it already fits, nothing was scaled.');
+    {const pc=slicerTr.scale*100;
+     msg('Turned and scaled to '+(pc<10?Math.round(pc*10)/10:Math.round(pc))+'% so it fits.');}
+  }else msg('Turned - it already fits, nothing was scaled.');
   slicerRender();
 });
 $('slicerFlat').addEventListener('click',()=>{
@@ -336,9 +357,9 @@ function slicerLayerUI(on){
   else slicerSetView(slicerView);
 }
 const VIEW_TITLES=[
-  '3D with supports — shapes, not pictures. Click for the printed layers.',
-  'Printed layers — exactly what the printer builds. Click for one true layer.',
-  'True layer — one picture, no smoothing. Click to go back to 3D.'];
+  '3D with supports - shapes, not pictures. Click for the printed layers.',
+  'Printed layers - exactly what the printer builds. Click for one true layer.',
+  'True layer - one picture, no smoothing. Click to go back to 3D.'];
 function slicerSetView(v){
   slicerView=((v%3)+3)%3;
   const b=$('gl3dMask');
@@ -416,7 +437,7 @@ $('slicerGo').addEventListener('click',async()=>{
   if(slicerBusyStop())return;
   const placed=slicerMod.place(slicerRaw,slicerTr);
   const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
-  if(!f.fits){msg('It does not fit yet \u2014 turn or scale it first.',true);return;}
+  if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
   const go=$('slicerGo'), prog=$('slicerProg');
   go.disabled=true; slicerButtons(false);
   try{
@@ -451,7 +472,7 @@ $('slicerGo').addEventListener('click',async()=>{
     /* Nesaugom is karto: pirma parodom, ka gavom. Issaugojimas - atskiras
        sprendimas, kai sluoksniai atrodo teisingai (V 08-12). */
     if(!r.files){slicerOut=null;
-      prog.textContent='The slicer module is out of date \u2014 reload the page (Ctrl+F5).';
+      prog.textContent='The slicer module is out of date - reload the page (Ctrl+F5).';
       return;}
     slicerOut=r; slicerOut.ml=ml;
     slicerSupportFacts(r.supports);
@@ -561,9 +582,13 @@ const popClose=()=>{
   if(pd)pd.addEventListener('click',e=>{e.stopPropagation();popClose();});
 }
 /* Popup'ai NIEKO neskaiciuoja patys - tik persiuncia i esamus laukus. */
+/* Apatine riba - 0,1 %, ne 10 %: plokste 40,8 x 30,6 mm, tad zaislo dydzio STL
+   (o tokiu internete pilna) telpa tik ties keliais procentais, ir sena riba
+   tyliai grazindavo ji atgal i netelpanti (V 08-17). Virsutine lieka 300 %. */
+const SCALE_MIN_PCT=0.1;
 const popScaleApply=pct=>{
   if(!slicerRaw)return;
-  const v=Math.max(.1,Math.min(3,pct/100));
+  const v=Math.max(SCALE_MIN_PCT/100,Math.min(3,pct/100));
   slicerTr.scale=v; slicerRender();
 };
 $('popScaleRange').addEventListener('input',e=>popScaleApply(Number(e.target.value)));
