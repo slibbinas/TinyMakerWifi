@@ -4336,6 +4336,12 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
     }
   }
+  /* NUO SIOS VIETOS pultas jau dirba: uzrakinam mygtukus ir pasakom, kas vyksta.
+     `bgJob` reikalingas apklausos zinutei - be jo nepavykusi apklausa saukia
+     „Printer not answering", nors printeris kaip tik atsakineja mums (V 08-17). */
+  startBusy=true; bgJob='Preparing the print'; syncActionLocks();
+  msg('Preparing the print…');
+  try{
   // prefetch slices for the 3D progress view (best effort - the print starts
   // either way; while printing the layer endpoint is unavailable)
   /* Detalus kesas (320x240) spausdinimo vaizdui netinka: senasis piesimas deda taska
@@ -4397,7 +4403,8 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
       }
       msg('Start not confirmed - check the printer.',true);return;
     }
-    msg(e.message,true);}};
+    msg(e.message,true);}
+  }finally{ startBusy=false; bgJob=''; syncActionLocks(); }};
 // Deleting a big model removes hundreds of layer files and blocks the printer
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
@@ -4747,7 +4754,13 @@ $('filesList').addEventListener('keydown',e=>{
 /* Vienas atsakymas visam pultui, ar dabar galima ko nors prasyti is printerio:
    arba jis pats sako, kad uzimtas, arba MES ka tik uzemem ji siuntimu/trynimu, ir
    iki pabaigos jis neatsakines. */
-const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy;
+/* Paspaudus „Start" printeris dar NEspausdina: pultas pirma parsisiuncia sluoksnius
+   3D progresui, ir tuo metu printeris atsakineja MUMS, o ne apklausai. Zmogui tai
+   atrode taip: mygtukai nesikeicia, paskui iskyla „Printer not answering", ir tik
+   tada pasikeicia busena (V 08-17). Todel paruosimas turi savo veliavele - mygtukai
+   uzsirakina tuoj pat, o pranesimas pasako, kas is tikro vyksta. */
+let startBusy=false;
+const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startBusy;
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */
 /* Tas pats klausimas, tik trumpu pavidalu peržiūros dėžei ir snackui. */
@@ -4756,12 +4769,14 @@ const busyBoxText=()=>{
   if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
   if(uploadBusy)return 'Uploading the model…';
   if(deleteBusy)return 'Deleting…';
+  if(startBusy)return 'Preparing the print…';
   return '';
 };
 const busyWhat=()=>{
   const jb=(statusData&&statusData.sdJob)||'';
   if(uploadBusy)return 'this window is uploading a model';
   if(deleteBusy)return 'a model is being deleted';
+  if(startBusy)return 'this window is preparing the print';
   if(jb==='import')return 'the printer is unpacking a model';
   if(jb==='delete')return 'the printer is deleting a model';
   if(statusData&&statusData.busy)return 'the printer is printing';
