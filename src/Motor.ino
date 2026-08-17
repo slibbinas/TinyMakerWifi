@@ -336,6 +336,11 @@ void lower_print(){
    atstumo ir greicio. Galutinis pakelimas veliau persiskaiciuoja tiksliai, tad
    ivertis tik pagereja. */
 void publishStopEstimate() {
+  // Homing'as baigiasi BE galutinio pakelimo (TinyMaker: lift_finished_print
+  // kvieciamas tik tada, kai homing'as nebuvo nutrauktas), tad zadeti sekundziu
+  // ten negalima - V 08-18 stabdant pries spaudinio pradzia snackas rode ~23 s,
+  // o printeris sustodavo tuoj pat.
+  if (homing_canceled || current_state == 0) { phaseTotalMs = 0; return; }
   unsigned long remain = 0;
   if (phaseTotalMs > 0) {
     unsigned long el = millis() - phaseStartMs;

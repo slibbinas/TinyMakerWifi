@@ -1974,10 +1974,11 @@ bool requestPrintStop(String &error) {
   gfx2->fillRect(146, 52, 6, 16, 0x8410);
   gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
   print_canceled = true;
-  publishStopEstimate();   // „kada sustos" nuo pirmos sekundes
   print_paused = false;
   webResumePrint = false;
   if (wasHoming) homing_canceled = true;
+  // PO `homing_canceled`: ivertis turi zinoti, ar galutinis pakelimas apskritai bus.
+  publishStopEstimate();   // „kada sustos" nuo pirmos sekundes
   return true;
 }
 

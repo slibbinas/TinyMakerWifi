@@ -4499,10 +4499,14 @@ const printWaitInfo=()=>{
   if(printing&&s.resuming)  return {v:'Resuming', tail:' - the print is starting again', count:true};
   // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
   // (printWaitSent) - the printer answers between layers, so hold the message.
+  /* Tas pats tekstas, kaip patvirtinus: zmogui tai VIENAS laukimas, o dvi
+     skirtingos antrastes atrodo kaip du snackai, kuriu pirmojo net nespeji
+     perskaityti (V 08-18). Skaiciaus dar nera - jis atsiranda, kai printeris
+     paskelbia faze. */
   const req=pendingPrintCmd||printWaitSent;
-  if(req==='stop')   return {v:'Stop requested',   tail:' - waiting for the printer (it answers between layers)', count:false};
-  if(req==='pause')  return {v:'Pause requested',  tail:' - waiting for the printer (it answers between layers)', count:false};
-  if(req==='resume') return {v:'Resume requested', tail:' - waiting for the printer (it answers between layers)', count:false};
+  if(req==='stop')   return {v:'Stopping', tail:' - finishing the current layer, then the plate lifts', count:false};
+  if(req==='pause')  return {v:'Pausing',  tail:' - the print pauses after this layer', count:false};
+  if(req==='resume') return {v:'Resuming', tail:' - the print is starting again', count:false};
   return null;
 };
 const renderPrintWait=()=>{
