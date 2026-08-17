@@ -5541,7 +5541,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        per visa ploti, ir permatomose vietose issilenda ANTRAS to paties modelio
        vaizdas (V 08-13). `visibility`, ne `display` - buferis reikalingas miniatiurai. */
     if(!on)return hide();
-    if(!slicesCache.slices||slicesCache.slices.length<3)return hide();   // ir issivalom, ne tik griztam
+    /* Du 3D vaizdo saltiniai, ne vienas: SD sluoksniai IR sliceris. Sarga zinojo
+       tik pirma, tad sliceryje paspaudus lango didinima ji nusprensdavo, kad
+       rodyti nera ko, ir pasleptdavo GPU sluoksni - drobe virsdavo 0x0, modelis
+       dingdavo, o sumazinus nebegrizdavo, nes kitas kvietimas atsimusdavo i ta
+       pacia sarga (V 08-17). */
+    const slicerHas=!!window.slicerOwnsPreview;
+    if(!slicerHas&&(!slicesCache.slices||slicesCache.slices.length<3))return hide();   // ir issivalom, ne tik griztam
     try{
       if(!ren)init();
       const cv=$('printPreviewCanvas');
@@ -5553,7 +5559,11 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
          sluoksnis uzima visa ekrana - tada 3D pagaliau gauna auksti (V 08-13). */
       const w=host.clientWidth||cv.clientWidth||720,h=host.clientHeight||cv.clientHeight||420;
       ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();
-      build();
+      /* Slicerio tinklelio NEPERSTATOM: build() ji lipdo is slicesCache, tad
+         slicerio modeli su atramomis tiesiog pakeistu SD sluoksniu tinkleliu (o
+         tuscio keso atveju - nieku). Kadravimas irgi kitas: gl3dFrameAll mato ir
+         atramas, o gl3dFrameAuto ziuri i tuos pacius sluoksnius. */
+      if(!slicerHas)build();
       /* Isdidinta, bet dar nekadruota - kadruojam CIA, nes tik dabar 3D tikrai stovi.
          Zyma nuimama is karto: kitaip kiekvienas perpiesimas grazintu vaizda atgal ir
          isdidintame lange nebūtų imanoma nei pasukti, nei priartinti. */
@@ -5561,8 +5571,12 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
          tinkleli. Jei modelis jau buvo paruostas anksciau, GPU parodydavom su senu
          kadru - be narvo modelis likdavo mazas ir necentruotas, kol nepaspaudei narvo
          mygtuko (V 08-14). */
-      if(framedFor!==key3d&&window.gl3dFrameAuto&&gl3dFrameAuto())framedFor=key3d;
-      if(window.stageWantsVolume&&window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
+      if(slicerHas){
+        if(window.stageWantsVolume&&window.gl3dFrameAll&&gl3dFrameAll())window.stageWantsVolume=false;
+      }else{
+        if(framedFor!==key3d&&window.gl3dFrameAuto&&gl3dFrameAuto())framedFor=key3d;
+        if(window.stageWantsVolume&&window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
+      }
       host.style.display='block';
       if(cvEl)cvEl.style.visibility='hidden';   // vienas vaizdas, ne du (zr. auksciau)
       const hh=$('gl3dHelp'); if(hh)hh.style.display='block';
@@ -5572,8 +5586,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       /* Grazinam tai, ka slicerio rezimas paslepia (zr. SLICER_HIDE gl3dMesh
          viduje): cia jau yra tikri sluoksniai, tad narvas, pjuvis, vokseliai ir
          detalus vaizdas vel turi prasme. Be sito jie liktu dinge visam seansui. */
-      SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='';});
-      if(window.syncCageBtn)syncCageBtn();   // narvo jungiklis rodo isaugota busena
+      /* ...bet TIK tada, kai vaizdas is tikruju musu: sliceryje tie mygtukai neturi
+         prasmes (nera ko pjauti, nera voksleliu), ir grazinti juos cia reikstu atsukti
+         atgal tai, ka slepia gl3dMesh - jie uzlipdavo ant slicerio irankiu (V 08-17). */
+      if(!slicerHas){
+        SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='';});
+        if(window.syncCageBtn)syncCageBtn();   // narvo jungiklis rodo isaugota busena
+      }
       return true;
     }catch(e){host.style.display='none';if(stage)stage.classList.remove('stageTall');if(cvEl)cvEl.style.visibility='';return false;}
   };

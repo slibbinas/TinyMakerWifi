@@ -499,7 +499,10 @@ const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
    buvo dedamas rankomis, ir is penkiu vietu, kur vaizdas pereina kitam,
    atrakinimas buvo tik vienoje - todel po spausdinimo ar uzdarius sliceri
    mygtukas likdavo uzrakintas (V 08-12). */
-const slicerOwns=v=>{slicerOwnsPreview=v; slicerDetLock(v); if(!v)slicerLayerUI(false);};
+/* Ta pati veliavele ir ant `window`: 3D scena gyvena ATSKIRAME modulyje, o jai
+   butina zinoti, kad tinklelis dabar ne is SD sluoksniu, o slicerio (V 08-17). */
+const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
+                     slicerDetLock(v); if(!v)slicerLayerUI(false);};
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
 const slicerReset=()=>{
