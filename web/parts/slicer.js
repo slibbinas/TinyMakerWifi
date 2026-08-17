@@ -814,10 +814,13 @@ $('slicerSave').addEventListener('click',async()=>{
      butent tada, kai jos labiausiai reikia (antras auditas 08-17).
      Riba - LAIKRODIS, ne zingsniai: viena apklausa gali uztrukti iki 4 s, tad
      „20 x 300 ms" blogiausiu atveju butu virtes puse minutes (trecias auditas). */
+  /* Riba tikrinama ir PO kreipinio: viena apklausa gali uztrukti iki 4 s, tad
+     tikrinant tik pries ji 6 s biudzetas virsdavo ~10 s (ketvirtas auditas). */
   {const until=Date.now()+6000;
    while(Date.now()<until&&typeof uiBusy==='function'&&uiBusy()){
      try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
      if(typeof uiBusy==='function'&&!uiBusy())break;
+     if(Date.now()>=until)break;
      await new Promise(r=>setTimeout(r,300));
    }}
   try{ if(loadFiles)await loadFiles(); }catch(e){}

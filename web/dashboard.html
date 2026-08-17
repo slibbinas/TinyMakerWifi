@@ -4035,7 +4035,13 @@ const repaintPreviewForTheme=()=>{
      gaudavosi juoda deze vietoj „Unpacking…" (V 08-17). Uzrasas turi pirmenybe
      visada, kai jis buvo paskutinis dalykas ant drobes ir printeris nespausdina. */
   const sdJobNow=!!(statusData&&statusData.sdJob);
-  if(lastPreviewMsg&&(!(statusData&&statusData.busy)||sdJobNow)){
+  /* Ir SPAUSDINANT, jei piesti nera is ko. Sluoksniu kesas tuscias buna tada, kai
+     spaudinys paleistas neatidarius perziuros: kortele tada nupiesia uzrasa VIENA
+     karta (sarga `busyPreviewShown`), tad po lango pakeitimo zemiau esanti saka
+     piestu is tuscio keso - juoda deze, kuri nebegrizta iki spaudinio pabaigos
+     (ketvirtas auditas 08-17; ta pati V rasta klaida, tik spausdinimo bukleje). */
+  const noSlices=!(slicesCache&&slicesCache.slices&&slicesCache.slices.length>2);
+  if(lastPreviewMsg&&(!(statusData&&statusData.busy)||sdJobNow||noSlices)){
     paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac);
     return;
   }
