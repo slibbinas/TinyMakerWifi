@@ -420,7 +420,8 @@ $('slicerGo').addEventListener('click',async()=>{
   const go=$('slicerGo'), prog=$('slicerProg');
   go.disabled=true; slicerButtons(false);
   try{
-    prog.textContent='Slicing\u2026';
+    prog.textContent='';
+    paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0);
     const t0=performance.now();
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
@@ -432,8 +433,13 @@ $('slicerGo').addEventListener('click',async()=>{
                :done/total;                      // senas modulis - viena faze
         const pct=Math.round(f*100);
         const what=phase==='scan'?'Looking for overhangs':'Slicing';
-        prog.textContent=what+' '+pct+'%  ('+done+' / '+total+' layers)';
-        paintPreviewProgress($('printPreviewCanvas'),what+' '+pct+'%',f);
+        /* VIENA vieta, ir ta vieta - vaizdas. Ta pati eilute stovejo ir korteleje,
+           ir ant drobes; SD ikelimo atveju sis dubliavimas jau isnaikintas, tad ir
+           cia elgiames vienodai (V 08-17). Sluoksniu skaicius keliauja kartu su
+           uzrasu - be jo vaizde nebesimatytu, kiek ju is viso. */
+        prog.textContent='';
+        paintPreviewProgress($('printPreviewCanvas'),
+          what+' '+pct+'%  ('+done+' / '+total+' layers)',f);
       });
     /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
        imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
@@ -463,7 +469,7 @@ $('slicerGo').addEventListener('click',async()=>{
     $('slicerSave').disabled=false;
     $('slicerDiscardLink').style.visibility='visible';
     slicerStep();
-    slicerShowLayer(Number(sl.value));
+    slicerShowLayer(slicerLayerN);
   }catch(e){
     prog.textContent=e.message;
     msg(e.message,true);
