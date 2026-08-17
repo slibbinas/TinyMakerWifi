@@ -2290,7 +2290,12 @@ const filesVisible=()=>{
 window.filesShowName=name=>{
   if(!name||!filesItems.some(it=>it.name===name))return false;
   if(filesQuery&&name.toLowerCase().indexOf(filesQuery.toLowerCase())<0){
-    filesQuery='';{const f=$('filesFilter'); if(f)f.value='';}
+    /* Jei zmogus KAIP TIK raso filtra, jo neliesiam ir niekur nesokam: raides
+       dingsta is po pirstu, o to nesitiki niekas (auditas 08-17). Modelis nuo to
+       nedingsta - jis lieka sarase, kai filtras nuimamas. */
+    const f=$('filesFilter');
+    if(f&&document.activeElement===f)return false;
+    filesQuery=''; if(f)f.value='';
   }
   const idx=filesVisible().findIndex(it=>it.name===name);
   if(idx<0)return false;

@@ -147,10 +147,17 @@ const slicerScaleUI=b=>{
      ir i kita puse, o iprastu dydziu modeliams elgsena nesikeicia. */
   const floor=Math.max(SCALE_MIN_PCT,Math.min(10,Math.floor(pct*5)/10));
   const step=pct<10?0.1:1;
-  if(pr){pr.min=floor; pr.step=step; pr.value=shown;}
+  /* Kol PIRŠTAS ant slankiklio, jo ribos NEJUDINAM. Apacia yra puse dabartinio
+     mastelio, tad tempiant kairen ji irgi slenka zemyn, ruozas ilgeja, ir slankiklis
+     po pirstu bega desinen - iki 0,1 % reikedavo keliu tempimu (auditas 08-17).
+     Reiksme irgi ne: ja ka tik pasake pats zmogus. */
+  if(pr&&!scaleDragging){pr.min=floor; pr.step=step; pr.value=shown;}
   if(pp){pp.min=floor; pp.step=step; pp.value=shown;}
   if(pm)pm.value=b.size[2].toFixed(1);
 };
+/* Tempimo zyme. `pointerup` ir `change` - abu: pirmas pagauna pele/pirsta, antras
+   klaviatura ir atveji, kai pointer'is paleidziamas uz lango ribu. */
+let scaleDragging=false;
 const slicerRender=()=>{
   if(statusData&&statusData.busy)return;
   slicerInvalidate();
@@ -171,6 +178,16 @@ const slicerRender=()=>{
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
         +'Fit it</button> or turn it by hand';col='var(--warncol)';}
    if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
+   /* Apatines ribos pjaustymas neturi, ir dabar, kai mastelis leidziasi iki 0,1 %,
+      i viena sluoksni sumazinta detale supjaustoma bei issaugoma be nė zodzio
+      (auditas 08-17). Nedraudziam - kartais mazyte detale ir yra tikslas, - bet
+      pasakom, ka gausim: aukstis sluoksniais ir plotis printerio pikseliais
+      (0,1275 mm, t. y. 40,8 mm / 320). */
+   {const hMm=b.size[2], nL=Math.max(1,Math.round(hMm/0.05));
+    const px=Math.min(b.size[0],b.size[1])/0.1275;
+    if(hMm<1||px<8)
+      vd+=' · very small: '+hMm.toFixed(2)+' mm tall ('+nL+' layer'+(nL===1?'':'s')
+          +'), '+Math.max(1,Math.round(px))+' px at its narrowest';}
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
@@ -636,7 +653,14 @@ const popScaleApply=pct=>{
   const v=Math.max(SCALE_MIN_PCT/100,Math.min(3,pct/100));
   slicerTr.scale=v; slicerRender();
 };
-$('popScaleRange').addEventListener('input',e=>popScaleApply(Number(e.target.value)));
+{const pr=$('popScaleRange');
+ /* Zyme uzsideda PRIES `input`, tad pirmas pat perpiesimas jau zino, kad vyksta
+    tempimas, ir slankiklio ribu nebejudina. Nuimam ir per `pointercancel` -
+    kitaip pirstas, nuslydes nuo slankiklio, paliktu ribas uzsaldytas. */
+ ['pointerdown','keydown'].forEach(ev=>pr.addEventListener(ev,()=>{scaleDragging=true;}));
+ ['pointerup','pointercancel','change','blur'].forEach(ev=>
+   pr.addEventListener(ev,()=>{scaleDragging=false; if(slicerRaw)slicerRender();}));
+ pr.addEventListener('input',e=>popScaleApply(Number(e.target.value)));}
 $('popScalePct').addEventListener('change',e=>popScaleApply(Number(e.target.value)));
 /* Aukstis milimetrais: zmogus dazniau zino, kokio dydzio nori daiktas, nei
    kiek procentu tam reikia (V 08-12). */
