@@ -3864,11 +3864,10 @@ void handleApiResinProfileDelete() {
 //
 // The name a human reads lives INSIDE the file ("name") and wins over the file
 // name, so a plain SD.rename() renamed nothing anyone could see (V 08-17). This
-// writes the label too - and writes it the safe way round: the NEW file first,
-// the old one deleted only once the new one has landed. writeResinProfileValues()
-// starts by deleting the file it is about to write, so rewriting in place would
-// mean a card hiccup takes the profile - and its weighed calibration - with it
-// (third audit, 08-17).
+// writes the label too, through a temporary file: writeResinProfileValues()
+// starts by deleting the file it is about to write, so no path here may write
+// straight over the only copy - a card hiccup would take the profile, and its
+// weighed calibration, with it (third and fourth audit, 08-17).
 void handleApiResinProfileRename() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
@@ -3893,9 +3892,22 @@ void handleApiResinProfileRename() {
   // following the documented name=&to= form.
   String label = formString("display", "", 40);
   if (label.length() == 0) label = info.display;
-  if (!writeResinProfileValues(to, label, info.v, info.meta)) {
+  // Through a temporary file, because writeResinProfileValues() deletes the file
+  // it is about to write: renaming in place (to == from - a label-only change,
+  // which is the commonest kind) would otherwise have the same hole this whole
+  // rewrite was meant to close, and the 500 would be a lie (fourth audit, 08-17).
+  // A leftover __rn_tmp after a card failure is visible and holds the data;
+  // nothing is ever deleted before the new copy exists.
+  const char *TMP = "__rn_tmp";
+  SD.remove(resinProfilePath(TMP).c_str());   // stale one from an earlier failure
+  if (!writeResinProfileValues(TMP, label, info.v, info.meta)) {
     sendApiError(500, "could not write the renamed profile");
     return;   // the original is untouched
+  }
+  SD.remove(resinProfilePath(to).c_str());    // to == from: the old copy goes here
+  if (!SD.rename(resinProfilePath(TMP).c_str(), resinProfilePath(to).c_str())) {
+    sendApiError(500, "the renamed profile is on the card as __rn_tmp");
+    return;   // data is safe under the temporary name
   }
   if (to != from && !SD.remove(resinProfilePath(from).c_str()))
     DBGLN("rename: old profile file left behind");   // a copy, not a loss

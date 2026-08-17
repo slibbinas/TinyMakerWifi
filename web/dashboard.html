@@ -3095,6 +3095,12 @@ function* drawSmoothGen(cv){
      ties bloko apacia, o ties drobes (ji centruojama) - V 08-13. */
 }
 function* drawIsoGen(cv,doneFrac){
+  /* Modelis ant drobes = uzraso nebera. Valymas stovi CIA, o ne apvalkale
+     `drawIso`: 3D statymas eina ASINCHRONINIU keliu (`drawIsoAsync`), tad ten
+     valymo nebuvo, ir po pastatymo atmintyje likdavo „Building the 3D view 73%" -
+     paspaudus lango didinima ar tema jis uzlipdavo ant paties modelio kartu su
+     oranzine juosta (auditas 08-17, ketvirtas ratas). */
+  if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;
   // GPU sluoksnis paslepiamas PIRMA, pries bet kuri ankstyva return'a:
   // is perziuros paspaudus Print jis likdavo uzklojes spaudini (auditas 08-12).
   if(doneFrac<1&&window.gl3dShow)gl3dShow(false);
@@ -3279,10 +3285,7 @@ function* drawIsoGen(cv,doneFrac){
 /* Du budai paleisti TA PATI piesima: vientisai (gyvas spausdinimo progresas - ten
    piesiami voxeliai, tai pigu) ir dalimis su procentais (perziuros glotnus vaizdas,
    kur skaiciavimo yra kelioms sekundems). */
-/* Modelis ant drobes = uzraso nebera: kitaip pakeitus lauko dydį perpiešimas
-   grąžintų seną žinutę („Loading preview…") vietoj paties modelio (V 08-17). */
-const drawIso=(cv,doneFrac)=>{if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;
-  return smRun(drawIsoGen(cv,doneFrac));};
+const drawIso=(cv,doneFrac)=>smRun(drawIsoGen(cv,doneFrac));
 const drawIsoAsync=(cv,doneFrac,onProg)=>smRunAsync(drawIsoGen(cv,doneFrac),onProg);
 /* Pjuviu kesas SALIA MODELIO (V 08-12): 36 PNG traukimas ~37 s, o sis failas
    21 KB ir ateina per <1 s - butent tai leidzia rodyti 3D pagal nutylejima,
