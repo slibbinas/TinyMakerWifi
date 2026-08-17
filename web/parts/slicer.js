@@ -436,10 +436,13 @@ $('slicerGo').addEventListener('click',async()=>{
         /* VIENA vieta, ir ta vieta - vaizdas. Ta pati eilute stovejo ir korteleje,
            ir ant drobes; SD ikelimo atveju sis dubliavimas jau isnaikintas, tad ir
            cia elgiames vienodai (V 08-17). Sluoksniu skaicius keliauja kartu su
-           uzrasu - be jo vaizde nebesimatytu, kiek ju is viso. */
+           uzrasu - be jo vaizde nebesimatytu, kiek ju is viso.
+           Skaiciai - ANTROJE eiluteje (`\n`), kaip visur kitur pulte: vienoje
+           eiluteje „Looking for overhangs 28% (161 / 173 layers)" issitempdavo per
+           visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
         paintPreviewProgress($('printPreviewCanvas'),
-          what+' '+pct+'%  ('+done+' / '+total+' layers)',f);
+          what+' '+pct+'%\n'+done+' / '+total+' layers',f);
       });
     /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
        imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
@@ -580,9 +583,13 @@ $('popScaleMm').addEventListener('change',e=>{
 $('gl3dLayerRange').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
 $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
 
+/* Issaugoto modelio vardas keliauja UZ try/finally: pats `finally` baigia
+   slicerio darba (nuima jo vaizda, pastato tuscia perziura), tad ka tik padaryto
+   modelio atidarymas turi vykti PO jo - kitaip valymas ji cia pat ir nutrintu. */
 $('slicerSave').addEventListener('click',async()=>{
   if(!slicerOut)return;
   if(slicerBusyStop())return;
+  let savedName='';
   const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
   if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
   slicerOut.name=nm;
@@ -671,7 +678,7 @@ $('slicerSave').addEventListener('click',async()=>{
     $('slicerBody').style.display='none';
     slicerToggleUI(false);
     sdCollapse(false);
-    loadFiles&&loadFiles();
+    savedName=done.name;
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
   finally{
     btn.disabled=false;
@@ -683,6 +690,21 @@ $('slicerSave').addEventListener('click',async()=>{
     slicerDetLock(false);
     dashPreviewPlaceholder();
   }
+  if(!savedName){loadFiles&&loadFiles();return;}
+  /* Sarasas pirma - be jo nezinotume nei kuriame puslapyje modelis, nei ar jis
+     apskritai jau matomas. */
+  try{ if(loadFiles)await loadFiles(); }catch(e){}
+  /* `typeof`, ne `window.…`: sitas failas sulipdomas i TA PATI pulto <script>, o
+     ten viskas paskelbta per `const` - i `window` tokie vardai nepatenka. */
+  if(typeof filesShowName==='function')filesShowName(savedName);
+  /* Busena po ispakavimo: musu laukimo ciklas klausinejo printeri tiesiogiai, tad
+     pulto `statusData` dar gali laikyti „busy" is ispakavimo meto, o `pickModel`
+     tokiu atveju tyliai nieko nedarytu. */
+  try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
+  /* Ka tik pagamintas modelis atsidaro perziuroje pats: zmogus vis tiek spaustu ta
+     pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
+     „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
+  if(typeof pickModel==='function')pickModel(savedName);
 });
 
 $('slicerDiscardLink').addEventListener('click',e=>{

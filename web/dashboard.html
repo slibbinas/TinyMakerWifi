@@ -2273,13 +2273,39 @@ const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria
   '<rect x="5" y="2.8" width="6" height="2.6" rx="1" opacity=".45"/></svg>';
 const FICO_ZIP='<svg class="fico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">'+
   '<rect x="2.5" y="3" width="11" height="10" rx="1.8"/><path d="M8 3.4v9.2" stroke-dasharray="1.7 1.5"/></svg>';
+/* Ta pati tvarka ir tas pats filtras dviem skaitytojams: piesimui ir „kuriame
+   puslapyje guli sitas vardas". Buvo tik piesimo viduje, tad puslapio skaiciavimas
+   butu jį kartojes - o dvi kopijos issiskiria per pirma pakeitima. */
+// Stable A-Z order (models first, then archives) - the raw list follows
+// SD/FAT directory order, which reshuffles after deletes.
+const filesVisible=()=>{
+  const q=filesQuery.toLowerCase();
+  const sorted=filesItems.slice().sort((a,b)=>a.type!==b.type?(a.type==='model'?-1:1):a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+  return q?sorted.filter(it=>it.name.toLowerCase().indexOf(q)>=0):sorted;
+};
+/* Sarasas po ikelimo grizdavo i PIRMA puslapi, o naujas modelis pagal abecele
+   dazniausiai gula i kita - atrodydavo, kad jo nera, ir zmogus pats jo ieskodavo
+   (V 08-17). Vardas pats pasako, kuriame jis puslapyje; filtras, kuris ji slepia,
+   nuimamas - kitaip nusoktume i puslapi, kuriame jo vis tiek nesimato. */
+window.filesShowName=name=>{
+  if(!name||!filesItems.some(it=>it.name===name))return false;
+  if(filesQuery&&name.toLowerCase().indexOf(filesQuery.toLowerCase())<0){
+    filesQuery='';{const f=$('filesFilter'); if(f)f.value='';}
+  }
+  const idx=filesVisible().findIndex(it=>it.name===name);
+  if(idx<0)return false;
+  filesPage=Math.floor(idx/FILES_PER_PAGE);
+  renderFiles();
+  /* `nearest`, ne `center`: eilute paprastai jau matoma, ir „center" tada be reikalo
+     pastumtu visa puslapi. */
+  try{const row=$('filesList').querySelector('.file[data-n="'+(window.CSS&&CSS.escape?CSS.escape(name):name)+'"]');
+      if(row&&row.scrollIntoView)row.scrollIntoView({block:'nearest'});}catch(e){}
+  return true;
+};
 const renderFiles=()=>{
   const list=$('filesList');
   const q=filesQuery.toLowerCase();
-  // Stable A-Z order (models first, then archives) - the raw list follows
-  // SD/FAT directory order, which reshuffles after deletes.
-  const sorted=filesItems.slice().sort((a,b)=>a.type!==b.type?(a.type==='model'?-1:1):a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
-  const items=q?sorted.filter(it=>it.name.toLowerCase().indexOf(q)>=0):sorted;
+  const items=filesVisible();
   const pages=Math.max(1,Math.ceil(items.length/FILES_PER_PAGE));
   if(filesPage>=pages)filesPage=pages-1;
   if(filesPage<0)filesPage=0;
