@@ -4563,8 +4563,13 @@ const renderPrintWait=()=>{
     src={remainMs:phaseRx.remainMs,totalMs:phaseRx.totalMs,at:phaseRx.at};
   if(src){
     const rem=src.remainMs-(Date.now()-src.at);
-    if(rem>-1500)secs='~'+Math.max(0,Math.ceil(rem/1000))+' s';
-    if(src.totalMs>0)barPct=Math.max(0,Math.min(100,(src.totalMs-rem)*100/src.totalMs));
+    /* Laukimas matuojamas SEKUNDEMIS. Jei ju nebeturim (ivertis pasibaiges), juostele
+       irgi netenka prasmes - vietoj jos anksciau iskildavo plikas procentas, ir zmogus
+       matydavo „antra" snacka su kazkokiais 45 % (V 08-18). */
+    if(rem>-1500){
+      secs='~'+Math.max(0,Math.ceil(rem/1000))+' s';
+      if(src.totalMs>0)barPct=Math.max(0,Math.min(100,(src.totalMs-rem)*100/src.totalMs));
+    }
   }
   const txt=info.v+info.tail;
   snackProgress(txt,-1,-1,secs,null,barPct);

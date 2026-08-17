@@ -2962,6 +2962,10 @@ void loop() {
         digitalWrite(FAN, LOW);
         uiDimmedPrint = false;       // 0-22: never leave the saver armed past the print
         lastUiActivityMs = millis();
+        // Vidine busena nusivalo CIA, o ne tik kito spaudinio pradzioje: iki siol
+        // po stabdymo `current_state` likdavo 4, tad busena sakydavo „stopping":true
+        // net stovint Idle - isamatuota 08-18. Pultas is to lipdo laukimo pranesima.
+        current_state = 0;
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
