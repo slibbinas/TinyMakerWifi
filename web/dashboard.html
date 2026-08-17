@@ -909,8 +909,11 @@ const snackProgressClear=()=>{
   e.dataset.prog=''; e.dataset.ptxt='';
   e.textContent=''; e.style.top='';
 };
-const msg=(t,warn,sticky)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
-  if(t){
+/* `inPlace` - TAS PATS snackas persirasomas, be naujo islindimo: grandinei
+   („Sending…" -> atsakymas) tai vienas laukimas, tad ir vienas pranesimas.
+   Be sito antras `msg` atrodydavo kaip antras snackas (V 08-17). */
+const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
+  if(t&&!inPlace){
     snackCentre(e);
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
   }
@@ -1345,14 +1348,14 @@ const previewBootAnim=async(name,btn)=>{
 const installBootAnim=async(e,btn)=>{
   btn.disabled=true;btn.textContent='Installing...';
   try{await api('/api/boot-anim/install',{method:'POST',body:new URLSearchParams({url:BOOTANIM_LIB+e.file,name:e.name})},90000);
-    msg('Installed "'+e.display+'".');loadBootAnims();}
+    msg('Installed "'+e.display+'".',false,false,true);loadBootAnims();}
   catch(err){msg(err.message,true);btn.disabled=false;btn.textContent='Install';}
 };
 const deleteBootAnim=async(name,display)=>{
   if(!await uiConfirm('Delete "'+display+'" from the printer?',{danger:true}))return;
   try{await api('/api/boot-anim/delete',{method:'POST',body:new URLSearchParams({name})});
     if(bootAnimPending===name)bootAnimPending=null;
-    msg('Deleted "'+display+'".');loadBootAnims();}
+    loadBootAnims();}   // eilute dingsta is saraso (V 08-17)
   catch(e){msg(e.message,true);}
 };
 $('bootAnimSaveButton').addEventListener('click',async()=>{
@@ -1666,7 +1669,7 @@ const resetResinRow=async(p)=>{
 const deleteResinRow=async(p)=>{
   if(!await uiConfirm('Delete "'+p.display+'" from the SD card?',{danger:true}))return;
   try{await api('/api/resin-profile/delete',{method:'POST',body:new URLSearchParams({name:p.name})});
-    msg('Deleted "'+p.display+'".');
+    /* Eilute dingsta is saraso - be snacko (V 08-17). */
     await loadConfig();loadResinProfiles();}
   catch(e){msg(e.message,true);}
 };
@@ -1752,7 +1755,7 @@ $('resinResetButton').addEventListener('click',async e=>{
 $('resinDiscardButton').addEventListener('click',e=>{
   e.preventDefault();
   resinFillForm(resinById(resinSel));
-  msg('Back to the values stored in "'+resinTitle(resinSel)+'".');
+  /* Visi laukeliai persirase matomai - pranesimo nereikia (V 08-17). */
 });
 // Live "= X ml left" while typing, from the same arithmetic the firmware uses.
 const vatWeighPreview=()=>{
@@ -1765,7 +1768,7 @@ $('vatWeighButton').addEventListener('click',async()=>{
   const g=Number($('vatWeighG').value);
   if(!(g>0)){msg('Weigh the vat as it is now and enter the grams.',true);return;}
   try{const r=await api('/api/vat/weight',{method:'POST',body:new URLSearchParams({grams:g})});
-    msg('Resin left set to '+r.vatRemainingMl+' ml.');
+    /* Busenos korteleje iskart nauja reiksme (V 08-17). */
     $('vatWeighG').value='';vatWeighPreview();refreshStatus();}
   catch(e){msg(e.message,true);}
 });
@@ -1779,7 +1782,7 @@ $('vatEmptyEdit').addEventListener('click',async e=>{
   if(!(g>0&&g<=500)){msg('Enter the weight in grams.',true);return;}
   $('cfgVatEmptyG').value=g.toFixed(2);
   try{await api('/api/config',{method:'POST',body:configFormData()});
-    msg('Empty vat set to '+g.toFixed(2)+' g.');loadConfig();}
+    loadConfig();}   // skaicius atsiranda salia - be snacko (V 08-17)
   catch(err){msg(err.message,true);}
 });
 // ---- Slicer gate (0.17 SL-mod) ---------------------------------------------
@@ -4393,17 +4396,18 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
-  msg('Print queued. Waiting for printer sync...');localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');scrollPreviewIntoView();refreshStatus();}catch(e){
+  /* Be snacko: busenos eilute jau kalba (Preparing -> Homing -> Curing), o tai,
+     ko zmogus prase, jau ivyko (V 08-17). */
+  localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');scrollPreviewIntoView();refreshStatus();}catch(e){
     if(e.message==='timeout'){
       // The POST reached the printer but the answer missed the 8 s window
       // (the main loop can sit in an MQTT/Connect timeout for that long) -
       // the print then starts anyway, and a raw "timeout" here cried failure
       // over a start that worked (user finding). Confirm via status instead.
-      msg('Start sent - waiting for the printer to confirm...');
       for(let i=0;i<5;i++){
         await new Promise(r=>setTimeout(r,2000));
         try{const s=await api('/api/status');applyStatus(s);
-          if(s.busy){msg('Print started.');localPrintStartedAt=Date.now();lpsSynced=false;openView('home');return;}
+          if(s.busy){localPrintStartedAt=Date.now();lpsSynced=false;openView('home');return;}
         }catch(_){}
       }
       msg('Start not confirmed - check the printer.',true);return;
@@ -4500,9 +4504,8 @@ const renderPrintWait=()=>{
       snackProgressClear();
       printWaitCur='';
       // one-shot closure, transient (the wait is over)
-      if(wasStop&&statusData&&!statusData.busy)msg('Print stopped.');
-      else if(wasPause&&statusData&&statusData.paused)msg('Print paused.');
-      else if(wasResume&&statusData&&statusData.busy&&!statusData.paused)msg('Print resumed.');
+      /* Pabaigos pranesimo nebera: tai to paties laukimo pabaiga, kuri ka tik
+         rode snackas su skaiciumi, o busena persijungia matomai (V 08-17). */
     }
     return;
   }
@@ -4981,6 +4984,9 @@ $('prep3dButton').addEventListener('click',async()=>{
       if(statusData&&statusData.busy){note.textContent='Stopped - a print started.';break;}
       done++;
       note.textContent=done+' / '+models.length+' - '+m.name;
+      /* Tas pats skaicius ir snacke: darbas trunka minutes, o eilute po mygtuku
+         matoma tik tol, kol neatsislinkai (V 08-17). */
+      snackProgress('Preparing 3D views',done,models.length);
       /* Jau paruostas - pjuviu is naujo neskaiciuojam, BET saraso piktograma pasidarom:
          be sito ant printerio, kur visi modeliai seniai paruosti, „Prepare 3D" piktogramoms
          nedarydavo nieko (V 08-16: „nepadejo"). Pjuviai ka tik atkeliavo i kesa, tad
@@ -5004,6 +5010,7 @@ $('prep3dButton').addEventListener('click',async()=>{
       }catch(e){}
     }
     note.textContent='Done - '+made+' prepared, '+(models.length-made)+' already had data.';
+    snackProgressClear();
     /* Ciklas bendrame kese palieka PASKUTINI modeli, o „As printed" perpiesia
        is jo netikrindamas vardo - korteleje atsirasdavo svetimas modelis
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
@@ -5014,6 +5021,7 @@ $('prep3dButton').addEventListener('click',async()=>{
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
   finally{
+    snackProgressClear();
     prep3dRunning=false;
     btn.disabled=false;
     VIEW_DETAIL=wasDet;
@@ -5036,7 +5044,7 @@ $('calDensButton').addEventListener('click',async()=>{
   try{
     const r=await api('/api/resin/calibrate',{method:'POST',
       body:new URLSearchParams({density:d.toFixed(3)})});
-    msg('Density set to '+Number(r.density).toFixed(3)+' g/ml.');
+    /* Reiksme atsiranda laukelyje - snackas ja tik pakartotu (V 08-17). */
     $('calDensG').value='';loadConfig();refreshStatus();refreshDashModelInfo();
   }catch(e){msg(e.message,true);}
 });
@@ -5074,17 +5082,17 @@ const calPost=async(slot,body,okMsg)=>{
     e.preventDefault();
     const m=$('calState').dataset.raw;
     if(m){$('calRaw'+k).value=m;$('calG'+k).focus();
-      msg('Estimate '+m+' ml filled from the last print - enter the weighed grams.');}
+      }   // skaicius rodomas eiluteje salia - be snacko (V 08-17)
   });
 });
 
-$('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});msg('MQTT settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
-$('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});msg('TinyMaker Connect settings reset.');loadConfig();}catch(e){msg(e.message,true);}});
-$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});loadConfig();}catch(e){msg(e.message,true);}});
+$('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});loadConfig();}catch(e){msg(e.message,true);}});
+$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectPrinterName').value.trim()===''){msg('Enter a printer display name first.',true);$('cfgConnectPrinterName').focus();return;}if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;msg(updating?'Updating the Connect registration...':'Registering with TinyMaker Connect...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('connectReclaimButton').addEventListener('click',async()=>{const code=$('cfgConnectRecoveryCode').value.trim();if(!code){msg('Enter your recovery code first.',true);$('cfgConnectRecoveryCode').focus();return;}try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('recovery_code',code);const r=await api('/api/connect/register',{method:'POST',body:fd},12000);$('cfgConnectRecoveryCode').value='';msg(r.message||'TinyMaker Connect profile restored.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('connectNewProfileButton').addEventListener('click',async()=>{if(!await uiConfirm('Setup as a new TinyMaker Connect printer? The old Connect profile will stay on the server and this printer will receive a new recovery code.'))return;try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('new_profile','1');const r=await api('/api/connect/register',{method:'POST',body:fd},12000);msg(r.message||'New TinyMaker Connect profile created.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectRevealRecoveryButton').addEventListener('click',async()=>{try{const r=await api('/api/connect/recovery-code',null,12000);$('connectRecoveryCodeValue').value=r.recoveryCode||'';$('connectRecoveryCodeValue').type='text';$('connectCopyRecoveryButton').disabled=!$('connectRecoveryCodeValue').value;msg('Recovery code retrieved.');}catch(e){msg(e.message,true);}});
+$('connectRevealRecoveryButton').addEventListener('click',async()=>{try{const r=await api('/api/connect/recovery-code',null,12000);$('connectRecoveryCodeValue').value=r.recoveryCode||'';$('connectRecoveryCodeValue').type='text';$('connectCopyRecoveryButton').disabled=!$('connectRecoveryCodeValue').value;}catch(e){msg(e.message,true);}});
 $('connectCopyRecoveryButton').addEventListener('click',async()=>{const v=$('connectRecoveryCodeValue').value;if(!v)return;try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(v);}else{$('connectRecoveryCodeValue').select();document.execCommand('copy');}msg('Recovery code copied.');}catch(e){msg('Could not copy recovery code.',true);}});
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
 $('backupSdButton').addEventListener('click',async()=>{try{const r=await api('/api/config/backup/sd',{method:'POST'});msg(r.message||'Backup saved to SD.');loadConfig();}catch(e){msg(e.message,true);}});
@@ -5140,7 +5148,7 @@ $('dryRunToggle').addEventListener('click',async()=>{
     loadConfig();refreshStatus();
   }catch(e){msg(e.message,true);}
 });
-$('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});msg('VAT marked as refilled ('+r.vatRemainingMl+' ml).');refreshStatus();}catch(e){msg(e.message,true);}});
+$('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Mark the VAT as refilled? The resin estimate restarts from a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
@@ -5150,9 +5158,9 @@ $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);
-$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('ntfDc').addEventListener('change',updateTgFields);
-$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type=i.type==='password'?'text':'password';});
 // Contextual help: one modal, content picked by key (.qHelp marks + Telegram).
 const HELP={
@@ -5202,7 +5210,7 @@ $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=docu
 applyThemeLink();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));
 $('helpModal').addEventListener('click',e=>{if(e.target===$('helpModal'))show('helpModal',false);});
-$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('connectViewButton').addEventListener('click',()=>openView('connect'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
@@ -5290,7 +5298,7 @@ const installFirmware=async v=>{
   if(v&&updInstalledVer&&cmpVer(v,updInstalledVer)<0)warn='Downgrade to '+v+'? The older firmware may ignore or reset newer settings.\nThe printer reboots when done.';
   if(!await uiConfirm(warn))return;
   showUpdLock();   // immediate feedback - the download+flash takes a while
-  try{await api('/api/update/install'+(v?'?version='+v:''),{method:'POST'},20000);msg('Updating... the printer reboots when done.');showUpdLock();}
+  try{await api('/api/update/install'+(v?'?version='+v:''),{method:'POST'},20000);msg('Updating... the printer reboots when done.',false,true);showUpdLock();}
   // On timeout keep the overlay: the printer is likely mid-flash and cannot
   // answer; the 90s watchdog clears it if the update never actually started.
   catch(e){if(e.message!=='timeout'){hideUpdLock();msg(e.message,true);}}
@@ -5310,11 +5318,27 @@ $('updUploadForm').addEventListener('submit',async e=>{
   if(!await uiConfirm('Flash '+f.name+' ('+formatBytes(f.size)+')? The printer reboots when done.',{danger:true})){$('updFile').value='';return;}
   $('updUploadButton').disabled=true;
   showUpdLock();   // immediate feedback - the upload+flash takes a while
+  /* XHR, ne `fetch`: pastarasis apie issiustus baitus nepranesa, tad 1,4 MB
+     kelias vykdavo be nė vieno skaiciaus. Tie patys baitai, kaip modelio
+     ikelimui - juostele ir MB (V 08-17). */
   try{
-    const r=await fetch('/update',{method:'POST',body:new FormData(e.target)});
-    if(!r.ok)throw new Error('update rejected (HTTP '+r.status+')');
-    msg('Firmware flashed. The printer is rebooting...');showUpdLock();
-  }catch(err){hideUpdLock();msg(err.message,true);}
+    await new Promise((res,rej)=>{
+      const x=new XMLHttpRequest();
+      x.open('POST','/update');
+      x.setRequestHeader('X-TinyMaker','1');
+      x.upload.onprogress=ev=>{
+        if(ev.lengthComputable)snackProgress('Flashing '+f.name,ev.loaded,ev.total,'',formatBytes);
+        else snackProgress('Flashing '+f.name,-1,-1,'');
+      };
+      x.onload=()=>{ x.status<400?res():rej(new Error('update rejected (HTTP '+x.status+')')); };
+      x.onerror=()=>rej(new Error('connection lost during the flash'));
+      x.ontimeout=()=>rej(new Error('the flash timed out'));
+      x.timeout=300000;
+      x.send(new FormData(e.target));
+    });
+    snackProgressClear();
+    msg('Firmware flashed. The printer is rebooting...',false,true);showUpdLock();
+  }catch(err){snackProgressClear();hideUpdLock();msg(err.message,true);}
   $('updFile').value='';
   $('updUploadButton').disabled=false;
 });

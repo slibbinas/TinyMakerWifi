@@ -262,9 +262,9 @@ $('slicerAutoFit').addEventListener('click',()=>{
   const f=slicerMod.fitCheck(b.size);
   if(!f.fits){
     slicerTr.scale*=f.scaleToFit;
-    {const pc=slicerTr.scale*100;
-     msg('Turned and scaled to '+(pc<10?Math.round(pc*10)/10:Math.round(pc))+'% so it fits.');}
-  }else msg('Turned - it already fits, nothing was scaled.');
+    /* Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta,
+       ir masteli - pranesimas kartotu tai, kas jau matosi (V 08-17). */
+  }
   slicerRender();
 });
 $('slicerFlat').addEventListener('click',()=>{
