@@ -156,8 +156,10 @@ const slicerScaleUI=b=>{
   if(pm)pm.value=b.size[2].toFixed(1);
 };
 /* Tempimo zyme. `pointerup` ir `change` - abu: pirmas pagauna pele/pirsta, antras
-   klaviatura ir atveji, kai pointer'is paleidziamas uz lango ribu. */
-let scaleDragging=false;
+   klaviatura ir atveji, kai pointer'is paleidziamas uz lango ribu.
+   `slicerLastBounds` - paskutiniai piesimo matmenys, kad atleidus slankikli
+   valdiklius butu galima atstatyti NEPERSKAICIUOJANT viso modelio. */
+let scaleDragging=false, slicerLastBounds=null;
 const slicerRender=()=>{
   if(statusData&&statusData.busy)return;
   slicerInvalidate();
@@ -187,7 +189,7 @@ const slicerRender=()=>{
     const px=Math.min(b.size[0],b.size[1])/0.1275;
     if(hMm<1||px<8)
       vd+=' · very small: '+hMm.toFixed(2)+' mm tall ('+nL+' layer'+(nL===1?'':'s')
-          +'), '+Math.max(1,Math.round(px))+' px at its narrowest';}
+          +'), '+Math.max(1,Math.round(px))+' px across its smallest side';}
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
@@ -208,6 +210,7 @@ const slicerRender=()=>{
       +'% over. Turning it often solves this; scaling changes the part’s real size.';
     fit.style.color='var(--warncol)';
   }
+  slicerLastBounds=b;
   slicerScaleUI(b);
   /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
   const tri=slicerRaw.length/9;
@@ -655,11 +658,21 @@ const popScaleApply=pct=>{
 };
 {const pr=$('popScaleRange');
  /* Zyme uzsideda PRIES `input`, tad pirmas pat perpiesimas jau zino, kad vyksta
-    tempimas, ir slankiklio ribu nebejudina. Nuimam ir per `pointercancel` -
-    kitaip pirstas, nuslydes nuo slankiklio, paliktu ribas uzsaldytas. */
+    tempimas, ir slankiklio ribu nebejudina. Nuimam ir per `pointercancel`
+    (pirstas nuslydo) bei `keyup` (Escape ar raide, kuri reiksmes nekeicia -
+    antras auditas 08-17: be jo zyme galejo likti uzstrigusi). */
  ['pointerdown','keydown'].forEach(ev=>pr.addEventListener(ev,()=>{scaleDragging=true;}));
- ['pointerup','pointercancel','change','blur'].forEach(ev=>
-   pr.addEventListener(ev,()=>{scaleDragging=false; if(slicerRaw)slicerRender();}));
+ ['pointerup','pointercancel','keyup','change','blur'].forEach(ev=>
+   pr.addEventListener(ev,()=>{
+     if(!scaleDragging)return;
+     scaleDragging=false;
+     /* NE `slicerRender()`: jis pirmu veiksmu kviecia `slicerInvalidate()`, tad
+        vien bakstelejimas i slankikli (be jokio judesio) issviestu ka tik
+        supjaustyta rezultata ir uzrakintu „Save" - mano paties regresija, pagauta
+        antro audito. Ribas grazinam TIESIOGIAI, is paskutinio piesimo matmenu:
+        jokio `place()` per visas virsunes. */
+     if(slicerRaw&&slicerLastBounds)slicerScaleUI(slicerLastBounds);
+   }));
  pr.addEventListener('input',e=>popScaleApply(Number(e.target.value)));}
 $('popScalePct').addEventListener('change',e=>popScaleApply(Number(e.target.value)));
 /* Aukstis milimetrais: zmogus dazniau zino, kokio dydzio nori daiktas, nei
@@ -757,7 +770,10 @@ $('slicerSave').addEventListener('click',async()=>{
       }catch(e){}
     }
     const done=slicerOut;
-    msg('\u201c'+done.name+'\u201d is on the printer.');
+    /* Pervadinimo atveju TYLIM: prasytas vardas cia dar neteisingas, o blyksnis su
+       netikru vardu blogiau nei sekundes tyla - tikra zinute ateina zemiau, kai
+       pamatom, kuris modelis atsirado (antras auditas 08-17). */
+    if(!renamed)msg('\u201c'+done.name+'\u201d is on the printer.');
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
@@ -791,8 +807,18 @@ $('slicerSave').addEventListener('click',async()=>{
     dashPreviewPlaceholder();
   }
   if(!savedName){loadFiles&&loadFiles();return;}
-  /* Sarasas pirma - be jo nezinotume nei kuriame puslapyje modelis, nei ar jis
-     apskritai jau matomas. */
+  /* PIRMA palaukiam, kol busena atsileis, ir tik TADA imam sarasa. Atvirksciai
+     buvo bergzdzia: `loadFiles` pati turi ankstyva isejima „spausdinant SD
+     neskaitom", tad su dar nenuvalyta `statusData.busy` ji grizdavo nieko
+     neatnaujinusi - ir „rename" salyga visada kristu i atsargini varianta,
+     butent tada, kai jos labiausiai reikia (antras auditas 08-17).
+     20 zingsniu po 300 ms: vienas apklausos bandymas turi 4 s riba, tad i 3 s
+     biudzeta jis netilpdavo. */
+  for(let i=0;i<20&&typeof uiBusy==='function'&&uiBusy();i++){
+    try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
+    if(typeof uiBusy==='function'&&!uiBusy())break;   // paskutinis miegas be reikalo
+    await new Promise(r=>setTimeout(r,300));
+  }
   try{ if(loadFiles)await loadFiles(); }catch(e){}
   /* KURIS modelis atsirado. Prasytas vardas NETINKA, jei ejom „rename" keliu:
      printeris tada issaugo kitu vardu (`uniqueModelName`, Import.ino), o `/upload`
@@ -801,8 +827,11 @@ $('slicerSave').addEventListener('click',async()=>{
      ir kilo konfliktas, ir dar duoti jam „Start" (auditas 08-17, kritinis). */
   let openName=savedName;
   if(renamed){
-    const added=filesItems.filter(i=>i.type==='model'&&namesWere.indexOf(i.name)<0)
-                          .map(i=>i.name);
+    /* Ta pati sarga, kaip renkant `namesWere`: jei viena vieta laiko `filesItems`
+       galinti neegzistuoti, kita negali to paties kintamojo liesti plika ranka. */
+    const now=(typeof filesItems!=='undefined'&&filesItems)?filesItems:[];
+    const added=now.filter(i=>i.type==='model'&&namesWere.indexOf(i.name)<0)
+                   .map(i=>i.name);
     if(added.length===1){
       openName=added[0];
       msg('Saved as “'+openName+'” - that name was taken.');
@@ -818,15 +847,6 @@ $('slicerSave').addEventListener('click',async()=>{
   /* `typeof`, ne `window.…`: sitas failas sulipdomas i TA PATI pulto <script>, o
      ten viskas paskelbta per `const` - i `window` tokie vardai nepatenka. */
   if(typeof filesShowName==='function')filesShowName(openName);
-  /* Busena po ispakavimo: musu laukimo ciklas klausinejo printeri tiesiogiai, tad
-     pulto `statusData` dar gali laikyti „busy" is ispakavimo meto, o `pickModel`
-     tokiu atveju tyliai nieko nedarytu. Vieno `refreshStatus` neuztenka: jis
-     iseina tuscias, jei tuo metu jau skrieja iprasta apklausa (auditas 08-17),
-     tad laukiam, kol busena tikrai atsileis - bet ne ilgiau kaip 3 s. */
-  for(let i=0;i<10&&typeof uiBusy==='function'&&uiBusy();i++){
-    try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
-    await new Promise(r=>setTimeout(r,300));
-  }
   /* Ka tik pagamintas modelis atsidaro perziuroje pats: zmogus vis tiek spaustu ta
      pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
      „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
