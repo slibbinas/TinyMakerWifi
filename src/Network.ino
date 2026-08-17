@@ -2442,7 +2442,10 @@ void handleApiPrintStop() {
     return;
   }
 
-  sendApiOk("\"stopping\":true");
+  // Ivertis keliauja SU ATSAKYMU: narsykle nuo cia skaiciuoja pati ir nebepriklauso
+  // nuo apklausu, kurios stabdymo metu kaip tik danziausiai nespeja (V 08-18).
+  unsigned long eta = (phaseTotalMs > 0) ? phaseTotalMs : 0;
+  sendApiOk("\"stopping\":true,\"etaMs\":" + String(eta));
 }
 
 // Base64 of a byte buffer into out (caller sizes it: len*4/3 + pad + nul).
@@ -2544,10 +2547,6 @@ void handleApiStatus() {
   out += current_state == 7 ? "true" : "false";
   out += ",\"stopping\":";
   out += current_state == 4 ? "true" : "false";
-  // Homing'o nutraukimas baigiasi be sluoksnio ir be galutinio pakelimo, tad
-  // pultas apie juos ir nekalba (V 08-18).
-  out += ",\"homingStop\":";
-  out += (current_state == 4 && homing_canceled) ? "true" : "false";
   out += ",\"dryRun\":";
   out += uvLedEnabled ? "false" : "true";
   out += ",\"canPause\":";

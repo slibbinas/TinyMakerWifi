@@ -4318,7 +4318,11 @@ const retryPendingPrintCommand=async()=>{
   pendingPrintInFlight=true;
   const cmd=pendingPrintCmd;
   try{
-    await api('/api/print/'+cmd,{method:'POST'},30000);
+    const r=await api('/api/print/'+cmd,{method:'POST'},30000);
+    /* Skaiciu duoda pati komanda: nuo cia narsykle tiksi PATI, tad stabdymo metu,
+       kai printeris uzsiemes ir apklausos nespeja, atskaita nesustoja ir nedingsta
+       (V 08-18). Veliau atejusi tikra faze ji patikslina. */
+    if(r&&Number(r.etaMs)>0)localWait={ms:Number(r.etaMs),at:Date.now()};
     // Accepted: stop re-sending (clear pendingPrintCmd) but hand the wait over to
     // printWaitSent so the snackbar stays up until status confirms the flip - the
     // resume case answers instantly and would otherwise blink out here.
@@ -4361,7 +4365,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* Busenos eilute perpiesama CIA PAT: ji atsinaujina tik per apklausa, o ta
      paruosimo metu daznai nespeja - zmogui atrode, kad uzsirakino mygtukai ir
      daugiau nieko (V 08-18). */
-  startPct=0; renderStateValue();
+  renderStateValue();
   try{
   // prefetch slices for the 3D progress view (best effort - the print starts
   // either way; while printing the layer endpoint is unavailable)
@@ -4383,7 +4387,6 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
              „Preparing 3D preview 3636100%" (V 08-13). */
           const pm=/\((\d+)\s*%\)/.exec(v)||/(\d+)\s*%/.exec(v);
           const p=pm?Math.min(100,+pm[1]):0;
-          startPct=p; renderStateValue();   // tas pats skaicius ir busenos eiluteje
           try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview '+p+'%',p/100);}catch(_){}
         }};
         // Keep the 3D card on screen through the prefetch (starting from an
@@ -4466,8 +4469,7 @@ const renderStateValue=()=>{
   /* Paspaudus Start printeris dar nedirba - pultas parsisiuncia sluoksnius. Iki
      08-17 tai sakydavo snackas, o busenos langelis rode „Idle", tad atrode, kad
      paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
-  if(startBusy&&!(statusData&&statusData.busy)){
-    setText('stateValue','Preparing the print'+(startPct>0?' '+startPct+'%':''));return;}
+  if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Preparing the print');return;}
   let t=statusData?statusData.state:'-';
   if(statusData&&statusData.busy&&phaseRx){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
@@ -4493,6 +4495,9 @@ const renderStateValue=()=>{
 // pendingPrintCmd is already cleared (to stop re-sending) but status hasn't caught
 // up yet - the resume case, which answers instantly, otherwise blinked out.
 let printWaitCur='', printWaitSent='', printWaitSentAt=0;
+/* Komandos atsakyme gautas ivertis: {ms, at}. Naudojamas tol, kol printeris
+   neatsiuncia savo fazes - o ir tada imama ta, kuri sviezesne. */
+let localWait=null;
 const printWaitInfo=()=>{
   const s=statusData; if(!s)return null;
   /* „Uzimtas" NEUZTENKA: uzimtas printeris yra ir tada, kai kortele isppakuoja ar trina
@@ -4500,12 +4505,14 @@ const printWaitInfo=()=>{
      „Stopping - finishing the current layer" (V 08-14). Sios trys zinutes yra apie SPAUDINI,
      tad ir salyga turi buti apie spaudini. */
   const printing=s.busy&&!(s.sdJob||'');
-  /* Homing'e nera nei sluoksnio, kuri reiketu baigti, nei galutinio pakelimo -
-     sakinys apie juos ten paprasciausiai netiesa (V 08-18). */
-  if(printing&&s.stopping&&s.homingStop) return {v:'Stopping', tail:' - the printer is homing, it stops in a moment', count:true};
-  if(printing&&s.stopping)  return {v:'Stopping', tail:' - finishing the current layer, then the plate lifts', count:true};
-  if(printing&&s.pausing)   return {v:'Pausing',  tail:' - the print pauses after this layer', count:true};
-  if(printing&&s.resuming)  return {v:'Resuming', tail:' - the print is starting again', count:true};
+  /* VIENAS tekstas nuo paspaudimo iki pabaigos. Anksciau sakinys keitesi pagal
+     printerio faze (prielaida -> homing -> sluoksnis), o kiekvienas naujas tekstas
+     snacka issviesdavo is naujo: zmogus matydavo tris pranesimus vietoj vieno, ir
+     pirmojo net nespedavo perskaityti. Vidines fazes jam nerupi - rupi „stabdo, liko
+     tiek" (V 08-18). */
+  if(printing&&s.stopping)  return {v:'Stopping the print', tail:'', count:true};
+  if(printing&&s.pausing)   return {v:'Pausing the print',  tail:'', count:true};
+  if(printing&&s.resuming)  return {v:'Resuming the print', tail:'', count:true};
   // Requested (pendingPrintCmd) or accepted-but-status-not-caught-up yet
   // (printWaitSent) - the printer answers between layers, so hold the message.
   /* Tas pats tekstas, kaip patvirtinus: zmogui tai VIENAS laukimas, o dvi
@@ -4513,15 +4520,16 @@ const printWaitInfo=()=>{
      perskaityti (V 08-18). Skaiciaus dar nera - jis atsiranda, kai printeris
      paskelbia faze. */
   const req=pendingPrintCmd||printWaitSent;
-  if(req==='stop')   return {v:'Stopping', tail:' - finishing the current layer, then the plate lifts', count:false};
-  if(req==='pause')  return {v:'Pausing',  tail:' - the print pauses after this layer', count:false};
-  if(req==='resume') return {v:'Resuming', tail:' - the print is starting again', count:false};
+  if(req==='stop')   return {v:'Stopping the print', tail:'', count:true};
+  if(req==='pause')  return {v:'Pausing the print',  tail:'', count:true};
+  if(req==='resume') return {v:'Resuming the print', tail:'', count:true};
   return null;
 };
 const renderPrintWait=()=>{
   const info=printWaitInfo();
   if(!info){
     if(printWaitCur){
+      localWait=null;
       const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0, wasResume=printWaitCur.indexOf('Resum')===0;
       snackProgressClear();
       printWaitCur='';
@@ -4536,10 +4544,16 @@ const renderPrintWait=()=>{
      i pati sakini, tad snackas tampesi kas sekunde ir atrode kitaip nei ispakavimo.
      Juostele - to paties sluoksnio fazes eiga, kai printeris ja pranesa. */
   let secs='', barPct=-1;
-  if(info.count&&statusData&&statusData.busy&&phaseRx){
-    const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
+  /* Du saltiniai, vienas skaicius: printerio faze ir komandos atsakymo ivertis.
+     Imam sviezesni - taip atskaita nesustoja, kai apklausos nespeja, ir pagereja,
+     kai printeris pasako tiksliau (V 08-18). */
+  let src=null;
+  if(info.count&&statusData&&statusData.busy&&phaseRx)src={remainMs:phaseRx.remainMs,totalMs:phaseRx.totalMs,at:phaseRx.at};
+  if(info.count&&localWait&&(!src||localWait.at>src.at))src={remainMs:localWait.ms,totalMs:localWait.ms,at:localWait.at};
+  if(src){
+    const rem=src.remainMs-(Date.now()-src.at);
     if(rem>-1500)secs='~'+Math.max(0,Math.ceil(rem/1000))+' s';
-    if(phaseRx.totalMs>0)barPct=Math.max(0,Math.min(100,(phaseRx.totalMs-rem)*100/phaseRx.totalMs));
+    if(src.totalMs>0)barPct=Math.max(0,Math.min(100,(src.totalMs-rem)*100/src.totalMs));
   }
   const txt=info.v+info.tail;
   snackProgress(txt,-1,-1,secs,null,barPct);
@@ -4793,7 +4807,7 @@ $('filesList').addEventListener('keydown',e=>{
    atrode taip: mygtukai nesikeicia, paskui iskyla „Printer not answering", ir tik
    tada pasikeicia busena (V 08-17). Todel paruosimas turi savo veliavele - mygtukai
    uzsirakina tuoj pat, o pranesimas pasako, kas is tikro vyksta. */
-let startBusy=false, startPct=0;
+let startBusy=false;
 const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startBusy;
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */

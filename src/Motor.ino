@@ -340,7 +340,17 @@ void publishStopEstimate() {
   // kvieciamas tik tada, kai homing'as nebuvo nutrauktas), tad zadeti sekundziu
   // ten negalima - V 08-18 stabdant pries spaudinio pradzia snackas rode ~23 s,
   // o printeris sustodavo tuoj pat.
-  if (homing_canceled || current_state == 0) { phaseTotalMs = 0; return; }
+  if (homing_canceled || current_state == 0) {
+    // Nutraukus homing'a plokste NEstovi: ji grizta i nuli nuleidimo greiciu
+    // (TinyMaker: moveTo(0) po nutraukimo), o atstumas zinomas tiksliai - tiek,
+    // kiek spejo nueiti zemyn. V 08-18 pastebejo, kad skaiciu cia parodyti galima.
+    long back = -stepper.currentPosition();
+    float sps = Drop_Back_Feedrate * steps_mm / 60.0f;
+    phaseStartMs = millis();
+    phaseTotalMs = (back > 0 && sps > 1.0f)
+                 ? (unsigned long)((float)back / sps * 1000.0f) : 0;
+    return;
+  }
   unsigned long remain = 0;
   if (phaseTotalMs > 0) {
     unsigned long el = millis() - phaseStartMs;
