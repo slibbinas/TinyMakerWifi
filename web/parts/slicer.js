@@ -445,6 +445,10 @@ $('slicerGo').addEventListener('click',async()=>{
      eilute lieka dvieju mygtuku ploCio. */
   if(sliceRunning){sliceStopWanted=true;
     $('slicerGo').disabled=true; $('slicerGo').textContent='Stopping…';
+    /* Ir ant drobes: nutraukimas ivyksta tik ties artimiausiu eigos kvietimu, o
+       tarp ju (antras patikros praejimas, ZIP surinkimas) juosta nejuda - be sio
+       uzraso atrodytu, kad uzstrigo (auditas 08-17). */
+    paintPreviewProgress($('printPreviewCanvas'),'Stopping…',null);
     return;}
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
@@ -481,6 +485,10 @@ $('slicerGo').addEventListener('click',async()=>{
         paintPreviewProgress($('printPreviewCanvas'),
           what+' '+pct+'%\n'+done+' / '+total+' layers',f);
       });
+    /* Paspaudus „Stop" po PASKUTINIO eigos kvietimo, pjaustymas spetu baigtis
+       sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
+       Tas pats zenklas cia uzdaro ta plysi. */
+    if(sliceStopWanted)throw new Error(SLICE_STOP);
     /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
        imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
     const c=connectConfig||{};
@@ -514,9 +522,12 @@ $('slicerGo').addEventListener('click',async()=>{
     /* Sustabde ne klaida: nei raudono snako, nei „kazkas nutiko" - modelis
        lieka toks pat, tik nesupjaustytas, ir viskas grizta i „galima pjauti". */
     if(e&&e.message===SLICE_STOP){
-      prog.textContent='Slicing stopped. Nothing was changed.';
       msg('Slicing stopped.');
       slicerRender();                  // vaizde vel modelis, ne eigos uzrasas
+      /* Uzrasas - PO perpiesimo: `slicerRender` per `slicerInvalidate` uzrasytu
+         „Settings changed - slice again to save.", ir sustabdymas atrodytu kaip
+         nustatymu pakeitimas (auditas 08-17). */
+      prog.textContent='Slicing stopped. Nothing was changed.';
     }else{
       prog.textContent=e.message;
       msg(e.message,true);
@@ -648,7 +659,7 @@ $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
 $('slicerSave').addEventListener('click',async()=>{
   if(!slicerOut)return;
   if(slicerBusyStop())return;
-  let savedName='';
+  let savedName='', renamed=false, namesWere=[];
   const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
   if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
   slicerOut.name=nm;
@@ -696,11 +707,16 @@ $('slicerSave').addEventListener('click',async()=>{
       x.timeout=300000;
       x.send(fd);
     });
+    /* Sarasas PRIES ikelima: is jo veliau atpazistam, kokiu vardu modelis is tikro
+       atsirado. Butina del „rename" - zr. `renamed` zemiau. */
+    const namesBefore=(typeof filesItems!=='undefined'&&filesItems)
+      ? filesItems.filter(i=>i.type==='model').map(i=>i.name) : [];
     {const conflict=await send('');
      if(conflict){
        /* Tas pats langelis, kaip pulto ikelimui - su abieju modeliu palyginimu. */
        const choice=await uploadConflictChoice(conflict);
        if(choice!=='replace'&&choice!=='rename')throw new Error('Save cancelled');
+       renamed=choice==='rename';
        await send(choice);
      }}
     /* Ikelta dar nereiskia paruosta: printeris dabar ISPAKUOJA archyva ir tuo
@@ -738,6 +754,7 @@ $('slicerSave').addEventListener('click',async()=>{
     slicerToggleUI(false);
     sdCollapse(false);
     savedName=done.name;
+    namesWere=namesBefore;
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
   finally{
     btn.disabled=false;
@@ -753,17 +770,43 @@ $('slicerSave').addEventListener('click',async()=>{
   /* Sarasas pirma - be jo nezinotume nei kuriame puslapyje modelis, nei ar jis
      apskritai jau matomas. */
   try{ if(loadFiles)await loadFiles(); }catch(e){}
+  /* KURIS modelis atsirado. Prasytas vardas NETINKA, jei ejom „rename" keliu:
+     printeris tada issaugo kitu vardu (`uniqueModelName`, Import.ino), o `/upload`
+     atsakymas grazina TA PATI prasyta varda - pervadinimas ivyksta veliau, eileje.
+     Todel atidaryti pagal prasyta varda reikstu atidaryti SENA modeli, del kurio
+     ir kilo konfliktas, ir dar duoti jam „Start" (auditas 08-17, kritinis). */
+  let openName=savedName;
+  if(renamed){
+    const added=filesItems.filter(i=>i.type==='model'&&namesWere.indexOf(i.name)<0)
+                          .map(i=>i.name);
+    if(added.length===1){
+      openName=added[0];
+      msg('Saved as “'+openName+'” - that name was taken.');
+      prog.textContent='Saved as “'+openName+'” (the name was taken).';
+    }else{
+      /* Neaisku, kuris naujas - geriau nieko neatidaryti, nei atidaryti ne ta. */
+      openName='';
+      prog.textContent='Saved under a new name - pick it from the list.';
+      msg('Saved under a new name - pick it from the list.');
+    }
+  }
+  if(!openName)return;
   /* `typeof`, ne `window.…`: sitas failas sulipdomas i TA PATI pulto <script>, o
      ten viskas paskelbta per `const` - i `window` tokie vardai nepatenka. */
-  if(typeof filesShowName==='function')filesShowName(savedName);
+  if(typeof filesShowName==='function')filesShowName(openName);
   /* Busena po ispakavimo: musu laukimo ciklas klausinejo printeri tiesiogiai, tad
      pulto `statusData` dar gali laikyti „busy" is ispakavimo meto, o `pickModel`
-     tokiu atveju tyliai nieko nedarytu. */
-  try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
+     tokiu atveju tyliai nieko nedarytu. Vieno `refreshStatus` neuztenka: jis
+     iseina tuscias, jei tuo metu jau skrieja iprasta apklausa (auditas 08-17),
+     tad laukiam, kol busena tikrai atsileis - bet ne ilgiau kaip 3 s. */
+  for(let i=0;i<10&&typeof uiBusy==='function'&&uiBusy();i++){
+    try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
+    await new Promise(r=>setTimeout(r,300));
+  }
   /* Ka tik pagamintas modelis atsidaro perziuroje pats: zmogus vis tiek spaustu ta
      pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
      „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
-  if(typeof pickModel==='function')pickModel(savedName);
+  if(typeof pickModel==='function')pickModel(openName);
 });
 
 $('slicerDiscardLink').addEventListener('click',e=>{
