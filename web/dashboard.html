@@ -2265,6 +2265,9 @@ const refreshStatus=async()=>{
     /* Trumpiau: senoji zinute buvo dvieju eiluciu paskaita apie ESP32 rysi, o
        snackbaras skaitomas per sekunde (V 08-13). Kai patys pradejom darba - vardas
        tikras; kai ne - viena eilute isvardija galimas priezastis. */
+    /* Ruosdami spaudini printeri uzimam MES, ir tai jau parasyta busenos langelyje -
+       snackas apie „neatsako" cia tik kartotu ta pati kita forma (V 08-17). */
+    else if(startBusy){}
     else if(statusFailCount>=1)msg(bgJob
       ?(bgJob+' - the printer stops answering until it finishes.')
       :'Printer not answering - an upload, share or other background job is probably holding it, or it is offline.',true);
@@ -4339,8 +4342,10 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* NUO SIOS VIETOS pultas jau dirba: uzrakinam mygtukus ir pasakom, kas vyksta.
      `bgJob` reikalingas apklausos zinutei - be jo nepavykusi apklausa saukia
      „Printer not answering", nors printeris kaip tik atsakineja mums (V 08-17). */
+  /* Snacko cia NEBERA: mygtukai uzsirakina ta pacia akimirka, o kai apklausa
+     nespeja, ji pati pasako priezasti (`bgJob`). Du pranesimai apie ta pati is
+     eiles buvo triukmas (V 08-17). */
   startBusy=true; bgJob='Preparing the print'; syncActionLocks();
-  msg('Preparing the print…');
   try{
   // prefetch slices for the 3D progress view (best effort - the print starts
   // either way; while printing the layer endpoint is unavailable)
@@ -4440,6 +4445,10 @@ const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(
 // between phases, so the browser does the counting from the last answer.
 let phaseRx=null;
 const renderStateValue=()=>{
+  /* Paspaudus Start printeris dar nedirba - pultas parsisiuncia sluoksnius. Iki
+     08-17 tai sakydavo snackas, o busenos langelis rode „Idle", tad atrode, kad
+     paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
+  if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Preparing the print');return;}
   let t=statusData?statusData.state:'-';
   if(statusData&&statusData.busy&&phaseRx){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
@@ -5125,7 +5134,9 @@ $('dryRunToggle').addEventListener('click',async()=>{
   try{
     await api('/api/config/dry-run?enabled='+(on?1:0),{method:'POST'});
     setDryRunButton(on);
-    msg(on?'Dry run on - the UV LEDs stay off.':'Dry run off - prints will cure again.');
+    /* Be snacko: mygtukas persijungia po pirstu, o ijungus dar ir virsuje iskyla
+       dry run juosta - trecias pranesimas apie ta pati buvo triuksmas (V 08-17).
+       Klaida savo snacka turi, ir ji lieka. */
     loadConfig();refreshStatus();
   }catch(e){msg(e.message,true);}
 });

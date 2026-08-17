@@ -135,9 +135,29 @@ void turn_on_LED(){
   }
   if (uvOffTimer) esp_timer_stop(uvOffTimer);  // don't let it fire into the next phase
   digitalWrite(LED, LOW);
-  // A canceled exposure leaves its countdown mid-flight; zero it so the
-  // "Canceling" state doesn't briefly show the dead exposure's number
-  // before the final lift posts its own.
-  if (print_canceled) phaseTotalMs = 0;
+  // A canceled exposure leaves its countdown mid-flight. Zeroing it stopped the
+  // dead number from showing, but it also left the whole "Stopping" wait without
+  // one - and the wait is the moment a person most wants to know how long
+  // (V 08-17: "man svarbu aplamai kada sustos"). So publish OUR estimate instead:
+  // how long the plate needs to reach its parking height, which is the same
+  // arithmetic lift_finished_print() does - distance over speed - just started a
+  // little earlier. That lift recomputes it exactly when it begins, so the number
+  // only sharpens.
+  if (print_canceled) {
+    long target = (long)(max_height * steps_mm);
+    // Dry run parks at the pause height, not at the top - same rule as the lift.
+    if (!uvLedEnabled) {
+      long dryTarget = stepper.currentPosition() + (long)pauseLiftMm * steps_mm;
+      if (dryTarget < target) target = dryTarget;
+    }
+    float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
+    long stepsToGo = target - stepper.currentPosition();
+    if (stepsToGo > 0 && stepsPerSec > 1.0f) {
+      phaseStartMs = millis();
+      phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
+    } else {
+      phaseTotalMs = 0;
+    }
+  }
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }
