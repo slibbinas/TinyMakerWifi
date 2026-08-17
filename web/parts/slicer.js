@@ -432,14 +432,29 @@ const slicerShowLayer=n=>{
   {const R=$('gl3dLayerRange'); if(R&&Number(R.value)!==n)R.value=n;}
 };
 
+/* Pjaustymas trunka minutemis, o iki 08-17 is jo nebuvo isejimo: mygtukai
+   uzrakinti, ir apsigalvojus liko tik perkrauti puslapi (V klausimas). Modulis
+   nutraukimo nemoka, bet jam to ir nereikia - jis kas kelis sluoksnius kviecia
+   MUSU eigos funkcija, o is jos galima ismesti klaida. Ji niekur viduje nera
+   gaudoma, tad `slice()` nutrūksta ties artimiausiu sluoksniu (paieskoje kas 32,
+   piesime kas 8) ir isnyra cia, apacioje, kaip iprasta klaida. */
+const SLICE_STOP='__slicer_stopped__';
+let sliceRunning=false, sliceStopWanted=false;
 $('slicerGo').addEventListener('click',async()=>{
+  /* Tas pats mygtukas, kuris pradejo, ir sustabdo: kito ieskoti nereikia, o
+     eilute lieka dvieju mygtuku ploCio. */
+  if(sliceRunning){sliceStopWanted=true;
+    $('slicerGo').disabled=true; $('slicerGo').textContent='Stopping…';
+    return;}
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
   const placed=slicerMod.place(slicerRaw,slicerTr);
   const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
   if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
   const go=$('slicerGo'), prog=$('slicerProg');
-  go.disabled=true; slicerButtons(false);
+  sliceRunning=true; sliceStopWanted=false;
+  go.textContent='Stop'; go.disabled=false;   // vienintelis gyvas mygtukas
+  slicerButtons(false);
   try{
     prog.textContent='';
     paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0);
@@ -449,6 +464,7 @@ $('slicerGo').addEventListener('click',async()=>{
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked},
       (done,total,phase)=>{
+        if(sliceStopWanted)throw new Error(SLICE_STOP);
         const f=phase==='scan'?done/total*0.3
                :phase==='draw'?0.3+done/total*0.7
                :done/total;                      // senas modulis - viena faze
@@ -495,9 +511,27 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerStep();
     slicerShowLayer(slicerLayerN);
   }catch(e){
-    prog.textContent=e.message;
-    msg(e.message,true);
-  }finally{ go.disabled=false; slicerButtons(true); }
+    /* Sustabde ne klaida: nei raudono snako, nei „kazkas nutiko" - modelis
+       lieka toks pat, tik nesupjaustytas, ir viskas grizta i „galima pjauti". */
+    if(e&&e.message===SLICE_STOP){
+      prog.textContent='Slicing stopped. Nothing was changed.';
+      msg('Slicing stopped.');
+      slicerRender();                  // vaizde vel modelis, ne eigos uzrasas
+    }else{
+      prog.textContent=e.message;
+      msg(e.message,true);
+    }
+  }finally{
+    sliceRunning=false; sliceStopWanted=false;
+    go.textContent='Slice';
+    /* Mygtukas atrakinamas VISADA, ir tai ne aplaidumas: virsuje (po sekmingo
+       pjaustymo) jis uzrakinamas, bet atrakinti ji paskui butu nebe kam -
+       `slicerInvalidate` (pasukus, pakeitus masteli) prie sio mygtuko neprieina,
+       tad likes uzrakintas jis uzrakintu ir pakeisto modelio pjaustyma. Ta pati
+       eilute stovejo cia ir iki 08-17. */
+    go.disabled=false;
+    slicerButtons(true);
+  }
 });
 
 $('slicerAA').addEventListener('change',()=>slicerInvalidate());
