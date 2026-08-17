@@ -884,8 +884,12 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
   /* Skaiciai desineje rodomi tik tada, kai jie zmogui ka nors sako (sluoksniai, baitai).
      Laukimui (pauze/stop) juostele turi prasme, o „3000/9000 ms" - ne, tad ten paduodam
      tik juostelės procenta ir sekundes (V 08-14). */
+  /* Laukimo juostelei leidziam pasiekti 100 %: ji baigiasi kartu su darbu, o
+     amzinai kabantis 99 % atrodo, lyg kazkas neuzsibaige (V 08-18). Skaiciuojamiems
+     darbams (baitai, sluoksniai) riba lieka 99 - ten paskutini procenta uzdaro
+     pabaigos zinute. */
   const pct=(total>0&&done>=0)?Math.min(99,Math.round(done*100/total))
-           :(barPct>=0?Math.min(99,Math.round(barPct)):-1);
+           :(barPct>=0?Math.min(100,Math.round(barPct)):-1);
   if(e.dataset.prog!=='1'||e.dataset.ptxt!==txt){
     e.dataset.prog='1'; e.dataset.ptxt=txt;
     e.classList.remove('warn');
@@ -4547,9 +4551,16 @@ const renderPrintWait=()=>{
   /* Du saltiniai, vienas skaicius: printerio faze ir komandos atsakymo ivertis.
      Imam sviezesni - taip atskaita nesustoja, kai apklausos nespeja, ir pagereja,
      kai printeris pasako tiksliau (V 08-18). */
+  /* VIENAS saltinis viso laukimo metu. „Imam sviezesni" atrode teisinga, bet praktikoje
+     tai reiske persijungima viduryje: vietine atskaita jau nubegusi puse, o printerio
+     faze pradeda savo nuo nulio - juostele nusirisdavo atgal ir prisipildydavo antra
+     karta, o zmogui tai antras pranesimas (V 08-18). Todel kol vietinis ivertis gyvas,
+     ji ir laikomes; printerio faze perima tik jam pasibaigus. */
   let src=null;
-  if(info.count&&statusData&&statusData.busy&&phaseRx)src={remainMs:phaseRx.remainMs,totalMs:phaseRx.totalMs,at:phaseRx.at};
-  if(info.count&&localWait&&(!src||localWait.at>src.at))src={remainMs:localWait.ms,totalMs:localWait.ms,at:localWait.at};
+  if(info.count&&localWait&&Date.now()-localWait.at<localWait.ms+1500)
+    src={remainMs:localWait.ms,totalMs:localWait.ms,at:localWait.at};
+  else if(info.count&&statusData&&statusData.busy&&phaseRx)
+    src={remainMs:phaseRx.remainMs,totalMs:phaseRx.totalMs,at:phaseRx.at};
   if(src){
     const rem=src.remainMs-(Date.now()-src.at);
     if(rem>-1500)secs='~'+Math.max(0,Math.ceil(rem/1000))+' s';
