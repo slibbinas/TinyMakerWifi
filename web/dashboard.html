@@ -4358,6 +4358,10 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      eiluteje besisukantis suktukas rodytu jau nebevykstanti darba (V 08-18). */
   if(typeof setPreviewLoading==='function')setPreviewLoading('');
   startBusy=true; bgJob='Preparing the print'; syncActionLocks();
+  /* Busenos eilute perpiesama CIA PAT: ji atsinaujina tik per apklausa, o ta
+     paruosimo metu daznai nespeja - zmogui atrode, kad uzsirakino mygtukai ir
+     daugiau nieko (V 08-18). */
+  startPct=0; renderStateValue();
   try{
   // prefetch slices for the 3D progress view (best effort - the print starts
   // either way; while printing the layer endpoint is unavailable)
@@ -4379,6 +4383,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
              „Preparing 3D preview 3636100%" (V 08-13). */
           const pm=/\((\d+)\s*%\)/.exec(v)||/(\d+)\s*%/.exec(v);
           const p=pm?Math.min(100,+pm[1]):0;
+          startPct=p; renderStateValue();   // tas pats skaicius ir busenos eiluteje
           try{paintPreviewProgress($('printPreviewCanvas'),'Preparing 3D preview '+p+'%',p/100);}catch(_){}
         }};
         // Keep the 3D card on screen through the prefetch (starting from an
@@ -4461,7 +4466,8 @@ const renderStateValue=()=>{
   /* Paspaudus Start printeris dar nedirba - pultas parsisiuncia sluoksnius. Iki
      08-17 tai sakydavo snackas, o busenos langelis rode „Idle", tad atrode, kad
      paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
-  if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Preparing the print');return;}
+  if(startBusy&&!(statusData&&statusData.busy)){
+    setText('stateValue','Preparing the print'+(startPct>0?' '+startPct+'%':''));return;}
   let t=statusData?statusData.state:'-';
   if(statusData&&statusData.busy&&phaseRx){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
@@ -4494,6 +4500,9 @@ const printWaitInfo=()=>{
      „Stopping - finishing the current layer" (V 08-14). Sios trys zinutes yra apie SPAUDINI,
      tad ir salyga turi buti apie spaudini. */
   const printing=s.busy&&!(s.sdJob||'');
+  /* Homing'e nera nei sluoksnio, kuri reiketu baigti, nei galutinio pakelimo -
+     sakinys apie juos ten paprasciausiai netiesa (V 08-18). */
+  if(printing&&s.stopping&&s.homingStop) return {v:'Stopping', tail:' - the printer is homing, it stops in a moment', count:true};
   if(printing&&s.stopping)  return {v:'Stopping', tail:' - finishing the current layer, then the plate lifts', count:true};
   if(printing&&s.pausing)   return {v:'Pausing',  tail:' - the print pauses after this layer', count:true};
   if(printing&&s.resuming)  return {v:'Resuming', tail:' - the print is starting again', count:true};
@@ -4784,7 +4793,7 @@ $('filesList').addEventListener('keydown',e=>{
    atrode taip: mygtukai nesikeicia, paskui iskyla „Printer not answering", ir tik
    tada pasikeicia busena (V 08-17). Todel paruosimas turi savo veliavele - mygtukai
    uzsirakina tuoj pat, o pranesimas pasako, kas is tikro vyksta. */
-let startBusy=false;
+let startBusy=false, startPct=0;
 const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startBusy;
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */

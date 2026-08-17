@@ -383,9 +383,14 @@ void lift_finished_print(){
   // are known, so the duration is arithmetic. The accel ramp adds a moment -
   // the browser drops the number if the estimate overruns.
   {
+    // Jei stabdymo ivertis jau bega (publishStopEstimate ji paskelbe nutraukimo
+    // akimirka), jo NEPERKRAUNAM: zmogus matytu, kaip juostele nusirita atgal ir
+    // prasideda antras skaiciavimas - V 08-18 tai atrode kaip du pranesimai.
+    bool running = print_canceled && phaseTotalMs > 0 &&
+                   (millis() - phaseStartMs) < phaseTotalMs;
     float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
     long stepsToGo = lift_finished_print_steps - liftStartPos;
-    if (stepsToGo > 0 && stepsPerSec > 1.0f) {
+    if (!running && stepsToGo > 0 && stepsPerSec > 1.0f) {
       phaseStartMs = millis();
       phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
     }

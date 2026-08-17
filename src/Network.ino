@@ -2544,6 +2544,10 @@ void handleApiStatus() {
   out += current_state == 7 ? "true" : "false";
   out += ",\"stopping\":";
   out += current_state == 4 ? "true" : "false";
+  // Homing'o nutraukimas baigiasi be sluoksnio ir be galutinio pakelimo, tad
+  // pultas apie juos ir nekalba (V 08-18).
+  out += ",\"homingStop\":";
+  out += (current_state == 4 && homing_canceled) ? "true" : "false";
   out += ",\"dryRun\":";
   out += uvLedEnabled ? "false" : "true";
   out += ",\"canPause\":";
