@@ -99,7 +99,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    virsui, ir ta savybe ji trauke i priekį nepaisant DOM tvarkos - musu pulte
    dėl to kortele soktelėdavo virs viso dashboard'o, o placiame ekrane atsidurdavo
    virs busenos, nors DOM'e stovi PO 3D perziuros. Vieta cia nusako DOM, ne
-   order (V 08-17). *//* ---- Sliceris, antra CSS banga: ka praleido pirmas importas ----------- Pirmas ejimas rinko taisykles paprastu regex u ir prakiso tas, kurios guli @media viduje arba turi ilgus komentarus selektoriaus priekyje. Del to korteleje matesi mygtukai, kurie turi buti pasleti (irankiai gyvena ant vaizdo), ir dingo oranzinis vedlys (.step). V pastebejo abu. SAMONINGAI NEIMTA: @media(max-width:999px){#slicerCard{order:-1}} - ji telefone vel keltu sliceri virš SD, o sutarta tvarka yra perziura -> sliceris -> SD (V 08-17). */#gl3dTools{display:none;flex-direction:row}/* Konteinerio plotis FIKSUOTAS: anksciau ji lemdavo uzraso ilgis, o kadangi jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save - .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas + priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo, ka daro, tad spalvos nereikia (V 08-12). */#gl3dTools .soft{opacity:0}/* Forma sako, KA mygtukas daro; spalva - kad jis DABAR ijungtas. Prie 15 px formos skirtuma lengva praleisti, o oranzine visoje programoje jau reiskia aktyvu. Uzrakintas sliceryje - oranzinis, bet prigesintas (V 08-12). */#gl3dDet.on,#gl3dMask.on,#gl3dTools button.on{color:var(--accent);border-color:var(--accent)}/* Busena matosi is paties piesinio (tankesnis tinklelis), tad spalva ta pacia zinia tik kartotu (V 08-12). *//* Uzrakintas sliceryje: prigesintas, bet ne pilkas keturkampis - bendra mygtuku taisykle cia netinka, sie mygtukai permatomi. */#gl3dZoom button:disabled,#gl3dTools button:disabled{background:rgba(20,20,22,.6);color:var(--muted);opacity:.45;cursor:default}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). */#slicerToggle.narrow{width:auto}/* Irankiai gyvena ant vaizdo - ir telefone, ir plaziame ekrane, - tad stulpelis korteleje tik dubliuotu tuos pacius mygtukus (V 08-12). */#slicerTools{display:none}/* --- is 0.17 dashboard polish (PR #103): mygtuku paspaudimo ir „dirbama" busenos, #uploadButton, #homeLeft. #gl3dZoom kryptis NEIMTA - musu `row` yra MUSU pasirinkimas slicerio skydeliui, ne V nurodymas (0.17 sesija patikrino: V to neatpazista, istorijoje pedsako nera). --- */#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}@media(max-width:520px){#uploadButton,#slicerToggle{width:auto}}@media(min-width:1000px){/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo. Slicer'is keliauja pries SD (V 08-12). *//* order veikia tik lanksciame konteineryje - be sios eilutes taisykle nieko nedarydavo, ir telefone slicer'is likdavo po SD (V 08-12). */}/* Tuscias zenklelis vis tiek piesdavo remeli - salia „Slice an STL" likdavo tuscias burbuliukas (V 08-17). Ta pati idioma, kaip .fwBadge:empty. */#slicerState:empty{display:none}</style></head><body><main class='wrap'>
+   order (V 08-17). *//* ---- Sliceris, antra CSS banga: ka praleido pirmas importas ----------- Pirmas ejimas rinko taisykles paprastu regex u ir prakiso tas, kurios guli @media viduje arba turi ilgus komentarus selektoriaus priekyje. Del to korteleje matesi mygtukai, kurie turi buti pasleti (irankiai gyvena ant vaizdo), ir dingo oranzinis vedlys (.step). V pastebejo abu. SAMONINGAI NEIMTA: @media(max-width:999px){#slicerCard{order:-1}} - ji telefone vel keltu sliceri virš SD, o sutarta tvarka yra perziura -> sliceris -> SD (V 08-17). */#gl3dTools{display:none;flex-direction:row}/* Konteinerio plotis FIKSUOTAS: anksciau ji lemdavo uzraso ilgis, o kadangi jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save - .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas + priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). */#gl3dLayerNo{position:absolute;right:26px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9)}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo, ka daro, tad spalvos nereikia (V 08-12). */#gl3dTools .soft{opacity:0}/* Forma sako, KA mygtukas daro; spalva - kad jis DABAR ijungtas. Prie 15 px formos skirtuma lengva praleisti, o oranzine visoje programoje jau reiskia aktyvu. Uzrakintas sliceryje - oranzinis, bet prigesintas (V 08-12). */#gl3dDet.on,#gl3dMask.on,#gl3dTools button.on{color:var(--accent);border-color:var(--accent)}/* Busena matosi is paties piesinio (tankesnis tinklelis), tad spalva ta pacia zinia tik kartotu (V 08-12). *//* Uzrakintas sliceryje: prigesintas, bet ne pilkas keturkampis - bendra mygtuku taisykle cia netinka, sie mygtukai permatomi. */#gl3dZoom button:disabled,#gl3dTools button:disabled{background:rgba(20,20,22,.6);color:var(--muted);opacity:.45;cursor:default}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). Nuo 08-17 jam nereikia ir zodzio: uzdarytas mygtukas yra TA PATI seima, kaip lango didinimas virs perziuros (#stageOpen) - permatomas, plonu remeliu, su 13 px zenklu. Savybes cia israsytos, o ne prikabintos prie #stageOpen taisykles, samoningai: slicerio blokas turi likti nuimamas vienu gabalu, o selektorius, prilipdytas prie svetimos taisykles, kartu nenusiimtu (V 08-17). */#slicerToggle.narrow{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#slicerToggle.narrow:hover{color:var(--text);border-color:var(--line2)}/* Irankiai gyvena ant vaizdo - ir telefone, ir plaziame ekrane, - tad stulpelis korteleje tik dubliuotu tuos pacius mygtukus (V 08-12). */#slicerTools{display:none}/* --- is 0.17 dashboard polish (PR #103): mygtuku paspaudimo ir „dirbama" busenos, #uploadButton, #homeLeft. #gl3dZoom kryptis NEIMTA - musu `row` yra MUSU pasirinkimas slicerio skydeliui, ne V nurodymas (0.17 sesija patikrino: V to neatpazista, istorijoje pedsako nera). --- */#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}@media(max-width:520px){#uploadButton,#slicerToggle{width:auto}}@media(min-width:1000px){/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo. Slicer'is keliauja pries SD (V 08-12). *//* order veikia tik lanksciame konteineryje - be sios eilutes taisykle nieko nedarydavo, ir telefone slicer'is likdavo po SD (V 08-12). */}/* Tuscias zenklelis vis tiek piesdavo remeli - salia „Slice an STL" likdavo tuscias burbuliukas (V 08-17). Ta pati idioma, kaip .fwBadge:empty. */#slicerState:empty{display:none}</style></head><body><main class='wrap'>
 <div class='head'><div><h1><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker<a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
 <section id='resumeBanner' class='card banner hidden'>
@@ -328,7 +328,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <section id='slicerCard' class='card hidden'>
     <div class='cardHead'><h2>Slice an STL <span id='slicerState' class='navTag'></span></h2>
       <button id='slicerToggle' class='button secondary' type='button'
-              style='margin-top:0'>Open</button></div>
+              style='margin-top:0' aria-label='Open the slicer'>Open</button></div>
     <div id='slicerBody' style='display:none'>
       <div id='slicerTools' class='toolbar' style='margin-top:0'>
         <button id='slicerAutoFit' class='button secondary' type='button' disabled
@@ -1896,9 +1896,14 @@ const refreshSlicerCard=()=>{
      matoma, kad butu aisku, jog toks dalykas yra. */
   if(tg){
     tg.disabled=!live;
-    tg.title=live?'':'The slicer module is not active on this printer yet';
+    /* Antrastes NEPERRASOM, kai modulis gyvas: atidarytas mygtukas turi savo
+       („Close the slicer"), o si eilute sukosi kas sekunde ir ja nusinesdavo.
+       Gyvai busenai uzrasa nustato slicerToggleUI - ji cia ir perkartojam, kad
+       zenklas ir uzrasas negaletu nuslysti nuo tikros korteles busenos. */
+    if(!live)tg.title='The slicer module is not active on this printer yet';
+    else if(window.slicerToggleUI)slicerToggleUI($('slicerBody').style.display!=='none');
   }
-  if(!live&&typeof slicerOpen==='function')slicerOpen(false);
+  if(!live&&window.slicerOpen)slicerOpen(false);
 };
 const slicerTap=()=>{
   const now=Date.now();
@@ -4852,11 +4857,20 @@ const syncCageBtn=()=>{const b=$('gl3dCage');if(!b||!window.gl3dCageOn)return;
   const on=gl3dCageOn();b.classList.toggle('on',on);b.classList.toggle('off',!on);
   b.title=on?'Hide the build volume cage (the platform stays)':'Show the build volume cage';};
 window.syncCageBtn=syncCageBtn;   // gl3d IIFE pakyla veliau - susivienodinam ten
+/* 3D scena pakyla ATSKIRAI ir gali visai nepakilti: three.js imamas is kortelės,
+   po to is musu gh-pages, o nepavykus - `if(!T)return`, ir tada window.gl3dClip /
+   window.gl3dCage taip ir lieka nepriskirtos.
+   Spastai: jos ne DINGSTA, o rodo I MYGTUKA. Elementas su id='gl3dClip' pats
+   sukuria toki pat globalu varda, tad sena sarga `if(window.gl3dClip)` visada
+   praeidavo, o kvietimas krisdavo „gl3dClip is not a function" ir nusinesdavo
+   visa likusia funkcijos dali - slicerReset() taip nustodavo baigti darba
+   kiekviena karta, kai three.js nepasiekiamas (V 08-17). Todel klausiam TIPO. */
+const gl3dUp=()=>typeof window.gl3dClip==='function';
 /* „Kaip spausdinama" mygtukas suka ta pati jungikli, kuri turi ir Settings - viena
    busena, du valdikliai (V 08-13). */
 $('gl3dCage').addEventListener('click',e=>{
   e.stopPropagation();
-  if(window.gl3dCage)gl3dCage(!gl3dCageOn());
+  if(typeof window.gl3dCage==='function')gl3dCage(!gl3dCageOn());
   syncCageBtn();
 });
 /* Pjuvio jungiklis: mygtukas atidaro slankikli, slankiklis pjauna. Busena
@@ -4875,12 +4889,12 @@ $('gl3dClip').addEventListener('click',e=>{
   if(statusData&&statusData.busy){msg('Not while printing - this canvas is showing the print.',true);return;}
   const bar=$('gl3dClipBar'), on=!bar.classList.contains('on');
   bar.classList.toggle('on',on);
-  if(window.gl3dClip)gl3dClip(on?(+$('gl3dClipRange').value)/100:null);
+  if(gl3dUp())gl3dClip(on?(+$('gl3dClipRange').value)/100:null);
   syncClipBtn();
 });
 $('gl3dClipRange').addEventListener('input',e=>{
   e.stopPropagation();
-  if(window.gl3dClip)gl3dClip((+e.target.value)/100);
+  if(gl3dUp())gl3dClip((+e.target.value)/100);
 });
 $('gl3dClipRange').addEventListener('pointerdown',e=>e.stopPropagation());
 /* Grynu kubeliu jungiklis: tinklelis perskaiciuojamas is to paties keso -
@@ -5156,16 +5170,40 @@ const sdCollapse=on=>{
   });
   const h=$('sdCollapsedHint'); if(h)h.style.display=on?'block':'none';
 };
-$('slicerToggle').addEventListener('click',async()=>{
-  const body=$('slicerBody'), open=body.style.display!=='none';
-  if(open){body.style.display='none';$('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
-    sdCollapse(false); slicerReset(); slicerOwns(false);
-    dashPreviewPlaceholder(); return;}
-  body.style.display='block';$('slicerToggle').textContent='Close';$('slicerToggle').classList.add('narrow');sdCollapse(true);
+/* Uzdarymas - zenklas, ne zodis, ir TA PATI seima, kaip lango didinimas virs
+   perziuros: tas pats remelis, dydis ir 13 px piesinys. Atidarymas lieka zodis -
+   jo ieskai, tad jis turi kviesti; uzdarymo ieskoti nereikia, jis randamas ten,
+   kur ka tik paspaudei (V 08-17). */
+const ICON_SLICER_CLOSE="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'><path d='M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6'/></svg>";
+const slicerToggleUI=open=>{
+  const t=$('slicerToggle'); if(!t)return;
+  t.classList.toggle('narrow',open);
+  if(open)t.innerHTML=ICON_SLICER_CLOSE; else t.textContent='Open';
+  t.title=open?'Close the slicer':'';
+  t.setAttribute('aria-label',open?'Close the slicer':'Open the slicer');
+};
+window.slicerToggleUI=slicerToggleUI;   // refreshSlicerCard gyvena auksciau uz si bloka
+/* Atidarymas ir uzdarymas - viena vieta. Ta pati seka reikalinga ne tik nuo
+   paspaudimo: isjungus moduli printeryje atidaryta kortele turi uzsidaryti pati.
+   Iki 08-17 seka gyveno TIK paspaudimo tvarkytuve, o busenos apklausa kviete
+   `slicerOpen`, kurio niekas nebuvo apibrezes - `typeof` toki kvietima tyliai
+   praryja, tad kortele likdavo atidaryta. Vienoda busena - tyliai iseinam: kitaip
+   apklausa kas sekunde perpiestu perziura. */
+const slicerOpen=open=>{
+  const body=$('slicerBody'); if(!body)return;
+  if((body.style.display!=='none')===open)return;
+  body.style.display=open?'block':'none';
+  slicerToggleUI(open);
+  sdCollapse(open);
   /* Perziuroje galejo kaboti visai kitas failas - jis ne slicer'io, tad
      vaizdas isvalomas, kad neatrodytu ikeltas (V 08-12). */
   slicerReset(); slicerOwns(false); dashPreviewPlaceholder();
-  if(slicerMod)return;
+};
+window.slicerOpen=slicerOpen;
+$('slicerToggle').addEventListener('click',async()=>{
+  const wasOpen=$('slicerBody').style.display!=='none';
+  slicerOpen(!wasOpen);
+  if(wasOpen||slicerMod)return;
   slicerSay('slicerInfo','Loading the slicer…');
   /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
@@ -5437,7 +5475,7 @@ const slicerGeomView=(home)=>{
      kazkur lango apacioje (V 08-13). Perjungiant rezimus kameros neliecia -
      zmogus ka tik pats prisitaike zvilgsni. */
   if(home&&window.gl3dFrameAll)gl3dFrameAll();
-  return !!window.gl3dClip;
+  return gl3dUp();
 };
 const slicerBuildView=(home)=>{
   if(!slicerOut)return false;
@@ -5456,12 +5494,12 @@ const slicerBuildView=(home)=>{
   lastPrevFrac=-1;
   slicerOwns(true);
   drawIso($('printPreviewCanvas'),1);   // visas daiktas + GPU
-  return !!window.gl3dClip;
+  return gl3dUp();
 };
 const slicerShowLayer=n=>{
   if(!slicerOut)return;
   const mm=n*0.05;
-  if(window.gl3dClip)gl3dClip(n>=slicerOut.layers?null:mm);
+  if(gl3dUp())gl3dClip(n>=slicerOut.layers?null:mm);
   if(slicerMaskOn)slicerMaskDraw(n);
   const txt=mm.toFixed(2)+' mm  ('+n+' / '+slicerOut.layers+')';
   $('slicerLayerNo').textContent=txt;
@@ -5569,7 +5607,7 @@ const slicerReset=()=>{
   $('slicerInfo').textContent='Choose an STL file to begin.';
   $('slicerDiscardLink').style.visibility='hidden';
   slicerSupportFacts(null);
-  if(window.gl3dClip)gl3dClip(null);
+  if(gl3dUp())gl3dClip(null);
 };
 const popClose=()=>{
   const p=$('gl3dPop'); if(!p||p.style.display==='none')return;
@@ -5696,7 +5734,7 @@ $('slicerSave').addEventListener('click',async()=>{
     $('slicerDiscardLink').style.visibility='hidden';
     /* Padarei modeli - dabar reikia saraso, ne slicer'io (V 08-12). */
     $('slicerBody').style.display='none';
-    $('slicerToggle').textContent='Open';$('slicerToggle').classList.remove('narrow');
+    slicerToggleUI(false);
     sdCollapse(false);
     loadFiles&&loadFiles();
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
@@ -5705,7 +5743,7 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwns(false);
-    if(window.gl3dClip)gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
+    if(gl3dUp())gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
     {const t=$('gl3dTools'); if(t)t.style.display='none';}
     slicerDetLock(false);
     dashPreviewPlaceholder();
