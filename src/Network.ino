@@ -3899,6 +3899,9 @@ void handleApiResinProfileRename() {
   // A leftover __rn_tmp after a card failure is visible and holds the data;
   // nothing is ever deleted before the new copy exists.
   const char *TMP = "__rn_tmp";
+  // A profile really called __rn_tmp would have the swap delete its own original.
+  // Absurd, and one line to close.
+  if (from == TMP || to == TMP) { sendApiError(409, "that name is reserved"); return; }
   SD.remove(resinProfilePath(TMP).c_str());   // stale one from an earlier failure
   if (!writeResinProfileValues(TMP, label, info.v, info.meta)) {
     sendApiError(500, "could not write the renamed profile");

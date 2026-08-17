@@ -3562,6 +3562,10 @@ const buildIso=async cv=>{
     await drawIsoAsync(cv,1,f=>{
       if(f<0.74)paintPreviewProgress(cv,'Building the 3D view\n'+Math.round(f*100)+'%',f);
     });
+    /* Eigos kabliukas rasosi PO to, kai generatorius atminti isvale, tad be sios
+       eilutes joje liktu „Building the 3D view 73%" - butent tas uzrasas, kuris
+       paskui uzliptu ant modelio (sestas auditas 08-17). */
+    if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;
   }finally{setPreviewBusy(false);}
 };
 // Shared voxel-preview pipeline: slices (with painted % progress) -> quick
@@ -4042,8 +4046,13 @@ const repaintPreviewForTheme=()=>{
      atsirasdavo A po antraste „Printing NN% · B". Svetimas modelis itikinamesnis
      uz tuscia deze, tad ir pavojingesnis (penktas auditas 08-17). */
   const printing=!!st.busy&&!sdJobNow;
-  const fits=printing&&!!st.model&&typeof slicesFit==='function'&&slicesFit(st.model);
-  if(printing&&fits){
+  /* Salyga TA PATI, kaip apklausos piesime (2056): vardas ir netuscias kesas.
+     `slicesFit` cia netiko - jis dar reikalauja, kad kesas atitiktu detalumo
+     jungikli, o spaudinys VISADA piesamas is grubaus rinkinio. Del to su ijungtu
+     detaliu vaizdu po F5 apklausa spaudini piesdavo, o temos ar lango pakeitimas -
+     „Preview not available" (sestas auditas 08-17). */
+  const fits=printing&&!!st.model&&slicesCache.name===st.model&&!!slicesCache.slices.length;
+  if(fits){
     /* Nelaukiam kitos apklausos (iki 2 s) - iki jos senas piesinys butu tempiamas i nauja
        bloka (V 08-14: „tarpe gaunam 1 s istempyto vaizdo"). Piesiam is karto su ta pacia
        eiga, kuria zinom. */
@@ -4067,10 +4076,17 @@ const repaintPreviewForTheme=()=>{
     else paintPreviewProgress(cv,'Preview not available',f);
     return;
   }
-  if(st.busy)return;   // kortelės darbas be uzraso - nera ko piesti
   if(previewStoppedFor){markPreviewStopped(cv,previewStoppedFor);return;}
-  if(!dashPreviewName){dashPreviewPlaceholder();return;}
-  if(typeof slicesFit==='function'&&slicesFit(dashPreviewName)){try{drawIso(cv,1);}catch(e){}}
+  /* Kortelės darbas (ispakavimas, trynimas) su ATIDARYTA perziura: piesinys drobeje
+     tikras, tad `lastPreviewMsg` tuscias, o sarga „busy - iseinam" cia palikdavo
+     istempta sena bitmapa iki kito „Preview". Todel ji stovi PO perziuros sakos:
+     ji zino, ka perpiesti (sestas auditas 08-17). */
+  if(dashPreviewName){
+    if(typeof slicesFit==='function'&&slicesFit(dashPreviewName)){try{drawIso(cv,1);}catch(e){}}
+    return;
+  }
+  if(st.busy)return;   // nei perziuros, nei uzraso - nera ko piesti
+  dashPreviewPlaceholder();
 };
 const stageBoxSize=()=>{
   const st=$('previewStage');
