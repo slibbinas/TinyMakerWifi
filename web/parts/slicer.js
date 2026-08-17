@@ -820,7 +820,9 @@ $('slicerSave').addEventListener('click',async()=>{
    while(Date.now()<until&&typeof uiBusy==='function'&&uiBusy()){
      try{ if(typeof refreshStatus==='function')await refreshStatus(); }catch(e){}
      if(typeof uiBusy==='function'&&!uiBusy())break;
-     if(Date.now()>=until)break;
+     /* Ne po kvietimo, o PRIES ji: viena apklausa turi 4 s riba, tad pradejus
+        nauja rata ties 5,9 s biudzetas vis tiek virstu ~10 s (penktas auditas). */
+     if(until-Date.now()<800)break;
      await new Promise(r=>setTimeout(r,300));
    }}
   try{ if(loadFiles)await loadFiles(); }catch(e){}
