@@ -1735,9 +1735,13 @@ $('resinRenameButton').addEventListener('click',async()=>{
      guli failo viduje. Be sio lauko printeris atstatytu varda is slug'o, ir
      „Sunlu Toughness Resin" pavirstu „Sunlu Toughness Resin" tik atsitiktinai -
      bet kokia didzioji raide ar skyryba dingtu (V 08-17). */
-  try{await api('/api/resin-profile/rename',{method:'POST',
+  try{const r=await api('/api/resin-profile/rename',{method:'POST',
         body:new URLSearchParams({name:p.name,to,display:label})});
-    msg('Renamed to "'+label+'".');await loadConfig();await loadResinProfiles();}
+    /* Printeris pasako, jei senos kopijos istrinti nepavyko: tyleti reikstu, kad
+       zmogus sarase mato du profilius ir nesupranta, kodel (sestas auditas). */
+    msg(r&&r.oldLeft?'Renamed to "'+label+'" - the old copy could not be removed.'
+                    :'Renamed to "'+label+'".');
+    await loadConfig();await loadResinProfiles();}
   catch(e){msg(e.message,true);}
 });
 $('resinResetButton').addEventListener('click',async e=>{
@@ -2165,8 +2169,13 @@ const applyStatus=s=>{
           show('prevNote',true);
           // Fill the canvas once (guarded): the RAM snapshot if the printer kept
           // one, otherwise a plain placeholder.
-          if(busyPreviewShown!==s.model){
-            busyPreviewShown=s.model;
+          /* Raktas su priesaga, ne plikas vardas: pradzioje `busyPreviewShown` ir
+             `s.model` abu tusti, tad sarga sutapdavo ir uzrasas NEBUVO piesiamas -
+             drobeje likdavo senas „Tap a model in the SD card list", o antrasteje
+             jau „Printing 0%" (sestas auditas 08-17). Atejus vardui raktas
+             pasikeicia ir perpiesiama su nuotrauka. */
+          if(busyPreviewShown!=='nolive:'+(s.model||'?')){
+            busyPreviewShown='nolive:'+(s.model||'?');
             if(s.previewCached)loadSavedPreviewTo($('printPreviewCanvas'),s.model).catch(()=>paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null));
             else paintPreviewProgress($('printPreviewCanvas'),'Preview not available',null);
           }

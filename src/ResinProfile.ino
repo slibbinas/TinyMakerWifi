@@ -99,6 +99,10 @@ int listResinProfileFiles(String out[], int maxN) {
     lower.toLowerCase();
     if (!lower.endsWith(".json")) continue;
     String slug = s.substring(0, s.length() - 5);
+    // Our own scratch files (rename writes through __rn_tmp) are not profiles:
+    // one left behind by a card failure used to show up in the picker and on the
+    // printer's own screen as if someone had made it (sixth audit, 08-17).
+    if (slug.startsWith("__")) continue;
     if (resinBuiltinIndex(slug) >= 0) continue;   // overlay, not a separate entry
     out[count++] = slug;
   }

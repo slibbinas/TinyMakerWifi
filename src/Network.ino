@@ -3912,12 +3912,15 @@ void handleApiResinProfileRename() {
     sendApiError(500, "the renamed profile is on the card as __rn_tmp");
     return;   // data is safe under the temporary name
   }
-  if (to != from && !SD.remove(resinProfilePath(from).c_str()))
+  bool oldLeft = false;
+  if (to != from && !SD.remove(resinProfilePath(from).c_str())) {
     DBGLN("rename: old profile file left behind");   // a copy, not a loss
+    oldLeft = true;   // the dashboard says so rather than leaving two silently
+  }
   if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
   sdRev++;  // 0-28
   tinymakerConnectScheduleBackup();   // the stored profile name may have changed
-  sendApiOk("\"name\":\"" + jsonEscape(to) + "\"");
+  sendApiOk("\"name\":\"" + jsonEscape(to) + "\"" + (oldLeft ? ",\"oldLeft\":true" : ""));
 }
 
 // PWA icon bytes live in PwaIcon.ino, which the Arduino builder concatenates
