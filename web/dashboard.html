@@ -4422,7 +4422,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* Perziuros krovimo zyme nuimama: nuo cia darba perima spaudinio paruosimas, ir
      eiluteje besisukantis suktukas rodytu jau nebevykstanti darba (V 08-18). */
   if(typeof setPreviewLoading==='function')setPreviewLoading('');
-  startBusy=true; bgJob='Preparing the print'; syncActionLocks();
+  startBusy=true; bgJob='Processing files'; syncActionLocks();
   /* Paskelbta CIA, ne try viduje: ja kviecia `finally`, o tai atskira matomumo sritis -
      try bloke paskelbtas `const` jame nematomas, ir kvietimas nutrauktu visa `finally`
      (kartu ir mygtuku atrakinima). Taip ir buvo: pranesimas kabodavo, o pultas likdavo
@@ -4480,7 +4480,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      ji tiek, kiek trunka sluoksniu perskaiciavimas SD kortelėje (~1-3 s). Trukmes
      is anksto nezinom - ji priklauso nuo sluoksniu kiekio - tad be juosteles ir be
      skaiciaus, o blykstelejimo isvengiam atidejimu (V 08-18). */
-  startSnackDone=waitSnackLater('Preparing the print');
+  startSnackDone=waitSnackLater('Processing files');
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
@@ -4530,7 +4530,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   msg('Deleted '+shortName(name)+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
-  pendingPrintCmd=cmd;applyPendingPrintUi();
+  pendingPrintCmd=cmd;pendingPrintCmdAt=Date.now();applyPendingPrintUi();
   renderPrintWait();retryPendingPrintCommand();};
 const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?h+'h '+m+'m':m+'m '+(s%60)+'s';};
 // "Curing · 9s" next to the state - the phase's remaining time, ticked locally
@@ -4541,7 +4541,7 @@ const renderStateValue=()=>{
   /* Paspaudus Start printeris dar nedirba - pultas parsisiuncia sluoksnius. Iki
      08-17 tai sakydavo snackas, o busenos langelis rode „Idle", tad atrode, kad
      paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
-  if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Preparing the print');return;}
+  if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Processing files');return;}
   let t=statusData?statusData.state:'-';
   if(statusData&&statusData.busy&&phaseRx){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
@@ -4569,7 +4569,7 @@ const renderStateValue=()=>{
 let printWaitCur='', printWaitSent='', printWaitSentAt=0;
 /* Komandos atsakyme gautas ivertis: {ms, at}. Naudojamas tol, kol printeris
    neatsiuncia savo fazes - o ir tada imama ta, kuri sviezesne. */
-let localWait=null;
+let localWait=null, pendingPrintCmdAt=0;
 /* Etapas, kuri pasake pati komanda. Atskirai nuo `localWait`, nes skaiciaus gali ir
    nebuti (nutraukta ekspozicija baigiasi tuoj pat), o pranesimas jau turi buti tikras -
    kitaip zmogus perskaitytu tris skirtingus sakinius apie viena laukima (V 08-18). */
@@ -4600,6 +4600,15 @@ const printWaitInfo=()=>{
   /* Jei printeris etapo dar nepaskelbe (senesnis firmware arba apklausa pralenke
      komandos atsakyma), imam ta, kuri pasake pati komanda - kitaip vienam laukimui
      pamatytum tris skirtingus sakinius (auditas 08-18). */
+  /* Trumpiau nei sekunde - nerodom nieko (ta pati taisykle, kaip paruosimui): mygtukas
+     jau sako „Stop requested...", o blykstelejes sakinys yra triuksmas (V 08-18). */
+  if(pendingPrintCmdAt&&Date.now()-pendingPrintCmdAt<WAIT_SNACK_MIN_MS)return null;
+  /* Printeris atsakyme pasake etapa, bet be trukmes (nutraukta ekspozicija baigiasi tuoj
+     pat) - tada pirmo etapo NEskelbiam visai ir laukiam, kol jis ivardys kita. Kitaip
+     zmogus perskaitytu sakini apie tai, kas jau seniai ivyko.
+     Salyga NEsurista su „komanda dar kelyje": patvirtinus komanda ta zyme nukrenta, o
+     etapas is atsakymo lieka - stende butent ten sakinys ir isslysdavo (V 08-18). */
+  if(cmdStage&&!localWait&&!(s.waitStage||''))return null;
   const stage=WAIT_STAGE_TEXT[s.waitStage||'']||WAIT_STAGE_TEXT[cmdStage||''];
   if(printing&&stage&&(s.stopping||s.pausing||s.resuming))
     return {v:stage, tail:'', count:true};
@@ -4926,7 +4935,7 @@ const busyBoxText=()=>{
   if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
   if(uploadBusy)return 'Uploading the model…';
   if(deleteBusy)return 'Deleting…';
-  if(startBusy)return 'Preparing the print…';
+  if(startBusy)return 'Processing files…';
   return '';
 };
 const busyWhat=()=>{
