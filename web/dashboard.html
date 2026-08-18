@@ -4753,6 +4753,11 @@ const renderSdJob=s=>{
      pavidalas). Zinute nesako, IS KUR darbas atsirado - pultas to tiksliai nezino.
      „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje. */
   const txt=(job==='delete'?'Deleting ':'Unpacking ')+shortName(name);
+  /* Kol MUSU paties ikelimas dar siuncia baitus, snacka valdo jis. Printeris ispakavima
+     pradeda dar nespejus uzsidaryti uzklausai, tad abi zinutes imdavo keistis vietomis
+     kas apklausa - zmogui tai mirksejimas (V 08-18). Ispakavimas perima savaime, kai
+     baitai baigiasi ir  nukrenta. */
+  if(job==='import'&&uploadBusy){sdJobCur=txt;return;}
   snackProgress(txt,Number(s&&s.sdJobDone)||0,Number(s&&s.sdJobTotal)||0);
   sdJobCur=txt;
 };
