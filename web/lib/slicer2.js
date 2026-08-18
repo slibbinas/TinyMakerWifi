@@ -35,7 +35,7 @@ export { pillarDiscs2 as pillarDiscs, braceDiscs2 as braceDiscs };
 /* Vardas ir turinys turi sutapti: publikuojama kaip `slicer-2.0.0.js`, ir
    prie to vardo prisegtas pultas. Kol čia stovėjo „2.0.1-dev", o failas
    vadinosi kitaip, prisegimas prie versijos negarantavo nieko (V 08-17). */
-export const VERSION = '2.0.1';
+export const VERSION = '2.0.2';
 
 /* ------------------------------------------------------------------ config */
 /* Vardai palikti tokie patys kaip PrusaSlicer'io nustatymuose, kad būtų
@@ -52,6 +52,14 @@ export const CFG = {
   head_fallback_radius_mm: 0.3, // 60 % — support_small_pillar_diameter_percent
   head_penetration_mm:  0.3,    // support_head_penetration
   head_width_mm:        3.0,    // support_head_width
+  /* Kūgio ilgis atskirtas nuo galvutės ilgio (V, 2026-08-18). PrusaSlicer
+     smailina per visus `head_width_mm`, bet jo profilio galiukas ⌀0,5, o
+     mūsų ⌀0,4 (V sprendimas 08-13). Kūgis eina nuo galiuko iki stulpo, tad
+     plonesnis galiukas suplonina VISĄ kotą, ne tik patį galą - V tai
+     pamatė kadre. 2,0 grąžina kotą į Prusos storį (ties 1 mm nuo galo
+     0,70 prieš jo 0,67 mm), o kontakto žymė lieka ⌀0,4. Trumpiau (0,8)
+     nušoktų per Prusą ir replėms būtų sunkiau prilįsti prie žymės. */
+  head_taper_mm:        2.0,
   pillar_radius_mm:     0.5,    // support_pillar_diameter 1
   base_radius_mm:       1.5,    // support_base_diameter 3
   base_height_mm:       1.0,    // support_base_height
@@ -2393,10 +2401,11 @@ export function braceDiscs2(braces, z, cfg = CFG) {
       r = cfg.head_front_radius_mm +
           (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * t;
     } else if (c.bridge) {
+      const taper = cfg.head_taper_mm || cfg.head_width_mm;
       const left = c.z1 - z;
-      if (left < cfg.head_width_mm)
+      if (left < taper)
         r = cfg.head_front_radius_mm +
-            (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * (left / cfg.head_width_mm);
+            (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * (left / taper);
     }
     /* ELIPSE istrizai jungciai (V, 08-18). Horizontalus istrizo strypo pjuvis
        yra elipse: mazoji pusase r, didzioji r/|dz|, pasukta pagal jungties
