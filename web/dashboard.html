@@ -942,7 +942,7 @@ const snackProgressClear=()=>{
    - vienas laukimas = vienas pranesimas; etapui pasikeitus keiciasi TEKSTAS, ne snackas;
    - juostele - tik kai printeris pasake trukme IR ji pakankamai ilga, kad butu ka ziureti;
    - laukimas rodomas SEKUNDEMIS; procentai - tik skaiciuojamiems darbams. */
-const WAIT_SNACK_MIN_MS=1000, WAIT_BAR_MIN_MS=5000, WAIT_SNACK_MIN_SHOW_MS=2000;
+const WAIT_SNACK_MIN_MS=1000, WAIT_BAR_MIN_MS=5000, WAIT_SNACK_MIN_SHOW_MS=3000;
 const waitSnack=(txt,remainMs,totalMs)=>{
   const known=remainMs>=0;
   const secs=known?('~'+Math.max(0,Math.ceil(remainMs/1000))+' s'):'';
@@ -955,7 +955,7 @@ const waitSnack=(txt,remainMs,totalMs)=>{
    O jei jau pasirode - islaikom ji tiek, kad spetum perskaityti, net jei darbas tuo
    metu jau baigesi: paruosimas trunka apie sekunde su trupučiu, tad snackas issoktu
    ir tuoj pat dingtu - „mirkt ir nera" (V 08-18). Tai ta pati riba, kaip iprasto
-   pranesimo (2 s). */
+   pranesimo riba (2 s), tik dar sekunde ilgiau - V 08-18 prase, kad tikrai spetu pamatyti. */
 const waitSnackLater=(txt,ms)=>{
   let shownAt=0;
   const t=setTimeout(()=>{shownAt=Date.now();waitSnack(txt,-1,-1);},ms||WAIT_SNACK_MIN_MS);
