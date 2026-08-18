@@ -201,6 +201,7 @@ void lift_print(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
+      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }   
@@ -310,6 +311,7 @@ void lower_print(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
+      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }
@@ -326,7 +328,12 @@ void lower_print(){
  * @brief Lift Finished Print
  * Lifts the platform to the maximum height after printing is complete.
  */
-/* „Kada sustos" - vienas skaicius visam stabdymo laukimui (V 08-17/18).
+/* „Kada sustos" - kiekvienam laukimo ETAPUI savo skaicius (V 08-18).
+   Zmogui stabdymas yra du dalykai: pirma dabaigiama tai, kas jau vyksta
+   (ekspozicija nutruksta tuoj pat, judesys - ne), paskui plokste kyla virsun
+   desimtis sekundziu. Iki 08-18 abu buvo sudedami i VIENA skaiciu: pirmoji
+   sekunde meluodavo, o pulte taip ir nesimatydavo, kad jau keliama. Cia
+   skelbiam TIK pirma etapa (stopTail); pakelima paskelbia lift_finished_print().
    Nutraukimas priimamas penkiose vietose (ekrano mygtukas per ekspozicija ir per
    lifta, web komanda, spausdinimo ciklas), o iki siol nė viena ju nieko neskelbdavo:
    ekspozicijos skaitiklis buvo nunulinamas, o savo trukme paskelbdavo tik galutinis
@@ -349,25 +356,65 @@ void publishStopEstimate() {
     phaseStartMs = millis();
     phaseTotalMs = (back > 0 && sps > 1.0f)
                  ? (unsigned long)((float)back / sps * 1000.0f) : 0;
+    phaseWaitStage = "homingBack";
     return;
   }
-  unsigned long remain = 0;
-  if (phaseTotalMs > 0) {
-    unsigned long el = millis() - phaseStartMs;
-    if (el < phaseTotalMs) remain = phaseTotalMs - el;
-  }
-  long target = (long)(max_height * steps_mm);
-  // Dry run parkuojasi ties pauzes aukstumu, ne virsuje - ta pati taisykle, kaip lifte.
-  if (!uvLedEnabled) {
-    long dryTarget = stepper.currentPosition() + (long)pauseLiftMm * steps_mm;
-    if (dryTarget < target) target = dryTarget;
-  }
-  float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
-  long stepsToGo = target - stepper.currentPosition();
-  unsigned long lift = (stepsToGo > 0 && stepsPerSec > 1.0f)
-                     ? (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f) : 0;
+  // Kiek liko einamajam judesiui - klausiam PACIO variklio, ne lenteles: nutraukta
+  // ekspozicija baigiasi tuoj pat (distanceToGo == 0, tad ir 0 s), o judesio likuti
+  // AccelStepper zino tiksliai. Greitis imamas dabartinis - lifto pradzioje jis dar
+  // letasis, tad ivertis persuktas i saugia (ilgesne) puse.
+  long dtg = labs(stepper.distanceToGo());
+  float sps = stepper.maxSpeed();
   phaseStartMs = millis();
-  phaseTotalMs = remain + lift;
+  phaseTotalMs = (dtg > 0 && sps > 1.0f)
+               ? (unsigned long)((float)dtg / sps * 1000.0f) : 0;
+  phaseWaitStage = "stopTail";
+}
+
+/* Kiek dar laukti pauzes. Pauze ivyksta NE is karto: printeris pabaigia einamaji
+   sluoksni (ekspozicija + pakelimas) ir tik tada pakelia plokste apziurai. Paspaudus
+   leidziantis, pries pauzes taska praeina dar VISAS kitas sluoksnis - iki ~70 s. Be
+   skaiciaus zmogus mato tik uzsirakinusi mygtuka ir nezino, ar apskritai kas vyksta,
+   tad skaiciuojam viska is karto: likusi darba plius pakelima. */
+unsigned long exposureMsForLayer(int layer) {
+  if (layer <= (int)Base_Layer) return (unsigned long)Base_Exposure * 1000UL;
+  if (layer <= (int)Base_Layer + (int)Transition_Layer) {
+    // Transition_Exposure mazeja PACIOS ekspozicijos metu (UVLED.ino) - cia jo
+    // nelieciam, tik pasiskaiciuojam, koks butu kitas zingsnis.
+    float step = (float)(Base_Exposure * 10 - Regular_Exposure) / (float)(Transition_Layer + 1);
+    float next = Transition_Exposure - step;
+    return next > 0 ? (unsigned long)(next * 100.0f) : 0;
+  }
+  return (unsigned long)Regular_Exposure * 100UL;
+}
+
+void publishPauseEstimate() {
+  long dtg = labs(stepper.distanceToGo());
+  float sps = stepper.maxSpeed();
+  unsigned long total = (dtg > 0 && sps > 1.0f)
+                      ? (unsigned long)((float)dtg / sps * 1000.0f) : 0;   // einamasis judesys
+  if (current_state == 1) {
+    // Ekspozicija: jos likutis zinomas tiksliai, o po jos dar visas pakelimas.
+    unsigned long el = millis() - phaseStartMs;
+    if (phaseTotalMs > el) total += phaseTotalMs - el;
+    total += prevLiftMs;
+  } else if (current_state == 3) {
+    // Leidziamasi: pauzes taskas ateina tik po KITO sluoksnio ekspozicijos ir pakelimo.
+    total += exposureMsForLayer(current_layer + 1) + prevLiftMs;
+  }
+  // Plius pauzes pakelimas apziurai, apkarpytas pagal likusi auksti (kaip TinyMaker.ino).
+  float fastSps = Fast_Lift_Feedrate * steps_mm / 60.0f;
+  long pos = stepper.currentPosition();
+  long target = pos + (long)pauseLiftMm * steps_mm;
+  long ceilSteps = (long)(max_height * steps_mm);
+  if (target > ceilSteps) target = ceilSteps;
+  if (target > pos && fastSps > 1.0f)
+    total += (unsigned long)((float)(target - pos) / fastSps * 1000.0f);
+  // prevLiftMs pirmame sluoksnyje dar 0 - tada pazadam maziau, nei bus. Tai saugi
+  // puse: pultas skaiciu numeta, kai jis persitempia, o ne rodo neigiama.
+  phaseStartMs = millis();
+  phaseTotalMs = total;
+  phaseWaitStage = "pauseWork";
 }
 
 void lift_finished_print(){
@@ -393,17 +440,19 @@ void lift_finished_print(){
   // are known, so the duration is arithmetic. The accel ramp adds a moment -
   // the browser drops the number if the estimate overruns.
   {
-    // Jei stabdymo ivertis jau bega (publishStopEstimate ji paskelbe nutraukimo
-    // akimirka), jo NEPERKRAUNAM: zmogus matytu, kaip juostele nusirita atgal ir
-    // prasideda antras skaiciavimas - V 08-18 tai atrode kaip du pranesimai.
-    bool running = print_canceled && phaseTotalMs > 0 &&
-                   (millis() - phaseStartMs) < phaseTotalMs;
+    // Antras stabdymo etapas: „keliama plokste". Cia buvo sarga „neperkraunam, jei
+    // stabdymo ivertis jau bega" - jos reikejo tol, kol abu etapai dalinosi VIENA
+    // bevardi skaiciu, ir juosteles persistatymas atrode kaip antras pranesimas.
+    // Dabar etapas turi VARDA (phaseWaitStage): pultas ta pati pranesima tik
+    // persirašo, o skaicius pradedamas nuo tikros SIO kelio trukmes.
+    // NEATSTATYK sargos - ji vel paverstu skaiciu melu.
     float stepsPerSec = Fast_Lift_Feedrate * steps_mm / 60.0f;
     long stepsToGo = lift_finished_print_steps - liftStartPos;
-    if (!running && stepsToGo > 0 && stepsPerSec > 1.0f) {
-      phaseStartMs = millis();
-      phaseTotalMs = (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f);
-    }
+    phaseStartMs = millis();
+    phaseTotalMs = (stepsToGo > 0 && stepsPerSec > 1.0f)
+                 ? (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f) : 0;
+    // Baigtam spaudiniui vardo neduodam: ten „Finished · Ns" ir taip pasako viska.
+    if (print_canceled) phaseWaitStage = "stopLift";
   }
   unsigned long lastHttpSvc = millis();
   while (stepper.distanceToGo()!= 0){

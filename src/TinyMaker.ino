@@ -310,6 +310,18 @@ unsigned long printStartMs = 0;     // millis() when the current print started
 unsigned long phaseStartMs = 0;
 unsigned long phaseTotalMs = 0;
 unsigned long prevLiftMs = 0, prevDropMs = 0;
+// 0.17 (V 08-18): stabdymas ir pauze zmogui nera vienas laukimas, o du - pirma
+// baigiamas tai, kas jau vyksta, paskui juda plokste. Kiekvienas etapas turi savo
+// saziininga trukme, tad pultui reikia zinoti, KURIS is ju bega: pranesimas lieka
+// tas pats, persirašo tik tekstas, o juostele pradedama is naujo tik NAUJAM etapui.
+// "" = eiline sluoksnio faze (Curing/Lifting/Dropping). Kitos reiksmes:
+//   stopTail   - dabaigiamas judesys, kuris vyko stabdymo akimirka
+//   stopLift   - galutinis plokstes pakelimas po stabdymo
+//   homingBack - homing'as nutrauktas, plokste grizta i nuli
+//   pauseWork  - pauze laukia sluoksnio pabaigos
+//   pauseLift  - pauzes pakelimas apziurai (pauseLiftMm)
+//   resume     - grizimas zemyn tesiant
+const char *phaseWaitStage = "";
 uint16_t uiTimeoutSecs = 60;        // 0 = never blank the UI screen (default 60 s so the
                                     // screen saver works out of the box - 0-23)
 bool uvLedEnabled = true;           // false = dry-run motion/display only
@@ -2401,6 +2413,7 @@ void loop() {
                                   // anyway) - do not pause on the first layer
         lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
         current_state = 0;
+        phaseWaitStage = "";
         current_layer = 0;
         Position_before_pause = 0;
         Transition_Exposure = Base_Exposure * 10;   // 0.17 0-3: ramp accumulator in deciseconds
@@ -2718,13 +2731,22 @@ void loop() {
           // ahead of it, not after the phase already ended. The measured
           // duration includes the window - so does next layer's, so the
           // prediction stays honest.
-          phaseStartMs = millis();
-          phaseTotalMs = prevLiftMs;
+          // Laukimo ivertis (stabdymas/pauze) yra ATSKIRAS skaicius: jei sluoksnio
+          // faze ji perrasytu, pulto juostele viduryje nusiristu atgal ir zmogus
+          // matytu antra pranesima (V 08-18).
+          if (current_state != 4 && current_state != 5) {
+            phaseStartMs = millis();
+            phaseTotalMs = prevLiftMs;
+            phaseWaitStage = "";
+          }
+          // Matuojam nuo SAVO zymes, ne nuo phaseStartMs: pastarasis dabar gali
+          // priklausyti laukimo ivertiui, ir kito sluoksnio prognoze butu sarmata.
+          unsigned long liftT0 = millis();
           #if ENABLE_NETWORK
           network_service_window(160);
           #endif
           lift_print();
-          prevLiftMs = millis() - phaseStartMs;
+          prevLiftMs = millis() - liftT0;
           delay(50);
           
           if(current_layer == layer_counter)
@@ -2791,6 +2813,7 @@ void loop() {
             phaseStartMs = millis();
             phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                            (Fast_Lift_Feedrate * steps_mm));
+            phaseWaitStage = "pauseLift";   // antras pauzes etapas: kyla plokste
             #endif
             {
               // Answer HTTP every 200ms DURING the lift (the homing-return
@@ -2811,6 +2834,7 @@ void loop() {
             delay(10); 
 
             current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+            phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
             bool lowResinNotifyPending = lowResinPauseNow;
             lowResinPauseNow = false;
             saveVatRemaining();   // checkpoint at the pause point
@@ -2895,6 +2919,7 @@ void loop() {
               phaseStartMs = millis();
               phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                              (Fast_Lift_Feedrate * steps_mm));
+              phaseWaitStage = "resume";
               #endif
               {
                 // Same as the pause lift: answer HTTP every 200ms during the
@@ -2928,13 +2953,17 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
-            phaseStartMs = millis();
-            phaseTotalMs = prevDropMs;
+            if (current_state != 4 && current_state != 5) {   // zr. pakelima aukciau
+              phaseStartMs = millis();
+              phaseTotalMs = prevDropMs;
+              phaseWaitStage = "";
+            }
+            unsigned long dropT0 = millis();
             #if ENABLE_NETWORK
             network_service_window(160);
             #endif
             lower_print();
-            prevDropMs = millis() - phaseStartMs;
+            prevDropMs = millis() - dropT0;
             resumeCheckpoint('E');  // settled at the next layer's height
           }
         }
@@ -2966,6 +2995,7 @@ void loop() {
         // po stabdymo `current_state` likdavo 4, tad busena sakydavo „stopping":true
         // net stovint Idle - isamatuota 08-18. Pultas is to lipdo laukimo pranesima.
         current_state = 0;
+        phaseWaitStage = "";
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();

@@ -36,8 +36,14 @@ void turn_on_LED(){
   startTime2 = millis();
   digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
   // Countdown bookkeeping - the dashboard shows "Curing · Ns" from these.
-  phaseStartMs = startTime;
-  phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+  // Laukimo ivertis (pauze/stabdymas) yra atskiras skaicius - jo NEPERRASOM.
+  // Pauze paspaudus leidziantis, iki pauzes tasko praeina dar visas sluoksnis, ir
+  // zmogus visa ta laika turi matyti VIENA mazejanti skaiciu (V 08-18).
+  if (current_state != 4 && current_state != 5) {
+    phaseStartMs = startTime;
+    phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+    phaseWaitStage = "";
+  }
   if (uvLedEnabled && ExposureMillis > 0) {
     if (!uvOffTimer) {
       esp_timer_create_args_t targs = {};
@@ -130,6 +136,7 @@ void turn_on_LED(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
+      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }   

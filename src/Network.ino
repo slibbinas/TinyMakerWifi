@@ -1903,6 +1903,14 @@ void handleApiConfigDryRun() {
   sendApiOk(configJson());
 }
 
+// Kiek liko einamajam paskelbtam etapui. Atsakymuose duodam butent likuti: narsykle
+// nuo jo tiksi pati, tad pakartotinis paspaudimas skaitliuko nebeatsuka atgal.
+unsigned long phaseRemainMs() {
+  if (phaseTotalMs == 0) return 0;
+  unsigned long el = millis() - phaseStartMs;
+  return (el < phaseTotalMs) ? (phaseTotalMs - el) : 0;
+}
+
 bool requestPrintPause(String &error) {
   if (sdJobKind.length() > 0) {   // "busy" here is an SD job, not a print
     error = "printer is not printing";
@@ -1929,6 +1937,7 @@ bool requestPrintPause(String &error) {
   gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
   print_paused = true;
+  publishPauseEstimate();   // zr. Motor.ino - kiek dar iki apziuros aukscio
   return true;
 }
 
@@ -1948,6 +1957,16 @@ bool requestPrintResume(String &error) {
   current_state = 7;
   screen1111_state();
   webResumePrint = true;
+  // Kelias zemyn zinomas jau dabar (plokste stovi pauzes aukstyje), o pats judesys
+  // prasidės tik kitame loop() rate - be sio paskelbimo pirmos sekundes butu be skaiciaus.
+  {
+    float sps = Fast_Lift_Feedrate * steps_mm / 60.0f;
+    long dist = labs(stepper.currentPosition() - Position_before_pause);
+    phaseStartMs = millis();
+    phaseTotalMs = (dist > 0 && sps > 1.0f)
+                 ? (unsigned long)((float)dist / sps * 1000.0f) : 0;
+    phaseWaitStage = "resume";
+  }
   return true;
 }
 
@@ -2420,7 +2439,8 @@ void handleApiPrintPause() {
     return;
   }
 
-  sendApiOk("\"paused\":true");
+  sendApiOk("\"paused\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
 }
 
 void handleApiPrintResume() {
@@ -2431,7 +2451,8 @@ void handleApiPrintResume() {
     return;
   }
 
-  sendApiOk("\"resumeQueued\":true");
+  sendApiOk("\"resumeQueued\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
 }
 
 void handleApiPrintStop() {
@@ -2444,8 +2465,10 @@ void handleApiPrintStop() {
 
   // Ivertis keliauja SU ATSAKYMU: narsykle nuo cia skaiciuoja pati ir nebepriklauso
   // nuo apklausu, kurios stabdymo metu kaip tik danziausiai nespeja (V 08-18).
-  unsigned long eta = (phaseTotalMs > 0) ? phaseTotalMs : 0;
-  sendApiOk("\"stopping\":true,\"etaMs\":" + String(eta));
+  // LIKUTIS, ne visa trukme: antra karta paspaudus Stop printeris nieko is naujo
+  // neskelbia (current_state jau 4), o sena „visa trukme" grazintu skaitliuka atgal.
+  sendApiOk("\"stopping\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
 }
 
 // Base64 of a byte buffer into out (caller sizes it: len*4/3 + pad + nul).
@@ -2524,7 +2547,11 @@ void handleApiStatus() {
   // lacks it as a truncated/garbled body. Status and the boot-anim list were
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
-  out.reserve(2048);   // 132 appends, polled mid-print; a failed one is silent
+  out.reserve(2368);   // 132 appends, polled mid-print; a failed one is silent
+                       // 0.17 auditas: pilnas atsakymas su ilgu modelio vardu
+                       // ir dervos profiliu peraugo 2048 - vienas augimas
+                       // realloc'u kas apklausa, o heap fragmentuojasi.
+                       // +64 uz „waitStage" (V 08-18).
   out += "\"firmwareVersion\":\"";
 #ifdef FIRMWARE_VERSION
   out += jsonEscape(FIRMWARE_VERSION);
@@ -2608,6 +2635,12 @@ void handleApiStatus() {
     bool phased = busy && phaseTotalMs > 0 &&
                   ((current_state >= 1 && current_state <= 5) ||
                    current_state == 7 || current_state == 8);
+    // Etapo VARDAS (0.17, V 08-18): be jo pultas nezino, ar dar baigiamas judesys,
+    // ar jau keliama plokste - o tai du skirtingi skaiciai ir du skirtingi sakiniai.
+    // Tuscia = eiline sluoksnio faze (Curing/Lifting/Dropping).
+    out += ",\"waitStage\":\"";
+    out += phased ? phaseWaitStage : "";
+    out += "\"";
     out += ",\"phaseTotalMs\":";
     out += String((unsigned long)(phased ? phaseTotalMs : 0));
     out += ",\"phaseElapsedMs\":";

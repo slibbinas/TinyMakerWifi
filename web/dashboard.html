@@ -890,22 +890,34 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
      pabaigos zinute. */
   const pct=(total>0&&done>=0)?Math.min(99,Math.round(done*100/total))
            :(barPct>=0?Math.min(100,Math.round(barPct)):-1);
-  if(e.dataset.prog!=='1'||e.dataset.ptxt!==txt){
-    e.dataset.prog='1'; e.dataset.ptxt=txt;
+  /* Perpiesiam TIK pirma karta. Anksciau bet koks teksto pasikeitimas perstatydavo
+     visa snacka is naujo - su animacija ir is naujo centruojant - tad etapui
+     pasikeitus („baigiamas judesys" -> „keliama plokste") zmogus matydavo ANTRA
+     pranesima. Dabar tekstas persirašo vietoje, o snackas lieka tas pats (V 08-18).
+     `.snackTxt` patikra kartu uzdaro sena spasta: plikas msg() israuna vaikus, bet
+     palikdavo dataset.prog='1', ir toliau butume rase i nieka. */
+  if(e.dataset.prog!=='1'||!e.querySelector('.snackTxt')){
+    e.dataset.prog='1'; e.dataset.ptxt='';
     e.classList.remove('warn');
     e.innerHTML="<div class='snackLine'><span class='snackTxt'></span>"+
                 "<span class='snackPct'></span></div><div class='snackBar'><span></span></div>";
-    e.querySelector('.snackTxt').textContent=txt;
     clearTimeout(msg._t); msg._until=0;          // sticky, kol darbas vyksta
     e.style.animation='none'; void e.offsetWidth; e.style.animation='';
+  }
+  if(e.dataset.ptxt!==txt){
+    e.dataset.ptxt=txt;
+    e.querySelector('.snackTxt').textContent=txt;
     snackCentre(e);
   }
   const p=e.querySelector('.snackPct'), b=e.querySelector('.snackBar>span');
   /* `fmt` - kaip rodyti skaicius: sluoksniai kaip yra, baitai - megabaitais. */
   const num=v=>fmt?fmt(v):String(v);
-  if(p)p.textContent=(total>0)?(num(done)+'/'+num(total)+' · '+pct+' %')
-                              :(extra||(pct>=0?(pct+' %'):''));
+  /* Laukimas matuojamas SEKUNDEMIS. Plikas procentas buvo paskutine vieta, kur jis
+     dar issprusdavo - ir atrode kaip antras, nieko nesakantis skaicius (V 08-18).
+     Procentai lieka tik skaiciuojamiems darbams (baitai, failai, sluoksniai). */
+  if(p)p.textContent=(total>0)?(num(done)+'/'+num(total)+' · '+pct+' %'):(extra||'');
   if(b)b.style.width=(pct>=0?pct:0)+'%';
+  if(b)b.parentNode.style.display=(pct>=0?'':'none');   // trukmes nezinom - juosteles nera
 };
 const snackProgressClear=()=>{
   const e=$('statusMsg');
@@ -913,10 +925,30 @@ const snackProgressClear=()=>{
   e.dataset.prog=''; e.dataset.ptxt='';
   e.textContent=''; e.style.top='';
 };
+/* LAUKIMO TAISYKLE (V 08-18), viena vieta visiems laukimams:
+   - trumpiau nei sekunde - nerodom nieko: blykstelejes pranesimas yra triuksmas,
+     o mygtuko busena ir statuso eilute ir taip pasako, kad paspausta;
+   - vienas laukimas = vienas pranesimas; etapui pasikeitus keiciasi TEKSTAS, ne snackas;
+   - juostele - tik kai printeris pasake trukme IR ji pakankamai ilga, kad butu ka ziureti;
+   - laukimas rodomas SEKUNDEMIS; procentai - tik skaiciuojamiems darbams. */
+const WAIT_SNACK_MIN_MS=1000, WAIT_BAR_MIN_MS=5000;
+const waitSnack=(txt,remainMs,totalMs)=>{
+  const known=remainMs>=0;
+  const secs=known?('~'+Math.max(0,Math.ceil(remainMs/1000))+' s'):'';
+  const bar=(known&&totalMs>=WAIT_BAR_MIN_MS)
+           ?Math.max(0,Math.min(100,(totalMs-remainMs)*100/totalMs)):-1;
+  snackProgress(txt,-1,-1,secs,null,bar);
+};
+/* Pranesimas, kuris pasirodo TIK jei laukimas uzsitesia. Grazina funkcija, kuria
+   laukimas uzdaromas: jei atsakymas grizo anksciau, snackas net nespeja atsirasti. */
+const waitSnackLater=(txt,ms)=>{
+  const t=setTimeout(()=>waitSnack(txt,-1,-1),ms||WAIT_SNACK_MIN_MS);
+  return ()=>{clearTimeout(t); if($('statusMsg').dataset.ptxt===txt)snackProgressClear();};
+};
 /* `inPlace` - TAS PATS snackas persirasomas, be naujo islindimo: grandinei
    („Sending…" -> atsakymas) tai vienas laukimas, tad ir vienas pranesimas.
    Be sito antras `msg` atrodydavo kaip antras snackas (V 08-17). */
-const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.textContent=t||'';e.classList.toggle('warn',!!warn);
+const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.dataset.prog='';e.dataset.ptxt='';e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t&&!inPlace){
     snackCentre(e);
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
@@ -4326,7 +4358,8 @@ const retryPendingPrintCommand=async()=>{
     /* Skaiciu duoda pati komanda: nuo cia narsykle tiksi PATI, tad stabdymo metu,
        kai printeris uzsiemes ir apklausos nespeja, atskaita nesustoja ir nedingsta
        (V 08-18). Veliau atejusi tikra faze ji patikslina. */
-    if(r&&Number(r.etaMs)>0)localWait={ms:Number(r.etaMs),at:Date.now()};
+    cmdStage=(r&&r.stage)||'';
+    if(r&&Number(r.etaMs)>0)localWait={ms:Number(r.etaMs),at:Date.now(),stage:cmdStage};
     // Accepted: stop re-sending (clear pendingPrintCmd) but hand the wait over to
     // printWaitSent so the snackbar stays up until status confirms the flip - the
     // resume case answers instantly and would otherwise blink out here.
@@ -4359,9 +4392,9 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* NUO SIOS VIETOS pultas jau dirba: uzrakinam mygtukus ir pasakom, kas vyksta.
      `bgJob` reikalingas apklausos zinutei - be jo nepavykusi apklausa saukia
      „Printer not answering", nors printeris kaip tik atsakineja mums (V 08-17). */
-  /* Snacko cia NEBERA: mygtukai uzsirakina ta pacia akimirka, o kai apklausa
-     nespeja, ji pati pasako priezasti (`bgJob`). Du pranesimai apie ta pati is
-     eiles buvo triukmas (V 08-17). */
+  /* Snackas cia yra tik VIENAS ir tik jei paruosimas uzsitesia ilgiau nei sekunde
+     (zr. waitSnackLater zemiau prie paties kvietimo). Mygtukai uzsirakina ta pacia
+     akimirka, tad trumpam paruosimui pranesimo nereikia (V 08-17/08-18). */
   /* Perziuros krovimo zyme nuimama: nuo cia darba perima spaudinio paruosimas, ir
      eiluteje besisukantis suktukas rodytu jau nebevykstanti darba (V 08-18). */
   if(typeof setPreviewLoading==='function')setPreviewLoading('');
@@ -4414,11 +4447,17 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
       }
     }catch(e){}
   }
+  /* Vienintele vieta, kur printeris fiziskai dar NIEKO nedaro: uzklausa blokuoja
+     ji tiek, kiek trunka sluoksniu perskaiciavimas SD kortelėje (~1-3 s). Trukmes
+     is anksto nezinom - ji priklauso nuo sluoksniu kiekio - tad be juosteles ir be
+     skaiciaus, o blykstelejimo isvengiam atidejimu (V 08-18). */
+  const startSnackDone=waitSnackLater('Preparing the print');
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
-  /* Be snacko: busenos eilute jau kalba (Preparing -> Homing -> Curing), o tai,
-     ko zmogus prase, jau ivyko (V 08-17). */
+  /* Toliau - be snacko: homing'as yra spausdinimo dalis, ir busenos eilute ji
+     ivardija („Homing"). Skaiciaus ten nera ir negali buti - kelias iki galinio
+     jungiklio nezinomas (V 08-18). */
   localPrintStartedAt=Date.now();lpsSynced=false;applyStatus(localBusyStatus('Homing',0));openView('home');scrollPreviewIntoView();refreshStatus();}catch(e){
     if(e.message==='timeout'){
       // The POST reached the printer but the answer missed the 8 s window
@@ -4434,7 +4473,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
       msg('Start not confirmed - check the printer.',true);return;
     }
     msg(e.message,true);}
-  }finally{ startBusy=false; bgJob=''; syncActionLocks(); }};
+  }finally{ startSnackDone(); startBusy=false; bgJob=''; syncActionLocks(); }};
 // Deleting a big model removes hundreds of layer files and blocks the printer
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
@@ -4502,6 +4541,21 @@ let printWaitCur='', printWaitSent='', printWaitSentAt=0;
 /* Komandos atsakyme gautas ivertis: {ms, at}. Naudojamas tol, kol printeris
    neatsiuncia savo fazes - o ir tada imama ta, kuri sviezesne. */
 let localWait=null;
+/* Etapas, kuri pasake pati komanda. Atskirai nuo `localWait`, nes skaiciaus gali ir
+   nebuti (nutraukta ekspozicija baigiasi tuoj pat), o pranesimas jau turi buti tikras -
+   kitaip zmogus perskaitytu tris skirtingus sakinius apie viena laukima (V 08-18). */
+let cmdStage='';
+/* Ka zmogus mato kiekviename laukimo etape. Etapa pasako printeris (`waitStage`),
+   tad pultas nebespelioja is fazes numerio, o tekstas keiciasi kartu su tikru darbu:
+   pirma dabaigiamas judesys, paskui juda plokste (V 08-18). */
+const WAIT_STAGE_TEXT={
+  stopTail  :'Stopping the current operation',
+  stopLift  :'Stopping · lifting the platform',
+  homingBack:'Stopping · returning the platform',
+  pauseWork :'Pausing · finishing the layer',
+  pauseLift :'Pausing · lifting the platform',
+  resume    :'Resuming · lowering the platform'
+};
 const printWaitInfo=()=>{
   const s=statusData; if(!s)return null;
   /* „Uzimtas" NEUZTENKA: uzimtas printeris yra ir tada, kai kortele isppakuoja ar trina
@@ -4514,6 +4568,9 @@ const printWaitInfo=()=>{
      snacka issviesdavo is naujo: zmogus matydavo tris pranesimus vietoj vieno, ir
      pirmojo net nespedavo perskaityti. Vidines fazes jam nerupi - rupi „stabdo, liko
      tiek" (V 08-18). */
+  const stage=WAIT_STAGE_TEXT[s.waitStage||''];
+  if(printing&&stage&&(s.stopping||s.pausing||s.resuming))
+    return {v:stage, tail:'', count:true};
   if(printing&&s.stopping)  return {v:'Stopping the print', tail:'', count:true};
   if(printing&&s.pausing)   return {v:'Pausing the print',  tail:'', count:true};
   if(printing&&s.resuming)  return {v:'Resuming the print', tail:'', count:true};
@@ -4524,6 +4581,10 @@ const printWaitInfo=()=>{
      perskaityti (V 08-18). Skaiciaus dar nera - jis atsiranda, kai printeris
      paskelbia faze. */
   const req=pendingPrintCmd||printWaitSent;
+  /* Komandos atsakymas jau pasako etapa - imam ji is karto, kad pirmas sakinys butu
+     tas pats, kuri zmogus matys ir toliau (vienas laukimas - vienas pranesimas). */
+  const sent=WAIT_STAGE_TEXT[cmdStage||''];
+  if(req&&sent) return {v:sent, tail:'', count:true};
   if(req==='stop')   return {v:'Stopping the print', tail:'', count:true};
   if(req==='pause')  return {v:'Pausing the print',  tail:'', count:true};
   if(req==='resume') return {v:'Resuming the print', tail:'', count:true};
@@ -4533,7 +4594,7 @@ const renderPrintWait=()=>{
   const info=printWaitInfo();
   if(!info){
     if(printWaitCur){
-      localWait=null;
+      localWait=null; cmdStage='';
       const wasStop=printWaitCur.indexOf('Stop')===0, wasPause=printWaitCur.indexOf('Paus')===0, wasResume=printWaitCur.indexOf('Resum')===0;
       snackProgressClear();
       printWaitCur='';
@@ -4547,7 +4608,6 @@ const renderPrintWait=()=>{
      desineje - laukimo sekundes, apacioje - juostele. Anksciau sekundes buvo iraukiamos
      i pati sakini, tad snackas tampesi kas sekunde ir atrode kitaip nei ispakavimo.
      Juostele - to paties sluoksnio fazes eiga, kai printeris ja pranesa. */
-  let secs='', barPct=-1;
   /* Du saltiniai, vienas skaicius: printerio faze ir komandos atsakymo ivertis.
      Imam sviezesni - taip atskaita nesustoja, kai apklausos nespeja, ir pagereja,
      kai printeris pasako tiksliau (V 08-18). */
@@ -4556,23 +4616,24 @@ const renderPrintWait=()=>{
      faze pradeda savo nuo nulio - juostele nusirisdavo atgal ir prisipildydavo antra
      karta, o zmogui tai antras pranesimas (V 08-18). Todel kol vietinis ivertis gyvas,
      ji ir laikomes; printerio faze perima tik jam pasibaigus. */
+  /* „Vienas saltinis" dabar reiskia „vienas saltinis ETAPUI": printeriui perejus i
+     kita etapa vietinis ivertis nebegalioja - jis buvo apie ka kita. Be sito
+     „keliama plokste" pirmas ~30 s tiksetu senojo etapo skaiciu. */
   let src=null;
+  const stageNow=(statusData&&statusData.waitStage)||'';
+  if(localWait&&localWait.stage&&stageNow&&localWait.stage!==stageNow)localWait=null;
   if(info.count&&localWait&&Date.now()-localWait.at<localWait.ms+1500)
     src={remainMs:localWait.ms,totalMs:localWait.ms,at:localWait.at};
   else if(info.count&&statusData&&statusData.busy&&phaseRx)
     src={remainMs:phaseRx.remainMs,totalMs:phaseRx.totalMs,at:phaseRx.at};
+  let remMs=-1, totMs=0;
   if(src){
     const rem=src.remainMs-(Date.now()-src.at);
-    /* Laukimas matuojamas SEKUNDEMIS. Jei ju nebeturim (ivertis pasibaiges), juostele
-       irgi netenka prasmes - vietoj jos anksciau iskildavo plikas procentas, ir zmogus
-       matydavo „antra" snacka su kazkokiais 45 % (V 08-18). */
-    if(rem>-1500){
-      secs='~'+Math.max(0,Math.ceil(rem/1000))+' s';
-      if(src.totalMs>0)barPct=Math.max(0,Math.min(100,(src.totalMs-rem)*100/src.totalMs));
-    }
+    // Ivertis persitempe - skaiciaus nebeturim (juostele dingsta kartu, zr. waitSnack).
+    if(rem>-1500){ remMs=Math.max(0,rem); totMs=src.totalMs; }
   }
   const txt=info.v+info.tail;
-  snackProgress(txt,-1,-1,secs,null,barPct);
+  waitSnack(txt,remMs,totMs);
   printWaitCur=txt;
 };
 // 1-32/1-33: the printer's long SD work (a web delete, a model import - from
