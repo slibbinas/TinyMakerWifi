@@ -4433,7 +4433,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
   /* Perziuros krovimo zyme nuimama: nuo cia darba perima spaudinio paruosimas, ir
      eiluteje besisukantis suktukas rodytu jau nebevykstanti darba (V 08-18). */
   if(typeof setPreviewLoading==='function')setPreviewLoading('');
-  startBusy=true; bgJob='Processing files'; syncActionLocks();
+  startBusy=true; bgJob='Processing files. Please wait...'; syncActionLocks();
   /* Paskelbta CIA, ne try viduje: ja kviecia `finally`, o tai atskira matomumo sritis -
      try bloke paskelbtas `const` jame nematomas, ir kvietimas nutrauktu visa `finally`
      (kartu ir mygtuku atrakinima). Taip ir buvo: pranesimas kabodavo, o pultas likdavo
@@ -4491,7 +4491,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      ji tiek, kiek trunka sluoksniu perskaiciavimas SD kortelėje (~1-3 s). Trukmes
      is anksto nezinom - ji priklauso nuo sluoksniu kiekio - tad be juosteles ir be
      skaiciaus, o blykstelejimo isvengiam atidejimu (V 08-18). */
-  startSnackDone=waitSnackLater('Processing files');
+  startSnackDone=waitSnackLater('Processing files. Please wait...');
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
@@ -4946,7 +4946,7 @@ const busyBoxText=()=>{
   if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
   if(uploadBusy)return 'Uploading the model…';
   if(deleteBusy)return 'Deleting…';
-  if(startBusy)return 'Processing files…';
+  if(startBusy)return 'Processing files. Please wait...';
   return '';
 };
 const busyWhat=()=>{
