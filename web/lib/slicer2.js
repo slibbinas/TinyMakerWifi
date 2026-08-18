@@ -1534,6 +1534,32 @@ export async function findOverhangs(pos, layers, onProgress) {
      smailėjanti į head_front_radius. Be jos stulpas baigiasi head_width_mm
      atstumu nuo detalės ir nieko nelaiko (matyta renderyje, 08-13).
      Piešiama kaip „bridge", nes piešėjas būtent tiltams daro smaigalį. */
+  /* SMAILEJIMUI REIKIA VIETOS (V, 2026-08-18). Galvute smaileja nuo
+     pillar_radius iki head_front_radius per head_width_mm (3 mm = 60
+     sluoksniu). Bet jungties taskas neretai atsiduria beveik prie pat
+     pavirsiaus, ir tada smailejimui lieka 0,15 mm - trys sluoksniai. Is Sono
+     tai atrodo kaip nukirstas strypas, o ne adata (V pastebejimas pulte).
+     Trumpai galvutei nuleidziam stulpo virsu tiek, kad smailejimas gautu
+     visa head_width_mm. Stulpo apacia ir kontakto vieta nesikeicia. */
+  const galvIlgis = CFG.head_width_mm;
+  for (const h of t.heads) {
+    if (h.pillar < 0) continue;
+    const ilgis = Math.abs(h.pos[2] - h.junction[2]);
+    if (ilgis >= galvIlgis) continue;
+    const pil = t.pillars[h.pillar];
+    if (!pil) continue;
+    /* Trumpam stulpui pilno galvIlgis nera kur deti - tada smaileja per VISA
+       savo ilgi, ne per fiksuota 3 mm. Buvo `if (naujasTop > bottom)`, t. y.
+       tokie stulpai likdavo visai be smailejimo ir atrodydavo nukirsti
+       (V pastebejimas pulte: „viena smaileja normaliai, o kita nukirsta"). */
+    const vieta = Math.max(0, h.pos[2] - pil.bottom - LAYER_MM);
+    const ilg = Math.min(galvIlgis, vieta);
+    if (ilg > LAYER_MM) {
+      const naujasTop = h.pos[2] - ilg;
+      pil.top = Math.min(pil.top, naujasTop);
+      h.junction = [h.junction[0], h.junction[1], naujasTop];
+    }
+  }
   const heads = t.heads.filter(h => h.pillar >= 0).map(h => ({
     a: h.junction.slice(), b: h.pos.slice(), headTip: true,
   }));
