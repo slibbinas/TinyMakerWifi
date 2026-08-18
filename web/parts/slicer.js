@@ -708,6 +708,16 @@ $('slicerSave').addEventListener('click',async()=>{
   slicerOut.name=nm;
   const btn=$('slicerSave'), prog=$('slicerProg');
   btn.disabled=true;
+  /* Pasisakom, kad printeri uzimam MES. Be sito pultas per savo apklausa raso
+     „Printer not answering - an upload, share or other background job..." tame
+     paciame lange, kuris ka tik paspaude „Save": eiga sukasi korteleje, o virsuje
+     geltonas skundas pačiam ant saves (V 08-18, pasikartojo 2 kartus is 3).
+     `uploadBusy` nuimam, kai tik baigiasi BAITAI - toliau snacka teisetai perima
+     printerio ispakavimas su tikrais sluoksniu skaiciais. `bgJob` lieka iki galo:
+     jei apklausa vis delto prakalbtu, ji pasakys darbo VARDA, ne bendra spėjima. */
+  if(typeof uploadBusy!=='undefined')uploadBusy=true;
+  if(typeof bgJob!=='undefined')bgJob='Saving to the printer';
+  if(typeof syncActionLocks==='function')syncActionLocks();
   try{
     const MB=b=>(b/1048576).toFixed(1);
     /* Dydi zinom iki baito - archyva pagaminom patys, tad eiga tikra, ne
@@ -765,6 +775,11 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Ikelta dar nereiskia paruosta: printeris dabar ISPAKUOJA archyva ir tuo
        metu SD priklauso jam. Laukiam, kol atsileis - kitaip pasakytume
        „issaugota", o modelio sarase dar nebutu (V 08-12). */
+    /* Baitai suejo. Nuo cia snacka valdo printerio busena (`sdJob`), tad savo
+       zyme nuimam - kitaip ispakavimo pranesimas su sluoksniais butu nuslopintas
+       (ta sarga sedi `renderSdJob`: „kol MUSU ikelimas siuncia, jo neliesk"). */
+    if(typeof uploadBusy!=='undefined')uploadBusy=false;
+    if(typeof syncActionLocks==='function')syncActionLocks();
     prog.textContent='Unpacking on the printer \u2026';
     paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null);
     for(let i=0;i<180;i++){
@@ -804,6 +819,9 @@ $('slicerSave').addEventListener('click',async()=>{
   }catch(e){ prog.textContent=e.message; msg(e.message,true); }
   finally{
     btn.disabled=false;
+    if(typeof uploadBusy!=='undefined')uploadBusy=false;
+    if(typeof bgJob!=='undefined')bgJob='';
+    if(typeof syncActionLocks==='function')syncActionLocks();
     /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwns(false);
@@ -813,6 +831,12 @@ $('slicerSave').addEventListener('click',async()=>{
     dashPreviewPlaceholder();
   }
   if(!savedName){loadFiles&&loadFiles();return;}
+  /* Uodega irgi yra MUSU darbas: `loadFiles` perskaito korteles sarasa, po jo
+     atsidaro perziura - printeris tuo metu vel neatsakineja, ir geltonas issokdavo
+     kaip tik po „... is on the printer." (V 08-18). Ta pati zyme, kaip perziuros
+     siurbimui: apklausa tyli, kol dirbam. */
+  if(typeof setPreviewBusy==='function')setPreviewBusy(true);
+  try{
   /* PIRMA palaukiam, kol busena atsileis, ir tik TADA imam sarasa. Atvirksciai
      buvo bergzdzia: `loadFiles` pati turi ankstyva isejima „spausdinant SD
      neskaitom", tad su dar nenuvalyta `statusData.busy` ji grizdavo nieko
@@ -855,7 +879,7 @@ $('slicerSave').addEventListener('click',async()=>{
       msg('Saved under a new name - pick it from the list.');
     }
   }
-  if(!openName)return;
+  if(!openName)return;   // zyme nuima `finally` zemiau
   /* `typeof`, ne `window.…`: sitas failas sulipdomas i TA PATI pulto <script>, o
      ten viskas paskelbta per `const` - i `window` tokie vardai nepatenka. */
   if(typeof filesShowName==='function')filesShowName(openName);
@@ -863,6 +887,7 @@ $('slicerSave').addEventListener('click',async()=>{
      pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
      „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
   if(typeof pickModel==='function')pickModel(openName);
+  }finally{ if(typeof setPreviewBusy==='function')setPreviewBusy(false); }
 });
 
 $('slicerDiscardLink').addEventListener('click',e=>{
