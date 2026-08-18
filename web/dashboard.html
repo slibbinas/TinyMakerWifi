@@ -52,6 +52,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    kas kelias sekundes, kaip buvo iki 08-14. */
 #statusMsg .snackLine{display:flex;align-items:baseline;gap:14px;justify-content:space-between}
 #statusMsg .snackTxt{flex:1 1 auto;min-width:0}
+/* Vardas turi matytis kaip vardas. „Unpacking sittingPredator6.zip on the printer"
+   susiliedavo i viena juosta ir zmogus neatskirdavo, kur sakinys, o kur JO modelis
+   (V 08-18). Sakinys prislopinamas, vardas lieka pilno stiprumo ir sunkesnis - tas
+   pats triukas, kaip SD sarase, kur vardas stipresnis uz dydi salia. */
+#statusMsg .snackLbl{opacity:.7;font-weight:600}
+#statusMsg .snackName{font-weight:800;letter-spacing:.1px}
 /* Tuscias skaiciaus langelis ploćio NEBEPASILAIKO: telefone jis atimdavo 8,5 em is
    ir taip siauro pranesimo, o tekstas susitraukdavo iki ilgiausio zodzio ir lipdavo
    po viena zodi eiluteje (V 08-18, 375 px: pranesimas 235 px, tekstui liko 62 px).
@@ -891,6 +897,11 @@ const snackCentre=e=>{e.style.top=Math.round((innerHeight-e.offsetHeight)/2)+'px
    vienoje vietoje ir vienodai"). Tekstas nesikeicia, keiciasi tik desineje esantis
    skaicius (fiksuoto plocio langelis) ir juostele - tad snackas nesitampo.
    `extra` - laisvas priedas desineje (greitis, praejes laikas), kai procentu nera. */
+/* Snacko tekstas dviem gabalais: sakinys ir vardas. Vardas atrodo kitaip, tad
+   „Uploading" ir „ring.zip" nebesusilieja i viena juosta (V 08-18). Kur vardo nera,
+   paduodamas paprastas tekstas - viskas kaip anksciau. */
+const jobText=(lbl,name)=>({lbl:lbl,name:name});
+const jobPlain=t=>typeof t==='string'?t:(t.lbl+t.name);
 const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
   const e=$('statusMsg');
   /* Skaiciai desineje rodomi tik tada, kai jie zmogui ka nors sako (sluoksniai, baitai).
@@ -924,9 +935,13 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
      pasikeitus tik perrasom teksta. Kitaip naujas, kitokio ilgio sakinys telefone
      susilauzo i dvi eilutes, dezute pakeicia auksti ir pasoka i nauja vieta - akiai
      tai skaitosi kaip ANTRAS pranesimas, nors elementas tas pats (V 08-18). */
-  if(e.dataset.ptxt!==txt){
-    e.dataset.ptxt=txt;
-    e.querySelector('.snackTxt').textContent=txt;
+  const plain=jobPlain(txt);
+  if(e.dataset.ptxt!==plain){
+    e.dataset.ptxt=plain;
+    const el=e.querySelector('.snackTxt');
+    if(typeof txt==='string')el.textContent=txt;
+    else el.innerHTML="<span class='snackLbl'>"+esc(txt.lbl)+"</span>"+
+                      "<span class='snackName'>"+esc(txt.name)+"</span>";
   }
   // Centruojam PO teksto (kad aukstis butu tikras) ir tik pirma karta - vieta
   // prisegama visam laukimui. Isemus si kvietima visai, snackas likdavo ten, kur ji
@@ -975,7 +990,7 @@ const waitSnack=(txt,remainMs,totalMs)=>{
 const waitSnackLater=(txt,ms)=>{
   let shownAt=0;
   const t=setTimeout(()=>{shownAt=Date.now();waitSnack(txt,-1,-1);},ms||WAIT_SNACK_MIN_MS);
-  const kill=()=>{if($('statusMsg').dataset.ptxt===txt)snackProgressClear();};
+  const kill=()=>{if($('statusMsg').dataset.ptxt===jobPlain(txt))snackProgressClear();};
   return ()=>{
     clearTimeout(t);
     if(!shownAt)return;                       // nespejo pasirodyti - nera ko valyti
@@ -1089,15 +1104,23 @@ const uploadWithProgress=(fd,hintEl,label)=>{
     // The timer is the proof-of-life; the real progress is one glance away.
     /* Eiga - i SNACKA, ne i SD korteles eilute: ten ji buvo isblukusia „hint" spalva
        ir jos niekas nepastebedavo (V 08-14). Kortelėje lieka tik statinis sakinys. */
+    const nm=shortName(label||'the model');
+    /* Sakom tik tai, ka tikrai zinom: SIUNCIAM. Anksciau nuo `upload.onload` cia
+       buvo rasoma „Unpacking ... on the printer", bet tas ivykis reiskia tik tiek,
+       kad baitus prarijo KOMPIUTERIO buferis. Ismatuota 08-18 pačiame printeryje:
+       1552 KB „isejo" per 114 ms, o tikras siuntimas truko 6,9 s - tad printerio
+       ekrane dar „Receiving...", o pultas jau skelbdavo ispakavima (V radinys).
+       Tikras ispakavimas ateina is printerio busenos (`renderSdJob`) - kai jis pats
+       taip pasako. Baigus baitus lieka tas pats sakinys, tik desineje - praejes
+       laikas: skaicius, kuris nesuges. */
     if(sentAt){
-      snackProgress('Unpacking '+shortName(label||'the model')+' on the printer',-1,-1,
-                    formatShortTime(Date.now()-sentAt));
+      snackProgress(jobText('Uploading ',nm),-1,-1,formatShortTime(Date.now()-started));
       hintEl.textContent='SD actions come back when it finishes.';
       return;
     }
     const elapsed=Date.now()-started;
     const speed=elapsed>0?formatBytes(lastLoaded/(elapsed/1000))+'/s':'-';
-    snackProgress('Uploading '+shortName(label||'the model'),lastLoaded,total,speed,formatBytes);
+    snackProgress(jobText('Uploading ',nm),lastLoaded,total,speed,formatBytes);
     hintEl.textContent='SD actions come back when it finishes.';
   };
   return new Promise((resolve,reject)=>{
@@ -4555,7 +4578,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   renderFiles();       // sarasas uzsirakina is karto, nelaukiant printerio atsakymo
   /* Ta pati snacko forma kaip visiems ilgiems darbams; skaiciai atsiras, kai printeris
      paskelbs darba (iki tol - tik tekstas ir tuscia juostele). */
-  snackProgress('Deleting '+shortName(name),-1,-1,'');try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
+  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'');try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
@@ -4759,14 +4782,14 @@ const renderSdJob=s=>{
   /* Rodom VISIEMS - ir savo, ir svetimiems darbams (V 08-14: viena vieta, vienas
      pavidalas). Zinute nesako, IS KUR darbas atsirado - pultas to tiksliai nezino.
      „Unpacking", ne „Importing": tas pats zodis kaip printerio ekrane ir busenoje. */
-  const txt=(job==='delete'?'Deleting ':'Unpacking ')+shortName(name);
+  const txt=jobText(job==='delete'?'Deleting ':'Unpacking ',shortName(name));
   /* Kol MUSU paties ikelimas dar siuncia baitus, snacka valdo jis. Printeris ispakavima
      pradeda dar nespejus uzsidaryti uzklausai, tad abi zinutes imdavo keistis vietomis
      kas apklausa - zmogui tai mirksejimas (V 08-18). Ispakavimas perima savaime, kai
      baitai baigiasi ir  nukrenta. */
-  if(job==='import'&&uploadBusy){sdJobCur=txt;return;}
+  if(job==='import'&&uploadBusy){sdJobCur=jobPlain(txt);return;}
   snackProgress(txt,Number(s&&s.sdJobDone)||0,Number(s&&s.sdJobTotal)||0);
-  sdJobCur=txt;
+  sdJobCur=jobPlain(txt);
 };
 let lastPollOkAt=0;
 const tickLocalStatus=()=>{
@@ -5531,8 +5554,8 @@ $('updUploadForm').addEventListener('submit',async e=>{
       x.open('POST','/update');
       x.setRequestHeader('X-TinyMaker','1');
       x.upload.onprogress=ev=>{
-        if(ev.lengthComputable)snackProgress('Flashing '+f.name,ev.loaded,ev.total,'',formatBytes);
-        else snackProgress('Flashing '+f.name,-1,-1,'');
+        if(ev.lengthComputable)snackProgress(jobText('Flashing ',f.name),ev.loaded,ev.total,'',formatBytes);
+        else snackProgress(jobText('Flashing ',f.name),-1,-1,'');
       };
       x.onload=()=>{ x.status<400?res():rej(new Error('update rejected (HTTP '+x.status+')')); };
       x.onerror=()=>rej(new Error('connection lost during the flash'));
