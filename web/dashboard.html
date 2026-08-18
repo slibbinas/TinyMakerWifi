@@ -896,7 +896,9 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
      pranesima. Dabar tekstas persirašo vietoje, o snackas lieka tas pats (V 08-18).
      `.snackTxt` patikra kartu uzdaro sena spasta: plikas msg() israuna vaikus, bet
      palikdavo dataset.prog='1', ir toliau butume rase i nieka. */
+  let firstShow=false;
   if(e.dataset.prog!=='1'||!e.querySelector('.snackTxt')){
+    firstShow=true;
     e.dataset.prog='1'; e.dataset.ptxt='';
     e.classList.remove('warn');
     e.innerHTML="<div class='snackLine'><span class='snackTxt'></span>"+
@@ -914,6 +916,10 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
     e.dataset.ptxt=txt;
     e.querySelector('.snackTxt').textContent=txt;
   }
+  // Centruojam PO teksto (kad aukstis butu tikras) ir tik pirma karta - vieta
+  // prisegama visam laukimui. Isemus si kvietima visai, snackas likdavo ten, kur ji
+  // pastato CSS, t. y. lango virsuje (V 08-18).
+  if(firstShow)snackCentre(e);
   const p=e.querySelector('.snackPct'), b=e.querySelector('.snackBar>span');
   /* `fmt` - kaip rodyti skaicius: sluoksniai kaip yra, baitai - megabaitais. */
   const num=v=>fmt?fmt(v):String(v);
