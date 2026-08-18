@@ -1164,6 +1164,14 @@ void handleApiFiles() {
           out += ",\"estimatedSecs\":";
           out += String(est.estimatedSecs);
         }
+        // Arrival order, so the dashboard can show the newest model first. Rides
+        // along on the same read; missing on anything imported before 0.17, which
+        // is exactly right - those ARE the older models.
+        double seq = 0;
+        if (readJsonNumberField(meta, "import_seq", seq) && seq > 0) {
+          out += ",\"importSeq\":";
+          out += String((uint32_t)seq);
+        }
       }
     }
     out += "}";
@@ -2565,6 +2573,15 @@ void handleApiStatus() {
 #endif
   out += "\",\"buildDate\":\"";
   out += __DATE__ " " __TIME__;  // compile moment - shown on Settings > About
+  // Content hash of the dashboard itself (same value the page is served with).
+  // The firmware version does not identify the page: a web-only change ships a
+  // new dashboard under an unchanged version, so a bug report needs this too.
+  out += "\",\"dashEtag\":\"";
+#ifdef DASHBOARD_ETAG
+  out += DASHBOARD_ETAG;
+#else
+  out += "dev";
+#endif
   out += "\",\"busy\":";
   out += busy ? "true" : "false";
   out += ",\"paused\":";

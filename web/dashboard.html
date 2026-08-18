@@ -265,6 +265,10 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button id='gl3dMask' type='button' style='display:none' title='True layer: the exact black-and-white shape of this layer, with no smoothing and no zoom. This is where thin supports can be checked - the smoothed 3D view loses them. Shown the same way round as the model; the file sent to the printer is mirrored, as the screen needs it.'><svg viewBox='0 0 16 16' width='15' height='15' fill='none' stroke='currentColor' stroke-width='1' stroke-linejoin='round'><rect x='2.5' y='2.5' width='11' height='11' rx='1'/><path d='M6.17 2.5v11M9.83 2.5v11M2.5 6.17h11M2.5 9.83h11'/><path d='M6.17 6.17h3.66v3.66H6.17z' fill='currentColor' stroke='none'/></svg></button>
           <button data-zoom='out' title='Zoom out'>&minus;</button>
           <button data-zoom='in' title='Zoom in'>+</button>
+          <!-- Zymejimo irankis. Gyvena CIA, o ne slicerio juostoje (parts/slicer-view.html),
+               nes visa jo masinerija - scena, kamera, raycast - yra pulto puseje, ir taip
+               dvi lygiagrecios sesijos nesusipjauna. Be ?dev=1 lieka nematomas. -->
+          <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: tap the model, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><circle cx='8' cy='8' r='3.1'/><path d='M8 .9v3.1M8 12v3.1M.9 8h3.1M12 8h3.1'/></svg></button>
         </div>
 <!--#include parts/slicer-view.html-->
       </div>
@@ -2441,11 +2445,21 @@ const FICO_ZIP='<svg class="fico" viewBox="0 0 16 16" fill="none" stroke="curren
 /* Ta pati tvarka ir tas pats filtras dviem skaitytojams: piesimui ir „kuriame
    puslapyje guli sitas vardas". Buvo tik piesimo viduje, tad puslapio skaiciavimas
    butu jį kartojes - o dvi kopijos issiskiria per pirma pakeitima. */
-// Stable A-Z order (models first, then archives) - the raw list follows
-// SD/FAT directory order, which reshuffles after deletes.
+/* Naujausi virsuje (V 08-19). Sarasas yra darbo eile, ne archyvas: spausdini ta,
+   ka ka tik ikelei. Jokio perjungiklio - varda randa filtras, ir jis stipresnis
+   nei rusiavimas pagal abecele.
+   Rusiuoja importSeq (printerio skaitliukas), NE data: printeris be interneto
+   niekada nesusisinchronizuoja laikrodzio, ir data ten butu amzinas nulis.
+   Modeliai be numerio (ikelti iki 0.17) krenta i apacia - jie ir yra seniausi;
+   tarpusavyje lieka A-Z. Archyvai kaip ir anksciau po modeliu. */
 const filesVisible=()=>{
   const q=filesQuery.toLowerCase();
-  const sorted=filesItems.slice().sort((a,b)=>a.type!==b.type?(a.type==='model'?-1:1):a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+  const sorted=filesItems.slice().sort((a,b)=>{
+    if(a.type!==b.type)return a.type==='model'?-1:1;
+    const sa=+a.importSeq||0,sb=+b.importSeq||0;
+    if(sa!==sb)return sb-sa;
+    return a.name.localeCompare(b.name,undefined,{sensitivity:'base'});
+  });
   return q?sorted.filter(it=>it.name.toLowerCase().indexOf(q)>=0):sorted;
 };
 /* Sarasas po ikelimo grizdavo i PIRMA puslapi, o naujas modelis pagal abecele
@@ -5653,8 +5667,12 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      autoOrient, fitCheck, bounds, toSceneMesh, supportMesh - t. y. butent to, ka
      pultas kviecia. `?v=` yra tik keso lauziklis, versijos jis NEparenka. */
   window.loadModule=async(name,ver,cdnUrl)=>{
-    let mod=await tryLoad('/lib/'+name+'.js?v='+ver,'SD');
-    if(!mod&&cdnUrl)mod=await tryLoad(cdnUrl,'web');
+    const sdUrl='/lib/'+name+'.js?v='+ver;
+    let used=sdUrl, mod=await tryLoad(sdUrl,'SD');
+    if(!mod&&cdnUrl){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
+    /* Kuris saltinis realiai laimejo. Defekto ataskaitai to reikia: „2.0.2" dar
+       nepasako, ar tai kortelės kopija, ar gh-pages - o tai skirtingi failai. */
+    try{window.__modUrl=window.__modUrl||{};window.__modUrl[name]=mod?used:'';}catch(e){}
     return mod;
   };
   /* Musu pačių paskelbta, prie versijos prisegta kopija - tas pats saltinis,
@@ -6077,9 +6095,311 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      to paties kampo ir tiek"). Sukioti po to galima kiek nori - tik startas vienodas. */
   window.gl3dResetView=()=>{framedFor='';CLIP=null;clipTaikyk();};
 
+  /* ---- Durys zymejimo irankiui (dev) ---------------------------------------
+     Raycast'o pulte iki siol nebuvo (artinimas i zymekli sasmoningai daromas be
+     susikirtimu - zr. zoomAt). Cia jis reikalingas: „blogai stai CIA" turi virsti
+     milimetrais, o ne rankos mostu. Pats irankis - atskirame bloke failo gale. */
+  let markGroup=null,markRay=null;
+  window.gl3dPick=(cx,cy)=>{
+    if(!ren||!cam||!scene)return null;
+    const el=ren.domElement,r=el.getBoundingClientRect();
+    if(!r.width||!r.height)return null;
+    if(!markRay)markRay=new T.Raycaster();
+    markRay.setFromCamera(new T.Vector2(((cx-r.left)/r.width)*2-1,
+                                        -(((cy-r.top)/r.height)*2-1)),cam);
+    /* Kandidatai imami is scenos, o ne is vardu: atramu tinklelis gimsta slicerio
+       tiltelyje, ir jo kintamojo cia geriau neminet. Plokste, narvas ir pacios
+       zymes praleidziamos - i juos taikytis nera prasmes. */
+    const skip=[cage,plate,baseLine,markGroup];
+    const cands=scene.children.filter(o=>o&&o.isMesh&&skip.indexOf(o)<0);
+    if(!cands.length)return null;
+    const hits=markRay.intersectObjects(cands,false);
+    if(!hits.length)return null;
+    const h=hits[0],p=h.point;
+    let low=null;
+    if(mesh){const g=mesh.geometry;if(!g.boundingBox)g.computeBoundingBox();
+             if(g.boundingBox)low=g.boundingBox.min.y;}
+    /* Auksti skaiciuojam nuo PACIO modelio apacios, o ne nuo scenos nulio: kur
+       sliceris pastato tinkleli, priklauso nuo jo, o „2,4 mm nuo apacios" reiskia
+       ta pati abiem pusem - ir is jo gaunasi sluoksnio numeris. */
+    return {x:p.x,y:p.y,z:p.z,
+            hMm:(low===null?null:p.y-low),
+            on:(h.object===mesh?'model':'support')};
+  };
+  window.gl3dMarker=(n,p)=>{
+    if(!ren||!scene)return false;
+    if(!markGroup){markGroup=new T.Group();scene.add(markGroup);}
+    const m=new T.Mesh(new T.SphereGeometry(0.75,12,10),
+      new T.MeshBasicMaterial({color:0xff3b30,depthTest:false,transparent:true,opacity:.96}));
+    m.position.set(p.x,p.y,p.z);
+    m.renderOrder=999;          // matoma ir tada, kai taskas yra detales viduje
+    m.userData.markN=n;
+    markGroup.add(m);
+    return true;
+  };
+  window.gl3dMarkersClear=()=>{
+    if(!markGroup)return false;
+    while(markGroup.children.length){
+      const m=markGroup.children.pop();
+      if(m.geometry)m.geometry.dispose();
+      if(m.material)m.material.dispose();
+    }
+    return true;
+  };
+  /* Kadras imamas IS KARTO po piesimo: scena piesiama be preserveDrawingBuffer,
+     tad bet kada kitu metu toDataURL grazintu tuscia paveiksleli. */
+  window.gl3dSnapshot=()=>{
+    try{ren.render(scene,cam);return ren.domElement.toDataURL('image/png');}
+    catch(e){return '';}
+  };
+  window.gl3dCamInfo=()=>{
+    if(!cam)return null;
+    const d=new T.Vector3();cam.getWorldDirection(d);
+    const r2=v=>Math.round(v*100)/100;
+    return {pos:{x:r2(cam.position.x),y:r2(cam.position.y),z:r2(cam.position.z)},
+            dir:{x:r2(d.x),y:r2(d.y),z:r2(d.z)},fov:cam.fov};
+  };
+  window.gl3dModelBox=()=>{
+    if(!mesh)return null;
+    const g=mesh.geometry;if(!g.boundingBox)g.computeBoundingBox();
+    if(!g.boundingBox)return null;
+    const s=new T.Vector3();g.boundingBox.getSize(s);
+    const r2=v=>Math.round(v*100)/100;
+    return {w:r2(s.x),h:r2(s.y),d:r2(s.z)};
+  };
+
 /*#include parts/slicer-3d-bridge.js*/
 
   window.DBG3D=src;   // is konsoles matyti, kuri pakopa suveike
+})();
+</script>
+<!-- ===== Defektu zymejimas (dev) ===========================================
+     Kam: radus bloga atrama lieka tik zodinis aprasymas, o po savaites nebeaisku,
+     su kuria slicerio versija tai buvo. Cia bakstelejimas i modeli virsta milimetrais,
+     o ataskaita PATI prisega, kas tuo metu buvo ikelta.
+     Kur: visas irankis - pulto puseje (scena, kamera, raycast ir taip gyvena cia),
+     slicerio failu (web/parts/*) jis neliecia. Taip dvi lygiagrecios sesijos
+     nesusipjauna nei vienoje eiluteje (CLAUDE.md riba).
+     Ijungimas: ?dev=1 (lipnu, telefone nereikia kaskart), ?dev=0 - isjungia.
+     Be veliaveles sitas blokas baigia darba trecioje eiluteje. -->
+<script>
+(()=>{
+  const LS='tmMark';
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.get('dev')==='1')localStorage.setItem(LS,'1');
+    else if(q.get('dev')==='0')localStorage.removeItem(LS);
+  }catch(e){}
+  let allowed=false;try{allowed=localStorage.getItem(LS)==='1';}catch(e){}
+  if(!allowed)return;
+
+  const ENDPOINT='https://tinymakerwifi.com/slicerbug';
+  const marks=[];
+  let armed=false,panel=null;
+  const btn=$('gl3dMark'),host=$('gl3d');
+  if(!btn||!host)return;
+  btn.style.display='';
+
+  const r2=v=>(v===null||v===undefined)?null:Math.round(v*100)/100;
+  const g=n=>{try{return window[n];}catch(e){return undefined;}};
+  /* Slicerio kintamieji skaitomi TIK skaitymui ir su apsauga: jei kita sesija ka
+     nors pervadins, ataskaitoje bus „unknown", o ne kritimas. */
+  const slicerHere=()=>{try{return typeof slicerOwnsPreview!=='undefined'&&!!slicerOwnsPreview;}catch(e){return false;}};
+  const sOut=()=>{try{return typeof slicerOut!=='undefined'?slicerOut:null;}catch(e){return null;}};
+  const sTr=()=>{try{return typeof slicerTr!=='undefined'?slicerTr:null;}catch(e){return null;}};
+  const sMod=()=>{try{return typeof slicerMod!=='undefined'?slicerMod:null;}catch(e){return null;}};
+  const sName=()=>{try{if(typeof slicerFileName!=='undefined'&&slicerFileName)return slicerFileName;}catch(e){}
+                   try{if(typeof dashPreviewName!=='undefined'&&dashPreviewName)return dashPreviewName;}catch(e){}
+                   return '';};
+  /* Sluoksnio aukstis: sliceryje jis isvedamas is paties rezultato (modelio auksits
+     / sluoksniu skaicius), peržiūroje - printerio nustatymas. Spėjimo nera. */
+  const layerMm=()=>{
+    const o=sOut();
+    try{if(o&&o.layers&&typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH)
+          return slicesCache.modelH/o.layers;}catch(e){}
+    try{if(statusData&&statusData.layerHeight)return statusData.layerHeight;}catch(e){}
+    return 0.05;
+  };
+
+  const rowText=m=>'#'+m.n+' '+m.on+'  '+m.x+', '+m.y+', '+m.z+' mm'+
+    (m.layer?'  ~L'+m.layer:'')+(m.hMm===null?'':'  ('+m.hMm+' mm from bottom)');
+
+  const draw=()=>{
+    if(!panel)return;
+    const list=panel.querySelector('.mkList');
+    list.innerHTML=marks.length?marks.map((m,i)=>
+      '<div style="padding:5px 0;border-top:1px solid var(--line)">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px">'+
+      '<span style="color:var(--accent);font-weight:600">#'+m.n+'</span>'+
+      '<span style="color:var(--muted);font-size:11px">'+m.on+' &middot; ~L'+(m.layer||'?')+'</span>'+
+      '<a href="#" data-del="'+i+'" style="color:var(--muted)">&times;</a></div>'+
+      '<div style="font-size:11px;color:var(--muted2)">'+m.x+', '+m.y+', '+m.z+' mm</div>'+
+      '<div>'+(m.text?m.text.replace(/[<>&]/g,''):'<i style="color:var(--muted)">no note</i>')+'</div></div>').join('')
+      : '<div style="color:var(--muted);padding:6px 0">Tap the model to place a marker.</div>';
+    list.querySelectorAll('[data-del]').forEach(a=>a.addEventListener('click',e=>{
+      e.preventDefault();marks.splice(+a.dataset.del,1);renumber();}));
+    panel.querySelector('.mkCount').textContent=marks.length?(marks.length+' marked'):'';
+  };
+  const renumber=()=>{
+    marks.forEach((m,i)=>m.n=i+1);
+    if(window.gl3dMarkersClear)gl3dMarkersClear();
+    if(window.gl3dMarker)marks.forEach(m=>gl3dMarker(m.n,m.pos));
+    draw();
+  };
+
+  const report=()=>{
+    const o=sOut(),tr=sTr(),mod=sMod(),box=window.gl3dModelBox?gl3dModelBox():null;
+    const st=(typeof statusData!=='undefined'&&statusData)?statusData:{};
+    /* Ieskom pagal PRISEGTA varda, ne pagal `VERSION`: butent tas atvejis, del
+       kurio sitas laukas ir daromas - kai kortelej guli senas failas nauju vardu -
+       yra tas, kuriame VERSION nesutampa, ir paieska prasautu i tuscia. */
+    let modUrl='';
+    try{const mm=window.__modUrl||{},k=Object.keys(mm).filter(x=>x.indexOf('slicer-')===0);
+        if(k.length)modUrl=mm[k[k.length-1]]||'';}catch(e){}
+    return {
+      kind:'slicer-bug',
+      at:new Date().toISOString(),
+      mode:slicerHere()?'slicer':'preview',
+      markers:marks.map(m=>({n:m.n,on:m.on,x:m.x,y:m.y,z:m.z,hMm:m.hMm,layer:m.layer,text:m.text})),
+      model:{name:sName()||'unknown',
+             layers:(o&&o.layers)||null,
+             layerMm:r2(layerMm()*1000)/1000||null,
+             scalePct:tr&&typeof tr.scale==='number'?Math.round(tr.scale*1000)/10:null,
+             rot:tr?{rx:tr.rx===undefined?null:tr.rx,rz:tr.rz===undefined?null:tr.rz}:null,
+             sizeMm:box},
+      slicer:{version:(mod&&mod.VERSION)||'unknown',url:modUrl||'unknown',
+              supports:(o&&o.supports&&o.supports.length)||null},
+      dash:{etag:st.dashEtag||'unknown'},
+      fw:{version:st.firmwareVersion||'unknown',build:st.firmwareBuild||'',date:st.buildDate||''},
+      view:window.gl3dCamInfo?gl3dCamInfo():null,
+      ua:navigator.userAgent.slice(0,160)
+    };
+  };
+  const asText=()=>{
+    const r=report();
+    return 'Slicer defect report ('+r.markers.length+' marker'+(r.markers.length===1?'':'s')+')\n'+
+      r.markers.map(m=>rowText(m)+(m.text?'\n    '+m.text:'')).join('\n')+
+      '\n\nModel: '+r.model.name+' · '+(r.model.layers||'?')+' layers · '+
+      (r.model.scalePct?r.model.scalePct+'%':'scale ?')+
+      (r.model.sizeMm?' · '+r.model.sizeMm.w+'x'+r.model.sizeMm.d+'x'+r.model.sizeMm.h+' mm':'')+
+      '\nSlicer: '+r.slicer.version+' ('+r.slicer.url+')'+
+      '\nDashboard: '+r.dash.etag+'   Firmware: '+r.fw.version+' '+r.fw.build+
+      '\nMode: '+r.mode+'\n\n'+JSON.stringify(r);
+  };
+
+  const say=(t,bad)=>{try{msg(t,!!bad);}catch(e){}};
+  const dataUrlToBlob=u=>{
+    try{
+      const p=u.split(',');const bin=atob(p[1]);const a=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
+      return new Blob([a],{type:'image/png'});
+    }catch(e){return null;}
+  };
+
+  const send=async b=>{
+    if(!marks.length){say('Nothing marked yet.',true);return;}
+    b.disabled=true;const was=b.textContent;b.textContent='Sending...';
+    try{
+      const st=(typeof statusData!=='undefined'&&statusData)?statusData:{};
+      const fd=new FormData();
+      fd.append('message',asText());
+      fd.append('fw',st.firmwareVersion||'');
+      fd.append('build',st.firmwareBuild||'');
+      fd.append('ua',navigator.userAgent.slice(0,120));
+      const shot=window.gl3dSnapshot?gl3dSnapshot():'';
+      const blob=shot?dataUrlToBlob(shot):null;
+      /* Kadras su zymemis pasako per sekunde tai, ko trys pastraipos nepasako.
+         Riba - TA PATI, kuria tikrina worker'is (1 MB): buvusi 2,5 MB reiske, kad
+         platus darbalaukio kadras issiunciamas ir atmetamas, o kartu su juo zutu
+         ir visa ataskaita. */
+      if(blob&&blob.size<=1024*1024)fd.append('photo',blob,'marks.png');
+      const r=await fetch(ENDPOINT,{method:'POST',body:fd});
+      const t=(await r.text()).slice(0,120);
+      if(r.ok){say('Report sent to the feedback inbox.');marks.length=0;renumber();}
+      else say('Not sent ('+r.status+'): '+t+' - use Copy instead.',true);
+    }catch(e){
+      say('No network for the report - use Copy or JSON.',true);
+    }
+    b.disabled=false;b.textContent=was;
+  };
+
+  const build=()=>{
+    panel=document.createElement('div');
+    panel.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9000;width:290px;max-height:60vh;'+
+      'overflow:auto;padding:10px 12px;border:1px solid var(--accent);border-radius:12px;'+
+      'background:var(--card);color:var(--text);font:12px -apple-system,Segoe UI,sans-serif;'+
+      'box-shadow:0 8px 24px rgba(0,0,0,.45)';
+    panel.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">'+
+      '<b style="color:var(--accent)">Defect markers</b>'+
+      '<span class="mkCount" style="color:var(--muted);font-size:11px"></span>'+
+      '<a href="#" class="mkClose" style="color:var(--muted)">&times;</a></div>'+
+      '<div class="mkList"></div>'+
+      /* Pasakoma garsiai, kas kur keliauja: „Send" isneša modelio varda ir jo
+         silueta i internetą, o „Copy"/„JSON" lieka name. Klientinis modelis gali
+         vadintis taip, kaip jo nederetu skelbti. */
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted)">'+
+      'Send goes to the feedback inbox online (model name + snapshot). '+
+      'Copy and JSON stay on this machine. Add <code>?dev=0</code> to the address to remove this tool.</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
+      '<button class="small mkSend" style="width:auto;margin:0;padding:6px 10px">Send</button>'+
+      '<button class="secondary mkCopy" style="width:auto;margin:0;padding:6px 10px">Copy</button>'+
+      '<button class="secondary mkJson" style="width:auto;margin:0;padding:6px 10px">JSON</button>'+
+      '<button class="secondary mkClear" style="width:auto;margin:0;padding:6px 10px">Clear</button></div>';
+    document.body.appendChild(panel);
+    panel.querySelector('.mkClose').addEventListener('click',e=>{e.preventDefault();arm(false);});
+    panel.querySelector('.mkSend').addEventListener('click',e=>send(e.currentTarget));
+    panel.querySelector('.mkCopy').addEventListener('click',async()=>{
+      const t=asText();
+      try{await navigator.clipboard.writeText(t);say('Report copied.');}
+      catch(e){
+        /* http:// puslapyje clipboard API kartais uzdaryta - senas kelias veikia. */
+        const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);
+        ta.select();try{document.execCommand('copy');say('Report copied.');}
+        catch(e2){say('Could not copy - use JSON.',true);}
+        document.body.removeChild(ta);
+      }});
+    panel.querySelector('.mkJson').addEventListener('click',()=>{
+      const b=new Blob([JSON.stringify(report(),null,1)],{type:'application/json'});
+      const u=URL.createObjectURL(b),a=document.createElement('a');
+      a.href=u;a.download='slicer-bug.json';a.click();
+      setTimeout(()=>URL.revokeObjectURL(u),2000);
+    });
+    panel.querySelector('.mkClear').addEventListener('click',()=>{marks.length=0;renumber();});
+    draw();
+  };
+
+  const arm=on=>{
+    armed=!!on;
+    btn.style.color=armed?'var(--accent)':'';
+    btn.style.borderColor=armed?'var(--accent)':'';
+    if(armed&&!panel)build();
+    if(panel)panel.style.display=armed?'':'none';
+    if(armed)say('Marker tool on - tap the model.');
+  };
+  btn.addEventListener('click',e=>{e.stopPropagation();arm(!armed);});
+
+  /* Gaudom PRIES orbita: sukimo klausytojas sedi ant drobes, o mes - ant tevo su
+     capture=true, tad bakstelejimas zymint nebepasuka vaizdo. */
+  host.addEventListener('pointerdown',e=>{
+    if(!armed)return;
+    if(e.target.closest('button,input,a,#gl3dPop,#gl3dLayer'))return;   // valdikliai lieka valdikliais
+    e.stopPropagation();e.preventDefault();
+    const hit=window.gl3dPick?gl3dPick(e.clientX,e.clientY):null;
+    if(!hit){say('Missed the model - tap on it.',true);return;}
+    const lm=layerMm();
+    const m={n:marks.length+1,on:hit.on,
+             x:r2(hit.x),y:r2(hit.y),z:r2(hit.z),
+             hMm:hit.hMm===null?null:r2(hit.hMm),
+             layer:(hit.hMm===null||!lm)?null:Math.max(1,Math.round(hit.hMm/lm)+1),
+             pos:{x:hit.x,y:hit.y,z:hit.z},text:''};
+    const t=prompt('#'+m.n+' '+m.on+' at '+m.x+', '+m.y+', '+m.z+' mm (~layer '+(m.layer||'?')+')\nWhat is wrong here?','');
+    if(t===null)return;                       // atsisake - zymes nededam
+    m.text=String(t).slice(0,200);
+    marks.push(m);
+    if(window.gl3dMarker)gl3dMarker(m.n,m.pos);
+    draw();
+  },true);
 })();
 </script>
 </body></html>

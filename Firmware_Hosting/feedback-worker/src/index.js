@@ -41,10 +41,28 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Only for /slicerbug: the printer's dashboard is served from a LAN address
+// (http://tinymaker.local, http://192.168.x.x), so no fixed origin can be named.
+// The public form keeps the strict CORS above - this is a separate, rate-limited
+// door that accepts one kind of body and hands back nothing worth stealing.
+const WIDE_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 const FORM_ORIGIN = 'https://slibbinas.github.io/TinyMakerWifi/feedback/';
 const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
+
+// A photo is a RASTER photo. "image/*" was too generous: an SVG is a document,
+// and the inbox opens attachments in a tab whose URL carries LIST_KEY - so a
+// script inside an "image" would run on tinymakerwifi.com and could read that
+// key straight out of location.search. The type is declared by whoever uploads,
+// so it is checked on the way in AND again on the way out (/feedback/img).
+const SAFE_IMG = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const safeImgType = (t) => (SAFE_IMG.includes(String(t || '').toLowerCase().split(';')[0].trim()));
 
 const PAGE = 25;                            // notes fetched in full per view
 
@@ -57,6 +75,11 @@ const PAGE = 25;                            // notes fetched in full per view
 const MAX_PER_IP_DAY = 5;
 const MAX_PER_DAY = 60;
 const DAY_TTL = 172800;                     // counters self-clean after 48 h
+// A bug hunt is bursty, but ten reports is already a long evening - and this is
+// the one door with no human check, so its worst day has to stay small: 10 x 1 MB
+// is ~10 MB, against a 1 GB namespace.
+const MAX_SLICERBUG_PER_DAY = 10;
+const MAX_SLICERBUG_PHOTO_BYTES = 1024 * 1024;
 const MAX_CRASH_PER_DAY = 200;             // crash pings are rare + firmware-deduped; cap guards a runaway fleet
 const CRASH_TTL = 60 * 60 * 24 * 90;       // crash records self-clean after 90 days
 
@@ -228,8 +251,8 @@ export default {
       for (const p of photos) {
         if (p.size > MAX_PHOTO_BYTES)
           return new Response('photo too large', { status: 413, headers: CORS });
-        if (!String(p.type || '').startsWith('image/'))
-          return new Response('photos only', { status: 415, headers: CORS });
+        if (!safeImgType(p.type))
+          return new Response('photos only (png, jpeg, webp, gif)', { status: 415, headers: CORS });
       }
 
       // Turnstile, when it is configured: stops scripted floods at the door
@@ -311,6 +334,106 @@ export default {
       await env.FEEDBACK.put('tok:' + tok, 'fb:' + stamp + ':' + id);
       return new Response(JSON.stringify({ ok: true, id: num, photos: imgKeys.length, token: tok }), {
         headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
+    // Slicer defect markers from the printer's own dashboard (0.17).
+    //
+    // Its own route rather than /feedback, for two reasons that are not style:
+    // the dashboard is served over http from the printer's LAN address, so the
+    // public form's CORS (locked to tinymakerwifi.com) would block it; and there
+    // is no Turnstile widget on a page that may have no internet at all. Both
+    // guards stay exactly as they are for the public form - this door is a
+    // different door, with its own lock: one report per minute per IP and a
+    // daily cap well under the form's.
+    //
+    // The record lands in the SAME inbox in the SAME shape, pre-tagged 'bug', so
+    // "what is new in feedback" picks it up with no new machinery anywhere.
+    if (path === '/slicerbug' && request.method === 'OPTIONS')
+      return new Response(null, { headers: WIDE_CORS });
+
+    if (path === '/slicerbug' && request.method === 'POST') {
+      let fields = {}, photo = null;
+      const ct = request.headers.get('Content-Type') || '';
+      try {
+        if (ct.includes('multipart/form-data')) {
+          const fd = await request.formData();
+          for (const [k, v] of fd.entries()) {
+            if (k === 'photo' && typeof v === 'object' && v.size) { if (!photo) photo = v; }
+            else fields[k] = String(v);
+          }
+        } else {
+          fields = await request.json();
+        }
+      } catch (e) {
+        return new Response('bad body', { status: 400, headers: WIDE_CORS });
+      }
+
+      const msg = str(fields.message, 8000).trim();   // a marker report is longer than a note
+      if (!msg) return new Response('empty', { status: 400, headers: WIDE_CORS });
+      if (photo) {
+        // Tighter than the public form on purpose: this door has no Turnstile,
+        // so its worst case has to be small. A 3D snapshot is tens of KB.
+        if (photo.size > MAX_SLICERBUG_PHOTO_BYTES)
+          return new Response('photo too large', { status: 413, headers: WIDE_CORS });
+        if (!safeImgType(photo.type))
+          return new Response('photos only (png, jpeg, webp, gif)', { status: 415, headers: WIDE_CORS });
+      }
+
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await env.FEEDBACK.get('sbgate:' + ip))
+        return new Response('one report a minute - the last one arrived', { status: 429, headers: WIDE_CORS });
+
+      // Two counters: its own (a bug hunt is bursty) and the shared daily one,
+      // because the thing actually being protected is the KV write budget.
+      const day = new Date().toISOString().slice(0, 10);
+      const sbKey = `sbday:${day}`, allKey = `day:${day}`;
+      const [sbUsed, allUsed] = await Promise.all([
+        env.FEEDBACK.get(sbKey).then((v) => Number(v) || 0),
+        env.FEEDBACK.get(allKey).then((v) => Number(v) || 0),
+      ]);
+      if (sbUsed >= MAX_SLICERBUG_PER_DAY)
+        return new Response('that is a lot of markers for one day - use Copy and open a GitHub issue', { status: 429, headers: WIDE_CORS });
+      if (allUsed >= MAX_PER_DAY)
+        return new Response('the inbox is over its daily limit - try tomorrow', { status: 503, headers: WIDE_CORS });
+
+      await env.FEEDBACK.put('sbgate:' + ip, '1', { expirationTtl: 60 });
+      await env.FEEDBACK.put(sbKey, String(sbUsed + 1), { expirationTtl: DAY_TTL });
+      await env.FEEDBACK.put(allKey, String(allUsed + 1), { expirationTtl: DAY_TTL });
+
+      const stamp = new Date().toISOString();
+      const id = crypto.randomUUID().slice(0, 8);
+      const num = (Number(await env.FEEDBACK.get('seq')) || 0) + 1;
+      await env.FEEDBACK.put('seq', String(num));
+      const imgKeys = [];
+      if (photo) {
+        const k = 'img:' + stamp + ':' + id + ':0';
+        await env.FEEDBACK.put(k, await photo.arrayBuffer(),
+                               { metadata: { ct: photo.type, size: photo.size } });
+        imgKeys.push(k);
+      }
+      const rec = {
+        num,
+        message: msg,
+        contact: '',
+        fw: str(fields.fw, 20),
+        build: str(fields.build, 20),
+        ua: str(fields.ua, 120),
+        src: 'slicer',
+        // Pre-tagged: this door only opens for one kind of thing, so making a
+        // human classify it later would be busywork.
+        tag: 'bug',
+        handled: false,
+        photos: imgKeys,
+        at: stamp,
+      };
+      await env.FEEDBACK.put('fb:' + stamp + ':' + id, JSON.stringify(rec),
+                             { metadata: metaOf(rec) });
+      // Deliberately no case number in the answer. This route replies to ANY
+      // origin, and `num` is the project-wide counter shared with /feedback -
+      // any web page could otherwise poll it to watch how much mail we get.
+      return new Response(JSON.stringify({ ok: true, photos: imgKeys.length }), {
+        headers: { 'Content-Type': 'application/json', ...WIDE_CORS },
       });
     }
 
@@ -572,8 +695,17 @@ export default {
       if (!k.startsWith('img:')) return new Response('bad key', { status: 400 });
       const { value, metadata } = await env.FEEDBACK.getWithMetadata(k, { type: 'arrayBuffer' });
       if (!value) return new Response('not found', { status: 404 });
+      // Second lock on the same door: anything stored before the intake check
+      // existed, or stored with a lying type, is served as a download and never
+      // as a document. nosniff stops the browser from "helpfully" deciding.
+      const ct = metadata && metadata.ct;
       return new Response(value, {
-        headers: { 'Content-Type': (metadata && metadata.ct) || 'image/jpeg' },
+        headers: {
+          'Content-Type': safeImgType(ct) ? ct : 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': 'inline',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+        },
       });
     }
 
@@ -691,6 +823,7 @@ function inboxPage(notes, listKey, view) {
         <time>${when(n.at)}</time>
         ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
         ${n.src === 'printer' ? '<span class="pill src" title="Sent from a printer dashboard, not the open site">🖨 from a printer</span>' : ''}
+        ${n.src === 'slicer' ? '<span class="pill src" title="Marked on the model in the dashboard preview - coordinates and the exact build are in the note">⌖ slicer markers</span>' : ''}
         ${contactLink(n.contact)}
         <span class="tags">${TAGS.map(([v, label]) =>
           `<button class="tag${n.tag === v ? ' on' : ''}" data-tag="${v}">${label}</button>`).join('')}</span>

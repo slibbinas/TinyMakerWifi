@@ -42,6 +42,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | Field | Meaning |
 |---|---|
 | `firmwareVersion`, `firmwareBuild`, `buildDate` | SemVer, git rev, compile moment |
+| `dashEtag` | content hash of the dashboard page this firmware serves (0.17). The firmware version does not identify the page — a web-only change ships a new dashboard under an unchanged version — so a bug report needs both |
 | `busy`, `paused`, `pausing`, `resuming`, `stopping` | print lifecycle booleans |
 | `state`, `stateCode` | human text + numeric state |
 | `canPause`, `canResume`, `canStop` | which controls are valid right now |
@@ -189,7 +190,7 @@ still there to delete.
   "hiddenCount": 0,
   "items": [
     { "name": "ScreamingEvil", "type": "model",   "printable": true,
-      "sizeBytes": "0", "connectPublicId": "pub_ab12cd34" },
+      "sizeBytes": "0", "importSeq": 7, "connectPublicId": "pub_ab12cd34" },
     { "name": "Benchy.sl1",    "type": "archive", "printable": false,
       "sizeBytes": "12582912" }
   ]
@@ -203,6 +204,16 @@ root — OK on the printer imports it). Model folders report `sizeBytes`
 archives keep their cheap single-file size. `connectPublicId` appears only
 on models imported from TinyMaker Connect. At most 64 items are listed;
 `hiddenCount` is everything skipped (unmanaged root entries + overflow).
+
+`importSeq` (0.17) is the arrival order — a counter the printer bumps on every
+import, which the dashboard sorts on so the newest model is on top. A counter
+and not a date on purpose: a printer with no internet never syncs NTP, and the
+SD card's own FAT timestamps are all 2000-01-01 (the firmware registers no
+date-time callback), so any date-based order would silently collapse back to
+A-Z for exactly the people who could not tell why. Absent on models imported
+before 0.17 and on archives — sort those last. A wall-clock stamp is written
+alongside it into `model.json` (`created_epoch`) when the clock is real, but it
+is display material, never the sort key.
 
 ### `GET /api/update`
 

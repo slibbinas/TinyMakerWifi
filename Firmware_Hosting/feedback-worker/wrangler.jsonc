@@ -6,6 +6,9 @@
   "routes": [
     { "pattern": "tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
+    // Defektu zymes is pulto (0.17). Tik apex: pultas kviecia prisegta URL, o
+    // www variantas tik atidarytu ta pati kelia antru vardu be jokios naudos.
+    { "pattern": "tinymakerwifi.com/slicerbug", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/plan*", "zone_name": "tinymakerwifi.com" },
