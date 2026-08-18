@@ -901,7 +901,9 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
     e.classList.remove('warn');
     e.innerHTML="<div class='snackLine'><span class='snackTxt'></span>"+
                 "<span class='snackPct'></span></div><div class='snackBar'><span></span></div>";
-    clearTimeout(msg._t); msg._until=0;          // sticky, kol darbas vyksta
+    // Kol darbas vyksta, apklausa snacko neliecia. Begalinis terminas, o ne „nera
+    // termino": pastarasis kaip tik ir reiske „gali valyti" (V 08-18).
+    clearTimeout(msg._t); msg._until=Infinity;
     e.style.animation='none'; void e.offsetWidth; e.style.animation='';
   }
   if(e.dataset.ptxt!==txt){
@@ -923,7 +925,7 @@ const snackProgressClear=()=>{
   const e=$('statusMsg');
   if(e.dataset.prog!=='1')return;
   e.dataset.prog=''; e.dataset.ptxt='';
-  e.textContent=''; e.style.top='';
+  e.textContent=''; e.style.top=''; msg._until=0;
 };
 /* LAUKIMO TAISYKLE (V 08-18), viena vieta visiems laukimams:
    - trumpiau nei sekunde - nerodom nieko: blykstelejes pranesimas yra triuksmas,
@@ -956,7 +958,19 @@ const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.dataset.prog='';e.d
   // sticky: survives the 2 s auto-clear - for operations that outlive it (a big
   // SD delete blocks the printer for tens of seconds and no poll can re-show
   // the message meanwhile, the server is busy deleting).
-  clearTimeout(msg._t);if(t&&!warn&&!sticky){msg._until=Date.now()+2000;msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},2000);}else{msg._until=0;}};
+  /* Kiek pranesimas gyvena. Iki 08-18 ispejimams ir lipniems buvo rasoma „termino
+     nera" (0), o busenos apklausa kas 2 s kaip tik ta reiksme laike leidimu valyti -
+     tad KLAIDA galedavo blykstelėti kelias desimtis milisekundziu, o „Sending a test
+     message..." dingdavo laukimo viduryje. Dabar terminas tikras: iprastam 2 s,
+     ispejimui 6 s (spėji perskaityti sakini), lipniam - begalinis, ir apklausa ji
+     gerbia. */
+  clearTimeout(msg._t);
+  if(t){
+    const life=sticky?0:(warn?6000:2000);
+    if(life){msg._until=Date.now()+life;
+             msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},life);}
+    else msg._until=Infinity;
+  }else msg._until=0;};
 // Styled replacement for window.confirm() - returns a Promise. Matches the
 // dashboard instead of the browser's native (unstyleable) dialog.
 let uiConfirmRes=null;
@@ -1376,9 +1390,10 @@ const loadBootAnims=async()=>{
 };
 const previewBootAnim=async(name,btn)=>{
   btn.disabled=true;
+  const done=waitSnackLater('Sending the animation to the printer');
   try{await api('/api/boot-anim/preview',{method:'POST',body:new URLSearchParams({name})},12000);
-    msg('Playing on the printer - check its screen.');}
-  catch(e){msg(e.message,true);}
+    done();msg('Playing on the printer - check its screen.');}
+  catch(e){done();msg(e.message,true);}
   setTimeout(()=>{btn.disabled=false;},1500);
 };
 const installBootAnim=async(e,btn)=>{
@@ -5201,10 +5216,10 @@ const calPost=async(slot,body,okMsg)=>{
 
 $('configMqttResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset MQTT settings?',{danger:true}))return;try{await api('/api/config/mqtt/defaults',{method:'POST'});loadConfig();}catch(e){msg(e.message,true);}});
 $('configConnectResetButton').addEventListener('click',async()=>{if(!await uiConfirm('Reset TinyMaker Connect settings and forget this printer token?',{danger:true}))return;try{await api('/api/config/connect/defaults',{method:'POST'});loadConfig();}catch(e){msg(e.message,true);}});
-$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectPrinterName').value.trim()===''){msg('Enter a printer display name first.',true);$('cfgConnectPrinterName').focus();return;}if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;msg(updating?'Updating the Connect registration...':'Registering with TinyMaker Connect...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'));loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectReclaimButton').addEventListener('click',async()=>{const code=$('cfgConnectRecoveryCode').value.trim();if(!code){msg('Enter your recovery code first.',true);$('cfgConnectRecoveryCode').focus();return;}try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('recovery_code',code);const r=await api('/api/connect/register',{method:'POST',body:fd},12000);$('cfgConnectRecoveryCode').value='';msg(r.message||'TinyMaker Connect profile restored.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
-$('connectNewProfileButton').addEventListener('click',async()=>{if(!await uiConfirm('Setup as a new TinyMaker Connect printer? The old Connect profile will stay on the server and this printer will receive a new recovery code.'))return;try{await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('new_profile','1');const r=await api('/api/connect/register',{method:'POST',body:fd},12000);msg(r.message||'New TinyMaker Connect profile created.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('connectTestButton').addEventListener('click',async()=>{msg('Testing the Connect server...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/test',{method:'POST'},12000);msg(r.message||'TinyMaker Connect server reachable.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
+$('connectRegisterButton').addEventListener('click',async()=>{const updating=!!(connectConfig&&connectConfig.connectPrinterPublicId);if($('cfgConnectPrinterName').value.trim()===''){msg('Enter a printer display name first.',true);$('cfgConnectPrinterName').focus();return;}if($('cfgConnectLeaderboard').checked&&!await uiConfirm('Share this printer on the public leaderboard?'))return;msg(updating?'Updating the Connect registration...':'Registering with TinyMaker Connect...');try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/connect/register',{method:'POST'},12000);msg(r.message||(updating?'TinyMaker Connect updated.':'TinyMaker Connect registered.'),false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
+$('connectReclaimButton').addEventListener('click',async()=>{const code=$('cfgConnectRecoveryCode').value.trim();if(!code){msg('Enter your recovery code first.',true);$('cfgConnectRecoveryCode').focus();return;}try{msg('Restoring the profile...',false,true);await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('recovery_code',code);const r=await api('/api/connect/register',{method:'POST',body:fd},12000);$('cfgConnectRecoveryCode').value='';msg(r.message||'TinyMaker Connect profile restored.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
+$('connectNewProfileButton').addEventListener('click',async()=>{if(!await uiConfirm('Setup as a new TinyMaker Connect printer? The old Connect profile will stay on the server and this printer will receive a new recovery code.'))return;try{msg('Creating a new profile...',false,true);await api('/api/config',{method:'POST',body:configFormData()});const fd=new URLSearchParams();fd.append('new_profile','1');const r=await api('/api/connect/register',{method:'POST',body:fd},12000);msg(r.message||'New TinyMaker Connect profile created.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
 $('connectRevealRecoveryButton').addEventListener('click',async()=>{try{const r=await api('/api/connect/recovery-code',null,12000);$('connectRecoveryCodeValue').value=r.recoveryCode||'';$('connectRecoveryCodeValue').type='text';$('connectCopyRecoveryButton').disabled=!$('connectRecoveryCodeValue').value;}catch(e){msg(e.message,true);}});
 $('connectCopyRecoveryButton').addEventListener('click',async()=>{const v=$('connectRecoveryCodeValue').value;if(!v)return;try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(v);}else{$('connectRecoveryCodeValue').select();document.execCommand('copy');}msg('Recovery code copied.');}catch(e){msg('Could not copy recovery code.',true);}});
 $('backupDownloadButton').addEventListener('click',async()=>{try{const r=await fetch('/api/config/backup',{cache:'no-store'});if(!r.ok)throw new Error('backup failed (HTTP '+r.status+')');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tinymaker-backup.json';a.click();URL.revokeObjectURL(a.href);msg('Backup downloaded.');}catch(e){msg(e.message,true);}});
@@ -5271,9 +5286,9 @@ $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);
-$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('waTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/whatsapp/test',{method:'POST'},15000);msg(r.message||'Test message sent.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
 $('ntfDc').addEventListener('change',updateTgFields);
-$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('dcTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/discord/test',{method:'POST'},12000);msg(r.message||'Test message sent.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
 $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type=i.type==='password'?'text':'password';});
 // Contextual help: one modal, content picked by key (.qHelp marks + Telegram).
 const HELP={
@@ -5323,7 +5338,7 @@ $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=docu
 applyThemeLink();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));
 $('helpModal').addEventListener('click',e=>{if(e.target===$('helpModal'))show('helpModal',false);});
-$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.');loadConfig();}catch(e){msg(e.message,true);loadConfig();}});
+$('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
 $('homeViewButton').addEventListener('click',()=>openView('home'));
 $('connectViewButton').addEventListener('click',()=>openView('connect'));
 $('configViewButton').addEventListener('click',()=>openView('config'));
@@ -5383,6 +5398,7 @@ const loadUpdate=async()=>{
     }
     refreshInstallSelected();
   }catch(e){show('updVerLabel',false);show('updInstallSelected',false);}
+  const verSnackDone=waitSnackLater('Checking for a newer version');
   try{
     const u=await api('/api/update',null,30000);
     updInstalledVer=u.installed;
@@ -5404,6 +5420,7 @@ const loadUpdate=async()=>{
     // and the page opens in the theme the user is already in.
     if(preRel&&statusData)$('updTestsLink').href='https://tinymakerwifi.com/tests?lang=en&fw='+enc(statusData.firmwareVersion||'')+'&build='+enc(statusData.firmwareBuild||'')+'&theme='+(document.documentElement.getAttribute('data-theme')||'dark');
   }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
+  finally{verSnackDone();}
 };
 const installFirmware=async v=>{
   if(v&&updInstalledVer&&cmpVer(v,updInstalledVer)===0){msg('Version '+v+' is already installed.',true);return;}
