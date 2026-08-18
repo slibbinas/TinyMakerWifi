@@ -222,11 +222,32 @@ void refreshSdBackupCache() {
 }
 
 // Streaming part - called repeatedly with chunks of the multipart body
+/* „Kazkas man siuncia faila" - vienintelis budas ANTRAM irenginiui tai suzinoti.
+   Priimdamas baitus printeris didziaja laiko dali neatsakineja, bet tarpais tarp
+   gabalu speja atsakyti - ir iki siol tuose tarpuose sakydavo „Idle, laisvas".
+   Telefonas is to darydavo teisinga isvada apie neteisinga dalyka: zinute
+   „printeris neatsako" atsirasdavo, dingdavo ir vel atsirasdavo (V 08-19: tris
+   mirktelejimai; pedsakas rodo tris tylos-atsakymo ciklus).
+   Laiko zyme, o ne vien veliavele: nutrukus rysiui vidury siuntimo UPLOAD_FILE_END
+   niekada neateina, ir veliavele liktu kaboti amzinai. Penkios sekundes be gabalo
+   reiskia, kad siuntimo nebera. */
+uint32_t uploadRxAt = 0;        // millis() paskutinio priimto gabalo; 0 = nepriimam
+String   uploadRxName = "";
+
+bool uploadReceiving() {
+  return uploadRxAt != 0 && (uint32_t)(millis() - uploadRxAt) < 5000;
+}
+
 void handleUploadData() {
   HTTPUpload &up = server.upload();
 
   if (up.status == UPLOAD_FILE_START) {
-    modelName = safeModelName(up.filename);
+    /* Zymima IS KARTO ir net tada, kai ikelimas bus atmestas: kunas vis tiek
+       plaukia per tinkla, printeris vis tiek tyli, ir antram irenginiui tyla
+       atrodo lygiai taip pat. */
+    uploadRxAt = millis();
+    uploadRxName = safeModelName(up.filename);
+    modelName = uploadRxName;                    // ta pati reiksme, be antros alokacijos
     uploadPath = "/.tm_upload_" + String((uint32_t)millis()) + ".zip";
     uploadOk = false;
     uploadRejected = false;
@@ -263,6 +284,7 @@ void handleUploadData() {
     netProgressStart("Receiving model:", modelName.c_str());
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
+    uploadRxAt = millis();          // pries `uploadRejected`: baitai plaukia ir tada
     if (uploadRejected) return;
     if (uploadFile) uploadFile.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 262144) { // redraw every 256 KB - drawing while flash/SD writes run corrupts SPI pixels (orange streaks, user finding)
@@ -271,11 +293,16 @@ void handleUploadData() {
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
+    // Baitai baigesi - toliau snacka teisetai perima ISPAKAVIMAS (sdJob), tad
+    // „priimu" cia ir turi baigtis, kad dvi zinutes nesivarzytu del tos pacios
+    // vietos ekrane.
+    uploadRxAt = 0;
     if (uploadRejected) return;
     if (uploadFile) { uploadFile.close(); uploadOk = true; }
     DBG("Upload done: %u bytes\n", up.totalSize);
   }
   else if (up.status == UPLOAD_FILE_ABORTED) {
+    uploadRxAt = 0;
     if (uploadFile) uploadFile.close();
     SD.remove(uploadPath.c_str());
   }
@@ -2584,6 +2611,17 @@ void handleApiStatus() {
 #endif
   out += "\",\"busy\":";
   out += busy ? "true" : "false";
+  /* Priimamas failas. `busy` cia SAMONINGAI neliecamas: jis rakina spausdinimo
+     valdiklius ir jo prasme yra „sukasi spaudinys ar SD darbas", o priemimas trunka
+     sekundes ir baigiasi ispakavimu, kuris `busy` uzsideda pats. Antram irenginiui
+     uztenka atskiro zodzio - jis nieko nerakina, tik paaiskina tyla. */
+  out += ",\"receiving\":";
+  out += uploadReceiving() ? "true" : "false";
+  if (uploadReceiving() && uploadRxName.length()) {
+    out += ",\"receivingName\":\"";
+    out += jsonEscape(uploadRxName);
+    out += "\"";
+  }
   out += ",\"paused\":";
   out += print_paused ? "true" : "false";
   out += ",\"pausing\":";

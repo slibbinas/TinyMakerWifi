@@ -48,6 +48,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `canPause`, `canResume`, `canStop` | which controls are valid right now |
 | `phaseTotalMs`, `phaseElapsedMs` | live phase countdown (0 = unknown) |
 | `waitStage` | which *wait* the countdown belongs to, `""` for an ordinary layer phase (0.17). A stop or a pause is two waits, not one: `stopTail` (finishing the move that was in flight) then `stopLift` (the final platform lift), or `pauseWork` (finishing the layer) then `pauseLift`; plus `homingBack` (stop during homing) and `resume`. Clients that show a countdown should restart it when this value changes, and keep one message whose text follows the stage |
+| `receiving`, `receivingName` | someone is uploading a model right now (0.17). While bytes arrive the printer mostly cannot answer at all, so a second device could not tell a transfer from a dead printer and flickered its "not answering" line on and off. `receiving` goes false ~5 s after the last chunk, which also covers a connection that died mid-transfer. It locks nothing - `busy` keeps its meaning, and the unpack that follows sets that itself |
 | `layerHeight`, `dryRun` | active settings snapshot |
 | `resinSet` | `false` when no resin profile is selected — `/api/print/start` refuses with 409 until one is picked, so a client should disable its Start controls. Lives here rather than in `/api/config` on purpose: this is polled, so a second open dashboard learns about a deleted profile within one poll (0-16) |
 | `wifiRssi`, `wifiText`, `ip` | connectivity |
