@@ -101,7 +101,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      tad po juo niekas nebeplaukioja. Patikrinta ne grep'u, o tikru importu:
      slicer-2.0.0.js atiduoda visus 13 vardu, kuriuos sitas pultas kviecia
      (jis perduoda bazes API toliau). Keiciant versija uztenka sios eilutes. */
-  const SV='2.0.1';
+  const SV='2.0.2';
   slicerMod=await loadModule('slicer-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -225,7 +225,16 @@ const slicerRender=()=>{
       +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
   {const ab=document.querySelector("#gl3dTools [data-tool='detail']");
    if(ab)ab.classList.toggle('on',$('slicerAA').checked);}
-  if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed),slicerHome);
+  const home=slicerHome;
+  if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed),home);
+  /* Kadruojam PATI MODELI, ne visa gamybos turi. `gl3dMesh` savo „home" atstuma
+     skaiciuoja is modelio dydzio su atsarga (`size*2.6+28`), tad detale likdavo
+     maza kazkur narvo viduryje - lygiai taip, kaip perziuroje atrodo vaizdas SU
+     narvu. Ta pati perziura, narva nuemus, priartina prie paties daikto, ir
+     sliceryje reikia to paties: cia narvo isvis nera ko ziureti, o svarbus tik
+     daiktas (V 08-18). `gl3dFrameAll` skaiciuoja atstuma is lango proporciju,
+     tad daiktas uzima kadra, o ne jo kampeli. */
+  if(home&&window.gl3dFrameAll)gl3dFrameAll();
   slicerHome=false;
   slicerOwns(true);
   {const t=$('gl3dTools'); if(t)t.style.display='flex';}
@@ -271,6 +280,10 @@ $('slicerAutoFit').addEventListener('click',()=>{
     /* Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta,
        ir masteli - pranesimas kartotu tai, kas jau matosi (V 08-17). */
   }
+  /* Po autofito vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
+     sumazejo, tad senas zvilgsnis jam nebetinka - jis likdavo mazas lango viduryje
+     (V 08-18). Rankiniai posukiai kameros ir toliau neliecia. */
+  slicerHome=true;
   slicerRender();
 });
 $('slicerFlat').addEventListener('click',()=>{
