@@ -6221,8 +6221,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     return 0.05;
   };
 
+  /* Sluoksnio numeris BE zingsnio yra dviprasmis: peržiūroje jis skaiciuojamas
+     pagal printerio auksti (0,10 mm), sliceryje - pagal ta, kuriuo pjaustyta
+     (0,05 mm), tad tas pats taskas duoda 152 arba 302. Rasom zingsni salia. */
   const rowText=m=>'#'+m.n+' '+m.on+'  '+m.x+', '+m.y+', '+m.z+' mm'+
-    (m.layer?'  ~L'+m.layer:'')+(m.hMm===null?'':'  ('+m.hMm+' mm from bottom)');
+    /* `lm` zymes viduje, `layerMm` ataskaitos kopijoje - eilute piesiama is abieju. */
+    (m.layer?'  ~L'+m.layer+' @'+(m.lm||m.layerMm||'?')+' mm':'')+
+    (m.hMm===null?'':'  ('+m.hMm+' mm from bottom)');
 
   const draw=()=>{
     if(!panel)return;
@@ -6260,7 +6265,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       kind:'slicer-bug',
       at:new Date().toISOString(),
       mode:slicerHere()?'slicer':'preview',
-      markers:marks.map(m=>({n:m.n,on:m.on,x:m.x,y:m.y,z:m.z,hMm:m.hMm,layer:m.layer,text:m.text})),
+      markers:marks.map(m=>({n:m.n,on:m.on,x:m.x,y:m.y,z:m.z,hMm:m.hMm,layer:m.layer,layerMm:m.lm,text:m.text})),
       model:{name:sName()||'unknown',
              layers:(o&&o.layers)||null,
              layerMm:r2(layerMm()*1000)/1000||null,
@@ -6391,9 +6396,11 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     const m={n:marks.length+1,on:hit.on,
              x:r2(hit.x),y:r2(hit.y),z:r2(hit.z),
              hMm:hit.hMm===null?null:r2(hit.hMm),
+             lm:Math.round(lm*1000)/1000,
              layer:(hit.hMm===null||!lm)?null:Math.max(1,Math.round(hit.hMm/lm)+1),
              pos:{x:hit.x,y:hit.y,z:hit.z},text:''};
-    const t=prompt('#'+m.n+' '+m.on+' at '+m.x+', '+m.y+', '+m.z+' mm (~layer '+(m.layer||'?')+')\nWhat is wrong here?','');
+    const t=prompt('#'+m.n+' '+m.on+' at '+m.x+', '+m.y+', '+m.z+' mm'+
+      ' (~layer '+(m.layer||'?')+' at '+m.lm+' mm)\nWhat is wrong here?','');
     if(t===null)return;                       // atsisake - zymes nededam
     m.text=String(t).slice(0,200);
     marks.push(m);
