@@ -104,6 +104,12 @@ $('slicerToggle').addEventListener('click',async()=>{
   const SV='2.0.0';
   slicerMod=await loadModule('slicer-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js');
+  /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
+     `SV` konstanta. Skirtumas ne teorinis: modulis ateina is tinklo, narsykle gali
+     turėti sena kese, ir is pulto iki siol nebuvo kaip pasakyti, kuris algoritmas
+     veikia - sugaista du kartus per diena (V 08-18). */
+  {const e=$('slicerVer');
+   if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
                                   :'The slicer module could not be loaded.');
 });
