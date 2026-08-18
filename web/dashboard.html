@@ -4583,7 +4583,10 @@ const printWaitInfo=()=>{
      snacka issviesdavo is naujo: zmogus matydavo tris pranesimus vietoj vieno, ir
      pirmojo net nespedavo perskaityti. Vidines fazes jam nerupi - rupi „stabdo, liko
      tiek" (V 08-18). */
-  const stage=WAIT_STAGE_TEXT[s.waitStage||''];
+  /* Jei printeris etapo dar nepaskelbe (senesnis firmware arba apklausa pralenke
+     komandos atsakyma), imam ta, kuri pasake pati komanda - kitaip vienam laukimui
+     pamatytum tris skirtingus sakinius (auditas 08-18). */
+  const stage=WAIT_STAGE_TEXT[s.waitStage||'']||WAIT_STAGE_TEXT[cmdStage||''];
   if(printing&&stage&&(s.stopping||s.pausing||s.resuming))
     return {v:stage, tail:'', count:true};
   if(printing&&s.stopping)  return {v:'Stopping the print', tail:'', count:true};

@@ -1930,6 +1930,7 @@ bool requestPrintPause(String &error) {
   }
 
   screen1111();
+  const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
   current_state = 5;
   screen1111_state();
   screen1112();
@@ -1937,7 +1938,7 @@ bool requestPrintPause(String &error) {
   gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
   print_paused = true;
-  publishPauseEstimate();   // zr. Motor.ino - kiek dar iki apziuros aukscio
+  publishPauseEstimate(wasPhase);   // zr. Motor.ino - kiek dar iki apziuros aukscio
   return true;
 }
 
@@ -2548,10 +2549,10 @@ void handleApiStatus() {
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
   out.reserve(2368);   // 132 appends, polled mid-print; a failed one is silent
-                       // 0.17 auditas: pilnas atsakymas su ilgu modelio vardu
-                       // ir dervos profiliu peraugo 2048 - vienas augimas
-                       // realloc'u kas apklausa, o heap fragmentuojasi.
-                       // +64 uz „waitStage" (V 08-18).
+                       // Ismatuota 08-18: blogiausias realus atsakymas (100 simboliu
+                       // modelio vardas) ~1,8 KB, tad su atsarga - vienas augimas
+                       // reikstu realloc'a kas apklausa, o heap fragmentuojasi.
+                       // Perteklius atlaisvinamas iskart po issiuntimo.
   out += "\"firmwareVersion\":\"";
 #ifdef FIRMWARE_VERSION
   out += jsonEscape(FIRMWARE_VERSION);
@@ -2638,8 +2639,11 @@ void handleApiStatus() {
     // Etapo VARDAS (0.17, V 08-18): be jo pultas nezino, ar dar baigiamas judesys,
     // ar jau keliama plokste - o tai du skirtingi skaiciai ir du skirtingi sakiniai.
     // Tuscia = eiline sluoksnio faze (Curing/Lifting/Dropping).
+    // Vardas skelbiamas visada, kai printeris uzimtas - jis nepriklauso nuo to, ar
+    // etapas turi trukme. Nutraukus per ekspozicija judesio likutis yra 0 (ji
+    // nutruksta tuoj pat), o pranesimas vis tiek turi pasakyti, KURIS etapas bega.
     out += ",\"waitStage\":\"";
-    out += phased ? phaseWaitStage : "";
+    out += busy ? phaseWaitStage : "";
     out += "\"";
     out += ",\"phaseTotalMs\":";
     out += String((unsigned long)(phased ? phaseTotalMs : 0));

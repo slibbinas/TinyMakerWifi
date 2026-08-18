@@ -2953,11 +2953,12 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
-            if (current_state != 4 && current_state != 5) {   // zr. pakelima aukciau
-              phaseStartMs = millis();
-              phaseTotalMs = prevDropMs;
-              phaseWaitStage = "";
-            }
+            // Sargos cia NEREIKIA (ir jos buvimas melavo): `current_state` ka tik
+            // priskirtas 3 eilute aukciau, o pauze, paspausta leidziantis, savo
+            // ivertį paskelbia veliau - pauzes blokas guli TARP pakelimo ir sio.
+            phaseStartMs = millis();
+            phaseTotalMs = prevDropMs;
+            phaseWaitStage = "";
             unsigned long dropT0 = millis();
             #if ENABLE_NETWORK
             network_service_window(160);

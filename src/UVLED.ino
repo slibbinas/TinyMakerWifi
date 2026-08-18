@@ -129,6 +129,7 @@ void turn_on_LED(){
     }  
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11112){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
       current_state = 5;
       screen1111_state();
       screen1112();
@@ -136,7 +137,7 @@ void turn_on_LED(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
-      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
+      publishPauseEstimate(wasPhase);   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }   

@@ -194,6 +194,7 @@ void lift_print(){
     }  
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11112){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
       current_state = 5;
       screen1111_state();
       screen1112();
@@ -201,7 +202,7 @@ void lift_print(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
-      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
+      publishPauseEstimate(wasPhase);   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }   
@@ -304,6 +305,7 @@ void lower_print(){
     }  
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11112){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
       current_state = 5;
       screen1111_state();
       screen1112();
@@ -311,7 +313,7 @@ void lower_print(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
-      publishPauseEstimate();   // kada sustos apziurai - nuo pirmos sekundes
+      publishPauseEstimate(wasPhase);   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }
@@ -388,17 +390,22 @@ unsigned long exposureMsForLayer(int layer) {
   return (unsigned long)Regular_Exposure * 100UL;
 }
 
-void publishPauseEstimate() {
+void publishPauseEstimate(int fromPhase) {
+  /* `fromPhase` - kas vyko PASPAUDIMO metu (1 kuria, 2 kelia, 3 leidzia). Perduodam
+     argumentu, nes visi kvietejai pries tai jau pasistato „pauze" (5): skaityti
+     `current_state` cia reikstu skaityti savo pacio pakeitima, o abi sakos zemiau
+     niekada nesuveiktu - pauze per ekspozicija zadetu ~24 s vietoj ~40-60 s
+     (auditas 08-18). */
   long dtg = labs(stepper.distanceToGo());
   float sps = stepper.maxSpeed();
   unsigned long total = (dtg > 0 && sps > 1.0f)
                       ? (unsigned long)((float)dtg / sps * 1000.0f) : 0;   // einamasis judesys
-  if (current_state == 1) {
+  if (fromPhase == 1) {
     // Ekspozicija: jos likutis zinomas tiksliai, o po jos dar visas pakelimas.
     unsigned long el = millis() - phaseStartMs;
     if (phaseTotalMs > el) total += phaseTotalMs - el;
     total += prevLiftMs;
-  } else if (current_state == 3) {
+  } else if (fromPhase == 3) {
     // Leidziamasi: pauzes taskas ateina tik po KITO sluoksnio ekspozicijos ir pakelimo.
     total += exposureMsForLayer(current_layer + 1) + prevLiftMs;
   }
@@ -410,8 +417,9 @@ void publishPauseEstimate() {
   if (target > ceilSteps) target = ceilSteps;
   if (target > pos && fastSps > 1.0f)
     total += (unsigned long)((float)(target - pos) / fastSps * 1000.0f);
-  // prevLiftMs pirmame sluoksnyje dar 0 - tada pazadam maziau, nei bus. Tai saugi
-  // puse: pultas skaiciu numeta, kai jis persitempia, o ne rodo neigiama.
+  // prevLiftMs pirmame sluoksnyje (ir pirmame sluoksnyje po power-loss atkurimo,
+  // kur jis neatstatomas) dar 0 - tada pazadam maziau, nei bus. Tai saugi puse:
+  // pultas skaiciu numeta, kai jis persitempia, o ne rodo neigiama.
   phaseStartMs = millis();
   phaseTotalMs = total;
   phaseWaitStage = "pauseWork";
@@ -451,8 +459,11 @@ void lift_finished_print(){
     phaseStartMs = millis();
     phaseTotalMs = (stepsToGo > 0 && stepsPerSec > 1.0f)
                  ? (unsigned long)((float)stepsToGo / stepsPerSec * 1000.0f) : 0;
-    // Baigtam spaudiniui vardo neduodam: ten „Finished · Ns" ir taip pasako viska.
-    if (print_canceled) phaseWaitStage = "stopLift";
+    // Vardas nustatomas VISADA: baigtam spaudiniui tuscias („Finished · Ns" ir taip
+    // pasako viska), o nutrauktam - antrasis stabdymo etapas. Salyginis priskyrimas
+    // paliko „pauseWork" kabėti per visa pakelima, jei pauze buvo paspausta
+    // paskutiniame sluoksnyje - ir API klientai gaudavo mela (auditas 08-18).
+    phaseWaitStage = print_canceled ? "stopLift" : "";
   }
   unsigned long lastHttpSvc = millis();
   while (stepper.distanceToGo()!= 0){
