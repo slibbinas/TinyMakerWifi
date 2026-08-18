@@ -259,6 +259,29 @@ const dist3d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
    ir tikrina tik juos. Tikras BVH būtų greitesnis, bet čia užtenka: modelis
    telpa į 40×30 mm, o langelių tinklelis jį suskaido į šimtus dalių. */
 class MeshIndex {
+  /* PATIKRINTA IR ATMESTA (2026-08-19): langelis 0,5 mm ir Z ribų filtras.
+
+     Atrodė akivaizdu: langelį surandam per O(1), bet paskui tikrinam VISUS jo
+     trikampius, o jų biuste yra 2744 (matuota `slicer-lab/gardele.mjs`):
+
+       langelis   gardelė   trikampių langelyje   įrašų
+       2,0 mm     14×14     2744                  355k
+       0,5 mm     52×50      274                  555k
+       0,25 mm   102×99      115                  899k
+
+     Padaryta, išmatuota - ir greitis NEPASIKEITĖ: biustas 59,7 -> 61,1 s,
+     puodelis 1,05 -> 1,20 s (stulpelių skaičius tas pats, tad tik kaina).
+
+     Profilis (`node --cpu-prof` + `slicer-lab/prof.mjs`) pasakė kodėl:
+     **ray casting yra mažiau nei 0,8 % laiko** - `rayHit`/`triHit` net
+     nepatenka į top 18. 71,3 % suvalgo Clipper (`ProcessIntersections` 24,7 %,
+     `ProcessEdgesAtTopOfScanbeam` 18,7 %), kviečiamas iš `samplePointsFromLayers`
+     kiekvienam sluoksniui. Vadinasi nieko neduotų nei BVH, nei smulkesnė
+     gardelė, nei Z filtras.
+
+     Pamoka bendresnė už šitą vietą: diagnozė buvo daroma iš samprotavimo
+     („93,5 % atramų paieškoje, vadinasi ray casting"), o profilis kainavo dvi
+     minutes ir apvertė viską. Pirma profiliuoti, tada optimizuoti. */
   constructor(pos, cell = 2.0) {
     this.pos = pos;
     this.cell = cell;
