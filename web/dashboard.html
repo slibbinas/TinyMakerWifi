@@ -2396,7 +2396,7 @@ const refreshStatus=async()=>{
        tad apklausos tarp ju krinta. Ekrane tuo metu jau sukasi „Preloading detailed
        view 170/240", o snackas sakydavo „Printer not answering - an upload, share or
        other background job..." - t. y. pultas skusdavosi PATS ANT SAVES. */
-    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy){}
+    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy){}
     else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
@@ -3490,6 +3490,14 @@ const unpackSlices=buf=>{
   }
   return {slices,gw,gh,modelH,layers};
 };
+/* Kesa i printeri siunciam MES patys, fone, tuoj po perziuros pastatymo - ir tai
+   uztrunka kelias sekundes, per kurias printeris neatsakineja. Be sios zymes pultas
+   tuo metu raso „Printer not answering - an upload, share or other background job..."
+   apie SAVE: V matė ji kaip blyksni pabaigoje, ka tik issaugojus is slicerio, ir
+   pirmas spėjimas (sliceris) buvo ne tas - kaltas buvo sitas siuntimas (ismatuota
+   08-18). Atskira zyme, o ne `setPreviewBusy`: pastaroji dar ir prigesina korteles
+   mygtukus, o cia zmogui nieko rodyti nereikia - tik nutildyti apklausa. */
+let sliceCacheBusy=false;
 const saveSlicesToPrinter=async name=>{
   try{
     if(statusData&&statusData.busy)return;      // SD priklauso spaudiniui
@@ -3502,8 +3510,11 @@ const saveSlicesToPrinter=async name=>{
     const fd=new FormData();
     const hi=cacheIsDetail()?'&hi=1':'';
     fd.append('file',new Blob([packSlices()]),'slices.tmv');
-    await fetch('/api/files/model/slices?name='+enc(name)+hi,
-                {method:'POST',body:fd,headers:{'X-TinyMaker':'1'}});
+    sliceCacheBusy=true;
+    try{
+      await fetch('/api/files/model/slices?name='+enc(name)+hi,
+                  {method:'POST',body:fd,headers:{'X-TinyMaker':'1'}});
+    }finally{ sliceCacheBusy=false; }
   }catch(e){}
 };
 const loadSlicesFromPrinter=async(name,onProg)=>{
