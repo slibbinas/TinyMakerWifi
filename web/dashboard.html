@@ -2374,10 +2374,16 @@ const refreshStatus=async()=>{
        zmogui tai mirksejimas kas dvi sekundes (V 08-18, mano paties ikelimas).
        Savininkai: `deleteBusy`/`uploadBusy` - siame lange pradetas darbas; `sdJobCur` -
        printerio SD darbas (gali buti ir svetimas, is PrusaSlicer); `printWaitCur` -
-       laukiamas stop/pause. Visi jie snacka piesia patys ir daznesniu ritmu.
+       laukiamas stop/pause; `previewBusy` - perziuros siurbimas ir piesimas.
+       Visi jie snacka piesia patys ir daznesniu ritmu.
        Kaip tik tokiu metu apklausos ir krinta: printeris neatsakineja, kol priima
-       baitus arba ispakuoja - tad tyla cia yra taisykle, ne isimtis. */
-    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur){}
+       baitus arba ispakuoja - tad tyla cia yra taisykle, ne isimtis.
+       `previewBusy` (V 08-18, kadras): atidarius modeli „Detailed" rezimu pultas
+       siurbia sluoksnius po viena - printeris aptarnauja viena uzklausa vienu metu,
+       tad apklausos tarp ju krinta. Ekrane tuo metu jau sukasi „Preloading detailed
+       view 170/240", o snackas sakydavo „Printer not answering - an upload, share or
+       other background job..." - t. y. pultas skusdavosi PATS ANT SAVES. */
+    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy){}
     else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
