@@ -1323,6 +1323,14 @@ const uploadFixedThumb=async(name,type)=>{
    ikelimas), cia iraso zmogiska jo pavadinima - tada tyla paaiskinama tiksliai, o ne
    spejant (V 08-13). Tuscia = nezinom, kas vyksta. */
 let bgJob='';
+/* „Printeris neatsako" laikomas, kol ateis SEKMINGA apklausa (V 08-18, A variantas).
+   Iki tol jis buvo iprastas 6 s ispejimas ir sugrizdavo tik po NAUJOS nepavykusios
+   apklausos - tad per svetima darba (kito lango sliceris, sluoksniu siurbimas, mazas
+   failas) printeriui spejus atsakyti pranesimas dingdavo, nors darbas tesesi: kitame
+   irenginyje matei uzrakintus mygtukus be jokio paaiskinimo (ismatuota dviem langais).
+   Laikom teksta, o ne vien zyme: kai apklausa pagaliau pavyksta, nuimam TIK ta pati
+   sakini - jei tuo metu snacka jau perėmė kas kita (SD darbas, laukimas), jo neliesk. */
+let pollWarnTxt='';
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0,lastSdRev=null;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
@@ -2362,6 +2370,11 @@ const refreshStatus=async()=>{
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
     statusFailCount=0;
+    if(pollWarnTxt){
+      const e=$('statusMsg');
+      if(e.textContent===pollWarnTxt)msg('',false);
+      pollWarnTxt='';
+    }
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
     if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&!sdJobCur&&(!msg._until||Date.now()>=msg._until))msg('',false);
@@ -2400,9 +2413,12 @@ const refreshStatus=async()=>{
     /* Ruosdami spaudini printeri uzimam MES, ir tai jau parasyta busenos langelyje -
        snackas apie „neatsako" cia tik kartotu ta pati kita forma (V 08-17) - todel
        `startBusy` guli auksciau, tarp snacko savininku. */
-    else if(statusFailCount>=1)msg(bgJob
-      ?(bgJob+' - the printer stops answering until it finishes.')
-      :'Printer not answering - an upload, share or other background job is probably holding it, or it is offline.',true);
+    else if(statusFailCount>=1){
+      pollWarnTxt=bgJob
+        ?(bgJob+' - the printer stops answering until it finishes.')
+        :'Printer not answering - an upload, share or other background job is probably holding it, or it is offline.';
+      msg(pollWarnTxt,true,true);   // lipnus: nuimsim, kai printeris atsakys
+    }
   }finally{statusInFlight=false;}
 };
 
