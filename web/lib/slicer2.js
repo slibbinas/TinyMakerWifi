@@ -145,6 +145,12 @@ export const CFG = {
      nei 2 × base_radius IR 3D atstumas mažesnis nei max_bridge_length
      (DefaultSupportTree.cpp:565-571). */
   cluster_size:          3,     // = max_bridges_on_pillar
+  /* KAMIENAS (V, 2026-08-18): vienas kamienas aptarnauja kelis taskus, o sakos
+     issiskiria virsuje. Buvo 2*base_radius = 3 mm, ir kiekvienas taskas toliau
+     nei 3 mm gaudavo SAVO stulpa iki ploksTes - gaudavosi misTkas atskiru koju.
+     Ismatuota: kronsteinui stulpu 15 -> 7, t.y. tiek pat, kiek PrusaSlicer. */
+  trunk_cluster_xy_mm:   6.0,
+  trunk_cluster_size:    4,
   pillar_cascade_neighbors: 3,  // kiek kaimynų vienas stulpas jungia
   /* SupportTree.hpp:112-113 — nuo šių aukščių stulpas laikomas „vienišu" ir
      jungčių skaičiavimas griežtėja. */
@@ -680,10 +686,17 @@ function clusterHeads(heads, cfg) {
   for (let i = 0; i < heads.length; i++) {
     if (used[i]) continue;
     const cl = [i]; used[i] = true;
-    for (let j = i + 1; j < heads.length && cl.length <= cfg.cluster_size; j++) {
+    const clMax = cfg.trunk_cluster_size || cfg.cluster_size;
+    for (let j = i + 1; j < heads.length && cl.length <= clMax; j++) {
       if (used[j]) continue;
       const a = heads[i].junction, b = heads[j].junction;
-      if (dist2d(a, b) < 2 * cfg.base_radius_mm &&
+      /* KAMIENAS (V, 08-18): vienas kamienas aptarnauja keli taskus, o sakos
+         issiskiria virsuje. Buvo 2*base_radius = 3 mm - tokia ankSta riba
+         reiskia, kad kiekvienas taskas toliau nei 3 mm gauna SAVO stulpa iki
+         ploksTes, ir gaunasi misTkas atskiru koju vietoj santvaros.
+         Sakos ilgi vis tiek riboja `max_bridge_length` (10 mm) ir kolizijos. */
+      const xyRiba = cfg.trunk_cluster_xy_mm || 2 * cfg.base_radius_mm;
+      if (dist2d(a, b) < xyRiba &&
           dist3d(a, b) < cfg.max_bridge_length_mm) { cl.push(j); used[j] = true; }
     }
     out.push(cl);
@@ -1348,7 +1361,15 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   for (const i of order) {
     await atodusis();   // narvo rizimas: kiekvienas stulpas su kaimynais
     const A = pillars[i];
-    if (A.links >= cfg.pillar_cascade_neighbors) continue;
+    /* SANTVARA (V, 08-18): atplesimas kuria ir SONINE (shear) jega, ir del jos
+       aukSti siauri elementai be istrizu atramu pasisuka. Todel jungciu riba
+       nebegali buti vienoda 2 mm ir 15 mm stulpui: aukstas gauna daugiau.
+       Riba auga tolygiai nuo `pillar_cascade_neighbors` iki dvigubos ties
+       `max_solo_pillar_height` (nuo jo stulpas laikomas „vienisu"). */
+    const hA = A.top - A.bottom;
+    const kaimynu = Math.round(cfg.pillar_cascade_neighbors *
+          (1 + Math.min(1, hA / Math.max(1e-6, cfg.max_solo_pillar_height_mm))));
+    if (A.links >= kaimynu) continue;
     const maxD = cfg.max_pillar_link_distance_mm *
                  (A.rTop || cfg.pillar_radius_mm) / cfg.head_back_radius_mm;
     const near = [];
@@ -1359,7 +1380,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     }
     near.sort((a, b) => a.d - b.d);
     for (const { j, d } of near) {
-      if (A.links >= cfg.pillar_cascade_neighbors) break;
+      if (A.links >= kaimynu) break;
       const key = i < j ? i + ':' + j : j + ':' + i;
       if (donePairs.has(key)) continue;
       const B = pillars[j];
@@ -2094,10 +2115,24 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                (Gemini, 08-15) siūlo 0,15 mm — TIKRINAMA. */
             const selfSup = cfg.self_support_mm || (LAYER_MM / Math.tan(cfg.critical_angle));
             const thinOut = new CL.ClipperOffset();
-            for (const oex of toExPolys(CL, over))
+            const pilnas = [];                     // sritis PRIES suplonima
+            for (const oex of toExPolys(CL, over)) {
               thinOut.AddPaths(oex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
-            const solid = new CL.Paths();
+              for (const pth of oex) pilnas.push(pth);
+            }
+            let solid = new CL.Paths();
             thinOut.Execute(solid, -selfSup / 2 * SCALE);
+            /* SIAURA JUOSTA NEISNYKSTA (2026-08-18). Suplonimas per selfSup/2
+               istrindavo VISKA, kas siauriau uz savilaikio riba, ir konturo
+               taskai is tokiu vietu nebeatsirasdavo - patikrinta skaitikliais:
+               ties 1,5 mm konturo seja duodavo NULI tasku, o visos atramos
+               susitelkdavo prie triju dulkiu, kurias mato salu kelias.
+               Savilaikio riba turi SPRESTI, ar juostai reikia atramos (tai daro
+               `landTol` filtras zemiau), o ne istrinti ja is zemelapio dar pries
+               klausiant. Placioms juostoms niekas nesikeicia - joms suplonimas
+               palieka turini. */
+            if (solid.length === 0 && pilnas.length)
+              solid = pilnas;
             const raw = [];
             let region = null;          // pilno pločio nuokabos sritis — jos reikia
             if (solid.length) {         // atitraukimui po „sausumos" filtro
@@ -2337,7 +2372,16 @@ export function braceDiscs2(braces, z, cfg = CFG) {
         r = cfg.head_front_radius_mm +
             (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * (left / cfg.head_width_mm);
     }
-    out.push({ x: c.ax + (c.bx - c.ax) * t, y: c.ay + (c.by - c.ay) * t, r });
+    /* ELIPSE istrizai jungciai (V, 08-18). Horizontalus istrizo strypo pjuvis
+       yra elipse: mazoji pusase r, didzioji r/|dz|, pasukta pagal jungties
+       krypti. Vertikaliam strypui dz=1 ir elipse tampa apskritimu. Riba x4,
+       kad beveik horizontali jungtis nenupieStu juostos per visa plokste. */
+    const dx = c.bx - c.ax, dy = c.by - c.ay, dz = c.z1 - c.z0;
+    const L = Math.hypot(dx, dy, dz) || 1;
+    const nz = Math.abs(dz) / L;
+    const a = nz > 1e-3 ? Math.min(r / nz, r * 4) : r * 4;
+    out.push({ x: c.ax + dx * t, y: c.ay + dy * t, r,
+               a, ang: Math.atan2(dy, dx) });
   }
   return out;
 }

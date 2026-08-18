@@ -618,6 +618,25 @@ function drawDiscs(discs, grey) {
   for (const d of discs) {
     const cx = (d.x + PLATE.x / 2) * sx, cy = (d.y + PLATE.y / 2) * sy;
     const r = d.r * (sx + sy) / 2, r2 = r * r;
+    /* ISTRIZO STRYPO PJUVIS - ELIPSE, ne apskritimas (V, 08-18: „turi gautis
+       kaip du istrizai nupjauti ir sujungti pagaliukai, o ne sijonas uzmautas
+       ant pagalio"). Vertikaliam strypui elipse issigimsta i apskritima, tad
+       stulpams niekas nesikeicia; istrizai jungciai didzioji pusase r/|dz|. */
+    const a = d.a ? d.a * (sx + sy) / 2 : r;
+    if (d.a && a > r * 1.02) {
+      const ca = Math.cos(d.ang || 0), sa = Math.sin(d.ang || 0);
+      const rad = Math.max(a, r);
+      const x0 = Math.max(0, Math.floor(cx - rad)), x1 = Math.min(W - 1, Math.ceil(cx + rad));
+      const y0 = Math.max(0, Math.floor(cy - rad)), y1 = Math.min(H - 1, Math.ceil(cy + rad));
+      for (let y = y0; y <= y1; y++) {
+        const dy = y + 0.5 - cy;
+        for (let x = x0; x <= x1; x++) {
+          const dx = x + 0.5 - cx;
+          const u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+          if ((u * u) / (a * a) + (v * v) / r2 <= 1) grey[y * W + x] = 1;
+        }
+      }
+    } else {
     const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r));
     const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(H - 1, Math.ceil(cy + r));
     for (let y = y0; y <= y1; y++) {
@@ -626,6 +645,7 @@ function drawDiscs(discs, grey) {
         const dx = x + 0.5 - cx;
         if (dx * dx + dy * dy <= r2) grey[y * W + x] = 1;
       }
+    }
     }
     // A tip narrower than one pixel would otherwise vanish: never let it.
     const ix = Math.floor(cx), iy = Math.floor(cy);
