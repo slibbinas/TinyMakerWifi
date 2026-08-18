@@ -4558,7 +4558,11 @@ const renderStateValue=()=>{
      paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
   if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Processing files');return;}
   let t=statusData?statusData.state:'-';
-  if(statusData&&statusData.busy&&phaseRx){
+  /* Tas pats skaicius nerodomas dviejose vietose vienu metu: kol kabo laukimo
+     pranesimas (pauze, tesimas, stabdymas), jis ir tiksi, o busenos eilute palieka
+     tik pavadinima. Sluoksnio fazes (Curing/Lifting/Dropping) skaiciu islaiko -
+     ten jokio pranesimo nera ir eilute yra vienintele vieta (V 08-18). */
+  if(statusData&&statusData.busy&&phaseRx&&!printWaitCur){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
     // A little over is normal (the estimate is last layer's measurement);
     // way over means the prediction is off - drop the number, keep the state.
