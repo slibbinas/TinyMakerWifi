@@ -101,7 +101,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      tad po juo niekas nebeplaukioja. Patikrinta ne grep'u, o tikru importu:
      slicer-2.0.0.js atiduoda visus 13 vardu, kuriuos sitas pultas kviecia
      (jis perduoda bazes API toliau). Keiciant versija uztenka sios eilutes. */
-  const SV='2.0.0';
+  const SV='2.0.1';
   slicerMod=await loadModule('slicer-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
