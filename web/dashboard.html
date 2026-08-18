@@ -58,6 +58,15 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    pats triukas, kaip SD sarase, kur vardas stipresnis uz dydi salia. */
 #statusMsg .snackLbl{opacity:.7;font-weight:600}
 #statusMsg .snackName{font-weight:800;letter-spacing:.1px}
+/* Antra eilute - kur ziureti tikros eigos. Mazesne ir prislopinta: tai ne antras
+   pranesimas, o prierasas prie pirmo. */
+#statusMsg .snackSub{display:block;font-size:12.5px;font-weight:600;opacity:.65;margin-top:3px}
+/* Nezinomos trukmes juostele: slenkantis ruozelis. Rodo VIENINTELI dalyka, kuri
+   siunciant tikrai zinom - kad dar dirbam. Skaicius (sekundes, megabaitai) cia butu
+   melas: baitu skaitliukas rodo kompiuterio buferi, ne printerio priimta dali
+   (V 08-18: „kam tos sekundes"). */
+#statusMsg .snackBar.indet>span{width:34%;transition:none;animation:snackIndet 1.15s ease-in-out infinite}
+@keyframes snackIndet{from{transform:translateX(-105%)}to{transform:translateX(300%)}}
 /* Tuscias skaiciaus langelis ploćio NEBEPASILAIKO: telefone jis atimdavo 8,5 em is
    ir taip siauro pranesimo, o tekstas susitraukdavo iki ilgiausio zodzio ir lipdavo
    po viena zodi eiluteje (V 08-18, 375 px: pranesimas 235 px, tekstui liko 62 px).
@@ -900,7 +909,7 @@ const snackCentre=e=>{e.style.top=Math.round((innerHeight-e.offsetHeight)/2)+'px
 /* Snacko tekstas dviem gabalais: sakinys ir vardas. Vardas atrodo kitaip, tad
    „Uploading" ir „ring.zip" nebesusilieja i viena juosta (V 08-18). Kur vardo nera,
    paduodamas paprastas tekstas - viskas kaip anksciau. */
-const jobText=(lbl,name)=>({lbl:lbl,name:name});
+const jobText=(lbl,name,sub)=>({lbl:lbl,name:name,sub:sub||''});
 const jobPlain=t=>typeof t==='string'?t:(t.lbl+t.name);
 const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
   const e=$('statusMsg');
@@ -941,7 +950,8 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
     const el=e.querySelector('.snackTxt');
     if(typeof txt==='string')el.textContent=txt;
     else el.innerHTML="<span class='snackLbl'>"+esc(txt.lbl)+"</span>"+
-                      "<span class='snackName'>"+esc(txt.name)+"</span>";
+                      "<span class='snackName'>"+esc(txt.name)+"</span>"+
+                      (txt.sub?"<span class='snackSub'>"+esc(txt.sub)+"</span>":"");
   }
   // Centruojam PO teksto (kad aukstis butu tikras) ir tik pirma karta - vieta
   // prisegama visam laukimui. Isemus si kvietima visai, snackas likdavo ten, kur ji
@@ -954,8 +964,13 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
      dar issprusdavo - ir atrode kaip antras, nieko nesakantis skaicius (V 08-18).
      Procentai lieka tik skaiciuojamiems darbams (baitai, failai, sluoksniai). */
   if(p)p.textContent=(total>0)?(num(done)+'/'+num(total)+' · '+pct+' %'):(extra||'');
-  if(b)b.style.width=(pct>=0?pct:0)+'%';
-  if(b)b.parentNode.style.display=(pct>=0?'':'none');   // trukmes nezinom - juosteles nera
+  /* `barPct==='indet'` - trukmes nezinom, bet darbas tikrai vyksta: juostele lieka,
+     tik joje slenka ruozelis. Tuscia vieta butu sakiusi „nieko nevyksta". */
+  const indet=barPct==='indet';
+  if(b)b.parentNode.classList.toggle('indet',indet);
+  if(b&&!indet)b.style.width=(pct>=0?pct:0)+'%';
+  if(b&&indet)b.style.width='';
+  if(b)b.parentNode.style.display=(pct>=0||indet?'':'none');   // trukmes nezinom - juosteles nera
 };
 const snackProgressClear=()=>{
   const e=$('statusMsg');
@@ -1094,41 +1109,30 @@ const updateSdUsage=d=>{
   sdFooterSync();
 };
 const uploadWithProgress=(fd,hintEl,label)=>{
-  const started=Date.now();
-  let lastLoaded=0,total=0,sentAt=0;
   const render=()=>{
-    // Body fully sent = the printer is unpacking the archive to SD (big models
-    // take minutes) - say so instead of a frozen "Uploading 100%". The layer
-    // count only exists on the printer's own screen: unpacking runs inside the
-    // /upload handler, so the ESP cannot answer /api/status until it is done.
-    // The timer is the proof-of-life; the real progress is one glance away.
     /* Eiga - i SNACKA, ne i SD korteles eilute: ten ji buvo isblukusia „hint" spalva
        ir jos niekas nepastebedavo (V 08-14). Kortelėje lieka tik statinis sakinys. */
-    const nm=shortName(label||'the model');
-    /* Sakom tik tai, ka tikrai zinom: SIUNCIAM. Anksciau nuo `upload.onload` cia
-       buvo rasoma „Unpacking ... on the printer", bet tas ivykis reiskia tik tiek,
-       kad baitus prarijo KOMPIUTERIO buferis. Ismatuota 08-18 pačiame printeryje:
-       1552 KB „isejo" per 114 ms, o tikras siuntimas truko 6,9 s - tad printerio
-       ekrane dar „Receiving...", o pultas jau skelbdavo ispakavima (V radinys).
-       Tikras ispakavimas ateina is printerio busenos (`renderSdJob`) - kai jis pats
-       taip pasako. Baigus baitus lieka tas pats sakinys, tik desineje - praejes
-       laikas: skaicius, kuris nesuges. */
-    if(sentAt){
-      snackProgress(jobText('Uploading ',nm),-1,-1,formatShortTime(Date.now()-started));
-      hintEl.textContent='SD actions come back when it finishes.';
-      return;
-    }
-    const elapsed=Date.now()-started;
-    const speed=elapsed>0?formatBytes(lastLoaded/(elapsed/1000))+'/s':'-';
-    snackProgress(jobText('Uploading ',nm),lastLoaded,total,speed,formatBytes);
+    /* Nei sekundziu, nei megabaitu - abu skaiciai butu netikri (V 08-18: „kam tos
+       sekundes"). Baitu skaitliukas rodo KOMPIUTERIO buferi: ismatuota siunciant i
+       si printeri - 1552 KB „isejo" per 114 ms, o visas siuntimas truko 6,9 s, tad
+       juostele soktelėtu i 40 % ir sustotu. Sekundes gi nieko nesprendzia: nezinom,
+       kiek ju dar bus. Anksciau nuo `upload.onload` cia dar buvo rasoma „Unpacking
+       ... on the printer" - tas ivykis reiskia tik tiek, kad baitus prarijo buferis,
+       tad printerio ekrane tebebuvo „Receiving", o pultas jau skelbdavo ispakavima
+       (V radinys). Dabar: judanti juostele („dar dirbam") ir prierasas, kur eiga
+       tikra - printerio ekrane ja skaiciuoja pats printeris. Ispakavima paskelbia
+       printerio busena (`renderSdJob`), kai jis pats taip pasako. */
+    snackProgress(jobText('Uploading ',shortName(label||'the model'),
+                          'Progress shows on the printer screen'),-1,-1,'',null,'indet');
     hintEl.textContent='SD actions come back when it finishes.';
   };
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
+    /* Juostele juda pati (CSS), tad perpiesimo del jos nereikia - sis laikrodis
+       liko tik tam, kad snackas atsirastu ir tada, kai nei vieno `progress` ivykio
+       taip ir nebuvo (mazi failai isvaziuoja vienu gabalu). */
     const timer=setInterval(render,500);
     xhr.open('POST','/upload');
-    xhr.upload.onprogress=e=>{lastLoaded=e.loaded||lastLoaded;total=e.lengthComputable?e.total:total;render();};
-    xhr.upload.onload=()=>{sentAt=Date.now();render();};
     xhr.onload=()=>{
       clearInterval(timer);
       let j={};try{j=JSON.parse(xhr.responseText||'{}');}catch(e){}
