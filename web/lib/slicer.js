@@ -346,6 +346,42 @@ export const RES = { w: 320, h: 240 };
    being visible on this display and more stops paying for itself. */
 const SUB = 3;
 
+/* Dvi ribos, kurios atrodo kaip viena, ir todėl jas reikia laikyti atskirai.
+
+   AA_FLOOR — žemiausias PILKUMAS, kurį verta siųsti į ekraną. Tai dervos ir
+   ekrano faktas, ne mūsų pasirinkimas: žemiau gelio taško UV doza nesukietina
+   nieko, tik palieka nesusipolimerizavusius likučius (UVtools tai vadina
+   „floating partial cured bits and milky stuff"). Jų išmatuota riba mono LCD
+   ekranams — apie 160 iš 255, ir jie sako, kad naudinga tik pusė skalės.
+   MŪSŲ SKAIČIUS KITAS ir kol kas NEŽINOMAS: jų geležis mono LCD su 2–3 s
+   ekspozicija, mūsų — spalvotas IPS TFT su ~14 s. Doza = pilkumas × laikas.
+   Kol neišmatuota kuponu — nulis, t. y. elgiamės lygiai taip, kaip iki šiol.
+
+   AA_CUT — kiek GEOMETRIJOS per maža, kad būtų verta spausdinti. Tai jau mūsų
+   pasirinkimas, ir jis išvedamas, ne parenkamas: reikalaujam, kad vidutinė
+   krašto padėtis nepasislinktų. Tolygiai pasiskirsčius dengimui tai duoda
+   cut = f/(1+f). Be šito atskyrimo paprastas apkirpimas tyliai siaurina detalę
+   (~16 µm kiekvienam kraštui ties f=0,5 — sienelė plonesnė 32 µm).
+
+   ⚠️ Ekranas piešiamas per draw16bitRGBBitmap (RGB565), tad realių pilkumo
+   lygių yra ~32, ne 256. AA_FLOOR turi būti 8 kartotinis — kitaip ekrane
+   atsiduria ne tas skaičius, kurį čia parašėm. */
+export const AA_FLOOR = 0;
+
+/** Dengimas 0..1 → pilkumo baitas 0..255. floor=0 grąžina lygiai tą patį, ką
+ *  darė kodas iki šio jungiklio (tai regresijos sąlyga, ne sutapimas). */
+export function greyMapper(floor) {
+  const f = Math.min(254, Math.max(0, floor | 0));
+  if (!f) return c => (c > 1 ? 255 : (c * 255) | 0);
+  const cut = (f / 255) / (1 + f / 255);
+  const span = 255 - f, scale = 1 / (1 - cut);
+  return c => {
+    if (c < cut) return 0;
+    if (c > 1) return 255;
+    return (f + span * (c - cut) * scale) | 0;
+  };
+}
+
 /** Segments where triangles cross plane z. Each is [x0,y0,x1,y1] in mm,
  *  pointing so that solid is always on its left — the triangle's own normal
  *  decides which way that is. The fill below counts on that direction; without
@@ -1565,7 +1601,7 @@ export function mirrorX(grey, w = RES.w, h = RES.h) {
   return grey;
 }
 
-export function layerMask(pos, z, sup) {
+export function layerMask(pos, z, sup, aaFloor) {
   const grey = new Float32Array(RES.w * RES.h);
   const seg = [];
   sliceAt(pos, z, seg);
@@ -1592,8 +1628,15 @@ export function layerMask(pos, z, sup) {
   const padL = (sup && sup.padLayers) || SUP.padLayers;
   if (sup && sup.pad && layer < padL)
     for (let p = 0; p < sup.pad.length; p++) if (sup.pad[p]) grey[p] = 1;
+  /* Baitas skaičiuojamas TA PAČIA funkcija kaip slice(). Iki 08-19 čia stovėjo
+     `Math.round(grey*255)`, o slice() apvalindavo žemyn — tad laboratorija
+     matavo ne tą pikselį, kurį printeris gauna. Skirtumas buvo vieno baito, bet
+     su pilkumo grindimis jis būtų virtęs tuo, kad matavimai apkirpimo apskritai
+     nemato. Trečias kartas, kai šitos dvi vietos prasilenkia (diskai 08-13,
+     padas 08-15) — todėl dabar viena funkcija abiem. */
+  const toByte = greyMapper(aaFloor != null ? aaFloor : AA_FLOOR);
   const out = new Uint8Array(RES.w * RES.h);
-  for (let i = 0; i < out.length; i++) out[i] = Math.min(255, Math.round(grey[i] * 255));
+  for (let i = 0; i < out.length; i++) out[i] = toByte(grey[i]);
   return mirrorX(out);          // tai, kas spausdinama, o ne modelio vaizdas
 }
 
@@ -1640,6 +1683,9 @@ export function zipStore(files) {          // [{name, data:Uint8Array}]
  */
 export async function slice(pos, opts, onProgress) {
   const aa = opts && opts.antialias !== false;
+  /* Pilkumo grindys paduodamos iš šalies, kad stendas galėtų jas prasukti per
+     visą skalę neperrašinėdamas modulio. Nepaduota — AA_FLOOR. */
+  const toByte = greyMapper(opts && opts.aaFloor != null ? opts.aaFloor : AA_FLOOR);
   const b = bounds(pos);
   const layers = Math.max(1, Math.ceil(b.size[2] / LAYER_MM));
 
@@ -1722,11 +1768,13 @@ export async function slice(pos, opts, onProgress) {
     for (let y = 0; y < RES.h; y++) {
       const row = y * RES.w;
       for (let x = 0; x < RES.w; x++) {
-        let v = grey[row + x]; if (v > 1) v = 1;
-        const g = (v * 255) | 0;
+        const g = toByte(grey[row + x]);
         const q = (row + (MIRROR_X ? RES.w - 1 - x : x)) * 4;
         img.data[q] = g; img.data[q + 1] = g; img.data[q + 2] = g; img.data[q + 3] = 255;
-        lit += v;
+        /* Dervos įvertis skaičiuojamas iš to, kas IŠEINA į ekraną, ne iš
+           geometrinio dengimo — kitaip po grindų įvedimo jis rodytų medžiagą,
+           kurios niekas nesukietins. */
+        lit += g / 255;
       }
     }
     whiteSum += lit / grey.length;
@@ -1735,7 +1783,9 @@ export async function slice(pos, opts, onProgress) {
       for (let y = 0; y < RES.h; y++) {
         const row = ((y * PH / RES.h) | 0) * PW;
         for (let x = 0; x < RES.w; x++)
-          if (grey[y * RES.w + x] > 0.5) c[row + ((x * PW / RES.w) | 0)] = 1;
+          // Peržiūra rodo tą pačią skalę, kurią gaus ekranas — kitaip vaizde
+          // liktų forma, kurios spaudinyje nebus.
+          if (toByte(grey[y * RES.w + x]) > 127) c[row + ((x * PW / RES.w) | 0)] = 1;
       }
       preview.push(c);
     }
