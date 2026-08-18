@@ -2339,10 +2339,17 @@ const refreshStatus=async()=>{
   }catch(e){
     statusFailCount++;
     if(updLock)updSawDown=true;
-    /* Trynimo metu apklausos krinta - snacka piesia pats trynimas, tad cia jo neliesk
-       (anksciau cia bldavo antra, kitokia zinute ta pačiu metu). */
-    if(deleteBusy){}
-    else if(statusData&&statusData.busy&&!printWaitCur&&!sdJobCur&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
+    /* Kai snacka jau valdo ilgas darbas, apklausa apie save NERASO NIEKO. Jos zinute
+       nustumtu eigos snacka (`msg()` israuna vaikus), o sekantis eigos ivykis - baitu
+       gabalas, kitas SD progresas - piestu ji is naujo, su islindimu ir centravimu:
+       zmogui tai mirksejimas kas dvi sekundes (V 08-18, mano paties ikelimas).
+       Savininkai: `deleteBusy`/`uploadBusy` - siame lange pradetas darbas; `sdJobCur` -
+       printerio SD darbas (gali buti ir svetimas, is PrusaSlicer); `printWaitCur` -
+       laukiamas stop/pause. Visi jie snacka piesia patys ir daznesniu ritmu.
+       Kaip tik tokiu metu apklausos ir krinta: printeris neatsakineja, kol priima
+       baitus arba ispakuoja - tad tyla cia yra taisykle, ne isimtis. */
+    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur){}
+    else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
     // out-of-band import (PrusaSlicer upload) blocks the whole web server
@@ -2356,8 +2363,8 @@ const refreshStatus=async()=>{
        snackbaras skaitomas per sekunde (V 08-13). Kai patys pradejom darba - vardas
        tikras; kai ne - viena eilute isvardija galimas priezastis. */
     /* Ruosdami spaudini printeri uzimam MES, ir tai jau parasyta busenos langelyje -
-       snackas apie „neatsako" cia tik kartotu ta pati kita forma (V 08-17). */
-    else if(startBusy){}
+       snackas apie „neatsako" cia tik kartotu ta pati kita forma (V 08-17) - todel
+       `startBusy` guli auksciau, tarp snacko savininku. */
     else if(statusFailCount>=1)msg(bgJob
       ?(bgJob+' - the printer stops answering until it finishes.')
       :'Printer not answering - an upload, share or other background job is probably holding it, or it is offline.',true);
