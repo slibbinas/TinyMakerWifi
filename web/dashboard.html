@@ -944,10 +944,14 @@ const snackProgressClear=()=>{
    - laukimas rodomas SEKUNDEMIS; procentai - tik skaiciuojamiems darbams. */
 const WAIT_SNACK_MIN_MS=1000, WAIT_BAR_MIN_MS=5000, WAIT_SNACK_MIN_SHOW_MS=3000;
 const waitSnack=(txt,remainMs,totalMs)=>{
-  const known=remainMs>=0;
+  /* VIENA riba ir skaiciui, ir juostelei. Anksciau sekundes rodydavos vos trukme buvo
+     zinoma (kad ir 3 s), o juostele - tik nuo 5 s: tas pats laukimas atrodydavo dvejopai,
+     o trumpame uodegos etape („baigiamas judesys") skaicius nieko nesprendzia - kol ji
+     perskaitai, jo nebera (V 08-18). Ilgi laukimai (pauzes sluoksnis, plokstes kilimas)
+     skaiciu islaiko - ten is jo nusprendi, laukti ar nueiti. */
+  const known=remainMs>=0&&totalMs>=WAIT_BAR_MIN_MS;
   const secs=known?('~'+Math.max(0,Math.ceil(remainMs/1000))+' s'):'';
-  const bar=(known&&totalMs>=WAIT_BAR_MIN_MS)
-           ?Math.max(0,Math.min(100,(totalMs-remainMs)*100/totalMs)):-1;
+  const bar=known?Math.max(0,Math.min(100,(totalMs-remainMs)*100/totalMs)):-1;
   snackProgress(txt,-1,-1,secs,null,bar);
 };
 /* Pranesimas, kuris pasirodo TIK jei laukimas uzsitesia. Grazina funkcija, kuria
