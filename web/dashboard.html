@@ -985,7 +985,7 @@ const snackProgressClear=()=>{
    - juostele - tik kai printeris pasake trukme IR ji pakankamai ilga, kad butu ka ziureti;
    - laukimas rodomas SEKUNDEMIS; procentai - tik skaiciuojamiems darbams. */
 const WAIT_SNACK_MIN_MS=1000, WAIT_BAR_MIN_MS=5000, WAIT_SNACK_MIN_SHOW_MS=3000;
-const waitSnack=(txt,remainMs,totalMs)=>{
+const waitSnack=(txt,remainMs,totalMs,indet)=>{
   /* VIENA riba ir skaiciui, ir juostelei. Anksciau sekundes rodydavos vos trukme buvo
      zinoma (kad ir 3 s), o juostele - tik nuo 5 s: tas pats laukimas atrodydavo dvejopai,
      o trumpame uodegos etape („baigiamas judesys") skaicius nieko nesprendzia - kol ji
@@ -993,7 +993,9 @@ const waitSnack=(txt,remainMs,totalMs)=>{
      skaiciu islaiko - ten is jo nusprendi, laukti ar nueiti. */
   const known=remainMs>=0&&totalMs>=WAIT_BAR_MIN_MS;
   const secs=known?('~'+Math.max(0,Math.ceil(remainMs/1000))+' s'):'';
-  const bar=known?Math.max(0,Math.min(100,(totalMs-remainMs)*100/totalMs)):-1;
+  /* Trukmes nezinom: vietoj tuscios vietos - slenkantis ruozelis („dar dirbam").
+     Ijungiamas ten, kur kviečiama su `indet` - kol kas tik paruosime pries spausdinima. */
+  const bar=known?Math.max(0,Math.min(100,(totalMs-remainMs)*100/totalMs)):(indet?'indet':-1);
   snackProgress(txt,-1,-1,secs,null,bar);
 };
 /* Pranesimas, kuris pasirodo TIK jei laukimas uzsitesia. Grazina funkcija, kuria
@@ -1002,9 +1004,9 @@ const waitSnack=(txt,remainMs,totalMs)=>{
    metu jau baigesi: paruosimas trunka apie sekunde su trupučiu, tad snackas issoktu
    ir tuoj pat dingtu - „mirkt ir nera" (V 08-18). Tai ta pati riba, kaip iprasto
    pranesimo riba (2 s), tik dar sekunde ilgiau - V 08-18 prase, kad tikrai spetu pamatyti. */
-const waitSnackLater=(txt,ms)=>{
+const waitSnackLater=(txt,ms,indet)=>{
   let shownAt=0;
-  const t=setTimeout(()=>{shownAt=Date.now();waitSnack(txt,-1,-1);},ms||WAIT_SNACK_MIN_MS);
+  const t=setTimeout(()=>{shownAt=Date.now();waitSnack(txt,-1,-1,indet);},ms||WAIT_SNACK_MIN_MS);
   const kill=()=>{if($('statusMsg').dataset.ptxt===jobPlain(txt))snackProgressClear();};
   return ()=>{
     clearTimeout(t);
@@ -4541,7 +4543,10 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      ji tiek, kiek trunka sluoksniu perskaiciavimas SD kortelėje (~1-3 s). Trukmes
      is anksto nezinom - ji priklauso nuo sluoksniu kiekio - tad be juosteles ir be
      skaiciaus, o blykstelejimo isvengiam atidejimu (V 08-18). */
-  startSnackDone=waitSnackLater('Processing files. Please wait...');
+  /* Ruozelis: kiek truks paruosimas, nezino niekas - nei pultas, nei printeris
+     (priklauso nuo modelio dydzio ir korteles). Tuscia vieta po sakiniu atrode kaip
+     sustingimas; ruozelis pasako viena dalyka - dar dirbam (V 08-18). */
+  startSnackDone=waitSnackLater('Processing files. Please wait...',null,true);
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
