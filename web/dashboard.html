@@ -906,10 +906,13 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
     clearTimeout(msg._t); msg._until=Infinity;
     e.style.animation='none'; void e.offsetWidth; e.style.animation='';
   }
+  /* Vieta prisegama VISAM laukimui: centruojam tik pirma karta (virsuje), o etapui
+     pasikeitus tik perrasom teksta. Kitaip naujas, kitokio ilgio sakinys telefone
+     susilauzo i dvi eilutes, dezute pakeicia auksti ir pasoka i nauja vieta - akiai
+     tai skaitosi kaip ANTRAS pranesimas, nors elementas tas pats (V 08-18). */
   if(e.dataset.ptxt!==txt){
     e.dataset.ptxt=txt;
     e.querySelector('.snackTxt').textContent=txt;
-    snackCentre(e);
   }
   const p=e.querySelector('.snackPct'), b=e.querySelector('.snackBar>span');
   /* `fmt` - kaip rodyti skaicius: sluoksniai kaip yra, baitai - megabaitais. */
