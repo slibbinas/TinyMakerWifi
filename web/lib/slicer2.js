@@ -35,7 +35,7 @@ export { pillarDiscs2 as pillarDiscs, braceDiscs2 as braceDiscs };
 /* Vardas ir turinys turi sutapti: publikuojama kaip `slicer-2.0.0.js`, ir
    prie to vardo prisegtas pultas. Kol čia stovėjo „2.0.1-dev", o failas
    vadinosi kitaip, prisegimas prie versijos negarantavo nieko (V 08-17). */
-export const VERSION = '2.0.0';
+export const VERSION = '2.0.1';
 
 /* ------------------------------------------------------------------ config */
 /* Vardai palikti tokie patys kaip PrusaSlicer'io nustatymuose, kad būtų

@@ -1773,4 +1773,4 @@ export async function slice(pos, opts, onProgress) {
 /* Bazė leidžiama kartu su algoritmu, tad ir numeris tas pats: du numeriai
    vienam rinkiniui reikštų, kad vienas jų anksčiau ar vėliau meluos. Senasis
    algoritmas su savo „0.9.0" gyvena atskirai ir nieko neimportuoja. */
-export const VERSION = '2.0.0';
+export const VERSION = '2.0.1';
