@@ -4558,11 +4558,16 @@ const renderStateValue=()=>{
      paspaudimas nieko nedare. Dabar kalba pats langelis, o snacko nebera (V). */
   if(startBusy&&!(statusData&&statusData.busy)){setText('stateValue','Processing files');return;}
   let t=statusData?statusData.state:'-';
-  /* Tas pats skaicius nerodomas dviejose vietose vienu metu: kol kabo laukimo
-     pranesimas (pauze, tesimas, stabdymas), jis ir tiksi, o busenos eilute palieka
-     tik pavadinima. Sluoksnio fazes (Curing/Lifting/Dropping) skaiciu islaiko -
-     ten jokio pranesimo nera ir eilute yra vienintele vieta (V 08-18). */
-  if(statusData&&statusData.busy&&phaseRx&&!printWaitCur){
+  /* Sekundes busenos eiluteje tik ten, kur is ju kas nors sprendziama (V 08-18):
+       Curing (1)  - kiek dar svies i si sluoksni; baziniams tai desimtys sekundziu;
+       Finished (8) - plokstes kelimas po spaudinio, 60-80 s, ir CIA nera jokio
+                      pranesimo, tad eilute vienintele pasako, kada gales ja imti.
+     Lifting/Dropping numesta samoningai: 4-9 s judesiai, kartojami simtus kartu per
+     spaudini, ir niekas is ju nieko nesprendzia - tik triuksmas. Pauze, tesimas ir
+     stabdymas savo skaiciu turi PRANESIME, tad eiluteje jo nebekartojam - kartu
+     dingsta ir nesutapimas, kada tas skaicius atsiranda vienoje ir kitoje vietoje. */
+  const showSecs=statusData&&(statusData.stateCode===1||statusData.stateCode===8);
+  if(statusData&&statusData.busy&&phaseRx&&showSecs){
     const rem=phaseRx.remainMs-(Date.now()-phaseRx.at);
     // A little over is normal (the estimate is last layer's measurement);
     // way over means the prediction is off - drop the number, keep the state.
