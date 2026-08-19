@@ -47,6 +47,14 @@
          (panasi ikona, kitas dalykas). Be to su sesiais mygtukais grupe
          persidengia su irankiu juosta (V 08-17). Paliekam tik priartinima. */
       SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='none';});
+      /* Pjuvio juosta priklauso ANKSTESNIAM modeliui: mygtuka sliceryje slepiam,
+         o juosta likdavo gulėti skersai viso vaizdo (V 08-19). Ji rodoma per
+         `on` klase, tad uztenka jos nuimti - inline `display` uzrakintu juosta
+         visam laikui. Pati pjuvi irgi isjungiam: kito modelio aukstis su siuo
+         neturi nieko bendro. */
+      {const bar=$('gl3dClipBar'); if(bar)bar.classList.remove('on');
+       const cb=$('gl3dClip'); if(cb)cb.classList.remove('on');
+       if(typeof window.gl3dClip==='function')window.gl3dClip(null);}
       // Lango didinimas: sliceryje jis lygiai toks pat naudingas, kaip perziuroje.
       if(typeof setStageGrowUI==='function')setStageGrowUI(true);
       clipTaikyk();                        // medziaga nauja - pjuvis is naujo

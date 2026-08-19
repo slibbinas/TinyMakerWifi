@@ -439,24 +439,43 @@ function slicerMaskDraw(n){
    Aukstis ribojamas lango auksciu: geriau siauresnė plokste, nei blokas, kurio
    apacios nematyti. Ankstesnis aukstis grazinamas iseinant - jis gali buti
    nustatytas „lango didinimo" mygtuko. */
-let slicerStageH=null;
+let slicerStageFlat=false, slicerStageBusy=false;
 function slicerFlatStage(on){
-  const st=$('previewStage'); if(!st)return;
+  const st=$('previewStage'); if(!st||slicerStageBusy)return;
+  const buvo=st.style.height;
   if(on){
-    if(slicerStageH===null)slicerStageH=st.style.height||'';
-    const w=st.clientWidth||st.getBoundingClientRect().width;
-    if(!w)return;
-    let h=Math.round(w*240/320);
-    h=Math.min(h,Math.round(innerHeight*0.78));
+    const w=st.clientWidth||st.getBoundingClientRect().width; if(!w)return;
+    const h=Math.min(Math.round(w*240/320),Math.round(innerHeight*0.78));
     st.style.height=h+'px';
-  }else if(slicerStageH!==null){
-    st.style.height=slicerStageH;
-    slicerStageH=null;
+    /* `stageBoxSize` praleidzia darba, jei jo paties uzrasytas aukstis nepasikeites,
+       tad zyme nuvalom - kitaip po slicerio „didinimas" liktu neperskaiciuotas. */
+    st.dataset.boxH='';
+    slicerStageFlat=true;
+  }else{
+    if(!slicerStageFlat)return;
+    slicerStageFlat=false;
+    /* NEgrazinam senos reiksmes: per ta laika galejo buti paspaustas „lango
+       didinimas", ir sena reiksme ji nurasytu (V 08-19: uzdarius sliceri perziura
+       likdavo istempta). Nuvalom ir leidziam pulto logikai nusistatyti pačiai. */
+    st.style.height=''; st.dataset.boxH='';
+    if(window.stageBoxSize)stageBoxSize();
   }
-  /* Renderis savo dydi persiskaiciuoja per lango „resize" - be sio zenklo
-     3D drobe liktu senojo aukscio ir vaizdas issitemptu. */
-  try{window.dispatchEvent(new Event('resize'));}catch(e){}
+  /* Renderis savo dydi persiskaiciuoja per lango „resize". Zyme saugo nuo ciklo:
+     musu pacio zenklas neturi vel kviesti sio metodo. */
+  if(st.style.height!==buvo){
+    slicerStageBusy=true;
+    try{window.dispatchEvent(new Event('resize'));}finally{slicerStageBusy=false;}
+  }
 }
+/* Langui pasikeitus (taip pat ir paspaudus „didinima") plokscias vaizdas turi
+   likti 4:3 - kitaip aplink juoda staciakampi vel atsiranda kraštas. */
+window.addEventListener('resize',()=>{if(slicerMaskOn&&slicerView===2)slicerFlatStage(true);});
+/* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad po jo
+   plokscia vaizda persistatom rankomis - kitaip sumazinus langa juodas
+   staciakampis liktu mazesnis uz pati langa (V 08-19). */
+{const g=$('stageOpen');
+ if(g)g.addEventListener('click',()=>setTimeout(()=>{
+   if(slicerMaskOn&&slicerView===2)slicerFlatStage(true);},0));}
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
   const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
