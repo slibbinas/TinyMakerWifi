@@ -231,11 +231,13 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
              baltas vaizdas, kuris keliauja i archyva ir i printeri, nedidintas ir
              neglotnintas. Guli PO valdikliais (z-index 1), tad slankiklis ir
              mygtukai lieka pasiekiami. -->
-        <!-- Tarpas aplink: drobe YRA rastras, o jos krastas - plokstes riba, tad
-             ji negali remtis i korteles krasta - dvi linijos per plauka viena nuo
-             kitos atrodo kaip remelis ant remelio (V 08-19). -->
-        <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;background:#000;padding:10px'>
-          <canvas id='slicerMaskCv' width='320' height='240' style='width:100%;height:100%;object-fit:contain;image-rendering:pixelated'></canvas>
+        <!-- Juoda ir YRA plokste. Anksciau juodas buvo visas laukas, o rastro
+             krasta zymejo bruksnys - jis lipdavo ant korteles remo ir ant
+             slankiklio, o pati riba vis tiek buvo spejama. Dabar drobe laiko
+             320x240 proporcija ir pati yra juoda: kas juodame staciakampyje, tas
+             ir spausdinama, o aplink - kortele (V 08-19). -->
+        <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;padding:10px;align-items:center;justify-content:center'>
+          <canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas>
         </div>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>

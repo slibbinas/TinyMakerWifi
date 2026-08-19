@@ -396,19 +396,11 @@ function slicerMaskDraw(n){
         ctx.fill();
       }
     }
-    /* Plokstes riba. Drobe YRA printerio rastras (320 x 240 = 40,8 x 30,6 mm),
-       tad remelis ties pačiu jos krastu ir yra „iki cia spausdinama". Be jo is
-       vaizdo nesimatydavo, ar spaudinys dar plokstumoje, ar jau uz jos - juoda
-       aplink atrode kaip begalinis fonas (V 08-19). Piesiam PO viskuo, kad
-       remelis butu matomas ir tada, kai sluoksnis remiasi i krasta. */
-    ctx.strokeStyle='rgba(255,255,255,.45)';
-    ctx.lineWidth=1;
-    ctx.strokeRect(0.5,0.5,cv.width-1,cv.height-1);
     URL.revokeObjectURL(url);
   };
   im.onerror=()=>URL.revokeObjectURL(url);
   im.src=url;
-  box.style.display='block';
+  box.style.display='flex';   // drobe centruojama: juodas staciakampis IR yra plokste
 }
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
@@ -480,7 +472,12 @@ function slicerSetView(v){
   {const plokscia=slicerView===2;
    const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
    document.querySelectorAll('#gl3dZoom [data-zoom]')
-     .forEach(b=>{b.style.display=plokscia?'none':'';});}
+     .forEach(b=>{b.style.display=plokscia?'none':'';});
+   /* Sukimo ir stumdymo padai bei ju pagalba - irgi 3D reikalas. Plokscioje
+      kaukeje jie ne tik nieko nedaro, bet ir gula ant paties vaizdo (V 08-19).
+      Grazinam su tais paciais display, kokius duoda tiltas. */
+   [['gl3dPad','grid'],['gl3dRot','grid'],['gl3dHelp','block']].forEach(([id,d])=>{
+     const e=$(id); if(e)e.style.display=plokscia?'none':d;});}
   if(slicerView!==2)slicerBuildView();
   if(slicerOut)slicerShowLayer(slicerLayerN||slicerOut.layers);
 }
