@@ -101,12 +101,10 @@ $('slicerToggle').addEventListener('click',async()=>{
      adapteris atiduoda ta pati API, kaip senasis modulis (parseSTL, autoOrient,
      place, bounds, fitCheck, toSceneMesh, detailBudget), o slice() grazina toki
      pati objekta.
-     ⚠️ Prisegtas tik virsutinis failas. Po juo dar plaukioja slicer-core.js,
-     slicer-wasm-worker.js ir sla-web.js/.wasm - juos adapteris pasiima
-     neprisegtais vardais. Sena narsykles kese po naujo adapterio yra butent
-     tas gedimas, del kurio prisegimo taisykle atsirado (V 08-12), tad prasoma
-     slicerio puses paskelbti visa rinkini prisegtais vardais. */
-  const SV='3.0.0';
+     Prisegtas VISAS rinkinys: sis failas viduje rodo i slicer-core-3.0.1.js,
+     slicer-wasm-worker-3.0.1.js ir sla-web-3.0.1.js/.wasm, tad po juo niekas
+     nebeplaukioja (3.0.0 dar plaukiojo). */
+  const SV='3.0.1';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -333,8 +331,28 @@ function slicerMaskDraw(n){
        is jos neatskirsi, kur detale, o kur atrama; o butent tai ir reikia
        matyti (V 08-13, butina). Spalva tik ekrane - i archyva keliauja
        nepaliesta nuotrauka. */
-    const s=slicerOut.supports;
-    if(s&&s.list&&s.list.length&&slicerMod&&slicerMod.pillarDiscs){
+    const pv=slicerOut.preview, s=slicerOut.supports;
+    if(pv&&pv.supportSlices&&pv.supportSlices.length){
+      /* Tikra atramu kauke: variklis grazina ta pati rastra, kaip sluoksni, tik
+         su vienetais ten, kur atrama ar raftas. Anksciau cia buvo apytiksliai
+         diskai, piesti is atramu saraso - jie sake „maždaug cia", o ne „stai".
+         Kauke retesne uz sluoksnius (iki 160 per visa auksti), tad imam
+         artimiausia pagal auksti. */
+      const K=pv.supportSlices.length;
+      const k=Math.min(K-1,Math.round(i/Math.max(1,slicerOut.layers-1)*(K-1)));
+      const m=pv.supportSlices[k], gw=pv.gw||320, gh=pv.gh||240;
+      if(m&&m.length>=gw*gh){
+        const off=document.createElement('canvas');
+        off.width=gw; off.height=gh;
+        const id=off.getContext('2d').createImageData(gw,gh);
+        for(let q=0,t=0;q<gw*gh;q++,t+=4){
+          if(m[q]===1){id.data[t]=126;id.data[t+1]=166;id.data[t+2]=216;id.data[t+3]=255;}
+        }
+        off.getContext('2d').putImageData(id,0,0);
+        ctx.drawImage(off,0,0,cv.width,cv.height);
+      }
+    }else if(s&&s.list&&s.list.length&&slicerMod&&slicerMod.pillarDiscs){
+      /* Senasis modulis kaukes negrazina - jam lieka diskai. */
       const z=(i+0.5)*0.05, pad=slicerMod.SUP?slicerMod.SUP.padMm:1.5;
       let d=slicerMod.pillarDiscs(s.list,z);
       if(z>=pad&&s.braceList&&slicerMod.braceDiscs)
@@ -433,13 +451,43 @@ function slicerSetView(v){
        laipteliais.
    2 - viena tikra kauke: vieno sluoksnio nuotrauka be jokio glotninimo.
    (V 08-13: „matom 3D su suportais, 2d slicinta ir 3d slicinta".) */
+/* Kelios STL dalys - vienas tinklas. `geometrija()` atiduoda atramas ir rafta
+   atskirai, o vaizdui jie yra tas pats „ne detale". */
+const slicerJoin=(bufs)=>{
+  const parts=[];
+  for(const b of bufs){
+    if(!b||b.length<=84)continue;              // tuscias STL: vien antraste
+    const r=slicerMod.parseSTL(b.buffer.slice(b.byteOffset,b.byteOffset+b.length));
+    const pos=r&&(r.positions||r);
+    if(pos&&pos.length)parts.push(pos);
+  }
+  if(!parts.length)return null;
+  if(parts.length===1)return parts[0];
+  let n=0;parts.forEach(a=>n+=a.length);
+  const out=new Float32Array(n);
+  let o=0;parts.forEach(a=>{out.set(a,o);o+=a.length;});
+  return out;
+};
 const slicerGeomView=(home)=>{
-  if(!slicerRaw||!slicerTr||!slicerMod||!slicerMod.supportMesh)return false;
+  if(!slicerRaw||!slicerTr||!slicerMod)return false;
+  if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
   if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
   const s=slicerOut&&slicerOut.supports;
-  if(window.gl3dSupports)
-    gl3dSupports(s&&s.list&&s.list.length
+  if(slicerMod.geometrija&&slicerOut){
+    /* WASM variklis atramu saraso nebeduoda - jos ateina kaip tikra geometrija
+       (STL), tomis paciomis koordinatemis, kaip `place()` rezultatas. Tad
+       vaizdas rodo ne musu spejima apie atramas, o tas pacias atramas, kurios
+       ir isspausdinamos. */
+    const mine=slicerOut;                      // per ta laika gali buti supjaustyta is naujo
+    slicerMod.geometrija().then(g=>{
+      if(slicerOut!==mine||!window.gl3dSupports)return;
+      const pos=g?slicerJoin([g.supports,g.pad]):null;
+      gl3dSupports(pos?slicerMod.toSceneMesh(pos):null);
+      if(home&&window.gl3dFrameAll)gl3dFrameAll();
+    }).catch(()=>{});
+  }else if(window.gl3dSupports)
+    gl3dSupports(s&&s.list&&s.list.length&&slicerMod.supportMesh
       ?slicerMod.toSceneMesh(slicerMod.supportMesh(s.list,s.braceList)):null);
   /* Ka tik suslicinta - vaizdas pastatomas taip, kad DAIKTAS SU SUPPORTAIS
      tilptu visas. Anksciau kamera likdavo ten, kur buvo, ir modelis atsirasdavo
