@@ -32,10 +32,7 @@ export {
 };
 export { pillarDiscs2 as pillarDiscs, braceDiscs2 as braceDiscs };
 
-/* Vardas ir turinys turi sutapti: publikuojama kaip `slicer-2.0.0.js`, ir
-   prie to vardo prisegtas pultas. Kol čia stovėjo „2.0.1-dev", o failas
-   vadinosi kitaip, prisegimas prie versijos negarantavo nieko (V 08-17). */
-export const VERSION = '2.0.2';
+export const VERSION = '2.0.3';
 
 /* ------------------------------------------------------------------ config */
 /* Vardai palikti tokie patys kaip PrusaSlicer'io nustatymuose, kad būtų
@@ -52,14 +49,6 @@ export const CFG = {
   head_fallback_radius_mm: 0.3, // 60 % — support_small_pillar_diameter_percent
   head_penetration_mm:  0.3,    // support_head_penetration
   head_width_mm:        3.0,    // support_head_width
-  /* Kūgio ilgis atskirtas nuo galvutės ilgio (V, 2026-08-18). PrusaSlicer
-     smailina per visus `head_width_mm`, bet jo profilio galiukas ⌀0,5, o
-     mūsų ⌀0,4 (V sprendimas 08-13). Kūgis eina nuo galiuko iki stulpo, tad
-     plonesnis galiukas suplonina VISĄ kotą, ne tik patį galą - V tai
-     pamatė kadre. 2,0 grąžina kotą į Prusos storį (ties 1 mm nuo galo
-     0,70 prieš jo 0,67 mm), o kontakto žymė lieka ⌀0,4. Trumpiau (0,8)
-     nušoktų per Prusą ir replėms būtų sunkiau prilįsti prie žymės. */
-  head_taper_mm:        2.0,
   pillar_radius_mm:     0.5,    // support_pillar_diameter 1
   base_radius_mm:       1.5,    // support_base_diameter 3
   base_height_mm:       1.0,    // support_base_height
@@ -153,12 +142,6 @@ export const CFG = {
      nei 2 × base_radius IR 3D atstumas mažesnis nei max_bridge_length
      (DefaultSupportTree.cpp:565-571). */
   cluster_size:          3,     // = max_bridges_on_pillar
-  /* KAMIENAS (V, 2026-08-18): vienas kamienas aptarnauja kelis taskus, o sakos
-     issiskiria virsuje. Buvo 2*base_radius = 3 mm, ir kiekvienas taskas toliau
-     nei 3 mm gaudavo SAVO stulpa iki ploksTes - gaudavosi misTkas atskiru koju.
-     Ismatuota: kronsteinui stulpu 15 -> 7, t.y. tiek pat, kiek PrusaSlicer. */
-  trunk_cluster_xy_mm:   6.0,
-  trunk_cluster_size:    4,
   pillar_cascade_neighbors: 3,  // kiek kaimynų vienas stulpas jungia
   /* SupportTree.hpp:112-113 — nuo šių aukščių stulpas laikomas „vienišu" ir
      jungčių skaičiavimas griežtėja. */
@@ -259,29 +242,6 @@ const dist3d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
    ir tikrina tik juos. Tikras BVH būtų greitesnis, bet čia užtenka: modelis
    telpa į 40×30 mm, o langelių tinklelis jį suskaido į šimtus dalių. */
 class MeshIndex {
-  /* PATIKRINTA IR ATMESTA (2026-08-19): langelis 0,5 mm ir Z ribų filtras.
-
-     Atrodė akivaizdu: langelį surandam per O(1), bet paskui tikrinam VISUS jo
-     trikampius, o jų biuste yra 2744 (matuota `slicer-lab/gardele.mjs`):
-
-       langelis   gardelė   trikampių langelyje   įrašų
-       2,0 mm     14×14     2744                  355k
-       0,5 mm     52×50      274                  555k
-       0,25 mm   102×99      115                  899k
-
-     Padaryta, išmatuota - ir greitis NEPASIKEITĖ: biustas 59,7 -> 61,1 s,
-     puodelis 1,05 -> 1,20 s (stulpelių skaičius tas pats, tad tik kaina).
-
-     Profilis (`node --cpu-prof` + `slicer-lab/prof.mjs`) pasakė kodėl:
-     **ray casting yra mažiau nei 0,8 % laiko** - `rayHit`/`triHit` net
-     nepatenka į top 18. 71,3 % suvalgo Clipper (`ProcessIntersections` 24,7 %,
-     `ProcessEdgesAtTopOfScanbeam` 18,7 %), kviečiamas iš `samplePointsFromLayers`
-     kiekvienam sluoksniui. Vadinasi nieko neduotų nei BVH, nei smulkesnė
-     gardelė, nei Z filtras.
-
-     Pamoka bendresnė už šitą vietą: diagnozė buvo daroma iš samprotavimo
-     („93,5 % atramų paieškoje, vadinasi ray casting"), o profilis kainavo dvi
-     minutes ir apvertė viską. Pirma profiliuoti, tada optimizuoti. */
   constructor(pos, cell = 2.0) {
     this.pos = pos;
     this.cell = cell;
@@ -717,17 +677,10 @@ function clusterHeads(heads, cfg) {
   for (let i = 0; i < heads.length; i++) {
     if (used[i]) continue;
     const cl = [i]; used[i] = true;
-    const clMax = cfg.trunk_cluster_size || cfg.cluster_size;
-    for (let j = i + 1; j < heads.length && cl.length <= clMax; j++) {
+    for (let j = i + 1; j < heads.length && cl.length <= cfg.cluster_size; j++) {
       if (used[j]) continue;
       const a = heads[i].junction, b = heads[j].junction;
-      /* KAMIENAS (V, 08-18): vienas kamienas aptarnauja keli taskus, o sakos
-         issiskiria virsuje. Buvo 2*base_radius = 3 mm - tokia ankSta riba
-         reiskia, kad kiekvienas taskas toliau nei 3 mm gauna SAVO stulpa iki
-         ploksTes, ir gaunasi misTkas atskiru koju vietoj santvaros.
-         Sakos ilgi vis tiek riboja `max_bridge_length` (10 mm) ir kolizijos. */
-      const xyRiba = cfg.trunk_cluster_xy_mm || 2 * cfg.base_radius_mm;
-      if (dist2d(a, b) < xyRiba &&
+      if (dist2d(a, b) < 2 * cfg.base_radius_mm &&
           dist3d(a, b) < cfg.max_bridge_length_mm) { cl.push(j); used[j] = true; }
     }
     out.push(cl);
@@ -1392,15 +1345,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
   for (const i of order) {
     await atodusis();   // narvo rizimas: kiekvienas stulpas su kaimynais
     const A = pillars[i];
-    /* SANTVARA (V, 08-18): atplesimas kuria ir SONINE (shear) jega, ir del jos
-       aukSti siauri elementai be istrizu atramu pasisuka. Todel jungciu riba
-       nebegali buti vienoda 2 mm ir 15 mm stulpui: aukstas gauna daugiau.
-       Riba auga tolygiai nuo `pillar_cascade_neighbors` iki dvigubos ties
-       `max_solo_pillar_height` (nuo jo stulpas laikomas „vienisu"). */
-    const hA = A.top - A.bottom;
-    const kaimynu = Math.round(cfg.pillar_cascade_neighbors *
-          (1 + Math.min(1, hA / Math.max(1e-6, cfg.max_solo_pillar_height_mm))));
-    if (A.links >= kaimynu) continue;
+    if (A.links >= cfg.pillar_cascade_neighbors) continue;
     const maxD = cfg.max_pillar_link_distance_mm *
                  (A.rTop || cfg.pillar_radius_mm) / cfg.head_back_radius_mm;
     const near = [];
@@ -1411,7 +1356,7 @@ export async function buildSupportTree(pos, cfg = CFG, onProgress, jauPts) {
     }
     near.sort((a, b) => a.d - b.d);
     for (const { j, d } of near) {
-      if (A.links >= kaimynu) break;
+      if (A.links >= cfg.pillar_cascade_neighbors) break;
       const key = i < j ? i + ':' + j : j + ':' + i;
       if (donePairs.has(key)) continue;
       const B = pillars[j];
@@ -1565,32 +1510,6 @@ export async function findOverhangs(pos, layers, onProgress) {
      smailėjanti į head_front_radius. Be jos stulpas baigiasi head_width_mm
      atstumu nuo detalės ir nieko nelaiko (matyta renderyje, 08-13).
      Piešiama kaip „bridge", nes piešėjas būtent tiltams daro smaigalį. */
-  /* SMAILEJIMUI REIKIA VIETOS (V, 2026-08-18). Galvute smaileja nuo
-     pillar_radius iki head_front_radius per head_width_mm (3 mm = 60
-     sluoksniu). Bet jungties taskas neretai atsiduria beveik prie pat
-     pavirsiaus, ir tada smailejimui lieka 0,15 mm - trys sluoksniai. Is Sono
-     tai atrodo kaip nukirstas strypas, o ne adata (V pastebejimas pulte).
-     Trumpai galvutei nuleidziam stulpo virsu tiek, kad smailejimas gautu
-     visa head_width_mm. Stulpo apacia ir kontakto vieta nesikeicia. */
-  const galvIlgis = CFG.head_width_mm;
-  for (const h of t.heads) {
-    if (h.pillar < 0) continue;
-    const ilgis = Math.abs(h.pos[2] - h.junction[2]);
-    if (ilgis >= galvIlgis) continue;
-    const pil = t.pillars[h.pillar];
-    if (!pil) continue;
-    /* Trumpam stulpui pilno galvIlgis nera kur deti - tada smaileja per VISA
-       savo ilgi, ne per fiksuota 3 mm. Buvo `if (naujasTop > bottom)`, t. y.
-       tokie stulpai likdavo visai be smailejimo ir atrodydavo nukirsti
-       (V pastebejimas pulte: „viena smaileja normaliai, o kita nukirsta"). */
-    const vieta = Math.max(0, h.pos[2] - pil.bottom - LAYER_MM);
-    const ilg = Math.min(galvIlgis, vieta);
-    if (ilg > LAYER_MM) {
-      const naujasTop = h.pos[2] - ilg;
-      pil.top = Math.min(pil.top, naujasTop);
-      h.junction = [h.junction[0], h.junction[1], naujasTop];
-    }
-  }
   const heads = t.heads.filter(h => h.pillar >= 0).map(h => ({
     a: h.junction.slice(), b: h.pos.slice(), headTip: true,
   }));
@@ -2172,24 +2091,10 @@ export async function samplePointsFromLayers(pos, cfg = CFG, onProgress) {
                (Gemini, 08-15) siūlo 0,15 mm — TIKRINAMA. */
             const selfSup = cfg.self_support_mm || (LAYER_MM / Math.tan(cfg.critical_angle));
             const thinOut = new CL.ClipperOffset();
-            const pilnas = [];                     // sritis PRIES suplonima
-            for (const oex of toExPolys(CL, over)) {
+            for (const oex of toExPolys(CL, over))
               thinOut.AddPaths(oex, CL.JoinType.jtMiter, CL.EndType.etClosedPolygon);
-              for (const pth of oex) pilnas.push(pth);
-            }
-            let solid = new CL.Paths();
+            const solid = new CL.Paths();
             thinOut.Execute(solid, -selfSup / 2 * SCALE);
-            /* SIAURA JUOSTA NEISNYKSTA (2026-08-18). Suplonimas per selfSup/2
-               istrindavo VISKA, kas siauriau uz savilaikio riba, ir konturo
-               taskai is tokiu vietu nebeatsirasdavo - patikrinta skaitikliais:
-               ties 1,5 mm konturo seja duodavo NULI tasku, o visos atramos
-               susitelkdavo prie triju dulkiu, kurias mato salu kelias.
-               Savilaikio riba turi SPRESTI, ar juostai reikia atramos (tai daro
-               `landTol` filtras zemiau), o ne istrinti ja is zemelapio dar pries
-               klausiant. Placioms juostoms niekas nesikeicia - joms suplonimas
-               palieka turini. */
-            if (solid.length === 0 && pilnas.length)
-              solid = pilnas;
             const raw = [];
             let region = null;          // pilno pločio nuokabos sritis — jos reikia
             if (solid.length) {         // atitraukimui po „sausumos" filtro
@@ -2424,22 +2329,12 @@ export function braceDiscs2(braces, z, cfg = CFG) {
       r = cfg.head_front_radius_mm +
           (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * t;
     } else if (c.bridge) {
-      const taper = cfg.head_taper_mm || cfg.head_width_mm;
       const left = c.z1 - z;
-      if (left < taper)
+      if (left < cfg.head_width_mm)
         r = cfg.head_front_radius_mm +
-            (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * (left / taper);
+            (cfg.pillar_radius_mm - cfg.head_front_radius_mm) * (left / cfg.head_width_mm);
     }
-    /* ELIPSE istrizai jungciai (V, 08-18). Horizontalus istrizo strypo pjuvis
-       yra elipse: mazoji pusase r, didzioji r/|dz|, pasukta pagal jungties
-       krypti. Vertikaliam strypui dz=1 ir elipse tampa apskritimu. Riba x4,
-       kad beveik horizontali jungtis nenupieStu juostos per visa plokste. */
-    const dx = c.bx - c.ax, dy = c.by - c.ay, dz = c.z1 - c.z0;
-    const L = Math.hypot(dx, dy, dz) || 1;
-    const nz = Math.abs(dz) / L;
-    const a = nz > 1e-3 ? Math.min(r / nz, r * 4) : r * 4;
-    out.push({ x: c.ax + dx * t, y: c.ay + dy * t, r,
-               a, ang: Math.atan2(dy, dx) });
+    out.push({ x: c.ax + (c.bx - c.ax) * t, y: c.ay + (c.by - c.ay) * t, r });
   }
   return out;
 }
