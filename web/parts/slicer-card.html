@@ -36,6 +36,12 @@
         <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
           <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
         <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
+        <!-- Netelpanciam modeliui - TOJE PACIOJE vietoje, kur ieskoma „Slice".
+             Uzrasas apacioje („too large - Fit it") sakė teisybe, bet akis tuo metu
+             ziuri i uzrakinta mygtuka ir jo nemato (V 08-19). -->
+        <button id='slicerFitNow' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'
+                title='Turn it, and scale only if it does not fit'>Fit it</button>
       </div>
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
       <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>

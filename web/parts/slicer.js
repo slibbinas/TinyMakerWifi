@@ -39,12 +39,16 @@ const slicerStep=()=>{
   {const tools=$('gl3dTools');
    const ft=tools&&tools.querySelector("[data-tool='fit']");
    if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
-   const go=$('slicerGo');
+   const go=$('slicerGo'), fitNow=$('slicerFitNow');
+   const netelpa=loaded&&!sliced&&!slicerFits;
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits;
-     go.title=(loaded&&!slicerFits)
-       ?'Does not fit yet - Auto fit, or turn it by hand'
-       :'';}}
+     go.title=netelpa?'Does not fit yet - Fit it, or turn it by hand':'';
+     /* Vietoj uzrakinto mygtuko - tas, kuri dabar ir reikia spausti. Grizta,
+        kai modelis telpa. */
+     go.style.display=netelpa?'none':'';
+   }
+   if(fitNow)fitNow.style.display=netelpa?'':'none';}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
@@ -306,8 +310,28 @@ $('slicerFile').addEventListener('change',async e=>{
 
 /* Autofit = pasuka + sumazina TIK jei netelpa, ir apie tai pasako. Mazinimas
    keicia tikra detales dydi, tad tylus jis nebuna niekada (V 08-12). */
+/* Ilgas darbas VIENU gabalu (autofitas, guldymas): narsykle tuo metu nieko
+   nepiesia, tad uzrasas turi atsirasti PRIES ji, o darbas - kitame kadre.
+   Kitaip uzrasas pasirodytu jau po visko, ir zmogus kelias sekundes ziuretu i
+   sustinguși vaizda (V 08-19: „reikia biski paukt, gal saldaini"). */
+/* Nuima uzrasa, kuris buvo piestas ANT 3D: isvalo drobe ir grazina jai ta pacia
+   vieta stiklu tvarkoje, kokia buvo. Be sito drobe liktu virs GPU sluoksnio ir
+   uzdengtu modeli (V 08-19: „slicina - modelio nerodo"). */
+const slicerOverlayOff=()=>{
+  const cv=$('printPreviewCanvas'); if(!cv)return;
+  if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
+  cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
+};
+const slicerBusyPaint=(uzrasas,darbas)=>{
+  paintPreviewProgress($('printPreviewCanvas'),uzrasas,null,true);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    try{darbas();}
+    finally{slicerOverlayOff();}
+  }));
+};
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
+  slicerBusyPaint('Fitting…',()=>{
   const s0=slicerTr.scale;
   slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
@@ -329,10 +353,13 @@ $('slicerAutoFit').addEventListener('click',()=>{
      (V 08-18). Rankiniai posukiai kameros ir toliau neliecia. */
   slicerHome=true;
   slicerRender();
+  });
 });
 $('slicerFlat').addEventListener('click',()=>{
-  if(!slicerRaw)return; const s=slicerTr.scale;
-  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});
+  if(!slicerRaw)return;
+  slicerBusyPaint('Laying it flat…',()=>{
+    const s=slicerTr.scale;
+    slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});});
 $('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx+=2;slicerRender();}});
 $('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx++;slicerRender();}});
 $('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerTr.rz++;slicerRender();}});
@@ -720,6 +747,7 @@ $('slicerGo').addEventListener('click',async()=>{
       msg(e.message,true);
     }
   }finally{
+    slicerOverlayOff();
     sliceRunning=false; sliceStopWanted=false;
     go.textContent='Slice';
     /* Mygtukas atrakinamas VISADA, ir tai ne aplaidumas: virsuje (po sekmingo
@@ -921,7 +949,7 @@ $('slicerSave').addEventListener('click',async()=>{
         if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
         const p=Math.round(e.loaded/e.total*100);
         prog.textContent='Uploading '+p+'%  ('+MB(e.loaded)+' / '+MB(e.total)+' MB)';
-        paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total);
+        paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total,true);
       };
       x.onload=()=>{
         if(x.status<400){res(null);return;}
@@ -955,7 +983,7 @@ $('slicerSave').addEventListener('click',async()=>{
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
     prog.textContent='Unpacking on the printer \u2026';
-    paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null);
+    paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null,true);
     for(let i=0;i<180;i++){
       await new Promise(r=>setTimeout(r,1000));
       try{
@@ -1064,6 +1092,8 @@ $('slicerSave').addEventListener('click',async()=>{
   }finally{ if(typeof setPreviewBusy==='function')setPreviewBusy(false); }
 });
 
+{const b=$('slicerFitNow');
+ if(b)b.addEventListener('click',()=>{const a=$('slicerAutoFit'); if(a&&!a.disabled)a.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);

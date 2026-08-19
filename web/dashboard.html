@@ -3015,7 +3015,13 @@ let lastPreviewMsg=null;
 const paintPreviewProgress=(cv,label,frac,over3d)=>{
   if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg={label:label,frac:frac};
   if(!over3d&&window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
-  const ctx=over3d?(()=>{const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);return c;})()
+  /* GPU sluoksnis (#gl3d) DOM'e stovi PO drobes, tad piesiamas virs jos, o
+     `gl3dShow` dar ir paslepia pacia drobe. Todel uzrasui ant 3D reikia abieju:
+     drobe matoma ir pakelta virs to sluoksnio. Grazinama per slicerOverlayOff(). */
+  const ctx=over3d?(()=>{const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);
+                         cv.style.visibility='visible';
+                         cv.style.position='relative';cv.style.zIndex='2';
+                         return c;})()
                   :drawVolumeBox(cv);
   /* Pakeltos plokstes cia NEPIESIAM. Buvo bandyta (auditas 08-14 pasiule), bet krovimo
      bukleje modelio dar nera, o `plateZFor` spausdinant grazina KESE gulincio modelio
