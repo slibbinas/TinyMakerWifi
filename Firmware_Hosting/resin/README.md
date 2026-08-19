@@ -58,14 +58,32 @@ it show up again for everyone.
 
 ## `buyUrl` (affiliate, GitHub #55)
 
-⚠️ The three profiles published today still carry manufacturer URLs
-(`sunlu.com`, `anycubic.com`). The firmware accepts a `buy_url` only from
-`https://tinymakerwifi.com/` or `https://slibbinas.github.io/`
-(`resinBuyUrlAllowed()`), so the Buy link shows in the library list and then
-disappears once the profile is installed. They are regenerated together once the
-redirect worker exists.
+The firmware takes a buy link only from `https://tinymakerwifi.com/` or
+`https://slibbinas.github.io/` (`resinBuyUrlAllowed()`), so a manufacturer URL
+written straight into a profile was dropped on the way in: the link showed in
+the library list and was gone from the installed profile. Every profile
+therefore points at **`https://tinymakerwifi.com/r/<slug>`**, and where that
+leads is `links.json` in this folder:
 
-Optional. Point it at `https://tinymakerwifi.com/r/<slug>` — a redirect worker
-that resolves geography and the partner programme. Keeping it here rather than
-in the firmware means the partner can change without a firmware release, and the
-printer stays free of any of it. A profile without `buyUrl` simply shows no link.
+```json
+{
+  "sunlu-tough": "https://www.sunlu.com/",
+  "anycubic-ww-clear": { "url": "https://www.anycubic.com/",
+                         "geo": { "US": "https://www.anycubic.com/..." } }
+}
+```
+
+A plain string is the normal case; the object form exists because the same resin
+is bought in different places depending on where the buyer is. A slug missing
+from the file shows no link at all - nothing breaks.
+
+Resolved by the `/r/*` route in `Firmware_Hosting/feedback-worker` (302, edge-cached
+5 min). Keeping the destination here rather than in the firmware is the point:
+a partner changes with one commit, no firmware release, and the printer never
+learns who the partner is.
+
+⚠️ **An already-installed profile keeps the link it was installed with.** The
+library only offers profiles the printer does not have yet, so the three
+profiles installed before this shipped still carry no link. They pick it up by
+being deleted and installed again - or, for a change that matters, under a new
+slug (see the revision rule above).

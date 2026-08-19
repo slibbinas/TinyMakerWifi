@@ -64,6 +64,29 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is th
 const SAFE_IMG = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const safeImgType = (t) => (SAFE_IMG.includes(String(t || '').toLowerCase().split(';')[0].trim()));
 
+// The two ways a /r/ link can fail to lead anywhere. Both say which resin was
+// asked for: these URLs are read off a printer screen and typed by hand, and
+// "not found" without the slug tells the person nothing they can act on.
+const rPage = (status, title, body) => new Response(
+  `<!doctype html><meta charset="utf-8"><title>${title}</title>` +
+  '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+  '<style>body{margin:0;padding:48px 20px;background:#f7f7f8;color:#1d1f24;' +
+  'font:16px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif}' +
+  'main{max-width:34rem;margin:0 auto}h1{font-size:1.3rem;margin:0 0 12px}' +
+  'a{color:#f07a1a}</style>' +
+  `<main><h1>${title}</h1><p>${body}</p>` +
+  '<p><a href="https://tinymakerwifi.com/">tinymakerwifi.com</a></p></main>',
+  { status, headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' } });
+
+const rGone = (slug) => rPage(404, 'No shop link for this resin',
+  `Nothing is published for <code>${String(slug).replace(/[<&]/g, '')}</code>. ` +
+  'The resin may have been renamed, or its link was never set - the profile ' +
+  'itself is unaffected and keeps working.');
+
+const rDown = () => rPage(503, 'The link list is unreachable',
+  'The shop links are published alongside the resin profiles and that file did ' +
+  'not answer just now. This is temporary; try again in a minute.');
+
 const PAGE = 25;                            // notes fetched in full per view
 
 // Flood limits. The real risk is not money (KV never charges) but silence:
@@ -138,6 +161,53 @@ export default {
 `;
       return new Response(body, {
         headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
+
+    // --- /r/<slug>: the Buy link that survives being installed --------------
+    //
+    // The firmware takes a buy link only from our own domain
+    // (resinBuyUrlAllowed, src/ResinProfile.ino), so a manufacturer URL written
+    // into a profile was dropped the moment the profile reached the printer:
+    // the link showed in the library list and then vanished from the installed
+    // profile. Every profile now carries /r/<slug> instead, and the real shop
+    // URL lives outside the firmware - which is the point: a partner can change
+    // without a firmware release, and the printer never learns who it is.
+    //
+    // The table is NOT in this file. It is resin/links.json, published next to
+    // the profiles, so a resin and its shop link ship in the same commit. A
+    // table in here would let a profile go out with a /r/ URL that leads
+    // nowhere until somebody remembers to deploy the worker - the exact drift
+    // the manifest is written in one piece to avoid.
+    if (path.startsWith('/r/')) {
+      if (request.method !== 'GET' && request.method !== 'HEAD')
+        return new Response('method not allowed', { status: 405 });
+      const slug = path.slice(3);
+      if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(slug)) return rGone(slug);
+
+      let links = null;
+      try {
+        const r = await fetch(GHPAGES + '/resin/links.json', { cf: { cacheTtl: 300 } });
+        if (r.ok) links = await r.json();
+      } catch (e) { /* falls through to rDown() */ }
+      if (!links || typeof links !== 'object') return rDown();
+
+      // A plain string is the normal case. The object form exists because a
+      // shop is not one shop: the same resin is bought elsewhere depending on
+      // where the buyer is, and that is a property of the link, not of the
+      // resin - so it stays here rather than turning into two profiles.
+      const entry = links[slug];
+      const country = (request.cf && request.cf.country) || '';
+      const target = typeof entry === 'string'
+        ? entry
+        : (entry && ((entry.geo && entry.geo[country]) || entry.url)) || '';
+      if (!/^https:\/\//.test(target)) return rGone(slug);
+
+      // 302, not 301: the destination is a partner link, and a browser that
+      // cached it permanently would keep sending people to a partner we left.
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': target, 'Cache-Control': 'public, max-age=300' },
       });
     }
 

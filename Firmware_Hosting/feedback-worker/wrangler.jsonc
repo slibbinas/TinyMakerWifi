@@ -9,6 +9,9 @@
     // Defektu zymes is pulto (0.17). Tik apex: pultas kviecia prisegta URL, o
     // www variantas tik atidarytu ta pati kelia antru vardu be jokios naudos.
     { "pattern": "tinymakerwifi.com/slicerbug", "zone_name": "tinymakerwifi.com" },
+    // Dervu profiliu „Buy" nuoroda (0.17). Firmware priima tik musu domena, tad
+    // profilyje guli /r/<slug>, o tikras adresas - resin/links.json gh-pages.
+    { "pattern": "tinymakerwifi.com/r/*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/plan*", "zone_name": "tinymakerwifi.com" },
@@ -27,6 +30,7 @@
     // The worker owns these paths on www too and 301s to the apex.
     { "pattern": "www.tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "www.tinymakerwifi.com/r/*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/plan*", "zone_name": "tinymakerwifi.com" },
