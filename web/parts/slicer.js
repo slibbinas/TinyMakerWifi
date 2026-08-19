@@ -96,14 +96,19 @@ $('slicerToggle').addEventListener('click',async()=>{
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
   /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
      naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
-  /* 2.0.0 - naujasis atramu algoritmas. Prisegtas visas rinkinys: pats modulis
-     importuoja slicer-core-2.0.0.js prisegtu vardu, o tas - clipper-6.4.2.js,
-     tad po juo niekas nebeplaukioja. Patikrinta ne grep'u, o tikru importu:
-     slicer-2.0.0.js atiduoda visus 13 vardu, kuriuos sitas pultas kviecia
-     (jis perduoda bazes API toliau). Keiciant versija uztenka sios eilutes. */
-  const SV='2.0.2';
-  slicerMod=await loadModule('slicer-'+SV,SV,
-      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-'+SV+'.js');
+  /* 3.0.0 - tikras PrusaSlicer variklis (libslic3r), sukompiliuotas i
+     WebAssembly ir sukamas atskiroje gijoje. Pultui keitesi TIK sis adresas:
+     adapteris atiduoda ta pati API, kaip senasis modulis (parseSTL, autoOrient,
+     place, bounds, fitCheck, toSceneMesh, detailBudget), o slice() grazina toki
+     pati objekta.
+     ⚠️ Prisegtas tik virsutinis failas. Po juo dar plaukioja slicer-core.js,
+     slicer-wasm-worker.js ir sla-web.js/.wasm - juos adapteris pasiima
+     neprisegtais vardais. Sena narsykles kese po naujo adapterio yra butent
+     tas gedimas, del kurio prisegimo taisykle atsirado (V 08-12), tad prasoma
+     slicerio puses paskelbti visa rinkini prisegtais vardais. */
+  const SV='3.0.0';
+  slicerMod=await loadModule('slicer-wasm-'+SV,SV,
+      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
      `SV` konstanta. Skirtumas ne teorinis: modulis ateina is tinklo, narsykle gali
      turėti sena kese, ir is pulto iki siol nebuvo kaip pasakyti, kuris algoritmas
@@ -512,7 +517,9 @@ $('slicerGo').addEventListener('click',async()=>{
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
-    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked},
+    const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
+    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
+      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,'')},
       (done,total,phase)=>{
         if(sliceStopWanted)throw new Error(SLICE_STOP);
         const f=phase==='scan'?done/total*0.3
@@ -592,6 +599,10 @@ $('slicerGo').addEventListener('click',async()=>{
 });
 
 $('slicerAA').addEventListener('change',()=>slicerInvalidate());
+/* Perjungus atramu tipa, ankstesnis rezultatas nebegalioja - kitaip „Save"
+   issaugotu tai, ko ekrane jau nebera. */
+document.querySelectorAll('input[name=slicerSupType]').forEach(r=>
+  r.addEventListener('change',()=>slicerInvalidate()));
 /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
 /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne

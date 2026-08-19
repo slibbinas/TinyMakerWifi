@@ -20,6 +20,17 @@
       <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
       <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
 
+      <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
+           naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
+           netikrintas ant gelezies. -->
+      <div class='calRow' id='slicerSupRow' style='margin-top:6px;gap:8px;align-items:center'>
+        <span style='color:var(--muted);font-size:.9rem'>Supports</span>
+        <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
+          <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
+        <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
+          <input type='radio' name='slicerSupType' value='tree'> tree</label>
+      </div>
+
       <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
       <div class='calRow' style='margin-top:6px;gap:8px'>
         <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
