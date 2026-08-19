@@ -35,6 +35,7 @@
 #include <libslic3r/SLA/RasterBase.hpp>
 #include <libslic3r/Zipper.hpp>
 #include <libslic3r/ClipperUtils.hpp>
+#include <libslic3r/ElephantFootCompensation.hpp>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -67,6 +68,8 @@ static void praneskEiga(const char *etapas, int proc)
 /* Plokste is V profilio (`bed_shape = 0x0,40.8x0,40.8x30.6,0x30.6`). */
 static constexpr double PLOKSTE_X_MM = 40.8;
 static constexpr double PLOKSTE_Y_MM = 30.6;
+/* `initial_layer_height` is V profilio - pirmas sluoksnis storesnis. */
+static constexpr double PIRMO_SLUOKSNIO_MM = 0.3;
 
 static long ms_since(Clock::time_point t)
 {
@@ -154,6 +157,25 @@ static sla::RasterBase::Trafo rastro_trafo()
     tr.center_x = scaled<coord_t>(PLOKSTE_X_MM / 2);
     tr.center_y = scaled<coord_t>(PLOKSTE_Y_MM / 2);
     return tr;
+}
+
+/*
+ * Sluoksniu tinklelis PRINTERIUI - toks pat, kaip `SLAPrintSteps.cpp:558-564`:
+ * pirmas sluoksnis storesnis (`initial_layer_height`, V profilyje 0,3 mm) ir
+ * pjaunamas per savo VIDURI, o toliau eina iprasti 0,05 mm.
+ *
+ * Del to musu failas anksciau turejo 300 sluoksniu, kai PrusaSlicer - 295
+ * (0,3/0,05 - 1 = 5), o raftas issitesdavo per tris sluoksnius vietoj vieno.
+ */
+static std::vector<float> sluoksniu_tinklelis(double zmin, double zmax,
+                                              double lh, double ilh)
+{
+    std::vector<float> z;
+    if (zmax <= zmin) return z;
+    z.push_back(float(zmin + ilh / 2.0));
+    for (double h = zmin + ilh + lh; h <= zmax; h += lh)
+        z.push_back(float(h - lh / 2.0));
+    return z;
 }
 
 /* Rezultatas laikomas cia, kad JS pusei uztektu grazinti rodykle. */
@@ -443,9 +465,7 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
             if (v.z() < zmin) zmin = v.z();
             if (v.z() > zmax) zmax = v.z();
         }
-    std::vector<float> grid;
-    for (float z = zmin + float(layer_h) / 2.f; z < zmax; z += float(layer_h))
-        grid.push_back(z);
+    std::vector<float> grid = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
 
     /* Modelis ir atramos pjaustomi atskirai, tada sujungiami - kaip SLAPrint. */
     std::vector<ExPolygons> mo = slice_mesh_ex(g_last.model, grid, 0.005f);
@@ -460,9 +480,27 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
     const std::string vardas = job_name && *job_name ? job_name : "spaudinys";
     size_t irasyta = 0, baitu = 0;
 
+    /*
+     * „Dramblio peda": pirmi sluoksniai issiplecia, nes derva prie plokstes
+     * kietinama ilgiau. PrusaSlicer tai kompensuoja SUTRAUKDAMAS pirmus
+     * `faded_layers` sluoksniu, ir kompensacija tiesiskai mazeja iki nulio
+     * (`apply_printer_corrections`, PrinterCorrections.cpp:29-42):
+     *     efc(i) = (fade-1 - i) * start / (fade-1)
+     * V profilyje: elefant_foot_compensation 0,2 · min_width 0,2 · faded 5.
+     * Taikoma ir modeliui, ir atramoms atskirai - kaip originale.
+     */
+    const double EFC = 0.2, EFC_MIN_W = 0.2 / 2.0;
+    const size_t FADE = 5, FADE_EFC = FADE > 1 ? FADE - 1 : 1;
+    auto efc = [&](size_t i) { return (FADE_EFC - i) * EFC / FADE_EFC; };
+
     for (size_t i = 0; i < grid.size(); ++i) {
         if ((i & 63) == 0)
             praneskEiga("gaminami sluoksniai", int(100.0 * i / grid.size()));
+        if (i < FADE && EFC > 0.) {
+            mo[i] = elephant_foot_compensation(mo[i], float(EFC_MIN_W), float(efc(i)));
+            if (i < su.size() && !su[i].empty())
+                su[i] = elephant_foot_compensation(su[i], float(EFC_MIN_W), float(efc(i)));
+        }
         ExPolygons sluoksnis = mo[i];
         if (i < su.size() && !su[i].empty()) {
             ExPolygons visi = sluoksnis;
@@ -528,9 +566,7 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
             if (v.z() < zmin) zmin = v.z();
             if (v.z() > zmax) zmax = v.z();
         }
-    std::vector<float> visi;
-    for (float z = zmin + float(layer_h) / 2.f; z < zmax; z += float(layer_h))
-        visi.push_back(z);
+    std::vector<float> visi = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
     if (visi.empty()) { g_json = "{\"klaida\":\"nera sluoksniu\"}"; return g_json.c_str(); }
 
     /* Imam tik dali sluoksniu - perziurai uztenka, o kiekvienas kainuoja. */

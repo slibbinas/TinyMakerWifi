@@ -13,7 +13,7 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.0.2-wasm';
+export const VERSION = '3.0.3-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
