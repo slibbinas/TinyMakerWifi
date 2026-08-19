@@ -25,7 +25,8 @@ export const generatorConfig = (over = {}) => ({
 /** `PrepareGeneratorDataConfig` (SPG.hpp:165-186). */
 export const prepareConfig = (over = {}) => ({
   discretizeOverhangStep: 2.0,        // [mm]
-  peninsulaWidth: scaled(2.0),        // [scaled mm]
+  peninsulaWidth: scaled(2.0),        // peninsula_width [scaled mm]
+  peninsulaSelfSupportedWidth: scaled(1.5),  // peninsula_self_supported_width
   minimalBoundingSphereRadius: 0.2,   // [mm]
   removingDelta: scaled(0.3),
   ...over,
@@ -200,6 +201,13 @@ export function prepareGeneratorData(CL, slices, heights, cfg = prepareConfig())
       part.samples = sampleOverhangs(CL, part, part.prevParts.map(p => p.shape), dist2);
     }
 
+  /* Pusiasaliai (SPG.cpp:1055-1066). */
+  for (let li = 1; li < layers.length; li++)
+    for (const part of layers[li].parts) {
+      if (!part.prevParts.length) continue;
+      createPeninsulas(CL, part, part.prevParts.map(p => p.shape), cfg);
+    }
+
   /* `extend_shape` - naudojamas atmetant nereikalingus taskus. */
   for (let li = 1; li < layers.length; li++)
     for (const part of layers[li].parts)
@@ -207,4 +215,108 @@ export function prepareGeneratorData(CL, slices, heights, cfg = prepareConfig())
                                   CL.JoinType.jtSquare, DEFAULT_MITER_LIMIT);
 
   return { slices, layers };
+}
+
+/* ------------------------------------------------------------ pusiasaliai */
+
+const toLines = exs => {
+  const o = [];
+  const push = ring => { for (let i = 0; i < ring.length; i++) o.push([ring[i], ring[(i + 1) % ring.length]]); };
+  for (const e of exs) { push(e.contour); for (const h of e.holes) push(h); }
+  return o;
+};
+
+/** Kampas su TEIGIAMA X kryptimi (SPG.cpp:585-590). */
+const lineAngle = l => {
+  let dx = l[1].X - l[0].X, dy = l[1].Y - l[0].Y;
+  if (dx < 0) { dx = -dx; dy = -dy; }
+  return Math.atan2(dy, dx);
+};
+
+/** Statmenas atstumas nuo tasko iki tieses per l. */
+const perpDistance = (l, p) => {
+  const dx = l[1].X - l[0].X, dy = l[1].Y - l[0].Y;
+  const L = Math.hypot(dx, dy);
+  if (L < 1e-12) return Math.hypot(p.X - l[0].X, p.Y - l[0].Y);
+  return Math.abs((p.X - l[0].X) * dy - (p.Y - l[0].Y) * dx) / L;
+};
+
+/**
+ * `create_peninsulas` (SPG.cpp:567-681).
+ *
+ * Pusiasalis - dalis, kuri isikisusi UZ apatinio sluoksnio ribu. Skiriamos dvi
+ * ribos: `peninsula_min_width` (ar isikisimas apskritai vertas demesio) ir
+ * `peninsula_self_supported_width` (nuo kur laikoma, kad plotis pats save
+ * islaiko).
+ *
+ * Svarbiausia dalis - kiekvienai pusiasalio kraStinei nustatyti, ar ji yra
+ * KRANTAS (nuokabos briauna), ar SANDURA su sausuma. Tai daroma lyginant su
+ * apatinio sluoksnio linijomis pagal KAMPĄ (surusiuotą) ir statmenĄ atstumĄ,
+ * o ne pagal tapatybe - nes po ofseto virsuniu tapatybes nebelieka.
+ *
+ * ⚠️ Kampu paieska „apsisuka" per ±PI/2 (`is_over`): linija, kurios kampas
+ * arti ribos, turi buti lyginama ir su kitu sarasо galu.
+ */
+export function createPeninsulas(CL, part, prevShapes, cfg) {
+  if (!prevShapes.length) return;
+  const belowPaths = exsToPaths(prevShapes);
+  const belowExpanded = offsetEx(CL, belowPaths, cfg.peninsulaWidth, CL.JoinType.jtSquare, DEFAULT_MITER_LIMIT);
+  const overPeninsula = diffEx(CL, exsToPaths([part.shape]), exsToPaths(belowExpanded));
+  if (!overPeninsula.length) return;          // tik smulkios nuokabos
+
+  const selfSup = cfg.peninsulaSelfSupportedWidth === undefined
+    ? Math.round(cfg.peninsulaWidth * 0.75) : cfg.peninsulaSelfSupportedWidth;
+  const belowSelfSupported = offsetEx(CL, belowPaths, selfSup, CL.JoinType.jtSquare, DEFAULT_MITER_LIMIT);
+  const peninsulasShape = diffEx(CL, exsToPaths([part.shape]), exsToPaths(belowSelfSupported));
+  if (!peninsulasShape.length) return;
+
+  const belowLines = toLines(belowSelfSupported);
+  const belowAngle = belowLines.map(lineAngle);
+  const idx = belowLines.map((_, i) => i).sort((a, b) => belowAngle[a] - belowAngle[b]);
+
+  const ANGLE_EPS = 1e-3;
+  const PARALEL_EPS = scaled(1e-2);           // 10 um
+
+  const existBelowe = l => {
+    if (!belowLines.length) return false;
+    const angle = lineAngle(l);
+    let lowAngle = angle - ANGLE_EPS, hiAngle = angle + ANGLE_EPS;
+    let isOver = false;
+    if (lowAngle <= -Math.PI / 2) { lowAngle += Math.PI; isOver = true; }
+    if (hiAngle >= Math.PI / 2) { hiAngle -= Math.PI; isOver = true; }
+
+    const dxa = l[0].X - l[1].X, dya = l[0].Y - l[1].Y;
+    const mj = Math.abs(dxa) < Math.abs(dya) ? 'Y' : 'X';
+    let low = l[0][mj], high = l[1][mj];
+    if (low > high) { const t = low; low = high; high = t; }
+
+    /* lower_bound pagal kampa */
+    let lo = 0, hi = idx.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (belowAngle[idx[m]] < lowAngle) lo = m + 1; else hi = m; }
+    let it = lo;
+    if (it >= idx.length) { if (isOver) { it = 0; isOver = false; } else return false; }
+
+    while (isOver || belowAngle[idx[it]] < hiAngle) {
+      const l2 = belowLines[idx[it]];
+      const l2low = Math.min(l2[0][mj], l2[1][mj]);
+      const l2high = Math.max(l2[0][mj], l2[1][mj]);
+      const ta = l2[0], tb = l2[1];
+      const same = (ta.X === l[0].X && ta.Y === l[0].Y && tb.X === l[1].X && tb.Y === l[1].Y) ||
+                   (ta.X === l[1].X && ta.Y === l[1].Y && tb.X === l[0].X && tb.Y === l[0].Y);
+      if (l2high >= low && l2low <= high && (same || perpDistance(l, l2[0]) < PARALEL_EPS))
+        return true;
+      it++;
+      if (it >= idx.length) { if (isOver) { it = 0; isOver = false; } else break; }
+    }
+    return false;
+  };
+
+  for (const pen of peninsulasShape) {
+    /* Pusiasalis turi buti pakankamai platus - persidengti su `over_peninsula`. */
+    const inter = intersectionEx(CL, exsToPaths([pen]), exsToPaths(overPeninsula));
+    if (!inter.length) continue;
+    const lines = toLines([pen]);
+    const isOutline = lines.map(l => !existBelowe(l));
+    part.peninsulas.push({ unsupportedArea: pen, isOutline, lines });
+  }
 }
