@@ -246,10 +246,21 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     const long t_tree = ms_since(t0);
     if (verbose) std::printf("atramu trikampiu %zu\n", tree.first.indices.size());
 
-    /* ⚠️ NEISTIRTA (2026-08-19): su „tree" padas iseina TUSCIAS (0 mm3), o
-       PrusaSlicer tam paciam puodeliui pirmame sluoksnyje turi ~247 mm2
-       pedsaka. Bendra derva sutampa per 1,6 %, tad efektas mazas, bet
-       priezastis nezinoma - tikrinti pries siulant „tree" naudotojui. */
+    /*
+     * ISTIRTA 2026-08-19 (buvo itariama kaip beda - NEPASITVIRTINO).
+     *
+     * Su „tree" padas kartais iseina TUSCIAS, ir taip ELGIASI PATS ORIGINALAS.
+     * Priezastis: `_AroundPadSkeleton::remove_redundant_parts` (Pad.cpp:307-316)
+     * palieka tik tas pado dalis, po kuriomis yra ATRAMA. Medzio atramos daznai
+     * remiasi i pati modeli ir plokstes nesiekia, tad ju po padu ir nera.
+     *
+     * Ismatuota:
+     *   puodelis  regular padas 54,3 mm3 · tree 0     (atramos prasideda 1,44 mm)
+     *   biustas   regular padas 61,4 mm3 · tree 36,1  (kojos siekia plokste)
+     * PrusaSlicer tam paciam puodeliui su tree: pirmi sluoksniai 15212 -> 15400
+     * -> 15544 px, t. y. tik modelio konturas, jokio pado apvado (su regular jo
+     * pirmas sluoksnis 37428 px). Elgesys sutampa.
+     */
     praneskEiga("dedamas raftas", 92);
     t0 = Clock::now();
     indexed_triangle_set pad = sla::create_pad(sm, tree.first, ctl);

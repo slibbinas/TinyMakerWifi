@@ -79,10 +79,19 @@ Puodelis, tas pats profilis:
 | regular | 2,4249 ml | 2,4081 ml |
 | tree | 2,2629 ml | 2,2995 ml |
 
-⚠️ **Neištirta:** su `tree` mūsų padas išeina tuščias, o PrusaSlicer tam pačiam
-puodeliui pirmame sluoksnyje turi ~247 mm² pėdsaką. Bendra derva sutampa per
-1,6 %, tad efektas mažas, bet priežastis nežinoma - tai reikia išsiaiškinti
-prieš siūlant `tree` naudotojui.
+**Ištirta (2026-08-19): tuščias padas su `tree` nėra klaida.**
+
+`remove_redundant_parts` (Pad.cpp:307-316) palieka tik tas pado dalis, po
+kuriomis yra atrama. Medžio atramos dažnai remiasi į patį modelį ir plokštės
+nesiekia - tada pado po jomis ir nereikia.
+
+| modelis | `regular` padas | `tree` padas |
+|---|---|---|
+| puodelis | 54,3 mm³ | 0 (atramos prasideda 1,44 mm) |
+| biustas | 61,4 mm³ | 36,1 mm³ |
+
+PrusaSlicer tam pačiam puodeliui elgiasi vienodai: su `tree` jo pirmi sluoksniai
+15212 → 15400 → 15544 px (tik modelio kontūras), su `regular` - 37428 px.
 
 ## Ką reikia turėti galvoje
 
