@@ -170,11 +170,18 @@ static sla::RasterBase::Trafo rastro_trafo()
 static std::vector<float> sluoksniu_tinklelis(double zmin, double zmax,
                                               double lh, double ilh)
 {
+    /* ⚠️ Skaiciuojam SVEIKAISIAIS (scaled), kaip originalas - ne `float`'ais.
+       Su slankiuoju kableliu paskutinis sluoksnis kartais prasprudzia pro
+       `h <= zmax` (15,149999 vs 15,15), ir failas iseina vienu sluoksniu
+       trumpesnis: puodelis turejo 294, o PrusaSlicer - 295. */
     std::vector<float> z;
-    if (zmax <= zmin) return z;
-    z.push_back(float(zmin + ilh / 2.0));
-    for (double h = zmin + ilh + lh; h <= zmax; h += lh)
-        z.push_back(float(h - lh / 2.0));
+    const coord_t minZs = scaled<coord_t>(zmin), maxZs = scaled<coord_t>(zmax);
+    const coord_t lhs = scaled<coord_t>(lh), ilhs = scaled<coord_t>(ilh);
+    if (maxZs <= minZs) return z;
+
+    z.push_back(float(unscaled<double>(minZs) + ilh / 2.0));
+    for (coord_t h = minZs + ilhs + lhs; h <= maxZs; h += lhs)
+        z.push_back(float(unscaled<double>(h) - lh / 2.0));
     return z;
 }
 
