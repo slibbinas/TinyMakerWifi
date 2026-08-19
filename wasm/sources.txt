@@ -1,5 +1,8 @@
 # libslic3r failai, kuriu reikia SLA grandinei (FDM dalis - GCode/, Fill/,
 # Arachne/, Format/ - atmesta). Keliai - nuo `prusa-src/src/`.
+# Trys failai cia SAMONINGAI neitraukti - jie nekompiliuojasi su musu
+# pakaitalais (boost::thread, FDM `distance_to_infinite_squared`), o SLA
+# grandinei nereikalingi: SLAPrint.cpp, Thread.cpp, SupportSpotsGenerator.cpp.
 clipper/clipper_z.cpp
 libslic3r/AABBMesh.cpp
 libslic3r/Algorithm/LineSegmentation/LineSegmentation.cpp
@@ -28,13 +31,11 @@ libslic3r/ExtrusionRole.cpp
 libslic3r/Feature/FuzzySkin/FuzzySkin.cpp
 libslic3r/Flow.cpp
 libslic3r/Geometry.cpp
-libslic3r/Geometry/../Arachne/utils/../../Point.cpp
-libslic3r/Geometry/../Arachne/utils/../../Polygon.cpp
-libslic3r/Geometry/../ExPolygon.cpp
-libslic3r/Geometry/../Line.cpp
-libslic3r/Geometry/../MultiPoint.cpp
-libslic3r/Geometry/../Point.cpp
-libslic3r/Geometry/../Polyline.cpp
+libslic3r/Point.cpp
+libslic3r/Polygon.cpp
+libslic3r/Line.cpp
+libslic3r/MultiPoint.cpp
+libslic3r/Polyline.cpp
 libslic3r/Geometry/ArcWelder.cpp
 libslic3r/Geometry/Circle.cpp
 libslic3r/Geometry/ConvexHull.cpp
@@ -47,12 +48,10 @@ libslic3r/IntersectionPoints.cpp
 libslic3r/JumpPointSearch.cpp
 libslic3r/Layer.cpp
 libslic3r/LayerRegion.cpp
-libslic3r/Line.cpp
 libslic3r/MeshBoolean.cpp
 libslic3r/MeshNormals.cpp
 libslic3r/Model.cpp
 libslic3r/MultiMaterialSegmentation.cpp
-libslic3r/MultiPoint.cpp
 libslic3r/MultipleBeds.cpp
 libslic3r/MutablePolygon.cpp
 libslic3r/NSVGUtils.cpp
@@ -63,9 +62,6 @@ libslic3r/PNGReadWrite.cpp
 libslic3r/PerimeterGenerator.cpp
 libslic3r/PlaceholderParser.cpp
 libslic3r/Platform.cpp
-libslic3r/Point.cpp
-libslic3r/Polygon.cpp
-libslic3r/Polyline.cpp
 libslic3r/Preset.cpp
 libslic3r/PresetBundle.cpp
 libslic3r/PrincipalComponents2D.cpp
@@ -102,7 +98,6 @@ libslic3r/SLA/SupportTreeMesher.cpp
 libslic3r/SLA/SupportTreeSlicer.cpp
 libslic3r/SLA/Workflows.cpp
 libslic3r/SLA/ZCorrection.cpp
-libslic3r/SLAPrint.cpp
 libslic3r/SLAPrintSteps.cpp
 libslic3r/SVG.cpp
 libslic3r/Semver.cpp
@@ -111,11 +106,9 @@ libslic3r/ShortestPath.cpp
 libslic3r/SlicesToTriangleMesh.cpp
 libslic3r/Slicing.cpp
 libslic3r/SlicingAdaptive.cpp
-libslic3r/SupportSpotsGenerator.cpp
 libslic3r/Surface.cpp
 libslic3r/SurfaceCollection.cpp
 libslic3r/Tesselate.cpp
-libslic3r/Thread.cpp
 libslic3r/Time.cpp
 libslic3r/Timer.cpp
 libslic3r/TriangleMesh.cpp
