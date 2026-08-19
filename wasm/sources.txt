@@ -121,3 +121,6 @@ libslic3r/Utils/JsonUtils.cpp
 libslic3r/Zipper.cpp
 libslic3r/clipper.cpp
 libslic3r/miniz_extension.cpp
+libslic3r/Zipper.cpp
+libslic3r/Format/SLAArchiveWriter.cpp
+libslic3r/Format/SL1.cpp

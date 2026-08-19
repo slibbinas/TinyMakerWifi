@@ -139,7 +139,7 @@ EOF
       n="x_$(basename "$f" .cpp)"; [ -f "$OUT/obj/$n.o" ] || em++ $CXXFLAGS -c "$f" -o "$OUT/obj/$n.o" $INC --use-port=boost_headers 2>/dev/null || true
     done )
   # glu-libtess: priorityq.c pats itraukia priorityq-heap.c, tad pastarojo NEKOMPILIUOJAM
-  for f in "$BD"/glu-libtess/src/{dict,geom,memalloc,mesh,normal,priorityq,render,sweep,tess,tessmono}.c "$BD"/semver/semver.c; do
+  for f in "$BD"/glu-libtess/src/{dict,geom,memalloc,mesh,normal,priorityq,render,sweep,tess,tessmono}.c "$BD"/semver/semver.c "$BD"/miniz/miniz.c; do
     n="c_$(basename "$f" .c)"; [ -f "$OUT/obj/$n.o" ] || emcc -O2 -DNDEBUG -include limits.h -c "$f" -o "$OUT/obj/$n.o" $INC 2>/dev/null || true
   done
 
@@ -159,7 +159,7 @@ link() {
   # 2) Narsyklei: be NODERAWFS (disko ten nera - STL keliauja per atminti),
   #    MODULARIZE, kad puslapis pats nuspresu kada krauti, ir be EXIT_RUNTIME,
   #    nes po pjaustymo modulis turi likti gyvas kitam modeliui.
-  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla-web.js" -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=0     -sEXPORT_NAME=createSLA -sINVOKE_RUN=0 -sFORCE_FILESYSTEM=1     -sEXPORTED_FUNCTIONS='["_sla_slice","_malloc","_free"]'     -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","UTF8ToString"]'     --use-port=boost_headers
+  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla-web.js" -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=0     -sEXPORT_NAME=createSLA -sINVOKE_RUN=0 -sFORCE_FILESYSTEM=1     -sEXPORTED_FUNCTIONS='["_sla_slice","_sla_export_sl1","_malloc","_free"]'     -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","UTF8ToString"]'     --use-port=boost_headers
 
   ls -la "$OUT/sla.wasm" "$OUT/sla-web.wasm"
   echo "Patikra (node):     node $OUT/sla.js <model.stl> 0.05"

@@ -30,6 +30,9 @@
 #include <libslic3r/SLA/Pad.hpp>
 #include <libslic3r/SLA/JobController.hpp>
 #include <libslic3r/SLA/SupportIslands/SampleConfigFactory.hpp>
+#include <libslic3r/SLA/RasterBase.hpp>
+#include <libslic3r/Zipper.hpp>
+#include <libslic3r/ClipperUtils.hpp>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -39,6 +42,10 @@
 
 using namespace Slic3r;
 using Clock = std::chrono::steady_clock;
+
+/* Plokste is V profilio (`bed_shape = 0x0,40.8x0,40.8x30.6,0x30.6`). */
+static constexpr double PLOKSTE_X_MM = 40.8;
+static constexpr double PLOKSTE_Y_MM = 30.6;
 
 static long ms_since(Clock::time_point t)
 {
@@ -117,6 +124,17 @@ static sla::PadConfig make_pad_config()
 /* Rezultatas laikomas cia, kad JS pusei uztektu grazinti rodykle. */
 static std::string g_json;
 
+/*
+ * Paskutinio pjaustymo rezultatas. Laikomas todel, kad `.sl1` gamyba yra
+ * ATSKIRAS zingsnis: naudotojas pirma pamato, kiek dervos ir kur atramos, ir tik
+ * tada spaudzia „siusti i printeri".
+ */
+static struct {
+    indexed_triangle_set model, supports, pad;
+    double layer_h = 0.05;
+    bool ready = false;
+} g_last;
+
 /**
  * Visa grandine. `path` - failas Emscripten failu sistemoje (arba tikras
  * failas, kai kompiliuojama ne i WASM).
@@ -129,6 +147,18 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
         g_json = "{\"klaida\":\"STL neperskaitytas\"}";
         return g_json.c_str();
     }
+    /* Modelis pastatomas ant plokstes taip pat, kaip tai daro PrusaSlicer,
+       ikeldamas STL: XY - i plokstes vidurį, Z - ant nulio. Rasterizatorius
+       pats nieko necentruoja (SL1.cpp:497-528 palieka `Trafo.center` nuliuose),
+       tad be sito modelis atsiduria rastro kampe ir dalis jo nukerpama. */
+    {
+        const auto bb0 = mesh.bounding_box();
+        const Vec3d c = bb0.center();
+        mesh.translate(float(PLOKSTE_X_MM / 2 - c.x()),
+                       float(PLOKSTE_Y_MM / 2 - c.y()),
+                       float(-bb0.min.z()));
+    }
+
     const indexed_triangle_set &its = mesh.its;
     if (verbose) {
         std::printf("model            %s\n", path);
@@ -198,6 +228,12 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
 
     /* Geometrija atiduodama i modulio failu sistema, kad JS puse galetu ja
        nupiesti. Trys atskiri failai, nes piesiant kiekvienas turi savo spalva. */
+    g_last.model = its;
+    g_last.supports = tree.first;
+    g_last.pad = pad;
+    g_last.layer_h = layer_h;
+    g_last.ready = true;
+
     its_write_stl_binary("/out_model.stl", "modelis", its);
     its_write_stl_binary("/out_supports.stl", "atramos", tree.first);
     its_write_stl_binary("/out_pad.stl", "padas", pad);
@@ -232,11 +268,143 @@ const char *sla_slice(const char *path, double layer_h, int branching)
 
 } // extern "C"
 
+
+/*
+ * Sluoksniai ir `.sl1` archyvas.
+ *
+ * Formatas tas pats, kuri siuncia PrusaSlicer, ir kuri musu firmware jau moka
+ * ispakuoti: ZIP su `config.ini` ir PNG sluoksniais.
+ *
+ * Piesiama SL1 rasterizatoriumi (`create_raster_grayscale_aa`) su tais paciais
+ * ekrano parametrais, kaip V profilyje: 320x240 px ant 40,8x30,6 mm, veidrodis
+ * per X (`display_mirror_x = 1`).
+ */
+namespace {
+
+struct EkranoCfg {
+    size_t px_x = 320, px_y = 240;
+    double plotis_mm = PLOKSTE_X_MM, aukstis_mm = PLOKSTE_Y_MM;
+    bool veidrodis_x = true;
+    double gama = 1.0;
+    double ekspozicija = 10.0, ekspozicija_pirmo = 15.0;
+    size_t pirmu_sluoksniu = 8, fade = 5;
+};
+
+std::string ini_eilute(const EkranoCfg &c, double layer_h, size_t sluoksniu,
+                       const std::string &vardas, double ml)
+{
+    char b[1400];
+    std::snprintf(b, sizeof(b),
+        "action = print\n"
+        "expTime = %.6g\n"
+        "expTimeFirst = %.6g\n"
+        "fileCreationTimestamp = -\n"
+        "hollow = 0\n"
+        "jobDir = %s\n"
+        "layerHeight = %.6g\n"
+        "materialName = - default -\n"
+        "numFade = %zu\n"
+        "numFast = %zu\n"
+        "numSlow = %zu\n"
+        "printProfile = TinyMaker WASM\n"
+        "printTime = 0\n"
+        "printerModel = SL1\n"
+        "printerProfile = TinyMaker\n"
+        "printerVariant = default\n"
+        "prusaSlicerVersion = libslic3r-WASM\n"
+        "usedMaterial = %.6f\n",
+        c.ekspozicija, c.ekspozicija_pirmo, vardas.c_str(), layer_h,
+        c.fade, sluoksniu > c.pirmu_sluoksniu ? sluoksniu - c.pirmu_sluoksniu : sluoksniu,
+        c.pirmu_sluoksniu, ml);
+    return b;
+}
+
+} // namespace
+
+extern "C" {
+
+/**
+ * Pagamina `.sl1` is paskutinio pjaustymo rezultato.
+ * Grazina JSON su sluoksniu skaiciumi ir failo dydziu.
+ */
+EMSCRIPTEN_KEEPALIVE
+const char *sla_export_sl1(const char *out_path, const char *job_name)
+{
+    if (!g_last.ready) {
+        g_json = "{\"klaida\":\"pirma reikia suslicinti\"}";
+        return g_json.c_str();
+    }
+    const EkranoCfg cfg;
+    const double layer_h = g_last.layer_h;
+    auto t0 = Clock::now();
+
+    /* Bendras Z tinklelis: nuo zemiausio tasko (padas yra po modeliu) iki
+       auksciausio. Sluoksnio VIDURYS, kaip ir pjaustant modeli. */
+    float zmin = 1e30f, zmax = -1e30f;
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
+        for (const auto &v : m->vertices) {
+            if (v.z() < zmin) zmin = v.z();
+            if (v.z() > zmax) zmax = v.z();
+        }
+    std::vector<float> grid;
+    for (float z = zmin + float(layer_h) / 2.f; z < zmax; z += float(layer_h))
+        grid.push_back(z);
+
+    /* Modelis ir atramos pjaustomi atskirai, tada sujungiami - kaip SLAPrint. */
+    std::vector<ExPolygons> mo = slice_mesh_ex(g_last.model, grid, 0.005f);
+    sla::JobController ctl;
+    std::vector<ExPolygons> su = sla::slice(g_last.supports, g_last.pad, grid, 0.005f, ctl);
+
+    const sla::Resolution res{cfg.px_x, cfg.px_y};
+    const sla::PixelDim   pxd{cfg.plotis_mm / cfg.px_x, cfg.aukstis_mm / cfg.px_y};
+    const sla::RasterBase::Trafo tr{sla::RasterBase::roLandscape,
+        cfg.veidrodis_x ? sla::RasterBase::MirrorX : sla::RasterBase::NoMirror};
+
+    Zipper zip(out_path, Zipper::FAST_COMPRESSION);
+    const std::string vardas = job_name && *job_name ? job_name : "spaudinys";
+    size_t irasyta = 0, baitu = 0;
+
+    for (size_t i = 0; i < grid.size(); ++i) {
+        ExPolygons sluoksnis = mo[i];
+        if (i < su.size() && !su[i].empty()) {
+            ExPolygons visi = sluoksnis;
+            visi.insert(visi.end(), su[i].begin(), su[i].end());
+            sluoksnis = union_ex(visi);
+        }
+        auto rst = sla::create_raster_grayscale_aa(res, pxd, cfg.gama, tr);
+        for (const ExPolygon &ex : sluoksnis) rst->draw(ex);
+        sla::EncodedRaster png = rst->encode(sla::PNGRasterEncoder{});
+
+        char nm[128];
+        std::snprintf(nm, sizeof(nm), "%s/%05zu.png", vardas.c_str(), i + 1);
+        zip.add_entry(nm, png.data(), png.size());
+        baitu += png.size();
+        ++irasyta;
+    }
+
+    /* Dervos kiekis - is turiu, kaip ir rodome naudotojui. */
+    const double ml = (its_volume(g_last.model) + its_volume(g_last.supports)
+                       + its_volume(g_last.pad)) / 1000.0;
+    const std::string ini = ini_eilute(cfg, layer_h, irasyta, vardas, ml);
+    zip.add_entry("config.ini", ini.c_str(), ini.size());
+    zip.finalize();
+
+    char b[512];
+    std::snprintf(b, sizeof(b),
+        "{\"sluoksniu\":%zu,\"png_baitu\":%zu,\"laikas_ms\":%ld,\"failas\":\"%s\"}",
+        irasyta, baitu, ms_since(t0), out_path);
+    g_json = b;
+    return g_json.c_str();
+}
+
+} // extern "C"
+
 int main(int argc, char **argv)
 {
     if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree]\n"); return 2; }
     const double layer_h = argc > 2 ? std::atof(argv[2]) : 0.05;
     const std::string t  = argc > 3 ? argv[3] : "regular";
     run_chain(argv[1], layer_h, t == "tree" || t == "branching", true);
+    if (argc > 4) std::printf("sl1              %s\n", sla_export_sl1(argv[4], "spaudinys"));
     return 0;
 }
