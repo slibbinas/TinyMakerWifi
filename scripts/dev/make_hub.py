@@ -40,6 +40,9 @@ KITUR = [
     ("3D pultas su žymėmis", "http://localhost:8080/3d/pultas.html",
      "Mūsų ir Prusos pjūviai greta; pažymėjus sritį gaunamos mm koordinatės.",
      "python pultas3d.py"),
+    ("Slicerio stendas", "http://localhost:8897/lab/lab.html",
+     "Tikras pultas su netikru printeriu ir jau įkeltu modeliu - slicerio pataisoms.",
+     "python -m http.server 8897  (iš C:/PIO-build)"),
     ("Printerio pultas", "http://tinymaker.local/",
      "Tikras printeris: būsena, modeliai, dervos, nustatymai.", None),
 ]
