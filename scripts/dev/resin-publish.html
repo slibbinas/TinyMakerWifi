@@ -134,6 +134,19 @@ negalėtų išsiskirti.
     <span>Pirma <i>Sustabdyti</i>, paskui sustabdytųjų eilutėje <i>Išimti visam laikui</i>.
     Failas lieka gulėti internete, tad niekam nieko nelūžta - jis tiesiog nebesiūlomas.</span></div>
 
+   <div class="sc"><b>Ką reiškia „Įrašyti į biblioteką"</b>
+    <span>Nieko nepublikuoja. Profilis įdedamas (arba atnaujinamas) šito puslapio darbiniame
+    sąraše, o apačioje persirašo abu failai. Iki kol pasakysi man publikuoti, jis gyvena tik
+    tavo naršyklėje - todėl viršuje ir rodo <i>Neišsiųsti pakeitimai</i>.</span></div>
+
+   <div class="sc"><b>Ką reiškia „Išleisti reviziją"</b>
+    <span>Tas pats profilis, tik nauju vardu: <i>sunlu-tough</i> → <i>sunlu-tough-r2</i>. Senas
+    įrašas keliauja į išimtus, o senas failas lieka gulėti, kad įsidiegusiems niekas nelūžtų.
+    <b>Kam to reikia:</b> pultas siūlo tik tuos profilius, kurių printeris dar neturi. Pataisa
+    po tuo pačiu vardu pasiekia tik naujus žmones; nauju vardu ji vėl atsiranda sąraše visiems,
+    ir tas, kas turi seną, gali įsidiegti pataisytą. Todėl mažai klaidai, kai profilis dar
+    šviežias, užtenka <i>Įrašyti į biblioteką</i>, o rimtai - revizija.</span></div>
+
    <div class="sc"><b>Kodėl forma tokia priekabi</b>
     <span>Printeris blogos reikšmės negrąžina su klaida: jis ją arba apkarpo iki savo ribos,
     arba visai ignoruoja ir palieka gamyklinę. Abu atvejai tylūs, o ženkliukas
@@ -178,6 +191,10 @@ negalėtų išsiskirti.
   <h2>Rezultatas</h2>
   <div class="card" id="outCard">
    <div id="outDiff" class="note">Pasirink profilį arba pradėk naują.</div>
+   <!-- Failų tekstas suskleistas: kasdien jo neprireikia (mygtukai „kopijuoti"
+        ir „atsisiųsti" veikia ir suskleisto), o atverstas jis nustumia visa kita
+        per du ekranus žemyn. -->
+   <details id="outDet"><summary id="outSum">Failai</summary>
    <div id="outWrap" style="display:none">
     <div class="row" style="border-top:0"><b id="outFileName">profilis.json</b>
      <div class="acts"><button data-copy="file">kopijuoti</button><button data-dl="file">atsisiųsti</button></div></div>
@@ -186,6 +203,7 @@ negalėtų išsiskirti.
      <div class="acts"><button data-copy="man">kopijuoti</button><button data-dl="man">atsisiųsti</button></div></div>
     <pre id="outMan"></pre>
    </div>
+   </details>
   </div>
  </div>
 </div>
@@ -233,7 +251,12 @@ const BASE={layer_height:0.05,base_exposure:18,regular_exposure:8.0,base_layers:
 const KEYS=['name','layer_height'].concat(F.map(f=>f.k)).concat(['tested_by','tested_on','buy_url']);
 
 /* ---- pagalbinės ---------------------------------------------------------- */
-const slugify=s=>(s||'').toLowerCase().replace(/[^a-z0-9-_]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+/* Lietuviškas rašmuo virsta artimiausiu lotynišku, o ne dingsta: „Testinė derva"
+   turi tapti „testine-derva", ne „testin-derva". Rezultatas visada lieka toks,
+   kokį priima ir pultas, ir kortelės failų sistema. */
+const LT_MAP={'ą':'a','č':'c','ę':'e','ė':'e','į':'i','š':'s','ų':'u','ū':'u','ž':'z'};
+const slugify=s=>(s||'').toLowerCase().replace(/[ąčęėįšųūž]/g,c=>LT_MAP[c])
+  .replace(/[^a-z0-9-_]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
 const buyOk=u=>!u||u.indexOf('https://tinymakerwifi.com/')===0||u.indexOf('https://slibbinas.github.io/')===0;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function num(v,dec,dmin){
@@ -497,8 +520,14 @@ function collect(){
   F.forEach(f=>{const el=$('f_'+f.k);if(el&&el.value!=='')p[f.k]=Number(el.value);});
 }
 function onEdit(){collect();validate();save();showOut();}
+/* Printerio gamykliniai profiliai. Toks vardas kortelėje nesukurtų naujo
+   profilio, o užklotų gamyklinį (ResinProfile.ino: failas SD kortelėje yra
+   built-in'o perdanga), ir bibliotekos sąraše jis net nepasirodytų - pultas
+   siūlo tik tai, ko printeris dar neturi, o šituos jis turi visada. */
+const RESERVED=['fast','slow'];
 function validate(){
   const errs=[],warns=[],p=draft.p;
+  let suggest=null;
   F.forEach(f=>{
     const el=$('f_'+f.k),v=p[f.k];
     const bad=!(typeof v==='number'&&isFinite(v))||v<f.min||v>f.max;
@@ -510,9 +539,21 @@ function validate(){
   const slug=draft.slug||'';
   if(!p.name)errs.push('Pavadinimas privalomas - jį žmogus mato sąraše.');
   if(!slug)errs.push('Vardas failui privalomas.');
-  else if(slug!==slugify(slug))errs.push('Vardas failui gali turėti tik mažąsias raides, skaičius, „-" ir „_" (siūlau: '+slugify(slug)+').');
+  else if(slug!==slugify(slug)){
+    errs.push('Vardas failui gali turėti tik mažąsias raides, skaičius, „-" ir „_" - taip jis tinka ir '+
+      'internetui, ir printerio kortelei.');
+    suggest=slugify(slug);
+  }else if(RESERVED.indexOf(slug)>=0){
+    errs.push('„'+slug+'" yra printerio gamyklinio profilio vardas. Tokiu vardu paskelbtas profilis '+
+      'ne atsirastų kaip naujas, o užklotų gamyklinį, ir sąraše net nepasirodytų.');
+    suggest=slugify(p.name)&&RESERVED.indexOf(slugify(p.name))<0?slugify(p.name):slug+'-resin';
+  }
   const clash=man.profiles.concat(man.hidden||[],man.retired||[]).some(e=>e.name===slug&&slug!==draft.slug0);
-  if(clash)errs.push('Toks vardas jau naudojamas - pasirink kitą arba taisyk esamą.');
+  if(clash){
+    errs.push('Toks vardas jau naudojamas - pasirink kitą arba taisyk esamą. Vardas yra profilio '+
+      'tapatybė: pagal jį printeris sprendžia, ar jau turi šitą profilį.');
+    if(!suggest)suggest=slug+'-2';
+  }
   if(!p.tested_by)errs.push('„Kas išbandė" privalomas - be ženkliuko visa biblioteka bevertė.');
   if(p.tested_on&&!/^\d{4}-\d{2}$/.test(p.tested_on))errs.push('Datą rašyk YYYY-MM (pvz. '+today()+').');
   if(p.buy_url&&!buyOk(p.buy_url))
@@ -520,6 +561,12 @@ function validate(){
       'sąraše ji matysis, o įsidiegus dings. Siūlau https://tinymakerwifi.com/r/'+(slugify(slug)||'vardas'));
   const box=$('formMsg');box.innerHTML='';
   errs.forEach(t=>{const d=document.createElement('div');d.className='err';d.textContent=t;box.appendChild(d);});
+  if(suggest){
+    const b=document.createElement('button');b.className='pri';b.style.marginTop='8px';
+    b.textContent='Naudoti vardą: '+suggest;
+    b.addEventListener('click',()=>{$('fSlug').value=suggest;onEdit();});
+    box.appendChild(b);
+  }
   warns.forEach(t=>{const d=document.createElement('div');d.className='warn';d.textContent=t;box.appendChild(d);});
   $('btnApply').disabled=errs.length>0;
   $('btnRev').disabled=errs.length>0;
@@ -611,6 +658,7 @@ function showOut(){
     $('outFileName').textContent=outFileName;
     $('outFile').textContent=outFileTxt;
     $('outWrap').style.display='';
+    $('outSum').textContent='Failai: '+outFileName+' ir manifest.json';
     const d=diffLines();
     $('outDiff').className=d.length?'warn':'note';
     $('outDiff').textContent=draft.mode==='edit'
@@ -618,6 +666,7 @@ function showOut(){
       : 'Naujas profilis - žemiau abu failai.';
   }else{
     $('outWrap').style.display=(man.profiles.length||man.hidden&&man.hidden.length)?'':'none';
+    $('outSum').textContent='Failas: manifest.json';
     $('outFile').textContent='';$('outFileName').textContent='(profilis nepasirinktas)';
     outFileTxt='';
     $('outDiff').className='note';
