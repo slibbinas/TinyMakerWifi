@@ -58,6 +58,32 @@ sluoksnių (pikselių pustonai), `bridge.cpp` - tiesiai iš geometrijos.
 
 Modulis: **3,0 MB**.
 
+## Atramų tipas: `regular` ir `tree`
+
+Tiltas priima trečią argumentą - kokio tipo atramas statyti:
+
+```bash
+node sla.js modelis.stl 0.05            # regular (numatytasis)
+node sla.js modelis.stl 0.05 tree       # medžio (branching)
+```
+
+Tai ne tas pats algoritmas su kitu vardu: PrusaSlicer kiekvienam tipui turi
+**atskirą parametrų rinkinį** (`support_*` ir `branchingsupport_*`), ir abu
+paimti iš to paties profilio. Medžio variante galvutė plonesnė (0,4 vs 0,5 mm),
+tiltas trumpesnis (5 vs 10 mm), stulpas platėjantis, jungimas dinaminis.
+
+Puodelis, tas pats profilis:
+
+| | PrusaSlicer | mūsų WASM |
+|---|---|---|
+| regular | 2,4249 ml | 2,4081 ml |
+| tree | 2,2629 ml | 2,2995 ml |
+
+⚠️ **Neištirta:** su `tree` mūsų padas išeina tuščias, o PrusaSlicer tam pačiam
+puodeliui pirmame sluoksnyje turi ~247 mm² pėdsaką. Bendra derva sutampa per
+1,6 %, tad efektas mažas, bet priežastis nežinoma - tai reikia išsiaiškinti
+prieš siūlant `tree` naudotojui.
+
 ## Ką reikia turėti galvoje
 
 1. **CGAL apvalinimo tikrinimas išjungtas** (`-DCGAL_DISABLE_ROUNDING_MATH_CHECK`).
