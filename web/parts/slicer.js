@@ -20,12 +20,31 @@ const slicerBusyStop=()=>{
 };
 /* Kelias nuoseklus, tad oranzinis tik tas zingsnis, kuris einamas: kitaip
    visi trys atrodo vienodai svarbus (V 08-12). */
+/* Pjaustymo eiga: deklaruota CIA, o ne prie paties mygtuko, nes `slicerStep`
+   ja skaito, o jis kviečiamas anksciau. */
+let sliceRunning=false, sliceStopWanted=false;
+/* Ar dabartinis modelis telpa. „Slice" tokio nepjauna (`fitCheck` sarga zemiau),
+   tad juosta apie tai turi pasakyti PRIES paspaudima, o ne po jo (V 08-19:
+   „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
+   raudona zinute, ir tai atrode kaip sugedes mygtukas). */
+let slicerFits=true;
 const slicerStep=()=>{
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
   set('slicerChoose',!loaded);
-  set('slicerGo',loaded&&!sliced);
+  set('slicerGo',loaded&&!sliced&&slicerFits);
   set('slicerSave',sliced);
+  /* Netelpa - tai oranzinis zingsnis yra „Auto fit", ne „Slice": kelias veda
+     per ji, ir juosta rodo butent ta mygtuka, kuris dabar ka nors pakeis. */
+  {const tools=$('gl3dTools');
+   const ft=tools&&tools.querySelector("[data-tool='fit']");
+   if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
+   const go=$('slicerGo');
+   if(go&&!sliceRunning){
+     go.disabled=!loaded||sliced||!slicerFits;
+     go.title=(loaded&&!slicerFits)
+       ?'Does not fit yet - Auto fit, or turn it by hand'
+       :'';}}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
@@ -216,6 +235,7 @@ const slicerRender=()=>{
      b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
      +' mm  ·  '+n.toLocaleString()+' triangles';}
   const fit=$('slicerFit');
+  slicerFits=!!f.fits;
   if(f.fits){
     fit.textContent='Fits the build volume.';
     fit.style.color='var(--muted)';
@@ -559,7 +579,6 @@ const slicerShowLayer=n=>{
    gaudoma, tad `slice()` nutrūksta ties artimiausiu sluoksniu (paieskoje kas 32,
    piesime kas 8) ir isnyra cia, apacioje, kaip iprasta klaida. */
 const SLICE_STOP='__slicer_stopped__';
-let sliceRunning=false, sliceStopWanted=false;
 $('slicerGo').addEventListener('click',async()=>{
   /* Tas pats mygtukas, kuris pradejo, ir sustabdo: kito ieskoti nereikia, o
      eilute lieka dvieju mygtuku ploCio. */
