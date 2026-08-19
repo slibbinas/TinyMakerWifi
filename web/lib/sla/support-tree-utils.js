@@ -12,6 +12,9 @@
  * del to tiltai eidavo kiaurai detale.
  */
 
+import { mlslMinimize } from './nlopt-mlsl.js';
+import { stopCriteria } from './nlopt-neldermead.js';
+
 /* --------------------------------------------------------------- vektoriai */
 export const v3 = (x, y, z) => [x, y, z];
 export const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -218,16 +221,34 @@ export const sphericToDir = (polar, azimuth) => [
  * (globalus optimizatorius ir originale nera deterministinis tarp versiju), o
  * atkartoti KRITERIJŲ: rasti bet kuria kryptį, kuria galvute telpa.
  */
+/**
+ * `Optimizer<AlgNLoptMLSL_Subplx>` atitikmuo.
+ *
+ * Nuo 2026-08-19 cia stovi TIKRAS portas (MLSL + Subplex + Nelder-Mead), o ne
+ * pakaitalas. Originalas visose trijose vietose naudoja ta pati derini:
+ * MLSL meto pradinius taskus ir nekartoja paieskos ten, kur jau ieskota, o
+ * Subplex kiekviena trumpai patobulina.
+ *
+ * `to_max()` verciam i minimizavima - originale tai daro pats Optimizer.
+ */
 export function optimize(rawFn, x0, bounds, opts = {}) {
-  /* Originale kryptis nurodoma `to_max()` / `to_min()`. Minimizavima verciam i
-     maksimizavima, kad viduje liktu viena kilpa - matematiskai tas pats. */
   const minimize = !!opts.minimize;
-  const fn = minimize ? x => -rawFn(x) : rawFn;
-  const stopScore = minimize ? -opts.stopScore : opts.stopScore;
+  const f = minimize ? rawFn : x => -rawFn(x);
+  const stopScore = minimize ? opts.stopScore : -opts.stopScore;
   const maxIter = opts.maxIter === undefined ? 100 : opts.maxIter;
-  const seed = opts.seed === undefined ? 0 : opts.seed;
-  const r = maximizeUntil(fn, x0, bounds, stopScore, maxIter, seed + 1);
-  return { x: r.x, score: minimize ? -r.score : r.score, iters: r.iters };
+
+  const lb = bounds.map(b => b[0]), ub = bounds.map(b => b[1]);
+  const stop = stopCriteria({
+    maxeval: maxIter,
+    minfMax: stopScore === undefined ? -Infinity : stopScore,
+    /* `get_criteria` (STU.hpp:110-115): rel_score_diff is cfg, o
+       `optimizer_rel_score_diff` yra 1e-10. */
+    ftolRel: 1e-10, ftolAbs: 0, xtolRel: 1e-8, xtolAbs: 1e-10,
+  });
+
+  const r = mlslMinimize(x0.length, f, lb, ub, x0.slice(), stop,
+                         /* lokalus biudzetas */ Math.min(100, maxIter));
+  return { x: r.x, score: minimize ? r.minf : -r.minf, iters: stop.nevals };
 }
 
 export function maximizeUntil(fn, x0, bounds, stopScore, maxIter = 100, seed = 1) {
