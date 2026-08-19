@@ -55,6 +55,18 @@
 
   /* Atramos - ATSKIRA medziaga ir spalva, ne to paties tinklelio dalis: V 08-16
      pastebejo, kad be to nesimato, kur baigiasi detale ir prasideda atrama. */
+  /* Kur dabar pjaunama. `null` = nepjaunama. Ta pati plokstumos objekta duoda
+     pultas (jos `constant` keiciasi velkant slankikli), tad cia laikom nuoroda. */
+  let supPlanes=null;
+  window.gl3dSupClip=pl=>{
+    supPlanes=pl?[pl]:null;
+    if(supMesh){
+      supMesh.material.clippingPlanes=supPlanes;
+      supMesh.material.needsUpdate=true;
+      if(scene&&cam&&ren)ren.render(scene,cam);
+    }
+    return true;
+  };
   window.gl3dSupports=positions=>{
     if(!ren)return false;
     if(supMesh){scene.remove(supMesh);supMesh.geometry.dispose();
@@ -65,9 +77,12 @@
     geo.computeVertexNormals();
     supMesh=new T.Mesh(geo,new T.MeshStandardMaterial({color:0x8fa8c8,roughness:.75,
       metalness:.05,side:T.DoubleSide}));
-    // Tas pats pjuvis kaip modeliui - kitaip slankiklis pjautu tik detale.
-    if(mesh&&mesh.material&&mesh.material.clippingPlanes)
-      supMesh.material.clippingPlanes=mesh.material.clippingPlanes;
+    /* Tas pats pjuvis kaip modeliui - kitaip slankiklis pjautu tik detale.
+       Anksciau plokstuma cia buvo NUSIRASOMA nuo modelio ir tik kurimo metu:
+       jei atramos atsirasdavo iki pirmo pjovimo (o su WASM jos ateina veliau,
+       atskiru atsakymu), jos likdavo neapkirptos visam laikui. Dabar ja laiko
+       tiltas, o pultas tik praneša, kai ji keiciasi. */
+    supMesh.material.clippingPlanes=supPlanes;
     scene.add(supMesh);
     if(scene&&cam)ren.render(scene,cam);
     return true;

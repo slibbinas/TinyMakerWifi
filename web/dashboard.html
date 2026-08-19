@@ -6128,11 +6128,13 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     if(CLIP===null){
       ren.localClippingEnabled=false;
       if(buvo){mesh.material.clippingPlanes=[];mesh.material.needsUpdate=true;}
+      if(window.gl3dSupClip)gl3dSupClip(null);
       return true;
     }
     CLIP_PL.constant=CLIP*(slicesCache.modelH||MZ)-MZ/2;
     ren.localClippingEnabled=true;
     if(buvo!==1){mesh.material.clippingPlanes=[CLIP_PL];mesh.material.needsUpdate=true;}
+    if(window.gl3dSupClip)gl3dSupClip(CLIP_PL);
     return true;
   };
   window.gl3dClip=dalis=>{CLIP=dalis;return clipTaikyk();};

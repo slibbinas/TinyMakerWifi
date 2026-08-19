@@ -473,6 +473,9 @@ const slicerGeomView=(home)=>{
   if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
   if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
+  /* Sluoksniu vaizdas si lauka uzpildo pats, o geometrijos vaizdas iki siol
+     ne - tad pjuvis matavosi pagal ANKSTESNI modeli. */
+  {const H=slicerModelH(); if(H)slicesCache.modelH=H;}
   const s=slicerOut&&slicerOut.supports;
   if(slicerMod.geometrija&&slicerOut){
     /* WASM variklis atramu saraso nebeduoda - jos ateina kaip tikra geometrija
@@ -519,12 +522,23 @@ const slicerBuildView=(home)=>{
   drawIso($('printPreviewCanvas'),1);   // visas daiktas + GPU
   return gl3dUp();
 };
+/* Modelio auksčio VIENAS saltinis: perziura, o jos nesant - sluoksniu skaicius.
+   Ta pati reiksme turi guleti ir `slicesCache.modelH`, nes is jos `gl3dClip`
+   dali paverčia milimetrais. */
+const slicerModelH=()=>{
+  if(!slicerOut)return 0;
+  const pv=slicerOut.preview;
+  return (pv&&pv.modelH)||slicerOut.layers*0.05;
+};
 const slicerShowLayer=n=>{
   if(!slicerOut)return;
   if(statusData&&statusData.busy)return;   // ta pati priezastis, kaip slicerRender
   slicerLayerN=n;
-  const mm=n*0.05;
-  if(gl3dUp())gl3dClip(n>=slicerOut.layers?null:mm);
+  /* `gl3dClip` laukia DALIES (0..1), ne milimetru: viduje ji dauginama is
+     modelio auksčio. Cia keliavo milimetrai, tad plokstuma nuskrisdavo virs
+     modelio ir slankiklis atrodydavo nieko nedarantis (V 08-19). */
+  const H=slicerModelH();
+  if(gl3dUp())gl3dClip(n>=slicerOut.layers||!H?null:Math.max(0,Math.min(1,n*0.05/H)));
   if(slicerMaskOn)slicerMaskDraw(n);
   /* Sluoksnio numeris PRIE paties slankiklio - taip daro visi slicer'iai. */
   {const N=$('gl3dLayerNo'); if(N)N.textContent=n+' / '+slicerOut.layers;}
