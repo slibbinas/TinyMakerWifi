@@ -1,0 +1,6 @@
+{
+  "_doc": "Where each resin's Buy link actually goes. The printer never sees this: profiles carry https://tinymakerwifi.com/r/<slug> (the firmware accepts a link only from our own domain), and the worker resolves it here. Value is the shop URL, or {\"url\": \"...\", \"geo\": {\"US\": \"...\"}} when the same resin is bought in different places depending on the buyer. Changing a partner is an edit here - no firmware release, no reinstalled profile. A slug missing from this file simply shows no link.",
+  "sunlu-tough": "https://www.sunlu.com/",
+  "anycubic-ww-clear": "https://www.anycubic.com/",
+  "anycubic-ww-black": "https://www.anycubic.com/"
+}

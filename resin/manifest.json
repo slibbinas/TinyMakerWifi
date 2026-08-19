@@ -7,21 +7,21 @@
       "layerHeight": 0.05,
       "testedBy": "TinyMakerWiFi",
       "testedOn": "2026-08",
-      "buyUrl": "https://www.sunlu.com/"
+      "buyUrl": "https://tinymakerwifi.com/r/sunlu-tough"
     },
     {
       "name": "anycubic-ww-clear",
       "display": "Anycubic Water-Washable Clear",
       "file": "anycubic-ww-clear.json",
       "layerHeight": 0.10,
-      "buyUrl": "https://www.anycubic.com/"
+      "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-clear"
     },
     {
       "name": "anycubic-ww-black",
       "display": "Anycubic Water-Washable Black",
       "file": "anycubic-ww-black.json",
       "layerHeight": 0.10,
-      "buyUrl": "https://www.anycubic.com/"
+      "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-black"
     }
   ]
 }
