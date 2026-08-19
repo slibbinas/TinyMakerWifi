@@ -572,8 +572,9 @@ function slicerSetView(v){
   slicerFlatStage(slicerView===2);
   {const plokscia=slicerView===2;
    const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
-   document.querySelectorAll('#gl3dZoom [data-zoom]')
-     .forEach(b=>{b.style.display=plokscia?'none':'';});
+   /* Priartinimas gyvena savo kampe, tad plokscioje kaukeje slepiam visa
+      kampine grupe (V 08-20: „- ir + visada desineje apacioje"). */
+   {const zc=$('gl3dZoomCorner'); if(zc)zc.style.display=plokscia?'none':'flex';}
    /* Sukimo ir stumdymo padai bei ju pagalba - irgi 3D reikalas. Plokscioje
       kaukeje jie ne tik nieko nedaro, bet ir gula ant paties vaizdo (V 08-19).
       Grazinam su tais paciais display, kokius duoda tiltas. */
@@ -825,7 +826,7 @@ const slicerDetLock=on=>{
 /* Apatineje juostoje trys grupes: sukimas (kaireje), irankiai (viduryje),
    detalumas+priartinimas (desineje). Scale eilutei reikia VISO plocio -
    kitaip patvirtinimo varnele uzlipa ant kaimynu (V 08-12). */
-const POP_ROW={gl3dTools:'flex',gl3dRot:'grid',gl3dZoom:'flex'};
+const POP_ROW={gl3dTools:'flex',gl3dRot:'grid',gl3dZoom:'flex',gl3dZoomCorner:'flex'};
 const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
   const e=$(id); if(e)e.style.display=show?POP_ROW[id]:'none';});
 /* Vaizdo savininkas ir detalumo uzraktas keiciasi KARTU. Anksciau uzraktas
