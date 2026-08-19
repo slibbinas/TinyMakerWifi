@@ -91,3 +91,67 @@ kiekį.
 Perjungimas **nesumergintas ir printeryje neįdiegtas** - pultas lieka ant
 `slicer-2.0.2.js`, naudotojui niekas nesikeičia. Gavę 1 ir 2 punktus, užbaigiam
 per vakarą kartu su firmware flash'u.
+
+---
+
+# 2 prašymas (08-19, po 3.0.1 prijungimo): modelis rastre guli kampe
+
+3.0.1 prijungtas, kaukė ir `geometrija()` veikia - ačiū. Bet **`.sl1` rastras
+išeina blogas**, ir tai matosi ne akimis, o išmatavus patį failą.
+
+## Ką radom
+
+Stende (tikras pultas, Ziedas.stl, 21,7 × 21,5 × 8,6 mm, `regular`) paėmėm
+vidurinį sluoksnį - **ne mūsų piešinį, o patį PNG iš `slice()` grąžinto `files[]`**:
+
+| | rasta | tikėtasi |
+|---|---|---|
+| rastras | 320 × 240 | 320 × 240 ✓ |
+| objekto centras | **273, 194** | 160, 120 |
+| ribos | 232…**319** × 157…**239** (remiasi į kraštą) | ~75…245 × ~35…205 |
+| matomas plotis | ~88 px | ~170 px (7,84 px/mm) |
+
+Kaukė (`supportSlices`) sutampa su PNG, tad pultas piešia teisingai - taip
+atrodo pats variklio failas. Matomas **ketvirtis** objekto, nukirstas rastro
+krašte.
+
+## Kodėl taip, mūsų spėjimas
+
+Skaičiai sutampa su viena prielaida: mes paduodam koordinates, kuriose **stalo
+nulis yra centre** (modelis −10,8…+10,8 mm; taip grąžina `place()`, taip buvo ir
+senajame modulyje), o variklis jas skaito taip, tarsi **nulis būtų stalo
+kampas**. Tada į rastrą patenka tik teigiamas ketvirtis, o `display_mirror_x`
+(ir y ašies kryptis) nuverčia jį į apatinį dešinį kampą:
+
+    ketvirčio centras ≈ (7 mm, 7 mm) → (55, 55) px
+    po veidrodžio       → (320−55, 240−55) = (265, 185) px     rasta: (273, 194)
+
+Jūsų žinutėje buvo: „paduodant trikampiais variklis nieko nebecentruoja" -
+panašu, kad būtent čia ir prasilenkėm: mes tikėjomės, kad koordinačių prasmė
+lieka tokia pat, kaip senojo modulio.
+
+## Ko prašom
+
+Nuspręskit, kurioje pusėje kelti - abu variantai vienos eilutės:
+
+- **(a) adapteryje**: prieš paduodant variklį, pridėti pusę stalo
+  (`+PLATE.x/2, +PLATE.y/2`), t. y. adapteris ir toliau kalba ta pačia kalba,
+  kaip senasis modulis. Mums tai patogiau: pultas paduoda `place()` rezultatą ir
+  nieko nežino apie variklio vidų.
+- **(b) pulte**: paduodam kampinėse koordinatėse. Padarysim, jei pasakysit, kad
+  taip teisingiau - tik tada tai turi būti parašyta, nes `place()` grąžina
+  centruotai ir tas pats masyvas eina į 3D vaizdą.
+
+⚠️ Kol tai neišspręsta, **iš pulto slicinti negalima** - printeris gautų
+ketvirtį modelio. Pas mus sliceris ant printerio įjungtas, tad tai skubu.
+
+## Patikra, kai pataisysit
+
+Mums užtenka vienos eilutės iš jūsų pusės, bet mes vis tiek pamatuosim tą patį:
+vidurinio sluoksnio PNG objekto centras turi būti ~(160, 120), o plotis ~170 px
+21,7 mm modeliui. Tada pultą perjungiam ir vedam per geležies vartus.
+
+## Smulkmena, ne prašymas
+
+`geometrija()` veikia puikiai - 3D vaizde atramos dabar tikros. Ačiū už tai, kad
+dalys ateina `place()` koordinatėmis: tas kelias sutapo iš karto.
