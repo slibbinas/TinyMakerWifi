@@ -2054,6 +2054,9 @@ const setPageWaiting=on=>{
 };
 setPageWaiting(true);   // pultas atsidaro laukdamas printerio, ne apsimesdamas, kad jis cia
 const applyStatus=s=>{
+  /* Sliceriui - zenklas, kad busena atnaujinta: jei jis buvo praleides piesima
+     del printerio uzimtumo, dabar pats nusprendžia, ar jau gali (V 08-20). */
+  setTimeout(()=>{try{if(window.slicerRetryRender)window.slicerRetryRender();}catch(e){}},0);
     /* Atrakinam PRIES visa kita: toliau kiekvienas mygtukas vis tiek gauna savo
        tikra bukle is sios pacios funkcijos, tad nei vienas neliks uzstriges. */
     const justConnected=!firstStatusSeen&&!!(s&&s.ok);
@@ -4430,6 +4433,12 @@ const stageBox=on=>{
   if(gl&&gl.style.display==='block'&&window.gl3dShow){
     gl3dShow(true);                                   // setSize + camera.aspect
     if(window.gl3dFrameAuto&&gl3dFrameAuto())window.stageWantsVolume=false;
+    /* Ir dar karta kita kadra: aukstis ka tik pasikeitė, o `setSize` pagriebdavo
+       dar senaji - sumazinus pailginta langa modelis likdavo nukirstas (V 08-20:
+       „nukapota galva"). Antras praejimas jau matuoja nusistovejusi lauka. */
+    requestAnimationFrame(()=>{
+      if(gl.style.display==='block'&&window.gl3dShow)gl3dShow(true);
+    });
   }
 };
 /* Pailginti verta tik ten, kur yra ka pailginti: perziuroje piesiam smulkiai, o

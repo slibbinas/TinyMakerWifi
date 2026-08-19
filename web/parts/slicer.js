@@ -231,8 +231,22 @@ const slicerScaleUI=b=>{
    `slicerLastBounds` - paskutiniai piesimo matmenys, kad atleidus slankikli
    valdiklius butu galima atstatyti NEPERSKAICIUOJANT viso modelio. */
 let scaleDragging=false, slicerLastBounds=null;
+/* Perziuros kortele tikrai ne musu tik SPAUSDINANT - ten sukasi spaudinys.
+   Korteles darbai (ispakavimas, trynimas) vaizdo neuzima, bet iki siol jie irgi
+   blokavo slicerio piesima: ikelus modeli ir tuoj pat pasirinkus nauja STL,
+   ekrane likdavo tuscias narvas, kol printeris baigs ispakuoti (V 08-20). */
+const slicerPrinting=()=>!!(statusData&&statusData.busy&&!(statusData.sdJob||''));
+/* Praleistas piesimas turi PATS sugrizti. Iki siol jis tiesiog nieko nedarydavo,
+   ir vaizdas likdavo tuscias, kol zmogus paspausdavo bet kuri irankį - „Fit it"
+   ji perpiesdavo, ir atrodydavo, kad kaltas failo ikelimas (V 08-20). */
+let slicerRenderPending=false;
+window.slicerRetryRender=()=>{
+  if(!slicerRenderPending||slicerPrinting()||!slicerRaw)return;
+  slicerRenderPending=false;
+  slicerRender();
+};
 const slicerRender=()=>{
-  if(statusData&&statusData.busy)return;
+  if(slicerPrinting()){slicerRenderPending=true;return;}
   slicerInvalidate();
   const S=slicerMod;
   const placed=S.place(slicerRaw,slicerTr);
@@ -686,7 +700,7 @@ const slicerBuildView=(home)=>{
   /* Ta pati priezastis, kaip slicerRender: si funkcija perima perziuros kortele ir
      perrasoma globalu `slicesCache`, tad spausdinant ji ismestu gyva sluoksniu
      srauta ir jis butu traukiamas is naujo (auditas 08-17). */
-  if(statusData&&statusData.busy)return false;
+  if(slicerPrinting())return false;
   if(slicerView===0){slicerOwns(true);
     if(window.key3dReset)key3dReset();
     return slicerGeomView(home);}
@@ -714,7 +728,7 @@ const slicerModelH=()=>{
 };
 const slicerShowLayer=n=>{
   if(!slicerOut)return;
-  if(statusData&&statusData.busy)return;   // ta pati priezastis, kaip slicerRender
+  if(slicerPrinting())return;   // ta pati priezastis, kaip slicerRender
   slicerLayerN=n;
   /* `gl3dClip` laukia DALIES (0..1), ne milimetru: viduje ji dauginama is
      modelio auksčio. Cia keliavo milimetrai, tad plokstuma nuskrisdavo virs
