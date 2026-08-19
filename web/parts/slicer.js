@@ -203,14 +203,24 @@ const slicerScaleUI=b=>{
   /* Apacia - puse dabartinio mastelio, bet ne aukstesne uz iprastus 10 % ir ne
      zemesne uz absoliucia riba: taip slankiklyje visada lieka vietos ir i viena,
      ir i kita puse, o iprastu dydziu modeliams elgsena nesikeicia. */
-  const floor=Math.max(SCALE_MIN_PCT,Math.min(10,Math.floor(pct*5)/10));
-  const step=pct<10?0.1:1;
+  /* Desinys galas - „tiksliai telpa". Fiksuoti 300 % buvo is oro: drakonui
+     telpa ~17 %, tad devyni desimtadaliai juostos vede tik i „netelpa" (V 08-20).
+     `fitCheck().worst` yra blogiausios asies uzimta limito dalis, tad riba =
+     dabartinis mastelis / worst. Kaire - desimt kartu maziau uz desine: juosta
+     visada dengia ta pati santyki, nesvarbu, koks modelis. */
+  const f=(slicerMod&&slicerMod.fitCheck)?slicerMod.fitCheck(b.size):null;
+  const fitPct=(f&&f.worst>0)?pct/f.worst:300;
+  const top=Math.max(1,Math.min(300,Math.floor(fitPct)));
+  const floor=Math.max(SCALE_MIN_PCT,Math.min(top/10,shown));
+  const step=(pct<10||top<20)?0.1:1;
   /* Kol PIRŠTAS ant slankiklio, jo ribos NEJUDINAM. Apacia yra puse dabartinio
      mastelio, tad tempiant kairen ji irgi slenka zemyn, ruozas ilgeja, ir slankiklis
      po pirstu bega desinen - iki 0,1 % reikedavo keliu tempimu (auditas 08-17).
      Reiksme irgi ne: ja ka tik pasake pats zmogus. */
-  if(pr&&!scaleDragging){pr.min=floor; pr.step=step; pr.value=shown;}
-  if(pp){pp.min=floor; pp.step=step; pp.value=shown;}
+  if(pr&&!scaleDragging){pr.min=floor; pr.max=top; pr.step=step; pr.value=shown;}
+  /* Skaiciu laukelis lieka platesnis uz juosta: iraseiciau bet koki procenta, o
+     „netelpa" sarga pasakys, jei perlenkta - juosta tik neveda ten uz rankos. */
+  if(pp){pp.min=SCALE_MIN_PCT; pp.step=step; pp.value=shown;}
   if(pm)pm.value=b.size[2].toFixed(1);
 };
 /* Tempimo zyme. `pointerup` ir `change` - abu: pirmas pagauna pele/pirsta, antras
