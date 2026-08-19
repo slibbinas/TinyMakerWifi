@@ -196,6 +196,12 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
                     t_slice + t_prep + t_pts + t_tree + t_pad);
     }
 
+    /* Geometrija atiduodama i modulio failu sistema, kad JS puse galetu ja
+       nupiesti. Trys atskiri failai, nes piesiant kiekvienas turi savo spalva. */
+    its_write_stl_binary("/out_model.stl", "modelis", its);
+    its_write_stl_binary("/out_supports.stl", "atramos", tree.first);
+    its_write_stl_binary("/out_pad.stl", "padas", pad);
+
     std::snprintf(buf, sizeof(buf),
         "{\"tipas\":\"%s\",\"trikampiu\":%zu,\"sluoksniu\":%zu,\"tasku\":%zu,"
         "\"atramu_trikampiu\":%zu,\"pado_trikampiu\":%zu,"
