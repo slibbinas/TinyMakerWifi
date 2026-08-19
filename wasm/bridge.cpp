@@ -296,9 +296,49 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     const long t_pad = ms_since(t0);
     if (verbose) std::printf("pado trikampiu   %zu\n", pad.indices.size());
 
+    /*
+     * Diagnostika: kuris atramu elementas nusileidzia zemiausiai. Reikia todel,
+     * kad viena atrama Terry_The_Dragon modelyje nusileido i -0,658 mm, t. y.
+     * PO plokste (printerio sesija pagavo 3D vaizde), o PrusaSlicer to nedaro.
+     */
+    if (verbose) {
+        const auto &t = tree.second;
+        auto zmin_v = [](double a, double b2) { return a < b2 ? a : b2; };
+        double zp = 1e30, zh = 1e30, zj = 1e30, zb = 1e30, zcb = 1e30, zdb = 1e30, zped = 1e30, za = 1e30;
+        for (const auto &x : t.pillars)      zp   = zmin_v(zp,  x.endpt.z());
+        for (const auto &x : t.heads)        zh   = zmin_v(zh,  x.junction_point().z() - x.width_mm - x.r_back_mm);
+        for (const auto &x : t.junctions)    zj   = zmin_v(zj,  x.pos.z() - x.r);
+        for (const auto &x : t.bridges)      zb   = zmin_v(zb,  zmin_v(x.startp.z(), x.endp.z()) - x.r);
+        for (const auto &x : t.crossbridges) zcb  = zmin_v(zcb, zmin_v(x.startp.z(), x.endp.z()) - x.r);
+        for (const auto &x : t.diffbridges)  zdb  = zmin_v(zdb, zmin_v(x.startp.z(), x.endp.z()) - x.r);
+        for (const auto &x : t.pedestals)    zped = zmin_v(zped, x.pos.z());
+        for (const auto &x : t.anchors)      za   = zmin_v(za,  x.junction_point().z() - x.width_mm - x.r_back_mm);
+        std::printf("zemiausi         stulpai %.3f · galvutes %.3f · jungtys %.3f · tiltai %.3f\n"
+                    "                 kryzminiai %.3f · ant modelio %.3f · pedos %.3f · inkarai %.3f\n",
+                    zp, zh, zj, zb, zcb, zdb, zped, za);
+        std::printf("kiekiai          stulpu %zu · galvuciu %zu · jungciu %zu · tiltu %zu · pedu %zu · inkaru %zu\n",
+                    t.pillars.size(), t.heads.size(), t.junctions.size(),
+                    t.bridges.size(), t.pedestals.size(), t.anchors.size());
+    }
+
+    /* Kiekvienos dalies Z ribos - is ju is karto matyti, jei kas nors nusileido
+       PO plokste (printerio sesija tokia atrama pagavo Terry_The_Dragon). */
+    auto z_ribos = [](const indexed_triangle_set &m, float &lo, float &hi) {
+        lo = 1e30f; hi = -1e30f;
+        for (const auto &v : m.vertices) { if (v.z() < lo) lo = v.z(); if (v.z() > hi) hi = v.z(); }
+        if (m.vertices.empty()) { lo = hi = 0.f; }
+    };
+    float mz0, mz1, sz0, sz1, pz0, pz1;
+    z_ribos(its, mz0, mz1);
+    z_ribos(tree.first, sz0, sz1);
+    z_ribos(pad, pz0, pz1);
+
     const float v_model = its_volume(its);
     const float v_sup   = its_volume(tree.first);
     const float v_pad   = its_volume(pad);
+    if (verbose)
+        std::printf("z_ribos          modelis %.3f..%.3f  atramos %.3f..%.3f  padas %.3f..%.3f\n",
+                    mz0, mz1, sz0, sz1, pz0, pz1);
     if (verbose) {
         std::printf("turis_mm3        modelis %.1f  atramos %.1f  padas %.1f  viso %.4f ml\n",
                     v_model, v_sup, v_pad, (v_model + v_sup + v_pad) / 1000.0);
@@ -322,12 +362,14 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
 
     std::snprintf(buf, sizeof(buf),
         "{\"tipas\":\"%s\",\"trikampiu\":%zu,\"sluoksniu\":%zu,\"tasku\":%zu,"
+        "\"z\":{\"modelis\":[%.3f,%.3f],\"atramos\":[%.3f,%.3f],\"padas\":[%.3f,%.3f]},"
         "\"atramu_trikampiu\":%zu,\"pado_trikampiu\":%zu,"
         "\"turis\":{\"modelis\":%.1f,\"atramos\":%.1f,\"padas\":%.1f,\"viso_ml\":%.4f},"
         "\"laikas_ms\":{\"slice\":%ld,\"prepare\":%ld,\"points\":%ld,\"tree\":%ld,"
         "\"pad\":%ld,\"viso\":%ld}}",
         branching ? "tree" : "regular",
         its.indices.size(), grid.size(), layer_pts.size(),
+        mz0, mz1, sz0, sz1, pz0, pz1,
         tree.first.indices.size(), pad.indices.size(),
         v_model, v_sup, v_pad, (v_model + v_sup + v_pad) / 1000.0,
         t_slice, t_prep, t_pts, t_tree, t_pad,
@@ -466,12 +508,25 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
 
     /* Bendras Z tinklelis: nuo zemiausio tasko (padas yra po modeliu) iki
        auksciausio. Sluoksnio VIDURYS, kaip ir pjaustant modeli. */
+    /*
+     * ⚠️ Apacia imama is MODELIO ir PADO, o NE is atramu.
+     *
+     * PrusaSlicer sluoksniuoja nuo `zoffset = mesh.min.z()` (SLAPrintSteps.cpp:693),
+     * t. y. nuo modelio apacios - viskas, kas nusileidzia zemiau, i faila
+     * nepatenka, nes printeris zemiau plokstes nespausdina.
+     *
+     * Musu tinklelis anksciau prasidedavo nuo ZEMIAUSIO tasko is visu daliu, ir
+     * viena atrama, nusileidusi i -0,658 mm (Terry_The_Dragon), tapdavo pirmais
+     * astuoniais sluoksniais: printeris pradedavo spausdinti pavieni rutuliuka
+     * ant plokstes vietoj rafto. Pagavo printerio sesija 3D vaizde.
+     */
     float zmin = 1e30f, zmax = -1e30f;
-    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
-        for (const auto &v : m->vertices) {
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.pad})
+        for (const auto &v : m->vertices)
             if (v.z() < zmin) zmin = v.z();
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
+        for (const auto &v : m->vertices)
             if (v.z() > zmax) zmax = v.z();
-        }
     std::vector<float> grid = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
 
     /* Modelis ir atramos pjaustomi atskirai, tada sujungiami - kaip SLAPrint. */
@@ -567,12 +622,25 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
     const int W = 320, H = 240;            // toks pat tinklelis, kaip pulto RES
     const double layer_h = g_last.layer_h;
 
+    /*
+     * ⚠️ Apacia imama is MODELIO ir PADO, o NE is atramu.
+     *
+     * PrusaSlicer sluoksniuoja nuo `zoffset = mesh.min.z()` (SLAPrintSteps.cpp:693),
+     * t. y. nuo modelio apacios - viskas, kas nusileidzia zemiau, i faila
+     * nepatenka, nes printeris zemiau plokstes nespausdina.
+     *
+     * Musu tinklelis anksciau prasidedavo nuo ZEMIAUSIO tasko is visu daliu, ir
+     * viena atrama, nusileidusi i -0,658 mm (Terry_The_Dragon), tapdavo pirmais
+     * astuoniais sluoksniais: printeris pradedavo spausdinti pavieni rutuliuka
+     * ant plokstes vietoj rafto. Pagavo printerio sesija 3D vaizde.
+     */
     float zmin = 1e30f, zmax = -1e30f;
-    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
-        for (const auto &v : m->vertices) {
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.pad})
+        for (const auto &v : m->vertices)
             if (v.z() < zmin) zmin = v.z();
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
+        for (const auto &v : m->vertices)
             if (v.z() > zmax) zmax = v.z();
-        }
     std::vector<float> visi = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
     if (visi.empty()) { g_json = "{\"klaida\":\"nera sluoksniu\"}"; return g_json.c_str(); }
 
