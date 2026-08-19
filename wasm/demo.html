@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SLA sliceris naršyklėje - libslic3r/WASM</title>
+<style>
+  :root { color-scheme: light dark; --b: #d0d4da; --mut: #6b7280; --acc: #2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --b: #333a45; --mut: #9aa3af; --acc: #60a5fa; } }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--mut); margin: 0 0 20px; }
+  .card { border: 1px solid var(--b); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  label { display: flex; gap: 6px; align-items: center; }
+  button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--b);
+           background: var(--acc); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=number] { font: inherit; width: 5.5em; padding: 6px; border-radius: 6px; border: 1px solid var(--b); }
+  #busena { margin: 12px 0; color: var(--mut); }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--b); }
+  td:first-child { color: var(--mut); width: 42%; }
+  .num { font-variant-numeric: tabular-nums; }
+  pre { overflow-x: auto; background: rgba(127,127,127,.1); padding: 10px; border-radius: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>SLA sliceris naršyklėje</h1>
+<p class="sub">Tikras PrusaSlicer atramų ir rafto variklis (<code>libslic3r</code>),
+sukompiliuotas į WebAssembly. Viskas vyksta šitame kompiuteryje - modelis niekur nesiunčiamas.</p>
+
+<div class="card">
+  <div class="row">
+    <label>Modelis: <input type="file" id="failas" accept=".stl"></label>
+    <label>Sluoksnis: <input type="number" id="sluoksnis" value="0.05" step="0.01" min="0.01" max="0.5"> mm</label>
+    <label><input type="radio" name="tipas" value="regular" checked> Įprastos atramos</label>
+    <label><input type="radio" name="tipas" value="tree"> Medžio</label>
+    <button id="pjaustyti" disabled>Pjaustyti</button>
+    <button id="pavyzdys" disabled style="background:transparent;color:inherit">Paimti pavyzdį (puodelis)</button>
+  </div>
+  <div id="busena">Kraunamas variklis…</div>
+</div>
+
+<div class="card" id="rezultatas" hidden>
+  <table id="lentele"></table>
+</div>
+
+<div class="card">
+  <div class="sub">Neapdorotas atsakymas iš variklio:</div>
+  <pre id="zalias">—</pre>
+</div>
+
+<script src="sla-web.js"></script>
+<script>
+(function () {
+  const busena = document.getElementById('busena');
+  const mygtukas = document.getElementById('pjaustyti');
+  const failas = document.getElementById('failas');
+  let Modulis = null, sliceFn = null;
+
+  const t0 = performance.now();
+  createSLA().then(function (m) {
+    Modulis = m;
+    /* `sla_slice(kelias, sluoksnis, medis)` - tas pats iėjimas, kurį naudoja ir
+       komandinė eilutė. Modelis paduodamas per modulio failų sistemą. */
+    sliceFn = m.cwrap('sla_slice', 'string', ['string', 'number', 'number']);
+    busena.textContent = 'Variklis paruoštas (' + Math.round(performance.now() - t0) + ' ms).';
+    mygtukas.disabled = !(failas.files.length || pasirinktas);
+    document.getElementById('pavyzdys').disabled = false;
+    window.SLA = m;                       // kad butu galima pasitikrinti is konsoles
+  }).catch(function (e) {
+    busena.textContent = 'Variklio pakrauti nepavyko: ' + e;
+  });
+
+  let pasirinktas = null;                 // {vardas, baitai} - is failo arba pavyzdzio
+
+  failas.addEventListener('change', async function () {
+    if (!failas.files.length) return;
+    const f = failas.files[0];
+    pasirinktas = { vardas: f.name, dydis: f.size, baitai: new Uint8Array(await f.arrayBuffer()) };
+    mygtukas.disabled = !sliceFn;
+    busena.textContent = 'Modelis paimtas: ' + f.name;
+  });
+
+  document.getElementById('pavyzdys').addEventListener('click', async function () {
+    busena.textContent = 'Siunčiamas pavyzdys…';
+    const r = await fetch('cup.stl');
+    const b = new Uint8Array(await r.arrayBuffer());
+    pasirinktas = { vardas: 'cup.stl (pavyzdys)', dydis: b.length, baitai: b };
+    mygtukas.disabled = !sliceFn;
+    busena.textContent = 'Pavyzdys paimtas (' + (b.length / 1024).toFixed(0) + ' KB).';
+  });
+
+  mygtukas.addEventListener('click', async function () {
+    if (!pasirinktas || !sliceFn) return;
+    const f = pasirinktas;
+    mygtukas.disabled = true;
+    busena.textContent = 'Skaitomas modelis…';
+    Modulis.FS.writeFile('/model.stl', f.baitai);
+
+    const sluoksnis = parseFloat(document.getElementById('sluoksnis').value) || 0.05;
+    const medis = document.querySelector('input[name=tipas]:checked').value === 'tree' ? 1 : 0;
+
+    busena.textContent = 'Pjaustoma… (langas kol kas nereaguos - variklis sukasi toje pačioje gijoje)';
+    /* Trumpa pauzė, kad būsena spėtų nusipiešti prieš blokuojantį skaičiavimą.
+       ⚠️ Ne `requestAnimationFrame`: fone esančiame skirtuke naršyklė kadrų
+       nepiešia, ir pjaustymas taip ir neprasideda. */
+    await new Promise(r => setTimeout(r, 30));
+
+    const pradzia = performance.now();
+    let atsakymas;
+    try {
+      atsakymas = sliceFn('/model.stl', sluoksnis, medis);
+    } catch (e) {
+      busena.textContent = 'Klaida: ' + e;
+      mygtukas.disabled = false;
+      return;
+    }
+    const trukme = Math.round(performance.now() - pradzia);
+
+    document.getElementById('zalias').textContent = atsakymas;
+    let r; try { r = JSON.parse(atsakymas); } catch (e) { r = null; }
+
+    if (!r || r.klaida) {
+      busena.textContent = 'Nepavyko: ' + (r && r.klaida ? r.klaida : 'blogas atsakymas');
+    } else {
+      const ml = r.turis.viso_ml.toFixed(4);
+      const eil = [
+        ['Failas', f.vardas + ' · ' + (f.dydis / 1048576).toFixed(1) + ' MB'],
+        ['Trikampių', r.trikampiu.toLocaleString('lt')],
+        ['Sluoksnių', r.sluoksniu.toLocaleString('lt')],
+        ['Atramų tipas', r.tipas === 'tree' ? 'medžio' : 'įprastos'],
+        ['Atramų taškų', r.tasku],
+        ['Dervos iš viso', ml + ' ml'],
+        ['&nbsp;&nbsp;iš to modeliui', (r.turis.modelis / 1000).toFixed(4) + ' ml'],
+        ['&nbsp;&nbsp;atramoms', (r.turis.atramos / 1000).toFixed(4) + ' ml'],
+        ['&nbsp;&nbsp;raftui', (r.turis.padas / 1000).toFixed(4) + ' ml'],
+        ['Truko', (trukme / 1000).toFixed(1) + ' s'],
+        ['&nbsp;&nbsp;pjaustymas', r.laikas_ms.slice + ' ms'],
+        ['&nbsp;&nbsp;sėjos paruošimas', r.laikas_ms.prepare + ' ms'],
+        ['&nbsp;&nbsp;atramų medis', r.laikas_ms.tree + ' ms'],
+      ];
+      document.getElementById('lentele').innerHTML =
+        eil.map(([a, b]) => '<tr><td>' + a + '</td><td class="num">' + b + '</td></tr>').join('');
+      document.getElementById('rezultatas').hidden = false;
+      busena.textContent = 'Padaryta per ' + (trukme / 1000).toFixed(1) + ' s.';
+    }
+    mygtukas.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

@@ -127,7 +127,12 @@ case "$f" in
 esac || { echo "NEPAVYKO $f :: $(grep -m1 -E 'error:' "$OUT/obj/$n.log" | head -c 120)"; exit 1; }
 EOF
   export OUT
-  ( cd "$SRC" && grep -v '^\s*#' "$HERE/sources.txt" | tr -d '\r' | xargs -P "$JOBS" -I{} bash "$OUT/one.sh" {} ) || true
+  # Keliai normalizuojami: tas pats failas per `Geometry/../ExPolygon.cpp` ir
+  # `ExPolygon.cpp` duotu DU objektus, ir linkas luztu del dubliuotu simboliu.
+  ( cd "$SRC" && grep -v '^[[:space:]]*#' "$HERE/sources.txt" | tr -d '\r' \
+      | grep -v '^[[:space:]]*$' \
+      | python -c "import sys,posixpath;[print(posixpath.normpath(l.strip())) for l in sys.stdin if l.strip()]" \
+      | sort -u | xargs -P "$JOBS" -I{} bash "$OUT/one.sh" {} ) || true
 
   # bundled deps, kuriu nera sourceslist'e
   ( cd "$SRC" && for f in "$BD"/admesh/admesh/*.cpp "$BD"/localesutils/LocalesUtils.cpp; do
@@ -145,12 +150,20 @@ EOF
 link() {
   say "tiltas ir linkas"
   ( cd "$SRC" && em++ $CXXFLAGS -c "$HERE/bridge.cpp" -o "$OUT/obj/bridge.o" $INC --use-port=boost_headers )
-  em++ -std=c++17 -O2 "$OUT"/obj/*.o \
-    "$WORK/nlopt/build-wasm/libnlopt.a" \
-    "$WORK/qhull/build-wasm/libqhullcpp.a" "$WORK/qhull/build-wasm/libqhullstatic_r.a" \
-    -o "$OUT/sla.js" -sALLOW_MEMORY_GROWTH=1 -sEXIT_RUNTIME=1 -sNODERAWFS=1 --use-port=boost_headers
-  ls -la "$OUT/sla.wasm"
-  echo "Patikra:  node $OUT/sla.js <model.stl> 0.05"
+  LIBS=("$WORK/nlopt/build-wasm/libnlopt.a"
+        "$WORK/qhull/build-wasm/libqhullcpp.a" "$WORK/qhull/build-wasm/libqhullstatic_r.a")
+
+  # 1) Komandinei eilutei: NODERAWFS duoda tiesiogini priejima prie disko.
+  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla.js" -sALLOW_MEMORY_GROWTH=1 -sEXIT_RUNTIME=1 -sNODERAWFS=1 --use-port=boost_headers
+
+  # 2) Narsyklei: be NODERAWFS (disko ten nera - STL keliauja per atminti),
+  #    MODULARIZE, kad puslapis pats nuspresu kada krauti, ir be EXIT_RUNTIME,
+  #    nes po pjaustymo modulis turi likti gyvas kitam modeliui.
+  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla-web.js" -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=0     -sEXPORT_NAME=createSLA -sINVOKE_RUN=0 -sFORCE_FILESYSTEM=1     -sEXPORTED_FUNCTIONS='["_sla_slice","_malloc","_free"]'     -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","UTF8ToString"]'     --use-port=boost_headers
+
+  ls -la "$OUT/sla.wasm" "$OUT/sla-web.wasm"
+  echo "Patikra (node):     node $OUT/sla.js <model.stl> 0.05"
+  echo "Patikra (narsykle): wasm/demo.html"
 }
 
 case "${1:-all}" in
