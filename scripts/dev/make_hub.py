@@ -25,6 +25,8 @@ CATALOG = {
         "Kur printeris gali būti, kaip pereina ir kas kurioje būsenoje uždrausta.", "testai"),
     "scenarijai.html": ("Naudojimo scenarijai",
         "Kaip žmogus iš tikrųjų naudoja pultą: prielaidos, tikslas, žingsniai, rezultatas.", "testai"),
+    "resin-publish.html": ("Dervų bibliotekos tvarkymas",
+        "Naujas profilis, taisymas, kopija, laikinas sustabdymas - be rankinio JSON.", "irankiai"),
     "demo.html": ("Pulto demo",
         "Visas dashboard be printerio (suklastoti duomenys). Generuoja build_demo.py.", "stendai"),
     "voxel-preview-lab.html": ("3D peržiūros stendas",
@@ -129,8 +131,8 @@ def main():
     live = rows(HERE)
     planai = copy_plans()
     arch = rows(ARCH)
-    groups = [("Testai ir scenarijai", "testai"), ("Planai", "planai"),
-              ("Stendai ir prototipai", "stendai")]
+    groups = [("Testai ir scenarijai", "testai"), ("Įrankiai", "irankiai"),
+              ("Planai", "planai"), ("Stendai ir prototipai", "stendai")]
     body = []
     for label, key in groups:
         items = [r for r in (live + planai) if r["group"] == key]

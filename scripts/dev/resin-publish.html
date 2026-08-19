@@ -1,0 +1,622 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TinyMaker - dervų bibliotekos tvarkymas</title>
+<style>
+:root{color-scheme:light;
+ --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
+ --accent:#f07a1a;--code:#eef0f3;--link:#155fb0;
+ --ok:#1f9d4d;--okbg:#e8f6ee;--warn:#b97a10;--warnbg:#fdf3e0;--bad:#d7454f;--badbg:#fdeaea}
+:root[data-theme=dark]{color-scheme:dark;
+ --bg:#1c1c1e;--card:#26262a;--line:#3a3a3f;--text:#eee;--muted:#9a9aa2;
+ --accent:#e8720c;--code:#2f2f34;--link:#84bcf8;
+ --ok:#4cc46e;--okbg:#1d3326;--warn:#e0a44a;--warnbg:#33291a;--bad:#e2666e;--badbg:#3a2320}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);padding:22px 16px 80px;
+ font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:1.35rem;margin:0 0 4px}
+h1 .dot{color:var(--accent)}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 16px;max-width:74ch}
+#themeBtn{float:right;color:var(--muted);text-decoration:none;font-size:18px}
+.rule{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+ border-radius:10px;padding:11px 15px;margin:0 0 20px;font-size:.86rem}
+h2{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+ margin:26px 0 10px;font-weight:700}
+.cols{display:grid;grid-template-columns:minmax(300px,1fr) minmax(340px,1.15fr);gap:18px;align-items:start}
+/* Be min-width:0 grid'o stulpelis lieka platus kaip ilgiausias nelaužomas
+   gabalas (mygtukų eilutė, ženkliukai) ir telefone atsiranda šoninis slinkimas. */
+.cols>div{min-width:0}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.row{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.row:first-of-type{border-top:0}
+.row .nm{font-weight:600}
+.row .sb{color:var(--muted);font-size:.8rem;flex:1 1 100%}
+.row .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;font-size:.82rem;padding:5px 11px;border-radius:8px;border:1px solid var(--line);
+ background:var(--code);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+button.dim{color:var(--muted)}
+button:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px}
+label{display:block;font-size:.78rem;color:var(--muted)}
+label b{display:block;font-weight:600;color:var(--text);font-size:.82rem;margin-bottom:3px}
+input[type=text],input[type=number],textarea{width:100%;font:inherit;font-size:.86rem;padding:6px 8px;
+ border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--text)}
+input.bad{border-color:var(--bad);background:var(--badbg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:6px 14px}
+.seg button.on{background:var(--accent);color:#fff}
+.note{font-size:.78rem;color:var(--muted);margin:6px 0 0}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
+.err{background:var(--badbg);color:var(--bad);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
+.okbox{background:var(--okbg);color:var(--ok);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
+pre{background:var(--code);border-radius:9px;padding:11px 13px;font-size:.78rem;overflow:auto;margin:8px 0 0;
+ max-height:340px;line-height:1.5}
+.tag{font-size:.7rem;padding:2px 7px;border-radius:999px;background:var(--code);color:var(--muted);white-space:nowrap}
+.tag.no{background:var(--badbg);color:var(--bad)}
+.tag.hid{background:var(--warnbg);color:var(--warn)}
+details{margin-top:10px}summary{cursor:pointer;font-size:.8rem;color:var(--muted)}
+.foot{margin-top:26px;font-size:.78rem;color:var(--muted)}
+a{color:var(--link)}
+</style>
+<div class="wrap">
+<a href="#" id="themeBtn" title="Šviesi/tamsi">◐</a>
+<h1>TinyMaker <span class="dot">·</span> dervų bibliotekos tvarkymas</h1>
+<p class="sub">Čia paruošiami failai, kuriuos pultas rodo skiltyje <i>Settings → Resin →
+Tested resin library</i>. Puslapis <b>nieko nepublikuoja</b> - jis tik surašo du failus
+(<code>&lt;vardas&gt;.json</code> ir <code>manifest.json</code>), o į internetą juos sudeda Claude.</p>
+
+<div class="rule">
+<b>Kodėl ne ranka.</b> Printeris blogos reikšmės neatmeta - jis ją tyliai apkarpo iki savo ribos
+arba visai ignoruoja, ir profilis pradeda meluoti. Ženkliukas „✓ tested by" yra pažadas, tad
+čia kiekvienas laukas turi tikras firmware ribas, o failas ir sąrašas generuojami kartu, kad
+negalėtų išsiskirti.
+</div>
+
+<div class="cols">
+ <div>
+  <h2>Biblioteka</h2>
+  <div class="card" id="libCard">
+   <div id="libBody" class="note">Kraunama…</div>
+   <div class="row" style="border-top:1px solid var(--line);padding-top:10px">
+    <button class="pri" id="btnNew">+ Nauja derva</button>
+    <div class="acts">
+     <button class="dim" id="btnReload">⟳ atnaujinti</button>
+     <button class="dim" id="btnPaste">⇩ įklijuoti JSON</button>
+    </div>
+   </div>
+   <div id="pasteBox" style="display:none">
+    <textarea id="pasteTa" rows="6" placeholder="Įklijuok profilio JSON arba visą manifest.json"></textarea>
+    <div class="row"><button id="btnPasteOk">Įkelti</button><button class="dim" id="btnPasteCancel">Atsisakyti</button></div>
+   </div>
+  </div>
+  <div id="pending"></div>
+ </div>
+
+ <div>
+  <h2 id="formTitle">Forma</h2>
+  <div class="card">
+   <div class="grid" style="grid-template-columns:1fr">
+    <label><b>Pavadinimas</b><input type="text" id="fDisplay" placeholder="SUNLU Toughness Resin"></label>
+   </div>
+   <div class="grid" style="margin-top:10px">
+    <label><b>Vardas failui</b><input type="text" id="fSlug" placeholder="sunlu-tough"></label>
+    <div><label><b>Sluoksnio aukštis</b></label>
+     <div class="seg"><button data-lh="0.05">0,05 mm</button><button data-lh="0.10">0,10 mm</button></div></div>
+   </div>
+   <div id="fields" class="grid" style="margin-top:12px"></div>
+   <div class="grid" style="margin-top:12px">
+    <label><b>Kas išbandė</b><input type="text" id="fTestedBy" placeholder="TinyMakerWiFi"></label>
+    <label><b>Kada (YYYY-MM)</b><input type="text" id="fTestedOn" placeholder="2026-08"></label>
+   </div>
+   <div class="grid" style="grid-template-columns:1fr;margin-top:10px">
+    <label><b>Pirkimo nuoroda</b><input type="text" id="fBuy" placeholder="https://tinymakerwifi.com/r/sunlu-tough"></label>
+   </div>
+   <div id="formMsg"></div>
+   <div class="row" style="border-top:1px solid var(--line);margin-top:12px;padding-top:11px">
+    <button class="pri" id="btnApply">Įrašyti į biblioteką</button>
+    <div class="acts">
+     <button id="btnRev" title="Naujas vardas, kad pataisą pamatytų ir tie, kas jau įsidiegė">Išleisti reviziją</button>
+     <button class="dim" id="btnCancel">Atsisakyti</button>
+    </div>
+   </div>
+  </div>
+
+  <h2>Rezultatas</h2>
+  <div class="card" id="outCard">
+   <div id="outDiff" class="note">Pasirink profilį arba pradėk naują.</div>
+   <div id="outWrap" style="display:none">
+    <div class="row" style="border-top:0"><b id="outFileName">profilis.json</b>
+     <div class="acts"><button data-copy="file">kopijuoti</button><button data-dl="file">atsisiųsti</button></div></div>
+    <pre id="outFile"></pre>
+    <div class="row"><b>manifest.json</b>
+     <div class="acts"><button data-copy="man">kopijuoti</button><button data-dl="man">atsisiųsti</button></div></div>
+    <pre id="outMan"></pre>
+   </div>
+  </div>
+ </div>
+</div>
+
+<p class="foot">Publikavimas: pasakyk Claude „publikuok dervas" - failai keliauja į gh-pages
+<code>/resin/</code> ir į repo <code>Firmware_Hosting/resin/</code>. Pultas biblioteką ima be
+kešo, bet gh-pages savo pusėje laiko iki 10 min.</p>
+</div>
+
+<script>
+'use strict';
+const LIB='https://slibbinas.github.io/TinyMakerWifi/resin/';
+const LS='tmResinPub';
+const $=id=>document.getElementById(id);
+
+/* ---- tema ---------------------------------------------------------------- */
+try{if(localStorage.getItem('tmTheme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}
+$('themeBtn').addEventListener('click',e=>{e.preventDefault();
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  try{localStorage.setItem('tmTheme',d?'light':'dark');}catch(err){}});
+
+/* ---- laukai: ribos tiksliai tokios, kokias tikrina firmware ---------------
+   ResinProfile.ino:193-230. Skirtumas svarbus: „clamp" reiškia, kad printeris
+   reikšmę apkarpys iki ribos, o „skip" - kad visai jos nepriims ir liks gamyklinė.
+   Abu atvejai tylūs, todėl neleidžiam jiems atsirasti. --------------------- */
+const F=[
+ {k:'base_exposure',    t:'Bazinė ekspozicija',u:'s',  min:5,  max:60, step:1,    dec:0,mode:'clamp'},
+ {k:'regular_exposure', t:'Įprasta ekspozicija',u:'s', min:1,  max:30, step:0.1,  dec:1,mode:'clamp'},
+ {k:'base_layers',      t:'Bazinių sluoksnių',u:'',    min:1,  max:8,  step:1,    dec:0,mode:'clamp'},
+ {k:'transition_layers',t:'Perėjimo sluoksnių',u:'',   min:0,  max:10, step:1,    dec:0,mode:'clamp'},
+ {k:'slow_lift_distance',t:'Lėto kėlimo aukštis',u:'mm',min:1, max:3,  step:1,    dec:0,mode:'clamp'},
+ {k:'fast_lift_distance',t:'Greito kėlimo aukštis',u:'mm',min:1,max:3, step:1,    dec:0,mode:'clamp'},
+ {k:'slow_lift_feedrate',t:'Lėto kėlimo greitis',u:'', min:20, max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'fast_lift_feedrate',t:'Greito kėlimo greitis',u:'',min:20,max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'drop_back_feedrate',t:'Nuleidimo greitis',u:'',   min:20, max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'density',          t:'Tankis',u:'g/ml',           min:0.8,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
+ {k:'cal_factor',       t:'Kalibr. koeficientas',u:'', min:0.5,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
+ {k:'cal_fixed_ml',     t:'Pastovus priedas',u:'ml',   min:0,  max:10, step:0.01, dec:2,mode:'skip',dmin:1}
+];
+/* Gamyklinis „slow" - naujos dervos startas (RESIN_BUILTIN, ResinProfile.ino). */
+const BASE={layer_height:0.05,base_exposure:18,regular_exposure:8.0,base_layers:4,
+ transition_layers:5,slow_lift_distance:1,fast_lift_distance:2,slow_lift_feedrate:40,
+ fast_lift_feedrate:50,drop_back_feedrate:50,density:1.1,cal_factor:1.0,cal_fixed_ml:0.0};
+const KEYS=['name','layer_height'].concat(F.map(f=>f.k)).concat(['tested_by','tested_on','buy_url']);
+
+/* ---- pagalbinės ---------------------------------------------------------- */
+const slugify=s=>(s||'').toLowerCase().replace(/[^a-z0-9-_]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+const buyOk=u=>!u||u.indexOf('https://tinymakerwifi.com/')===0||u.indexOf('https://slibbinas.github.io/')===0;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function num(v,dec,dmin){
+  if(dec===0)return String(Math.round(v));
+  let s=Number(v).toFixed(dec);
+  if(dmin!==undefined){s=s.replace(/0+$/,'');if(s.slice(-1)==='.')s+='0';
+    const d=s.split('.')[1]||'';if(d.length<dmin)s=Number(v).toFixed(dmin);}
+  return s;
+}
+function fmt(k,v){
+  if(k==='layer_height')return Number(v).toFixed(2);
+  const f=F.find(x=>x.k===k);
+  return f?num(v,f.dec,f.dmin):String(v);
+}
+/* Ribos žmogui - su kableliu ir tiek skaitmenų, kiek laukas realiai turi. */
+const lt=(v,f)=>(f.dec===0?String(v):Number(v).toFixed(f.dmin||1)).replace('.',',');
+/* Failas rašomas ranka, ne JSON.stringify: raktų tvarka ir skaičių užrašymas
+   turi sutapti su jau publikuotais failais, kitaip „nieko nekeičiau" duotų
+   kitokį failą, ir tikras pakeitimas pasimestų tarp kosmetinių. */
+function profileText(p){
+  const out=[];
+  KEYS.forEach(k=>{
+    const v=p[k];
+    if(v===undefined||v===null||v==='')return;
+    if(k==='name'||k==='tested_by'||k==='tested_on'||k==='buy_url')
+      out.push('  "'+k+'": '+JSON.stringify(String(v)));
+    else out.push('  "'+k+'": '+fmt(k,v));
+  });
+  return '{\n'+out.join(',\n')+'\n}\n';
+}
+function entryText(e,ind){
+  const o=[];
+  ['name','display','file'].forEach(k=>o.push('"'+k+'": '+JSON.stringify(e[k])));
+  o.push('"layerHeight": '+Number(e.layerHeight).toFixed(2));
+  ['testedBy','testedOn','buyUrl'].forEach(k=>{if(e[k])o.push('"'+k+'": '+JSON.stringify(e[k]));});
+  ['since','why'].forEach(k=>{if(e[k])o.push('"'+k+'": '+JSON.stringify(e[k]));});
+  if(typeof e.at==='number')o.push('"at": '+e.at);
+  return ind+'{\n'+o.map(s=>ind+'  '+s).join(',\n')+'\n'+ind+'}';
+}
+function manifestText(m){
+  const part=(name,arr)=>'  "'+name+'": [\n'+arr.map(e=>entryText(e,'    ')).join(',\n')+'\n  ]';
+  const blocks=['  "profiles": [\n'+m.profiles.map(e=>entryText(e,'    ')).join(',\n')+'\n  ]'];
+  if(m.hidden&&m.hidden.length)blocks.push(part('hidden',m.hidden));
+  if(m.retired&&m.retired.length)blocks.push(part('retired',m.retired));
+  return '{\n'+blocks.join(',\n')+'\n}\n';
+}
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+const todayFull=()=>{const d=new Date();return today()+'-'+String(d.getDate()).padStart(2,'0');};
+
+/* ---- būsena -------------------------------------------------------------- */
+let man=null;          // darbinis manifestas (profiles/hidden/retired)
+let live=null;         // kaip atrodo publikuotas manifestas dabar
+let files={};          // slug -> publikuoto profilio objektas (palyginimui)
+let draft=null;        // {mode:'new'|'edit', slug0, p:{...}}
+let libMsg='';
+
+function flash(t){
+  const b=$('libBody');
+  let d=b.querySelector('.flashMsg');
+  if(!d){d=document.createElement('div');d.className='err flashMsg';b.insertBefore(d,b.firstChild);}
+  d.textContent=t;
+  setTimeout(()=>{if(d.isConnected)d.remove();},6000);
+}
+function save(){try{localStorage.setItem(LS,JSON.stringify({man:man,draft:draft,at:Date.now()}));}catch(e){}}
+function wipe(){try{localStorage.removeItem(LS);}catch(e){}}
+
+/* ---- biblioteka ---------------------------------------------------------- */
+async function loadLib(keepLocal){
+  libMsg='';
+  try{
+    const r=await fetch(LIB+'manifest.json',{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    live={profiles:j.profiles||[],hidden:j.hidden||[],retired:j.retired||[]};
+  }catch(e){
+    live=null;libMsg='Bibliotekos pasiekti nepavyko ('+e.message+'). Dirbk su „įklijuoti JSON".';
+  }
+  if(!keepLocal||!man)man=live?JSON.parse(JSON.stringify(live)):{profiles:[],hidden:[],retired:[]};
+  renderLib();
+}
+async function fileOf(e){
+  const key=e.name;
+  if(files[key])return files[key];
+  const r=await fetch(LIB+(e.file||(e.name+'.json')),{cache:'no-store'});
+  if(!r.ok)throw new Error('failo parsisiųsti nepavyko (HTTP '+r.status+')');
+  files[key]=await r.json();
+  return files[key];
+}
+function rowEl(e,kind){
+  const d=document.createElement('div');d.className='row';
+  const nm=document.createElement('span');nm.className='nm';nm.textContent=e.display||e.name;
+  d.appendChild(nm);
+  const tags=document.createElement('span');
+  tags.innerHTML='<span class="tag">'+Number(e.layerHeight).toFixed(2).replace('.',',')+' mm</span>'+
+    (e.testedBy?' <span class="tag">✓ '+esc(e.testedBy)+(e.testedOn?', '+esc(e.testedOn):'')+'</span>':'')+
+    (e.buyUrl&&!buyOk(e.buyUrl)?' <span class="tag no">Buy neveiks printeryje</span>':'')+
+    (kind!=='profiles'?' <span class="tag hid">'+(kind==='hidden'?'sustabdyta':'išimta')+' '+esc(e.since||'')+'</span>':'');
+  d.appendChild(tags);
+  const acts=document.createElement('div');acts.className='acts';
+  const btn=(t,fn,cls)=>{const b=document.createElement('button');b.textContent=t;
+    if(cls)b.className=cls;b.addEventListener('click',fn);acts.appendChild(b);return b;};
+  if(kind==='profiles'){
+    btn('Taisyti',()=>openEdit(e));
+    btn('Kopijuoti',()=>openCopy(e));
+    btn('Sustabdyti',()=>hide(e,d),'dim');
+  }else if(kind==='hidden'){
+    btn('Grąžinti',()=>unhide(e),'pri');
+    btn('Išimti visam laikui',()=>retire(e,d),'dim');
+  }
+  if(e.why){const w=document.createElement('span');w.className='sb';w.textContent='Kodėl: '+e.why;d.appendChild(w);}
+  d.appendChild(acts);
+  return d;
+}
+function renderLib(){
+  const b=$('libBody');b.innerHTML='';
+  if(libMsg){const w=document.createElement('div');w.className='warn';w.textContent=libMsg;b.appendChild(w);}
+  if(!man.profiles.length){const n=document.createElement('div');n.className='note';
+    n.textContent='Bibliotekoje kol kas nieko.';b.appendChild(n);}
+  man.profiles.forEach(e=>b.appendChild(rowEl(e,'profiles')));
+  if(man.hidden&&man.hidden.length){
+    const h=document.createElement('div');h.className='warn';
+    h.textContent='Sustabdyti ('+man.hidden.length+') - naujiems nebesiūlomi, bet kas jau įsidiegė, tam liko.';
+    b.appendChild(h);
+    man.hidden.forEach(e=>b.appendChild(rowEl(e,'hidden')));
+  }
+  if(man.retired&&man.retired.length){
+    const det=document.createElement('details');
+    det.innerHTML='<summary>Išimti visam laikui ('+man.retired.length+')</summary>';
+    man.retired.forEach(e=>det.appendChild(rowEl(e,'retired')));
+    b.appendChild(det);
+  }
+  renderPending();
+}
+function renderPending(){
+  const el=$('pending');el.innerHTML='';
+  if(!live)return;
+  const a=manifestText(live),c=manifestText(man);
+  if(a===c){el.innerHTML='';return;}
+  const d=document.createElement('div');d.className='card';d.style.marginTop='12px';
+  const names=x=>x.profiles.map(e=>e.name);
+  const was=names(live),now=names(man);
+  const add=now.filter(n=>was.indexOf(n)<0),gone=was.filter(n=>now.indexOf(n)<0);
+  d.innerHTML='<b style="font-size:.85rem">Neišsiųsti pakeitimai</b>'+
+    '<div class="note">'+(add.length?'Nauji: '+add.join(', ')+'. ':'')+
+    (gone.length?'Nebesiūlomi: '+gone.join(', ')+'. ':'')+
+    'Kai baigsi - pasakyk Claude „publikuok dervas".</div>';
+  const btn=document.createElement('button');btn.className='dim';btn.textContent='Atmesti pakeitimus';
+  btn.style.marginTop='8px';
+  /* Du paspaudimai vietoj confirm() - kad vienas nekantrus paspaudimas
+     nenušluotų valandos darbo, bet ir nereikėtų svetimo langelio. */
+  btn.addEventListener('click',()=>{
+    if(btn.dataset.armed!=='1'){btn.dataset.armed='1';btn.textContent='Tikrai atmesti? Spausk dar kartą';
+      setTimeout(()=>{if(btn.isConnected){btn.dataset.armed='';btn.textContent='Atmesti pakeitimus';}},4000);return;}
+    man=JSON.parse(JSON.stringify(live));draft=null;wipe();renderLib();renderForm();showOut();});
+  d.appendChild(btn);
+  el.appendChild(d);
+  showOut();
+}
+
+/* ---- veiksmai su biblioteka ---------------------------------------------- */
+/* „at" - kelinta eilutė profilis stovėjo. Sąrašas rodomas manifesto tvarka, tad
+   grąžinamas sustabdytas turi grįžti į savo vietą, o ne į galą: kitaip vienas
+   laikinas paslėpimas tyliai pertvarko visą biblioteką. Pultas skaito tik
+   .profiles, tad šis raktas jam neegzistuoja. */
+function moveOut(e,to,why){
+  const at=man.profiles.findIndex(x=>x.name===e.name);
+  man.profiles=man.profiles.filter(x=>x.name!==e.name);
+  const copy=Object.assign({},e,{since:todayFull(),why:why||''});
+  if(to==='hidden'&&at>=0)copy.at=at;
+  man[to]=(man[to]||[]).concat([copy]);
+  save();renderLib();showOut();
+}
+/* Savas klausimas vietoj window.prompt: naršyklės langelis atrodo kaip svetimas
+   („localhost:8899 says"), o priežastis čia yra dokumentas - ji lieka faile ir
+   po mėnesio paaiškina, kodėl profilis kabo sustabdytas. */
+function askReason(afterEl,text,def,okLabel,cb){
+  const old=afterEl.parentNode.querySelector('.askRow');
+  if(old)old.remove();
+  const d=document.createElement('div');d.className='row askRow';
+  d.style.cssText='background:var(--warnbg);border-radius:9px;padding:9px 11px;margin:4px 0';
+  const t=document.createElement('span');t.className='sb';t.style.color='var(--warn)';t.textContent=text;
+  const i=document.createElement('input');i.type='text';i.value=def;i.style.flex='1 1 190px';
+  const ok=document.createElement('button');ok.className='pri';ok.textContent=okLabel;
+  const no=document.createElement('button');no.className='dim';no.textContent='Atsisakyti';
+  ok.addEventListener('click',()=>{const v=i.value.trim();d.remove();cb(v);});
+  no.addEventListener('click',()=>d.remove());
+  i.addEventListener('keydown',ev=>{if(ev.key==='Enter')ok.click();if(ev.key==='Escape')no.click();});
+  d.appendChild(t);d.appendChild(i);
+  const acts=document.createElement('div');acts.className='acts';
+  acts.appendChild(ok);acts.appendChild(no);d.appendChild(acts);
+  afterEl.parentNode.insertBefore(d,afterEl.nextSibling);
+  i.focus();i.select();
+}
+function hide(e,rowEl){
+  askReason(rowEl,'Kodėl stabdom? Priežastis lieka faile, kad po mėnesio būtų aišku.',
+    'skundas, tikslinam','Sustabdyti',why=>moveOut(e,'hidden',why));
+}
+function retire(e,rowEl){
+  askReason(rowEl,'Kodėl išimam visam laikui?','pakeitė naujesnė revizija','Išimti',why=>{
+    man.hidden=(man.hidden||[]).filter(x=>x.name!==e.name);
+    man.retired=(man.retired||[]).concat([Object.assign({},e,{since:todayFull(),why:why})]);
+    save();renderLib();showOut();
+  });
+}
+function unhide(e){
+  man.hidden=(man.hidden||[]).filter(x=>x.name!==e.name);
+  const back=Object.assign({},e);
+  const at=(typeof back.at==='number')?back.at:man.profiles.length;
+  delete back.since;delete back.why;delete back.at;
+  man.profiles.splice(Math.min(at,man.profiles.length),0,back);
+  save();renderLib();showOut();
+}
+
+/* ---- forma --------------------------------------------------------------- */
+function buildFields(){
+  const g=$('fields');g.innerHTML='';
+  F.forEach(f=>{
+    const l=document.createElement('label');
+    l.innerHTML='<b>'+f.t+(f.u?' <span style="color:var(--muted);font-weight:400">('+f.u+')</span>':'')+'</b>';
+    const i=document.createElement('input');
+    i.type='number';i.id='f_'+f.k;i.step=f.step;i.min=f.min;i.max=f.max;
+    i.addEventListener('input',onEdit);
+    l.appendChild(i);
+    const h=document.createElement('span');h.style.cssText='font-size:.72rem;color:var(--muted)';
+    h.textContent=lt(f.min,f)+' - '+lt(f.max,f);
+    l.appendChild(h);
+    g.appendChild(l);
+  });
+}
+function setLh(v){
+  draft.p.layer_height=Number(v);
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.lh===Number(v).toFixed(2)));
+  onEdit();
+}
+function renderForm(){
+  const on=!!draft;
+  ['fDisplay','fSlug','fTestedBy','fTestedOn','fBuy','btnApply','btnRev','btnCancel'].forEach(id=>{
+    const el=$(id);if(el)el.disabled=!on;});
+  document.querySelectorAll('#fields input,.seg button').forEach(el=>el.disabled=!on);
+  $('formTitle').textContent=!on?'Forma':(draft.mode==='edit'?'Taisom: '+draft.slug0:'Nauja derva');
+  $('btnRev').style.display=(on&&draft.mode==='edit')?'':'none';
+  if(!on){$('formMsg').innerHTML='';return;}
+  const p=draft.p;
+  $('fDisplay').value=p.name||'';
+  $('fSlug').value=draft.slug||'';
+  $('fTestedBy').value=p.tested_by||'';
+  $('fTestedOn').value=p.tested_on||'';
+  $('fBuy').value=p.buy_url||'';
+  F.forEach(f=>{const el=$('f_'+f.k);if(el)el.value=p[f.k];});
+  document.querySelectorAll('.seg button').forEach(b=>
+    b.classList.toggle('on',b.dataset.lh===Number(p.layer_height).toFixed(2)));
+  validate();
+}
+function collect(){
+  const p=draft.p;
+  p.name=$('fDisplay').value.trim();
+  p.tested_by=$('fTestedBy').value.trim();
+  p.tested_on=$('fTestedOn').value.trim();
+  p.buy_url=$('fBuy').value.trim();
+  draft.slug=$('fSlug').value.trim();
+  F.forEach(f=>{const el=$('f_'+f.k);if(el&&el.value!=='')p[f.k]=Number(el.value);});
+}
+function onEdit(){collect();validate();save();showOut();}
+function validate(){
+  const errs=[],warns=[],p=draft.p;
+  F.forEach(f=>{
+    const el=$('f_'+f.k),v=p[f.k];
+    const bad=!(typeof v==='number'&&isFinite(v))||v<f.min||v>f.max;
+    if(el)el.classList.toggle('bad',bad);
+    if(bad)errs.push(f.t+': turi būti nuo '+lt(f.min,f)+' iki '+lt(f.max,f)+' - '+(f.mode==='clamp'
+      ? 'printeris kitaip apkarpytų iki ribos, ir profilis meluotų'
+      : 'printeris kitaip šitą reikšmę visai ignoruotų ir liktų gamyklinė'));
+  });
+  const slug=draft.slug||'';
+  if(!p.name)errs.push('Pavadinimas privalomas - jį žmogus mato sąraše.');
+  if(!slug)errs.push('Vardas failui privalomas.');
+  else if(slug!==slugify(slug))errs.push('Vardas failui gali turėti tik mažąsias raides, skaičius, „-" ir „_" (siūlau: '+slugify(slug)+').');
+  const clash=man.profiles.concat(man.hidden||[],man.retired||[]).some(e=>e.name===slug&&slug!==draft.slug0);
+  if(clash)errs.push('Toks vardas jau naudojamas - pasirink kitą arba taisyk esamą.');
+  if(!p.tested_by)errs.push('„Kas išbandė" privalomas - be ženkliuko visa biblioteka bevertė.');
+  if(p.tested_on&&!/^\d{4}-\d{2}$/.test(p.tested_on))errs.push('Datą rašyk YYYY-MM (pvz. '+today()+').');
+  if(p.buy_url&&!buyOk(p.buy_url))
+    warns.push('Šitos pirkimo nuorodos printeris nepriims (leidžia tik tinymakerwifi.com ir slibbinas.github.io) - '+
+      'sąraše ji matysis, o įsidiegus dings. Siūlau https://tinymakerwifi.com/r/'+(slugify(slug)||'vardas'));
+  const box=$('formMsg');box.innerHTML='';
+  errs.forEach(t=>{const d=document.createElement('div');d.className='err';d.textContent=t;box.appendChild(d);});
+  warns.forEach(t=>{const d=document.createElement('div');d.className='warn';d.textContent=t;box.appendChild(d);});
+  $('btnApply').disabled=errs.length>0;
+  $('btnRev').disabled=errs.length>0;
+  return errs.length===0;
+}
+function openNew(){
+  draft={mode:'new',slug:'',slug0:null,p:Object.assign({},BASE,{name:'',tested_by:'TinyMakerWiFi',tested_on:today(),buy_url:''})};
+  renderForm();save();showOut();
+}
+async function openEdit(e){
+  try{
+    const j=await fileOf(e);
+    draft={mode:'edit',slug:e.name,slug0:e.name,p:Object.assign({},BASE,j)};
+    renderForm();save();showOut();
+  }catch(err){flash(err.message);}
+}
+async function openCopy(e){
+  try{
+    const j=await fileOf(e);
+    const other=Number(j.layer_height)<0.075?'0.10':'0.05';
+    const sfx=other==='0.10'?'-010':'-005';
+    let slug=slugify(e.name.replace(/-0(05|10)$/,'')+sfx);
+    draft={mode:'new',slug:slug,slug0:null,p:Object.assign({},BASE,j,{layer_height:Number(other)})};
+    draft.p.name=(j.name||e.display)+' '+other.replace('.',',')+' mm';
+    renderForm();save();showOut();
+    const d=document.createElement('div');d.className='okbox';
+    d.textContent='Nukopijuota antram sluoksnio aukščiui ('+other.replace('.',',')+' mm) - tą pačią dervą normalu turėti abiem. '+
+      'Jei kopijuoji giminingai dervai, perjunk aukštį atgal ir pataisyk vardą.';
+    $('formMsg').appendChild(d);
+  }catch(err){flash(err.message);}
+}
+function entryFromDraft(){
+  const p=draft.p;
+  const e={name:draft.slug,display:p.name,file:draft.slug+'.json',layerHeight:Number(p.layer_height)};
+  if(p.tested_by)e.testedBy=p.tested_by;
+  if(p.tested_on)e.testedOn=p.tested_on;
+  if(p.buy_url)e.buyUrl=p.buy_url;
+  return e;
+}
+function apply(){
+  if(!validate())return;
+  const e=entryFromDraft();
+  const i=man.profiles.findIndex(x=>x.name===(draft.slug0||draft.slug));
+  if(i>=0)man.profiles[i]=e;else man.profiles=man.profiles.concat([e]);
+  draft.slug0=draft.slug;draft.mode='edit';
+  save();renderLib();renderForm();showOut();
+}
+function revision(){
+  if(!validate())return;
+  const old=draft.slug0;
+  const m=/-r(\d+)$/.exec(old);
+  const next=m?old.replace(/-r\d+$/,'-r'+(Number(m[1])+1)):old+'-r2';
+  const oldEntry=man.profiles.filter(x=>x.name===old)[0];
+  draft.slug=next;draft.slug0=null;draft.mode='new';
+  draft.p.tested_on=today();
+  if(!/rev\)$/.test(draft.p.name))draft.p.name=draft.p.name+' ('+today()+' rev)';
+  if(draft.p.buy_url&&draft.p.buy_url.indexOf('/r/')>0)
+    draft.p.buy_url=draft.p.buy_url.replace(/\/r\/.*$/,'/r/'+next);
+  if(oldEntry)moveOut(oldEntry,'retired','pakeitė '+next);
+  renderForm();
+  const d=document.createElement('div');d.className='okbox';
+  d.textContent='Naujas vardas: '+next+'. Būtent dėl to pataisą pamatys ir tie, kas seną jau įsidiegė - '+
+    'pultas rodo tik tuos profilius, kurių printeryje dar nėra. Senas failas lieka gulėti, niekam nelūžta.';
+  $('formMsg').appendChild(d);
+  save();showOut();
+}
+
+/* ---- rezultatas ---------------------------------------------------------- */
+let outFileTxt='',outManTxt='',outFileName='manifest.json';
+function diffLines(){
+  if(!draft||draft.mode!=='edit')return [];
+  const pub=files[draft.slug0];
+  if(!pub)return [];
+  const out=[];
+  KEYS.forEach(k=>{
+    const a=pub[k],b=draft.p[k];
+    const sa=(a===undefined||a===null||a==='')?'-':(typeof a==='number'?fmt(k,a):String(a));
+    const sb=(b===undefined||b===null||b==='')?'-':(typeof b==='number'?fmt(k,b):String(b));
+    if(sa!==sb)out.push(k+': '+sa+' → '+sb);
+  });
+  return out;
+}
+function showOut(){
+  outManTxt=manifestText(man);
+  $('outMan').textContent=outManTxt;
+  if(draft){
+    outFileName=(draft.slug||'profilis')+'.json';
+    outFileTxt=profileText(draft.p);
+    $('outFileName').textContent=outFileName;
+    $('outFile').textContent=outFileTxt;
+    $('outWrap').style.display='';
+    const d=diffLines();
+    $('outDiff').className=d.length?'warn':'note';
+    $('outDiff').textContent=draft.mode==='edit'
+      ? (d.length?'Pakeitimai prieš publikuotą: '+d.join(' · '):'Nuo publikuoto nesiskiria nė vienu skaičiumi.')
+      : 'Naujas profilis - žemiau abu failai.';
+  }else{
+    $('outWrap').style.display=(man.profiles.length||man.hidden&&man.hidden.length)?'':'none';
+    $('outFile').textContent='';$('outFileName').textContent='(profilis nepasirinktas)';
+    outFileTxt='';
+    $('outDiff').className='note';
+    $('outDiff').textContent='Pasirink profilį arba pradėk naują. Manifestas žemiau - visada visas.';
+  }
+}
+async function copyTxt(t){
+  try{await navigator.clipboard.writeText(t);}
+  catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');ta.remove();}
+}
+function download(name,txt){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));
+  a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+/* ---- mygtukai ------------------------------------------------------------ */
+$('btnNew').addEventListener('click',openNew);
+$('btnCancel').addEventListener('click',()=>{draft=null;renderForm();save();showOut();});
+$('btnApply').addEventListener('click',apply);
+$('btnRev').addEventListener('click',revision);
+$('btnReload').addEventListener('click',()=>{files={};loadLib(true);});
+$('btnPaste').addEventListener('click',()=>{const b=$('pasteBox');b.style.display=b.style.display==='none'?'':'none';});
+$('btnPasteCancel').addEventListener('click',()=>{$('pasteBox').style.display='none';});
+$('btnPasteOk').addEventListener('click',()=>{
+  let j;try{j=JSON.parse($('pasteTa').value);}catch(e){flash('Tai ne JSON: '+e.message);return;}
+  if(j.profiles){man={profiles:j.profiles,hidden:j.hidden||[],retired:j.retired||[]};
+    if(!live)live=JSON.parse(JSON.stringify(man));
+    $('pasteBox').style.display='none';save();renderLib();showOut();return;}
+  draft={mode:'new',slug:slugify(j.name||''),slug0:null,p:Object.assign({},BASE,j)};
+  $('pasteBox').style.display='none';renderForm();save();showOut();
+});
+document.querySelectorAll('.seg button').forEach(b=>
+  b.addEventListener('click',()=>{if(draft)setLh(b.dataset.lh);}));
+['fDisplay','fSlug','fTestedBy','fTestedOn','fBuy'].forEach(id=>$(id).addEventListener('input',onEdit));
+$('fDisplay').addEventListener('blur',()=>{if(draft&&!draft.slug){draft.slug=slugify(draft.p.name);renderForm();showOut();}});
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
+  copyTxt(b.dataset.copy==='file'?outFileTxt:outManTxt);b.textContent='nukopijuota';
+  setTimeout(()=>b.textContent='kopijuoti',1200);}));
+document.querySelectorAll('[data-dl]').forEach(b=>b.addEventListener('click',()=>
+  b.dataset.dl==='file'?download(outFileName,outFileTxt):download('manifest.json',outManTxt)));
+
+/* ---- startas ------------------------------------------------------------- */
+buildFields();
+(async function(){
+  let keep=null;
+  try{keep=JSON.parse(localStorage.getItem(LS)||'null');}catch(e){}
+  if(keep&&keep.man){man=keep.man;draft=keep.draft||null;}
+  await loadLib(!!(keep&&keep.man));
+  renderForm();showOut();
+})();
+</script>
