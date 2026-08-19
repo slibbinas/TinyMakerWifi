@@ -484,8 +484,9 @@ function slicerFlatStage(on){
     const w=st.clientWidth||st.getBoundingClientRect().width; if(!w)return;
     const h=Math.min(Math.round(w*240/320),Math.round(innerHeight*0.78));
     st.style.height=h+'px';
-    /* `stageBoxSize` praleidzia darba, jei jo paties uzrasytas aukstis nepasikeites,
-       tad zyme nuvalom - kitaip po slicerio „didinimas" liktu neperskaiciuotas. */
+    /* Zyme pultui: plokscio vaizdo aukstis - musu, tad `stageBoxSize` i ji nesikisa.
+       Be jos abi puses raše ta pati stiliu ir vaizdas soktelėdavo (V 08-20). */
+    st.classList.add('stageFlat');
     st.dataset.boxH='';
     slicerStageFlat=true;
   }else{
@@ -494,6 +495,7 @@ function slicerFlatStage(on){
     /* NEgrazinam senos reiksmes: per ta laika galejo buti paspaustas „lango
        didinimas", ir sena reiksme ji nurasytu (V 08-19: uzdarius sliceri perziura
        likdavo istempta). Nuvalom ir leidziam pulto logikai nusistatyti pačiai. */
+    st.classList.remove('stageFlat');
     st.style.height=''; st.dataset.boxH='';
     if(window.stageBoxSize)stageBoxSize();
   }
@@ -506,13 +508,20 @@ function slicerFlatStage(on){
 }
 /* Langui pasikeitus (taip pat ir paspaudus „didinima") plokscias vaizdas turi
    likti 4:3 - kitaip aplink juoda staciakampi vel atsiranda kraštas. */
-window.addEventListener('resize',()=>{if(slicerMaskOn&&slicerView===2)slicerFlatStage(true);});
+window.addEventListener('resize',()=>{
+  if(!(slicerMaskOn&&slicerView===2))return;
+  slicerFlatStage(true);
+  /* Dydzio keitimas eina per `gl3dShow`, o tas grazina visas 3D grupes - tad po jo
+     plokscio vaizdo taisykles turi praeiti dar karta (V 08-20). */
+  slicerViewChrome();
+});
 /* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad po jo
    plokscia vaizda persistatom rankomis - kitaip sumazinus langa juodas
    staciakampis liktu mazesnis uz pati langa (V 08-19). */
 {const g=$('stageOpen');
  if(g)g.addEventListener('click',()=>setTimeout(()=>{
-   if(slicerMaskOn&&slicerView===2)slicerFlatStage(true);},0));}
+   if(!(slicerMaskOn&&slicerView===2))return;
+   slicerFlatStage(true); slicerViewChrome();},0));}
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
   const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
@@ -571,6 +580,19 @@ const VIEW_TITLES=[
   '3D with supports - shapes, not pictures. Click for the printed layers.',
   'Printed layers - exactly what the printer builds. Click for one true layer.',
   'True layer - one picture, no smoothing. Click to go back to 3D.'];
+/* Kas rodoma PLOKSCIAME vaizde. Atskira funkcija, nes kiekvienas 3D perpiesimas
+   grazina visas grupes atgal (`gl3dMesh` -> `rodyk`), tad po jo si turi praeiti
+   dar karta - kitaip padidinus langa valdikliai vel issibarstydavo per kauke
+   (V 08-20). Plokscioje kaukeje prasminga tik: perjungti vaizda, slinkti
+   sluoksnius. Sukimas, stumdymas, pagalba, narvas ir priartinimas - 3D reikalai. */
+function slicerViewChrome(){
+  const plokscia=!!window.slicerFlatView;
+  const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
+  const zc=$('gl3dZoomCorner'); if(zc)zc.style.display=plokscia?'none':'flex';
+  [['gl3dPad','grid'],['gl3dRot','grid'],['gl3dHelp','block']].forEach(([id,d])=>{
+    const e=$(id); if(e)e.style.display=plokscia?'none':d;});
+}
+window.slicerViewChrome=slicerViewChrome;
 function slicerSetView(v){
   slicerView=((v%3)+3)%3;
   const b=$('gl3dMask');
@@ -581,16 +603,8 @@ function slicerSetView(v){
      Mygtukai slepiami, o ne uzrakinami - valdiklis, kuris nieko nekeicia, meluoja
      labiau uz nesancio mygtuko nebuvima (V 08-19). */
   slicerFlatStage(slicerView===2);
-  {const plokscia=slicerView===2;
-   const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
-   /* Priartinimas gyvena savo kampe, tad plokscioje kaukeje slepiam visa
-      kampine grupe (V 08-20: „- ir + visada desineje apacioje"). */
-   {const zc=$('gl3dZoomCorner'); if(zc)zc.style.display=plokscia?'none':'flex';}
-   /* Sukimo ir stumdymo padai bei ju pagalba - irgi 3D reikalas. Plokscioje
-      kaukeje jie ne tik nieko nedaro, bet ir gula ant paties vaizdo (V 08-19).
-      Grazinam su tais paciais display, kokius duoda tiltas. */
-   [['gl3dPad','grid'],['gl3dRot','grid'],['gl3dHelp','block']].forEach(([id,d])=>{
-     const e=$(id); if(e)e.style.display=plokscia?'none':d;});}
+  window.slicerFlatView=(slicerView===2);
+  slicerViewChrome();
   if(slicerView!==2)slicerBuildView();
   if(slicerOut)slicerShowLayer(slicerLayerN||slicerOut.layers);
 }
@@ -871,12 +885,19 @@ const slicerCage=enter=>{
   if(typeof syncCageBtn==='function')syncCageBtn();
 };
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
+                     slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
                      if(!v)slicerLayerUI(false);};
 /* Sliceryje is vaizdo grupes lieka du mygtukai - narvas ir vaizdo jungiklis, - o
    del dvieju mygtuku laikyti atskira centruota eilute per daug (V 08-20). Tad
    sliceryje jie stoja i ta pacia eilute su formos irankiais, o iseinant grizta
    ten, kur gyvena. Kartu tai reiskia, kad darbo metu jie dingsta kartu su ja. */
+/* Spausdinimo progreso juostele po vaizdu: sliceryje ji tuscia ir niekada
+   nepasipildo - spaudinio dar nera (V 08-20). Slepiam kartu su vaizdu. */
+function slicerBarUI(on){
+  const bar=document.querySelector('#printPreviewCard .storageBar');
+  if(bar)bar.style.display=on?'none':'';
+}
 function slicerBarMerge(on){
   const tools=$('gl3dTools'), zoom=$('gl3dZoom');
   if(!tools||!zoom)return;

@@ -4373,6 +4373,9 @@ const stageWideOk=()=>{try{return matchMedia('(min-width:1000px)').matches;}catc
 window.stageWideOk=stageWideOk;
 const stageBoxSize=()=>{
   const st=$('previewStage');
+  /* Plokscias slicerio vaizdas pats nustato auksti (4:3) - cia nesikisam, kitaip
+     abu rašo ta pati stiliu ir vaizdas soka (V 08-20). */
+  if(st&&st.classList.contains('stageFlat'))return;
   if(!st||!st.classList.contains('stageBox'))return;
   const w=st.clientWidth||st.getBoundingClientRect().width;
   if(!w)return;
@@ -5279,6 +5282,11 @@ window.syncCageBtn=syncCageBtn;   // gl3d IIFE pakyla veliau - susivienodinam te
 const gl3dUp=()=>typeof window.gl3dClip==='function';
 /* „Kaip spausdinama" mygtukas suka ta pati jungikli, kuri turi ir Settings - viena
    busena, du valdikliai (V 08-13). */
+/* Bakstelėjus i pati vaizda pagalbos lentele irgi uzsiverčia: ji uzdengia ta,
+   ka zmogus kaip tik nori pamatyti (V 08-20). Vaizdas paspaudimu toliau
+   neperduoda, tad klausom jo tiesiogiai. */
+{const st=$('previewStage'), hw=$('gl3dHelp');
+ if(st&&hw)st.addEventListener('pointerdown',()=>hw.classList.remove('on'),true);}
 $('gl3dCage').addEventListener('click',e=>{
   e.stopPropagation();
   if(typeof window.gl3dCage==='function')gl3dCage(!gl3dCageOn());

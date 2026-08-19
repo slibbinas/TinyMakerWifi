@@ -40,6 +40,8 @@
       const rodyk=id=>{const e=$(id);if(e)e.style.display=
         (id==='gl3dZoom'||id==='gl3dZoomCorner')?'flex':(id==='gl3dHelp'?'block':'grid');};
       rodyk('gl3dHelp');rodyk('gl3dPad');rodyk('gl3dRot');rodyk('gl3dZoom');rodyk('gl3dZoomCorner');
+      /* ...bet plokscias vaizdas turi savo taisykles, ir jos - paskutines. */
+      if(window.slicerViewChrome)window.slicerViewChrome();
       /* Priartinimo grupeje pas MUS gyvena ir narvas, pjuvis, vokseliai bei
          detalus vaizdas - experimental2 ju ten neturejo. Visi keturi turi prasme
          tik SUPJAUSTYTIEMS duomenims: sliceryje dar nera ka pjauti nei rodyti
