@@ -26,9 +26,28 @@ export const {
 let W = null, kitasId = 1;
 const laukia = new Map();
 
+/* Kur gyvena sis modulis - is ten imami ir darbininkas bei WASM variklis.
+   ⚠️ NE `BAZE`: tas vardas jau uzimtas importo virsuje (`slicer-core.js`), ir
+   dublikatas luzta tik pakrovimo metu - lokaliai nepastebejau, pagavo pirmas
+   bandymas is gh-pages. */
+const ADRESAS = new URL('./', import.meta.url).href;
+
 function darbininkas() {
   if (W) return W;
-  W = new Worker(new URL('./slicer-wasm-worker.js', import.meta.url), { type: 'classic' });
+  /*
+   * ⚠️ Darbininko NEGALIMA kurti tiesiai is kito domeno: pultas sukasi ant
+   * printerio (http://tinymaker.local), o modulis guli gh-pages, ir narsykle
+   * toki `new Worker(https://...)` atmeta (SecurityError).
+   *
+   * Apeinam standartiskai: pasidarom mazyti vietini darbininka, kuris pats
+   * per `importScripts` parsisiunčia tikraji - tam kito domeno riba negalioja.
+   */
+  const uzkrovejas =
+    'self.SLA_BAZE=' + JSON.stringify(ADRESAS) + ';' +
+    'importScripts(' + JSON.stringify(ADRESAS + 'slicer-wasm-worker.js') + ');';
+  const url = URL.createObjectURL(new Blob([uzkrovejas], { type: 'text/javascript' }));
+  W = new Worker(url);
+  URL.revokeObjectURL(url);
   W.onmessage = (ev) => {
     const z = ev.data || {};
     const p = laukia.get(z.id);
