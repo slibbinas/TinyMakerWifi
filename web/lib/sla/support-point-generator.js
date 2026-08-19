@@ -8,7 +8,7 @@
  * Portuota is: src/libslic3r/SLA/SupportPointGenerator.{hpp,cpp}
  */
 import { scaled, unscaled, diffEx, intersectionEx, offsetEx, unionEx,
-         exsToPaths, exArea, bbox, ApplySafetyOffset, DEFAULT_MITER_LIMIT } from './geometry.js';
+         exsToPaths, exArea, exContains, bbox, ApplySafetyOffset, DEFAULT_MITER_LIMIT } from './geometry.js';
 
 /* SPG.cpp:1453-1464 - V profilyje ta pati kreive naudoja ir musu senasis kelias. */
 export const createDefaultSupportCurve = () => [[3.2, 0], [4, 3.9], [5, 15], [6, 40]];
@@ -320,3 +320,181 @@ export function createPeninsulas(CL, part, prevShapes, cfg) {
     part.peninsulas.push({ unsupportedArea: pen, isOutline, lines });
   }
 }
+
+/* ------------------------------------------------ tasku generavimas */
+
+/**
+ * `NearPoints` (SPG.hpp:33-...) - taskai, kurie gali „padengti" dabartine
+ * dali. Originale tai KDTree virs bendros saugyklos; cia tiesinis sarasas su
+ * indeksais - tas pats atsakymas, tik paieska pigesne struktura (tasku
+ * sluoksnyje desimtys, ne tukstanciai).
+ */
+class NearPoints {
+  constructor(storage, indices = []) { this.storage = storage; this.indices = indices.slice(); }
+  clone() { return new NearPoints(this.storage, this.indices); }
+  add(sp) { this.storage.push(sp); this.indices.push(this.storage.length - 1); }
+  merge(other) { for (const i of other.indices) if (!this.indices.includes(i)) this.indices.push(i); }
+
+  /** `exist_true_in_radius` - ar bent vienas taskas spinduliu dengia p. */
+  existTrueInRadius(p, maximalRadius, checkFn) {
+    for (const i of this.indices) {
+      const sp = this.storage[i];
+      const dx = sp.positionOnLayer.X - p.X, dy = sp.positionOnLayer.Y - p.Y;
+      if (Math.abs(dx) > maximalRadius || Math.abs(dy) > maximalRadius) continue;
+      if (checkFn(sp, p)) return true;
+    }
+    return false;
+  }
+
+  /** `remove_out_of` - taskai, iskrite uz dalies ribu, nebedalyvauja. */
+  removeOutOf(CL, extendShape, currentZ) {
+    this.indices = this.indices.filter(i => {
+      const sp = this.storage[i];
+      if (sp.pos[2] > currentZ) return true;          // dar neatspausdintas
+      for (const e of extendShape) if (exContains(CL, e, sp.positionOnLayer.X, sp.positionOnLayer.Y)) return true;
+      return false;
+    });
+  }
+}
+
+/**
+ * `calc_influence_radius` (SPG.cpp:482-493) - dar nespausdinto (permanent)
+ * tasko itaka. Sritis pries ji yra sferos formos.
+ */
+export function calcInfluenceRadius(zDistance, cfg) {
+  let d2 = cfg.supportCurve[0][0] ** 2;
+  if (Math.abs(cfg.densityRelative - 1) > 1e-4) d2 /= cfg.densityRelative;
+  const z2 = zDistance * zDistance;
+  if (z2 >= d2) return 0;
+  return scaled(Math.sqrt(d2 - z2));
+}
+
+/**
+ * `prepare_supports_for_layer` (SPG.cpp:496-544).
+ *
+ * Kiekvieno tasko „padengiamas spindulys" AUGA kylant sluoksniams pagal
+ * `support_curve`: {3,2 mm ties 0} -> {4 ties 3,9} -> {5 ties 15} -> {6 ties 40}.
+ * Tai ir yra taisykle, kiek toli nuo atramos dar laikoma, kad danga uztenka.
+ *
+ * ⚠️ Spindulys auginamas TIK aktyviems taskams (tiems, kurie dalyvauja
+ * dabartiniame sluoksnyje). Neaktyvus uzsaldomi - kitaip nutolusi atrama
+ * „augtu" per visa spaudini ir tildytu tikras nuokabas.
+ */
+export function prepareSupportsForLayer(supports, layerZ, activePoints, cfg) {
+  const curve = cfg.supportCurve;
+  const isActive = new Array(supports.length).fill(false);
+  for (const np of activePoints) for (const i of np.indices) isActive[i] = true;
+
+  const setRadius = (sp, radius) => {
+    let r = radius;
+    if (Math.abs(cfg.densityRelative - 1) > 1e-4) r = Math.sqrt(r * r / cfg.densityRelative);
+    sp.currentRadius = scaled(r);
+  };
+
+  for (let i = 0; i < supports.length; i++) {
+    const sp = supports[i];
+    if (sp.radiusCurveIndex + 1 >= curve.length) continue;   // jau maksimalus
+    if (!isActive[i]) continue;
+
+    const diffZ = layerZ - sp.pos[2];
+    if (diffZ < 0) { sp.currentRadius = calcInfluenceRadius(-diffZ, cfg); continue; }
+
+    while (sp.radiusCurveIndex + 1 < curve.length && diffZ > curve[sp.radiusCurveIndex + 1][1])
+      sp.radiusCurveIndex++;
+
+    if (sp.radiusCurveIndex + 1 >= curve.length) { setRadius(sp, curve[curve.length - 1][0]); continue; }
+    const a = curve[sp.radiusCurveIndex], b = curve[sp.radiusCurveIndex + 1];
+    const t = (diffZ - a[1]) / (b[1] - a[1]);
+    setRadius(sp, a[0] + t * (b[0] - a[0]));
+  }
+}
+
+const mkSupportPoint = (p, z, headR, type) => ({
+  pos: [unscaled(p.X), unscaled(p.Y), z],
+  headFrontRadius: headR,
+  type,
+  positionOnLayer: { X: p.X, Y: p.Y },
+  radiusCurveIndex: 0,
+  currentRadius: 0,
+  activeInPart: true,
+  isPermanent: false,
+});
+
+/**
+ * `support_part_overhangs` (SPG.cpp:251-290).
+ *
+ * Kiekvienam nuokabos taskui klausiama: ar ji jau dengia kuri nors esamas
+ * atramos taskas savo dabartiniu spinduliu? Jei ne - dedamas naujas.
+ */
+export function supportPartOverhangs(part, cfg, nearPoints, partZ, maximalRadius) {
+  const isSupported = (sp, p) => {
+    const r = sp.currentRadius;
+    const dx = sp.positionOnLayer.X - p.X, dy = sp.positionOnLayer.Y - p.Y;
+    if (Math.abs(dx) > r || Math.abs(dy) > r) return false;
+    return dx * dx + dy * dy < r * r;
+  };
+  for (const p of part.samples) {
+    if (!nearPoints.existTrueInRadius(p, maximalRadius, isSupported)) {
+      const sp = mkSupportPoint(p, partZ, cfg.headDiameter / 2, 'slope');
+      sp.currentRadius = scaled(cfg.supportCurve[0][0]);
+      nearPoints.add(sp);
+    }
+  }
+}
+
+/**
+ * `generate_support_points` (SPG.cpp:1470-1560).
+ *
+ * Einama sluoksniais is apacios i virsu. Kiekvienam sluoksniui pirma auginami
+ * jau esanciu tasku spinduliai, tada kiekviena dalis pasiima savo pirmtaku
+ * taskus, ismeta iskritusius uz ribu, ir sėja tik ten, kur nepadengta.
+ *
+ * ⚠️ Salos (dalys be `prev_parts`) einа KITU keliu - `support_island`, kuriam
+ * reikia Voronoi. Kol jis neportuotas, salos praleidziamos ir ZYMIMOS.
+ */
+export function generateSupportPoints(CL, data, cfg = generatorConfig(), islandFn = null) {
+  const layers = data.layers;
+  const maxSupportRadius = cfg.supportCurve[cfg.supportCurve.length - 1][0];
+  const maximalRadius = scaled(maxSupportRadius);
+  const result = [];
+  let praleistaSalu = 0;
+
+  let prevGrids = [];
+  for (let layerId = 0; layerId < layers.length; layerId++) {
+    const layer = layers[layerId];
+    prepareSupportsForLayer(result, layer.printZ, prevGrids, cfg);
+
+    const grids = [];
+    for (let pi = 0; pi < layer.parts.length; pi++) {
+      const part = layer.parts[pi];
+
+      if (!part.prevParts.length) {
+        const np = new NearPoints(result);
+        grids.push(np);
+        if (islandFn) islandFn(CL, part, np, layer.printZ, cfg);
+        else praleistaSalu++;
+        continue;
+      }
+
+      /* `create_near_points`: paveldim visu pirmtaku taskus. */
+      const np = new NearPoints(result);
+      for (const prev of part.prevParts) {
+        const gi = layers[layerId - 1].parts.indexOf(prev);
+        if (gi >= 0 && prevGrids[gi]) np.merge(prevGrids[gi]);
+      }
+      np.removeOutOf(CL, part.extendShape, layer.printZ);
+
+      if (part.peninsulas.length && islandFn)
+        supportPeninsulas(CL, part.peninsulas, np, layer.printZ, cfg);
+
+      supportPartOverhangs(part, cfg, np, layer.printZ, maximalRadius);
+      grids.push(np);
+    }
+    prevGrids = grids;
+  }
+
+  return { points: result.filter(p => !p.isPermanent), skippedIslands: praleistaSalu };
+}
+
+/** `support_peninsulas` - pusiasaliams reikia to paties Voronoi kelio. */
+function supportPeninsulas() { /* laukia SupportIslands porto */ }
