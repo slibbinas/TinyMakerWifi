@@ -158,9 +158,11 @@ export class AABBMesh {
     return dot(w, w);
   }
 
-  /** `squared_distance(p)` - naudoja `check_ground_route` nuliniam pakelimui. */
-  squaredDistance(p) {
-    let best = INF;
+  /** `squared_distance(p)` - naudoja `check_ground_route` nuliniam pakelimui.
+   *  Su `want` grazina ir artimiausia trikampi bei taska ant jo (originale tai
+   *  `squared_distance(p, faceid, closest)` isvesties parametrai). */
+  squaredDistance(p, want = false) {
+    let best = INF, bt = -1;
     for (let w = this.cell; w <= this.cell * 16; w *= 2) {
       const i0 = this.cx(p[0] - w), i1 = this.cx(p[0] + w);
       const j0 = this.cy(p[1] - w), j1 = this.cy(p[1] + w);
@@ -170,11 +172,95 @@ export class AABBMesh {
           if (!l) continue;
           for (const t of l) {
             const d = this.pointTriDist2(p, t);
-            if (d < best) best = d;
+            if (d < best) { best = d; bt = t; }
           }
         }
       if (best < w * w) break;
     }
-    return best;
+    return want ? { d2: best, t: bt, q: bt < 0 ? null : this.closestOnTri(p, bt) } : best;
+  }
+
+  /** Artimiausias taskas ant trikampio (reikia `get_normal` briaunos patikrai). */
+  closestOnTri(p, t) {
+    const q = this.pos;
+    const a = [q[t], q[t + 1], q[t + 2]];
+    const ab = [q[t + 3] - a[0], q[t + 4] - a[1], q[t + 5] - a[2]];
+    const ac = [q[t + 6] - a[0], q[t + 7] - a[1], q[t + 8] - a[2]];
+    const ap = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+    const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    const d1 = dot(ab, ap), d2 = dot(ac, ap);
+    if (d1 <= 0 && d2 <= 0) return a;
+    const bp = [p[0] - q[t + 3], p[1] - q[t + 4], p[2] - q[t + 5]];
+    const d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return [q[t + 3], q[t + 4], q[t + 5]];
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+      const s = d1 / (d1 - d3);
+      return [a[0] + ab[0] * s, a[1] + ab[1] * s, a[2] + ab[2] * s];
+    }
+    const cp = [p[0] - q[t + 6], p[1] - q[t + 7], p[2] - q[t + 8]];
+    const d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return [q[t + 6], q[t + 7], q[t + 8]];
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+      const s = d2 / (d2 - d6);
+      return [a[0] + ac[0] * s, a[1] + ac[1] * s, a[2] + ac[2] * s];
+    }
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
+      const s = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+      return [q[t + 3] + (q[t + 6] - q[t + 3]) * s,
+              q[t + 4] + (q[t + 7] - q[t + 4]) * s,
+              q[t + 5] + (q[t + 8] - q[t + 5]) * s];
+    }
+    const den = 1 / (va + vb + vc);
+    const vv = vb * den, ww = vc * den;
+    return [a[0] + ab[0] * vv + ac[0] * ww,
+            a[1] + ab[1] * vv + ac[1] * ww,
+            a[2] + ab[2] * vv + ac[2] * ww];
+  }
+
+  /** `normal_by_face_id` - trikampio normale. */
+  faceNormal(t) {
+    const q = this.pos;
+    const ux = q[t + 3] - q[t], uy = q[t + 4] - q[t + 1], uz = q[t + 5] - q[t + 2];
+    const vx = q[t + 6] - q[t], vy = q[t + 7] - q[t + 1], vz = q[t + 8] - q[t + 2];
+    const n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+    const L = Math.hypot(n[0], n[1], n[2]) || 1;
+    return [n[0] / L, n[1] / L, n[2] / L];
+  }
+
+  /** `vertex_face_index` - virsune -> ja naudojantys trikampiai. */
+  vertexFaceIndex() {
+    if (this._vfi) return this._vfi;
+    const m = new Map();
+    const key = (x, y, z) => `${x.toFixed(5)},${y.toFixed(5)},${z.toFixed(5)}`;
+    const q = this.pos;
+    for (let t = 0; t + 8 < q.length; t += 9)
+      for (let k = 0; k < 3; k++) {
+        const kk = key(q[t + k * 3], q[t + k * 3 + 1], q[t + k * 3 + 2]);
+        let l = m.get(kk); if (!l) { l = []; m.set(kk, l); }
+        l.push(t);
+      }
+    this._vfi = { map: m, key };
+    return this._vfi;
+  }
+
+  /** `face_neighbor_index` - trikampis, dalijantis duota briauna. */
+  faceAcrossEdge(t, e1, e2) {
+    const { map, key } = this.vertexFaceIndex();
+    const c1 = map.get(key(e1[0], e1[1], e1[2])) || [];
+    for (const o of c1) {
+      if (o === t) continue;
+      const q = this.pos;
+      let sutampa = 0;
+      for (let k = 0; k < 3; k++) {
+        const px = q[o + k * 3], py = q[o + k * 3 + 1], pz = q[o + k * 3 + 2];
+        if ((Math.abs(px - e1[0]) < 1e-5 && Math.abs(py - e1[1]) < 1e-5 && Math.abs(pz - e1[2]) < 1e-5) ||
+            (Math.abs(px - e2[0]) < 1e-5 && Math.abs(py - e2[1]) < 1e-5 && Math.abs(pz - e2[2]) < 1e-5)) sutampa++;
+      }
+      if (sutampa === 2) return o;
+    }
+    return -1;
   }
 }
