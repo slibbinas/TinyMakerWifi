@@ -10,7 +10,7 @@
 const BAZE = self.SLA_BAZE || './';
 importScripts(BAZE + 'sla-web.js');
 
-let M = null, sliceMeshFn = null, sl1Fn = null, vardas = 'spaudinys';
+let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, vardas = 'spaudinys';
 let dabartinisId = 0;
 
 /* Tilto `praneskEiga` kviecia butent sita. */
@@ -24,6 +24,7 @@ const paruostas = createSLA({ locateFile: function (p) { return BAZE + p; } }).t
   M = m;
   sliceMeshFn = m.cwrap('sla_slice_mesh', 'string', ['number', 'number', 'number', 'number']);
   sl1Fn = m.cwrap('sla_export_sl1', 'string', ['string', 'string']);
+  previewFn = m.cwrap('sla_preview', 'string', ['string', 'number']);
   return m;
 });
 
@@ -59,8 +60,22 @@ self.onmessage = async function (ev) {
       const sl1 = M.FS.readFile('/isvestis.sl1');
       try { M.FS.unlink('/isvestis.sl1'); } catch (e) {}
 
-      self.postMessage({ tipas: 'atsakymas', id: z.id, duomenys: d, sl1info: info, sl1: sl1.buffer },
-                       [sl1.buffer]);
+      /* Perziuros kaukes - is karto po sluoksniu: pultas jas rodo tuoj pat, o
+         antro pjaustymo nereikia. */
+      let preview = null, previewInfo = null;
+      try {
+        previewInfo = JSON.parse(previewFn('/preview.bin', z.perziuros || 160));
+        if (!previewInfo.klaida) {
+          const pv = M.FS.readFile('/preview.bin');
+          preview = pv.buffer;
+          try { M.FS.unlink('/preview.bin'); } catch (e) {}
+        }
+      } catch (e) { previewInfo = { klaida: String(e && e.message || e) }; }
+
+      const perduoti = preview ? [sl1.buffer, preview] : [sl1.buffer];
+      self.postMessage({ tipas: 'atsakymas', id: z.id, duomenys: d, sl1info: info,
+                         sl1: sl1.buffer, preview: preview, previewInfo: previewInfo },
+                       perduoti);
 
     } else if (z.tipas === 'geometrija') {
       const dalys = {};

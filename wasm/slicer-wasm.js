@@ -13,12 +13,15 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.0.0-wasm';
+export const VERSION = '3.0.1-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
   parseSTL, autoOrient, place, bounds, fitCheck, toSceneMesh, detailBudget,
   zipStore, setFitMargin, PLATE, RES, LAYER_MM, SUP,
+  /* Sie trys - pulto piesimui. Jie ne algoritmas, o irankiai, tad ateina is
+     bazes nepakeisti (printerio sesija pastebejo, kad ju truko). */
+  pillarDiscs, braceDiscs, supportMesh,
 } = BAZE;
 
 /* --------------------------------------------------------------- darbininkas */
@@ -125,6 +128,11 @@ export async function slice(pos, opts, onProgress) {
      iskleisti pati (`DecompressionStream`), tad savos bibliotekos nereikia. */
   const files = await isZip(new Uint8Array(r.sl1));
 
+  /* Perziura: variklis atiduoda DVI kaukiu serijas - modelio ir atramu. Antroji
+     leidzia pultui nudazyti atramas kita spalva TIKSLIAI, o ne apytiksliais
+     diskais per `pillarDiscs` (V 08-13 pazymejo atskyrima kaip butina). */
+  const p = r.preview ? isKaukiu(r.preview, r.previewInfo) : null;
+
   return {
     blob: new Blob([r.sl1], { type: 'application/zip' }),
     files,
@@ -143,9 +151,27 @@ export async function slice(pos, opts, onProgress) {
       atramuMl: d.turis.atramos / 1000,
       raftoMl: d.turis.padas / 1000,
     },
-    preview: null,                       // vaizda duoda pats variklis (STL dalys)
+    /* Senojo modulio formatas - pultas jo ir laukia. `supportSlices` yra
+       PRIEDAS: to paties dydzio kaukes, tik atramu ir rafto. */
+    preview: p && { slices: p.model, gw: p.w, gh: p.h, modelH: p.aukstis,
+                    supportSlices: p.atramos },
     wasm: d,
   };
+}
+
+/** Perziuros dvejetainis pavidalas -> masyvai, kuriuos piesia pultas. */
+function isKaukiu(buferis, info) {
+  const dv = new DataView(buferis);
+  const n = dv.getUint32(0, true), w = dv.getUint32(4, true), h = dv.getUint32(8, true);
+  const aukstis = dv.getFloat32(12, true);
+  const baitai = new Uint8Array(buferis);
+  const model = [], atramos = [];
+  let o = 16;
+  for (let i = 0; i < n; i++) {
+    model.push(baitai.subarray(o, o + w * h)); o += w * h;
+    atramos.push(baitai.subarray(o, o + w * h)); o += w * h;
+  }
+  return { model, atramos, w, h, aukstis, info };
 }
 
 /** Paskutinio pjaustymo geometrija (modelis / atramos / raftas) STL pavidalu. */

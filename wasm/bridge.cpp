@@ -20,6 +20,8 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <cmath>
 
 #include <libslic3r/TriangleMesh.hpp>
 #include <libslic3r/TriangleMeshSlicer.hpp>
@@ -316,6 +318,14 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
     /* Sulipdom sutampancias virsunes - kitaip `its_face_neighbors` neranda
        kaimynystes, o nuo jos priklauso normales ir nuokabu paieska. */
     its_merge_vertices(its, true);
+
+    /* ⚠️ Apverstos normales. Jei tinklo turis neigiamas, trikampiai sukti i
+       VIDU - tada ne tik derva iseina su minusu (printerio sesija pagavo
+       `rawMl: -1`), bet ir nuokabu paieska ziuri i ne ta puse. Apsukam.
+       PrusaSlicer tai daro `repair()` metu; mums uztenka sio patikrinimo. */
+    if (its_volume(its) < 0.f)
+        for (auto &t : its.indices) std::swap(t[1], t[2]);
+
     TriangleMesh mesh{std::move(its)};
     return run_chain(mesh, layer_h, branching != 0, false, false);
 }
@@ -451,6 +461,99 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
         "{\"sluoksniu\":%zu,\"png_baitu\":%zu,\"laikas_ms\":%ld,\"failas\":\"%s\"}",
         irasyta, baitu, ms_since(t0), out_path);
     g_json = b;
+    return g_json.c_str();
+}
+
+} // extern "C"
+
+
+/*
+ * Perziuros kaukes pultui.
+ *
+ * Pultas piesia sluoksniu perziura is 0/1 kaukiu (senojo modulio formatas:
+ * `slices`, `gw`, `gh`, `modelH`). Mes duodam DVI serijas - modelio ir atramu -
+ * kad atramas butu galima nudazyti KITA spalva tiksliai, o ne apytiksliais
+ * diskais, kaip anksciau.
+ *
+ * Rezultatas rasomas i `/preview.bin`:
+ *   antraste: uint32 kiekis, uint32 w, uint32 h, float modelio_aukstis
+ *   toliau:   kiekis x (w*h modelio baitu + w*h atramu baitu), po 0 arba 1
+ */
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+const char *sla_preview(const char *out_path, int max_sluoksniu)
+{
+    if (!g_last.ready) {
+        g_json = "{\"klaida\":\"pirma reikia suslicinti\"}";
+        return g_json.c_str();
+    }
+    const int W = 320, H = 240;            // toks pat tinklelis, kaip pulto RES
+    const double layer_h = g_last.layer_h;
+
+    float zmin = 1e30f, zmax = -1e30f;
+    for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
+        for (const auto &v : m->vertices) {
+            if (v.z() < zmin) zmin = v.z();
+            if (v.z() > zmax) zmax = v.z();
+        }
+    std::vector<float> visi;
+    for (float z = zmin + float(layer_h) / 2.f; z < zmax; z += float(layer_h))
+        visi.push_back(z);
+    if (visi.empty()) { g_json = "{\"klaida\":\"nera sluoksniu\"}"; return g_json.c_str(); }
+
+    /* Imam tik dali sluoksniu - perziurai uztenka, o kiekvienas kainuoja. */
+    const int N = std::min<int>(max_sluoksniu > 0 ? max_sluoksniu : 160, int(visi.size()));
+    std::vector<float> imami(N);
+    for (int k = 0; k < N; ++k)
+        imami[k] = visi[N > 1 ? size_t(std::llround(double(k) * (visi.size() - 1) / (N - 1))) : 0];
+
+    sla::JobController ctl;
+    std::vector<ExPolygons> mo = slice_mesh_ex(g_last.model, imami, 0.005f);
+    std::vector<ExPolygons> su = sla::slice(g_last.supports, g_last.pad, imami, 0.005f, ctl);
+
+    const sla::Resolution res{size_t(W), size_t(H)};
+    const sla::PixelDim   pxd{PLOKSTE_X_MM / W, PLOKSTE_Y_MM / H};
+    const sla::RasterBase::Trafo tr{sla::RasterBase::roLandscape, sla::RasterBase::MirrorX};
+
+    /* Kaukes gaminam per ta pati rasterizatoriu: `gamma = 0` isjungia
+       minkstinima, tad iskart gaunam 0/1, be jokiu tarpiniu atspalviu. */
+    auto kauke = [&](const ExPolygons &ex, std::vector<uint8_t> &out) {
+        auto rst = sla::create_raster_grayscale_aa(res, pxd, 0.0, tr);
+        for (const ExPolygon &e : ex) rst->draw(e);
+        sla::EncodedRaster ppm = rst->encode(sla::PPMRasterEncoder{});
+        const uint8_t *d = static_cast<const uint8_t *>(ppm.data());
+        /* PPM antraste cia atskirta TARPAIS, ne naujomis eilutemis:
+           "P5 320 240 255 " (RasterBase.cpp:57-59). Ieskant naujos eilutes
+           praeini pro visus duomenis ir gauni tuscia kauke - taip ir nutiko
+           pirmame bandyme. Praleidziam keturis tarpus. */
+        size_t p = 0, tarpu = 0;
+        while (p < ppm.size() && tarpu < 4) { if (d[p] == ' ') tarpu++; p++; }
+        out.assign(size_t(W) * H, 0);
+        for (size_t i = 0; i < out.size() && p + i < ppm.size(); ++i)
+            out[i] = d[p + i] > 127 ? 1 : 0;
+    };
+
+    std::vector<uint8_t> a, s;
+    FILE *f = std::fopen(out_path, "wb");
+    if (!f) { g_json = "{\"klaida\":\"nepavyko sukurti failo\"}"; return g_json.c_str(); }
+    const uint32_t antr[3] = { uint32_t(N), uint32_t(W), uint32_t(H) };
+    const float aukstis = float(visi.size() * layer_h);
+    std::fwrite(antr, sizeof(uint32_t), 3, f);
+    std::fwrite(&aukstis, sizeof(float), 1, f);
+    for (int k = 0; k < N; ++k) {
+        kauke(mo[k], a);
+        kauke(k < int(su.size()) ? su[k] : ExPolygons{}, s);
+        std::fwrite(a.data(), 1, a.size(), f);
+        std::fwrite(s.data(), 1, s.size(), f);
+    }
+    std::fclose(f);
+
+    char b2[256];
+    std::snprintf(b2, sizeof(b2),
+        "{\"kiekis\":%d,\"w\":%d,\"h\":%d,\"aukstis\":%.3f,\"sluoksniu_is_viso\":%zu}",
+        N, W, H, aukstis, visi.size());
+    g_json = b2;
     return g_json.c_str();
 }
 
