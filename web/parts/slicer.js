@@ -916,10 +916,9 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
 /* Spausdinimo progreso juostele po vaizdu: sliceryje ji tuscia ir niekada
    nepasipildo - spaudinio dar nera (V 08-20). Slepiam kartu su vaizdu. */
 function slicerBarUI(on){
-  /* `visibility`, ne `display`: juostele uzima savo eilute ir tada, kai nieko
-     nesako - kitaip ijungus sliceri visas vaizdas pasokteli (V 08-20). */
-  const bar=document.querySelector('#printPreviewCard .storageBar');
-  if(bar)bar.style.visibility=on?'hidden':'';
+  /* Juostele valdo pultas (`previewBarShow`): ji matoma tik spausdinant. Sliceriui
+     lieka pasakyti, kad jo rezime jos tikrai nera. */
+  if(on&&window.previewBarShow)previewBarShow(false);
 }
 function slicerBarMerge(on){
   const tools=$('gl3dTools'), zoom=$('gl3dZoom');
