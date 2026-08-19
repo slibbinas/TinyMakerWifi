@@ -352,11 +352,17 @@ $('slicerFile').addEventListener('change',async e=>{
    uzrasas ant modelio, arba vien uzrasas. Formos irankius pasleps `slicerButtons`,
    o vaizdo juosta - sitas. Kampiniai valdikliai (priartinimas, sukimas) lieka: jie
    yra apie ziurejima, ne apie daikta, ir dirbant praverčia (V 08-20). */
+/* Kol vyksta ilgas darbas, ekrane lieka VIEN zinute. Nei sukti, nei priartinti,
+   nei zymeti nera ko: daikto dar nera arba jis kaip tik gaminamas (V 08-20).
+   Formos eilute pasitraukia per `slicerButtons(false)`, visa kita - cia. */
 const slicerWorkUI=dirba=>{
-  /* Sliceryje vaizdo mygtukai stovi formos eiluteje (`slicerBarMerge`), o ja darbo
-     metu paslepia `slicerButtons(false)`. Cia lieka tik pasirupinti, kad tuscia
-     vaizdo grupe neissoktu atgal. */
-  const z=$('gl3dZoom'); if(z&&dirba)z.style.display='none';
+  ['gl3dZoom','gl3dZoomCorner','gl3dMarkWrap','gl3dPad','gl3dRot','gl3dHelp']
+    .forEach(id=>{const e=$(id); if(e&&dirba)e.style.display='none';});
+  if(!dirba){
+    /* Grazina tas pats, kas ir sprendzia, kas kuriame vaizde matoma. */
+    slicerViewChrome();
+    slicerMarkUI(!!slicerOwnsPreview);
+  }
 };
 const slicerOverlayOff=()=>{
   const cv=$('printPreviewCanvas'); if(!cv)return;
