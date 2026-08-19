@@ -17,8 +17,9 @@ need the printer-side download path that `/bootanims/` uses.
 Do not hand-write these files. `scripts/dev/resin-publish.html` (served from the
 dev hub, `http://localhost:8899/resin-publish.html`) loads the published library,
 fills a form from the real file, checks every value against the firmware's own
-limits and writes both `<slug>.json` and the whole `manifest.json` at once, so the
-two cannot drift apart. It publishes nothing by itself - the files are committed
+limits and writes `<slug>.json`, the whole `manifest.json` and `links.json` at
+once, so they cannot drift apart. You type the real shop URL; the `/r/<slug>`
+that goes into the profile is machinery and follows the name by itself. It publishes nothing by itself - the files are committed
 here and to `gh-pages` by hand.
 
 The page also owns the lifecycle a static folder has no room for:

@@ -71,8 +71,9 @@ a{color:var(--link)}
 <a href="#" id="themeBtn" title="Šviesi/tamsi">◐</a>
 <h1>TinyMaker <span class="dot">·</span> dervų bibliotekos tvarkymas</h1>
 <p class="sub">Čia paruošiami failai, kuriuos pultas rodo skiltyje <i>Settings → Resin →
-Tested resin library</i>. Puslapis <b>nieko nepublikuoja</b> - jis tik surašo du failus
-(<code>&lt;vardas&gt;.json</code> ir <code>manifest.json</code>), o į internetą juos sudeda Claude.</p>
+Tested resin library</i>. Puslapis <b>nieko nepublikuoja</b> - jis tik surašo failus
+(<code>&lt;vardas&gt;.json</code>, <code>manifest.json</code> ir <code>links.json</code>),
+o į internetą juos sudeda Claude.</p>
 
 <div class="rule">
 <b>Kodėl ne ranka.</b> Printeris blogos reikšmės neatmeta - jis ją tyliai apkarpo iki savo ribos
@@ -173,12 +174,13 @@ negalėtų išsiskirti.
     <label><b>Kada (YYYY-MM)</b><input type="text" id="fTestedOn" placeholder="2026-08"></label>
    </div>
    <div class="grid" style="grid-template-columns:1fr;margin-top:10px">
-    <label><b>Pirkimo nuoroda</b><input type="text" id="fBuy" placeholder="https://tinymakerwifi.com/r/sunlu-tough"></label>
+    <label><b>Parduotuvės nuoroda</b><input type="text" id="fShop" placeholder="https://www.sunlu.com/">
+     <span style="font-size:.72rem;color:var(--muted)" id="fBuyShow"></span></label>
    </div>
-   <p class="note">Nuoroda viena visiems. Iš kurios šalies žmogus ir į kurią parduotuvę jį
-   vesti, sprendžia mūsų pačių nukreipimas <code>/r/&lt;vardas&gt;</code> - todėl partnerį ar
-   šalių sąrašą galima keisti nieko iš naujo neskelbiant. <b>Jo dar nėra</b>, tad kol kas šis
-   laukas tuščias arba su laikina nuoroda.</p>
+   <p class="note">Čia rašai <b>tikrą parduotuvės adresą</b>. Į profilį jis nepatenka: ten
+   įrašomas mūsų <code>/r/&lt;vardas&gt;</code>, nes kitokių printeris nepriima, o tikrasis
+   adresas gyvena <code>links.json</code>. Todėl partnerį galima pakeisti vienu commit'u -
+   be firmware ir be perdiegimo. Tuščias laukas = profilis be nuorodos.</p>
    <div id="formMsg"></div>
    <div class="row" style="border-top:1px solid var(--line);margin-top:12px;padding-top:11px">
     <button class="pri" id="btnApply">Įrašyti į biblioteką</button>
@@ -203,6 +205,9 @@ negalėtų išsiskirti.
     <div class="row"><b>manifest.json</b>
      <div class="acts"><button data-copy="man">kopijuoti</button><button data-dl="man">atsisiųsti</button></div></div>
     <pre id="outMan"></pre>
+    <div class="row"><b>links.json</b>
+     <div class="acts"><button data-copy="links">kopijuoti</button><button data-dl="links">atsisiųsti</button></div></div>
+    <pre id="outLinks"></pre>
    </div>
    </details>
   </div>
@@ -297,6 +302,26 @@ function entryText(e,ind){
   if(typeof e.at==='number')o.push('"at": '+e.at);
   return ind+'{\n'+o.map(s=>ind+'  '+s).join(',\n')+'\n'+ind+'}';
 }
+/* Nuoroda gali buti ir objektas su `geo` - tada keiciam tik `url`, o salies
+   israiskos lieka. Tekstas rasomas ranka del tos pacios priezasties, kaip
+   manifestas: raktu tvarka turi sutapti su publikuotu failu. */
+const NL='\n';
+const shopOf=v=>(typeof v==='string'?v:(v&&v.url)||'');
+const shopSet=(prev,url)=>(prev&&typeof prev==='object'&&prev.geo)
+  ?Object.assign({},prev,{url:url}):url;
+function linksText(L){
+  if(!L)return '';
+  const order=[];
+  const push=n=>{if(L[n]!==undefined&&order.indexOf(n)<0)order.push(n);};
+  man.profiles.forEach(e=>push(e.name));
+  (man.hidden||[]).forEach(e=>push(e.name));
+  (man.retired||[]).forEach(e=>push(e.name));
+  Object.keys(L).forEach(k=>{if(k!=='_doc')push(k);});
+  const out=[];
+  if(L._doc)out.push('  "_doc": '+JSON.stringify(L._doc));
+  order.forEach(n=>out.push('  '+JSON.stringify(n)+': '+JSON.stringify(L[n])));
+  return '{' + NL + out.join(',' + NL) + NL + '}' + NL;
+}
 function manifestText(m){
   const part=(name,arr)=>'  "'+name+'": [\n'+arr.map(e=>entryText(e,'    ')).join(',\n')+'\n  ]';
   const blocks=['  "profiles": [\n'+m.profiles.map(e=>entryText(e,'    ')).join(',\n')+'\n  ]'];
@@ -308,9 +333,15 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 const todayFull=()=>{const d=new Date();return today()+'-'+String(d.getDate()).padStart(2,'0');};
 
 /* ---- būsena -------------------------------------------------------------- */
+const BUY='https://tinymakerwifi.com/r/';   // ka mato printeris (viskas, ka jis priima)
 let man=null;          // darbinis manifestas (profiles/hidden/retired)
 let live=null;         // kaip atrodo publikuotas manifestas dabar
 let files={};          // slug -> publikuoto profilio objektas (palyginimui)
+/* Kur is tikruju veda /r/<slug>. Atskiras failas, ne profilio laukas: printeris
+   partnerio nuorodos nepriima, o pakeitus partneri niekas neperdiegineja profiliu.
+   `null` reiskia „nepavyko parsisiusti" - tada links.json NERASOM, kitaip
+   isvestis atrodytu kaip tvarkingas failas, o is tikruju istrintu visus esamus. */
+let links=null;
 let draft=null;        // {mode:'new'|'edit', slug0, p:{...}}
 let libMsg='';
 
@@ -321,7 +352,7 @@ function flash(t){
   d.textContent=t;
   setTimeout(()=>{if(d.isConnected)d.remove();},6000);
 }
-function save(){try{localStorage.setItem(LS,JSON.stringify({man:man,draft:draft,at:Date.now()}));}catch(e){}}
+function save(){try{localStorage.setItem(LS,JSON.stringify({man:man,draft:draft,links:links,at:Date.now()}));}catch(e){}}
 function wipe(){try{localStorage.removeItem(LS);}catch(e){}}
 
 /* ---- biblioteka ---------------------------------------------------------- */
@@ -336,6 +367,17 @@ async function loadLib(keepLocal){
     live=null;libMsg='Bibliotekos pasiekti nepavyko ('+e.message+'). Dirbk su „įklijuoti JSON".';
   }
   if(!keepLocal||!man)man=live?JSON.parse(JSON.stringify(live)):{profiles:[],hidden:[],retired:[]};
+  /* Nuorodos - kaip ir manifestas: parsisiunciam visada, bet vietinio darbo
+     neuzklojam (kitaip puslapio perkrovimas tyliai atsuktu ka tik irasytas). */
+  try{
+    const r=await fetch(LIB+'links.json',{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    if(!keepLocal||!links)links=j;
+  }catch(e){
+    if(!keepLocal||!links)links=null;
+    libMsg=(libMsg?libMsg+' ':'')+'links.json nepasiekiamas ('+e.message+') - parduotuvių nuorodų šįkart nerašysim.';
+  }
   renderLib();
 }
 async function fileOf(e){
@@ -494,7 +536,7 @@ function setLh(v){
 }
 function renderForm(){
   const on=!!draft;
-  ['fDisplay','fSlug','fTestedBy','fTestedOn','fBuy','btnApply','btnRev','btnCancel'].forEach(id=>{
+  ['fDisplay','fSlug','fTestedBy','fTestedOn','fShop','btnApply','btnRev','btnCancel'].forEach(id=>{
     const el=$(id);if(el)el.disabled=!on;});
   document.querySelectorAll('#fields input,.seg button').forEach(el=>el.disabled=!on);
   $('formTitle').textContent=!on?'Forma':(draft.mode==='edit'?'Taisom: '+draft.slug0:'Nauja derva');
@@ -505,7 +547,7 @@ function renderForm(){
   $('fSlug').value=draft.slug||'';
   $('fTestedBy').value=p.tested_by||'';
   $('fTestedOn').value=p.tested_on||'';
-  $('fBuy').value=p.buy_url||'';
+  $('fShop').value=draft.shop||'';
   F.forEach(f=>{const el=$('f_'+f.k);if(el)el.value=p[f.k];});
   document.querySelectorAll('.seg button').forEach(b=>
     b.classList.toggle('on',b.dataset.lh===Number(p.layer_height).toFixed(2)));
@@ -516,7 +558,7 @@ function collect(){
   p.name=$('fDisplay').value.trim();
   p.tested_by=$('fTestedBy').value.trim();
   p.tested_on=$('fTestedOn').value.trim();
-  p.buy_url=$('fBuy').value.trim();
+  draft.shop=$('fShop').value.trim();
   /* Vardo iš principo atsisakyti negalima - kažkas turi vadintis failu ir kortelėje,
      ir pagal jį printeris sprendžia, ar profilį jau turi. Bet rankomis jo rašyti
      nereikia: kol nepalietei laukelio, jis seka pavadinimą. */
@@ -524,6 +566,10 @@ function collect(){
     draft.slug=slugify(p.name);
     if($('fSlug').value!==draft.slug)$('fSlug').value=draft.slug;
   }else draft.slug=$('fSlug').value.trim();
+  /* Nuoroda profilyje - masinerija: ji visada mūsų, ir ji visada seka varda.
+     Zmogus rase ja ranka ir turejo pats prisiminti, kad vardui pasikeitus reikia
+     pataisyti ir ja (revizija tai jau darė uz ji - dabar taip visur). */
+  p.buy_url=draft.shop?BUY+draft.slug:'';
   F.forEach(f=>{const el=$('f_'+f.k);if(el&&el.value!=='')p[f.k]=Number(el.value);});
 }
 function onEdit(){collect();validate();save();showOut();}
@@ -563,9 +609,21 @@ function validate(){
   }
   if(!p.tested_by)errs.push('„Kas išbandė" privalomas - be ženkliuko visa biblioteka bevertė.');
   if(p.tested_on&&!/^\d{4}-\d{2}$/.test(p.tested_on))errs.push('Datą rašyk YYYY-MM (pvz. '+today()+').');
+  const shop=draft.shop||'';
+  if(shop&&!/^https:\/\//.test(shop))
+    errs.push('Parduotuvės nuoroda turi prasidėti https:// - kitaip nukreipimas jos neatiduos.');
+  if(shop&&shop.indexOf(BUY)===0)
+    errs.push('Čia laukiamas parduotuvės adresas, ne mūsų /r/ nuoroda - kitaip nukreipimas vestų pats į save.');
+  if(shop&&links===null)
+    warns.push('links.json neįkeltas, tad šios nuorodos publikuoti dabar negalima: profilis išeitų su '+
+      '/r/ adresu, vedančiu į niekur. Paspausk „perkrauti" ir pabandyk vėl.');
+  if(!shop)
+    warns.push('Be parduotuvės nuorodos profilis veiks, tik neturės „Buy" mygtuko.');
   if(p.buy_url&&!buyOk(p.buy_url))
     warns.push('Šitos pirkimo nuorodos printeris nepriims (leidžia tik tinymakerwifi.com ir slibbinas.github.io) - '+
-      'sąraše ji matysis, o įsidiegus dings. Siūlau https://tinymakerwifi.com/r/'+(slugify(slug)||'vardas'));
+      'sąraše ji matysis, o įsidiegus dings.');
+  {const e=$('fBuyShow');
+   if(e)e.textContent=shop?('profilyje atsidurs: '+BUY+(slug||'vardas')):'profilyje - be nuorodos';}
   const box=$('formMsg');box.innerHTML='';
   errs.forEach(t=>{const d=document.createElement('div');d.className='err';d.textContent=t;box.appendChild(d);});
   if(suggest){
@@ -580,14 +638,15 @@ function validate(){
   return errs.length===0;
 }
 function openNew(){
-  draft={mode:'new',slug:'',slug0:null,slugAuto:true,
+  draft={mode:'new',slug:'',slug0:null,slugAuto:true,shop:'',
     p:Object.assign({},BASE,{name:'',tested_by:'TinyMakerWiFi',tested_on:today(),buy_url:''})};
   renderForm();save();showOut();
 }
 async function openEdit(e){
   try{
     const j=await fileOf(e);
-    draft={mode:'edit',slug:e.name,slug0:e.name,slugAuto:false,p:Object.assign({},BASE,j)};
+    draft={mode:'edit',slug:e.name,slug0:e.name,slugAuto:false,
+           shop:shopOf(links&&links[e.name]),p:Object.assign({},BASE,j)};
     renderForm();save();showOut();
   }catch(err){flash(err.message);}
 }
@@ -597,7 +656,8 @@ async function openCopy(e){
     const other=Number(j.layer_height)<0.075?'0.10':'0.05';
     const sfx=other==='0.10'?'-010':'-005';
     let slug=slugify(e.name.replace(/-0(05|10)$/,'')+sfx);
-    draft={mode:'new',slug:slug,slug0:null,slugAuto:false,p:Object.assign({},BASE,j,{layer_height:Number(other)})};
+    draft={mode:'new',slug:slug,slug0:null,slugAuto:false,shop:shopOf(links&&links[e.name]),
+           p:Object.assign({},BASE,j,{layer_height:Number(other)})};
     draft.p.name=(j.name||e.display)+' '+other.replace('.',',')+' mm';
     renderForm();save();showOut();
     const d=document.createElement('div');d.className='okbox';
@@ -619,6 +679,15 @@ function apply(){
   const e=entryFromDraft();
   const i=man.profiles.findIndex(x=>x.name===(draft.slug0||draft.slug));
   if(i>=0)man.profiles[i]=e;else man.profiles=man.profiles.concat([e]);
+  /* Nuoroda irasoma TUO PACIU paspaudimu, kaip profilis. Atskirai jos rasyti
+     nebuvo kur, tad /r/ adresas profilyje galejo isvaziuoti anksciau uz irasa
+     links.json - ir „Buy" vestu i 404. */
+  if(links){
+    const old=draft.slug0;
+    if(old&&old!==draft.slug)delete links[old];
+    if(draft.shop)links[draft.slug]=shopSet(links[draft.slug],draft.shop);
+    else delete links[draft.slug];
+  }
   draft.slug0=draft.slug;draft.mode='edit';
   save();renderLib();renderForm();showOut();
 }
@@ -631,8 +700,8 @@ function revision(){
   draft.slug=next;draft.slug0=null;draft.mode='new';draft.slugAuto=false;
   draft.p.tested_on=today();
   if(!/rev\)$/.test(draft.p.name))draft.p.name=draft.p.name+' ('+today()+' rev)';
-  if(draft.p.buy_url&&draft.p.buy_url.indexOf('/r/')>0)
-    draft.p.buy_url=draft.p.buy_url.replace(/\/r\/.*$/,'/r/'+next);
+  if(draft.shop)draft.p.buy_url=BUY+next;
+  if(links&&draft.shop)links[next]=shopSet(links[old],draft.shop);
   if(oldEntry)moveOut(oldEntry,'retired','pakeitė '+next);
   renderForm();
   const d=document.createElement('div');d.className='okbox';
@@ -643,7 +712,7 @@ function revision(){
 }
 
 /* ---- rezultatas ---------------------------------------------------------- */
-let outFileTxt='',outManTxt='',outFileName='manifest.json';
+let outFileTxt='',outManTxt='',outLinksTxt='',outFileName='manifest.json';
 function diffLines(){
   if(!draft||draft.mode!=='edit')return [];
   const pub=files[draft.slug0];
@@ -660,13 +729,16 @@ function diffLines(){
 function showOut(){
   outManTxt=manifestText(man);
   $('outMan').textContent=outManTxt;
+  outLinksTxt=links?linksText(links):'';
+  $('outLinks').textContent=outLinksTxt||
+    '(links.json neįkeltas - šįkart jo nerašom, kad neištrintume esamų nuorodų)';
   if(draft){
     outFileName=(draft.slug||'profilis')+'.json';
     outFileTxt=profileText(draft.p);
     $('outFileName').textContent=outFileName;
     $('outFile').textContent=outFileTxt;
     $('outWrap').style.display='';
-    $('outSum').textContent='Failai: '+outFileName+' ir manifest.json';
+    $('outSum').textContent='Failai: '+outFileName+', manifest.json'+(links?' ir links.json':'');
     const d=diffLines();
     $('outDiff').className=d.length?'warn':'note';
     $('outDiff').textContent=draft.mode==='edit'
@@ -674,7 +746,7 @@ function showOut(){
       : 'Naujas profilis - žemiau abu failai.';
   }else{
     $('outWrap').style.display=(man.profiles.length||man.hidden&&man.hidden.length)?'':'none';
-    $('outSum').textContent='Failas: manifest.json';
+    $('outSum').textContent=links?'Failai: manifest.json ir links.json':'Failas: manifest.json';
     $('outFile').textContent='';$('outFileName').textContent='(profilis nepasirinktas)';
     outFileTxt='';
     $('outDiff').className='note';
@@ -705,18 +777,24 @@ $('btnPasteOk').addEventListener('click',()=>{
   if(j.profiles){man={profiles:j.profiles,hidden:j.hidden||[],retired:j.retired||[]};
     if(!live)live=JSON.parse(JSON.stringify(man));
     $('pasteBox').style.display='none';save();renderLib();showOut();return;}
-  draft={mode:'new',slug:slugify(j.name||''),slug0:null,slugAuto:false,p:Object.assign({},BASE,j)};
+  draft={mode:'new',slug:slugify(j.name||''),slug0:null,slugAuto:false,
+         shop:shopOf(links&&links[slugify(j.name||'')]),p:Object.assign({},BASE,j)};
   $('pasteBox').style.display='none';renderForm();save();showOut();
 });
 document.querySelectorAll('.seg button').forEach(b=>
   b.addEventListener('click',()=>{if(draft)setLh(b.dataset.lh);}));
 $('fSlug').addEventListener('input',()=>{if(draft)draft.slugAuto=false;});
-['fDisplay','fSlug','fTestedBy','fTestedOn','fBuy'].forEach(id=>$(id).addEventListener('input',onEdit));
+['fDisplay','fSlug','fTestedBy','fTestedOn','fShop'].forEach(id=>$(id).addEventListener('input',onEdit));
+const outOf=k=>k==='file'?outFileTxt:k==='links'?outLinksTxt:outManTxt;
+const nameOf=k=>k==='file'?outFileName:k==='links'?'links.json':'manifest.json';
 document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
-  copyTxt(b.dataset.copy==='file'?outFileTxt:outManTxt);b.textContent='nukopijuota';
+  const t=outOf(b.dataset.copy);
+  if(!t){b.textContent='nėra ko';setTimeout(()=>b.textContent='kopijuoti',1200);return;}
+  copyTxt(t);b.textContent='nukopijuota';
   setTimeout(()=>b.textContent='kopijuoti',1200);}));
-document.querySelectorAll('[data-dl]').forEach(b=>b.addEventListener('click',()=>
-  b.dataset.dl==='file'?download(outFileName,outFileTxt):download('manifest.json',outManTxt)));
+document.querySelectorAll('[data-dl]').forEach(b=>b.addEventListener('click',()=>{
+  const k=b.dataset.dl,t=outOf(k);
+  if(t)download(nameOf(k),t);}));
 
 /* ---- startas ------------------------------------------------------------- */
 buildFields();
@@ -724,6 +802,9 @@ buildFields();
   let keep=null;
   try{keep=JSON.parse(localStorage.getItem(LS)||'null');}catch(e){}
   if(keep&&keep.man){man=keep.man;draft=keep.draft||null;}
+  /* Nuorodu is atminties NEatkuriam kaip vienintelio saltinio: loadLib jas
+     visada persikrauna, o cia tik uzpildom, kol jis dar nespejo. */
+  if(keep&&keep.links)links=keep.links;
   await loadLib(!!(keep&&keep.man));
   renderForm();showOut();
 })();
