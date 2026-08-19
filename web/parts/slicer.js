@@ -348,7 +348,10 @@ $('slicerFile').addEventListener('change',async e=>{
    o vaizdo juosta - sitas. Kampiniai valdikliai (priartinimas, sukimas) lieka: jie
    yra apie ziurejima, ne apie daikta, ir dirbant praverčia (V 08-20). */
 const slicerWorkUI=dirba=>{
-  const z=$('gl3dZoom'); if(z)z.style.display=dirba?'none':'flex';
+  /* Sliceryje vaizdo mygtukai stovi formos eiluteje (`slicerBarMerge`), o ja darbo
+     metu paslepia `slicerButtons(false)`. Cia lieka tik pasirupinti, kad tuscia
+     vaizdo grupe neissoktu atgal. */
+  const z=$('gl3dZoom'); if(z&&dirba)z.style.display='none';
 };
 const slicerOverlayOff=()=>{
   const cv=$('printPreviewCanvas'); if(!cv)return;
@@ -743,6 +746,10 @@ $('slicerGo').addEventListener('click',async()=>{
                :done/total;                      // senas modulis - viena faze
         const pct=Math.round(f*100);
         const what=phase==='scan'?'Looking for overhangs':'Slicing';
+        /* Sluoksniu skaiciaus NERODOM, kol ju dar nera: WASM variklis eiga duoda
+           savo dirbtine 0..1000 skale, tad „300 / 1000 layers" buvo procentai su
+           sluoksniu kauke, o pabaigoje skaicius virsdavo 316 (V 08-20). */
+        const tikri=total&&total!==1000;
         /* VIENA vieta, ir ta vieta - vaizdas. Ta pati eilute stovejo ir korteleje,
            ir ant drobes; SD ikelimo atveju sis dubliavimas jau isnaikintas, tad ir
            cia elgiames vienodai (V 08-17). Sluoksniu skaicius keliauja kartu su
@@ -752,7 +759,7 @@ $('slicerGo').addEventListener('click',async()=>{
            visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
         paintPreviewProgress($('printPreviewCanvas'),
-          what+' '+pct+'%\n'+done+' / '+total+' layers',f,true);
+          what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f,true);
       });
     /* Paspaudus „Stop" po PASKUTINIO eigos kvietimo, pjaustymas spetu baigtis
        sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
@@ -864,8 +871,22 @@ const slicerCage=enter=>{
   if(typeof syncCageBtn==='function')syncCageBtn();
 };
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
-                     slicerDetLock(v); slicerCage(v); slicerMarkUI(v);
+                     slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
                      if(!v)slicerLayerUI(false);};
+/* Sliceryje is vaizdo grupes lieka du mygtukai - narvas ir vaizdo jungiklis, - o
+   del dvieju mygtuku laikyti atskira centruota eilute per daug (V 08-20). Tad
+   sliceryje jie stoja i ta pacia eilute su formos irankiais, o iseinant grizta
+   ten, kur gyvena. Kartu tai reiskia, kad darbo metu jie dingsta kartu su ja. */
+function slicerBarMerge(on){
+  const tools=$('gl3dTools'), zoom=$('gl3dZoom');
+  if(!tools||!zoom)return;
+  ['gl3dCage','gl3dMask'].forEach(id=>{
+    const b=$(id); if(!b)return;
+    const kur=on?tools:zoom;
+    if(b.parentElement!==kur)kur.appendChild(b);
+  });
+  zoom.style.display=on?'none':'flex';
+}
 /* Zymeklis - slicerio irankis: spausdinimo perziuroje zymeti nera ko, o mygtukas
    ten tik kabojo (V 08-20). Rodom tik kai vaizdas priklauso sliceriui IR kai pats
    irankis apskritai ijungtas (jis dev'inis - be ?dev=1 jo mygtukas lieka „none"). */

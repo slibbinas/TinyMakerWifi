@@ -45,11 +45,12 @@
       </div>
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
       <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
-        <!-- „Discard" - kaireje, kaip visi atsisakymai pulte; eiga - desineje, po
-             tuo mygtuku, kuris ja sukele (V 08-12, 08-20). -->
+        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
+             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
+             lieka kaireje - ji ir taip skaitoma is kaires. -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
         <a href='#' id='slicerDiscardLink'
            style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
-        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:right'></span>
       </div>
       <div class='calRow' style='margin-top:6px;gap:8px'>
         <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters - longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
