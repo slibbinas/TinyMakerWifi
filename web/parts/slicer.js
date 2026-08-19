@@ -128,10 +128,14 @@ $('slicerToggle').addEventListener('click',async()=>{
      adapteris atiduoda ta pati API, kaip senasis modulis (parseSTL, autoOrient,
      place, bounds, fitCheck, toSceneMesh, detailBudget), o slice() grazina toki
      pati objekta.
-     Prisegtas VISAS rinkinys: sis failas viduje rodo i slicer-core-3.0.1.js,
-     slicer-wasm-worker-3.0.1.js ir sla-web-3.0.1.js/.wasm, tad po juo niekas
-     nebeplaukioja (3.0.0 dar plaukiojo). */
-  const SV='3.0.1';
+     Prisegtas VISAS rinkinys: sis failas viduje rodo i slicer-core-<ver>.js,
+     slicer-wasm-worker-<ver>.js ir sla-web-<ver>.js/.wasm, tad po juo niekas
+     nebeplaukioja (3.0.0 dar plaukiojo).
+     3.0.2 - rastro nulis: variklis dabar irgi skaiciuoja nuo ploksteles centro,
+     kaip ir pultas (iki tol modelis nusesdavo i rastro kampa ir isspausdintum
+     ketvirti). 3.0.3 - dramblio pedos kompensacija ir storesnis pirmas
+     sluoksnis, kaip desktop PrusaSlicer. */
+  const SV='3.0.3';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
