@@ -22,7 +22,10 @@ const slicerBusyStop=()=>{
    visi trys atrodo vienodai svarbus (V 08-12). */
 /* Pjaustymo eiga: deklaruota CIA, o ne prie paties mygtuko, nes `slicerStep`
    ja skaito, o jis kviečiamas anksciau. */
-let sliceRunning=false, sliceStopWanted=false;
+/* Kiekvienas pjaustymas turi savo numeri: sustabdytas darbas fone dar gali
+   pasibaigti, ir jo atsakymas neturi nei pakeisti vaizdo, nei atsukti mygtuku,
+   kuriuos zmogus jau mato (V 08-20). */
+let sliceRunning=false, sliceStopWanted=false, sliceRun=0;
 /* Ar dabartinis modelis telpa. „Slice" tokio nepjauna (`fitCheck` sarga zemiau),
    tad juosta apie tai turi pasakyti PRIES paspaudima, o ne po jo (V 08-19:
    „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
@@ -728,12 +731,21 @@ const SLICE_STOP='__slicer_stopped__';
 $('slicerGo').addEventListener('click',async()=>{
   /* Tas pats mygtukas, kuris pradejo, ir sustabdo: kito ieskoti nereikia, o
      eilute lieka dvieju mygtuku ploCio. */
-  if(sliceRunning){sliceStopWanted=true;
-    $('slicerGo').disabled=true; $('slicerGo').textContent='Stopping…';
-    /* Ir ant drobes: nutraukimas ivyksta tik ties artimiausiu eigos kvietimu, o
-       tarp ju (antras patikros praejimas, ZIP surinkimas) juosta nejuda - be sio
-       uzraso atrodytu, kad uzstrigo (auditas 08-17). */
-    paintPreviewProgress($('printPreviewCanvas'),'Stopping…',null,true);
+  if(sliceRunning){
+    /* Sustabdymas nebelaukia variklio. Anksciau tik pazymedavom nora ir laukdavom
+       artimiausio eigos kvietimo - o WASM variklis ilgus tarpsnius (paskutinis
+       praejimas, .sl1 surinkimas) dirba be ju, tad „Stopping…" likdavo kabeti,
+       kol darbas pasibaigs (V 08-20: uzstrigo). Dabar pultas atsisako rezultato
+       is karto: darbas fone tegul baigiasi, jo atsakymas bus ismestas (ji ismes
+       `sliceRun` numeris). */
+    sliceStopWanted=true; sliceRun++;
+    sliceRunning=false;
+    slicerOverlayOff(); slicerWorkUI(false);
+    $('slicerGo').textContent='Slice'; $('slicerGo').disabled=false;
+    slicerButtons(true);
+    $('slicerProg').textContent='Slicing stopped. Nothing was changed.';
+    msg('Slicing stopped.');
+    slicerRender();          // vaizde vel modelis, ne eigos uzrasas
     return;}
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
@@ -741,6 +753,7 @@ $('slicerGo').addEventListener('click',async()=>{
   const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
   if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
   const go=$('slicerGo'), prog=$('slicerProg');
+  const myRun=++sliceRun;
   sliceRunning=true; sliceStopWanted=false;
   go.textContent='Stop'; go.disabled=false;   // vienintelis gyvas mygtukas
   slicerButtons(false);
@@ -781,6 +794,9 @@ $('slicerGo').addEventListener('click',async()=>{
        sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
        Tas pats zenklas cia uzdaro ta plysi. */
     if(sliceStopWanted)throw new Error(SLICE_STOP);
+    /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
+       o jo niekas nebelaukia - net „stop" zenklas jau nuvalytas (V 08-20). */
+    if(sliceRun!==myRun)return;
     /* Dervos ivertis - PRINTERIO matematika, ne mano: koeficientas ir priedas
        imami is jo nustatymu, tad rodomas skaicius yra tas, kuri jis ir duos. */
     const c=connectConfig||{};
@@ -825,6 +841,9 @@ $('slicerGo').addEventListener('click',async()=>{
       msg(e.message,true);
     }
   }finally{
+    /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
+       jau grizes i darbine busena, o gal jau pjausto kita. */
+    if(sliceRun!==myRun)return;
     slicerOverlayOff();
     slicerWorkUI(false);
     sliceRunning=false; sliceStopWanted=false;
@@ -897,8 +916,10 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
 /* Spausdinimo progreso juostele po vaizdu: sliceryje ji tuscia ir niekada
    nepasipildo - spaudinio dar nera (V 08-20). Slepiam kartu su vaizdu. */
 function slicerBarUI(on){
+  /* `visibility`, ne `display`: juostele uzima savo eilute ir tada, kai nieko
+     nesako - kitaip ijungus sliceri visas vaizdas pasokteli (V 08-20). */
   const bar=document.querySelector('#printPreviewCard .storageBar');
-  if(bar)bar.style.display=on?'none':'';
+  if(bar)bar.style.visibility=on?'hidden':'';
 }
 function slicerBarMerge(on){
   const tools=$('gl3dTools'), zoom=$('gl3dZoom');
@@ -1020,6 +1041,11 @@ $('slicerSave').addEventListener('click',async()=>{
   slicerOut.name=nm;
   const btn=$('slicerSave'), prog=$('slicerProg');
   btn.disabled=true;
+  /* Ikeliant ir ispakuojant ekrane - uzrasas, o ne daiktas, kuri butu galima
+     sukioti ar pjaustyti sluoksniais. Tad tos pacios juostos, kaip ir pjaustant:
+     formos irankiai, vaizdo jungiklis ir sluoksniu slankiklis pasitraukia
+     (V 08-20: „uploading ir unpacking rodo zoom ir toolus - ne i tema"). */
+  slicerButtons(false); slicerWorkUI(true); slicerLayerUI(false);
   /* Pasisakom, kad printeri uzimam MES. Be sito pultas per savo apklausa raso
      „Printer not answering - an upload, share or other background job..." tame
      paciame lange, kuris ka tik paspaude „Save": eiga sukasi korteleje, o virsuje
@@ -1199,7 +1225,11 @@ $('slicerSave').addEventListener('click',async()=>{
      pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
      „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
   if(typeof pickModel==='function')pickModel(openName);
-  }finally{ if(typeof setPreviewBusy==='function')setPreviewBusy(false); }
+  }finally{
+    if(typeof setPreviewBusy==='function')setPreviewBusy(false);
+    slicerWorkUI(false); slicerButtons(true);
+    if(slicerOut)slicerLayerUI(true);
+  }
 });
 
 {const b=$('slicerFitNow');

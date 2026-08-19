@@ -241,7 +241,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
         <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;align-items:center;justify-content:center;background:var(--card)'>
           <canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas>
         </div>
-        <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
+        <div id='gl3dHelp' style='display:none;position:absolute;left:44px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
           <div id='gl3dHelpBox'>
             <b>Drag</b> &ndash; rotate<br>
@@ -277,7 +277,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
         <!-- Zymeklis - salia „?", bet NE jo viduje: pagalbos lentele atsiveria
              uzvedus ant #gl3dHelp, tad viduje sedes zymeklis laike ja atverta
              („blynas neuzsidaro", V 08-20). Rodomas tik sliceryje. -->
-        <div id='gl3dMarkWrap' style='display:none;position:absolute;left:44px;top:8px;z-index:3'>
+        <!-- Zymeklis PIRMAS, pagalba antra: plokscioje kaukeje pagalba dingsta, ir jei
+             zymeklis stovetu uz jos, priesais ji liktu tuscia vieta (V 08-20). -->
+        <div id='gl3dMarkWrap' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: drag a box over the bad spot, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2.2 5.2V2.2h3M10.8 2.2h3v3M13.8 10.8v3h-3M5.2 13.8h-3v-3'/><g stroke='#ff3b30'><circle cx='8' cy='8' r='2.4'/><path d='M8 3.6v1.6M8 10.8v1.6M3.6 8h1.6M10.8 8h1.6'/></g></svg></button>
         </div>
         <div id='gl3dZoomCorner' style='display:none;position:absolute;right:10px;bottom:8px;z-index:2;gap:2px'>
