@@ -158,19 +158,15 @@ static struct {
  * Visa grandine. `path` - failas Emscripten failu sistemoje (arba tikras
  * failas, kai kompiliuojama ne i WASM).
  */
-static const char *run_chain(const char *path, double layer_h, bool branching, bool verbose)
+static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
+                             bool centruoti, bool verbose)
 {
     char buf[2048];
-    TriangleMesh mesh;
-    if (!mesh.ReadSTLFile(path)) {
-        g_json = "{\"klaida\":\"STL neperskaitytas\"}";
-        return g_json.c_str();
-    }
     /* Modelis pastatomas ant plokstes taip pat, kaip tai daro PrusaSlicer,
        ikeldamas STL: XY - i plokstes vidurį, Z - ant nulio. Rasterizatorius
        pats nieko necentruoja (SL1.cpp:497-528 palieka `Trafo.center` nuliuose),
        tad be sito modelis atsiduria rastro kampe ir dalis jo nukerpama. */
-    {
+    if (centruoti) {
         const auto bb0 = mesh.bounding_box();
         const Vec3d c = bb0.center();
         mesh.translate(float(PLOKSTE_X_MM / 2 - c.x()),
@@ -180,7 +176,6 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
 
     const indexed_triangle_set &its = mesh.its;
     if (verbose) {
-        std::printf("model            %s\n", path);
         std::printf("trikampiu        %zu\n", its.indices.size());
         std::printf("atramu tipas     %s\n", branching ? "tree (branching)" : "regular (default)");
     }
@@ -279,19 +274,54 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
     return g_json.c_str();
 }
 
+
 extern "C" {
 
 /**
- * Iejimas is JS. `path` - failas modulio failu sistemoje (`FS.writeFile`).
- * Grazina JSON eilute; ji galioja iki kito kvietimo.
+ * Iejimas is JS su FAILU: STL nuskaitomas is modulio failu sistemos ir
+ * pastatomas i plokstes vidurį (kaip PrusaSlicer, ikeldamas STL).
  */
 EMSCRIPTEN_KEEPALIVE
 const char *sla_slice(const char *path, double layer_h, int branching)
 {
-    return run_chain(path, layer_h, branching != 0, false);
+    TriangleMesh mesh;
+    if (!mesh.ReadSTLFile(path)) {
+        g_json = "{\"klaida\":\"STL neperskaitytas\"}";
+        return g_json.c_str();
+    }
+    return run_chain(mesh, layer_h, branching != 0, true, false);
+}
+
+/**
+ * Iejimas is pulto: trikampiai paduodami TIESIAI is atminties (9 float vienam),
+ * jau pasukti ir pastatyti - pultas tai daro pats, tad cia NECENTRUOJAM.
+ */
+EMSCRIPTEN_KEEPALIVE
+const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branching)
+{
+    if (!pos || ntri <= 0) {
+        g_json = "{\"klaida\":\"tuscias tinklas\"}";
+        return g_json.c_str();
+    }
+    indexed_triangle_set its;
+    its.vertices.reserve(size_t(ntri) * 3);
+    its.indices.reserve(size_t(ntri));
+    for (int t = 0; t < ntri; ++t) {
+        const int o = t * 9;
+        its.vertices.emplace_back(pos[o + 0], pos[o + 1], pos[o + 2]);
+        its.vertices.emplace_back(pos[o + 3], pos[o + 4], pos[o + 5]);
+        its.vertices.emplace_back(pos[o + 6], pos[o + 7], pos[o + 8]);
+        its.indices.emplace_back(t * 3, t * 3 + 1, t * 3 + 2);
+    }
+    /* Sulipdom sutampancias virsunes - kitaip `its_face_neighbors` neranda
+       kaimynystes, o nuo jos priklauso normales ir nuokabu paieska. */
+    its_merge_vertices(its, true);
+    TriangleMesh mesh{std::move(its)};
+    return run_chain(mesh, layer_h, branching != 0, false, false);
 }
 
 } // extern "C"
+
 
 
 /*
@@ -431,7 +461,10 @@ int main(int argc, char **argv)
     if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree]\n"); return 2; }
     const double layer_h = argc > 2 ? std::atof(argv[2]) : 0.05;
     const std::string t  = argc > 3 ? argv[3] : "regular";
-    run_chain(argv[1], layer_h, t == "tree" || t == "branching", true);
+    TriangleMesh mesh;
+    if (!mesh.ReadSTLFile(argv[1])) { std::printf("STL neperskaitytas: %s\n", argv[1]); return 3; }
+    std::printf("model            %s\n", argv[1]);
+    run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true);
     if (argc > 4) std::printf("sl1              %s\n", sla_export_sl1(argv[4], "spaudinys"));
     return 0;
 }
