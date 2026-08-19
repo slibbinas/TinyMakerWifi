@@ -6174,18 +6174,28 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      zmogus mato. Tikroji zinia yra „ziurek stai i SITA vietos gabala", tad ji ir imam:
      staciakampi is to paties kadro, kuri zmogus mato. */
   window.gl3dCrop=(x0,y0,x1,y1)=>{
+    let pr0=null;
     try{
+      const el=ren.domElement,r0=el.getBoundingClientRect();
+      if(!r0.width||!r0.height)return '';
+      /* Piesiam TRIS kartus tankiau tik siam kadrui. Ekrano raiska iskarpai per
+         menka: 7 % vaizdo plocio duoda ~50 px, ir nuotraukoje nesimato NIEKO -
+         butent tai ir atsitiko pirmoje V ataskaitoje (08-19). Priartinimas nepadeda,
+         nes priartina ir raiska nedideja. Po kadro viska grazinam atgal. */
+      pr0=ren.getPixelRatio();
+      ren.setPixelRatio(Math.min(4,pr0*3));
       ren.render(scene,cam);          // preserveDrawingBuffer nera - imam is karto
-      const el=ren.domElement,r=el.getBoundingClientRect();
-      if(!r.width||!r.height)return '';
+      const r=el.getBoundingClientRect();
       const kx=el.width/r.width, ky=el.height/r.height;
       const sx=Math.max(0,(Math.min(x0,x1)-r.left)*kx), sy=Math.max(0,(Math.min(y0,y1)-r.top)*ky);
       const sw=Math.max(8,Math.abs(x1-x0)*kx), sh=Math.max(8,Math.abs(y1-y0)*ky);
+      const cw=Math.round(Math.min(sw,el.width-sx)),ch=Math.round(Math.min(sh,el.height-sy));
       const c=document.createElement('canvas');
-      c.width=Math.round(Math.min(sw,el.width-sx));c.height=Math.round(Math.min(sh,el.height-sy));
-      c.getContext('2d').drawImage(el,sx,sy,c.width,c.height,0,0,c.width,c.height);
+      c.width=cw;c.height=ch;
+      c.getContext('2d').drawImage(el,sx,sy,cw,ch,0,0,cw,ch);
       return c.toDataURL('image/png');
     }catch(e){return '';}
+    finally{ if(pr0!==null){try{ren.setPixelRatio(pr0);ren.render(scene,cam);}catch(e2){}} }
   };
   window.gl3dCamInfo=()=>{
     if(!cam)return null;
@@ -6248,6 +6258,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     const o=sOut();
     try{if(o&&o.layers&&typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH)
           return slicesCache.modelH/o.layers;}catch(e){}
+    /* Sliceryje zingsnis zinomas ir PRIES pjaustyma - jis visada pjausto 0,05 mm.
+       Be sios eilutes dar nesupjaustytas modelis rodydavo printerio nustatyma (0,10)
+       ir sluoksnio numeris buvo dvigubai per mazas (matyti V ataskaitoje #21). */
+    if(slicerHere())return 0.05;
     try{if(statusData&&statusData.layerHeight)return statusData.layerHeight;}catch(e){}
     return 0.05;
   };
@@ -6318,8 +6332,11 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     if(!src.length)return res('');
     let done=0;const els=src.map(()=>new Image());
     const paint=()=>{
-      const W=Math.min(560,Math.max(160,...els.map(e=>e.width||160)));
-      const k=e=>Math.min(1,W/(e.width||W));
+      /* Plyteles didinamos iki skaitomo dydzio: pirmoji tikra ataskaita atejo su
+         55 px iskarpomis, kuriose nesimate nieko (V 08-19). Dabar iskarpa piesiama
+         tankiau, o cia dar ir istempiama iki bent 260 px. */
+      const W=Math.min(560,Math.max(260,...els.map(e=>e.width||260)));
+      const k=e=>W/(e.width||W);
       const hs=els.map(e=>Math.round((e.height||120)*k(e))+22);
       const c=document.createElement('canvas');
       c.width=W;c.height=hs.reduce((x,y)=>x+y,0)+8;
@@ -6347,7 +6364,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
 
   const send=async b=>{
     if(!marks.length){say('Nothing marked yet.',true);return;}
-    b.disabled=true;const was=b.textContent;b.textContent='Sending...';
+    /* Tas pats suktukas, kaip visuose kituose pulto mygtukuose (V 08-19) - savo
+       „Sending..." teksto nebereikia: `btnBusy` uzrakina, prisega besisukanti ziedeli
+       ir pats atsileidzia po 60 s, jei kas nors pakibtu. */
+    btnBusy(b,true);
     try{
       const st=(typeof statusData!=='undefined'&&statusData)?statusData:{};
       const fd=new FormData();
@@ -6363,7 +6383,7 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       if(r.ok){say('Report sent to the feedback inbox.');marks.length=0;draw();}
       else say('Not sent ('+r.status+'): '+t+' - use Copy instead.',true);
     }catch(e){ say('No network for the report - use Copy or JSON.',true); }
-    b.disabled=false;b.textContent=was;
+    btnBusy(b,false);
   };
 
   const build=()=>{
