@@ -234,8 +234,15 @@ void refreshSdBackupCache() {
 uint32_t uploadRxAt = 0;        // millis() paskutinio priimto gabalo; 0 = nepriimam
 String   uploadRxName = "";
 
+/* Kiek zyme laikosi po paskutinio gabalo. Ne „kol baigsis siuntimas": sliceris
+   siuncia du kartus is eiles (perziuros kesas, tada modelis), ir printeris atsako
+   butent tame tarpe - ismatuota ~5 s (V pedsakas 08-19). Tad langas turi buti uz ji
+   ilgesnis, kitaip tarpas vel praneštu „laisvas". Kartu tai ir savaiminis atsistatymas,
+   jei rysys nutruko vidury siuntimo ir UPLOAD_FILE_END niekada neatejo. */
+#define RX_QUIET_MS 9000
+
 bool uploadReceiving() {
-  return uploadRxAt != 0 && (uint32_t)(millis() - uploadRxAt) < 5000;
+  return uploadRxAt != 0 && (uint32_t)(millis() - uploadRxAt) < RX_QUIET_MS;
 }
 
 void handleUploadData() {
@@ -293,10 +300,13 @@ void handleUploadData() {
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
-    // Baitai baigesi - toliau snacka teisetai perima ISPAKAVIMAS (sdJob), tad
-    // „priimu" cia ir turi baigtis, kad dvi zinutes nesivarzytu del tos pacios
-    // vietos ekrane.
-    uploadRxAt = 0;
+    /* Zymes cia SAMONINGAI nenuimam - ji nusileidzia pati po RX_QUIET_MS.
+       Priezastis isaiskejo tik ant gelezies (08-19): sliceris siuncia DU kartus is
+       eiles - pirma perziuros kesa, paskui modeli - ir printeris atsako butent tame
+       tarpe. Nuimta is karto zyme reikstu, kad tas tarpas vel praneštu „Idle,
+       laisvas", o telefonas vel mirktelėtų. Tolesnis ispakavimas savo snacka pasiima
+       pats (sdJob), tad dvi zinutes nesivarzo. */
+    uploadRxAt = millis();
     if (uploadRejected) return;
     if (uploadFile) { uploadFile.close(); uploadOk = true; }
     DBG("Upload done: %u bytes\n", up.totalSize);
