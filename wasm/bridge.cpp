@@ -43,6 +43,25 @@
 using namespace Slic3r;
 using Clock = std::chrono::steady_clock;
 
+/*
+ * Eigos pranesimas i JS puse. Butinas todel, kad pjaustymas yra blokuojantis:
+ * biustui tai 20 s, per kurias naudotojas turi matyti, kas vyksta.
+ *
+ * Kvieciama globali `window.slaProgress(etapas, proc)` - jei jos nera (pvz.
+ * komandineje eiluteje), nieko nedaro.
+ */
+static void praneskEiga(const char *etapas, int proc)
+{
+#ifdef __EMSCRIPTEN__
+    MAIN_THREAD_EM_ASM({
+        var f = (typeof self !== "undefined" && self.slaProgress) || null;
+        if (f) f(UTF8ToString($0), $1);
+    }, etapas, proc);
+#else
+    (void) etapas; (void) proc;
+#endif
+}
+
 /* Plokste is V profilio (`bed_shape = 0x0,40.8x0,40.8x30.6,0x30.6`). */
 static constexpr double PLOKSTE_X_MM = 40.8;
 static constexpr double PLOKSTE_Y_MM = 30.6;
@@ -166,6 +185,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
         std::printf("atramu tipas     %s\n", branching ? "tree (branching)" : "regular (default)");
     }
 
+    praneskEiga("pjaustomas modelis", 5);
     const auto bb = mesh.bounding_box();
     std::vector<float> grid;
     for (float z = float(bb.min.z()) + float(layer_h) / 2.f; z < float(bb.max.z()); z += float(layer_h))
@@ -176,6 +196,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
     std::vector<ExPolygons> slices = slice_mesh_ex(its, grid, 0.005f);   // slice_closing_radius
     const long t_slice = ms_since(t0);
 
+    praneskEiga("ieskoma, kur reikia atramu", 25);
     t0 = Clock::now();
     sla::PrepareSupportConfig prep_cfg;
     sla::SupportPointGeneratorData data =
@@ -189,6 +210,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
     gen_cfg.head_diameter = branching ? 0.4f : 0.5f;
     gen_cfg.island_configuration = sla::SampleConfigFactory::apply_density(
         sla::SampleConfigFactory::create(gen_cfg.head_diameter), gen_cfg.density_relative);
+    praneskEiga("sejami atramu taskai", 55);
     sla::LayerSupportPoints layer_pts = sla::generate_support_points(data, gen_cfg);
     const long t_pts = ms_since(t0);
     if (verbose) std::printf("tasku            %zu\n", layer_pts.size());
@@ -199,6 +221,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
     sla::SupportableMesh sm{its, pts, make_tree_cfg(branching)};
     sm.pad_cfg = make_pad_config();
 
+    praneskEiga("statomos atramos", 65);
     t0 = Clock::now();
     sla::JobController ctl;
     auto tree = sla::create_support_tree(sm, ctl);
@@ -209,6 +232,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
        PrusaSlicer tam paciam puodeliui pirmame sluoksnyje turi ~247 mm2
        pedsaka. Bendra derva sutampa per 1,6 %, tad efektas mazas, bet
        priezastis nezinoma - tikrinti pries siulant „tree" naudotojui. */
+    praneskEiga("dedamas raftas", 92);
     t0 = Clock::now();
     indexed_triangle_set pad = sla::create_pad(sm, tree.first, ctl);
     const long t_pad = ms_since(t0);
@@ -250,6 +274,7 @@ static const char *run_chain(const char *path, double layer_h, bool branching, b
         v_model, v_sup, v_pad, (v_model + v_sup + v_pad) / 1000.0,
         t_slice, t_prep, t_pts, t_tree, t_pad,
         t_slice + t_prep + t_pts + t_tree + t_pad);
+    praneskEiga("baigta", 100);
     g_json = buf;
     return g_json.c_str();
 }
@@ -365,6 +390,8 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
     size_t irasyta = 0, baitu = 0;
 
     for (size_t i = 0; i < grid.size(); ++i) {
+        if ((i & 63) == 0)
+            praneskEiga("gaminami sluoksniai", int(100.0 * i / grid.size()));
         ExPolygons sluoksnis = mo[i];
         if (i < su.size() && !su[i].empty()) {
             ExPolygons visi = sluoksnis;
