@@ -343,6 +343,13 @@ $('slicerFile').addEventListener('change',async e=>{
 /* Nuima uzrasa, kuris buvo piestas ANT 3D: isvalo drobe ir grazina jai ta pacia
    vieta stiklu tvarkoje, kokia buvo. Be sito drobe liktu virs GPU sluoksnio ir
    uzdengtu modeli (V 08-19: „slicina - modelio nerodo"). */
+/* Kol vyksta ilgas darbas, juostos nieko negali pakeisti - o ekrane tuo metu arba
+   uzrasas ant modelio, arba vien uzrasas. Formos irankius pasleps `slicerButtons`,
+   o vaizdo juosta - sitas. Kampiniai valdikliai (priartinimas, sukimas) lieka: jie
+   yra apie ziurejima, ne apie daikta, ir dirbant praverčia (V 08-20). */
+const slicerWorkUI=dirba=>{
+  const z=$('gl3dZoom'); if(z)z.style.display=dirba?'none':'flex';
+};
 const slicerOverlayOff=()=>{
   const cv=$('printPreviewCanvas'); if(!cv)return;
   if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
@@ -350,9 +357,10 @@ const slicerOverlayOff=()=>{
 };
 const slicerBusyPaint=(uzrasas,darbas)=>{
   paintPreviewProgress($('printPreviewCanvas'),uzrasas,null,true);
+  slicerWorkUI(true);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{darbas();}
-    finally{slicerOverlayOff();}
+    finally{slicerOverlayOff();slicerWorkUI(false);}
   }));
 };
 $('slicerAutoFit').addEventListener('click',()=>{
@@ -717,6 +725,7 @@ $('slicerGo').addEventListener('click',async()=>{
   sliceRunning=true; sliceStopWanted=false;
   go.textContent='Stop'; go.disabled=false;   // vienintelis gyvas mygtukas
   slicerButtons(false);
+  slicerWorkUI(true);
   try{
     prog.textContent='';
     paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0,true);
@@ -794,6 +803,7 @@ $('slicerGo').addEventListener('click',async()=>{
     }
   }finally{
     slicerOverlayOff();
+    slicerWorkUI(false);
     sliceRunning=false; sliceStopWanted=false;
     go.textContent='Slice';
     /* Mygtukas atrakinamas VISADA, ir tai ne aplaidumas: virsuje (po sekmingo

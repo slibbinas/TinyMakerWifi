@@ -240,7 +240,18 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas>
         </div>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
+          <!-- „?" ir zymeklis - viena eilute: abu yra apie SEANSA (paaiskink /
+               pranesk), o ne apie vaizda, tad ir stovi kartu, o kampe apacioje
+               lieka tik priartinimas (V 08-20). -->
+          <div style='display:flex;gap:2px'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
+          <!-- Zymejimo irankis. Gyvena CIA, o ne slicerio juostoje (parts/slicer-view.html),
+               nes visa jo masinerija - scena, kamera, raycast - yra pulto puseje, ir taip
+               dvi lygiagrecios sesijos nesusipjauna. Be ?dev=1 lieka nematomas. -->
+          <!-- Taikiklis viduje RAUDONAS visada: tai irankis defektams, o ne pulto
+               funkcija, ir oranzine (pulto akcentas) ta skirtuma trynė (V 08-19). -->
+          <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: drag a box over the bad spot, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2.2 5.2V2.2h3M10.8 2.2h3v3M13.8 10.8v3h-3M5.2 13.8h-3v-3'/><g stroke='#ff3b30'><circle cx='8' cy='8' r='2.4'/><path d='M8 3.6v1.6M8 10.8v1.6M3.6 8h1.6M10.8 8h1.6'/></g></svg></button>
+          </div>
           <div id='gl3dHelpBox'>
             <b>Drag</b> &ndash; rotate<br>
             <b>Right-drag</b> or <b>Shift-drag</b> &ndash; move<br>
@@ -268,11 +279,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button id='gl3dClip' type='button' title='Cut the model at a height - look inside for hollows and inner supports'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round'><path d='M3 10.5 8 8.2l5 2.3-5 2.3z'/><path d='M3 10.5V7M13 10.5V7'/><path d='M1.5 5.2h13' stroke-dasharray='2 1.6'/></svg></button>
           <button id='gl3dRaw' type='button' title='Raw voxels: no smoothing, so you see the real 0.13 mm steps'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2 12.5h3v-3h3v-3h3v-3h3'/></svg></button>
           <button id='gl3dMask' type='button' style='display:none' title='True layer: the exact black-and-white shape of this layer, with no smoothing and no zoom. This is where thin supports can be checked - the smoothed 3D view loses them. Shown the same way round as the model; the file sent to the printer is mirrored, as the screen needs it.'><svg viewBox='0 0 16 16' width='15' height='15' fill='none' stroke='currentColor' stroke-width='1' stroke-linejoin='round'><rect x='2.5' y='2.5' width='11' height='11' rx='1'/><path d='M6.17 2.5v11M9.83 2.5v11M2.5 6.17h11M2.5 9.83h11'/><path d='M6.17 6.17h3.66v3.66H6.17z' fill='currentColor' stroke='none'/></svg></button>
-          <!-- Zymejimo irankis. Gyvena CIA, o ne slicerio juostoje (parts/slicer-view.html),
-               nes visa jo masinerija - scena, kamera, raycast - yra pulto puseje, ir taip
-               dvi lygiagrecios sesijos nesusipjauna. Be ?dev=1 lieka nematomas. -->
-          <!-- Taikiklis viduje RAUDONAS visada: tai irankis defektams, o ne pulto
-               funkcija, ir oranzine (pulto akcentas) ta skirtuma trynė (V 08-19). -->
         </div>
         <!-- Priartinimas ir taikiklis - KAMPO seima, kaip sukimo ir stumdymo padai:
              jie visada toje pacioje vietoje, o juostos turinys keiciasi kartu su
@@ -280,7 +286,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
         <div id='gl3dZoomCorner' style='display:none;position:absolute;right:10px;bottom:8px;z-index:2;gap:2px'>
           <button data-zoom='out' title='Zoom out'>&minus;</button>
           <button data-zoom='in' title='Zoom in'>+</button>
-          <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: drag a box over the bad spot, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2.2 5.2V2.2h3M10.8 2.2h3v3M13.8 10.8v3h-3M5.2 13.8h-3v-3'/><g stroke='#ff3b30'><circle cx='8' cy='8' r='2.4'/><path d='M8 3.6v1.6M8 10.8v1.6M3.6 8h1.6M10.8 8h1.6'/></g></svg></button>
         </div>
 <!--#include parts/slicer-view.html-->
       </div>

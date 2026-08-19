@@ -45,13 +45,14 @@
       </div>
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
       <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
+        <!-- Eiga po tuo mygtuku, kuris ja sukele (V 08-12), o atsisakymas - tuoj pat
+             uz jos: kairiajame krašte „Discard" nesake, KO atsisakoma (V 08-20). -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:right'></span>
         <!-- Nuoroda, ne mygtukas: mygtuko svori pulte turi tik tie veiksmai, kurie
              ka nors pagamina („Slice", „Save to printer"). Atsisakymas visame pulte
              atrodo taip pat - plg. „Reset to factory" dervu skiltyje (V 08-20). -->
         <a href='#' id='slicerDiscardLink'
            style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
-        <!-- Eiga po tuo mygtuku, kuris ja sukele (V 08-12). -->
-        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:right'></span>
       </div>
       <div class='calRow' style='margin-top:6px;gap:8px'>
         <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters - longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
