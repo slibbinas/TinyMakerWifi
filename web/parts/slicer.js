@@ -236,13 +236,15 @@ const slicerRender=()=>{
   const b=S.bounds(placed), f=S.fitCheck(b.size);
   {const n=slicerRaw.length/9;
    let vd,col;
-   if(f.fits){vd='fits the build volume';col='var(--muted)';}
+   /* Didzioji raide, kaip visose kitose faktu eilutese - „fits" buvo vienintele
+      is mazosios (V 08-20). */
+   if(f.fits){vd='Fits the build volume';col='var(--muted)';}
    /* Verdiktas mini ir autofita: anksciau siule tik pasukti ar sumazinti
       ranka, nors mygtukas daro abu iskart (V 08-12). */
    /* Mygtukas STOVI pranesime. Anksciau pranesimas buvo desineje, o mygtukas,
       kuri jis liepia spausti, - kitame korteles gale; akis eina per visa
       kortele ir atgal (V 08-13). */
-   else{vd='too large - '+f.axis+' +'+Math.round((f.worst-1)*100)
+   else{vd='Too large - '+f.axis+' +'+Math.round((f.worst-1)*100)
         +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
         +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
