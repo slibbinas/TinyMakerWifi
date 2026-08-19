@@ -10,7 +10,7 @@
 const BAZE = self.SLA_BAZE || './';
 importScripts(BAZE + 'sla-web.js');
 
-let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, vardas = 'spaudinys';
+let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, rotFn = null, vardas = 'spaudinys';
 let dabartinisId = 0;
 
 /* Tilto `praneskEiga` kviecia butent sita. */
@@ -25,6 +25,7 @@ const paruostas = createSLA({ locateFile: function (p) { return BAZE + p; } }).t
   sliceMeshFn = m.cwrap('sla_slice_mesh', 'string', ['number', 'number', 'number', 'number']);
   sl1Fn = m.cwrap('sla_export_sl1', 'string', ['string', 'string']);
   previewFn = m.cwrap('sla_preview', 'string', ['string', 'number']);
+  rotFn = m.cwrap('sla_rotfind', 'string', ['number', 'number', 'number']);
   return m;
 });
 
@@ -76,6 +77,24 @@ self.onmessage = async function (ev) {
       self.postMessage({ tipas: 'atsakymas', id: z.id, duomenys: d, sl1info: info,
                          sl1: sl1.buffer, preview: preview, previewInfo: previewInfo },
                        perduoti);
+
+    } else if (z.tipas === 'pakrypimas') {
+      /* PrusaSlicer Rotfinder: kuria puse modeli guldyti. Vienas blokuojantis
+         kvietimas (dideliems modeliams 5-12 s), todel jis ir sukasi cia, o ne
+         pulto gijoje - kitaip puslapis tiek laiko stovetu. */
+      self.postMessage({ tipas: 'eiga', id: z.id, etapas: 'ieskoma geriausios padeties', proc: 5 });
+      const pos = new Float32Array(z.pos);
+      const ptr = M._malloc(pos.byteLength);
+      M.HEAPF32.set(pos, ptr >> 2);
+      let atsakymas;
+      try {
+        atsakymas = rotFn(ptr, pos.length / 9, z.kauke || 1);
+      } finally {
+        M._free(ptr);
+      }
+      const kampai = JSON.parse(atsakymas);
+      if (kampai.klaida) { self.postMessage({ tipas: 'klaida', id: z.id, tekstas: kampai.klaida }); return; }
+      self.postMessage({ tipas: 'atsakymas', id: z.id, kampai: kampai });
 
     } else if (z.tipas === 'geometrija') {
       const dalys = {};

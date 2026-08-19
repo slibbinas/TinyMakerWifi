@@ -22,7 +22,51 @@ export const {
   /* Sie trys - pulto piesimui. Jie ne algoritmas, o irankiai, tad ateina is
      bazes nepakeisti (printerio sesija pastebejo, kad ju truko). */
   pillarDiscs, braceDiscs, supportMesh,
+  /* Posukis ant plokstes ir talpinimas - reikalingas ir `autoOrientPro` viduje. */
+  fitOnPlate,
 } = BAZE;
+
+/* ------------------------------------------------------------- pastatymas */
+
+/**
+ * „Autofit" kruopstusis kelias: PAKRYPIMA parenka PrusaSlicer Rotfinder
+ * (`find_least_supports_rotation`, tikras jo kodas WASM viduje), o POSUKI ant
+ * plokstes, talpinima ir masteli - musu puse. Prusa apie vertikale nesuka
+ * visai, o musu ploksté pailga, tad butent ten musu nauda.
+ *
+ * Kodel ne vietoj `autoOrient`: sis skaiciavimas trunka 5-12 s dideliems
+ * modeliams, tad ikeliant faila ir toliau naudojamas greitasis `autoOrient`, o
+ * sis - tik paspaudus mygtuka. Matavimas, kodel apskritai: kreivai atsiustam
+ * failui Prusos pakrypimas laimejo 4 modeliuose is 5 (08-20).
+ *
+ * @param pos        trikampiai, dar NEPASTATYTI (kaip is `parseSTL`)
+ * @param onProgress (done, total, phase) - tokia pat forma, kaip `slice()`
+ * @returns { tr, size, fit } - lygiai tas pats, ka grazina `autoOrient`
+ */
+export async function autoOrientPro(pos, onProgress) {
+  const kopija = new Float32Array(pos);            // savininkyste keliauja i gija
+  let r;
+  try {
+    r = await paklausk(
+      { tipas: 'pakrypimas', pos: kopija.buffer, kauke: 1 },
+      [kopija.buffer],
+      (z) => { if (onProgress) onProgress(z.proc || 0, 100, z.etapas); });
+  } catch (e) {
+    /* Variklis neatsake - grazinam greitaji atsakyma, o ne klaida: zmogui
+       geriau pastatytas modelis nei pranesimas, kad nepavyko. */
+    return { ...BAZE.autoOrient(pos), atsargin: String((e && e.message) || e) };
+  }
+  const k = r.kampai && r.kampai.maziausiai_atramu;
+  if (!k) return BAZE.autoOrient(pos);
+
+  const tr = Object.assign(BAZE.makeTransform(), {
+    rxDeg: k.rx * 180 / Math.PI,
+    ryDeg: k.ry * 180 / Math.PI,
+  });
+  const best = fitOnPlate(pos, tr);
+  if (onProgress) onProgress(100, 100, 'baigta');
+  return best;
+}
 
 /* --------------------------------------------------------------- darbininkas */
 

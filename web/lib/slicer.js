@@ -105,7 +105,12 @@ export function makeTransform() {
      Ketvirciai lieka tikslus (vartotojas visada gali griZti), o laisvas kampas
      reikalingas sutalpinimui: plokSte 40,8 x 30,6 mm, o jos istrizaine 51 mm,
      tad pailgas modelis istrizai telpa gerokai didesnis (V klausimas 08-20). */
-  return { rx: 0, ry: 0, rz: 0, rzDeg: 0, scale: 1 };
+  /* `rxDeg`/`ryDeg` - laisvas PAKRYPIMAS, laipsniais, taikomas PIRMAS (pries
+     ketvirCius). Ketvirciai vieni neuztenka: PrusaSlicer Rotfinder duoda bet
+     kokius kampus (pvz. -39°/-16°), ir be sitos vietos jo atsakymo nebutu kur
+     ideti. Taikymo tvarka - kaip Rotfinder.cpp `to_transform3f`: pirma X,
+     paskui Y (matavimas 08-20, [[slicer-rot-matavimas]]). */
+  return { rx: 0, ry: 0, rz: 0, rxDeg: 0, ryDeg: 0, rzDeg: 0, scale: 1 };
 }
 
 function rotateQuarter(x, y, n) {
@@ -120,9 +125,20 @@ export function place(pos, tr) {
   const s = tr.scale;
   const fi = (tr.rzDeg || 0) * Math.PI / 180;
   const cf = Math.cos(fi), sf = Math.sin(fi);
+  /* Laisvas pakrypimas eina PIRMAS - taip pat, kaip PrusaSlicer taiko savo
+     Rotfinder atsakyma pacia STL geometrijai, o musu ketvirciai ir posukis ant
+     plokstes lieka virsuje. */
+  const tx = (tr.rxDeg || 0) * Math.PI / 180, ty = (tr.ryDeg || 0) * Math.PI / 180;
+  const ctx = Math.cos(tx), stx = Math.sin(tx), cty = Math.cos(ty), sty = Math.sin(ty);
+  const yraPakrypimas = tx !== 0 || ty !== 0;
   for (let i = 0; i < pos.length; i += 3) {
     let x = pos[i] * s, y = pos[i + 1] * s, z = pos[i + 2] * s;
     let r;
+    if (yraPakrypimas) {
+      const y1 = y * ctx - z * stx, z1 = y * stx + z * ctx;
+      const x2 = x * cty + z1 * sty;
+      z = -x * sty + z1 * cty; x = x2; y = y1;
+    }
     r = rotateQuarter(y, z, tr.rx); y = r[0]; z = r[1];
     r = rotateQuarter(z, x, tr.ry); z = r[0]; x = r[1];
     r = rotateQuarter(x, y, tr.rz); x = r[0]; y = r[1];
@@ -293,6 +309,16 @@ export function autoOrient(pos) {
     const score = (f.fits ? 1e6 : 0) + contactArea(placed) - b.size[2] * 0.01;
     if (!best || score > best.score) best = { score, tr, size: b.size, fit: f };
   }
+  return fitOnPlate(pos, best.tr, best.score);
+}
+
+/* Kaip pasukti ant plokstes ir ar telpa. Iskelta atskirai (08-20), nes ta pati
+   uodega dabar reikalinga dviem keliams: musu `autoOrient` ir PrusaSlicer
+   Rotfinder pakrypimui, ant kurio si dalis uzdedama. Prusa apie vertikale
+   nesuka VISAI, tad butent cia gyvena musu privalumas ant pailgos plokstes. */
+export function fitOnPlate(pos, trBase, score = 0) {
+  const b0 = bounds(place(pos, trBase));
+  let best = { score, tr: trBase, size: b0.size, fit: fitCheck(b0.size) };
   /* Pasirinkus, kuri puse zemyn, lieka antras klausimas: kaip pasukti ant
      ploksstes. Ji 40.8 x 30.6 mm - pailga, tad pailgas objektas turi gultis
      isilgai. Renkam ta posuki, kuris palieka daugiausiai atsargos (V 08-12). */
