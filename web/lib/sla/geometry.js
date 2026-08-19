@@ -83,9 +83,23 @@ export function polyTreeToExPolygons(CL, polytree) {
 
 /* ------------------------------------------------------------------ ofsetas */
 
+/*
+ * `raw_offset` (ClipperUtils.cpp:313-321) nustato ClipperOffset TAIP:
+ *   if (joinType == jtRound) co.ArcTolerance = miterLimit;
+ *   else                     co.MiterLimit   = miterLimit;
+ * T. y. apvaliam jungimui tas pats skaicius reiskia LANKO TOLERANCIJA (3
+ * vienetai = 3 nm), ne miter riba. Be sito clipper.js krenta i savo numatytaja
+ * 0,25 vieneto, ir vienas apvalinimas issikaipo i tris kartus daugiau tasku.
+ */
+function newOffsetter(CL, joinType, miterLimit) {
+  return joinType === CL.JoinType.jtRound
+    ? new CL.ClipperOffset(2.0, miterLimit)
+    : new CL.ClipperOffset(miterLimit, 0);
+}
+
 /** `raw_offset` (ClipperUtils.cpp): ClipperOffset be jokio valymo po jo. */
 function rawOffset(CL, paths, delta, joinType, miterLimit) {
-  const co = new CL.ClipperOffset(miterLimit, 0);
+  const co = newOffsetter(CL, joinType, miterLimit);
   co.AddPaths(paths, joinType, CL.EndType.etClosedPolygon);
   const out = new CL.Paths();
   co.Execute(out, delta);
@@ -101,7 +115,8 @@ export const safetyOffset = (CL, paths) =>
  * Pastaba: ClipperOffset viduje jau daro union, tad papildomo nereikia.
  */
 export function offsetEx(CL, paths, delta, joinType, miterLimit) {
-  const co = new CL.ClipperOffset(miterLimit === undefined ? DEFAULT_MITER_LIMIT : miterLimit, 0);
+  const co = newOffsetter(CL, joinType === undefined ? CL.JoinType.jtMiter : joinType,
+                          miterLimit === undefined ? DEFAULT_MITER_LIMIT : miterLimit);
   co.AddPaths(paths, joinType === undefined ? CL.JoinType.jtMiter : joinType, CL.EndType.etClosedPolygon);
   const tree = new CL.PolyTree();
   co.Execute(tree, delta);

@@ -25,8 +25,24 @@
 const INF = Infinity;
 
 export class AABBMesh {
-  /** @param pos Float32Array/Array su trikampiais: 9 skaiciai vienam. */
-  constructor(pos, cell = 2.0) {
+  /*
+   * Langelis 0,5 mm, ne 2,0 (ISMATUOTA 2026-08-19, evil 490k trikampiu,
+   * `node --cpu-prof`): su 2,0 gardele detalei ~30x30 mm iseina ~250 langeliu,
+   * t. y. ~1900 trikampiu viename, ir `triHit` suvalgo 51 % viso laiko. Su 0,5
+   * medzio etapas 188 -> 25 s, visa grandine 299 -> 103 s, o rezultatas
+   * nesikeicia ne vienu skaiciumi (110 tasku / 37 stulpai / 18 tiltu).
+   *
+   * PLEISTRAS, ne portas: originale cia `igl::AABB` medis (kompromisas B1).
+   * Gardeles greitis priklauso nuo detales gabarito, medzio - ne. Dideliam
+   * modeliui reikes medzio.
+   *
+   * PATIKRINTA IR ATMESTA sename `slicer2.js` kelyje: ten tas pats smulkinimas
+   * nedave NIEKO, nes ten butelio kaklelis - Clipper (71 %), o ray casting
+   * < 0,8 %. Kaklelis matuojamas kiekvienam moduliui atskirai.
+   *
+   * @param pos Float32Array/Array su trikampiais: 9 skaiciai vienam.
+   */
+  constructor(pos, cell = 0.5) {
     this.pos = pos;
     this.cell = cell;
     this.map = new Map();
