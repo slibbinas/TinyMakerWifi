@@ -8,7 +8,8 @@
  * Portuota is: src/libslic3r/SLA/SupportTreeUtils.hpp
  *   check_ground_route, deepsearch_ground_connection, build_ground_connection
  */
-import { add, mul, sub, norm, normalized, EPSILON, Ball, Beam, beamMeshHit } from './support-tree-utils.js';
+import { add, mul, sub, norm, normalized, EPSILON, Ball, Beam, beamMeshHit,
+         sphericToDir, dirToSpheric, optimize } from './support-tree-utils.js';
 import { junction, pillar, pedestal, diffBridgeFromJunctions, DOWN } from './types.js';
 import { safetyDistance, groundLevel } from './config.js';
 
@@ -110,23 +111,93 @@ export function buildGroundConnection(tree, sm, conn) {
 }
 
 /**
- * Tiesus kelias zemyn - `deepsearch_ground_connection` supaprastinta pradzia.
- * Pilna versija dar ieskotu APLINKKELIO su vienu tiltu; ji ateis kartu su
- * `routing_to_ground`, kad nebutu portuojama „is akies".
+ * `deepsearch_ground_connection` (STU.hpp:598-720) - PAZODZIUI.
+ *
+ * Ieskoma tilto krypties ir ilgio taip, kad is jo galo vertikalus stulpas
+ * pasiektu plokste. Optimizuojama MINIMIZUOJANT kolizijos Z auksti: kuo
+ * zemiau, tuo geriau, o pasiekus plokstes lygi paieska nutraukiama.
+ *
+ * ⚠️ OPTIMIZATORIUS. Originale cia `AlgNLoptMLSL_Subplx` su GLOBALIU 5000
+ * iteraciju biudzetu ir lokaliu 100. Tai ne smulkmena: butent tas gylis leidzia
+ * rasti APLINKKELI aplink detale, o be jo tokiose vietose atrama tiesiog
+ * nesusidaro. NLopt dar neportuotas (sutarta 08-19: pirma medis ir padas,
+ * paskui NLopt, paskui seja), tad kol kas cia stovi `optimize()` pakaitalas is
+ * `support-tree-utils.js`. VISKAS KITA sioje funkcijoje yra tikslus portas.
  */
-export function straightGroundConnection(mesh, sm, source, wideningfn) {
+export function deepsearchGroundConnection(mesh, sm, source, wideningfn, initDir = DOWN) {
+  const MaxIterationsGlobal = 5000;
+  const MaxIterationsLocal = 100;
   const gndlvl = groundLevel(sm);
-  const endp = checkGroundRoute(mesh, sm, source, DOWN, 0, wideningfn, false);
-  const reached = Math.abs(endp[2] - gndlvl) < EPSILON;
-  if (!reached) return null;
-  const rTop = wideningfn(Ball(source.pos, source.r), DOWN, source.pos[2] - gndlvl);
-  return {
-    path: [junction(source.pos, source.r, source.id)],
-    pillarBase: {
-      pos: [source.pos[0], source.pos[1], gndlvl],
-      height: sm.cfg.baseHeightMm,
-      rBottom: sm.cfg.baseRadiusMm,
-      rTop,
-    },
+
+  /* `z_fn` (STU.hpp:637-646): grazina kolizijos tasko Z, jei kelias uzstotas,
+     arba plokstes lygi, jei praeina. */
+  const zFn = ([plr, azm, bridgeLen]) => {
+    const n = sphericToDir(plr, azm);
+    return checkGroundRoute(mesh, sm, source, n, bridgeLen, wideningfn, true)[2];
   };
+
+  let [plrInit, azmInit] = dirToSpheric(initDir);
+  plrInit = Math.max(plrInit, Math.PI - sm.cfg.bridgeSlope);
+
+  const bounds = [
+    [Math.PI - sm.cfg.bridgeSlope, Math.PI],   // polar
+    [-Math.PI, Math.PI],                       // azimuth
+    [0, sm.cfg.maxBridgeLengthMm],             // tilto ilgis
+  ];
+
+  const oresult = optimize(zFn, [plrInit, azmInit, 0], bounds, {
+    minimize: true, stopScore: gndlvl, maxIter: MaxIterationsGlobal,
+  });
+
+  let [plr, azm, bridgeL] = oresult.x;
+  const n = sphericToDir(plr, azm);
+
+  const t = (gndlvl - source.pos[2]) / n[2];
+  bridgeL = Math.min(t, bridgeL);
+
+  /* Brute-force trumpinimas (STU.hpp:686-698). Originalo pastaba paaiskina,
+     kodel tai NE optimizatoriaus salyga: kaip apribojimas jis pakankamai
+     tikslaus sprendinio nerastu greitai, ir stop_score nustotu veikti. */
+  let l = 0;
+  const lMax = bridgeL;
+  let zlvl = Infinity;
+  while (zlvl > gndlvl && l <= lMax) {
+    zlvl = checkGroundRoute(mesh, sm, source, n, l, wideningfn, false)[2];
+    if (zlvl <= gndlvl) bridgeL = l;
+    l += source.r;
+  }
+
+  const bridgeEnd = add(source.pos, mul(n, bridgeL));
+  const gp = [bridgeEnd[0], bridgeEnd[1], gndlvl];
+  const bridgeR = wideningfn(Ball(source.pos, source.r), n, bridgeL);
+  const downL = bridgeEnd[2] - gndlvl;
+  const endRadius = wideningfn(Ball(bridgeEnd, bridgeR), DOWN, downL);
+  const baseR = Math.max(sm.cfg.baseRadiusMm, endRadius);
+
+  /* Kelias grazinamas net ir nepavykus - su geriausiu rastu rezultatu. */
+  const conn = { path: [junction(source.pos, source.r, source.id)], pillarBase: null };
+  if (bridgeL > EPSILON) conn.path.push(junction(bridgeEnd, bridgeR));
+
+  /* Pastatas galioja TIK jei paieska pavyko - tai ir yra `operator bool()`. */
+  if (zFn([plr, azm, bridgeL]) <= gndlvl)
+    conn.pillarBase = { pos: gp, height: sm.cfg.baseHeightMm, rBottom: baseR, rTop: endRadius };
+
+  return conn;
+}
+
+/**
+ * `deepsearch_ground_connection` su ISKALNO ZINOMU galo spinduliu
+ * (STU.hpp:723-745): strypas plateja tolygiai per visa kelia iki plokstes.
+ */
+export function deepsearchGroundConnectionEndR(mesh, sm, source, endRadius, initDir = DOWN) {
+  const gndlvl = groundLevel(sm);
+  const wfn = (src, dir, len) => {
+    if (len < EPSILON) return src.R;
+    const dst = add(src.p, mul(dir, len));
+    const widening = endRadius - src.R;
+    const zlen = dst[2] - gndlvl;
+    const fullLen = len + zlen;
+    return src.R + widening * (len / (fullLen || 1));
+  };
+  return deepsearchGroundConnection(mesh, sm, source, wfn, initDir);
 }

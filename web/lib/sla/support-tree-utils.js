@@ -218,6 +218,18 @@ export const sphericToDir = (polar, azimuth) => [
  * (globalus optimizatorius ir originale nera deterministinis tarp versiju), o
  * atkartoti KRITERIJŲ: rasti bet kuria kryptį, kuria galvute telpa.
  */
+export function optimize(rawFn, x0, bounds, opts = {}) {
+  /* Originale kryptis nurodoma `to_max()` / `to_min()`. Minimizavima verciam i
+     maksimizavima, kad viduje liktu viena kilpa - matematiskai tas pats. */
+  const minimize = !!opts.minimize;
+  const fn = minimize ? x => -rawFn(x) : rawFn;
+  const stopScore = minimize ? -opts.stopScore : opts.stopScore;
+  const maxIter = opts.maxIter === undefined ? 100 : opts.maxIter;
+  const seed = opts.seed === undefined ? 0 : opts.seed;
+  const r = maximizeUntil(fn, x0, bounds, stopScore, maxIter, seed + 1);
+  return { x: r.x, score: minimize ? -r.score : r.score, iters: r.iters };
+}
+
 export function maximizeUntil(fn, x0, bounds, stopScore, maxIter = 100, seed = 1) {
   /* Determinizmas: originalas kviecia `solver.seed(0)`, tad ir mes einam nuo
      fiksuoto seed'o - kitaip tas pats modelis duotu skirtingas atramas. */
