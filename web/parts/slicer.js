@@ -134,8 +134,11 @@ $('slicerToggle').addEventListener('click',async()=>{
      3.0.2 - rastro nulis: variklis dabar irgi skaiciuoja nuo ploksteles centro,
      kaip ir pultas (iki tol modelis nusesdavo i rastro kampa ir isspausdintum
      ketvirti). 3.0.3 - dramblio pedos kompensacija ir storesnis pirmas
-     sluoksnis, kaip desktop PrusaSlicer. */
-  const SV='3.0.3';
+     sluoksnis, kaip desktop PrusaSlicer. 3.0.5 - sluoksniai skaiciuojami nuo
+     modelio apacios, tad po plokste nulindusi atrama nebevirsta pirmais
+     sluoksniais. 3.0.6 - ta pati atrama nebematoma ir 3D vaizde, o `layers`
+     imamas is paties failo (rodem 340, faile buvo 334). */
+  const SV='3.0.6';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
