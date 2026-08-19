@@ -6308,6 +6308,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       (m.hint?' \u00b7 ~L'+(m.hint.layer||'?'):'')+'</span>'+
       '<a href="#" data-del="'+i+'" style="color:var(--muted)">&times;</a></div>'+
       '<div>'+(m.text?m.text.replace(/[<>&]/g,''):'<i style="color:var(--muted)">no note</i>')+'</div>'+
+      /* Zyme nuo kito modelio matosi is karto - kitaip zmogus nusiustu misini
+         nepastebejes (V 08-19). */
+      (m.model&&m.model!==(sName()||'unknown')
+        ?'<div style="font-size:11px;color:var(--warncol)">from '+String(m.model).replace(/[<>&]/g,'')+'</div>':'')+
       '</div></div>').join('')
       : '<div style="color:var(--muted);padding:6px 0">Drag a box over the bad spot. A tap marks a small one.</div>';
     list.querySelectorAll('[data-del]').forEach(a=>a.addEventListener('click',e=>{
@@ -6323,8 +6327,8 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
         if(k.length)modUrl=mm[k[k.length-1]]||'';}catch(e){}
     return {
       kind:'slicer-bug', at:new Date().toISOString(), mode:slicerHere()?'slicer':'preview',
-      markers:marks.map(m=>({n:m.n,stage:m.stage,viewPct:m.pct,hint:m.hint,
-                             layerMm:m.lm,cam:m.cam,text:m.text})),
+      markers:marks.map(m=>({n:m.n,model:m.model,slicer:m.sver,stage:m.stage,
+                             viewPct:m.pct,hint:m.hint,layerMm:m.lm,cam:m.cam,text:m.text})),
       model:{name:sName()||'unknown',layers:(o&&o.layers)||null,
              layerMm:Math.round(layerMm()*1000)/1000,
              scalePct:tr&&typeof tr.scale==='number'?Math.round(tr.scale*1000)/10:null,
@@ -6339,14 +6343,22 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   };
   const asText=()=>{
     const r=report();
-    /* Dvi grupes, o ne viena eile: „pries" ir „po" salia pasako, ka sliceris toje
-       vietoje padare - o tai ir yra klausimas, del kurio ataskaita rasoma. */
-    const grp=(t,f)=>{const g=marks.filter(f);
-      return g.length?('\n'+t+':\n'+g.map(m=>rowText(m)+(m.text?'\n    '+m.text:'')).join('\n')):'';};
-    return 'Slicer defect report ('+r.markers.length+' marked)\n'+
-      grp('BEFORE SLICING',m=>m.stage!=='sliced')+
-      grp('SLICED',m=>m.stage==='sliced')+
-      '\n\nModel: '+r.model.name+' \u00b7 '+
+    /* Grupuojam pirma pagal MODELI, tada pagal etapa. Zymes islieka keiciant modeli,
+       tad i viena siuntini gali sukristi keliu daiktu zymes - be modelio antrastes
+       ataskaita atrodytu taip, tarsi visos butu apie paskutini (V 08-19). */
+    const mods=[];marks.forEach(m=>{const k=m.model||'unknown';if(mods.indexOf(k)<0)mods.push(k);});
+    const grp=(t,list)=>list.length?('\n  '+t+':\n'+list.map(m=>'  '+rowText(m)+
+        (m.text?'\n      '+m.text:'')).join('\n')):'';
+    const perMod=mods.map(k=>{
+      const mine=marks.filter(m=>(m.model||'unknown')===k);
+      const sv=(mine.find(m=>m.sver)||{}).sver;
+      return '\n['+k+(sv?' \u00b7 slicer '+sv:'')+']'+
+        grp('BEFORE SLICING',mine.filter(m=>m.stage!=='sliced'))+
+        grp('SLICED',mine.filter(m=>m.stage==='sliced'));
+    }).join('\n');
+    return 'Slicer defect report ('+r.markers.length+' marked'+
+      (mods.length>1?(', '+mods.length+' models'):'')+')\n'+perMod+
+      '\n\n'+(new Set(marks.map(m=>m.model||'unknown')).size>1?'Current model':'Model')+': '+r.model.name+' \u00b7 '+
       (r.model.layers?(r.model.layers+' layers'):'not sliced yet')+' \u00b7 '+
       (r.model.scalePct?r.model.scalePct+'%':'scale ?')+
       (r.model.sizeMm?' \u00b7 '+r.model.sizeMm.w+'x'+r.model.sizeMm.d+'x'+r.model.sizeMm.h+' mm':'')+
@@ -6378,7 +6390,9 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
         const w=Math.round((e.width||160)*k(e)),h=Math.round((e.height||120)*k(e));
         try{g.drawImage(e,0,y+18,w,h);}catch(err){}
         g.fillStyle=RED;g.font='bold 13px sans-serif';
-        g.fillText('#'+src[i].n+' ['+(src[i].stage||'?')+']  '+(src[i].text||'').slice(0,48),2,y+13);
+        const daug=new Set(src.map(x=>x.model||'')).size>1;
+        g.fillText('#'+src[i].n+' ['+(src[i].stage||'?')+(daug?' \u00b7 '+(src[i].model||''):'')+']  '+
+                   (src[i].text||'').slice(0,daug?34:48),2,y+13);
         g.strokeStyle=RED;g.lineWidth=1;g.strokeRect(0.5,y+18.5,w-1,h-1);
         y+=hs[i];
       });
@@ -6525,7 +6539,8 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
            w:pct(w/r.width),h:pct(h/r.height)},
       hint:mid?{on:mid.on,x:r2(mid.x),y:r2(mid.y),z:r2(mid.z),
                 layer:(mid.hMm===null||!lm)?null:Math.max(1,Math.round(mid.hMm/lm)+1)}:null,
-      stage:stageNow(),
+      stage:stageNow(), model:sName()||'unknown',
+      sver:(sMod()&&sMod().VERSION)||'',
       lm:lm, cam:window.gl3dCamInfo?gl3dCamInfo():null, thumb:thumb, text:''};
     const t=prompt('#'+m.n+' marked. What is wrong here?','');
     if(t===null)return;
