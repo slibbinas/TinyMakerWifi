@@ -280,6 +280,13 @@ $('slicerAutoFit').addEventListener('click',()=>{
     /* Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta,
        ir masteli - pranesimas kartotu tai, kas jau matosi (V 08-17). */
   }
+  /* Skundas „netelpa" gyvena savo 6 s, o Auto fit kaip tik ta priezasti pasalina:
+     modelis jau telpa, o eilute dar kabo ir atrodo, kad mygtukas nesuveike (V 08-19).
+     Nuimam TIK ta viena sakini ir tik kai tikrai tilpo - svetimo pranesimo neliecam. */
+  {const e=$('statusMsg');
+   if(/does not fit/i.test(e.textContent||'')&&
+      slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
+     msg('',false);}
   /* Po autofito vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
      sumazejo, tad senas zvilgsnis jam nebetinka - jis likdavo mazas lango viduryje
      (V 08-18). Rankiniai posukiai kameros ir toliau neliecia. */

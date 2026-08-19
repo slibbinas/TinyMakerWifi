@@ -268,7 +268,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <!-- Zymejimo irankis. Gyvena CIA, o ne slicerio juostoje (parts/slicer-view.html),
                nes visa jo masinerija - scena, kamera, raycast - yra pulto puseje, ir taip
                dvi lygiagrecios sesijos nesusipjauna. Be ?dev=1 lieka nematomas. -->
-          <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: tap the model, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><circle cx='8' cy='8' r='3.1'/><path d='M8 .9v3.1M8 12v3.1M.9 8h3.1M12 8h3.1'/></svg></button>
+          <!-- Taikiklis viduje RAUDONAS visada: tai irankis defektams, o ne pulto
+               funkcija, ir oranzine (pulto akcentas) ta skirtuma trynė (V 08-19). -->
+          <button id='gl3dMark' type='button' style='display:none' title='Mark a defect: drag a box over the bad spot, add one line, send it with the build it happened on'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2.2 5.2V2.2h3M10.8 2.2h3v3M13.8 10.8v3h-3M5.2 13.8h-3v-3'/><g stroke='#ff3b30'><circle cx='8' cy='8' r='2.4'/><path d='M8 3.6v1.6M8 10.8v1.6M3.6 8h1.6M10.8 8h1.6'/></g></svg></button>
         </div>
 <!--#include parts/slicer-view.html-->
       </div>
@@ -6167,33 +6169,23 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     markGroup.add(m);
     return true;
   };
-  /* Zona: tasko neuztenka, kai blogai yra CIA VISUR - kelios atramos, visas sonas,
-     rafto krastas (V 08-19). Piesiam vielini narveli, kad butu matyti ribos, o ne
-     dazu deme ant paties daikto. */
-  window.gl3dZone=(n,lo,hi)=>{
-    if(!ren||!scene)return false;
-    if(!markGroup){markGroup=new T.Group();scene.add(markGroup);}
-    const box=new T.Box3(new T.Vector3(lo.x,lo.y,lo.z),new T.Vector3(hi.x,hi.y,hi.z));
-    const h=new T.Box3Helper(box,0xff3b30);
-    if(h.material){h.material.depthTest=false;h.material.transparent=true;}
-    h.renderOrder=999;h.userData.markN=n;
-    markGroup.add(h);
-    return true;
-  };
-  window.gl3dMarkersClear=()=>{
-    if(!markGroup)return false;
-    while(markGroup.children.length){
-      const m=markGroup.children.pop();
-      if(m.geometry)m.geometry.dispose();
-      if(m.material)m.material.dispose();
-    }
-    return true;
-  };
-  /* Kadras imamas IS KARTO po piesimo: scena piesiama be preserveDrawingBuffer,
-     tad bet kada kitu metu toDataURL grazintu tuscia paveiksleli. */
-  window.gl3dSnapshot=()=>{
-    try{ren.render(scene,cam);return ren.domElement.toDataURL('image/png');}
-    catch(e){return '';}
+  /* Iskarpa is vaizdo. Zymes scenoje isimtos samoningai (V 08-19): taskas 3D erdvej
+     zymi PAVIRSIU, ne daikta, o deze apgaubia ora aplink ji - abu meluoja apie tai, ka
+     zmogus mato. Tikroji zinia yra „ziurek stai i SITA vietos gabala", tad ji ir imam:
+     staciakampi is to paties kadro, kuri zmogus mato. */
+  window.gl3dCrop=(x0,y0,x1,y1)=>{
+    try{
+      ren.render(scene,cam);          // preserveDrawingBuffer nera - imam is karto
+      const el=ren.domElement,r=el.getBoundingClientRect();
+      if(!r.width||!r.height)return '';
+      const kx=el.width/r.width, ky=el.height/r.height;
+      const sx=Math.max(0,(Math.min(x0,x1)-r.left)*kx), sy=Math.max(0,(Math.min(y0,y1)-r.top)*ky);
+      const sw=Math.max(8,Math.abs(x1-x0)*kx), sh=Math.max(8,Math.abs(y1-y0)*ky);
+      const c=document.createElement('canvas');
+      c.width=Math.round(Math.min(sw,el.width-sx));c.height=Math.round(Math.min(sh,el.height-sy));
+      c.getContext('2d').drawImage(el,sx,sy,c.width,c.height,0,0,c.width,c.height);
+      return c.toDataURL('image/png');
+    }catch(e){return '';}
   };
   window.gl3dCamInfo=()=>{
     if(!cam)return null;
@@ -6220,24 +6212,24 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
 })();
 </script>
 <!-- ===== Defektu zymejimas =================================================
-     Kam: radus bloga atrama lieka tik zodinis aprasymas, o po savaites nebeaisku,
-     su kuria slicerio versija tai buvo. Cia bakstelejimas i modeli virsta milimetrais,
-     o ataskaita PATI prisega, kas tuo metu buvo ikelta.
-     Kur: visas irankis - pulto puseje (scena, kamera, raycast ir taip gyvena cia),
-     slicerio failu (web/parts/*) jis neliecia. Taip dvi lygiagrecios sesijos
-     nesusipjauna nei vienoje eiluteje (CLAUDE.md riba).
-     Ijungimas: JOKIOS savos veliaveles (V 08-19). Sliceris atrakinamas septyniais
-     bakstelejimais i versija; kas ji atsirakino, tas ir yra tas zmogus, kuriam sis
-     irankis skirtas - antra slaptazodi laikyti reikstu du raktus tam paciam zmogui.
-     Tad salyga viena: `slicerUnlocked()`. -->
+     Kam: radus bloga atrama likdavo tik zodinis aprasymas, o po savaites nebeaisku,
+     su kuria versija tai buvo. Cia pazymi VIETA vaizde, ir ataskaita pati prisega,
+     kas tuo metu buvo ikelta, plius pacios vietos paveiksleli.
+
+     Kodel staciakampis, o ne taskas ar deze (V 08-19): 3D erdvej taskas zymi
+     PAVIRSIU, ne daikta, o deze apgaubia ora aplink ji. Tikroji zinia yra „ziurek
+     stai i SITA vaizdo gabala" - tad ji ir imam, kartu su kameros busena, kad butu
+     zinoma, is kur ziureta. Milimetrai lieka kaip uzuomina, ne kaip tiesa.
+
+     Kur: visas irankis - pulto puseje, `web/parts/*` neliecia (CLAUDE.md riba).
+     Ijungimas: kartu su slicerio atrakinimu (septyni bakstelejimai i versija). -->
 <script>
 (()=>{
-  /* Sena `tmMark` veliavele nuimama: jei ji kur nors uzsiliko, be sito irankis
-     rodytusi ir tiems, kas slicerio neatsirakino. */
-  try{localStorage.removeItem('tmMark');}catch(e){}
+  try{localStorage.removeItem('tmMark');}catch(e){}          // sena veliavele - lauk
   if(typeof slicerUnlocked!=='function'||!slicerUnlocked())return;
 
   const ENDPOINT='https://tinymakerwifi.com/slicerbug';
+  const RED='#ff3b30';                 // irankis, ne pulto funkcija - todel ne oranzine
   const marks=[];
   let armed=false,panel=null;
   const btn=$('gl3dMark'),host=$('gl3d');
@@ -6245,9 +6237,6 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   btn.style.display='';
 
   const r2=v=>(v===null||v===undefined)?null:Math.round(v*100)/100;
-  const g=n=>{try{return window[n];}catch(e){return undefined;}};
-  /* Slicerio kintamieji skaitomi TIK skaitymui ir su apsauga: jei kita sesija ka
-     nors pervadins, ataskaitoje bus „unknown", o ne kritimas. */
   const slicerHere=()=>{try{return typeof slicerOwnsPreview!=='undefined'&&!!slicerOwnsPreview;}catch(e){return false;}};
   const sOut=()=>{try{return typeof slicerOut!=='undefined'?slicerOut:null;}catch(e){return null;}};
   const sTr=()=>{try{return typeof slicerTr!=='undefined'?slicerTr:null;}catch(e){return null;}};
@@ -6255,8 +6244,6 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   const sName=()=>{try{if(typeof slicerFileName!=='undefined'&&slicerFileName)return slicerFileName;}catch(e){}
                    try{if(typeof dashPreviewName!=='undefined'&&dashPreviewName)return dashPreviewName;}catch(e){}
                    return '';};
-  /* Sluoksnio aukstis: sliceryje jis isvedamas is paties rezultato (modelio auksits
-     / sluoksniu skaicius), peržiūroje - printerio nustatymas. Spėjimo nera. */
   const layerMm=()=>{
     const o=sOut();
     try{if(o&&o.layers&&typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH)
@@ -6264,71 +6251,43 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     try{if(statusData&&statusData.layerHeight)return statusData.layerHeight;}catch(e){}
     return 0.05;
   };
+  const say=(t,bad)=>{try{msg(t,!!bad);}catch(e){}};
 
-  /* Sluoksnio numeris BE zingsnio yra dviprasmis: peržiūroje jis skaiciuojamas
-     pagal printerio auksti (0,10 mm), sliceryje - pagal ta, kuriuo pjaustyta
-     (0,05 mm), tad tas pats taskas duoda 152 arba 302. Rasom zingsni salia. */
-  /* `lm` zymes viduje, `layerMm` ataskaitos kopijoje - eilute piesiama is abieju. */
-  const rowText=m=>{
-    const step=m.lm||m.layerMm||'?';
-    if(m.kind==='zone')
-      return '#'+m.n+' '+m.on+' area  '+m.sizeMm.w+'x'+m.sizeMm.d+'x'+m.sizeMm.h+' mm'+
-        (m.layer?'  ~L'+m.layer+'-'+m.layerTop+' @'+step+' mm':'')+
-        '  [x '+m.lo.x+'..'+m.hi.x+', y '+m.lo.y+'..'+m.hi.y+', z '+m.lo.z+'..'+m.hi.z+']';
-    return '#'+m.n+' '+m.on+'  '+m.x+', '+m.y+', '+m.z+' mm'+
-      (m.layer?'  ~L'+m.layer+' @'+step+' mm':'')+
-      (m.hMm===null?'':'  ('+m.hMm+' mm from bottom)');
-  };
+  const rowText=m=>'#'+m.n+'  '+m.pct.w+'% x '+m.pct.h+'% of the view at ('+m.pct.x+'%, '+m.pct.y+'%)'+
+    (m.hint?'   ~'+m.hint.on+' '+m.hint.x+', '+m.hint.y+', '+m.hint.z+' mm'+
+      (m.hint.layer?' (~L'+m.hint.layer+' @'+m.lm+' mm)':''):'   (nothing solid in the middle)');
 
   const draw=()=>{
     if(!panel)return;
     const list=panel.querySelector('.mkList');
     list.innerHTML=marks.length?marks.map((m,i)=>
-      '<div style="padding:5px 0;border-top:1px solid var(--line)">'+
-      '<div style="display:flex;justify-content:space-between;gap:8px">'+
-      '<span style="color:var(--accent);font-weight:600">#'+m.n+'</span>'+
-      '<span style="color:var(--muted);font-size:11px">'+m.on+' &middot; ~L'+(m.layer||'?')+
-      (m.kind==='zone'&&m.layerTop?'-'+m.layerTop:'')+'</span>'+
+      '<div style="display:flex;gap:8px;padding:6px 0;border-top:1px solid var(--line)">'+
+      (m.thumb?'<img src="'+m.thumb+'" style="width:84px;height:auto;max-height:64px;object-fit:contain;'+
+               'border:1px solid '+RED+';border-radius:4px;background:var(--pv)">':'')+
+      '<div style="flex:1;min-width:0">'+
+      '<div style="display:flex;justify-content:space-between;gap:6px">'+
+      '<span style="color:'+RED+';font-weight:600">#'+m.n+'</span>'+
+      '<span style="color:var(--muted);font-size:11px">'+(m.hint?('~L'+(m.hint.layer||'?')):'view only')+'</span>'+
       '<a href="#" data-del="'+i+'" style="color:var(--muted)">&times;</a></div>'+
-      '<div style="font-size:11px;color:var(--muted2)">'+
-      (m.kind==='zone'?(m.sizeMm.w+'x'+m.sizeMm.d+'x'+m.sizeMm.h+' mm area')
-                      :(m.x+', '+m.y+', '+m.z+' mm'))+'</div>'+
-      '<div>'+(m.text?m.text.replace(/[<>&]/g,''):'<i style="color:var(--muted)">no note</i>')+'</div></div>').join('')
-      : '<div style="color:var(--muted);padding:6px 0">Tap the model to place a marker.</div>';
+      '<div>'+(m.text?m.text.replace(/[<>&]/g,''):'<i style="color:var(--muted)">no note</i>')+'</div>'+
+      '</div></div>').join('')
+      : '<div style="color:var(--muted);padding:6px 0">Drag a box over the bad spot. A tap marks a small one.</div>';
     list.querySelectorAll('[data-del]').forEach(a=>a.addEventListener('click',e=>{
-      e.preventDefault();marks.splice(+a.dataset.del,1);renumber();}));
+      e.preventDefault();marks.splice(+a.dataset.del,1);marks.forEach((m,i)=>m.n=i+1);draw();}));
     panel.querySelector('.mkCount').textContent=marks.length?(marks.length+' marked'):'';
-  };
-  const renumber=()=>{
-    marks.forEach((m,i)=>m.n=i+1);
-    if(window.gl3dMarkersClear)gl3dMarkersClear();
-    marks.forEach(m=>{
-      if(m.kind==='zone'){if(window.gl3dZone)gl3dZone(m.n,m.lo,m.hi);}
-      else if(window.gl3dMarker)gl3dMarker(m.n,m.pos);
-    });
-    draw();
   };
 
   const report=()=>{
     const o=sOut(),tr=sTr(),mod=sMod(),box=window.gl3dModelBox?gl3dModelBox():null;
     const st=(typeof statusData!=='undefined'&&statusData)?statusData:{};
-    /* Ieskom pagal PRISEGTA varda, ne pagal `VERSION`: butent tas atvejis, del
-       kurio sitas laukas ir daromas - kai kortelej guli senas failas nauju vardu -
-       yra tas, kuriame VERSION nesutampa, ir paieska prasautu i tuscia. */
     let modUrl='';
     try{const mm=window.__modUrl||{},k=Object.keys(mm).filter(x=>x.indexOf('slicer-')===0);
         if(k.length)modUrl=mm[k[k.length-1]]||'';}catch(e){}
     return {
-      kind:'slicer-bug',
-      at:new Date().toISOString(),
-      mode:slicerHere()?'slicer':'preview',
-      markers:marks.map(m=>m.kind==='zone'
-        ?({n:m.n,kind:'zone',on:m.on,lo:m.lo,hi:m.hi,sizeMm:m.sizeMm,hMm:m.hMm,hMmTop:m.hMmTop,
-           layer:m.layer,layerTop:m.layerTop,layerMm:m.lm,text:m.text})
-        :({n:m.n,kind:'point',on:m.on,x:m.x,y:m.y,z:m.z,hMm:m.hMm,layer:m.layer,layerMm:m.lm,text:m.text})),
-      model:{name:sName()||'unknown',
-             layers:(o&&o.layers)||null,
-             layerMm:r2(layerMm()*1000)/1000||null,
+      kind:'slicer-bug', at:new Date().toISOString(), mode:slicerHere()?'slicer':'preview',
+      markers:marks.map(m=>({n:m.n,viewPct:m.pct,hint:m.hint,layerMm:m.lm,cam:m.cam,text:m.text})),
+      model:{name:sName()||'unknown',layers:(o&&o.layers)||null,
+             layerMm:Math.round(layerMm()*1000)/1000,
              scalePct:tr&&typeof tr.scale==='number'?Math.round(tr.scale*1000)/10:null,
              rot:tr?{rx:tr.rx===undefined?null:tr.rx,rz:tr.rz===undefined?null:tr.rz}:null,
              sizeMm:box},
@@ -6336,29 +6295,54 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
               supports:(o&&o.supports&&o.supports.length)||null},
       dash:{etag:st.dashEtag||'unknown'},
       fw:{version:st.firmwareVersion||'unknown',build:st.firmwareBuild||'',date:st.buildDate||''},
-      view:window.gl3dCamInfo?gl3dCamInfo():null,
       ua:navigator.userAgent.slice(0,160)
     };
   };
   const asText=()=>{
     const r=report();
-    return 'Slicer defect report ('+r.markers.length+' marker'+(r.markers.length===1?'':'s')+')\n'+
-      r.markers.map(m=>rowText(m)+(m.text?'\n    '+m.text:'')).join('\n')+
-      '\n\nModel: '+r.model.name+' · '+(r.model.layers||'?')+' layers · '+
+    return 'Slicer defect report ('+r.markers.length+' marked)\n'+
+      marks.map(m=>rowText(m)+(m.text?'\n    '+m.text:'')).join('\n')+
+      '\n\nModel: '+r.model.name+' \u00b7 '+(r.model.layers||'?')+' layers \u00b7 '+
       (r.model.scalePct?r.model.scalePct+'%':'scale ?')+
-      (r.model.sizeMm?' · '+r.model.sizeMm.w+'x'+r.model.sizeMm.d+'x'+r.model.sizeMm.h+' mm':'')+
+      (r.model.sizeMm?' \u00b7 '+r.model.sizeMm.w+'x'+r.model.sizeMm.d+'x'+r.model.sizeMm.h+' mm':'')+
       '\nSlicer: '+r.slicer.version+' ('+r.slicer.url+')'+
       '\nDashboard: '+r.dash.etag+'   Firmware: '+r.fw.version+' '+r.fw.build+
       '\nMode: '+r.mode+'\n\n'+JSON.stringify(r);
   };
 
-  const say=(t,bad)=>{try{msg(t,!!bad);}catch(e){}};
+  /* Vienas paveikslelis visoms zymems: kiekvienos iskarpa su savo numeriu, viena po
+     kita. Perpiesti dabartinio vaizdo su remeliais NEGALIMA - kamera nuo to laiko jau
+     pajudejo, ir staciakampiai rodytu ne ta vieta. */
+  const sheet=()=>new Promise(res=>{
+    const src=marks.filter(m=>m.thumb);
+    if(!src.length)return res('');
+    let done=0;const els=src.map(()=>new Image());
+    const paint=()=>{
+      const W=Math.min(560,Math.max(160,...els.map(e=>e.width||160)));
+      const k=e=>Math.min(1,W/(e.width||W));
+      const hs=els.map(e=>Math.round((e.height||120)*k(e))+22);
+      const c=document.createElement('canvas');
+      c.width=W;c.height=hs.reduce((x,y)=>x+y,0)+8;
+      const g=c.getContext('2d');
+      g.fillStyle='#151517';g.fillRect(0,0,c.width,c.height);
+      let y=4;
+      els.forEach((e,i)=>{
+        const w=Math.round((e.width||160)*k(e)),h=Math.round((e.height||120)*k(e));
+        try{g.drawImage(e,0,y+18,w,h);}catch(err){}
+        g.fillStyle=RED;g.font='bold 13px sans-serif';
+        g.fillText('#'+src[i].n+'  '+(src[i].text||'').slice(0,60),2,y+13);
+        g.strokeStyle=RED;g.lineWidth=1;g.strokeRect(0.5,y+18.5,w-1,h-1);
+        y+=hs[i];
+      });
+      res(c.toDataURL('image/png'));
+    };
+    els.forEach((im,i)=>{im.onload=im.onerror=()=>{if(++done===els.length)paint();};im.src=src[i].thumb;});
+  });
+
   const dataUrlToBlob=u=>{
-    try{
-      const p=u.split(',');const bin=atob(p[1]);const a=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
-      return new Blob([a],{type:'image/png'});
-    }catch(e){return null;}
+    try{const p=u.split(',');const bin=atob(p[1]);const a=new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
+        return new Blob([a],{type:'image/png'});}catch(e){return null;}
   };
 
   const send=async b=>{
@@ -6371,102 +6355,80 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       fd.append('fw',st.firmwareVersion||'');
       fd.append('build',st.firmwareBuild||'');
       fd.append('ua',navigator.userAgent.slice(0,120));
-      const shot=window.gl3dSnapshot?gl3dSnapshot():'';
-      const blob=shot?dataUrlToBlob(shot):null;
-      /* Kadras su zymemis pasako per sekunde tai, ko trys pastraipos nepasako.
-         Riba - TA PATI, kuria tikrina worker'is (1 MB): buvusi 2,5 MB reiske, kad
-         platus darbalaukio kadras issiunciamas ir atmetamas, o kartu su juo zutu
-         ir visa ataskaita. */
+      const png=await sheet();
+      const blob=png?dataUrlToBlob(png):null;
       if(blob&&blob.size<=1024*1024)fd.append('photo',blob,'marks.png');
       const r=await fetch(ENDPOINT,{method:'POST',body:fd});
       const t=(await r.text()).slice(0,120);
-      if(r.ok){say('Report sent to the feedback inbox.');marks.length=0;renumber();}
+      if(r.ok){say('Report sent to the feedback inbox.');marks.length=0;draw();}
       else say('Not sent ('+r.status+'): '+t+' - use Copy instead.',true);
-    }catch(e){
-      say('No network for the report - use Copy or JSON.',true);
-    }
+    }catch(e){ say('No network for the report - use Copy or JSON.',true); }
     b.disabled=false;b.textContent=was;
   };
 
   const build=()=>{
     panel=document.createElement('div');
-    /* NE plaukiojantis langas (V 08-19: „mygtuko neina isjungti"). Fiksuotas
-       skydelis desiniajame apacios kampe telefone gula tiesiai ant `#gl3dZoom`
-       grupes - t. y. ant paties irankio mygtuko ir ant vaizdo krasto: bakstelejimai
-       nueidavo i skydeli, irankis likdavo ijungtas, o sukimas atrodydavo uzstriges.
-       Todel skydelis stovi EILEJE po perziuros kortele ir niekada nieko nedengia. */
-    panel.style.cssText='margin:10px 0 0;padding:10px 12px;border:1px solid var(--accent);'+
+    /* Eileje po perziuros kortele, ne plaukiojantis: fiksuotas kampe jis telefone
+       guldavo ant paciu vaizdo mygtuku, ir irankio nepavykdavo isjungti (V 08-19). */
+    panel.style.cssText='margin:10px 0 0;padding:10px 12px;border:1px solid '+RED+';'+
       'border-radius:12px;background:var(--card);color:var(--text);'+
       'font:12px -apple-system,Segoe UI,sans-serif';
     panel.innerHTML=
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">'+
-      '<b style="color:var(--accent)">Defect markers</b>'+
+      '<b style="color:'+RED+'">Defect markers</b>'+
       '<span class="mkCount" style="color:var(--muted);font-size:11px"></span>'+
       '<a href="#" class="mkClose" style="color:var(--muted)">stop marking</a></div>'+
       '<div class="mkList"></div>'+
-      /* Pasakoma garsiai, kas kur keliauja: „Send" isneša modelio varda ir jo
-         silueta i internetą, o „Copy"/„JSON" lieka name. Klientinis modelis gali
-         vadintis taip, kaip jo nederetu skelbti. */
       '<div style="margin-top:8px;font-size:11px;color:var(--muted)">'+
-      'Tap the model for a point, drag across it for an area. '+
-      'Send goes to the feedback inbox online (model name + snapshot); Copy and JSON stay here.</div>'+
+      'Each mark keeps the picture of that spot and the camera it was seen from. '+
+      'Send goes to the feedback inbox online; Copy and JSON stay here.</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
       '<button class="small mkSend" style="width:auto;margin:0;padding:6px 10px">Send</button>'+
       '<button class="secondary mkCopy" style="width:auto;margin:0;padding:6px 10px">Copy</button>'+
       '<button class="secondary mkJson" style="width:auto;margin:0;padding:6px 10px">JSON</button>'+
       '<button class="secondary mkClear" style="width:auto;margin:0;padding:6px 10px">Clear</button></div>';
-    /* PASKUTINIS tos korteles vaikas, kurioje gyvena vaizdas: zymes ir vaizdas -
-       viena vieta, o eileje po visu turiniu skydelis fiziskai negali uzgulti nei
-       vaizdo, nei irankiu juostos. Idejimas „po kortele" to negarantavo: dvieju
-       stulpeliu maketo kairysis stulpelis kortele pastato zemiau uz skydeli
-       (isjmatuota stende, 08-19). */
     ($('printPreviewCard')||host.parentElement).appendChild(panel);
     panel.querySelector('.mkClose').addEventListener('click',e=>{e.preventDefault();arm(false);});
     panel.querySelector('.mkSend').addEventListener('click',e=>send(e.currentTarget));
     panel.querySelector('.mkCopy').addEventListener('click',async()=>{
       const t=asText();
       try{await navigator.clipboard.writeText(t);say('Report copied.');}
-      catch(e){
-        /* http:// puslapyje clipboard API kartais uzdaryta - senas kelias veikia. */
-        const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);
+      catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);
         ta.select();try{document.execCommand('copy');say('Report copied.');}
         catch(e2){say('Could not copy - use JSON.',true);}
-        document.body.removeChild(ta);
-      }});
+        document.body.removeChild(ta);}
+    });
     panel.querySelector('.mkJson').addEventListener('click',()=>{
       const b=new Blob([JSON.stringify(report(),null,1)],{type:'application/json'});
       const u=URL.createObjectURL(b),a=document.createElement('a');
       a.href=u;a.download='slicer-bug.json';a.click();
       setTimeout(()=>URL.revokeObjectURL(u),2000);
     });
-    panel.querySelector('.mkClear').addEventListener('click',()=>{marks.length=0;renumber();});
+    panel.querySelector('.mkClear').addEventListener('click',()=>{marks.length=0;draw();});
     draw();
   };
 
   const arm=on=>{
     armed=!!on;
-    btn.style.color=armed?'var(--accent)':'';
-    btn.style.borderColor=armed?'var(--accent)':'';
+    btn.style.color=armed?RED:'';
+    btn.style.borderColor=armed?RED:'';
     if(armed&&!panel)build();
     if(panel)panel.style.display=armed?'':'none';
-    /* Kai zymejimas ijungtas, vaizdas nebesisuka - tad tai turi MATYTIS ir ant
-       paties vaizdo, ne tik mygtuko spalva: kitaip nesisukantis modelis atrodo
-       kaip uzsikirtes pultas (V 08-19). */
-    host.style.outline=armed?'2px solid var(--accent)':'';
+    /* Ijungus vaizdas nebesisuka - tai turi MATYTIS, kitaip atrodo kaip uzsikirtes
+       pultas (V 08-19). Raudonas, nes tai irankis, ne pulto funkcija. */
+    host.style.outline=armed?'2px solid '+RED:'';
     host.style.cursor=armed?'crosshair':'';
-    if(armed)say('Marking: tap for a point, drag for an area. The view does not turn while this is on.');
+    if(armed)say('Marking: drag a box over the bad spot. The view does not turn while this is on.');
     else{const e=$('statusMsg');if(/^Marking/.test(e.textContent||''))msg('',false);}
   };
   btn.addEventListener('click',e=>{e.stopPropagation();arm(!armed);});
 
-  /* Zonos gumele - paprastas DIV virs drobes. Piesti i pacia scena butu brangiau ir
-     nereikalinga: tempimo metu svarbu tik parodyti, kur eina ribos. */
   let band=null,dragFrom=null;
   const bandShow=(a,b)=>{
     if(!band){
       band=document.createElement('div');
-      band.style.cssText='position:fixed;z-index:6;border:1.5px dashed var(--accent);'+
-        'background:rgba(232,114,12,.14);pointer-events:none;display:none';
+      band.style.cssText='position:fixed;z-index:6;border:1.5px dashed '+RED+';'+
+        'background:rgba(255,59,48,.12);pointer-events:none;display:none';
       document.body.appendChild(band);
     }
     band.style.display='';
@@ -6475,42 +6437,9 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
   };
   const bandHide=()=>{if(band)band.style.display='none';};
 
-  /* Zona virsta milimetrais tuo paciu raycast'u, tik daug kartu: tinkleliu per
-     staciakampi. Kas pataike - i deze; kas ne (fonas, skyle) - praleidziam. Taip
-     „stai SITA vieta" nurodoma net tada, kai daiktas keistos formos. */
-  const zoneFromRect=(a,b)=>{
-    const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
-    const N=7;let lo=null,hi=null,onSup=false,onMod=false,nHit=0;
-    for(let i=0;i<=N;i++)for(let j=0;j<=N;j++){
-      const h=gl3dPick(x0+(x1-x0)*i/N, y0+(y1-y0)*j/N);
-      if(!h)continue;
-      nHit++;
-      if(h.on==='support')onSup=true;else onMod=true;
-      if(!lo){lo={x:h.x,y:h.y,z:h.z};hi={x:h.x,y:h.y,z:h.z};}
-      else{lo.x=Math.min(lo.x,h.x);lo.y=Math.min(lo.y,h.y);lo.z=Math.min(lo.z,h.z);
-           hi.x=Math.max(hi.x,h.x);hi.y=Math.max(hi.y,h.y);hi.z=Math.max(hi.z,h.z);}
-    }
-    if(!nHit)return null;
-    return {lo,hi,nHit,on:(onSup&&onMod)?'model+support':(onSup?'support':'model')};
-  };
-
-  const addMark=m=>{
-    const t=prompt('#'+m.n+' '+m.on+' '+(m.kind==='zone'?'area ':'at ')+m.where+
-      '\nWhat is wrong here?','');
-    if(t===null)return false;                 // atsisake - zymes nededam
-    m.text=String(t).slice(0,200);
-    marks.push(m);
-    if(m.kind==='zone'){if(window.gl3dZone)gl3dZone(m.n,m.lo,m.hi);}
-    else if(window.gl3dMarker)gl3dMarker(m.n,m.pos);
-    draw();
-    return true;
-  };
-
-  /* Gaudom PRIES orbita: sukimo klausytojas sedi ant drobes, o mes - ant tevo su
-     capture=true, tad zymint vaizdas nebesisuka. */
   host.addEventListener('pointerdown',e=>{
     if(!armed)return;
-    if(e.target.closest('button,input,a,#gl3dPop,#gl3dLayer'))return;   // valdikliai lieka valdikliais
+    if(e.target.closest('button,input,a,#gl3dPop,#gl3dLayer'))return;
     e.stopPropagation();e.preventDefault();
     dragFrom={x:e.clientX,y:e.clientY};
   },true);
@@ -6520,42 +6449,38 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
     if(Math.abs(e.clientX-dragFrom.x)+Math.abs(e.clientY-dragFrom.y)>6)
       bandShow(dragFrom,{x:e.clientX,y:e.clientY});
   },true);
-  const finish=e=>{
+  host.addEventListener('pointerup',e=>{
     if(!armed||!dragFrom)return;
     e.stopPropagation();e.preventDefault();
-    const from=dragFrom,to={x:e.clientX,y:e.clientY};
+    const from={x:dragFrom.x,y:dragFrom.y};let to={x:e.clientX,y:e.clientY};
     dragFrom=null;bandHide();
-    const lm=layerMm(),lmR=Math.round(lm*1000)/1000;
-    const layerOf=h=>(h===null||!lm)?null:Math.max(1,Math.round(h/lm)+1);
-    const dist=Math.abs(to.x-from.x)+Math.abs(to.y-from.y);
-
-    if(dist<=6){                                   // bakstelejimas - taskas
-      const hit=window.gl3dPick?gl3dPick(to.x,to.y):null;
-      if(!hit){say('Missed the model - tap on it.',true);return;}
-      addMark({n:marks.length+1,kind:'point',on:hit.on,
-               x:r2(hit.x),y:r2(hit.y),z:r2(hit.z),
-               hMm:hit.hMm===null?null:r2(hit.hMm),lm:lmR,layer:layerOf(hit.hMm),
-               pos:{x:hit.x,y:hit.y,z:hit.z},
-               where:r2(hit.x)+', '+r2(hit.y)+', '+r2(hit.z)+' mm (~layer '+
-                     (layerOf(hit.hMm)||'?')+' at '+lmR+' mm)'});
-      return;
+    /* Bakstelejimas - tas pats staciakampis, tik mazas: viena elgsena, ne dvi. */
+    if(Math.abs(to.x-from.x)+Math.abs(to.y-from.y)<=6){
+      from.x-=26;from.y-=26;to={x:to.x+26,y:to.y+26};
     }
-    const z=window.gl3dPick?zoneFromRect(from,to):null;   // tempimas - zona
-    if(!z){say('That area missed the model - drag across it.',true);return;}
-    const mbx=window.gl3dModelBox?gl3dModelBox():null;
-    const base=(mbx&&typeof mbx.minY==='number')?mbx.minY:null;   // modelio apacia scenoje
-    const h1=base===null?null:z.lo.y-base, h2=base===null?null:z.hi.y-base;
-    addMark({n:marks.length+1,kind:'zone',on:z.on,
-             lo:{x:r2(z.lo.x),y:r2(z.lo.y),z:r2(z.lo.z)},
-             hi:{x:r2(z.hi.x),y:r2(z.hi.y),z:r2(z.hi.z)},
-             sizeMm:{w:r2(z.hi.x-z.lo.x),h:r2(z.hi.y-z.lo.y),d:r2(z.hi.z-z.lo.z)},
-             hMm:h1===null?null:r2(h1),hMmTop:h2===null?null:r2(h2),
-             lm:lmR,layer:layerOf(h1),layerTop:layerOf(h2),
-             where:r2(z.hi.x-z.lo.x)+'x'+r2(z.hi.z-z.lo.z)+'x'+r2(z.hi.y-z.lo.y)+' mm'+
-                   (h1===null?'':' (layers '+layerOf(h1)+'-'+layerOf(h2)+' at '+lmR+' mm)')});
-  };
-  host.addEventListener('pointerup',finish,true);
-  host.addEventListener('pointercancel',e=>{dragFrom=null;bandHide();},true);
+    const cv=[...host.querySelectorAll('canvas')].find(c=>!c.id);
+    const r=cv?cv.getBoundingClientRect():null;
+    if(!r||!r.width){say('The 3D view is not ready.',true);return;}
+    const pct=v=>Math.round(v*1000)/10;
+    const x0=Math.min(from.x,to.x),y0=Math.min(from.y,to.y);
+    const w=Math.abs(to.x-from.x),h=Math.abs(to.y-from.y);
+    const thumb=window.gl3dCrop?gl3dCrop(from.x,from.y,to.x,to.y):'';
+    /* Milimetrai - UZUOMINA is staciakampio vidurio. Jei ten tuscia, zyme vis tiek
+       galioja: paveikslelis pasako, ka zmogus mate. */
+    const mid=window.gl3dPick?gl3dPick(x0+w/2,y0+h/2):null;
+    const lm=Math.round(layerMm()*1000)/1000;
+    const m={n:marks.length+1,
+      pct:{x:pct((x0-r.left)/r.width),y:pct((y0-r.top)/r.height),
+           w:pct(w/r.width),h:pct(h/r.height)},
+      hint:mid?{on:mid.on,x:r2(mid.x),y:r2(mid.y),z:r2(mid.z),
+                layer:(mid.hMm===null||!lm)?null:Math.max(1,Math.round(mid.hMm/lm)+1)}:null,
+      lm:lm, cam:window.gl3dCamInfo?gl3dCamInfo():null, thumb:thumb, text:''};
+    const t=prompt('#'+m.n+' marked. What is wrong here?','');
+    if(t===null)return;
+    m.text=String(t).slice(0,200);
+    marks.push(m);draw();
+  },true);
+  host.addEventListener('pointercancel',()=>{dragFrom=null;bandHide();},true);
 })();
 </script>
 </body></html>
