@@ -236,7 +236,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
              slankiklio, o pati riba vis tiek buvo spejama. Dabar drobe laiko
              320x240 proporcija ir pati yra juoda: kas juodame staciakampyje, tas
              ir spausdinama, o aplink - kortele (V 08-19). -->
-        <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;padding:10px;align-items:center;justify-content:center;background:var(--card)'>
+        <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;align-items:center;justify-content:center;background:var(--card)'>
           <canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas>
         </div>
         <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
@@ -3008,10 +3008,15 @@ const drawVolumeBox=cv=>{
    nauju pranesimu nesiuncia - jie ateina retai arba is viso po viena. Be sito
    didinant langa ispakavimo metu likdavo juoda deze be teksto (V 08-17). */
 let lastPreviewMsg=null;
-const paintPreviewProgress=(cv,label,frac)=>{
+/* `over3d`: uzrasas piesiamas ANT jau rodomo 3D vaizdo, o ne vietoj jo. Sliceris
+   turi ka rodyti - modeli su atramomis, - ir slepti ji del eigos juostos reikstu
+   pakeisti daikta tuscia deze (V 08-19: „pradejus slicinti - tuscias kubas").
+   Ten, kur rodyti nera ko (SD krovimas, spausdinimo pradzia), lieka senas kelias. */
+const paintPreviewProgress=(cv,label,frac,over3d)=>{
   if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg={label:label,frac:frac};
-  if(window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
-  const ctx=drawVolumeBox(cv);
+  if(!over3d&&window.gl3dShow)gl3dShow(false);   // uzrasas ant drobes, ne po 3D sluoksniu
+  const ctx=over3d?(()=>{const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);return c;})()
+                  :drawVolumeBox(cv);
   /* Pakeltos plokstes cia NEPIESIAM. Buvo bandyta (auditas 08-14 pasiule), bet krovimo
      bukleje modelio dar nera, o `plateZFor` spausdinant grazina KESE gulincio modelio
      auksti - tad paspaudus kita modeli akimirkai pasirodydavo plokste, kabanti vidury

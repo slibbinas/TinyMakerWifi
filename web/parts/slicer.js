@@ -405,6 +405,31 @@ function slicerMaskDraw(n){
   im.src=url;
   box.style.display='flex';   // drobe centruojama: juodas staciakampis IR yra plokste
 }
+/* Plokscias vaizdas = pati plokste, tad langas jam pasidaro tokiu pat santykiu
+   (320:240). Kitaip aplink juoda staciakampi likdavo tuscias kraštas: pirma ten
+   prasisviesdavo 3D scena, paskui ji uzdaziau korteles spalva - ir abu variantai
+   buvo apie ta pati, kad langas ir plokste ne to paties pavidalo (V 08-19).
+   Aukstis ribojamas lango auksciu: geriau siauresnė plokste, nei blokas, kurio
+   apacios nematyti. Ankstesnis aukstis grazinamas iseinant - jis gali buti
+   nustatytas „lango didinimo" mygtuko. */
+let slicerStageH=null;
+function slicerFlatStage(on){
+  const st=$('previewStage'); if(!st)return;
+  if(on){
+    if(slicerStageH===null)slicerStageH=st.style.height||'';
+    const w=st.clientWidth||st.getBoundingClientRect().width;
+    if(!w)return;
+    let h=Math.round(w*240/320);
+    h=Math.min(h,Math.round(innerHeight*0.78));
+    st.style.height=h+'px';
+  }else if(slicerStageH!==null){
+    st.style.height=slicerStageH;
+    slicerStageH=null;
+  }
+  /* Renderis savo dydi persiskaiciuoja per lango „resize" - be sio zenklo
+     3D drobe liktu senojo aukscio ir vaizdas issitemptu. */
+  try{window.dispatchEvent(new Event('resize'));}catch(e){}
+}
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
   const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
@@ -455,7 +480,7 @@ function slicerSupportFacts(s){
 function slicerLayerUI(on){
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
   const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
-  if(!on){slicerMaskSet(false); slicerView=0; slicerLayerN=1;
+  if(!on){slicerMaskSet(false); slicerFlatStage(false); slicerView=0; slicerLayerN=1;
           if(window.gl3dSupports)gl3dSupports(null);}
   else slicerSetView(slicerView);
 }
@@ -472,6 +497,7 @@ function slicerSetView(v){
      kauke, pikselis prie pikselio, ir tokia ji turi likti (tam ji ir yra).
      Mygtukai slepiami, o ne uzrakinami - valdiklis, kuris nieko nekeicia, meluoja
      labiau uz nesancio mygtuko nebuvima (V 08-19). */
+  slicerFlatStage(slicerView===2);
   {const plokscia=slicerView===2;
    const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
    document.querySelectorAll('#gl3dZoom [data-zoom]')
@@ -607,7 +633,7 @@ $('slicerGo').addEventListener('click',async()=>{
     /* Ir ant drobes: nutraukimas ivyksta tik ties artimiausiu eigos kvietimu, o
        tarp ju (antras patikros praejimas, ZIP surinkimas) juosta nejuda - be sio
        uzraso atrodytu, kad uzstrigo (auditas 08-17). */
-    paintPreviewProgress($('printPreviewCanvas'),'Stopping…',null);
+    paintPreviewProgress($('printPreviewCanvas'),'Stopping…',null,true);
     return;}
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
@@ -620,7 +646,7 @@ $('slicerGo').addEventListener('click',async()=>{
   slicerButtons(false);
   try{
     prog.textContent='';
-    paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0);
+    paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0,true);
     const t0=performance.now();
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
@@ -644,7 +670,7 @@ $('slicerGo').addEventListener('click',async()=>{
            visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
         paintPreviewProgress($('printPreviewCanvas'),
-          what+' '+pct+'%\n'+done+' / '+total+' layers',f);
+          what+' '+pct+'%\n'+done+' / '+total+' layers',f,true);
       });
     /* Paspaudus „Stop" po PASKUTINIO eigos kvietimo, pjaustymas spetu baigtis
        sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
