@@ -56,6 +56,15 @@ const slicerStep=()=>{
    if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
+   /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes:
+      formos irankiai apacioje, vaizdo grupe virs ju. Kai formos irankiu nera
+      (po pjaustymo arba spausdinimo perziuroje), vaizdo grupe nusileidzia zemyn
+      - kitaip liktu tuscia juosta (V 08-20). */
+   const zoom=$('gl3dZoom');
+   if(zoom){
+     const yraFormos=!!(tools&&tools.style.display!=='none'&&!sliced&&loaded);
+     zoom.style.bottom=yraFormos?'44px':'8px';
+   }
   }
 };
 const slicerButtons=on=>{
