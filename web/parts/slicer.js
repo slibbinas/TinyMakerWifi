@@ -376,10 +376,14 @@ $('slicerFile').addEventListener('change',async e=>{
 const slicerWorkUI=dirba=>{
   ['gl3dZoom','gl3dZoomCorner','gl3dMarkWrap','gl3dPad','gl3dRot','gl3dHelp']
     .forEach(id=>{const e=$(id); if(e&&dirba)e.style.display='none';});
+  /* Ir sluoksniu slankiklis: kol pjaustoma, slinkti dar nera ko - o jis rodydavo
+     „334 / 334" salia „Slicing 85 %" (V 08-20). */
+  if(dirba)slicerLayerUI(false);
   if(!dirba){
     /* Grazina tas pats, kas ir sprendzia, kas kuriame vaizde matoma. */
     slicerViewChrome();
     slicerMarkUI(!!slicerOwnsPreview);
+    if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true);
   }
 };
 const slicerOverlayOff=()=>{
