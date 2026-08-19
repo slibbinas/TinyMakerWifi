@@ -13,9 +13,31 @@ import { add, mul, sub, norm, normalized, EPSILON, Ball, Beam, beamMeshHit,
 import { junction, pillar, pedestal, diffBridgeFromJunctions, DOWN } from './types.js';
 import { safetyDistance, groundLevel } from './config.js';
 
-/* Plėtimo strategijos (`WideningFn`). Originalas leidzia keleta; V profilyje
-   `support_pillar_widening_factor = 0`, tad strypas nestoreja - bet funkcijos
-   forma islaikoma, kad velesnis perjungimas butu vienos vietos keitimas. */
+/* Pletimo strategijos (`WideningFn`).
+ *
+ * `DefaultWideningModel` (STU.hpp:751-760) - butent ji naudoja numatytasis
+ * `deepsearch_ground_connection`:
+ *
+ *   w = WIDENING_SCALE * pillar_widening_factor * len
+ *   r = max(src.R, head_back_radius_mm) + w
+ *
+ * ⚠️ Du dalykai, kuriuos lengva praleisti:
+ *   - spindulys niekada nebuna mazesnis uz `head_back_radius_mm`, net jei
+ *     saltinis plonesnis (`max(src.R, ...)`);
+ *   - siam modeliui pluostas naudoja 16 spinduliu, ne 8
+ *     (`BeamSamples<DefaultWideningModel> = 16`, STU.hpp:763-765).
+ *
+ * V profilyje `pillar_widening_factor = 0`, tad `w` isnyksta ir strypas
+ * nestoreja - bet `max(...)` lieka ir veikia.
+ */
+export const WIDENING_SCALE = 0.02;
+export const DEFAULT_WIDENING_BEAM_SAMPLES = 16;
+
+export const defaultWideningModel = sm => (src, dir, len) => {
+  const w = WIDENING_SCALE * sm.cfg.pillarWideningFactor * len;
+  return Math.max(src.R, sm.cfg.headBackRadiusMm) + w;
+};
+
 export const constantWidening = r => () => r;
 export const widenBy = factor => (ball, dir, length) => ball.R + factor * length;
 
@@ -29,7 +51,8 @@ export const widenBy = factor => (ball, dir, length) => ball.R + factor * length
  * (o pas mus jis nulis, nes pad_around_object), tikrinama, ar stulpo peda
  * nepatenka i tarpa tarp pado ir modelio. Be jos stulpai lystu i ta plysi.
  */
-export function checkGroundRoute(mesh, sm, source, dir, bridgeLen, wideningfn, full = true) {
+export function checkGroundRoute(mesh, sm, source, dir, bridgeLen, wideningfn, full = true,
+                                 raySamples = DEFAULT_WIDENING_BEAM_SAMPLES) {
   const cfg = sm.cfg;
   const sd = safetyDistance(cfg, source.r);
   const gndlvl = groundLevel(sm);
@@ -46,7 +69,7 @@ export function checkGroundRoute(mesh, sm, source, dir, bridgeLen, wideningfn, f
   if (bridgeLen > EPSILON && full) {
     /* Nulinio ilgio tiltui pluostas negalioja - todel salyga. */
     const bb = Beam.fromBalls(Ball(source.pos, source.r), Ball(bridgeEnd, bridgeR));
-    brhitDist = beamMeshHit(mesh, bb, sd).dist;
+    brhitDist = beamMeshHit(mesh, bb, sd, raySamples).dist;
   } else {
     brhitDist = bridgeLen;
   }
@@ -57,7 +80,7 @@ export function checkGroundRoute(mesh, sm, source, dir, bridgeLen, wideningfn, f
     const gp = [bridgeEnd[0], bridgeEnd[1], gndlvl];
     const endRadius = wideningfn(Ball(bridgeEnd, bridgeR), DOWN, bridgeEnd[2] - gndlvl);
     const gndbeam = Beam.fromBalls(Ball(bridgeEnd, bridgeR), Ball(gp, endRadius));
-    const gndhit = beamMeshHit(mesh, gndbeam, sd);
+    const gndhit = beamMeshHit(mesh, gndbeam, sd, raySamples);
     let gndHitD = Math.min(gndhit.dist, downL + EPSILON);
 
     if (source.r >= cfg.headBackRadiusMm && gndhit.dist > downL &&
