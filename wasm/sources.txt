@@ -18,6 +18,11 @@ libslic3r/ClipperUtils.cpp
 libslic3r/Color.cpp
 libslic3r/Config.cpp
 libslic3r/CustomGCode.cpp
+# Thumbnails.cpp - ne paveiksleliams, o del PrintConfig: jo tikrinimo
+# funkcijos (make_and_check_thumbnail_list) yra PrintConfig.o dalis,
+# ir be ju linkas luzta, kai kas nors sukuria DynamicPrintConfig
+# (mums to prireike Rotfinder profiliui).
+libslic3r/GCode/Thumbnails.cpp
 libslic3r/CustomParametersHandling.cpp
 libslic3r/EdgeGrid.cpp
 libslic3r/ElephantFootCompensation.cpp

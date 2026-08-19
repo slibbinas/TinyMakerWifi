@@ -36,6 +36,9 @@
 #include <libslic3r/Zipper.hpp>
 #include <libslic3r/ClipperUtils.hpp>
 #include <libslic3r/ElephantFootCompensation.hpp>
+#include <libslic3r/SLA/Rotfinder.hpp>
+#include <libslic3r/Model.hpp>
+#include <libslic3r/PrintConfig.hpp>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -45,6 +48,29 @@
 
 using namespace Slic3r;
 using Clock = std::chrono::steady_clock;
+
+/*
+ * FDM miniatiuru pakaitalas.
+ *
+ * `PrintConfig.cpp` savo tikrinimuose kviecia `GCodeThumbnails` funkcijas, o
+ * ju tikrasis failas (`GCode/Thumbnails.cpp`) tempia libjpeg. Mums to nereikia:
+ * miniatiuros yra FDM G-code dalykas, SLA grandine ju neliecia. Iki
+ * `sla_rotfind` tai nekliuvo, nes visa `print_config_def` dalis buvo negyva -
+ * Rotfinder yra pirmas, kuriam prireike tikro `SLAPrintObjectConfig`.
+ *
+ * Kaip ir kiti pakaitalai (LibBGCode, boost::log) - aplinkos, ne algoritmo
+ * keitimas: sios dvi funkcijos musu kelyje niekada nekvieciamos.
+ */
+#include <libslic3r/GCode/Thumbnails.hpp>
+namespace Slic3r { namespace GCodeThumbnails {
+std::pair<GCodeThumbnailDefinitionsList, ThumbnailErrors>
+make_and_check_thumbnail_list(const std::string &, const std::string_view)
+{
+    return {};
+}
+std::string get_error_string(const ThumbnailErrors &) { return {}; }
+}} // namespace Slic3r::GCodeThumbnails
+
 
 /*
  * Eigos pranesimas i JS puse. Butinas todel, kad pjaustymas yra blokuojantis:
@@ -453,6 +479,84 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
 
     TriangleMesh mesh{std::move(its)};
     return run_chain(mesh, layer_h, branching != 0, false, false);
+}
+
+/**
+ * Prusos automatinis pastatymas (Rotfinder.cpp) - TAS PATS kodas, kuri
+ * PrusaSlicer GUI kviecia is „Optimize orientation". Nieko cia neinterpretuojam:
+ * pastatom `ModelObject` ir kvieciam tris jo tikslus.
+ *
+ * `kuris` - bitu kauke: 1 = maziausiai atramu, 2 = zemiausias spaudinys,
+ * 4 = pavirsiaus lygiavimas (pastarasis brangus - 961 ivertinimas per VISUS
+ * trikampius, tad paduodamas atskirai).
+ *
+ * Grazina kampus RADIANAIS apie X ir Y. Taikymo tvarka - kaip
+ * `to_transform3f` (Rotfinder.cpp): pirma X, paskui Y.
+ */
+EMSCRIPTEN_KEEPALIVE
+const char *sla_rotfind(const float *pos, int ntri, int kuris)
+{
+    if (!pos || ntri <= 0) {
+        g_json = "{\"klaida\":\"tuscias tinklas\"}";
+        return g_json.c_str();
+    }
+    indexed_triangle_set its;
+    its.vertices.reserve(size_t(ntri) * 3);
+    its.indices.reserve(size_t(ntri));
+    for (int t = 0; t < ntri; ++t) {
+        const int o = t * 9;
+        its.vertices.emplace_back(pos[o + 0], pos[o + 1], pos[o + 2]);
+        its.vertices.emplace_back(pos[o + 3], pos[o + 4], pos[o + 5]);
+        its.vertices.emplace_back(pos[o + 6], pos[o + 7], pos[o + 8]);
+        its.indices.emplace_back(t * 3, t * 3 + 1, t * 3 + 2);
+    }
+    its_merge_vertices(its, true);
+    if (its_volume(its) < 0.f)
+        for (auto &t : its.indices) std::swap(t[1], t[2]);
+
+    Model model;
+    ModelObject *mo = model.add_object();
+    mo->add_volume(TriangleMesh{its});
+    mo->add_instance();
+
+    /* Tas pats profilis, kaip pjaustant: padas aplink modeli ir nulinis
+       pakelimas. Tai svarbu - nuo to priklauso, KURIUO keliu Rotfinder eina
+       (Rotfinder.cpp `is_on_floor`): gulinciam ant plokstes jis tikrina tik
+       isgaubtinio apvalkalo sienas, pakeltam - tinkleli per visus kampus. */
+    DynamicPrintConfig cfg;
+    cfg.set_key_value("pad_around_object", new ConfigOptionBool(true));
+    cfg.set_key_value("support_object_elevation", new ConfigOptionFloat(0.));
+
+    sla::RotOptimizeParams p;
+    p.accuracy(1.f).print_config(&cfg);
+
+    std::string js = "{";
+    auto irasyk = [&js](const char *vardas, const Vec2d &r, long ms) {
+        char b[192];
+        std::snprintf(b, sizeof(b),
+            "%s\"%s\":{\"rx\":%.6f,\"ry\":%.6f,\"ms\":%ld}",
+            js.size() > 1 ? "," : "", vardas, r.x(), r.y(), ms);
+        js += b;
+    };
+
+    if (kuris & 1) {
+        auto t0 = Clock::now();
+        Vec2d r = sla::find_least_supports_rotation(*mo, p);
+        irasyk("maziausiai_atramu", r, ms_since(t0));
+    }
+    if (kuris & 2) {
+        auto t0 = Clock::now();
+        Vec2d r = sla::find_min_z_height_rotation(*mo, p);
+        irasyk("zemiausias", r, ms_since(t0));
+    }
+    if (kuris & 4) {
+        auto t0 = Clock::now();
+        Vec2d r = sla::find_best_misalignment_rotation(*mo, p);
+        irasyk("lygiavimas", r, ms_since(t0));
+    }
+    js += "}";
+    g_json = js;
+    return g_json.c_str();
 }
 
 } // extern "C"

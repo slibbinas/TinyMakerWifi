@@ -159,7 +159,7 @@ link() {
   # 2) Narsyklei: be NODERAWFS (disko ten nera - STL keliauja per atminti),
   #    MODULARIZE, kad puslapis pats nuspresu kada krauti, ir be EXIT_RUNTIME,
   #    nes po pjaustymo modulis turi likti gyvas kitam modeliui.
-  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla-web.js" -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=0     -sEXPORT_NAME=createSLA -sINVOKE_RUN=0 -sFORCE_FILESYSTEM=1     -sEXPORTED_FUNCTIONS='["_sla_slice","_sla_slice_mesh","_sla_export_sl1","_sla_preview","_malloc","_free"]'     -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","UTF8ToString","HEAPF32"]'     --use-port=boost_headers
+  em++ -std=c++17 -O2 "$OUT"/obj/*.o "${LIBS[@]}"     -o "$OUT/sla-web.js" -sALLOW_MEMORY_GROWTH=1 -sMODULARIZE=1 -sEXPORT_ES6=0     -sEXPORT_NAME=createSLA -sINVOKE_RUN=0 -sFORCE_FILESYSTEM=1     -sEXPORTED_FUNCTIONS='["_sla_slice","_sla_slice_mesh","_sla_rotfind","_sla_export_sl1","_sla_preview","_malloc","_free"]'     -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap","FS","UTF8ToString","HEAPF32"]'     --use-port=boost_headers
 
   ls -la "$OUT/sla.wasm" "$OUT/sla-web.wasm"
   echo "Patikra (node):     node $OUT/sla.js <model.stl> 0.05"
