@@ -864,7 +864,16 @@ const slicerCage=enter=>{
   if(typeof syncCageBtn==='function')syncCageBtn();
 };
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
-                     slicerDetLock(v); slicerCage(v); if(!v)slicerLayerUI(false);};
+                     slicerDetLock(v); slicerCage(v); slicerMarkUI(v);
+                     if(!v)slicerLayerUI(false);};
+/* Zymeklis - slicerio irankis: spausdinimo perziuroje zymeti nera ko, o mygtukas
+   ten tik kabojo (V 08-20). Rodom tik kai vaizdas priklauso sliceriui IR kai pats
+   irankis apskritai ijungtas (jis dev'inis - be ?dev=1 jo mygtukas lieka „none"). */
+function slicerMarkUI(on){
+  const w=$('gl3dMarkWrap'), b=$('gl3dMark');
+  if(!w||!b)return;
+  w.style.display=(on&&b.style.display!=='none')?'flex':'none';
+}
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
 const slicerReset=()=>{
