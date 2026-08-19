@@ -194,14 +194,25 @@ function chainLines(lines) {
  *
  * Konturai -> ExPolygons. `closing_radius` uzdaro mikroskopines skyles:
  * isplecia ir traukia atgal. V profilyje `slice_gap_closing_radius = 0,005`.
+ *
+ * Jungimas KAMPINIS (jtMiter), ne apvalus: originalas cia kviecia
+ * `offset2_ex(union_ex(loops), offset_out, offset_in)` be joinType, o
+ * numatytasis yra `DefaultJoinType = jtMiter` (ClipperUtils.hpp:49).
+ *
+ * ISMATUOTA 2026-08-19, kiek kainavo nukrypimas: apvalus jungimas kiekviena
+ * kampa pakeicia lanku, ir konturai issipucia 5,5x (bracket 160 -> 880 tasku
+ * 20-yje sluoksniu). Uz tuos taskus moka visi tolesni etapai - evil sejos
+ * paruosimas 70 -> 10,8 s, visa grandine 105 -> 50 s, puodelis 6,4 -> 1,8 s.
+ * Pjuviu plotai nesikeicia (292,000000 mm2), bet sejos rezultatas SIEK TIEK
+ * kinta (puodelis 25 -> 26 stulpai), nes taskai ant konturo kiti.
  */
 export function makeExPolygons(CL, loops, closingRadius = 0, extraOffset = 0) {
   if (!loops.length) return [];
   let ex = unionEx(CL, loops);
   const delta = scaled(closingRadius);
   if (delta > 0) {
-    ex = offsetEx(CL, exPaths(ex), delta, CL.JoinType.jtRound, DEFAULT_MITER_LIMIT);
-    ex = offsetEx(CL, exPaths(ex), -delta, CL.JoinType.jtRound, DEFAULT_MITER_LIMIT);
+    ex = offsetEx(CL, exPaths(ex), delta, CL.JoinType.jtMiter, DEFAULT_MITER_LIMIT);
+    ex = offsetEx(CL, exPaths(ex), -delta, CL.JoinType.jtMiter, DEFAULT_MITER_LIMIT);
   }
   if (extraOffset) {
     ex = offsetEx(CL, exPaths(ex), scaled(extraOffset), CL.JoinType.jtMiter, DEFAULT_MITER_LIMIT);
