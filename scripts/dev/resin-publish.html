@@ -58,6 +58,12 @@ pre{background:var(--code);border-radius:9px;padding:11px 13px;font-size:.78rem;
 .tag.no{background:var(--badbg);color:var(--bad)}
 .tag.hid{background:var(--warnbg);color:var(--warn)}
 details{margin-top:10px}summary{cursor:pointer;font-size:.8rem;color:var(--muted)}
+.help{font-size:.85rem}
+.help .lead{margin:0 0 4px;color:var(--muted)}
+.help .sc{border-top:1px solid var(--line);padding:10px 0 2px}
+.help .sc>b{display:block;margin-bottom:3px}
+.help .sc span{display:block;color:var(--muted)}
+.help i{font-style:normal;background:var(--code);border-radius:5px;padding:1px 5px;white-space:nowrap}
 .foot{margin-top:26px;font-size:.78rem;color:var(--muted)}
 a{color:var(--link)}
 </style>
@@ -93,6 +99,47 @@ negalėtų išsiskirti.
    </div>
   </div>
   <div id="pending"></div>
+
+  <h2>Kaip tai daroma</h2>
+  <div class="card help">
+   <p class="lead">Puslapis nieko nepublikuoja. Tu paruoši du failus, o į internetą juos
+   sudeda Claude - tereikia pasakyti <b>„publikuok dervas"</b>. Nuo to momento iki kol
+   profilį pamato visi, praeina iki 10 minučių. Kol to nepasakei, niekas niekur neišeina,
+   o nebaigtas darbas išlieka net uždarius naršyklę.</p>
+
+   <div class="sc"><b>Išbandžiau naują dervą ir noriu ja pasidalinti</b>
+    <span>Spausk <i>+ Nauja derva</i>. Reikšmes nurašyk iš printerio (pulte
+    <i>Settings → Resin</i>) - tas pačias, su kuriomis realiai spausdinai. Užpildyk
+    <i>Kas išbandė</i> ir mėnesį, spausk <i>Įrašyti į biblioteką</i> ir pasakyk man.</span></div>
+
+   <div class="sc"><b>Reikia pataisyti klaidą</b>
+    <span>Spausk <i>Taisyti</i> ir pakeisk, ką reikia - viršuje matysi, kuo failas skiriasi
+    nuo publikuoto. Toliau du keliai. Jei profilis paskelbtas visai neseniai ir dar niekas
+    nespėjo jo įsidiegti, užtenka <i>Įrašyti į biblioteką</i>. Jei kabo jau senokai, spausk
+    <i>Išleisti reviziją</i>: profilis gauna naują vardą, ir <b>tik taip</b> pataisą pamato
+    tie, kas seną jau įsidiegė - printeris siūlo tik tuos profilius, kurių dar neturi.</span></div>
+
+   <div class="sc"><b>Ta pati derva antram sluoksnio aukščiui</b>
+    <span>Spausk <i>Kopijuoti</i>. Reikšmės nusirašo, aukštis persijungia į kitą (0,05 ↔ 0,10),
+    vardas pasisiūlo pats - lieka pataisyti ekspoziciją ir įrašyti. Tą pačią dervą turėti abiem
+    aukščiams yra normalu, ne išimtis.</span></div>
+
+   <div class="sc"><b>Atėjo skundas, kol neaišku - noriu stabdyti</b>
+    <span>Spausk <i>Sustabdyti</i> ir įrašyk priežastį. Profilis dingsta iš siūlomų, bet lieka
+    faile su data; išsiaiškinus <i>Grąžinti</i> pastato jį atgal į tą pačią vietą.
+    <b>Svarbu:</b> tai sustabdo tik naujus diegimus. Kas profilį jau įsidiegė, to printeryje
+    jis lieka - atšaukti per atstumą negalim.</span></div>
+
+   <div class="sc"><b>Šitos dervos nebeplatinam</b>
+    <span>Pirma <i>Sustabdyti</i>, paskui sustabdytųjų eilutėje <i>Išimti visam laikui</i>.
+    Failas lieka gulėti internete, tad niekam nieko nelūžta - jis tiesiog nebesiūlomas.</span></div>
+
+   <div class="sc"><b>Kodėl forma tokia priekabi</b>
+    <span>Printeris blogos reikšmės negrąžina su klaida: jis ją arba apkarpo iki savo ribos,
+    arba visai ignoruoja ir palieka gamyklinę. Abu atvejai tylūs, o ženkliukas
+    <i>✓ tested by</i> yra pažadas, kad kažkas tikrai taip spausdino. Todėl už ribų išeiti
+    čia neleidžiama.</span></div>
+  </div>
  </div>
 
  <div>
@@ -114,6 +161,10 @@ negalėtų išsiskirti.
    <div class="grid" style="grid-template-columns:1fr;margin-top:10px">
     <label><b>Pirkimo nuoroda</b><input type="text" id="fBuy" placeholder="https://tinymakerwifi.com/r/sunlu-tough"></label>
    </div>
+   <p class="note">Nuoroda viena visiems. Iš kurios šalies žmogus ir į kurią parduotuvę jį
+   vesti, sprendžia mūsų pačių nukreipimas <code>/r/&lt;vardas&gt;</code> - todėl partnerį ar
+   šalių sąrašą galima keisti nieko iš naujo neskelbiant. <b>Jo dar nėra</b>, tad kol kas šis
+   laukas tuščias arba su laikina nuoroda.</p>
    <div id="formMsg"></div>
    <div class="row" style="border-top:1px solid var(--line);margin-top:12px;padding-top:11px">
     <button class="pri" id="btnApply">Įrašyti į biblioteką</button>
