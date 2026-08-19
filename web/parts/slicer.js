@@ -473,6 +473,14 @@ function slicerSetView(v){
   const b=$('gl3dMask');
   if(b){b.classList.toggle('on',slicerView!==0); b.title=VIEW_TITLES[slicerView];}
   slicerMaskSet(slicerView===2);
+  /* Tikro sluoksnio vaizde priartinimas ir narvas nieko nedaro: tai plokscia
+     kauke, pikselis prie pikselio, ir tokia ji turi likti (tam ji ir yra).
+     Mygtukai slepiami, o ne uzrakinami - valdiklis, kuris nieko nekeicia, meluoja
+     labiau uz nesancio mygtuko nebuvima (V 08-19). */
+  {const plokscia=slicerView===2;
+   const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
+   document.querySelectorAll('#gl3dZoom [data-zoom]')
+     .forEach(b=>{b.style.display=plokscia?'none':'';});}
   if(slicerView!==2)slicerBuildView();
   if(slicerOut)slicerShowLayer(slicerLayerN||slicerOut.layers);
 }
