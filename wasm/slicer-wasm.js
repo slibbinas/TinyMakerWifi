@@ -13,7 +13,7 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.0.5-wasm';
+export const VERSION = '3.0.6-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
@@ -136,7 +136,11 @@ export async function slice(pos, opts, onProgress) {
   return {
     blob: new Blob([r.sl1], { type: 'application/zip' }),
     files,
-    layers: d.sluoksniu,
+    /* Sluoksniu skaicius imamas is PACIO FAILO, ne is vidinio pjaustymo: jie
+       skiriasi, nes .sl1 pirmas sluoksnis storesnis (0,3 mm) ir pradedamas nuo
+       plokstes. Naudotojui rodomas skaicius turi sutapti su tuo, ka gaus
+       printeris (Terry: vidinis 340, faile 334). */
+    layers: (r.sl1info && r.sl1info.sluoksniu) || d.sluoksniu,
     rawMl: d.turis.viso_ml,
     supports: {
       pillars: d.tasku,                  // kiek atramu liecia detale

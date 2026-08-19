@@ -356,8 +356,30 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     g_last.layer_h = layer_h;
     g_last.ready = true;
 
+    /*
+     * Geometrija VAIZDUI. Apkerpama ties plokste, nes 3D vaizdas turi rodyti
+     * ta pati, ka printeris darys: kas zemiau nulio, i sluoksnius nepatenka
+     * (zr. `sluoksniu_tinklelis` ir SLAPrintSteps.cpp:693), tad ir ekrane to
+     * buti neturi. Kitaip zmogus mato guzą po raftu, kurio spaudinyje nebus.
+     *
+     * Vidine geometrija (`g_last`) lieka NEPALIESTA - diagnostika toliau rodo
+     * tikras Z ribas, tad klausimas „kodel ta atrama ten leidziasi" nera
+     * paslepiamas.
+     */
+    auto apkirpk = [](const indexed_triangle_set &m, float z0) {
+        /* Virsunes, nusileidusios zemiau plokstes, PRIREMIAMOS prie jos. Taip
+           vaizde nelieka nieko po plokste, o forma virsuje nepasikeicia - t. y.
+           matosi lygiai tai, ka printeris atspausdins (jo sluoksniai irgi
+           prasideda nuo plokstes). Trikampiu neismetam: kitaip liktu skyle. */
+        indexed_triangle_set o = m;
+        for (auto &v : o.vertices)
+            if (v.z() < z0) v.z() = z0;
+        return o;
+    };
+    const float PLOKSTE_Z = 0.f;
+
     its_write_stl_binary("/out_model.stl", "modelis", its);
-    its_write_stl_binary("/out_supports.stl", "atramos", tree.first);
+    its_write_stl_binary("/out_supports.stl", "atramos", apkirpk(tree.first, PLOKSTE_Z));
     its_write_stl_binary("/out_pad.stl", "padas", pad);
 
     std::snprintf(buf, sizeof(buf),
