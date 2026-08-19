@@ -162,7 +162,8 @@ negalėtų išsiskirti.
     <label><b>Pavadinimas</b><input type="text" id="fDisplay" placeholder="SUNLU Toughness Resin"></label>
    </div>
    <div class="grid" style="margin-top:10px">
-    <label><b>Vardas failui</b><input type="text" id="fSlug" placeholder="sunlu-tough"></label>
+    <label><b>Vardas failui</b><input type="text" id="fSlug" placeholder="sunlu-tough">
+     <span style="font-size:.72rem;color:var(--muted)">susidaro iš pavadinimo</span></label>
     <div><label><b>Sluoksnio aukštis</b></label>
      <div class="seg"><button data-lh="0.05">0,05 mm</button><button data-lh="0.10">0,10 mm</button></div></div>
    </div>
@@ -516,7 +517,13 @@ function collect(){
   p.tested_by=$('fTestedBy').value.trim();
   p.tested_on=$('fTestedOn').value.trim();
   p.buy_url=$('fBuy').value.trim();
-  draft.slug=$('fSlug').value.trim();
+  /* Vardo iš principo atsisakyti negalima - kažkas turi vadintis failu ir kortelėje,
+     ir pagal jį printeris sprendžia, ar profilį jau turi. Bet rankomis jo rašyti
+     nereikia: kol nepalietei laukelio, jis seka pavadinimą. */
+  if(draft.slugAuto){
+    draft.slug=slugify(p.name);
+    if($('fSlug').value!==draft.slug)$('fSlug').value=draft.slug;
+  }else draft.slug=$('fSlug').value.trim();
   F.forEach(f=>{const el=$('f_'+f.k);if(el&&el.value!=='')p[f.k]=Number(el.value);});
 }
 function onEdit(){collect();validate();save();showOut();}
@@ -564,7 +571,7 @@ function validate(){
   if(suggest){
     const b=document.createElement('button');b.className='pri';b.style.marginTop='8px';
     b.textContent='Naudoti vardą: '+suggest;
-    b.addEventListener('click',()=>{$('fSlug').value=suggest;onEdit();});
+    b.addEventListener('click',()=>{draft.slugAuto=false;$('fSlug').value=suggest;onEdit();});
     box.appendChild(b);
   }
   warns.forEach(t=>{const d=document.createElement('div');d.className='warn';d.textContent=t;box.appendChild(d);});
@@ -573,13 +580,14 @@ function validate(){
   return errs.length===0;
 }
 function openNew(){
-  draft={mode:'new',slug:'',slug0:null,p:Object.assign({},BASE,{name:'',tested_by:'TinyMakerWiFi',tested_on:today(),buy_url:''})};
+  draft={mode:'new',slug:'',slug0:null,slugAuto:true,
+    p:Object.assign({},BASE,{name:'',tested_by:'TinyMakerWiFi',tested_on:today(),buy_url:''})};
   renderForm();save();showOut();
 }
 async function openEdit(e){
   try{
     const j=await fileOf(e);
-    draft={mode:'edit',slug:e.name,slug0:e.name,p:Object.assign({},BASE,j)};
+    draft={mode:'edit',slug:e.name,slug0:e.name,slugAuto:false,p:Object.assign({},BASE,j)};
     renderForm();save();showOut();
   }catch(err){flash(err.message);}
 }
@@ -589,7 +597,7 @@ async function openCopy(e){
     const other=Number(j.layer_height)<0.075?'0.10':'0.05';
     const sfx=other==='0.10'?'-010':'-005';
     let slug=slugify(e.name.replace(/-0(05|10)$/,'')+sfx);
-    draft={mode:'new',slug:slug,slug0:null,p:Object.assign({},BASE,j,{layer_height:Number(other)})};
+    draft={mode:'new',slug:slug,slug0:null,slugAuto:false,p:Object.assign({},BASE,j,{layer_height:Number(other)})};
     draft.p.name=(j.name||e.display)+' '+other.replace('.',',')+' mm';
     renderForm();save();showOut();
     const d=document.createElement('div');d.className='okbox';
@@ -620,7 +628,7 @@ function revision(){
   const m=/-r(\d+)$/.exec(old);
   const next=m?old.replace(/-r\d+$/,'-r'+(Number(m[1])+1)):old+'-r2';
   const oldEntry=man.profiles.filter(x=>x.name===old)[0];
-  draft.slug=next;draft.slug0=null;draft.mode='new';
+  draft.slug=next;draft.slug0=null;draft.mode='new';draft.slugAuto=false;
   draft.p.tested_on=today();
   if(!/rev\)$/.test(draft.p.name))draft.p.name=draft.p.name+' ('+today()+' rev)';
   if(draft.p.buy_url&&draft.p.buy_url.indexOf('/r/')>0)
@@ -697,13 +705,13 @@ $('btnPasteOk').addEventListener('click',()=>{
   if(j.profiles){man={profiles:j.profiles,hidden:j.hidden||[],retired:j.retired||[]};
     if(!live)live=JSON.parse(JSON.stringify(man));
     $('pasteBox').style.display='none';save();renderLib();showOut();return;}
-  draft={mode:'new',slug:slugify(j.name||''),slug0:null,p:Object.assign({},BASE,j)};
+  draft={mode:'new',slug:slugify(j.name||''),slug0:null,slugAuto:false,p:Object.assign({},BASE,j)};
   $('pasteBox').style.display='none';renderForm();save();showOut();
 });
 document.querySelectorAll('.seg button').forEach(b=>
   b.addEventListener('click',()=>{if(draft)setLh(b.dataset.lh);}));
+$('fSlug').addEventListener('input',()=>{if(draft)draft.slugAuto=false;});
 ['fDisplay','fSlug','fTestedBy','fTestedOn','fBuy'].forEach(id=>$(id).addEventListener('input',onEdit));
-$('fDisplay').addEventListener('blur',()=>{if(draft&&!draft.slug){draft.slug=slugify(draft.p.name);renderForm();showOut();}});
 document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
   copyTxt(b.dataset.copy==='file'?outFileTxt:outManTxt);b.textContent='nukopijuota';
   setTimeout(()=>b.textContent='kopijuoti',1200);}));
