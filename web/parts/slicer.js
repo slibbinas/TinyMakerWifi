@@ -174,6 +174,9 @@ $('slicerToggle').addEventListener('click',async()=>{
 const slicerInvalidate=()=>{
   if(typeof slicerOut==='undefined'||!slicerOut)return;
   slicerOut=null;
+  /* Atramos priklauso TAM rezultatui: be sito senojo modelio atramos likdavo
+     stovėti scenoje salia naujo (V 08-20 - ikelus kita modeli suportai liko seni). */
+  if(window.gl3dSupports)gl3dSupports(null);
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
@@ -339,6 +342,7 @@ $('slicerFile').addEventListener('change',async e=>{
     /* Senas rezultatas nuvalomas PRIES nauja modeli: kitaip jo duomenys
        gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
     slicerOut=null;
+    if(window.gl3dSupports)gl3dSupports(null);   // naujas modelis - senos atramos ne jo
     slicerRaw=r.positions; slicerFileName=f.name;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart

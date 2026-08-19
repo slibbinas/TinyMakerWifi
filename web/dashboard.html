@@ -4971,7 +4971,12 @@ const renderSdJob=s=>{
      kas apklausa - zmogui tai mirksejimas (V 08-18). Ispakavimas perima savaime, kai
      baitai baigiasi ir  nukrenta. */
   if(job==='import'&&uploadBusy){sdJobCur=jobPlain(txt);return;}
-  snackProgress(txt,Number(s&&s.sdJobDone)||0,Number(s&&s.sdJobTotal)||0);
+  /* Suskaiciuota - dar ne baigta: printeris po sluoksniu dar istrina ikelta archyva
+     (didelio modelio - keliasdesimt sekundziu). Iki siol tuo metu kabejo „924/924 ·
+     99 %" ir atrodydavo uzstrige (V 08-20). Sakom, kas is tikruju vyksta. */
+  {const dn=Number(s&&s.sdJobDone)||0, tt=Number(s&&s.sdJobTotal)||0;
+   if(tt>0&&dn>=tt)snackProgress(txt+' · finishing',0,0,undefined,undefined,99);
+   else snackProgress(txt,dn,tt);}
   sdJobCur=jobPlain(txt);
 };
 let lastPollOkAt=0;
