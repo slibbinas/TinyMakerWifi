@@ -62,7 +62,9 @@ const slicerStep=()=>{
       - kitaip liktu tuscia juosta (V 08-20). */
    const zoom=$('gl3dZoom');
    if(zoom){
-     const yraFormos=!!(tools&&tools.style.display!=='none'&&!sliced&&loaded);
+     /* Pagal BUSENA, ne pagal `display`: uzdarius mastelio langeli irankiai dar
+        akimirka buna paslepti, ir grupe atsistodavo ant ju (V 08-20). */
+     const yraFormos=loaded&&!sliced;
      zoom.style.bottom=yraFormos?'44px':'8px';
    }
   }
@@ -287,6 +289,11 @@ const slicerRender=()=>{
   slicerHome=false;
   slicerOwns(true);
   {const t=$('gl3dTools'); if(t)t.style.display='flex';}
+  /* Mastelio langelis uzima visa eilute, tad kaimynines grupes tuo metu paslepiam
+     (`popRow`). Bet `gl3dMesh` jas grazina kas perpiesima, o mastelio slankiklis
+     perpiesia kas judesi - tad +/- issilisdavo ant paties langelio (V 08-20). */
+  {const pp=$('gl3dPop');
+   if(pp&&pp.style.display!=='none'){popRow(false);pp.style.display='flex';}}
   slicerStep();          // juostos turinys priklauso nuo to, ar jau supjaustyta
   $('printPreviewTitle').textContent='Slicer preview';
   show('printPreviewCard',true);
@@ -855,6 +862,7 @@ const slicerReset=()=>{
 const popClose=()=>{
   const p=$('gl3dPop'); if(!p||p.style.display==='none')return;
   p.style.display='none'; popRow(true);
+  slicerStep();          // grupes grizo - eiluciu tvarka perskaiciuojama
 };
 
 /* Irankiu juostos ant vaizdo valdiklis. Perkeldamas ji pirma karta praleidau -
