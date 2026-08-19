@@ -191,4 +191,178 @@ export class DefaultSupportTree {
     this.pillarClusters = clusterByPredicate(groundHeads, pointfn, predicate,
                                              cfg.maxBridgesOnPillar);
   }
+
+  /* --------------------------------------------------- pagalbiniai statymui */
+
+  /** `bridge_mesh_distance` - tik atstumas. */
+  bridgeMeshDistance(s, dir, r, sd) { return this.bridgeMeshIntersect(s, dir, r, sd).dist; }
+
+  addPillarToTree(p) { p.id = this.tree.pillars.length; this.tree.pillars.push(p); return p.id; }
+
+  /** `connect_to_ground` (DST.cpp:648-668) per `deepsearch_ground_connection`. */
+  connectToGround(h) {
+    const src = junction(junctionPoint(h), h.rBackMm, -h.id);
+    const conn = deepsearchGroundConnection(this.mesh, this.sm, src,
+                                            defaultWideningModel(this.sm), h.dir);
+    const pid = buildGroundConnection(this.tree, this.sm, conn);
+    if (pid >= 0) {
+      this.pillarIndex.push({ pos: pillarEndpoint(this.tree.pillars[pid]), id: pid });
+      h.pillarId = pid;
+    }
+    return pid >= 0;
+  }
+
+  /** `create_ground_pillar` (DST.cpp:365-383). */
+  createGroundPillar(hjp, sourcedir, headId) {
+    const conn = deepsearchGroundConnection(this.mesh, this.sm, hjp,
+                                            defaultWideningModel(this.sm), sourcedir);
+    const pid = buildGroundConnection(this.tree, this.sm, conn);
+    if (pid >= 0) this.pillarIndex.push({ pos: pillarEndpoint(this.tree.pillars[pid]), id: pid });
+    return pid >= 0;
+  }
+
+  /**
+   * `connect_to_nearpillar` (DST.cpp:282-363).
+   *
+   * Bando nuvesti tilta nuo galvutes i JAU ESANTI stulpa. Jei tiesioginis
+   * kelias per status arba per ilgas, ieskoma zemesnio lietimosi tasko ant to
+   * stulpo, ir tada po galvute reikia DALINIO stulpelio (`zdiff > 0`).
+   */
+  connectToNearpillar(h, nearpillarId) {
+    const cfg = this.sm.cfg;
+    const np = this.tree.pillars[nearpillarId];
+    if (!np) return false;
+    if (np.bridges > cfg.maxBridgesOnPillar) return false;
+
+    const headjp = junctionPoint(h);
+    const nearjpU = pillarStartpoint(np);
+    const nearjpL = pillarEndpoint(np);
+
+    const r = h.rBackMm;
+    const d2d = dist2d(to2d(headjp), to2d(nearjpU));
+    const d3d = distance3(headjp, nearjpU);
+    const hdiff = nearjpU[2] - headjp[2];
+    const slope = Math.atan2(hdiff, d2d);
+
+    let bridgestart = headjp.slice();
+    let bridgeend = nearjpU.slice();
+    const maxLen = r * cfg.maxBridgeLengthMm / cfg.headBackRadiusMm;
+    const maxSlope = cfg.bridgeSlope;
+    let zdiff = 0;
+
+    if (d3d > maxLen || slope > -maxSlope) {
+      let Zdown = headjp[2] + d2d * Math.tan(-maxSlope);
+      const touchjp = [bridgeend[0], bridgeend[1], Zdown];
+      const D = distance3(headjp, touchjp);
+      zdiff = Zdown - nearjpU[2];
+
+      if (zdiff > 0) {
+        Zdown -= zdiff;
+        bridgestart[2] -= zdiff;
+        touchjp[2] = Zdown;
+        /* Po galvute reikia dalinio stulpelio - bet tik jei ten yra vietos. */
+        const t = this.bridgeMeshDistance(headjp, DOWN, r);
+        if (t < zdiff) return false;
+      }
+
+      if (Zdown <= nearjpU[2] && Zdown >= nearjpL[2] && D < maxLen) bridgeend[2] = Zdown;
+      else return false;
+    }
+
+    /* Empirine riba: tiltas neleidziamas per zemai prie plokstes. */
+    const minz = groundLevel(this.sm) + 4 * h.rBackMm;
+    if (bridgeend[2] < minz) return false;
+
+    const t = this.bridgeMeshDistance(bridgestart, normalized(sub(bridgeend, bridgestart)), r);
+    if (t < distance3(bridgestart, bridgeend)) return false;
+
+    if (np.bridges < cfg.maxBridgesOnPillar) {
+      if (zdiff > 0) {
+        const p = mkPillar([headjp[0], headjp[1], bridgestart[2]], headjp[2] - bridgestart[2], r);
+        p.startsFromHead = true; p.startJunctionId = h.id;
+        this.addPillarToTree(p);
+        this.tree.junctions.push(junction(bridgestart, r));
+        this.tree.bridges.push(mkBridge(bridgestart, bridgeend, r));
+      } else {
+        this.tree.bridges.push(mkBridge(headjp, bridgeend, r));
+      }
+      np.bridges++;
+      return true;
+    }
+    return false;
+  }
+
+  /** `search_pillar_and_connect` (DST.cpp:723-760). */
+  searchPillarAndConnect(source) {
+    const liko = this.pillarIndex.slice();
+    const querypt = junctionPoint(source);
+    const gnd = groundLevel(this.sm);
+
+    while (liko.length) {
+      const qp = [querypt[0], querypt[1], gnd];
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < liko.length; i++) {
+        const d = distance3(liko[i].pos, qp);
+        if (d < bd) { bd = d; bi = i; }
+      }
+      const ne = liko[bi];
+      const np = this.tree.pillars[ne.id];
+      if (np && this.connectToNearpillar(source, ne.id) && np.rStart >= source.rBackMm)
+        return true;
+      liko.splice(bi, 1);
+    }
+    return false;
+  }
+
+  /* -------------------------------------------------------- routing_to_ground */
+
+  /**
+   * `routing_to_ground` (DST.cpp:577-647).
+   *
+   * Kiekvienam klasteriui: centrine galvute gauna TIKRA stulpa, o likusios
+   * prisikabina prie jo tiltais. Nepavykus - ieskoma bet kurio kito stulpo, o
+   * jei ir to nera, statomas savas.
+   */
+  routingToGround() {
+    const clCentroids = [];
+
+    for (const cl of this.pillarClusters) {
+      if (!cl.length) continue;
+      const lcid = clusterCentroid(cl, i => this.points[i].pos,
+                                   (p1, p2) => dist2d(p1, p2));
+      const hid = cl[lcid];
+      clCentroids.push(hid);
+
+      const h = this.heads[hid];
+      if (!this.createGroundPillar(headJunction(h), h.dir, h.id)) {
+        /* Stulpo pastatyti nepavyko - galvute keliauja i „ant modelio" grupe. */
+        this.iheadsOnModel.push(h.id);
+      }
+    }
+
+    let ci = 0;
+    for (const cl of this.pillarClusters) {
+      if (!cl.length) continue;
+      const cidx = clCentroids[ci++];
+      if (cidx === undefined) continue;
+
+      /* Artimiausias stulpas prie centrines galvutes jungties. */
+      const qp = junctionPoint(this.heads[cidx]);
+      let best = null, bd = Infinity;
+      for (const e of this.pillarIndex) {
+        const d = distance3(e.pos, qp);
+        if (d < bd) { bd = d; best = e; }
+      }
+      if (!best) continue;
+
+      for (const c of cl) {
+        if (c === cidx) continue;
+        const sidehead = this.heads[c];
+        if (!this.connectToNearpillar(sidehead, best.id) &&
+            !this.searchPillarAndConnect(sidehead)) {
+          this.createGroundPillar(headJunction(sidehead), sidehead.dir, sidehead.id);
+        }
+      }
+    }
+  }
 }
