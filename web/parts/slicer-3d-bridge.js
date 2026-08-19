@@ -6,7 +6,9 @@
   let supMesh=null;
   /* Mygtukai, kurie turi prasme TIK supjaustytiems duomenims. Sliceryje jie
      slepiami (nera ko pjauti, nera voksleliu), o gl3dShow juos grazina. */
-  const SLICER_HIDE=['gl3dCage','gl3dDet','gl3dClip','gl3dRaw'];
+  /* `gl3dCage` cia NEBERA: narvas sliceryje pagal nutylejima isjungtas, bet
+     mygtukas turi likti - kitaip jo niekaip neijungsi (V 08-19). */
+  const SLICER_HIDE=['gl3dDet','gl3dClip','gl3dRaw'];
 
   // Modelio tinklelis is slicerio (Float32Array pozicijos). home===false: tas pats
   // modelis, tik pakeistas - kameros neliesti.

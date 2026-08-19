@@ -26,6 +26,14 @@ const slicerStep=()=>{
   set('slicerChoose',!loaded);
   set('slicerGo',loaded&&!sliced);
   set('slicerSave',sliced);
+  /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
+     supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
+     paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
+  {const tools=$('gl3dTools');
+   if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
+     const b=tools.querySelector("[data-tool='"+k+"']");
+     if(b)b.style.display=sliced?'none':'';});
+  }
 };
 const slicerButtons=on=>{
   ['slicerAutoFit','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
@@ -226,8 +234,6 @@ const slicerRender=()=>{
   if(slicerBudget&&tri>slicerBudget)
     fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
       +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
-  {const ab=document.querySelector("#gl3dTools [data-tool='detail']");
-   if(ab)ab.classList.toggle('on',$('slicerAA').checked);}
   const home=slicerHome;
   if(window.gl3dMesh)gl3dMesh(S.toSceneMesh(placed),home);
   /* Kadruojam PATI MODELI, ne visa gamybos turi. `gl3dMesh` savo „home" atstuma
@@ -241,6 +247,7 @@ const slicerRender=()=>{
   slicerHome=false;
   slicerOwns(true);
   {const t=$('gl3dTools'); if(t)t.style.display='flex';}
+  slicerStep();          // juostos turinys priklauso nuo to, ar jau supjaustyta
   $('printPreviewTitle').textContent='Slicer preview';
   show('printPreviewCard',true);
 };
@@ -689,8 +696,26 @@ const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
    mygtukas likdavo uzrakintas (V 08-12). */
 /* Ta pati veliavele ir ant `window`: 3D scena gyvena ATSKIRAME modulyje, o jai
    butina zinoti, kad tinklelis dabar ne is SD sluoksniu, o slicerio (V 08-17). */
+/* Narvas sliceryje: pagal nutylejima isjungtas (cia svarbus daiktas, ne turis),
+   bet mygtukas lieka - anksciau narvas buvo rodomas ir jokio budo ji nuimti
+   nebuvo (V 08-19). Perziuros pasirinkima grazinam isejus, kad slicerio apsilan-
+   kymas neperrasytu zmogaus nustatymo. */
+let slicerCageWas=null;
+const slicerCage=enter=>{
+  if(!window.gl3dCage||!window.gl3dCageOn)return;
+  if(enter){
+    if(slicerCageWas!==null)return;
+    slicerCageWas=gl3dCageOn();
+    if(slicerCageWas)gl3dCage(false);
+  }else{
+    if(slicerCageWas===null)return;
+    gl3dCage(slicerCageWas);
+    slicerCageWas=null;
+  }
+  if(typeof syncCageBtn==='function')syncCageBtn();
+};
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
-                     slicerDetLock(v); if(!v)slicerLayerUI(false);};
+                     slicerDetLock(v); slicerCage(v); if(!v)slicerLayerUI(false);};
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
 const slicerReset=()=>{
@@ -723,15 +748,6 @@ const popClose=()=>{
   if(tls)tls.addEventListener('click',e=>{
     const t=e.target&&e.target.dataset&&e.target.dataset.tool; if(!t)return;
     e.stopPropagation();
-    /* Minkstinimas turi tik dvi busenas, tad pats zenklas ir yra jungiklis -
-       popup'as tam butu tuscias langas (V 08-12). */
-    if(t==='detail'){
-      const c=$('slicerAA'); if(!c)return;
-      c.checked=!c.checked;
-      e.target.classList.toggle('on',c.checked);
-      slicerInvalidate();
-      return;
-    }
     if(t==='scale'){
       const p=$('gl3dPop'); if(!p)return;
       if(p.style.display!=='none')popClose();
@@ -990,4 +1006,5 @@ $('slicerDiscardLink').addEventListener('click',e=>{
   $('slicerDiscardLink').style.visibility='hidden';
   $('slicerProg').textContent='Discarded. Adjust and slice again.';
   slicerRender();
+  slicerStep();          // formos irankiai grizta: vel yra ka formuoti
 });
