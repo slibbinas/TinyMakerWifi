@@ -142,6 +142,20 @@ static sla::PadConfig make_pad_config()
     return pcfg;
 }
 
+/*
+ * Rastro perkelimas: modelio nulis yra plokstes CENTRAS, o rastro (0,0) - jos
+ * kampas, tad piesiant reikia prideti puse plokstes. Be sito modelis atsiduria
+ * kampe ir nukerpamas - printerio sesija tai pagavo ismatavusi PNG (objekto
+ * centras 273,194 vietoj 160,120).
+ */
+static sla::RasterBase::Trafo rastro_trafo()
+{
+    sla::RasterBase::Trafo tr{sla::RasterBase::roLandscape, sla::RasterBase::MirrorX};
+    tr.center_x = scaled<coord_t>(PLOKSTE_X_MM / 2);
+    tr.center_y = scaled<coord_t>(PLOKSTE_Y_MM / 2);
+    return tr;
+}
+
 /* Rezultatas laikomas cia, kad JS pusei uztektu grazinti rodykle. */
 static std::string g_json;
 
@@ -168,12 +182,19 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
        ikeldamas STL: XY - i plokstes vidurį, Z - ant nulio. Rasterizatorius
        pats nieko necentruoja (SL1.cpp:497-528 palieka `Trafo.center` nuliuose),
        tad be sito modelis atsiduria rastro kampe ir dalis jo nukerpama. */
+    /*
+     * KOORDINACIU SUSITARIMAS (2026-08-19, po printerio sesijos radinio):
+     * variklio nulis yra PLOKSTES CENTRAS, o ne kampas - lygiai taip, kaip
+     * duoda pulto `place()` (slicer.js:132-136: XY centras i nuli, apacia ant
+     * plokstes). Rastre puse plokstes prideda pats rasterizatorius per
+     * `Trafo.center` (zr. `rastro_trafo`).
+     *
+     * Kai modelis ateina is failo, ji cia ir pastatom taip pat.
+     */
     if (centruoti) {
         const auto bb0 = mesh.bounding_box();
         const Vec3d c = bb0.center();
-        mesh.translate(float(PLOKSTE_X_MM / 2 - c.x()),
-                       float(PLOKSTE_Y_MM / 2 - c.y()),
-                       float(-bb0.min.z()));
+        mesh.translate(float(-c.x()), float(-c.y()), float(-bb0.min.z()));
     }
 
     const indexed_triangle_set &its = mesh.its;
@@ -422,8 +443,7 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
 
     const sla::Resolution res{cfg.px_x, cfg.px_y};
     const sla::PixelDim   pxd{cfg.plotis_mm / cfg.px_x, cfg.aukstis_mm / cfg.px_y};
-    const sla::RasterBase::Trafo tr{sla::RasterBase::roLandscape,
-        cfg.veidrodis_x ? sla::RasterBase::MirrorX : sla::RasterBase::NoMirror};
+    const sla::RasterBase::Trafo tr = rastro_trafo();
 
     Zipper zip(out_path, Zipper::FAST_COMPRESSION);
     const std::string vardas = job_name && *job_name ? job_name : "spaudinys";
@@ -514,7 +534,7 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
 
     const sla::Resolution res{size_t(W), size_t(H)};
     const sla::PixelDim   pxd{PLOKSTE_X_MM / W, PLOKSTE_Y_MM / H};
-    const sla::RasterBase::Trafo tr{sla::RasterBase::roLandscape, sla::RasterBase::MirrorX};
+    const sla::RasterBase::Trafo tr = rastro_trafo();
 
     /* Kaukes gaminam per ta pati rasterizatoriu: `gamma = 0` isjungia
        minkstinima, tad iskart gaunam 0/1, be jokiu tarpiniu atspalviu. */
