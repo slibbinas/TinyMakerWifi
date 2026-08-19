@@ -365,4 +365,200 @@ export class DefaultSupportTree {
       }
     }
   }
+
+  /* -------------------------------------------------------- routing_to_model */
+
+  /**
+   * `connect_to_model_body` (DST.cpp:668-721).
+   *
+   * Paskutine iseitis: galvute remiasi i PATI MODELI per apversta galvute
+   * (`Anchor`). Naudojamas `classify` metu issaugotas skenavimo rezultatas.
+   */
+  connectToModelBody(h) {
+    const cfg = this.sm.cfg;
+    if (h.id <= ID_UNSET) return false;
+    const hit = this.headToGroundScans.get(h.id);
+    if (!hit || !isFinite(hit.dist)) return false;
+
+    const hjp = junctionPoint(h);
+    /* Pluosto kryptis pluostui zemyn yra DOWN, tad `hit.direction().z()` = -1;
+       originalas is jo ima kampa ir saturuoja iki PI/4. */
+    let zangle = Math.asin(-1);
+    zangle = Math.max(zangle, Math.PI / 4);
+    let hh = Math.sin(zangle) * fullWidth(h);
+    hh = Math.min(hit.dist - h.rBackMm, hh);
+
+    if (h.rBackMm < cfg.headBackRadiusMm) hh = Math.max(hh, 0);
+    else if (hh <= 0) return false;
+
+    const endp = [hjp[0], hjp[1], hjp[2] - hit.dist + hh];
+    const centerHit = this.mesh.rayHit(hjp, DOWN);
+    const hitdiff = centerHit.dist - hit.dist;
+    const hitpFromCenter = Math.abs(hitdiff) < 2 * h.rBackMm;
+    const hitp = hitpFromCenter
+      ? [hjp[0], hjp[1], hjp[2] - centerHit.dist]
+      : [hjp[0], hjp[1], hjp[2] - hit.dist];
+
+    const p = mkPillar([hjp[0], hjp[1], endp[2]], hjp[2] - endp[2], h.rBackMm);
+    p.startsFromHead = true; p.startJunctionId = h.id;
+    const pid = this.addPillarToTree(p);
+
+    const taildir = normalized(sub(hitp, endp));
+    const dist = norm(sub(hitp, endp)) + cfg.headPenetrationMm;
+    let w = dist - 2 * h.rPinMm - h.rBackMm;
+    if (w < 0) w = 0;
+
+    const a = mkHead(h.rBackMm, h.rPinMm, w, cfg.headPenetrationMm, taildir, hitp);
+    a.id = this.tree.anchors.length;
+    this.tree.anchors.push(a);
+
+    this.pillarIndex.push({ pos: pillarEndpoint(this.tree.pillars[pid]), id: pid });
+    return true;
+  }
+
+  /** `routing_to_model` (DST.cpp:760-790) - trys bandymai is eiles. */
+  routingToModel() {
+    for (const idx of this.iheadsOnModel) {
+      const h = this.heads[idx];
+      if (!h || !headIsValid(h)) continue;
+      if (this.searchPillarAndConnect(h)) continue;
+      if (this.connectToGround(h)) continue;
+      if (this.connectToModelBody(h)) continue;
+      /* Nepavyko - originale tik ispejimas, galvute lieka be kelio. */
+    }
+  }
+
+  /* ----------------------------------------------------- interconnect_pillars */
+
+  /**
+   * `interconnect` (DST.cpp:189-280) - ZIGZAG tarp dvieju stulpu.
+   *
+   * ⚠️ `zstep = pillar_dist * tan(-bridge_slope)` - su MINUSU. Be jo jungtys
+   * kiltu aukstyn ir kabotu ore; tai viena is klaidu, kuri jau esam padarę.
+   *
+   * Kryzmines jungtys (`docrosses`) tik `cross` arba `dynamic` rezimu; V
+   * profilyje `zigzag`, tad jos nedaromos.
+   */
+  interconnect(pillar, nextpillar) {
+    const cfg = this.sm.cfg;
+    let wasConnected = false;
+
+    let supper = pillarStartpoint(pillar).slice();
+    let slower = pillarStartpoint(nextpillar).slice();
+    let eupper = pillarEndpoint(pillar).slice();
+    let elower = pillarEndpoint(nextpillar).slice();
+
+    const zmin = groundLevel(this.sm) + cfg.baseHeightMm;
+    eupper[2] = Math.max(eupper[2], zmin);
+    elower[2] = Math.max(elower[2], zmin);
+
+    if (slower[2] - elower[2] < 0) return false;
+    if (supper[2] - eupper[2] < 0) return false;
+
+    const pillarDist = dist2d(to2d(slower), to2d(supper));
+    const bridgeDistance = pillarDist / Math.cos(-cfg.bridgeSlope);
+    const zstep = pillarDist * Math.tan(-cfg.bridgeSlope);
+
+    if (pillarDist < 2 * cfg.headBackRadiusMm ||
+        pillarDist > cfg.maxPillarLinkDistanceMm) return false;
+
+    if (supper[2] < slower[2]) { const t = supper; supper = slower; slower = t; }
+    if (eupper[2] < elower[2]) { const t = eupper; eupper = elower; elower = t; }
+
+    let startz = slower[2] - zstep < supper[2] ? slower[2] - zstep : slower[2];
+    let endz = eupper[2] + zstep > elower[2] ? eupper[2] + zstep : eupper[2];
+
+    if (slower[2] - eupper[2] < Math.abs(zstep)) {
+      /* Vietos net vienam kryziui nera - imam kiek yra ir centruojam. */
+      startz = Math.min(supper[2], slower[2] - zstep);
+      endz = Math.max(eupper[2] + zstep, elower[2]);
+      const availableDist = startz - endz;
+      const rounds = Math.floor(availableDist / Math.abs(zstep));
+      startz -= 0.5 * (availableDist - rounds * Math.abs(zstep));
+    }
+
+    const pcm = cfg.pillarConnectionMode;
+    const docrosses = pcm === 'cross' ||
+      (pcm === 'dynamic' && pillarDist > 2 * cfg.baseRadiusMm);
+
+    let sj = supper.slice(), ej = slower.slice();
+    sj[2] = startz; ej[2] = sj[2] + zstep;
+
+    while (ej[2] >= eupper[2]) {
+      if (this.bridgeMeshDistance(sj, normalized(sub(ej, sj)), pillar.rStart) >= bridgeDistance) {
+        this.tree.crossbridges.push(mkBridge(sj.slice(), ej.slice(), pillar.rStart));
+        wasConnected = true;
+      }
+      if (docrosses) {
+        const sjback = [ej[0], ej[1], sj[2]];
+        const ejback = [sj[0], sj[1], ej[2]];
+        if (sjback[2] <= slower[2] && ejback[2] >= eupper[2] &&
+            this.bridgeMeshDistance(sjback, normalized(sub(ejback, sjback)), pillar.rStart) >= bridgeDistance) {
+          this.tree.crossbridges.push(mkBridge(sjback, ejback, pillar.rStart));
+          wasConnected = true;
+        }
+      }
+      const t = sj; sj = ej; ej = t.slice();
+      ej[2] = sj[2] + zstep;
+    }
+
+    return wasConnected;
+  }
+
+  /**
+   * `interconnect_pillars` (DST.cpp:792-870+).
+   *
+   * Aukstesni nei H1 stulpai reikalauja bent vieno kaimyno, aukstesni nei H2 -
+   * dvieju. Jungtis skaitoma tik jei auksciu santykis didesnis nei 50 %.
+   */
+  interconnectPillars() {
+    const cfg = this.sm.cfg;
+    const H1 = cfg.maxSoloPillarHeightMm;
+    const d = cfg.maxPillarLinkDistanceMm;
+    const minHeightRatio = 0.5;
+    const pairs = new Set();
+    const neighbors = cfg.pillarCascadeNeighbors;
+
+    for (const el of this.pillarIndex.slice()) {
+      const pillar = this.tree.pillars[el.id];
+      if (!pillar) continue;
+      if (pillar.links >= neighbors) continue;
+
+      const qp = el.pos;
+      const maxD = d * pillar.rStart / cfg.headBackRadiusMm;
+      const qres = this.pillarIndex
+        .filter(e => distance3(e.pos, qp) < maxD)
+        .sort((a, b) => distance3(a.pos, qp) - distance3(b.pos, qp));
+
+      for (const re of qres) {
+        if (re.id === el.id) continue;
+        const key = el.id < re.id ? `${el.id}_${re.id}` : `${re.id}_${el.id}`;
+        if (pairs.has(key)) continue;
+
+        const nb = this.tree.pillars[re.id];
+        if (!nb) continue;
+        if (nb.links >= neighbors) continue;
+        if (nb.rStart < pillar.rStart) continue;
+
+        if (this.interconnect(pillar, nb)) {
+          pairs.add(key);
+          if (pillar.height < H1 || nb.height / pillar.height > minHeightRatio) pillar.links++;
+          if (nb.height < H1 || pillar.height / nb.height > minHeightRatio) nb.links++;
+        }
+        if (pillar.links >= neighbors) break;
+      }
+    }
+  }
+
+  /** `execute` (DST.cpp:59-...) - etapu grandine ta pacia tvarka. */
+  static execute(sm, mesh, points) {
+    if (!points.length) return null;
+    const alg = new DefaultSupportTree(sm, mesh, points);
+    alg.addPinheads();
+    alg.classify();
+    alg.routingToGround();
+    alg.routingToModel();
+    alg.interconnectPillars();
+    return alg.tree;
+  }
 }
