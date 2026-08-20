@@ -5149,8 +5149,11 @@ const renderSdJob=s=>{
    /* `txt` cia yra objektas ({lbl,name,sub}), ne eilute - sudejus ji su tekstu
       snacke atsirasdavo „[object Object]" (V 08-20). Uzrasa dedam i savo lauka. */
    if(tt>0&&dn>=tt)
+     /* Juostele - VAIKSTANTI: sio etapo trukmes nezinom (printeris trina sena kopija),
+        o pilna juosta atrode kaip „jau viskas", kai dar ne (V 08-20). Tas pats zenklas,
+        kaip visur, kur laukiam nezinia kiek. */
      snackProgress(jobText(txt.lbl,txt.name,'finishing - clearing the old files'),
-                   0,0,undefined,undefined,99);
+                   0,0,undefined,undefined,'indet');
    else snackProgress(txt,dn,tt);}
   sdJobCur=jobPlain(txt);
 };
