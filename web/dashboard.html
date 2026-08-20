@@ -1229,7 +1229,13 @@ const uploadModelPayload=async(blob,filename,hintEl,meta)=>{
   catch(e){
     if(e.status!==409||!e.data||!e.data.conflict)throw e;
     const choice=await uploadConflictChoice(e.data);
-    if(choice!=='replace'&&choice!=='rename')throw new Error('Upload cancelled');
+    if(choice!=='replace'&&choice!=='rename'){
+      /* Snackas lipnus (`msg._until=Infinity`), o `xhr.onload` sustabdo tik jo
+        laikmati - atsaukus dialoga „Uploading…" likdavo kaboti amzinai, nors
+        niekas nebesiunciama ir printerio ekrane jokios eigos (V 08-20). */
+      msg('');
+      throw new Error('Upload cancelled');
+    }
     return await send(choice);
   }
 };
@@ -2553,6 +2559,12 @@ const sdFitRows=()=>{
       const sdBot=sd.getBoundingClientRect().bottom;
       const eil=list.firstElementChild?list.firstElementChild.getBoundingClientRect().height:44;
       const rodoma=list.children.length;
+      /* Kiek vietos liko KORTELES VIDUJE: nuo saraso apacios iki to, kas po juo
+         (vietos juostele prilipdyta prie korteles krasto, tad isore visada sutampa
+         su stulpeliu ir laisvos vietos nebeparodo - V 08-20: „vietos pakanka dar
+         vienam irasui, kodel jo nera"). */
+      const po=$('sdUsageBox')||$('filesPager');
+      const vidineLaisva=po?(po.getBoundingClientRect().top-list.getBoundingClientRect().bottom-12):0;
       const delta=sdBot-kaireBot;
       n=FILES_PER_PAGE;
       if(eil>0){
@@ -2565,7 +2577,10 @@ const sdFitRows=()=>{
            vietos beveik visada lieka keliais pikseliais maziau nei visa eilute, ir
            be jos sarasas likdavo vienu irasu skurdesnis, nei telpa (V 08-20). */
         else if(rodoma>=FILES_PER_PAGE){
-          const auga=Math.floor((-delta+8)/eil);
+          /* Auga is DVIEJU saltiniu: laisvos vietos korteles viduje ir po kortele.
+             Su 8 px atlaida - eilutei beveik visada trūksta keliu pikseliu. */
+          const laisva=Math.max(vidineLaisva,-delta);
+          const auga=Math.floor((laisva+8)/eil);
           if(auga>0)n=FILES_PER_PAGE+auga;
         }
       }
@@ -5401,6 +5416,10 @@ let prep3dRunning=false;   // savo darbo metu mygtuka valdo pats, ne busenos apk
    „gaunasi, kad as uz tave galvoju"). Kviečiama ir gavus busena, ir pradejus/baigus
    savo siuntima ar trynima. */
 const syncActionLocks=()=>{
+  /* Slicerio zingsniai - is TOS PACIOS vietos, kaip visi kiti uzraktai: savo ikelimo
+     metu apklausa tyli, tad `refreshSlicerCard` nesuveikia, ir „Choose STL" likdavo
+     gyvas per visa siuntima (V 08-20). */
+  if(window.slicerStep)slicerStep();
   const s=statusData; if(!s)return;
   const wc=s.webControl!==false, busy=uiBusy();
   const set=(id,off)=>{const e=$(id);if(e)e.disabled=off;};
