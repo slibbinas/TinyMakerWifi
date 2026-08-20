@@ -42,16 +42,23 @@ const slicerStep=()=>{
   {const tools=$('gl3dTools');
    const ft=tools&&tools.querySelector("[data-tool='fit']");
    if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
-   const go=$('slicerGo'), fitNow=$('slicerFitNow');
+   const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits;
      go.title=netelpa?'Does not fit yet - Fit it, or turn it by hand':'';
-     /* Vietoj uzrakinto mygtuko - tas, kuri dabar ir reikia spausti. Grizta,
-        kai modelis telpa. */
-     go.style.display=netelpa?'none':'';
+     /* Vienas lizdas, trys pavidalai: netelpa -> „Fit it", telpa -> „Slice",
+        supjaustyta -> „Send to printer". Mygtukas priesais akis visada yra tas,
+        kuris daro kita zingsni (V 08-20). */
+     go.style.display=(netelpa||(sliced&&!sliceRunning))?'none':'';
    }
-   if(fitNow)fitNow.style.display=netelpa?'':'none';}
+   if(fitNow)fitNow.style.display=netelpa?'':'none';
+   if(send){
+     send.style.display=(sliced&&!sliceRunning)?'':'none';
+     send.disabled=!!(save&&save.disabled);
+   }
+   /* Varda galima irasyti, vos tik yra ka pavadinti - jis nustatymas, ne veiksmas. */
+   {const nm=$('slicerName'); if(nm)nm.disabled=!loaded;}}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
@@ -555,12 +562,22 @@ window.addEventListener('resize',()=>{
  if(g)g.addEventListener('click',()=>setTimeout(()=>{
    if(!(slicerMaskOn&&slicerView===2))return;
    slicerFlatStage(true); slicerViewChrome();},0));}
+let slicer3dLayer=null;      // kur stovejo slankiklis 3D vaizde
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
   const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
   const box=$('slicerMask'), cv=$('slicerMaskCv');
   if(!slicerMaskOn){
     if(box)box.style.display='none';
+    /* Grizom i 3D - atstatom auksti, kuri kauke buvo pakeitusi. */
+    if(slicer3dLayer!==null&&slicerOut){
+      const n=Math.max(1,Math.min(slicerOut.layers,slicer3dLayer));
+      slicer3dLayer=null;
+      slicerLayerN=n;
+      const R=$('gl3dLayerRange'); if(R)R.value=n;
+      if(gl3dUp())gl3dClip(n>=slicerOut.layers||!slicerModelH()?null
+                           :Math.max(0,Math.min(1,n*0.05/slicerModelH())));
+    }
     /* Drobe isvaloma: kitaip kitas ijungimas trumpam parodytu sena sluoksni. */
     if(cv){const c=cv.getContext('2d'); c&&c.clearRect(0,0,cv.width,cv.height);}
     return;
@@ -569,6 +586,9 @@ function slicerMaskSet(on){
      rodyti" (gale - visas daiktas), kaukeje - „kuri sluoksni rodyti" (gale -
      pati virsune, dazniausiai juodas kvadratas). Todel ijungiant kauke ties
      pabaiga persistojam i vidury: kitaip mygtukas atrodo negyvas (V 08-13). */
+  /* Iseinant is kaukes grazinam ta pacia vieta, kurioje buvo 3D: vidurys yra
+     kaukes reikalas, o 3D nuo to likdavo perpjautas per puse (V 08-20). */
+  if(slicer3dLayer===null)slicer3dLayer=slicerLayerN||slicerOut.layers;
   let n=slicerLayerN||slicerOut.layers;
   if(n>=slicerOut.layers)n=Math.max(1,Math.round(slicerOut.layers/2));
   slicerShowLayer(n);
@@ -624,6 +644,7 @@ function slicerViewChrome(){
   const zc=$('gl3dZoomCorner'); if(zc)zc.style.display=plokscia?'none':'flex';
   [['gl3dPad','grid'],['gl3dRot','grid'],['gl3dHelp','block']].forEach(([id,d])=>{
     const e=$(id); if(e)e.style.display=plokscia?'none':d;});
+  slicerTopLeft();
 }
 window.slicerViewChrome=slicerViewChrome;
 function slicerSetView(v){
@@ -966,6 +987,16 @@ function slicerMarkUI(on){
   const w=$('gl3dMarkWrap'), b=$('gl3dMark');
   if(!w||!b)return;
   w.style.display=(on&&b.style.display!=='none')?'flex':'none';
+  slicerTopLeft();
+}
+/* Kai matomas tik vienas is dvieju virsutiniu kaireje - jis stovi pirmoje
+   vietoje; kai abu - zymeklis pirmas, pagalba antra. Kitaip likdavo tuscia vieta
+   ten, kur ka tik buvo mygtukas (V 08-20). */
+function slicerTopLeft(){
+  const w=$('gl3dMarkWrap'), h=$('gl3dHelp');
+  if(!h)return;
+  const zymeklis=!!(w&&w.style.display&&w.style.display!=='none');
+  h.style.left=zymeklis?'44px':'10px';
 }
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
@@ -1262,6 +1293,8 @@ $('slicerSave').addEventListener('click',async()=>{
 
 {const b=$('slicerFitNow');
  if(b)b.addEventListener('click',()=>{const a=$('slicerAutoFit'); if(a&&!a.disabled)a.click();});}
+{const b=$('slicerSend');
+ if(b)b.addEventListener('click',()=>{const sv=$('slicerSave'); if(sv&&!sv.disabled)sv.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);

@@ -29,6 +29,11 @@
           <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
         <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
           <input type='radio' name='slicerSupType' value='tree'> tree</label>
+        <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
+             vardas yra nustatymas, ne veiksmas (V 08-20). -->
+        <input id='slicerName' type='text' placeholder='model name' maxlength='14'
+               title='Up to 14 characters - longer names do not fit the printer screen'
+               style='flex:1 1 0;min-width:0;margin-left:auto;max-width:16em' disabled>
       </div>
 
       <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
@@ -42,6 +47,11 @@
         <button id='slicerFitNow' class='button secondary step' type='button'
                 style='flex:1 1 0;min-width:0;display:none'
                 title='Turn it, and scale only if it does not fit'>Fit it</button>
+        <!-- Tas pats lizdas, trecias pavidalas: supjausčius kitas zingsnis yra
+             issiuntimas, tad jis ir stovi ten, kur zmogus ka tik spaude. Atskiros
+             eilutes su „Save to printer" nebereikia (V 08-20). -->
+        <button id='slicerSend' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
       </div>
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
       <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
@@ -52,10 +62,9 @@
         <a href='#' id='slicerDiscardLink'
            style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
       </div>
-      <div class='calRow' style='margin-top:6px;gap:8px'>
-        <input id='slicerName' type='text' placeholder='model name' maxlength='14' title='Up to 14 characters - longer names do not fit the printer screen' style='flex:1 1 0;min-width:0' disabled>
-        <button id='slicerSave' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Save to printer</button>
-      </div>
+      <!-- Pats siuntimo mygtukas lieka, tik nematomas: visa jo logika (vardai,
+           perrasymas, eiga) sukasi cia, o „Send to printer" ji tik paspaudzia. -->
+      <button id='slicerSave' type='button' style='display:none' disabled>Save to printer</button>
       <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
            tad jos neatrode kaip vienas sarasas (V 08-12). -->
       <div id='slicerFacts'>
