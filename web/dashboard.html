@@ -3046,12 +3046,17 @@ const paintPreviewProgress=(cv,label,frac,rezimas)=>{
   /* GPU sluoksnis (#gl3d) DOM'e stovi PO drobes, tad piesiamas virs jos, o
      `gl3dShow` dar ir paslepia pacia drobe. Todel uzrasui ant 3D reikia abieju:
      drobe matoma ir pakelta virs to sluoksnio. Grazinama per slicerOverlayOff(). */
+  /* Drobes vieta stikluose: virs GPU sluoksnio - tik kol ant jo rasom. Kitais
+     atvejais BUTINA nuleisti atgal: kitaip po bet kurio „Loading preview…" ji
+     lieka virsuje, ir zmogus mato plokscia vokseliu piesini vietoj GPU modelio -
+     visi modeliai atrodo „sudraskyti" (V 08-20). */
+  const virsuj=(on)=>{cv.style.position=on?'relative':'';cv.style.zIndex=on?'2':'';
+                      if(on)cv.style.visibility='visible';};
   const ctx=over3d?(()=>{const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);
-                         cv.style.visibility='visible';
-                         cv.style.position='relative';cv.style.zIndex='2';
+                         virsuj(true);
                          return c;})()
-                 :deze?drawVolumeBox(cv)
-                 :(()=>{const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);return c;})();
+                 :deze?(()=>{virsuj(false);return drawVolumeBox(cv);})()
+                 :(()=>{virsuj(false);const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);return c;})();
   /* Pakeltos plokstes cia NEPIESIAM. Buvo bandyta (auditas 08-14 pasiule), bet krovimo
      bukleje modelio dar nera, o `plateZFor` spausdinant grazina KESE gulincio modelio
      auksti - tad paspaudus kita modeli akimirkai pasirodydavo plokste, kabanti vidury
@@ -6169,6 +6174,9 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        anksčiau kiekvienas kadras nuimdavo aukštį ir kortelė šokinėjo per visą
        krovimą (auditas 08-13). Aukštį valdo dashPreview / dashPreviewPlaceholder. */
     const cvEl=document.getElementById('printPreviewCanvas');
+    /* GPU perima vaizda - drobe grizta i savo vieta po juo. Be sito uzrasas,
+       piestas ANT 3D, palikdavo ja pakelta, ir GPU modelio nesimatydavo. */
+    if(cvEl&&on){cvEl.style.position='';cvEl.style.zIndex='';}
     const hide=()=>{host.style.display='none';if(cvEl)cvEl.style.visibility='';return false;};
     /* Drobe paslepiam, kol rodo GPU: auksta perziura ja centruoja, o sluoksnis lieka
        per visa ploti, ir permatomose vietose issilenda ANTRAS to paties modelio
