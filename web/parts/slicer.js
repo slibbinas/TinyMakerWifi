@@ -107,16 +107,21 @@ const slicerStep=()=>{
    if(tools)['fit','fitpro','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
-   /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes:
-      formos irankiai apacioje, vaizdo grupe virs ju. Kai formos irankiu nera
-      (po pjaustymo arba spausdinimo perziuroje), vaizdo grupe nusileidzia zemyn
-      - kitaip liktu tuscia juosta (V 08-20). */
+   /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes: formos
+      irankiai VIRSUJE, vaizdo grupe - eilute po ju. Kai formos irankiu nera (po
+      pjaustymo arba spausdinimo perziuroje), vaizdo grupe pakyla i ju vieta - kitaip
+      liktu tuscia juosta (V 08-20; nuo 08-21 juostos gyvena virsuje). */
    const zoom=$('gl3dZoom');
    if(zoom){
      /* Pagal BUSENA, ne pagal `display`: uzdarius mastelio langeli irankiai dar
         akimirka buna paslepti, ir grupe atsistodavo ant ju (V 08-20). */
      const yraFormos=loaded&&!sliced;
-     zoom.style.bottom=yraFormos?'44px':'8px';
+     /* Atstumas imamas is TIKRO juostos aukscio, ne is skaiciaus: siaurame ekrane ji
+        lauzoma i dvi eilutes (54 px), ir su ikaltais 44 px vaizdo grupe atsistodavo ant
+        antros eilutes (ismatuota telefono kadre, 08-21). */
+     const th=(tools&&tools.offsetHeight)||26;
+     zoom.style.top=yraFormos?(th+12)+'px':'8px';
+     zoom.style.bottom='auto';
    }
   }
 };
