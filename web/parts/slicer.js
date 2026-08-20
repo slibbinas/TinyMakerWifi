@@ -83,7 +83,23 @@ const slicerStep=()=>{
    {const ft=$('slicerFitNow'); if(ft)ft.disabled=spausdina;}
    {const sv=$('slicerSave'); if(sv&&spausdina)sv.disabled=true;}
    {const d=$('slicerDiscardLink');
-    if(d)d.style.pointerEvents=spausdina?'none':'';}}
+    if(d)d.style.pointerEvents=spausdina?'none':'';}
+   /* VISI likusieji kortelės valdikliai - vienu ejimu per konteineri, o ne vardijant
+      po viena: atramų jungikliai, glotninimas ir bet kas, kas atsiras veliau. Anksciau
+      uzrakinom po mygtuka, ir kaskart likdavo neuzrakintas dar vienas (V 08-20). */
+   {const card=$('slicerCard');
+    if(card)card.querySelectorAll('input,select,textarea').forEach(e=>{
+      if(e.id==='slicerName'||e.id==='slicerFile')return;   // ju busena skaiciuojama auksciau
+      e.disabled=spausdina;
+    });
+    if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
+      if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
+    });
+    /* Ir formos irankiai ant vaizdo - jie yra ta pati kortele, tik kitoje vietoje. */
+    const t=$('gl3dTools');
+    if(t&&spausdina)t.querySelectorAll('button').forEach(b=>{
+      if(b.id!=='gl3dCage'&&b.id!=='gl3dMask')b.disabled=true;
+    });}}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */

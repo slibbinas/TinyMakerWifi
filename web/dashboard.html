@@ -1223,7 +1223,7 @@ const uploadSummary=t=>{
   return p.length?p.join(' - '):'unknown';
 };
 const uploadConflictChoice=async d=>{
-  const text='A model named "'+(d.name||'Model')+'" already exists.\n\nExisting: '+uploadSummary(d.existing)+'\nIncoming: '+uploadSummary(d.incoming)+'\n\nReplace keeps the old model until the new one has unpacked successfully. Rename imports this as a new model.';
+  const text='A model named "'+(d.name||'Model')+'" already exists.\n\nExisting: '+uploadSummary(d.existing)+'\nIncoming: '+uploadSummary(d.incoming)+'\n\nReplace keeps the old model until the new one has unpacked successfully. Rename imports this as a new model - the printer picks the next free name, "'+(d.name||'Model')+'-2".';
   return uiChoice(text,[{label:'Cancel',value:'cancel',secondary:true},{label:'Rename',value:'rename',secondary:true},{label:'Replace',value:'replace',danger:true}]);
 };
 const modelUploadFd=(blob,filename,action,meta)=>{
