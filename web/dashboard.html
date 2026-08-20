@@ -4146,7 +4146,8 @@ const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;
   renderFiles();
   /* Iskart, nelaukiant apklausos: atidarius perziura mygtukas turi atsirasti tuoj pat,
      o ne po sekundes - kitaip atrodo, lyg butu uzstriges. */
-  if(window.setStageGrowUI)setStageGrowUI(!!n&&!(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
+  if(window.setStageGrowUI)setStageGrowUI(previewHasContent()&&
+    !(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
 // 0-26: the previewed model's identity lives on the STATUS panel (it already
 // has row mechanics - State, Resin left, the print-time boxes), not squeezed
 // into one line under the preview card. null hides the rows (placeholder,
@@ -4655,6 +4656,11 @@ const stageBox=on=>{
    lango mygtuko Share paprasciausiai uzima jo vieta (V sprendimas 08-14).
    Pilkas neveikiantis mygtukas atmestas - jis atrodo kaip gedimas, o ne kaip
    „cia to nereikia". */
+/* Ar peržiūroje apskritai kas nors yra: SD modelis ARBA slicerio daiktas. Isdidinimas
+   priklauso nuo TURINIO, ne nuo to, kuris blokas ji atnese (V 08-20: „isdidinau, perjungiau
+   akordeona - langas nusoko atgal"). */
+const previewHasContent=()=>!!(dashPreviewName||window.slicerOwnsPreview);
+window.previewHasContent=previewHasContent;
 const setStageGrowUI=canGrow=>{
   const b=$('stageOpen'); if(!b)return;
   const st=$('previewStage');
@@ -5454,7 +5460,9 @@ const syncActionLocks=()=>{
   set('dryRunToggle',!wc||busy);
   set('vatRefillButton',(!!s.busy&&!s.canResume)||!wc||uploadBusy||deleteBusy);
   set('homeResinButton',!!s.busy||!wc||uploadBusy||deleteBusy);   // 0.17 0-16
-  set('dashShareButton',!wc||busy);
+  /* Dalintis galima tik tuo, kas JAU yra printeryje: slicerio daiktas dar tik
+     narsykleje, o tuscioje peržiūroje dalintis apskritai nera kuo (V 08-20 auditas). */
+  set('dashShareButton',!wc||busy||!dashPreviewName);
   /* Paieskos laukas - irgi uzraktas: kol vyksta darbas, sarasas vis tiek uzrakintas,
      o rinkti i laukeli galėdavai ir gaudavai „No models match the filter" (V 08-20). */
   set('filesFilter',!wc||busy);
