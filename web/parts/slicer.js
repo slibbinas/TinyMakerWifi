@@ -403,6 +403,10 @@ const slicerWorkUI=dirba=>{
   }
 };
 const slicerOverlayOff=()=>{
+  /* PIRMA sustabdom vaikstanti ruozeli. Jis sukasi laikmaciu ir perpiesia uzrasa kas
+     60 ms - jei jo nesustabdytum, darbas seniai baigtusi, modelis butu pastatytas, o
+     ekrane amzinai liktu „Turning the part to fit…" (V 08-20: „nesibaigia"). */
+  if(window.paintPreviewIndetStop)paintPreviewIndetStop();
   const cv=$('printPreviewCanvas'); if(!cv)return;
   if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
   cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
@@ -512,7 +516,14 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
     const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
     try{
-      const r=await slicerMod.autoOrientPro(slicerRaw);
+      /* Nuo 3.1.1 variklis atiduoda TIKRUS 1..100, tad ruozelis pasitraukia, vos
+         ateina pirmas skaicius: `paintPreviewProgress` su skaitine dalimi laikmati
+         sustabdo pati. Be sio kabliuko juostele butu likusi vaikstanti visas 17 s. */
+      const r=await slicerMod.autoOrientPro(slicerRaw,(done,total)=>{
+        const f=total?done/total:null;
+        paintPreviewProgress($('printPreviewCanvas'),
+          'Searching for the best tilt…\nmay take long',f,true);
+      });
       slicerTr=r.tr; pro=slicerTelpa(r.tr);
     }catch(e){
       /* Variklis neatsake - paliekam, kas buvo, ir pasakom: tyliai grizti prie
