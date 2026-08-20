@@ -288,7 +288,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h2 class="sec" id="print-prusa"><span class="num">6</span>Printing from PrusaSlicer</h2>
   <p>The printer emulates the Prusa SL1 network protocol, so PrusaSlicer’s “Send to printer” works out of the box.</p>
   <ol class="steps">
-    <li>Import the TinyMaker printer profile (<code>TinyMaker.ini</code>, in the repo) via <b>File → Import → Import Config</b>.</li>
+    <li><a href="https://github.com/slibbinas/TinyMakerWifi/raw/main/PrusaSlicer/TinyMaker.ini">Download the TinyMaker printer profile</a> (<code>TinyMaker.ini</code>), then import it via <b>File → Import → Import Config</b>.</li>
     <li><b>Save all three presets.</b> Click the floppy-disk icon next to <i>Print settings</i>, <i>Material</i> and <i>Printer</i> and accept the names. Imported presets are temporary until saved — skip this and PrusaSlicer forgets the printer every time you close it, and you start over.</li>
     <li>Add a <b>physical printer</b>: click the cog next to the printer profile → <b>Add physical printer</b>. Set <b>Hostname</b> to <code>tinymaker.local</code> (or the IP from System → WiFi Info); the API key can be any text.</li>
     <li>Click <b>Test</b> — it should report success (the printer must be on and on WiFi).</li>
