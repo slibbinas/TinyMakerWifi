@@ -168,7 +168,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      modelio apacios, tad po plokste nulindusi atrama nebevirsta pirmais
      sluoksniais. 3.0.6 - ta pati atrama nebematoma ir 3D vaizde, o `layers`
      imamas is paties failo (rodem 340, faile buvo 334). */
-  const SV='3.0.6';
+  const SV='3.1.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -410,16 +410,46 @@ const slicerOverlayOff=()=>{
 const slicerBusyPaint=(uzrasas,darbas)=>{
   paintPreviewProgress($('printPreviewCanvas'),uzrasas,null,true);
   slicerWorkUI(true);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    try{darbas();}
+  /* `await` cia butinas: kruopstusis pastatymas (`autoOrientPro`) sukasi variklio
+     gijoje ir grazina pazada. Be jo uzrasas dingtu tuoj pat, o modelis pasisuktu
+     po keliu sekundziu - tarpe ekranas atrodytu tuscias (V 08-20). Sinchroniniams
+     darbams `await` nieko nekeicia. */
+  /* Ne VIEN kadro: paslėptame ar uzdengtame lange narsykle kadru nepiesia is viso,
+     tad `requestAnimationFrame` nesuveikia NIEKADA - „Auto fit" ir „Lay flat" tokiame
+     lange tyliai nieko nedarydavo (rado stendas 08-20; ta pati pamoka jau buvo
+     `paintStage` pulte, V 08-14). Laikmatis paleidzia darba ir fone. */
+  let paleista=false;
+  const eik=async()=>{
+    if(paleista)return; paleista=true;
+    try{await darbas();}
     finally{slicerOverlayOff();slicerWorkUI(false);}
-  }));
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(eik,0)));
+  setTimeout(eik,150);
 };
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Fitting…',()=>{
+  slicerBusyPaint('Placing…',async()=>{
   const s0=slicerTr.scale;
-  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
+  /* Kruopstusis pastatymas (modulis 3.1.0): PAKRYPIMA - kuria puse guldyti -
+     parenka tikras PrusaSlicer Rotfinder, sukamas variklio gijoje; posuki ant
+     plokstes, talpinima ir masteli toliau sprendziam mes (Prusa apie vertikale
+     nesuka visai, o musu ploksté pailga). Trunka 5-12 s, tad turi savo eiga.
+     Ikeliant faila ir „Lay flat" mygtukui lieka greitasis `autoOrient`. */
+  if(slicerMod.autoOrientPro){
+    try{
+      slicerTr=(await slicerMod.autoOrientPro(slicerRaw,(done,total)=>{
+        const f=total?done/total:null;
+        paintPreviewProgress($('printPreviewCanvas'),
+          'Placing…'+(f!==null?' '+Math.round(f*100)+'%':''),f,true);
+      })).tr;
+    }catch(e){
+      /* Variklis neatsake - imam greitaji atsakyma: zmogui geriau pastatytas
+         modelis nei pranesimas, kad nepavyko. */
+      slicerTr=slicerMod.autoOrient(slicerRaw).tr;
+    }
+  }else slicerTr=slicerMod.autoOrient(slicerRaw).tr;   // senesnis modulis
+  slicerTr.scale=s0;
   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
   const f=slicerMod.fitCheck(b.size);
   if(!f.fits){
