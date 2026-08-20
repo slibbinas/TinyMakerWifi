@@ -181,15 +181,25 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
       String en = String(entry);
       en.toLowerCase();
       if (en.endsWith("config.ini") && zip->openCurrentFile() == UNZ_OK) {
-        char cfg[1024];
-        int off = 0, rc;
-        while (off < (int)sizeof(cfg) - 1 &&
-               (rc = zip->readCurrentFile((uint8_t *)cfg + off,
-                                          sizeof(cfg) - 1 - off)) > 0)
-          off += rc;
+        // The whole file, in windows - not just its first kilobyte. A
+        // PrusaSlicer profile has outgrown 1 KB and layerHeight now sits past
+        // that mark: the old single read never reached it and left 0, so the
+        // model arrived with no layer height and the dashboard fell back to its
+        // default 0.1 mm - the bust came out half as tall as it is (V 08-20).
+        // The overlap carries a key landing on a window boundary into the next.
+        char cfg[513];
+        const int OVER = 48;
+        int keep = 0, rc;
+        while ((rc = zip->readCurrentFile((uint8_t *)cfg + keep,
+                                          (int)sizeof(cfg) - 1 - keep)) > 0) {
+          int have = keep + rc;
+          cfg[have] = '\0';
+          float v = iniReadNumber(cfg, "layerHeight");
+          if (v > 0.0f) { slicedLH = v; break; }
+          keep = have > OVER ? OVER : have;
+          memmove(cfg, cfg + have - keep, keep);
+        }
         zip->closeCurrentFile();
-        cfg[off] = '\0';
-        slicedLH = iniReadNumber(cfg, "layerHeight");
       }
     }
   } while (zip->gotoNextFile() == UNZ_OK);
