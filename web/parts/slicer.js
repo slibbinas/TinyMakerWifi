@@ -187,12 +187,26 @@ const previewShowFor=()=>{
   else dashPreviewPlaceholder();
 };
 window.previewShowFor=previewShowFor;
+/* Klase pasako maketui, KURIS blokas dabar valgo likusi auksti (zr. #homeRight CSS).
+   Kai slicerio kortelės apskritai nera (modulis neaktyvus), visa vieta atitenka SD -
+   kitaip desiniojo stulpelio apacioje likti tuscia juosta (V 08-20). */
+const akordSync=open=>{
+  const sc=$('slicerCard'), sd=$('sdSection');
+  const yraSl=!!(sc&&!sc.classList.contains('hidden'));
+  const sl=yraSl&&(open===undefined?slicerIsOpen():open);
+  if(sc)sc.classList.toggle('akordOpen',!!sl);
+  if(sd)sd.classList.toggle('akordOpen',!sl);
+  if(window.sdFitRows)setTimeout(sdFitRows,0);
+};
+window.akordSync=akordSync;
 const slicerOpen=(open,tylus)=>{
   const body=$('slicerBody'); if(!body)return;
   if(slicerIsOpen()===open)return;
   body.style.display=open?'block':'none';
+  akordSync(open);
   slicerToggleUI(open);
   sdCollapse(open);
+  if(window.sdFitRows)setTimeout(sdFitRows,0);   // eiluciu skaicius seka likusi auksti
   if(!tylus)akordIrasyk(open?'slicer':'sd');
   previewShowFor();
 };
@@ -201,10 +215,12 @@ window.slicerOpen=slicerOpen;
 {const sd=$('sdToggle');
  if(sd)sd.addEventListener('click',()=>{const t=$('slicerToggle');
    if(t&&!t.disabled&&!slicerIsOpen())t.click(); else slicerOpen(!slicerIsOpen());});}
-$('slicerToggle').addEventListener('click',async()=>{
-  const wasOpen=slicerIsOpen();
-  slicerOpen(!wasOpen);
-  if(wasOpen||slicerMod)return;
+/* Modulio krovimas atskirai nuo mygtuko: nuo akordeono blokas gali buti atidarytas
+   ir po perkrovimo, o 3,5 MB variklio traukti KIEKVIENAM puslapio atidarymui butu
+   grubu. Todel busena atsistato tuoj pat, o variklis atkeliauja tada, kai jo tikrai
+   prireikia - paspaudus jungikli arba pasirinkus faila (V 08-20). */
+const slicerLoadMod=async()=>{
+  if(slicerMod)return slicerMod;
   slicerSay('slicerInfo','Loading the slicer…');
   /* Kol kodas dar keiciasi, imam is musu gh-pages: SD kopija pririsama prie
      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
@@ -236,6 +252,12 @@ $('slicerToggle').addEventListener('click',async()=>{
    if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
                                   :'The slicer module could not be loaded.');
+  return slicerMod;
+};
+$('slicerToggle').addEventListener('click',()=>{
+  const wasOpen=slicerIsOpen();
+  slicerOpen(!wasOpen);
+  if(!wasOpen)slicerLoadMod();
 });
 
 /* Bet koks pakeitimas panaikina supjaustyta rezultata: kitaip „Save"
@@ -401,7 +423,10 @@ const slicerRender=()=>{
 };
 
 $('slicerFile').addEventListener('change',async e=>{
-  const f=e.target.files&&e.target.files[0]; if(!f||!slicerMod)return;
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  /* Variklis gali buti dar neuzsikroves (busena atsistatė is atminties, o mygtuko
+     niekas nespaude) - tada palaukiam jo cia, o ne tyliai nieko nedarom. */
+  if(!slicerMod){await slicerLoadMod(); if(!slicerMod)return;}
   if(slicerBusyStop())return;
   slicerHome=true;                 // naujas failas - vaizda pastatom is naujo
   slicerSay('slicerInfo','Reading '+f.name+'…');slicerSay('slicerFit','');
@@ -1489,6 +1514,10 @@ $('slicerSave').addEventListener('click',async()=>{
   /* Ka tik pagamintas modelis atsidaro perziuroje pats: zmogus vis tiek spaustu ta
      pacia eilute, o be perziuros eiluteje neatsiranda ir „Start" - tad be sito
      „issaugota" baigiasi dar dviem paspaudimais iki spausdinimo (V 08-17). */
+  /* Darbas pereina i kita bloka, tad ir akordeonas pereina su juo: modelis jau
+     printeryje, o kitas zingsnis - „Start" SD sarase. Slicerio turinys niekur
+     nedingsta, jis tik susiskleidzia (V 08-20). */
+  slicerOpen(false);
   if(typeof pickModel==='function')pickModel(openName);
   }finally{
     if(typeof setPreviewBusy==='function')setPreviewBusy(false);
@@ -1511,3 +1540,13 @@ $('slicerDiscardLink').addEventListener('click',e=>{
   slicerRender();
   slicerStep();          // formos irankiai grizta: vel yra ka formuoti
 });
+
+/* Akordeono busena atsistato pati: zmogus paliko atidaryta sliceri - toks ir randa.
+   Kortelės dar gali nebuti (modulis neaktyvus) - tada viska pasiima SD, o `akordSync`
+   tvarkosi pats. Modulio cia netraukiam (zr. `slicerLoadMod`). */
+setTimeout(()=>{
+  const sc=$('slicerCard');
+  const yra=!!(sc&&!sc.classList.contains('hidden'));
+  if(yra&&window.akordPradinis&&akordPradinis()==='slicer'&&!slicerIsOpen())slicerOpen(true,true);
+  else akordSync();
+},0);

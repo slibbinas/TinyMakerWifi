@@ -79,7 +79,8 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #statusMsg .snackPct{flex:0 0 auto;min-width:4.5em;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent)}
 #statusMsg .snackPct:empty{min-width:0}
 #statusMsg .snackBar{margin-top:8px;height:3px;border-radius:2px;background:var(--line2);overflow:hidden}
-#statusMsg .snackBar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}/* Isdidinus placiame ekrane vietos yra iki pat oranzines linijos (V 08-19). Kortele sedi KAIRIAJAME stulpelyje, tad jai pačiai `grid-column` negalioja - isskleidziamas visas maketas i viena stulpeli, ir tada perziura uzima visa plotį, o desiniojo stulpelio korteles nusileidzia zemiau. Telefone niekas nesikeicia. */.wrap #homeView.stageWideOn{grid-template-columns:1fr}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}.calSplit{display:flex;gap:20px;align-items:flex-start}
+#statusMsg .snackBar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}/* Isdidinus placiame ekrane vietos yra iki pat oranzines linijos (V 08-19). Kortele sedi KAIRIAJAME stulpelyje, tad jai pačiai `grid-column` negalioja - isskleidziamas visas maketas i viena stulpeli, ir tada perziura uzima visa plotį, o desiniojo stulpelio korteles nusileidzia zemiau. Telefone niekas nesikeicia. */.wrap #homeView.stageWideOn{grid-template-columns:1fr}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}/* Desinys stulpelis - lankstus: atidarytas akordeono blokas uzima visa likusia vieta,
+   tad bendras aukstis sutampa su kairiuoju stulpeliu, kad ir kuris atidarytas (V 08-20). */#homeRight{display:flex;flex-direction:column;gap:14px;min-height:0}#homeRight>.card{margin:0}#homeRight>.card.akordOpen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}#homeRight>.card.akordOpen>#slicerBody{flex:1 1 auto;min-height:0}#sdSection.akordOpen #filesList{flex:0 0 auto}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}.calSplit{display:flex;gap:20px;align-items:flex-start}
 .calSplit .calBody{flex:1 1 auto;min-width:0}
 .calSplit .hint{flex:0 1 300px;margin:0;align-self:center}
 @media(max-width:900px){.calSplit{display:block}.calSplit .hint{margin-top:10px}}
@@ -319,8 +320,14 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
      nusistumdavo eilute zemyn. Cia SD manager lieka desineje, sliceris - po
      perziura kaireje, o telefone viena stulpeliu eile isvyniojama kaip
      perziura -> sliceris -> SD manager (V 08-17). -->
-<!--#include parts/slicer-card.html-->
   </div>
+
+  <!-- Desinys stulpelis: sliceris VIRS SD manager'io. Abu viename konteineryje, nes nuo
+       0.17 jie yra akordeonas - atidarytas tik vienas, - o ju bendras aukstis privalo
+       sutapti su kairio stulpelio (peržiūros) aukščiu. Telefone konteineris nieko
+       nekeicia: eile lieka perziura -> sliceris -> SD manager (V 08-20). -->
+  <div id='homeRight'>
+<!--#include parts/slicer-card.html-->
 
   <section id='sdSection' class='card'>
     <!-- Upload lives in the card header: a fixed spot that never slides with
@@ -355,6 +362,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          priklauso sliceriui, ir du modeliai viename lange tik klaidintu. -->
     <div id='sdCollapsedHint' class='hint' style='display:none;margin-top:8px'>Model list hidden while the slicer is open.</div>
   </section>
+  </div><!-- #homeRight -->
 </div>
 
 <section id='modelPanel' class='card hidden'>
@@ -1976,6 +1984,8 @@ const refreshSlicerCard=()=>{
   /* Priverstinis uzdarymas: `tylus` - kad printerio nustatymas nepersirasytu zmogaus
      pasirinkimo, kuris blokas atidarytas (V 08-20). */
   if(!live&&window.slicerOpen)slicerOpen(false,true);
+  /* Kortelės atsiradimas ar dingimas keicia, kam priklauso likes aukstis. */
+  if(window.akordSync)akordSync();
 };
 const slicerTap=()=>{
   const now=Date.now();
@@ -2504,7 +2514,38 @@ let newNames=new Set();
 const clearNew=n=>{if(newNames.delete(n))renderFiles();};
 /* Apvalus skaicius, o ne 12 „is akies" (V 08-16). Nuo jo pats pasiskaiciuoja ir
    puslapiavimas, ir kada rodyti filtro laukeli. */
-const FILES_PER_PAGE=10;
+/* Kiek irasu telpa i puslapi - NE nustatymas, o PASEKME: dydi lemia likes aukstis, kad
+   desinys stulpelis baigtusi ties ta pacia linija, kaip peržiūra kaireje (V 08-20).
+   Telefone (vienas stulpelis) lieka senasis 10 - ten aukscio riboti nereikia. */
+let FILES_PER_PAGE=10;
+const SD_EIL_MIN=3, SD_EIL_MAX=12;
+let sdFitDirba=false;
+const sdFitRows=()=>{
+  if(sdFitDirba)return; 
+  const dvi=(()=>{try{return matchMedia('(min-width:1000px)').matches;}catch(e){return false;}})();
+  const left=$('homeLeft'), sd=$('sdSection'), list=$('filesList');
+  let n=10;
+  if(dvi&&left&&sd&&list&&!sd.classList.contains('hidden')){
+    const eile=list.firstElementChild?list.firstElementChild.getBoundingClientRect().height:44;
+    /* Viskas, kas korteleje NE sarasas (antraste, paieska, puslapiavimas, vietos juosta,
+       parastes), matuojama, o ne spejama - taip skaicius nesulus pakeitus srifta. */
+    const kitkas=sd.getBoundingClientRect().height-list.getBoundingClientRect().height;
+    const sc=$('slicerCard');
+    const virs=(sc&&!sc.classList.contains('hidden'))?sc.getBoundingClientRect().height+14:0;
+    const laisva=left.getBoundingClientRect().height-virs-kitkas;
+    if(eile>0&&laisva>0)n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,Math.floor(laisva/eile)));
+  }
+  if(n===FILES_PER_PAGE)return;
+  /* Pirmas matomas irasas lieka matomas: be sito, ziurint 2 puslapi ir perjungus
+     akordeona, akis prarastu vieta (ta pati aritmetika, kaip `filesShowName`). */
+  const pirmas=filesPage*FILES_PER_PAGE;
+  FILES_PER_PAGE=n;
+  filesPage=Math.floor(pirmas/n);
+  sdFitDirba=true;
+  try{renderFiles();}finally{sdFitDirba=false;}
+};
+window.sdFitRows=sdFitRows;
+addEventListener('resize',()=>setTimeout(sdFitRows,60));
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
@@ -2673,6 +2714,7 @@ const renderFiles=()=>{
        telefone puslapis nusoktu atgal zemyn (auditas 08-16). */
     if(back&&back.focus)back.focus({preventScroll:true});
   }catch(e){}
+  if(!sdFitDirba&&window.sdFitRows)setTimeout(sdFitRows,0);
 };
 // The SD card cannot change while a print runs - it is locked for the printer's
 // own layer reads - so a list saved from before the print is guaranteed correct
@@ -2701,7 +2743,9 @@ const loadFiles=async()=>{
     saveFilesCache();
     connectLocalModels={};
     filesItems.forEach(it=>{if(it.type==='model'&&it.connectPublicId)connectLocalModels[it.connectPublicId]=it.name;});
-    show('filesFilter',filesItems.length>FILES_PER_PAGE);
+    /* Fiksuota riba, ne puslapio dydis: kitaip perjungiant akordeona laukelis tai
+       atsirastu, tai dingtu, ir aukstis soktu (V 08-20). */
+    show('filesFilter',filesItems.length>12);
     renderFiles();
     if(typeof renderGs==='function')renderGs(); // auto-tick "model on SD"
   }catch(e){
