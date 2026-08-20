@@ -361,6 +361,11 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <div id='modelResinBox' class='hidden'><div class='label'>Resin needed</div><div id='modelResin' class='value'>-</div></div>
   </div>
   <div id='modelFlatWarn' class='hidden' style='margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(232,160,32,.15);border:1px solid #e8a020;color:#e8a020;font-size:13px'>&#9888; Sliced at <b><span id='modelFlatVal'>?</span>&nbsp;mm</b>, not 0.05&nbsp;mm - the printer assumes 0.05&nbsp;mm, so this may print <b>flat</b>. Re-slice with a 0.05&nbsp;mm layer height.</div>
+  <!-- Sluoksnio paveikslelio matmenys. Printerio ekranas yra 320x240 gulscias;
+       PrusaSlicer su „display_orientation = portrait" rašo 240x320, ir toks failas
+       ne tik atrodo pasuktas perziuroje - jis TAIP IR SPAUSDINTUSI. Iki siol apie
+       tai netylejo niekas, ir priezasties paieska uztruko pusdieni (V 08-20). -->
+  <div id='modelRotWarn' class='hidden' style='margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(232,160,32,.15);border:1px solid #e8a020;color:#e8a020;font-size:13px'>&#9888; Layers are <b><span id='modelRotVal'>?</span></b>, not 320&times;240 - this file was sliced with the display set to <b>portrait</b>. It will print rotated. In PrusaSlicer: Printer Settings &rarr; Display &rarr; Orientation = <b>landscape</b>, then slice again.</div>
   <div id='modelProgress' class='progress hidden'><span></span></div>
   <div id='modelActions' class='actions'>
     <button id='modelBackButton' class='button secondary spanAll' type='button'>Back to dashboard</button>
@@ -2726,6 +2731,7 @@ const modelDetails=async(nameEnc,estimate)=>{
     setText('modelTitle',d.name); setText('modelLayers',d.layers); setText('modelHeight',Number(d.heightMm).toFixed(2)+' mm'); setText('modelTime',d.estimatedTime);
     const showPrint=d.printLayers!==undefined&&Number(d.printLayers)!==Number(d.layers);
     show('modelPrintLayersBox',showPrint); if(showPrint)setText('modelPrintLayers',d.printLayers);
+    showRotWarn(name);
     show('modelFlatWarn',!!d.flatWarning); if(d.flatWarning)setText('modelFlatVal',Number(d.slicedLayerHeightMm).toFixed(2));
     // Resin box is always there: exact value when known, otherwise the quick
     // estimate lands with the auto preview render below ("Estimating...").
@@ -3611,6 +3617,24 @@ const saveSlicesToPrinter=async name=>{
     }finally{ sliceCacheBusy=false; }
   }catch(e){}
 };
+/* Sluoksnio paveikslelio matmenys. Printeris laukia 320x240; kitokie reiskia,
+   kad failas supjaustytas su pasukta orientacija - toks ir spausdinsis pasuktas.
+   Zinom tik tada, kai bent viena sluoksni uzsikrovem, tad ir sakom tada. */
+let layerPxOf={};
+const noteLayerPx=(name,w,h)=>{
+  if(!name||!w||!h)return;
+  layerPxOf[name]=w+'×'+h;
+  /* Kortele gali buti atidaryta kaip tik siam modeliui - tada zenklas atsiranda
+     be perkrovimo; kitaip jis pasirodys ja atidarius. */
+  if($('modelTitle')&&($('modelTitle').textContent||'').trim()===name)showRotWarn(name);
+};
+const showRotWarn=name=>{
+  if(!$('modelRotWarn'))return;
+  const px=name?layerPxOf[name]:null;
+  const bad=!!px&&px!=='320×240';
+  show('modelRotWarn',bad);
+  if(bad)setText('modelRotVal',px);
+};
 const loadSlicesFromPrinter=async(name,onProg)=>{
   try{
     // Detaliam vaizdui keso nebera (zr. saveSlicesToPrinter) - senos 160x120
@@ -3761,6 +3785,7 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
        pasakyti, nei parodyti daikta, kurio nera. */
     if(!img.naturalWidth||!img.naturalHeight)
       throw new Error('the printer was busy - open the preview again when it is free');
+    noteLayerPx(name,img.naturalWidth,img.naturalHeight);
     const nw=img.naturalWidth||gw, nh=img.naturalHeight||gh;
     if(oc.width!==nw){oc.width=nw;oc.height=nh;}
     octx.drawImage(img,0,0);
