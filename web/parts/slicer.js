@@ -453,7 +453,7 @@ const slicerPlaceNote=(pro,fast)=>{
 };
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Placing the part…',()=>{
+  slicerBusyPaint('Turning the part to fit…',()=>{
   const s0=slicerTr.scale;
   slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
@@ -490,13 +490,13 @@ $('slicerAutoFit').addEventListener('click',()=>{
    viduje nera ko rodyti, tad ir nerodom melagingo skaiciaus. */
 $('slicerAutoFitPro').addEventListener('click',()=>{
   if(!slicerRaw||!slicerMod.autoOrientPro)return;
-  slicerBusyPaint('Looking for the best position…\nthis takes a few seconds',async()=>{
+  slicerBusyPaint('Searching for the best tilt…\nthis takes a few seconds',async()=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
     if(window.paintPreviewIndet)
       paintPreviewIndet($('printPreviewCanvas'),
-        'Looking for the best position…\nthis takes a few seconds');
+        'Searching for the best tilt…\nthis takes a few seconds');
     const s0=slicerTr.scale;
     const fast=slicerTelpa(slicerMod.autoOrient(slicerRaw).tr);
     let pro=null;
@@ -656,7 +656,7 @@ window.addEventListener('resize',()=>{
 let slicer3dLayer=null;      // kur stovejo slankiklis 3D vaizde
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
-  const b=$('gl3dMask'); if(b)b.classList.toggle('on',slicerMaskOn);
+  /* Spalva ir piesinys pareina nuo rezimo (`slicerSetView`), ne nuo kaukes. */
   const box=$('slicerMask'), cv=$('slicerMaskCv');
   if(!slicerMaskOn){
     if(box)box.style.display='none';
@@ -741,7 +741,11 @@ window.slicerViewChrome=slicerViewChrome;
 function slicerSetView(v){
   slicerView=((v%3)+3)%3;
   const b=$('gl3dMask');
-  if(b){b.classList.toggle('on',slicerView!==0); b.title=VIEW_TITLES[slicerView];}
+  if(b){/* Klase pasako, KURIS piesinys rodomas; `on` cia nebereiskia „ijungta",
+        tad ji nuimam - spalva dabar priklauso nuo v0 (zr. slicer.css). */
+    b.classList.remove('on');
+    b.classList.remove('v0','v1','v2'); b.classList.add('v'+slicerView);
+    b.title=VIEW_TITLES[slicerView];}
   slicerMaskSet(slicerView===2);
   /* Tikro sluoksnio vaizde priartinimas ir narvas nieko nedaro: tai plokscia
      kauke, pikselis prie pikselio, ir tokia ji turi likti (tam ji ir yra).
