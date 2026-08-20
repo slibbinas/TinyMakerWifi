@@ -1269,6 +1269,9 @@ function slicerMarkUI(on){
   const w=$('gl3dMarkWrap'), b=$('gl3dMark');
   if(!w||!b)return;
   w.style.display=(on&&b.style.display!=='none')?'flex':'none';
+  /* Mygtuko paslepimo neuztenka: pats irankis lieka ijungtas, ir jo remelis su defektu
+     bloku persikelia ant SD perziuros (V 08-20). Isjungiam ji patį. */
+  if(!on&&typeof window.gl3dMarkOff==='function')window.gl3dMarkOff();
   slicerTopLeft();
 }
 /* Kai matomas tik vienas is dvieju virsutiniu kaireje - jis stovi pirmoje
@@ -1439,7 +1442,12 @@ $('slicerSave').addEventListener('click',async()=>{
          ruozas kabodavo, kol printeris is tikruju \u0117m\u0117 fail\u0105 (V 08-20; tas pats
          melas jau buvo gaudytas pulto ikelime, 08-18). Korteles eiluteje skaicius
          lieka - ten jis skaitomas kaip \u201eissiusta", ne \u201epadaryta". */
-      slicerPaintIndet('Uploading\u2026');
+      /* Ikelimas i kortele rodomas SNACKE, ne ant vaizdo (V 08-20): darbas su SD nera
+         perziuros dalykas, o pulto ikelimas jau seniai taip ir daro. Tas pats uzrasas ir
+         ta pati „makaronine" juostele - dvi vietos nebeturi atrodyti skirtingai. */
+      try{ snackProgress(jobText('Uploading ',shortName(slicerOut.name||'the model'),
+                                 'Progress shows on the printer screen'),
+                         -1,-1,'',null,'indet'); }catch(e){}
       x.upload.onprogress=e=>{
         if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
         const p=Math.round(e.loaded/e.total*100);
@@ -1476,17 +1484,23 @@ $('slicerSave').addEventListener('click',async()=>{
        (ta sarga sedi `renderSdJob`: „kol MUSU ikelimas siuncia, jo neliesk"). */
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
-    prog.textContent='Unpacking on the printer \u2026';
-    /* Ta pati priezastis, kaip ikelime: kiek printeris jau isvyniojo, mes nezinom,
-       o laukimas trunka. Ruozelis pasako, kad darbas gyvas, ir nieko nezada. */
-    if(window.paintPreviewIndet)paintPreviewIndet($('printPreviewCanvas'),'Unpacking\u2026');
-    else slicerPaint('Unpacking\u2026',null);
+    /* Korteleje apie ispakavima NERASOM (V 08-20): ta pati zinia jau stovi snacke, ir
+       ten ji tikslesne - vardas ir sluoksniai. SD puseje sitas dublis isimtas seniau;
+       sliceris elgiasi taip pat. */
+    prog.textContent='';
+    /* Ant DROBES nieko nerasom (V 08-20): ispakavima jau rodo snackas, ir jis sako
+       daugiau - varda ir sluoksnius („Unpacking Ziedas 94/167 · 56 %"). Du pranesimai
+       apie ta pati darba yra vienas per daug.
+       BET perdanga butina NUIMTI: ikelimo ruozelis („Uploading…") sukasi laikmaciu, o
+       perrasydavo ji butent sitas uzrasas - be jo drobeje liktu kabeti „Uploading…",
+       kol printeris jau seniai ispakuoja (V 08-20). Nuemus lieka matomas pats slicerio
+       modelis, o eiga - snacke. */
+    if(typeof slicerOverlayOff==='function')slicerOverlayOff();
     for(let i=0;i<180;i++){
       await new Promise(r=>setTimeout(r,1000));
       try{
         const st=await api('/api/status',null,8000);
         if(!st.busy||st.sdJob!=='import')break;
-        prog.textContent='Unpacking on the printer \u2026 ('+(i+1)+' s)';
       }catch(e){}
     }
     const done=slicerOut;
