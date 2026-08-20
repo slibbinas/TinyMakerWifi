@@ -453,7 +453,7 @@ const slicerPlaceNote=(pro,fast)=>{
 };
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Fitting…',()=>{
+  slicerBusyPaint('Placing the part…',()=>{
   const s0=slicerTr.scale;
   slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
