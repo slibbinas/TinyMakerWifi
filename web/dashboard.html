@@ -347,10 +347,6 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       <!-- Akordeono jungiklis: vienu metu atidarytas TIK vienas blokas, tad si rodykle
            ir slicerio antrastes mygtukas suka ta pati jungikli. Tikras mygtukas, ne
            `div` su `onclick` - kad veiktu ir klaviatura (V 08-20). -->
-      <!-- Isdidinimas - TAS PATS zenklas ir ta pati elgsena, kaip virs peržiūros: blokas
-           uzima visa ploti, kiti nusileidzia po juo. Isdidintas vienu metu tik vienas. -->
-      <button id='sdGrow' class='button secondary narrow' type='button' style='margin-top:0'
-              title='Grow the model list' aria-label='Grow the model list'></button>
       <button id='sdToggle' class='button secondary narrow' type='button' style='margin-top:0'
               aria-expanded='true' title='Collapse the model list'>&#9662;</button>
       </div>
@@ -2529,9 +2525,7 @@ const sdFitRows=()=>{
   const dvi=(()=>{try{return matchMedia('(min-width:1000px)').matches;}catch(e){return false;}})();
   const left=$('homeLeft'), sd=$('sdSection'), list=$('filesList');
   let n=10;
-  const platus=!!($('homeView')&&$('homeView').classList.contains('stageWideOn'));
-  if(platus&&sd&&!sd.classList.contains('hidden')&&sd.classList.contains('sdWide'))n=SD_EIL_MAX;
-  else if(dvi&&left&&sd&&list&&!sd.classList.contains('hidden')){
+  if(dvi&&left&&sd&&list&&!sd.classList.contains('hidden')){
     const eile=list.firstElementChild?list.firstElementChild.getBoundingClientRect().height:44;
     /* Viskas, kas korteleje NE sarasas (antraste, paieska, puslapiavimas, vietos juosta,
        parastes), matuojama, o ne spejama - taip skaicius nesulus pakeitus srifta. */
@@ -4541,28 +4535,11 @@ window.stageBoxSize=stageBoxSize;   // gl3d gyvena savo IIFE - pasiekia per wind
    - pailginti, du persidenge - grazinti i iprasta auksti (V 08-13). */
 const ICON_GROW="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5'><rect x='2.2' y='2.2' width='11.6' height='11.6' rx='1.6'/></svg>";
 const ICON_BACK="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linejoin='round'><rect x='1.8' y='5.6' width='8.6' height='8.6' rx='1.4'/><path d='M5.4 5.6V3.2a1.4 1.4 0 0 1 1.4-1.4h6a1.4 1.4 0 0 1 1.4 1.4v6a1.4 1.4 0 0 1-1.4 1.4h-2.4'/></svg>";
-/* SD saraso isdidinimas: ta pati vienos kolonos busena, kaip peržiūros - tad abu
-   isdidinti vienu metu negali ir vienas kita issijungia (V 08-20). */
-const sdBox=on=>{
-  const sd=$('sdSection'), hv=$('homeView'), b=$('sdGrow');
-  if(!sd||!hv)return;
-  const ps=$('previewStage');
-  if(on&&ps&&ps.classList.contains('stageBox'))stageBox(false);
-  sd.classList.toggle('sdWide',on);
-  hv.classList.toggle('stageWideOn',on&&stageWideOk());
-  if(b){b.title=on?'Back to the column':'Grow the model list';
-        b.setAttribute('aria-label',b.title);
-        b.innerHTML=on?ICON_BACK:ICON_GROW;}
-  if(window.sdFitRows)setTimeout(sdFitRows,0);
-  if(on)sd.scrollIntoView({block:'start',behavior:'smooth'});
-};
-window.sdBox=sdBox;
 const stageBox=on=>{
   const st=$('previewStage');
   if(!st)return;
   st.style.height='';st.dataset.fitH='';st.dataset.boxH='';
   st.classList.toggle('stageBox',on);
-  if(on){const sd=$('sdSection'); if(sd&&sd.classList.contains('sdWide'))sdBox(false);}
   /* Plotis - tik ten, kur jo yra. Riba ta pati, kuria pultas jau naudoja dvieju
      stulpeliu maketui, kad kortele nesielgtu kitaip nei visa aplinka. */
   const hv=$('homeView');
@@ -4611,12 +4588,8 @@ const setStageGrowUI=canGrow=>{
 };
 window.setStageGrowUI=setStageGrowUI;   // applyStatus gyvena auksciau uz si bloka
 $('stageOpen').addEventListener('click',()=>stageBox(!$('previewStage').classList.contains('stageBox')));
-{const b=$('sdGrow');
- if(b){b.innerHTML=ICON_GROW;
-   b.addEventListener('click',()=>sdBox(!$('sdSection').classList.contains('sdWide')));}}
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&$('previewStage').classList.contains('stageBox')){e.preventDefault();stageBox(false);}
-  else if(e.key==='Escape'&&$('sdSection')&&$('sdSection').classList.contains('sdWide')){e.preventDefault();sdBox(false);}
 });
 // Nutruktas krovimas: pats vaizdas yra mygtukas (V 08-13). Veikia tik tada, kai
 // drobeje stovi „Preview stopped" - kitu metu paspaudimas nieko nedaro, kad
