@@ -3752,6 +3752,15 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
        2 px = 0.26 mm - jie dingdavo prie pat detales ir likdavo tarpai
        (V 08-12). Plota skaiciuojam is pilnos raiskos, tad greitasis dervos
        ivertis nuo sito neisputa. */
+    /* Neuzsikroves sluoksnis NEBUS tuscias sluoksnis. Kai printeris uzimtas, jis
+       i sluoksnio uzklausa atsako „printer busy" - narsyklei tai nepiesiamas
+       paveikslas, `naturalWidth` lieka 0, ir iki siol cia tyliai buvo imamas
+       tinklelio dydis, o i stulpeli idedamas TUSCIAS pjuvis. Modelis nuo to
+       subyredavo i juostas ir luitus - lygiai taip, kaip V mate ikeldamas
+       modeli, kol printeris dar ispakavo kita (V 08-20). Geriau sustoti ir
+       pasakyti, nei parodyti daikta, kurio nera. */
+    if(!img.naturalWidth||!img.naturalHeight)
+      throw new Error('the printer was busy - open the preview again when it is free');
     const nw=img.naturalWidth||gw, nh=img.naturalHeight||gh;
     if(oc.width!==nw){oc.width=nw;oc.height=nh;}
     octx.drawImage(img,0,0);
@@ -4975,7 +4984,10 @@ const renderSdJob=s=>{
      (didelio modelio - keliasdesimt sekundziu). Iki siol tuo metu kabejo „924/924 ·
      99 %" ir atrodydavo uzstrige (V 08-20). Sakom, kas is tikruju vyksta. */
   {const dn=Number(s&&s.sdJobDone)||0, tt=Number(s&&s.sdJobTotal)||0;
-   if(tt>0&&dn>=tt)snackProgress(txt+' · finishing',0,0,undefined,undefined,99);
+   /* `txt` cia yra objektas ({lbl,name,sub}), ne eilute - sudejus ji su tekstu
+      snacke atsirasdavo „[object Object]" (V 08-20). Uzrasa dedam i savo lauka. */
+   if(tt>0&&dn>=tt)
+     snackProgress(jobText(txt.lbl,txt.name,'finishing'),0,0,undefined,undefined,99);
    else snackProgress(txt,dn,tt);}
   sdJobCur=jobPlain(txt);
 };
@@ -6223,7 +6235,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       if(window.gl3dSupClip)gl3dSupClip(null);
       return true;
     }
-    CLIP_PL.constant=CLIP*(slicesCache.modelH||MZ)-MZ/2;
+    /* Auksti gali nurodyti ir sliceris: jo modelis neturi nieko bendro su
+       `slicesCache`, o rasydamas i ji jis sugadindavo kito modelio proporcijas
+       (V 08-20: is Prusos ikeltas biustas suplokstejo). */
+    CLIP_PL.constant=CLIP*(window.gl3dClipHeight||slicesCache.modelH||MZ)-MZ/2;
     ren.localClippingEnabled=true;
     if(buvo!==1){mesh.material.clippingPlanes=[CLIP_PL];mesh.material.needsUpdate=true;}
     if(window.gl3dSupClip)gl3dSupClip(CLIP_PL);

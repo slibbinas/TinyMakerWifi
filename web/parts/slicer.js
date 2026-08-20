@@ -677,9 +677,9 @@ const slicerGeomView=(home)=>{
   if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
   if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
-  /* Sluoksniu vaizdas si lauka uzpildo pats, o geometrijos vaizdas iki siol
-     ne - tad pjuvis matavosi pagal ANKSTESNI modeli. */
-  {const H=slicerModelH(); if(H)slicesCache.modelH=H;}
+  /* Pjuvio aukstis - PER SAVO lauka, ne per bendra `slicesCache`: i ji rasant
+     kito modelio perziura likdavo su musu aukščiu ir suplokstedavo (V 08-20). */
+  {const H=slicerModelH(); window.gl3dClipHeight=H||null;}
   const s=slicerOut&&slicerOut.supports;
   if(slicerMod.geometrija&&slicerOut){
     /* WASM variklis atramu saraso nebeduoda - jos ateina kaip tikra geometrija
@@ -934,6 +934,7 @@ const slicerCage=enter=>{
   if(typeof syncCageBtn==='function')syncCageBtn();
 };
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
+                     if(!v)window.gl3dClipHeight=null;   // aukstis buvo musu, ne kito modelio
                      slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
                      if(!v)slicerLayerUI(false);};
