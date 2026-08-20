@@ -3230,13 +3230,19 @@ function* smBuildFieldGen(){
   }
   yield* blur(a,b,1,W,0,6,1,0.10,0.20);
   yield* blur(b,a,W,H,1,6,1,0.30,0.20);
-  yield* blur(a,b,WH,D,2,2,K,0.50,0.20);
+  /* Vertikalus branduolys nuo [1,2,1] i [1,4,1]: pirmasis vidurki spaudzia iki
+     0,25-0,5, ir plona vieta - sparnas, spyglys, atrama - nukrenta zemiau 0,5 ribos,
+     tad pavirsius joje sutrunka i karoliukus. Tokia ir buvo drakono „sudraskyta"
+     isvaizda, kai storas biustas atrodydavo svarus (V 08-20). Su [1,4,1] ta pati
+     plona vieta islieka ties ~0,67, o laipteliai tarp pjuviu vis dar nusilygina -
+     ju juk jau nusilygino ir interpoliacija (K). */
+  yield* blur(a,b,WH,D,2,4,K,0.50,0.20);
   /* Gimtos raiskos vaizde (320x240) horizontalus langelis yra 0,13 mm, o
      tarpas tarp pjuviu 0,34 mm - t.y. 2,7 karto stambesnis. Kai xy tapo
      astrus, tas skirtumas pasimate kaip ziedai ant lygiu pavirsiu (V 08-13).
      Antras praejimas ta pacia z kryptimi isplecia branduoli nepridedant nei
      atminties, nei pjuviu - tik viena praejima per lauka. */
-  if(gw>=DET_GW){ yield* blur(b,a,WH,D,2,2,K,0.70,0.20); return {f:a,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di}; }
+  if(gw>=DET_GW){ yield* blur(b,a,WH,D,2,4,K,0.70,0.20); return {f:a,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di}; }
   return {f:b,W:W,H:H,D:D,Wi:Wi,Hi:Hi,Di:Di};
 }
 // Surface nets: viena virsune celei, kurios kampai kerta izoreiksme; celes
@@ -4989,7 +4995,14 @@ const renderSdJob=s=>{
         loadFiles();
       }else if(sdJobLast==='import'){
         msg('Unpacked '+shortName(sdJobLastName)+'.');   // tas pats zodis kaip eigoje
+        const justName=sdJobLastName;
         loadFiles();
+        /* Ka tik ikeltas modelis - ir yra tas, i kuri zmogus ziuri. Sliceryje
+           taip ir buvo: supjaustei - matai; o per korteles ikelima tekdavo dar
+           susirasti eilute ir paspausti (V 08-20). Neatimam vaizdo, jei ekrane
+           jau kas nors dirba: spausdinimas arba sliceris. */
+        if(justName&&!(statusData&&statusData.busy)&&!window.slicerOwnsPreview&&!dashPreviewName)
+          setTimeout(()=>{try{dashPreview(justName,{scroll:false,silent:true});}catch(e){}},400);
       }
       sdJobLast='';sdJobLastName='';
     }
