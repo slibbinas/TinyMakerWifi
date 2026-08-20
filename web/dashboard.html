@@ -2407,7 +2407,11 @@ const applyStatus=s=>{
        sekundes, nors gl3dMesh ji ka tik parode - dideliame modelyje sukiotis
        buvo neimanoma (V 08-17). */
     if(window.setStageGrowUI)
-      setStageGrowUI(!busyPrint&&(!!dashPreviewName||slicerOwnsPreview===true));
+      /* Kas SEKUNDE. Butent si eilute ir nusinesdavo isdidinta langa: tuscia peržiūra
+         (perjungtas akordeonas, dar nieko neturintis sliceris) reiskė „nera ko didinti",
+         o `setStageGrowUI(false)` maketa sutraukdavo atgal. Lango busena - zmogaus
+         pasirinkimas; vienintele isimtis lieka spaudinys (V 08-20). */
+      setStageGrowUI(!busyPrint);
     const pause=$('pauseButton'), resume=$('resumeButton');
     const showResume=s.canResume||s.resuming;
     pause.classList.toggle('hidden',showResume);
@@ -4146,8 +4150,7 @@ const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;
   renderFiles();
   /* Iskart, nelaukiant apklausos: atidarius perziura mygtukas turi atsirasti tuoj pat,
      o ne po sekundes - kitaip atrodo, lyg butu uzstriges. */
-  if(window.setStageGrowUI)setStageGrowUI(previewHasContent()&&
-    !(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
+  if(window.setStageGrowUI)setStageGrowUI(!(statusData&&statusData.busy&&!(statusData.sdJob||'')));};
 // 0-26: the previewed model's identity lives on the STATUS panel (it already
 // has row mechanics - State, Resin left, the print-time boxes), not squeezed
 // into one line under the preview card. null hides the rows (placeholder,
@@ -4659,6 +4662,11 @@ const stageBox=on=>{
 /* Ar peržiūroje apskritai kas nors yra: SD modelis ARBA slicerio daiktas. Isdidinimas
    priklauso nuo TURINIO, ne nuo to, kuris blokas ji atnese (V 08-20: „isdidinau, perjungiau
    akordeona - langas nusoko atgal"). */
+/* Isdidintas langas yra ZMOGAUS pasirinkimas, ne turinio pasekme. Anksciau ji
+   nusinesdavo bet kas, kas peržiūrą palikdavo tuscia (perjungtas akordeonas, atidarytas
+   dar nieko neturintis sliceris) - ir maketas soktelėdavo atgal i du stulpelius
+   (V 08-20, du kartus). Vienintele isimtis - spaudinys: tada mygtuko nebelieka, tad
+   isdidintame lange zmogus liktu be kelio atgal. */
 const previewHasContent=()=>!!(dashPreviewName||window.slicerOwnsPreview);
 window.previewHasContent=previewHasContent;
 const setStageGrowUI=canGrow=>{

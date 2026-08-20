@@ -1233,10 +1233,9 @@ const slicerCage=enter=>{
 };
 const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
                      /* Isdidinimo mygtukas klausia TURINIO, o turinys ka tik pasikeite. */
-                     if(window.setStageGrowUI&&window.previewHasContent)
-                       setStageGrowUI(previewHasContent()&&
-                         !(typeof statusData!=='undefined'&&statusData&&statusData.busy&&
-                           !(statusData.sdJob||'')));
+                     if(window.setStageGrowUI)
+                       setStageGrowUI(!(typeof statusData!=='undefined'&&statusData&&
+                                        statusData.busy&&!(statusData.sdJob||'')));
                      if(!v)window.gl3dClipHeight=null;   // aukstis buvo musu, ne kito modelio
                      slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
