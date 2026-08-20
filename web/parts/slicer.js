@@ -53,7 +53,11 @@ const slicerStep=()=>{
       spaudiniui, o „Send to printer" vis tiek grizdavo su 409 - printeris tuo metu SD
       neduoda (V 08-20: „spausdinimo metu leidzia slicint, nelogiska"). Failo pasirinkima
       ir nustatymus paliekam: pasiruosti kita modeli spausdinant - normalu. */
-   const spausdina=!!(typeof statusData!=='undefined'&&statusData&&statusData.busy);
+   /* Ne tik spaudinys: kol keliauja failas, printeris ji ispakuoja ar trina, rezultato
+      vis tiek nebus kur deti - tad blokas uzrakintas VISAM tam laikui. Viena taisykle
+      vietoj trijų isimciu, kurias reiktu atsiminti (V 08-20). */
+   const spausdina=(typeof uiBusy==='function')?uiBusy()
+                   :!!(typeof statusData!=='undefined'&&statusData&&statusData.busy);
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits||spausdina;
      go.title=spausdina?'Not while the printer is working'
