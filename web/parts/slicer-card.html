@@ -6,7 +6,12 @@
     <div id='slicerBody' style='display:none'>
       <div id='slicerTools' class='toolbar' style='margin-top:0'>
         <button id='slicerAutoFit' class='button secondary' type='button' disabled
-                title='Turn it, and scale only if it does not fit'>Auto fit</button>
+                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+        <!-- Antras pastatymas: to paties darbo kruopstusis kelias. Atskiras mygtukas,
+             o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
+             laimejo arba prarado - pasako eilute faktu sarase. -->
+        <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
+                title='Careful fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-15 s on big models.'>Careful fit</button>
         <button id='slicerFlat' class='button secondary' type='button' disabled
                 title='Put the widest flat face down on the plate'>Lay flat</button>
         <button id='slicerFlip' class='button secondary' type='button' disabled
@@ -72,6 +77,10 @@
       <div id='slicerInfo'>No file loaded yet.</div>
       <div>Layers are 0.05 mm, as for every model.</div>
       <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - nothing to set.</div>
+      <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
+           Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
+           prarado, ir galeti grizti (V 08-20). -->
+      <div id='slicerPlaceNote'></div>
       <div id='slicerIslands'></div>
       </div>
     </div>

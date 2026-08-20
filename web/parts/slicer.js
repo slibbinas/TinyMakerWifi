@@ -63,7 +63,7 @@ const slicerStep=()=>{
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
   {const tools=$('gl3dTools');
-   if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
+   if(tools)['fit','fitpro','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
    /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes:
@@ -80,7 +80,7 @@ const slicerStep=()=>{
   }
 };
 const slicerButtons=on=>{
-  ['slicerAutoFit','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
+  ['slicerAutoFit','slicerAutoFitPro','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
     .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
   /* Ta pati busena ir ant vaizdo esantiems - jie tik kita to paties veido puse. */
   const t=$('gl3dTools');
@@ -427,29 +427,36 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
   requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(eik,0)));
   setTimeout(eik,150);
 };
+/* Kokio dydzio detale telpa su tokiu pastatymu. `worst` yra blogiausios asies
+   uzimta limito dalis, tad 1/worst - kiek karta ja dar galima auginti (arba kiek
+   teks mazinti). Vienintelis skaicius, kuriuo du pastatymai palyginami sazininagai:
+   ne „graziau", o „didesne detale telpa". */
+const slicerTelpa=tr=>{
+  const b=slicerMod.bounds(slicerMod.place(slicerRaw,Object.assign({},tr,{scale:1})));
+  const f=slicerMod.fitCheck(b.size);
+  return {kiek:f.worst?1/f.worst:0, h:b.size[2]};
+};
+/* Kruopstaus pastatymo verdiktas viena eilute. Be jo mygtukas butu tikejimo
+   klausimas, o akis apgauna: drakonas ant sparno atrodo blogai pastatytas, nors
+   kaip tik toks telpa 34 % didesnis (matuota 08-20). */
+const slicerPlaceNote=(pro,fast)=>{
+  const e=$('slicerPlaceNote'); if(!e)return;
+  if(!pro||!fast){e.textContent='';return;}
+  const sant=fast.kiek?pro.kiek/fast.kiek:1, proc=Math.round((sant-1)*100);
+  const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
+  e.style.color=proc<0?'var(--warncol)':'';
+  e.textContent=Math.abs(proc)<1
+    ? 'Careful fit: the same size as Fast fit'+auksciai+'.'
+    : (proc>0 ? 'Careful fit: the part prints '+proc+'% bigger than with Fast fit'+auksciai+'.'
+              : 'Careful fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
+                ' - Fast fit suits this model better.');
+};
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Placing…',async()=>{
+  slicerBusyPaint('Fitting…',()=>{
   const s0=slicerTr.scale;
-  /* Kruopstusis pastatymas (modulis 3.1.0): PAKRYPIMA - kuria puse guldyti -
-     parenka tikras PrusaSlicer Rotfinder, sukamas variklio gijoje; posuki ant
-     plokstes, talpinima ir masteli toliau sprendziam mes (Prusa apie vertikale
-     nesuka visai, o musu ploksté pailga). Trunka 5-12 s, tad turi savo eiga.
-     Ikeliant faila ir „Lay flat" mygtukui lieka greitasis `autoOrient`. */
-  if(slicerMod.autoOrientPro){
-    try{
-      slicerTr=(await slicerMod.autoOrientPro(slicerRaw,(done,total)=>{
-        const f=total?done/total:null;
-        paintPreviewProgress($('printPreviewCanvas'),
-          'Placing…'+(f!==null?' '+Math.round(f*100)+'%':''),f,true);
-      })).tr;
-    }catch(e){
-      /* Variklis neatsake - imam greitaji atsakyma: zmogui geriau pastatytas
-         modelis nei pranesimas, kad nepavyko. */
-      slicerTr=slicerMod.autoOrient(slicerRaw).tr;
-    }
-  }else slicerTr=slicerMod.autoOrient(slicerRaw).tr;   // senesnis modulis
-  slicerTr.scale=s0;
+  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
+  slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
   const f=slicerMod.fitCheck(b.size);
   if(!f.fits){
@@ -471,14 +478,53 @@ $('slicerAutoFit').addEventListener('click',()=>{
   slicerRender();
   });
 });
+/* Kruopstusis kelias (modulis 3.1.0): PAKRYPIMA - kuria puse guldyti - parenka
+   tikras PrusaSlicer Rotfinder, sukamas variklio gijoje, o posuki ant plokstes,
+   talpinima ir masteli toliau sprendziam mes (Prusa apie vertikale nesuka visai,
+   o musu ploksté pailga). Atskiras mygtukas, nes trunka 10-15 s ir laimi ne
+   visada. Drakonui jo atsakymas ATRODO keistas (detale atsistoja ant sparno) ir
+   yra auksciau - 138,9 vs 100,5 mm, - bet plokste 40,8 x 30,6 mm, tad butent
+   siauresnis pastatymas leidzia spausdinti 34 % didesne detale. Todel verdikta
+   apacioje rodo skaicius, o ne akis (V 08-20).
+   Eiga: variklis atsiuncia „5 %" ir tyli iki galo - vieno nedalomo kvietimo
+   viduje nera ko rodyti, tad ir nerodom melagingo skaiciaus. */
+$('slicerAutoFitPro').addEventListener('click',()=>{
+  if(!slicerRaw||!slicerMod.autoOrientPro)return;
+  slicerBusyPaint('Looking for the best position…\nthis takes a few seconds',async()=>{
+    const s0=slicerTr.scale;
+    const fast=slicerTelpa(slicerMod.autoOrient(slicerRaw).tr);
+    let pro=null;
+    try{
+      const r=await slicerMod.autoOrientPro(slicerRaw);
+      slicerTr=r.tr; pro=slicerTelpa(r.tr);
+    }catch(e){
+      /* Variklis neatsake - paliekam, kas buvo, ir pasakom: tyliai grizti prie
+         greitojo butu apgaule, nes zmogus praso butent sito. */
+      msg('The engine did not answer - the position is unchanged.',true);
+      return;
+    }
+    slicerTr.scale=s0;
+    slicerPlaceNote(pro,fast);
+    const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+    const f=slicerMod.fitCheck(b.size);
+    if(!f.fits)slicerTr.scale*=f.scaleToFit;
+    {const e=$('statusMsg');
+     if(/does not fit/i.test(e.textContent||'')&&
+        slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
+       msg('',false);}
+    slicerHome=true;
+    slicerRender();
+  });
+});
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return;
   slicerBusyPaint('Laying it flat…',()=>{
+    slicerPlaceNote(null,null);
     const s=slicerTr.scale;
     slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});});
-$('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx+=2;slicerRender();}});
-$('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerTr.rx++;slicerRender();}});
-$('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerTr.rz++;slicerRender();}});
+$('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rx+=2;slicerRender();}});
+$('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rx++;slicerRender();}});
+$('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rz++;slicerRender();}});
 /* Pjaustymas ir issaugojimas. Archyvas keliauja ESAMU ikelimo keliu - tuo
    paciu, kuriuo ateina PrusaSlicer siuntiniai; printeriui naujo kodo nereikia. */
 let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
@@ -1054,6 +1100,7 @@ const slicerReset=()=>{
   $('slicerName').value=''; $('slicerName').disabled=true;
   $('slicerFile').value='';
   $('slicerDims').textContent=''; $('slicerProg').textContent='';
+  {const pn=$('slicerPlaceNote'); if(pn)pn.textContent='';}
   $('slicerInfo').textContent='Choose an STL file to begin.';
   $('slicerDiscardLink').style.visibility='hidden';
   slicerSupportFacts(null);
@@ -1083,7 +1130,7 @@ const popClose=()=>{
       else{p.style.display='flex';popRow(false);}
       return;
     }
-    const id={fit:'slicerAutoFit',flat:'slicerFlat',flip:'slicerFlip',
+    const id={fit:'slicerAutoFit',fitpro:'slicerAutoFitPro',flat:'slicerFlat',flip:'slicerFlip',
               tilt:'slicerRotX',rot:'slicerRotZ'}[t];
     const b=id&&$(id); if(b&&!b.disabled)b.click();
   });
