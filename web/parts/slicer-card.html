@@ -1,8 +1,10 @@
   <section id='slicerCard' class='card hidden'>
-    <div class='cardHead'><h2>STL slicer <span id='slicerVer' class='fwBadge'
-              title='Slicer module version'></span> <span id='slicerState' class='navTag'></span></h2>
-      <button id='slicerToggle' class='button secondary' type='button'
-              style='margin-top:0' aria-label='Open the slicer'>Open</button></div>
+    <!-- Varnele - IS KARTO po pavadinimo, pries versijos zenkleli (V 08-21): ji priklauso
+         pavadinimui, o versija yra prierasas prie jo. -->
+    <div class='cardHead'><h2>STL slicer <button id='slicerToggle' class='button secondary'
+              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button>
+              <span id='slicerVer' class='fwBadge'
+              title='Slicer module version'></span> <span id='slicerState' class='navTag'></span></h2></div>
     <div id='slicerBody' style='display:none'>
       <div id='slicerTools' class='toolbar' style='margin-top:0'>
         <button id='slicerAutoFit' class='button secondary' type='button' disabled
@@ -95,5 +97,6 @@
       <div id='slicerPlaceNote'></div>
       <div id='slicerIslands'></div>
       </div>
+
     </div>
   </section>

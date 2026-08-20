@@ -1066,10 +1066,15 @@ $('slicerGo').addEventListener('click',async()=>{
     sliceStopWanted=true; sliceRun++;
     sliceRunning=false;
     slicerOverlayOff(); slicerWorkUI(false);
+    /* Raudona spalva nusiima CIA: sustabdzius `sliceRun` jau pakeistas, tad darbo
+       `finally` iseina anksti ir jo nebenuima - mygtukas likdavo raudonas su uzrasu
+       „Slice" (V 08-21). */
     $('slicerGo').textContent='Slice'; $('slicerGo').disabled=false;
+    $('slicerGo').classList.remove('danger');
     slicerButtons(true);
+    /* Snacko cia nebera (V 08-21): ta pati zinia jau stovi korteleje, o mygtukas grizes
+       i „Slice" - trecias pranesimas apie ta pati tik uzstoja vaizda. */
     $('slicerProg').textContent='Slicing stopped. Nothing was changed.';
-    msg('Slicing stopped.');
     slicerRender();          // vaizde vel modelis, ne eigos uzrasas
     return;}
   if(!slicerRaw||!slicerMod)return;
@@ -1080,7 +1085,9 @@ $('slicerGo').addEventListener('click',async()=>{
   const go=$('slicerGo'), prog=$('slicerProg');
   const myRun=++sliceRun;
   sliceRunning=true; sliceStopWanted=false;
-  go.textContent='Stop'; go.disabled=false;   // vienintelis gyvas mygtukas
+  /* Raudonas, kaip spausdinimo „Stop" (V 08-21): tas pats zodis ir ta pati prasme -
+     nutraukti tai, kas vyksta, - tad ir spalva ta pati. */
+  go.textContent='Stop'; go.disabled=false; go.classList.add('danger');   // vienintelis gyvas mygtukas
   slicerButtons(false);
   slicerWorkUI(true);
   try{
@@ -1172,7 +1179,7 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerOverlayOff();
     slicerWorkUI(false);
     sliceRunning=false; sliceStopWanted=false;
-    go.textContent='Slice';
+    go.textContent='Slice'; go.classList.remove('danger');
     /* Mygtukas atrakinamas VISADA, ir tai ne aplaidumas: virsuje (po sekmingo
        pjaustymo) jis uzrakinamas, bet atrakinti ji paskui butu nebe kam -
        `slicerInvalidate` (pasukus, pakeitus masteli) prie sio mygtuko neprieina,
@@ -1203,7 +1210,9 @@ const slicerDetLock=on=>{
 /* Apatineje juostoje trys grupes: sukimas (kaireje), irankiai (viduryje),
    detalumas+priartinimas (desineje). Scale eilutei reikia VISO plocio -
    kitaip patvirtinimo varnele uzlipa ant kaimynu (V 08-12). */
-const POP_ROW={gl3dTools:'flex',gl3dRot:'grid',gl3dZoom:'flex',gl3dZoomCorner:'flex'};
+/* Ka slepia mastelio eilute. `gl3dRot` cia NEBERA (V 08-21): vartymas gyvena apacioje
+   kaireje, o eilute - virsuje, tad jie nebesikerta ir slepti ji nebera del ko. */
+const POP_ROW={gl3dTools:'flex',gl3dZoom:'flex',gl3dZoomCorner:'flex'};
 const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
   const e=$(id); if(e)e.style.display=show?POP_ROW[id]:'none';});
 /* Vaizdo savininkas ir detalumo uzraktas keiciasi KARTU. Anksciau uzraktas
