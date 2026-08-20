@@ -446,9 +446,9 @@ const slicerPlaceNote=(pro,fast)=>{
   const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
   e.style.color=proc<0?'var(--warncol)':'';
   e.textContent=Math.abs(proc)<1
-    ? 'Careful fit: the same size as Fast fit'+auksciai+'.'
-    : (proc>0 ? 'Careful fit: the part prints '+proc+'% bigger than with Fast fit'+auksciai+'.'
-              : 'Careful fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
+    ? 'Optimal fit: the same size as Fast fit'+auksciai+'.'
+    : (proc>0 ? 'Optimal fit: the part prints '+proc+'% bigger than with Fast fit'+auksciai+'.'
+              : 'Optimal fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
                 ' - Fast fit suits this model better.');
 };
 $('slicerAutoFit').addEventListener('click',()=>{
@@ -1122,7 +1122,12 @@ const popClose=()=>{
 {
   const tls=document.getElementById('gl3dTools');
   if(tls)tls.addEventListener('click',e=>{
-    const t=e.target&&e.target.dataset&&e.target.dataset.tool; if(!t)return;
+    /* `closest`, ne pats taikinys: ikonos viduje gali gulėti piesinys, ir nors
+       jam nustatytas `pointer-events:none`, remtis vien tuo trapu - uztenka
+       vienos naujos ikonos be tos taisykles, ir mygtukas nustotu veikes tyliai
+       (V 08-20: „tik nesugadink ikonu ir ju rezimu"). */
+    const kur=e.target&&e.target.closest&&e.target.closest('[data-tool]');
+    const t=kur&&kur.dataset.tool; if(!t)return;
     e.stopPropagation();
     if(t==='scale'){
       const p=$('gl3dPop'); if(!p)return;
