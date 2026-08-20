@@ -104,10 +104,27 @@ const slicerButtons=on=>{
    susiskleidzia (V 08-12). Vietos rodiklis LIEKA matomas: kuriant modeli
    verta matyti, kiek kortelėje liko. */
 const sdCollapse=on=>{
-  ['uploadForm','filesFilter','filesList'].forEach(id=>{
+  ['filesFilter','filesList','sdUsageBox','uploadHint'].forEach(id=>{
     const e=$(id); if(e)e.style.display=on?'none':'';
   });
-  const h=$('sdCollapsedHint'); if(h)h.style.display=on?'block':'none';
+  /* „Upload…" LIEKA ir suskleistame bloke: tai vienas mygtukas antrastėje, vietos
+     nekainuoja, o failo ikelimas neturi priklausyti nuo to, kuris blokas atidarytas
+     (V 08-20). */
+  const h=$('sdCollapsedHint');
+  if(h){h.style.display=on?'block':'none';
+        if(on)h.textContent=sdSantrauka();}
+  const t=$('sdToggle'); if(t){t.textContent=on?'▸':'▾';
+    t.title=on?'Open the model list':'Collapse the model list';
+    t.setAttribute('aria-expanded',on?'false':'true');}
+};
+/* Ka pasako suskleistas SD blokas: kiek modeliu ir kiek vietos liko - abu skaiciai
+   jau yra korteleje, tik giliau. Suskleistas blokas turi likti informatyvus, o ne
+   virsti tuscia antraste (V 08-20). */
+const sdSantrauka=()=>{
+  const n=(typeof filesItems!=='undefined'&&filesItems)?filesItems.length:0;
+  const laisva=($('sdUsageText')&&$('sdUsageText').textContent||'').trim();
+  const kiek=n?(n+(n===1?' file':' files')):'No models yet';
+  return laisva&&laisva!=='-'?kiek+' · '+laisva:kiek;
 };
 /* Uzdarymas - zenklas, ne zodis, ir TA PATI seima, kaip lango didinimas virs
    perziuros: tas pats remelis, dydis ir 13 px piesinys. Atidarymas lieka zodis -
@@ -133,19 +150,59 @@ window.slicerToggleUI=slicerToggleUI;   // refreshSlicerCard gyvena auksciau uz 
    `slicerOpen`, kurio niekas nebuvo apibrezes - `typeof` toki kvietima tyliai
    praryja, tad kortele likdavo atidaryta. Vienoda busena - tyliai iseinam: kitaip
    apklausa kas sekunde perpiestu perziura. */
-const slicerOpen=open=>{
+/* Ar sliceris atidarytas - KLAUSIAM cia, o ne skaitom `style.display` po visa pulta:
+   akordeonui si busena tampa dazna, o issibarste patikros tyliai atsilieka (V 08-20). */
+const slicerIsOpen=()=>{const b=$('slicerBody'); return !!(b&&b.style.display!=='none');};
+window.slicerIsOpen=slicerIsOpen;
+/* Kuris blokas atidarytas - isimenam, kad po perkrovimo zmogus liktu ten, kur buvo.
+   PRIVERSTINIS uzdarymas (isjungtas web control) i atminti NERASOMAS: kitaip vienas
+   printerio nustatymas amziams perstatytu zmogaus pasirinkima (V 08-20). */
+const AKORD_RAKTAS='tmAkordeonas';
+const akordIrasyk=kuris=>{try{localStorage.setItem(AKORD_RAKTAS,kuris);}catch(e){}};
+window.akordPradinis=()=>{try{return localStorage.getItem(AKORD_RAKTAS)||'slicer';}
+                          catch(e){return 'slicer';}};
+/* Peržiūra perjungiant NIEKO neismeta: abu turiniai lieka atmintyje, o cia tik
+   perpiesiam ta, kuris priklauso atidarytam blokui. Butent del sito is `slicerOpen`
+   isimtas `slicerReset` - jis persikele ten, kur turinys tikrai keiciasi: i naujo STL
+   ikelima ir „Discard" (V 08-20). */
+const previewShowFor=()=>{
+  /* Spausdinant perziura priklauso spaudiniui - jos neliecia niekas. */
+  if(typeof statusData!=='undefined'&&statusData&&statusData.busy)return;
+  if(slicerIsOpen()){
+    slicerOwns(true);
+    if(slicerOut){slicerBuildView(false);
+      /* Sluoksniu slankiklis gyvena su REZULTATU, ne su piesimu: be sios eilutes
+         grizus is SD jis likdavo paslėptas, nors modelis jau vel ekrane. Kartu
+         grazinam ir ta pati sluoksni - zmogus paliko ji tam tikroje vietoje. */
+      slicerLayerUI(true);
+      slicerShowLayer(slicerLayerN||slicerOut.layers); return;}
+    if(slicerRaw){slicerRender();return;}
+    slicerOwns(false); dashPreviewPlaceholder(); return;
+  }
+  slicerOwns(false);
+  /* SD pusėje modelis grazinamas per ta pati kelia, kaip eilutes paspaudimas -
+     jei pjuviai dar kese, jis atsako is karto ir nieko is printerio netraukia. */
+  const n=typeof dashPreviewName!=='undefined'?dashPreviewName:'';
+  if(n&&typeof pickModel==='function')pickModel(n);
+  else dashPreviewPlaceholder();
+};
+window.previewShowFor=previewShowFor;
+const slicerOpen=(open,tylus)=>{
   const body=$('slicerBody'); if(!body)return;
-  if((body.style.display!=='none')===open)return;
+  if(slicerIsOpen()===open)return;
   body.style.display=open?'block':'none';
   slicerToggleUI(open);
   sdCollapse(open);
-  /* Perziuroje galejo kaboti visai kitas failas - jis ne slicer'io, tad
-     vaizdas isvalomas, kad neatrodytu ikeltas (V 08-12). */
-  slicerReset(); slicerOwns(false); dashPreviewPlaceholder();
+  if(!tylus)akordIrasyk(open?'slicer':'sd');
+  previewShowFor();
 };
 window.slicerOpen=slicerOpen;
+/* SD antrastes rodykle suka TA PATI jungikli: vienas atidarytas, kitas suskleistas. */
+{const sd=$('sdToggle');
+ if(sd)sd.addEventListener('click',()=>{const t=$('slicerToggle');
+   if(t&&!t.disabled&&!slicerIsOpen())t.click(); else slicerOpen(!slicerIsOpen());});}
 $('slicerToggle').addEventListener('click',async()=>{
-  const wasOpen=$('slicerBody').style.display!=='none';
+  const wasOpen=slicerIsOpen();
   slicerOpen(!wasOpen);
   if(wasOpen||slicerMod)return;
   slicerSay('slicerInfo','Loading the slicer…');
@@ -743,7 +800,10 @@ function slicerSupportFacts(s){
 function slicerLayerUI(on){
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
   const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
-  if(!on){slicerMaskSet(false); slicerFlatStage(false); slicerView=0; slicerLayerN=1;
+  /* Sluoksnio NUMERIS cia NEBENULINAMAS: valdikliai dingsta ir grizta kaskart
+     perjungiant akordeona, o zmogaus vieta sluoksniuose priklauso REZULTATUI -
+     ji nulinama tik ten, kur rezultatas keiciasi (`slicerReset`, „Discard"). */
+  if(!on){slicerMaskSet(false); slicerFlatStage(false); slicerView=0;
           if(window.gl3dSupports)gl3dSupports(null);}
   else slicerSetView(slicerView);
 }
@@ -1131,6 +1191,7 @@ function slicerTopLeft(){
    negali persekioti tarp atidarymu (V 08-12). */
 const slicerReset=()=>{
   slicerOut=null; slicerRaw=null; slicerTr=null; slicerBudget=0;
+  slicerLayerN=1; slicer3dLayer=null;
   slicerFileName=''; slicerHome=true;
   slicerButtons(false);
   $('slicerGo').disabled=true; $('slicerSave').disabled=true;
@@ -1442,6 +1503,7 @@ $('slicerSave').addEventListener('click',async()=>{
  if(b)b.addEventListener('click',()=>{const sv=$('slicerSave'); if(sv&&!sv.disabled)sv.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
+  slicerLayerN=1; slicer3dLayer=null;   // rezultato nebera - nebera ir vietos jame
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';

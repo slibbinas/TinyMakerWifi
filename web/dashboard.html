@@ -332,10 +332,17 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          footer that turns amber when it matters - checkUploadFits() guards
          space at upload time anyway. -->
     <div class='cardHead'><h2>SD manager</h2>
+      <div style='display:flex;align-items:center;gap:8px'>
       <form id='uploadForm' style='margin:0'>
         <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
         <button id='uploadButton' class='small button secondary' type='button' style='margin-top:0'>Upload&hellip;</button>
       </form>
+      <!-- Akordeono jungiklis: vienu metu atidarytas TIK vienas blokas, tad si rodykle
+           ir slicerio antrastes mygtukas suka ta pati jungikli. Tikras mygtukas, ne
+           `div` su `onclick` - kad veiktu ir klaviatura (V 08-20). -->
+      <button id='sdToggle' class='button secondary narrow' type='button' style='margin-top:0'
+              aria-expanded='true' title='Collapse the model list'>&#9662;</button>
+      </div>
     </div>
     <div id='uploadHint' class='hint' style='margin:2px 0 10px'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
     <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
@@ -1964,9 +1971,11 @@ const refreshSlicerCard=()=>{
        Gyvai busenai uzrasa nustato slicerToggleUI - ji cia ir perkartojam, kad
        zenklas ir uzrasas negaletu nuslysti nuo tikros korteles busenos. */
     if(!live)tg.title='The slicer module is not active on this printer yet';
-    else if(window.slicerToggleUI)slicerToggleUI($('slicerBody').style.display!=='none');
+    else if(window.slicerToggleUI)slicerToggleUI(!!(window.slicerIsOpen&&slicerIsOpen()));
   }
-  if(!live&&window.slicerOpen)slicerOpen(false);
+  /* Priverstinis uzdarymas: `tylus` - kad printerio nustatymas nepersirasytu zmogaus
+     pasirinkimo, kuris blokas atidarytas (V 08-20). */
+  if(!live&&window.slicerOpen)slicerOpen(false,true);
 };
 const slicerTap=()=>{
   const now=Date.now();
@@ -4068,7 +4077,7 @@ const dashPreviewPlaceholder=()=>{
   /* Uzrasas turi atitikti ta, kas atidaryta: atsivertus sliceri „Tap a model in
      the SD card list" siuntė ne ten - ten laukiama STL failo, ne korteles eilutes
      (V 08-20). */
-  {const sb=$('slicerBody'), sliceris=!!(sb&&sb.style.display!=='none');
+  {const sliceris=!!(window.slicerIsOpen&&slicerIsOpen());
    paintPreviewProgress($('printPreviewCanvas'),
      sliceris?'Choose an STL file to slice'
      :(firstStatusSeen?'Tap a model in the SD card list':'Connecting to the printer...'),
