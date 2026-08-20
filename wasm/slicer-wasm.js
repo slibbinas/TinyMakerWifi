@@ -13,7 +13,7 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.1.0-wasm';
+export const VERSION = '3.1.1-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
@@ -27,6 +27,65 @@ export const {
 } = BAZE;
 
 /* ------------------------------------------------------------- pastatymas */
+
+/* Greitojo pastatymo gija. Atskira nuo variklio darbininko, nes cia sukasi
+   grynas JS (baze), o ten - WASM modulis; ju maisyti nera reikalo, o sita
+   uzkrauti pigu (be 3,5 MB variklio).
+   Kodel apskritai: drakonui (1,19 mln. trikampiu) `autoOrient` skaiciuoja 3,8 s,
+   ir visa ta laika pulto gija stovi - negalima parodyti net judancios juostos
+   (printerio sesijos prasymas #3, 08-20). */
+let WG = null, kitasGId = 1;
+const laukiaG = new Map();
+
+function greitojiGija() {
+  if (WG) return WG;
+  /* Darbininko kodas - eilutėje, kad nereikėtų atskiro failo (jį dar reikėtų
+     ir prisegti versijai). Baze importuojasi jis pats. */
+  const kodas = `
+import * as S from ${JSON.stringify(ADRESAS + BAZES_FAILAS)};
+self.onmessage = (e) => {
+  const z = e.data || {};
+  try {
+    const b = S.autoOrient(new Float32Array(z.pos));
+    self.postMessage({ id: z.id, tr: b.tr, size: b.size, fit: b.fit });
+  } catch (err) {
+    self.postMessage({ id: z.id, klaida: String((err && err.message) || err) });
+  }
+};`;
+  const url = URL.createObjectURL(new Blob([kodas], { type: 'text/javascript' }));
+  WG = new Worker(url, { type: 'module' });
+  URL.revokeObjectURL(url);
+  WG.onmessage = (ev) => {
+    const z = ev.data || {};
+    const p = laukiaG.get(z.id);
+    if (!p) return;
+    laukiaG.delete(z.id);
+    if (z.klaida) p.blogai(new Error(z.klaida)); else p.gerai(z);
+  };
+  return WG;
+}
+
+/**
+ * Tas pats, ka `autoOrient`, tik ne pulto gijoje. Elgesys nesikeicia ne per
+ * plauka - tai ta pati bazes funkcija, tik kviesta kitoje gijoje.
+ *
+ * Jei gija neuzsiveda (senesne narsykle be module worker'iu), skaiciuojam
+ * vietoje: geriau trumpas sustingimas nei neveikiantis mygtukas.
+ */
+export async function autoOrientFast(pos) {
+  const id = kitasGId++;
+  const kopija = new Float32Array(pos);          // savininkyste keliauja i gija
+  try {
+    return await new Promise((gerai, blogai) => {
+      laukiaG.set(id, { gerai, blogai });
+      greitojiGija().postMessage({ id, pos: kopija.buffer }, [kopija.buffer]);
+    });
+  } catch (e) {
+    return BAZE.autoOrient(pos);
+  }
+}
+
+
 
 /**
  * „Autofit" kruopstusis kelias: PAKRYPIMA parenka PrusaSlicer Rotfinder
@@ -78,6 +137,11 @@ const laukia = new Map();
    dublikatas luzta tik pakrovimo metu - lokaliai nepastebejau, pagavo pirmas
    bandymas is gh-pages. */
 const ADRESAS = new URL('./', import.meta.url).href;
+
+/* Bazes failo vardas atskirai, nes ji prisega `publish.py` (kaip ir darbininka).
+   Reikalingas greitajam pastatymui: jis sukasi SAVO gijoje ir bazę importuojasi
+   pats, tad neprisegtas vardas ten reikstu sena narsykles kopija. */
+const BAZES_FAILAS = 'slicer-core.js';
 
 function darbininkas() {
   if (W) return W;

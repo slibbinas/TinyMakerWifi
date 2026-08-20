@@ -18,6 +18,7 @@ libslic3r/ClipperUtils.cpp
 libslic3r/Color.cpp
 libslic3r/Config.cpp
 libslic3r/CustomGCode.cpp
+libslic3r/QuadricEdgeCollapse.cpp
 # Thumbnails.cpp - ne paveiksleliams, o del PrintConfig: jo tikrinimo
 # funkcijos (make_and_check_thumbnail_list) yra PrintConfig.o dalis,
 # ir be ju linkas luzta, kai kas nors sukuria DynamicPrintConfig

@@ -58,6 +58,8 @@ def main():
     ad_v = (ad
             .replace("from './slicer-core.js'", "from './slicer-core-%s.js'" % V)
             .replace("'slicer-wasm-worker.js'", "'slicer-wasm-worker-%s.js'" % V)
+            .replace("const BAZES_FAILAS = 'slicer-core.js'",
+                     "const BAZES_FAILAS = 'slicer-core-%s.js'" % V)
             .replace("self.SLA_BAZE=", "self.SLA_VERSIJA=" + repr(V).replace("'", '"') + ";self.SLA_BAZE="))
     rasyk(os.path.join(lib, 'slicer-wasm-%s.js' % V), ad_v)
 

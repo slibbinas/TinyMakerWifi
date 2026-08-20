@@ -39,6 +39,7 @@
 #include <libslic3r/SLA/Rotfinder.hpp>
 #include <libslic3r/Model.hpp>
 #include <libslic3r/PrintConfig.hpp>
+#include <libslic3r/QuadricEdgeCollapse.hpp>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -494,7 +495,8 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
  * `to_transform3f` (Rotfinder.cpp): pirma X, paskui Y.
  */
 EMSCRIPTEN_KEEPALIVE
-const char *sla_rotfind(const float *pos, int ntri, int kuris)
+const char *sla_rotfind(const float *pos, int ntri, int kuris,
+                        double tikslumas, int max_trikampiu)
 {
     if (!pos || ntri <= 0) {
         g_json = "{\"klaida\":\"tuscias tinklas\"}";
@@ -514,6 +516,38 @@ const char *sla_rotfind(const float *pos, int ntri, int kuris)
     if (its_volume(its) < 0.f)
         for (auto &t : its.indices) std::swap(t[1], t[2]);
 
+    /*
+     * Supaprastinimas PRIES paieska (2026-08-20, printerio sesijos prasymas #2).
+     *
+     * Kaina yra tiesiogine: kiekvienas isgaubtinio apvalkalo kandidatas
+     * ivertinamas per VISUS trikampius, tad drakonui (1,19 mln.) tai 13 s.
+     * Pastatymas yra bendros formos klausimas, ne detaliu, todel ivertinimui
+     * uztenka retesnio tinklo - o SUSLICINAMAS lieka pilnas modelis.
+     *
+     * ⚠️ Tai musu sprendimas, ne originalo elgesys (PrusaSlicer vertina pilna
+     * tinkla, bet daro tai 8 gijomis - ju TBB pas mus pakeistas nuosekliu
+     * ciklu). Todel jis ijungiamas TIK is JS ir tik pasakius, kiek trikampiu
+     * palikti; be to reikia patikrinti, ar atsakymas nepasikeicia (zr.
+     * `slicer-lab/rot.mjs --retinti`).
+     */
+    size_t po_retinimo = its.indices.size();
+    float turis_po = 0.f;
+    if (max_trikampiu > 0 && its.indices.size() > size_t(max_trikampiu)) {
+        try {
+            its_quadric_edge_collapse(its, uint32_t(max_trikampiu));
+            /* Po suretinimo tinklas gali buti sulipdytas kitaip - virsuniu
+               tvarka, o su ja ir normaliu kryptis. Tikrinam ta pati, ka
+               tikrinam ikeldami: neigiamas turis = trikampiai sukti i vidu. */
+            its_merge_vertices(its, true);
+            if (its_volume(its) < 0.f)
+                for (auto &t : its.indices) std::swap(t[1], t[2]);
+        } catch (...) {
+            /* Nepavyko suretinti - dirbam su pilnu tinklu. Letai, bet teisingai. */
+        }
+        po_retinimo = its.indices.size();
+        turis_po = its_volume(its);
+    }
+
     Model model;
     ModelObject *mo = model.add_object();
     mo->add_volume(TriangleMesh{its});
@@ -528,9 +562,42 @@ const char *sla_rotfind(const float *pos, int ntri, int kuris)
     cfg.set_key_value("support_object_elevation", new ConfigOptionFloat(0.));
 
     sla::RotOptimizeParams p;
-    p.accuracy(1.f).print_config(&cfg);
+    /* `accuracy` valdo `max_tries`. ⚠️ TIK tam keliui, kuris eina per
+       optimizatoriaus tinkleli (pakeltas modelis). Gulinciam ant plokstes -
+       o pas mus butent taip - `get_chull_rotations` ji gauna kaip `max_count`,
+       bet paskutinis jos ciklas (Rotfinder.cpp:260-261) sudeda VISUS kandidatus:
+       `max_count` panaudojamas tik `reserve_vector` dydziui. Isvada: musu kelyje
+       tai NIEKO nepagreitina. Patikrinta ir matavimu, ne tik akimis. */
+    p.accuracy(tikslumas > 0 ? float(tikslumas) : 1.f).print_config(&cfg);
 
+    /*
+     * Eiga (printerio sesijos prasymas #1). `Rotfinder.cpp` kviecia si atgalini
+     * rysi kas iteracija, tad juosta gali judeti tikrai, o ne kaboti ties 5 %.
+     *
+     * ⚠️ NUTRAUKTI (Stop) siuo keliu NEIMANOMA: grazintas `false` paieska
+     * sustabdytu, bet mes sedim WORKER'io gijoje, kuri viso skaiciavimo metu
+     * blokuota - `postMessage` is pulto tiesiog laukia eileje ir jokia velevele
+     * cia nepasiekia. Reiketu SharedArrayBuffer, o jam - COOP/COEP antrasciu,
+     * kuriu gh-pages nustatyti negalima.
+     */
+    /* Kandidatu skaitiklis. `find_min_score` kiekvienam kandidatui pirma
+       klausia `stopcond()`, o ta klausia musu su -1 - tad neigiamu kvietimu
+       kiekis lygus kandidatu skaiciui. Reikia todel, kad butu galima pasakyti,
+       is ko susideda laikas: kandidatai x trikampiai (klausimas is #108). */
+    static int kandidatu = 0;
+    kandidatu = 0;
+    p.statucb([](int proc) {
+        if (proc < 0) { ++kandidatu; return true; }
+        praneskEiga("ieskoma geriausios padeties", proc);
+        return true;
+    });
+
+    char diag[128];
+    std::snprintf(diag, sizeof(diag), "\"retinta\":{\"trikampiu\":%zu,\"turis\":%.1f}",
+                  po_retinimo, turis_po);
+    /* `kandidatu` uzpildomas jau kviciant, tad i JSON deda `irasyk` pabaigoje. */
     std::string js = "{";
+    js += diag;
     auto irasyk = [&js](const char *vardas, const Vec2d &r, long ms) {
         char b[192];
         std::snprintf(b, sizeof(b),
@@ -554,6 +621,9 @@ const char *sla_rotfind(const float *pos, int ntri, int kuris)
         Vec2d r = sla::find_best_misalignment_rotation(*mo, p);
         irasyk("lygiavimas", r, ms_since(t0));
     }
+    char kd[64];
+    std::snprintf(kd, sizeof(kd), ",\"kandidatu\":%d", kandidatu);
+    js += kd;
     js += "}";
     g_json = js;
     return g_json.c_str();
