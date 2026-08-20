@@ -168,7 +168,7 @@ $('slicerToggle').addEventListener('click',async()=>{
      modelio apacios, tad po plokste nulindusi atrama nebevirsta pirmais
      sluoksniais. 3.0.6 - ta pati atrama nebematoma ir 3D vaizde, o `layers`
      imamas is paties failo (rodem 340, faile buvo 334). */
-  const SV='3.1.0';
+  const SV='3.1.1';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -451,11 +451,20 @@ const slicerPlaceNote=(pro,fast)=>{
               : 'Optimal fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
                 ' - Fast fit suits this model better.');
 };
+/* Greitasis pastatymas nuo 3.1.1 turi SAVO gija (`autoOrientFast`) - ta pati skaiciuote,
+   tik ne pulto gijoje. Del to pagaliau juda ir juostele: anksciau drakonui 7 s naršykle
+   nepiesdavo NE VIENO kadro, tad bet kokia animacija butu sustingusi (matuota 08-20).
+   Senesnis modulis tokios funkcijos neturi - tada dirbam kaip anksciau, sinchroniskai. */
+const slicerGreitas=async()=>(slicerMod.autoOrientFast
+  ? await slicerMod.autoOrientFast(slicerRaw)
+  : slicerMod.autoOrient(slicerRaw));
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Turning the part to fit…',()=>{
+  slicerBusyPaint('Turning the part to fit…',async()=>{
+  if(slicerMod.autoOrientFast&&window.paintPreviewIndet)
+    paintPreviewIndet($('printPreviewCanvas'),'Turning the part to fit…');
   const s0=slicerTr.scale;
-  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
+  slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
   const f=slicerMod.fitCheck(b.size);
@@ -486,19 +495,21 @@ $('slicerAutoFit').addEventListener('click',()=>{
    yra auksciau - 138,9 vs 100,5 mm, - bet plokste 40,8 x 30,6 mm, tad butent
    siauresnis pastatymas leidzia spausdinti 34 % didesne detale. Todel verdikta
    apacioje rodo skaicius, o ne akis (V 08-20).
-   Eiga: variklis atsiuncia „5 %" ir tyli iki galo - vieno nedalomo kvietimo
-   viduje nera ko rodyti, tad ir nerodom melagingo skaiciaus. */
+   Eiga: nuo 3.1.1 variklis atiduoda tikrus 1..100 (`Rotfinder statuscb`). Kol
+   ateina pirmas skaicius, sukasi vaikstantis ruozelis - ji sustabdo pati juostele,
+   vos tik gauna skaiciu. Sustabdyti paieskos negalima: variklio gija viso
+   skaiciavimo metu blokuota, tad musu zinute jos nepasiektu (slicerio sesija, #108). */
 $('slicerAutoFitPro').addEventListener('click',()=>{
   if(!slicerRaw||!slicerMod.autoOrientPro)return;
-  slicerBusyPaint('Searching for the best tilt…\nthis takes a few seconds',async()=>{
+  slicerBusyPaint('Searching for the best tilt…\nmay take long',async()=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
     if(window.paintPreviewIndet)
       paintPreviewIndet($('printPreviewCanvas'),
-        'Searching for the best tilt…\nthis takes a few seconds');
+        'Searching for the best tilt…\nmay take long');
     const s0=slicerTr.scale;
-    const fast=slicerTelpa(slicerMod.autoOrient(slicerRaw).tr);
+    const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
     try{
       const r=await slicerMod.autoOrientPro(slicerRaw);
@@ -524,10 +535,12 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
 });
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return;
-  slicerBusyPaint('Laying it flat…',()=>{
+  slicerBusyPaint('Laying it flat…',async()=>{
+    if(slicerMod.autoOrientFast&&window.paintPreviewIndet)
+      paintPreviewIndet($('printPreviewCanvas'),'Laying it flat…');
     slicerPlaceNote(null,null);
     const s=slicerTr.scale;
-    slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s; slicerRender();});});
+    slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s; slicerRender();});});
 $('slicerFlip').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rx+=2;slicerRender();}});
 $('slicerRotX').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rx++;slicerRender();}});
 $('slicerRotZ').addEventListener('click',()=>{if(slicerRaw){slicerPlaceNote(null,null);slicerTr.rz++;slicerRender();}});

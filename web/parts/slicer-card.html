@@ -11,7 +11,7 @@
              o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
              laimejo arba prarado - pasako eilute faktu sarase. -->
         <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
-                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-15 s on big models.'>Optimal fit</button>
+                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-20 s on big models.'>Optimal fit</button>
         <button id='slicerFlat' class='button secondary' type='button' disabled
                 title='Put the widest flat face down on the plate'>Lay flat</button>
         <button id='slicerFlip' class='button secondary' type='button' disabled
@@ -31,19 +31,26 @@
       <!-- `nowrap`: `.calRow` pagal nutylejima laužo eilute, ir platus vardo laukas
            nusileisdavo i savo eilute. Vardas turi prasideti tuoj po „tree" ir eiti
            iki krasto - viena eilute, be tuscios vietos (V 08-20). -->
-      <div class='calRow' id='slicerSupRow' style='margin-top:6px;gap:8px;align-items:center;flex-wrap:nowrap'>
+      <!-- NEMATOMA LENTELE: mygtuku eilute zemiau yra dvi lygios kolonos, tad ta pati
+           lentele uzdeta ir cia - kaireje nustatymai, desineje vardas. Del to vardo
+           lauko krastai stovi tiksliai ties „Send to printer" krastais, nors jokiu
+           liniju nesimato (V 08-20: „nematoma lentele"). -->
+      <div class='calRow' id='slicerSupRow'
+           style='margin-top:6px;gap:8px;align-items:center;display:grid;grid-template-columns:1fr 1fr'>
+        <div style='display:flex;align-items:center;gap:8px;min-width:0'>
         <span style='color:var(--muted);font-size:.9rem'>Supports</span>
         <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
           <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
         <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
           <input type='radio' name='slicerSupType' value='tree'> tree</label>
+        </div>
         <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
              vardas yra nustatymas, ne veiksmas (V 08-20).
              Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
              sustodavo vidury tuscios vietos ir nestovedavo po niekuo (V 08-20). -->
         <input id='slicerName' type='text' placeholder='model name' maxlength='40'
                title='Letters, digits, - and _ . The printer screen shows about the first 14'
-               style='flex:1 1 auto;min-width:0;margin-left:auto' disabled>
+               style='width:100%;min-width:0;margin:0' disabled>
       </div>
 
       <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
