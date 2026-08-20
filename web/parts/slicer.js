@@ -113,7 +113,7 @@ const sdCollapse=on=>{
   const h=$('sdCollapsedHint');
   if(h){h.style.display=on?'block':'none';
         if(on)h.textContent=sdSantrauka();}
-  const t=$('sdToggle'); if(t){t.textContent=on?'▸':'▾';
+  const t=$('sdToggle'); if(t){t.textContent=AKORD_ZENKLAS(!on);
     t.title=on?'Open the model list':'Collapse the model list';
     t.setAttribute('aria-expanded',on?'false':'true');}
 };
@@ -131,17 +131,20 @@ const sdSantrauka=()=>{
    jo ieskai, tad jis turi kviesti; uzdarymo ieskoti nereikia, jis randamas ten,
    kur ka tik paspaudei (V 08-17). */
 const ICON_SLICER_CLOSE="<svg viewBox='0 0 16 16' width='13' height='13' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'><path d='M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6'/></svg>";
+/* Abu akordeono blokai turi TA PATI jungikli: tas pats mygtuko pavidalas (kaip
+   „isdidinti" virs peržiūros) ir ta pati rodykle - zemyn, kai atidaryta, i desine, kai
+   suskleista. Anksciau sliceris rodė zodi „Open" ir kryziuka, o SD - rodykle: du
+   skirtingi zenklai tam paciam veiksmui (V 08-20). */
+const AKORD_ZENKLAS=on=>on?'▾':'▸';
 const slicerToggleUI=open=>{
   const t=$('slicerToggle'); if(!t)return;
-  /* Busena jau tokia - iseinam. Si funkcija kvieciama ir is apklausos (1 Hz), o be
-     sios eilutes ji kas sekunde is naujo kurdavo SVG. Ta pati „apklausa valdo
-     elementa" schema, kuri jau buvo primirgejusi su #statusMsg. Klase - tiesos
-     saltinis, tad neatitikus (kas ir yra perkartojimo prasme) taisymas praeina. */
-  if(t.classList.contains('narrow')===open)return;
-  t.classList.toggle('narrow',open);
-  if(open)t.innerHTML=ICON_SLICER_CLOSE; else t.textContent='Open';
-  t.title=open?'Close the slicer':'';
-  t.setAttribute('aria-label',open?'Close the slicer':'Open the slicer');
+  /* Busena jau tokia - iseinam: si funkcija kvieciama ir is apklausos (1 Hz). */
+  if(t.classList.contains('narrow')===open&&t.textContent===AKORD_ZENKLAS(open))return;
+  t.classList.add('narrow');
+  t.textContent=AKORD_ZENKLAS(open);
+  t.title=open?'Collapse the slicer':'Open the slicer';
+  t.setAttribute('aria-expanded',open?'true':'false');
+  t.setAttribute('aria-label',t.title);
 };
 window.slicerToggleUI=slicerToggleUI;   // refreshSlicerCard gyvena auksciau uz si bloka
 /* Atidarymas ir uzdarymas - viena vieta. Ta pati seka reikalinga ne tik nuo
