@@ -5352,6 +5352,13 @@ const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startB
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */
 /* Tas pats klausimas, tik trumpu pavidalu peržiūros dėžei ir snackui. */
+/* Viena vieta, kur sakoma „dabar negalima": kas butent vyksta, ir kodel tai trukdo.
+   Anksciau visos keturios vietos sake „printing", nors printeris dazniausiai ispakuoja. */
+const busyNowText=kodel=>{
+  const kas=(busyBoxText()||'').replace(/\u2026$/,'');
+  return 'Not now - '+(kas?kas.charAt(0).toLowerCase()+kas.slice(1):'the printer is busy')
+         +(kodel?' - '+kodel:'')+'.';
+};
 const busyBoxText=()=>{
   const s=statusData||{}, jb=s.sdJob||'';
   if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
@@ -5431,7 +5438,13 @@ const syncUploadGate=()=>{
 // form. The submit handler below is untouched - same size check, same
 // Replace/Rename flow. Clearing the input on success keeps 'change' firing
 // even when the user picks the same file again.
-$('uploadButton').addEventListener('click',()=>{if(!uploadBusy)$('uploadFile').click();});
+$('uploadButton').addEventListener('click',()=>{
+  if(uploadBusy)return;
+  /* Blokas persijungia PRIES parenkant faila: kitaip failas nukristu i suskleista
+     sarasa ir naujas modelis nepasizymetu (V 08-20). */
+  if(window.slicerIsOpen&&slicerIsOpen()&&window.slicerOpen)slicerOpen(false);
+  $('uploadFile').click();
+});
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
 $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$('uploadFile').files[0];if(!f)return;if(!checkUploadFits(f.size,$('uploadHint')))return;uploadBusy=true;
   bgJob='Uploading the model';syncActionLocks();$('uploadHint').textContent='Uploading...';const started=Date.now();try{const r=await uploadModelPayload(f,f.name,$('uploadHint'),{source:'dashboard_upload'});$('uploadFile').value='';
@@ -5502,7 +5515,7 @@ $('gl3dClip').addEventListener('click',e=>{
   e.stopPropagation();
   /* Spausdinant si drobe rodo spaudini - perpjautas pabaigos kadras tik
      klaidintu (auditas 08-15). */
-  if(statusData&&statusData.busy){msg('Not while printing - this canvas is showing the print.',true);return;}
+  if(statusData&&statusData.busy){msg(busyNowText('this canvas is showing the print'),true);return;}
   const bar=$('gl3dClipBar'), on=!bar.classList.contains('on');
   bar.classList.toggle('on',on);
   if(gl3dUp())gl3dClip(on?(+$('gl3dClipRange').value)/100:null);
@@ -5522,7 +5535,7 @@ $('gl3dRaw').addEventListener('click',async e=>{
      spausdinant toje pacioje drobeje sukasi gyvas progresas. */
   if(b.classList.contains('busy'))return;
   if(prep3dRunning||!dashPreviewName||slicesCache.slices.length<3)return;
-  if(statusData&&statusData.busy){msg('Not while printing - this canvas is showing the print.',true);return;}
+  if(statusData&&statusData.busy){msg(busyNowText('this canvas is showing the print'),true);return;}
   VIEW_RAW=!VIEW_RAW;
   b.classList.toggle('on',VIEW_RAW);
   b.classList.add('busy');
@@ -5534,7 +5547,7 @@ $('gl3dDet').addEventListener('click',async e=>{
   e.stopPropagation();
   const b=$('gl3dDet');
   if(b.classList.contains('busy'))return;
-  if(statusData&&statusData.busy){msg('Not while printing - the SD card is busy.',true);return;}
+  if(statusData&&statusData.busy){msg(busyNowText('the SD card is busy'),true);return;}
   VIEW_DETAIL=!VIEW_DETAIL;
   try{localStorage.setItem('tmViewDetail',VIEW_DETAIL?'1':'0');}catch(e2){}
   showDetailToggle();

@@ -15,7 +15,12 @@ let slicerFileName='';
 let slicerOwnsPreview=false;
 const slicerSay=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
 const slicerBusyStop=()=>{
-  if(statusData&&statusData.busy){msg('Not while printing.',true);return true;}
+  if(statusData&&statusData.busy){
+    /* Ne visada spausdinama: dazniausiai tuo metu printeris ISPAKUOJA ka tik ikelta
+       faila. `busyBoxText` jau zino tikra darba, tad zinute nebemeluoja (V 08-20). */
+    const kas=(typeof busyBoxText==='function'?busyBoxText():'').replace(/\u2026$/,'');
+    msg(kas?('Not now - '+kas.charAt(0).toLowerCase()+kas.slice(1)+'.'):'Not while printing.',true);
+    return true;}
   return false;
 };
 /* Kelias nuoseklus, tad oranzinis tik tas zingsnis, kuris einamas: kitaip
@@ -491,6 +496,20 @@ const slicerWorkUI=dirba=>{
     if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true);
   }
 };
+/* Ar vaizdas DABAR musu. Darbas gali tesltis fone (pjaustymas trunka 26 s), bet jei
+   zmogus tuo metu nuejo i SD ir atsidare kita modeli, mes i ta drobe nerasom nieko ir
+   pabaige nieko neperpiesiam: peržiūra priklauso ATIDARYTAM blokui (V 08-20 - „paleidi
+   slicinima, nueini i SD, o pasibaiges permusa vaizda"). Rezultatas niekur nedingsta -
+   ji nupiesim, kai zmogus grizta (`previewShowFor`). */
+const slicerVaizdasMusu=()=>slicerIsOpen()&&!slicerPrinting();
+const slicerPaint=(uzrasas,frac)=>{
+  if(!slicerVaizdasMusu())return;
+  paintPreviewProgress($('printPreviewCanvas'),uzrasas,frac,true);
+};
+const slicerPaintIndet=uzrasas=>{
+  if(!slicerVaizdasMusu()||!window.paintPreviewIndet)return;
+  paintPreviewIndet($('printPreviewCanvas'),uzrasas);
+};
 const slicerOverlayOff=()=>{
   /* PIRMA sustabdom vaikstanti ruozeli. Jis sukasi laikmaciu ir perpiesia uzrasa kas
      60 ms - jei jo nesustabdytum, darbas seniai baigtusi, modelis butu pastatytas, o
@@ -501,7 +520,7 @@ const slicerOverlayOff=()=>{
   cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
 };
 const slicerBusyPaint=(uzrasas,darbas)=>{
-  paintPreviewProgress($('printPreviewCanvas'),uzrasas,null,true);
+  slicerPaint(uzrasas,null);
   slicerWorkUI(true);
   /* `await` cia butinas: kruopstusis pastatymas (`autoOrientPro`) sukasi variklio
      gijoje ir grazina pazada. Be jo uzrasas dingtu tuoj pat, o modelis pasisuktu
@@ -554,8 +573,7 @@ const slicerGreitas=async()=>(slicerMod.autoOrientFast
 $('slicerAutoFit').addEventListener('click',()=>{
   if(!slicerRaw)return;
   slicerBusyPaint('Turning the part to fit…',async()=>{
-  if(slicerMod.autoOrientFast&&window.paintPreviewIndet)
-    paintPreviewIndet($('printPreviewCanvas'),'Turning the part to fit…');
+  if(slicerMod.autoOrientFast)slicerPaintIndet('Turning the part to fit…');
   const s0=slicerTr.scale;
   slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
@@ -598,9 +616,7 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
-    if(window.paintPreviewIndet)
-      paintPreviewIndet($('printPreviewCanvas'),
-        'Searching for optimal fit…\nmay take long');
+    slicerPaintIndet('Searching for optimal fit…\nmay take long');
     const s0=slicerTr.scale;
     const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
@@ -612,9 +628,9 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
         const f=total?done/total:null;
         /* Skaicius - PRIE uzraso, kaip pjaustant („Slicing 85 %"): vien juosta
            nesako, ar liko sekunde, ar dvylika (V 08-20). */
-        paintPreviewProgress($('printPreviewCanvas'),
+        slicerPaint(
           'Searching for optimal fit…'+(f!==null?' '+Math.round(f*100)+'%':'')
-          +'\nmay take long',f,true);
+          +'\nmay take long',f);
       });
       slicerTr=r.tr; pro=slicerTelpa(r.tr);
     }catch(e){
@@ -639,8 +655,7 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return;
   slicerBusyPaint('Laying it flat…',async()=>{
-    if(slicerMod.autoOrientFast&&window.paintPreviewIndet)
-      paintPreviewIndet($('printPreviewCanvas'),'Laying it flat…');
+    if(slicerMod.autoOrientFast)slicerPaintIndet('Laying it flat…');
     slicerPlaceNote(null,null);
     const s=slicerTr.scale;
     slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s; slicerRender();});});
@@ -830,6 +845,8 @@ function slicerSupportFacts(s){
 /* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
    pati kauke. Anksciau trys vietos slepe tik slankikli. */
 function slicerLayerUI(on){
+  /* Rodyti slankikli ant svetimo vaizdo nera prasmes: jis valdo MUSU rezultata. */
+  if(on&&!slicerIsOpen())return;
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
   const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
   /* Sluoksnio NUMERIS cia NEBENULINAMAS: valdikliai dingsta ir grizta kaskart
@@ -940,6 +957,9 @@ const slicerGeomView=(home)=>{
 };
 const slicerBuildView=(home)=>{
   if(!slicerOut)return false;
+  /* Uzdarytas blokas vaizdo nebeima: pjaustymas galejo baigtis jau tada, kai zmogus
+     ziuri SD modeli (V 08-20). Rezultatas lieka atmintyje, o nupiesim ji, kai grizta. */
+  if(!slicerIsOpen())return false;
   /* Ta pati priezastis, kaip slicerRender: si funkcija perima perziuros kortele ir
      perrasoma globalu `slicesCache`, tad spausdinant ji ismestu gyva sluoksniu
      srauta ir jis butu traukiamas is naujo (auditas 08-17). */
@@ -1023,7 +1043,7 @@ $('slicerGo').addEventListener('click',async()=>{
   slicerWorkUI(true);
   try{
     prog.textContent='';
-    paintPreviewProgress($('printPreviewCanvas'),'Slicing\u2026',0,true);
+    slicerPaint('Slicing\u2026',0);
     const t0=performance.now();
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
@@ -1050,8 +1070,8 @@ $('slicerGo').addEventListener('click',async()=>{
            eiluteje „Looking for overhangs 28% (161 / 173 layers)" issitempdavo per
            visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
-        paintPreviewProgress($('printPreviewCanvas'),
-          what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f,true);
+        slicerPaint(
+          what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f);
       });
     /* Paspaudus „Stop" po PASKUTINIO eigos kvietimo, pjaustymas spetu baigtis
        sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
@@ -1374,8 +1394,7 @@ $('slicerSave').addEventListener('click',async()=>{
          ruozas kabodavo, kol printeris is tikruju \u0117m\u0117 fail\u0105 (V 08-20; tas pats
          melas jau buvo gaudytas pulto ikelime, 08-18). Korteles eiluteje skaicius
          lieka - ten jis skaitomas kaip \u201eissiusta", ne \u201epadaryta". */
-      if(window.paintPreviewIndet)
-        paintPreviewIndet($('printPreviewCanvas'),'Uploading\u2026');
+      slicerPaintIndet('Uploading\u2026');
       x.upload.onprogress=e=>{
         if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
         const p=Math.round(e.loaded/e.total*100);
@@ -1416,7 +1435,7 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Ta pati priezastis, kaip ikelime: kiek printeris jau isvyniojo, mes nezinom,
        o laukimas trunka. Ruozelis pasako, kad darbas gyvas, ir nieko nezada. */
     if(window.paintPreviewIndet)paintPreviewIndet($('printPreviewCanvas'),'Unpacking\u2026');
-    else paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null,true);
+    else slicerPaint('Unpacking\u2026',null);
     for(let i=0;i<180;i++){
       await new Promise(r=>setTimeout(r,1000));
       try{
