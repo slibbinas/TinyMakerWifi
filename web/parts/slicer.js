@@ -46,7 +46,7 @@ const slicerStep=()=>{
    const netelpa=loaded&&!sliced&&!slicerFits;
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits;
-     go.title=netelpa?'Does not fit yet - Fit it, or turn it by hand':'';
+     go.title=netelpa?'Does not fit yet - Fast fit, or turn it by hand':'';
      /* Vienas lizdas, trys pavidalai: netelpa -> „Fit it", telpa -> „Slice",
         supjaustyta -> „Send to printer". Mygtukas priesais akis visada yra tas,
         kuris daro kita zingsni (V 08-20). */
@@ -280,7 +280,7 @@ const slicerRender=()=>{
         +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
         +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
-        +'Fit it</button> or turn it by hand';col='var(--warncol)';}
+        +'Fast fit</button> or turn it by hand';col='var(--warncol)';}
    if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
    /* Apatines ribos pjaustymas neturi, ir dabar, kai mastelis leidziasi iki 0,1 %,
       i viena sluoksni sumazinta detale supjaustoma bei issaugoma be nė zodzio
@@ -491,6 +491,12 @@ $('slicerAutoFit').addEventListener('click',()=>{
 $('slicerAutoFitPro').addEventListener('click',()=>{
   if(!slicerRaw||!slicerMod.autoOrientPro)return;
   slicerBusyPaint('Looking for the best position…\nthis takes a few seconds',async()=>{
+    /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
+       Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
+       juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
+    if(window.paintPreviewIndet)
+      paintPreviewIndet($('printPreviewCanvas'),
+        'Looking for the best position…\nthis takes a few seconds');
     const s0=slicerTr.scale;
     const fast=slicerTelpa(slicerMod.autoOrient(slicerRaw).tr);
     let pro=null;
