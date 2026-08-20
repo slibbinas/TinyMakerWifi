@@ -505,13 +505,13 @@ $('slicerAutoFit').addEventListener('click',()=>{
    skaiciavimo metu blokuota, tad musu zinute jos nepasiektu (slicerio sesija, #108). */
 $('slicerAutoFitPro').addEventListener('click',()=>{
   if(!slicerRaw||!slicerMod.autoOrientPro)return;
-  slicerBusyPaint('Searching for the best tilt…\nmay take long',async()=>{
+  slicerBusyPaint('Searching for optimal fit…\nmay take long',async()=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
     if(window.paintPreviewIndet)
       paintPreviewIndet($('printPreviewCanvas'),
-        'Searching for the best tilt…\nmay take long');
+        'Searching for optimal fit…\nmay take long');
     const s0=slicerTr.scale;
     const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
@@ -521,8 +521,11 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
          sustabdo pati. Be sio kabliuko juostele butu likusi vaikstanti visas 17 s. */
       const r=await slicerMod.autoOrientPro(slicerRaw,(done,total)=>{
         const f=total?done/total:null;
+        /* Skaicius - PRIE uzraso, kaip pjaustant („Slicing 85 %"): vien juosta
+           nesako, ar liko sekunde, ar dvylika (V 08-20). */
         paintPreviewProgress($('printPreviewCanvas'),
-          'Searching for the best tilt…\nmay take long',f,true);
+          'Searching for optimal fit…'+(f!==null?' '+Math.round(f*100)+'%':'')
+          +'\nmay take long',f,true);
       });
       slicerTr=r.tr; pro=slicerTelpa(r.tr);
     }catch(e){
