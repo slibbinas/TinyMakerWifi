@@ -6069,7 +6069,12 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       const d=e.target&&e.target.dataset&&e.target.dataset.pan; if(!d)return;
       e.stopPropagation();
       const step=40;
-      if(d==='c'){ if(!(window.gl3dFrameAuto&&gl3dFrameAuto())){
+      /* Sliceryje kadras turi apimti ir ATRAMAS: be narvo `gl3dFrameAuto` mato tik
+         paty modeli, tad supjaustytame vaizde mygtukas atrodydavo negyvas - vaizdas
+         beveik nepasikeisdavo, o atramos likdavo uz kadro (V 08-20). */
+      const kadras=()=>(window.slicerOwnsPreview&&!gl3dCageOn()&&window.gl3dFrameAll)
+                       ?gl3dFrameAll():(window.gl3dFrameAuto&&gl3dFrameAuto());
+      if(d==='c'){ if(!kadras()){
                      yaw=DEF.yaw;pitch=DEF.pitch;dist=DEF.dist;tgt.copy(DEF.tgt);place();} }
       else if(d==='u')pan(0,step); else if(d==='d')pan(0,-step);
       else if(d==='l')pan(step,0); else if(d==='r')pan(-step,0);

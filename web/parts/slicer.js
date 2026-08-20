@@ -363,7 +363,11 @@ $('slicerFile').addEventListener('change',async e=>{
     /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
        issisaugodavo ne tuo pavadinimu (V 08-12). */
       $('slicerName').value=f.name.replace(/\.stl$/i,'')
-        .replace(/[^A-Za-z0-9_-]/g,'').slice(0,14);   // ilgesnis netelpa printerio ekrane
+        .replace(/[^A-Za-z0-9_-]/g,'').slice(0,40);   // tiek pat, kiek priima ikelimas is PrusaSlicer
+        /* 14 raidziu buvo MUSU isgalvota riba: tiek matosi printerio ekrane. Bet
+           is Prusos ateinantis vardas rezamas ties 40 (safeModelName), sarase
+           matosi visas, o ekrane tiesiog nesitelpa - ir niekam tai netrukde.
+           Sliceriui buti grieztesniam nera pagrindo (V 08-20). */
     $('slicerGo').disabled=false;
     slicerRender();
   }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
