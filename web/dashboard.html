@@ -82,7 +82,8 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #statusMsg .snackBar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}/* Isdidinus placiame ekrane vietos yra iki pat oranzines linijos (V 08-19). Kortele sedi KAIRIAJAME stulpelyje, tad jai pačiai `grid-column` negalioja - isskleidziamas visas maketas i viena stulpeli, ir tada perziura uzima visa plotį, o desiniojo stulpelio korteles nusileidzia zemiau. Telefone niekas nesikeicia. */.wrap #homeView.stageWideOn{grid-template-columns:1fr}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}/* Desinys stulpelis - lankstus: atidarytas akordeono blokas uzima visa likusia vieta,
    tad bendras aukstis sutampa su kairiuoju stulpeliu, kad ir kuris atidarytas (V 08-20). *//* Kairio stulpelio korteles NESITEMPIA: stulpeliai vienodinami tarpusavyje, bet
    tinklelio eilutes pagal nutylejima issitempia kartu - ir busenos kortele su
-   perziura issipusdavo, kai desineje atsidarydavo ilgas sarasas (V 08-20). */#homeLeft{align-content:start}#homeRight{display:flex;flex-direction:column;gap:14px;min-height:0}#homeRight>.card{margin:0}#homeRight>.card.akordOpen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}#homeRight>.card.akordOpen>#slicerBody{flex:1 1 auto;min-height:0}#sdSection.akordOpen #filesList{flex:0 0 auto}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}.calSplit{display:flex;gap:20px;align-items:flex-start}
+   perziura issipusdavo, kai desineje atsidarydavo ilgas sarasas (V 08-20). */#homeLeft{align-content:start}#homeRight{display:flex;flex-direction:column;gap:14px;min-height:0}#homeRight>.card{margin:0}#homeRight>.card.akordOpen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}#homeRight>.card.akordOpen>#slicerBody{flex:1 1 auto;min-height:0}#sdSection.akordOpen #filesList{flex:0 0 auto}/* Skaiciai ir vietos juostele - korteles APACIOJE, o ne prilipe prie saraso:
+   jie yra isvada apie visa kortele, ne dar viena eilute sarase (V 08-20). */#sdSection.akordOpen #sdUsageBox{margin-top:auto}#gsCard{grid-column:1/-1}#homeLeft{display:grid;gap:14px}#homeView .card{margin:0}#modelPanel{max-width:900px;margin-left:auto;margin-right:auto}.configGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#updFileCell{grid-column:auto}.configGrid.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}.cfgPair{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.cfgPair .card{margin:12px 0 0}.cfgPair .configGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#backupCard .actions{grid-template-columns:repeat(4,minmax(0,1fr))}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)){max-width:none;display:grid;grid-template-columns:1fr 1fr;column-gap:18px;align-items:start}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #modelTitle{grid-column:1/-1}#modelPanel:not(.hidden):has(#previewWrap:not(.hidden)) #previewWrap{grid-column:2;grid-row:2/span 6;margin-top:0}}.calSplit{display:flex;gap:20px;align-items:flex-start}
 .calSplit .calBody{flex:1 1 auto;min-width:0}
 .calSplit .hint{flex:0 1 300px;margin:0;align-self:center}
 @media(max-width:900px){.calSplit{display:block}.calSplit .hint{margin-top:10px}}
@@ -340,21 +341,24 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          focusable". The list (the daily part) leads; storage is a slim
          footer that turns amber when it matters - checkUploadFits() guards
          space at upload time anyway. -->
+    <!-- Antraste - svari, kaip slicerio: pavadinimas ir akordeono rodykle. „Upload…"
+         nusileido prie paieskos lauko, su kuriuo dalijasi viena eilute (V 08-20). -->
     <div class='cardHead'><h2>SD manager</h2>
-      <div style='display:flex;align-items:center;gap:8px'>
-      <form id='uploadForm' style='margin:0'>
-        <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
-        <button id='uploadButton' class='small button secondary' type='button' style='margin-top:0'>Upload&hellip;</button>
-      </form>
       <!-- Akordeono jungiklis: vienu metu atidarytas TIK vienas blokas, tad si rodykle
            ir slicerio antrastes mygtukas suka ta pati jungikli. Tikras mygtukas, ne
            `div` su `onclick` - kad veiktu ir klaviatura (V 08-20). -->
       <button id='sdToggle' class='button secondary narrow' type='button' style='margin-top:0'
               aria-expanded='true' title='Collapse the model list'>&#9662;</button>
-      </div>
     </div>
     <div id='uploadHint' class='hint' style='margin:2px 0 10px'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
-    <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'>
+    <div id='sdActions' style='display:flex;align-items:center;gap:8px;margin-bottom:8px'>
+      <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'
+             style='flex:1 1 0;min-width:0;margin:0'>
+      <form id='uploadForm' style='margin:0;flex:0 0 auto'>
+        <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
+        <button id='uploadButton' class='small button secondary' type='button' style='margin-top:0'>Upload&hellip;</button>
+      </form>
+    </div>
     <div id='filesList' class='files'></div>
     <div id='sdUsageBox' class='hidden' style='margin-top:12px'>
       <div class='meta' style='display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px'><span id='sdCountsText'>SD card</span><span id='sdUsageText'>-</span></div>
@@ -2541,10 +2545,18 @@ const sdFitRows=()=>{
       const delta=sdBot-kaireBot;
       n=FILES_PER_PAGE;
       if(eil>0){
-        if(delta>4)n=FILES_PER_PAGE-Math.ceil(delta/eil);
+        /* Riba (8 px) turi buti NE MAZESNE uz auginimo atlaida - kitaip vienas
+           irasas amzinai sokinetu: pridetas islistu keliais pikseliais, o
+           kitas praejimas ji vel nuimtu (V 08-20). */
+        if(delta>8)n=FILES_PER_PAGE-Math.ceil(delta/eil);
         /* Auginam tik tada, kai puslapis PILNAS: kitaip trumpas sarasas augintu
-           skaiciu be galo - eiluciu vis tiek nepadaugetu. */
-        else if(delta<-eil&&rodoma>=FILES_PER_PAGE)n=FILES_PER_PAGE+Math.floor(-delta/eil);
+           skaiciu be galo - eiluciu vis tiek nepadaugetu. Su 8 px atlaida: laisvos
+           vietos beveik visada lieka keliais pikseliais maziau nei visa eilute, ir
+           be jos sarasas likdavo vienu irasu skurdesnis, nei telpa (V 08-20). */
+        else if(rodoma>=FILES_PER_PAGE){
+          const auga=Math.floor((-delta+8)/eil);
+          if(auga>0)n=FILES_PER_PAGE+auga;
+        }
       }
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
