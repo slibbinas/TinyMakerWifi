@@ -300,6 +300,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </div>
   <div class="warn">⚠️ <b>Always slice with the 0.05&nbsp;mm profile.</b> Maximum model size: 1200 layers = 60&nbsp;mm.<br>
   Unlike an FDM slicer, the layer height here is set <b>on the printer</b> (Settings → Layer height), not in the file — the file is just a stack of 0.05&nbsp;mm images, and at the 0.10&nbsp;mm setting the firmware exposes every other one. Slice at anything else and the part comes out the wrong height: at 0.3&nbsp;mm it would be six times too short.</div>
+  <div class="note">♻️ <b>Imported the profile a while ago? Import it again.</b> The profile has changed since the early versions — the current one sets the screen the way the printer really uses it (<code>display_orientation = landscape</code>, 320×240&nbsp;px over 40.8×30.6&nbsp;mm). An old profile still slices and still uploads, but the layers come out turned, so the print is cropped at the edges and nothing on screen warns you.</div>
+
   <div class="note">💡 <b>Layer height works differently than on an FDM printer.</b> The printed layer height is decided by the <b>printer’s own setting</b> (<b>Layer Height</b>, in the printer’s Settings menu or the dashboard’s Settings tab) — not by the sliced file. The file is just a stack of 0.05&nbsp;mm images: at the 0.05&nbsp;mm setting the printer uses every image, at 0.10&nbsp;mm it takes every other one. That’s why you always slice at 0.05&nbsp;mm — the printer setting then chooses the real layer height, and a file sliced at 0.10&nbsp;mm would print half-height.</div>
 </section>
 
