@@ -84,7 +84,12 @@ const slicerButtons=on=>{
     .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
   /* Ta pati busena ir ant vaizdo esantiems - jie tik kita to paties veido puse. */
   const t=$('gl3dTools');
-  if(t){t.querySelectorAll('button').forEach(b=>{b.disabled=!on;});
+  /* Narvas ir kauke juostoje tik SVECIUOJASI (zr. `slicerBarMerge`) - jie ne apie
+     daikto forma, o apie ziurejima, tad slicerio uzraktas ju neliecia. Be sios
+     islygos jie uzsirakindavo kartu su formos irankiais ir tokie - negyvi - keliaudavo
+     atgal i savo grupe: perziuroje narvas nebesispausdavo visai (V 08-20). */
+  const svecias=id=>id==='gl3dCage'||id==='gl3dMask';
+  if(t){t.querySelectorAll('button').forEach(b=>{if(!svecias(b.id))b.disabled=!on;});
         t.style.display=on&&slicerOwnsPreview?'flex':'none';
     const pp=$('gl3dPop');
     if(pp&&pp.style.display!=='none'){
@@ -983,6 +988,7 @@ function slicerBarMerge(on){
     const b=$(id); if(!b)return;
     const kur=on?tools:zoom;
     if(b.parentElement!==kur)kur.appendChild(b);
+    b.disabled=false;   // svecias niekada nelieka uzrakintas seimininko uzraktu
   });
   zoom.style.display=on?'none':'flex';
 }
