@@ -990,7 +990,11 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
      pasikeitus tik perrasom teksta. Kitaip naujas, kitokio ilgio sakinys telefone
      susilauzo i dvi eilutes, dezute pakeicia auksti ir pasoka i nauja vieta - akiai
      tai skaitosi kaip ANTRAS pranesimas, nors elementas tas pats (V 08-18). */
-  const plain=jobPlain(txt);
+  /* Rakte BUTINAS ir etapo priedas (`sub`): be jo „Unpacking vardas 98 %" ir
+     „Unpacking vardas - finishing" atrodo vienodai, tekstas neperrasomas, ir
+     zmogus iki galo mato „ispakuoja", nors printeris jau trina sena kopija
+     (V 08-20: „po 99 % rodo unpacking, o jauciu deletina"). */
+  const plain=jobPlain(txt)+((txt&&txt.sub)?'|'+txt.sub:'');
   if(e.dataset.ptxt!==plain){
     e.dataset.ptxt=plain;
     const el=e.querySelector('.snackTxt');
@@ -1992,6 +1996,9 @@ const refreshSlicerCard=()=>{
   if(!live&&window.slicerOpen)slicerOpen(false,true);
   /* Kortelės atsiradimas ar dingimas keicia, kam priklauso likes aukstis. */
   if(window.akordSync)akordSync();
+  /* Busena keiciasi is apklausos (pradejo spausdinti), tad zingsniu mygtukai turi
+     persiskaiciuoti cia pat - kitaip „Slice" liktu gyvas iki kito paspaudimo. */
+  if(window.slicerStep)slicerStep();
 };
 const slicerTap=()=>{
   const now=Date.now();
@@ -2313,7 +2320,11 @@ const applyStatus=s=>{
            uzimtas (V 08-14). Klausiam to paties klausimo kaip visur: `busyBoxText()`
            apima ir ta tarpa, kai failas dar keliauja, o printeris dar nieko nepranese. */
         {const boxNow=busyBoxText();
-        if(boxNow&&!dashPreviewName){
+        /* ...bet NE ant slicerio vaizdo: jei atidarytas slicerio blokas, drobe yra jo,
+           o kortelės darbas jau turi savo snacka. Antraip ikeliant faila slicerio modelis
+           dingdavo po uzrasu „Uploading…", ir ta pati zinia buvo dviese (V 08-20). */
+        if(boxNow&&!dashPreviewName&&!window.slicerOwnsPreview
+           &&!(window.slicerIsOpen&&slicerIsOpen())){
           const boxTxt=boxNow;
           if(boxTxt!==sdBoxCur){sdBoxCur=boxTxt;
             paintPreviewProgress($('printPreviewCanvas'),boxTxt,null);}
@@ -5138,7 +5149,8 @@ const renderSdJob=s=>{
    /* `txt` cia yra objektas ({lbl,name,sub}), ne eilute - sudejus ji su tekstu
       snacke atsirasdavo „[object Object]" (V 08-20). Uzrasa dedam i savo lauka. */
    if(tt>0&&dn>=tt)
-     snackProgress(jobText(txt.lbl,txt.name,'finishing'),0,0,undefined,undefined,99);
+     snackProgress(jobText(txt.lbl,txt.name,'finishing - clearing the old files'),
+                   0,0,undefined,undefined,99);
    else snackProgress(txt,dn,tt);}
   sdJobCur=jobPlain(txt);
 };

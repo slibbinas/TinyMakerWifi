@@ -49,9 +49,15 @@ const slicerStep=()=>{
    if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
    const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
+   /* Spausdinant sliceris nieko nedaro: pjaustymas piestu i vaizda, kuris priklauso
+      spaudiniui, o „Send to printer" vis tiek grizdavo su 409 - printeris tuo metu SD
+      neduoda (V 08-20: „spausdinimo metu leidzia slicint, nelogiska"). Failo pasirinkima
+      ir nustatymus paliekam: pasiruosti kita modeli spausdinant - normalu. */
+   const spausdina=!!(typeof statusData!=='undefined'&&statusData&&statusData.busy);
    if(go&&!sliceRunning){
-     go.disabled=!loaded||sliced||!slicerFits;
-     go.title=netelpa?'Does not fit yet - Fast fit, or turn it by hand':'';
+     go.disabled=!loaded||sliced||!slicerFits||spausdina;
+     go.title=spausdina?'Not while the printer is working'
+              :(netelpa?'Does not fit yet - Fast fit, or turn it by hand':'');
      /* Vienas lizdas, trys pavidalai: netelpa -> „Fit it", telpa -> „Slice",
         supjaustyta -> „Send to printer". Mygtukas priesais akis visada yra tas,
         kuris daro kita zingsni (V 08-20). */
@@ -60,10 +66,20 @@ const slicerStep=()=>{
    if(fitNow)fitNow.style.display=netelpa?'':'none';
    if(send){
      send.style.display=(sliced&&!sliceRunning)?'':'none';
-     send.disabled=!!(save&&save.disabled);
+     send.disabled=!!(save&&save.disabled)||spausdina;
+     send.title=spausdina?'Not while the printer is working':'';
    }
    /* Varda galima irasyti, vos tik yra ka pavadinti - jis nustatymas, ne veiksmas. */
-   {const nm=$('slicerName'); if(nm)nm.disabled=!loaded;}}
+   {const nm=$('slicerName'); if(nm)nm.disabled=!loaded||spausdina;}
+   /* Spausdinant uzrakinam VISA bloka, o ne tik atsakinejam „not while printing":
+      mygtukas, kuris atrodo gyvas, bet tik issoka su atsisakymu, erzina labiau nei
+      prigesintas (V 08-20). „Choose STL" yra <label>, tad `disabled` jam negalioja -
+      uzrakinam klase. */
+   {const ch=$('slicerChoose'); if(ch)ch.classList.toggle('locked',spausdina);}
+   {const ft=$('slicerFitNow'); if(ft)ft.disabled=spausdina;}
+   {const sv=$('slicerSave'); if(sv&&spausdina)sv.disabled=true;}
+   {const d=$('slicerDiscardLink');
+    if(d)d.style.pointerEvents=spausdina?'none':'';}}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
@@ -84,6 +100,7 @@ const slicerStep=()=>{
    }
   }
 };
+window.slicerStep=slicerStep;   // apklausa perskaiciuoja zingsnius (V 08-20)
 const slicerButtons=on=>{
   ['slicerAutoFit','slicerAutoFitPro','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
     .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
