@@ -2078,6 +2078,11 @@ const applyStatus=s=>{
     if(s.firmwareVersion)setText('fwVersion',s.firmwareVersion);
     $('fwBuild').dataset.build=s.firmwareBuild||'';
     setText('fwBuild',s.firmwareBuild?('('+s.firmwareBuild+')'):'');
+    /* Build'as - tik uzvedus ant piliules: kasdien uztenka versijos, o testuojant
+       reikia per sekunde patikrinti, kuris build sedi viduje, ir neiti per About
+       (V 08-20). Piliule pati nesikeicia. */
+    $('fwVersion').title='Firmware version - tap for updates'
+      +(s.firmwareBuild?'\nCurrent build: '+s.firmwareBuild:'');
     if(s.firmwareVersion){$('fbLink').href='https://tinymakerwifi.com/feedback/?fw='+enc(s.firmwareVersion)+'&build='+enc(s.firmwareBuild||'');applyThemeLink();}
     if(s.busy&&typeof s.runSecs==='number'){const c=Date.now()-s.runSecs*1000;if(!lpsSynced||c<localPrintStartedAt){localPrintStartedAt=c;lpsSynced=true;}}
     if(!s.busy){localPrintStartedAt=0;lpsSynced=false;}

@@ -940,17 +940,23 @@ const popRow=show=>Object.keys(POP_ROW).forEach(id=>{
    bet mygtukas lieka - anksciau narvas buvo rodomas ir jokio budo ji nuimti
    nebuvo (V 08-19). Perziuros pasirinkima grazinam isejus, kad slicerio apsilan-
    kymas neperrasytu zmogaus nustatymo. */
-let slicerCageWas=null;
+/* O jei zmogus narva sliceryje PATS ijungia ar isjungia - tai jau jo pasirinkimas,
+   ne musu numatytoji busena: iseinant nieko nebegrazinam, kitaip jungiklis atrodytu
+   pats atsisukantis atgal (V 08-20). */
+let slicerCageWas=null, slicerCageTouched=false;
+{const b=$('gl3dCage');
+ if(b)b.addEventListener('click',()=>{if(slicerOwnsPreview)slicerCageTouched=true;});}
 const slicerCage=enter=>{
   if(!window.gl3dCage||!window.gl3dCageOn)return;
   if(enter){
     if(slicerCageWas!==null)return;
+    slicerCageTouched=false;
     slicerCageWas=gl3dCageOn();
     if(slicerCageWas)gl3dCage(false);
   }else{
     if(slicerCageWas===null)return;
-    gl3dCage(slicerCageWas);
-    slicerCageWas=null;
+    if(!slicerCageTouched)gl3dCage(slicerCageWas);
+    slicerCageWas=null; slicerCageTouched=false;
   }
   if(typeof syncCageBtn==='function')syncCageBtn();
 };
