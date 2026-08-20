@@ -1160,6 +1160,16 @@ const updateSdUsage=d=>{
   }
   sdFooterSync();
 };
+/* Ka ir kada siuntem MES. Printeris `receiving` laiko dar kelias sekundes po to, kai
+   naršyklės uzklausa jau baigta (jis vis dar rasinėja baitus i korta), o musu veliavos
+   tuo metu jau nuleistos - tad zinute apie „kita irenginį" pasakodavo apie ta pati faila,
+   kuri zmogus ka tik issiunte pats (V 08-20). */
+let ownRxName='', ownRxAt=0;
+/* Printeris grazina MODELIO varda (be pletinio), o mes siuntem FAILA - tad lyginam
+   pagal saknį, is abieju pusiu ir be didziuju raidziu. */
+const rxSaknis=n=>String(n||'').replace(/\.(zip|sl1)$/i,'').toLowerCase();
+const ownRxSet=n=>{ownRxName=n||'';ownRxAt=Date.now();};
+window.ownRxSet=ownRxSet;
 const uploadWithProgress=(fd,hintEl,label)=>{
   const render=()=>{
     /* Eiga - i SNACKA, ne i SD korteles eilute: ten ji buvo isblukusia „hint" spalva
@@ -1178,6 +1188,7 @@ const uploadWithProgress=(fd,hintEl,label)=>{
                           'Progress shows on the printer screen'),-1,-1,'',null,'indet');
     hintEl.textContent='SD actions come back when it finishes.';
   };
+  ownRxSet(label||'');
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
     /* Juostele juda pati (CSS), tad perpiesimo del jos nereikia - sis laikrodis
@@ -2465,7 +2476,22 @@ const refreshStatus=async()=>{
          megabaitais, ir si eilute ja tik nustumtu ([[snackbaru-taisykle]]).
          `s.busy` - spausdinant ikelimas atmetamas (409), tad „priimu modeli" butu
          pazadas, kurio nebus; ekrana ten ir taip valdo spaudinys (auditas 08-19). */
-      if(!s.busy&&!uploadBusy&&!sdJobCur&&!deleteBusy&&!startBusy){
+      /* Musu pacių ka tik issiustas failas: printeris ji dar rasinėja, bet tai NE
+         „kitas irenginys". Vardai lyginami trumpuoju pavidalu (printeris grazina be
+         pletinio), o langas - dvi minutes: ilgesnis siuntimas i lėta korta. */
+      const savas=(()=>{
+        if(!s.receivingName||!ownRxName||Date.now()-ownRxAt>120000)return false;
+        const a=rxSaknis(s.receivingName), b=rxSaknis(ownRxName);
+        return !!a&&!!b&&(a===b||a.indexOf(b)===0||b.indexOf(a)===0);
+      })();
+      /* Jei zinute jau kabo, o paaiskejo, kad tai MUSU siuntinys (pvz. ka tik
+         paspaudem „Upload…"), ja reikia NUIMTI, ne tik nustoti rasyti. */
+      if(savas&&rxSnackTxt){
+        const e=$('statusMsg');
+        if(e.textContent===rxSnackTxt)msg('',false);
+        rxSnackTxt='';
+      }
+      if(!s.busy&&!uploadBusy&&!sdJobCur&&!deleteBusy&&!startBusy&&!savas){
         const t='Receiving '+(s.receivingName||'a model')+' from another device...';
         /* Perpiesiam TIK pasikeitus tekstui, ir `inPlace` - kitaip kiekviena sekminga
            apklausa is naujo paleistu islindima su centravimu, ir zmogus vel matytu
@@ -5429,6 +5455,9 @@ const syncActionLocks=()=>{
   set('vatRefillButton',(!!s.busy&&!s.canResume)||!wc||uploadBusy||deleteBusy);
   set('homeResinButton',!!s.busy||!wc||uploadBusy||deleteBusy);   // 0.17 0-16
   set('dashShareButton',!wc||busy);
+  /* Paieskos laukas - irgi uzraktas: kol vyksta darbas, sarasas vis tiek uzrakintas,
+     o rinkti i laukeli galėdavai ir gaudavai „No models match the filter" (V 08-20). */
+  set('filesFilter',!wc||busy);
   set('modelShareButton',!wc||busy);
   if(!prep3dRunning)set('prep3dButton',!wc||busy);
   /* Nustatymu skiltis: jos uzraktas iki siol buvo uzdedamas TIK uzkraunant nustatymus,

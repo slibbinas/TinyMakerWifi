@@ -1407,6 +1407,10 @@ $('slicerSave').addEventListener('click',async()=>{
          tas pats kelias ir tas pats klausimas, kaip pulto ikelimui: kitaip tas
          pats daiktas, suslicintas antra karta, nutrindavo sena modeli tylomis
          (auditas 08-17). */
+      /* Pazymim, kad tai MUSU siuntinys: printeris `receiving` laiko dar kelias
+         sekundes po uzklausos pabaigos, ir be sito pultas apie ji pasakytu „is kito
+         irenginio" (V 08-20). */
+      if(window.ownRxSet)ownRxSet(slicerOut.name||'');
       x.open('POST','/upload');
       x.setRequestHeader('X-TinyMaker','1');
       /* Vaizde - vaikstantis ruozelis, ne procentai. `upload.onprogress` rodo, kiek
