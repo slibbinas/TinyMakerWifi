@@ -28,7 +28,10 @@
       <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
            naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
            netikrintas ant gelezies. -->
-      <div class='calRow' id='slicerSupRow' style='margin-top:6px;gap:8px;align-items:center'>
+      <!-- `nowrap`: `.calRow` pagal nutylejima laužo eilute, ir platus vardo laukas
+           nusileisdavo i savo eilute. Vardas turi prasideti tuoj po „tree" ir eiti
+           iki krasto - viena eilute, be tuscios vietos (V 08-20). -->
+      <div class='calRow' id='slicerSupRow' style='margin-top:6px;gap:8px;align-items:center;flex-wrap:nowrap'>
         <span style='color:var(--muted);font-size:.9rem'>Supports</span>
         <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
           <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
