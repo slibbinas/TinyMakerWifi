@@ -104,15 +104,19 @@ const slicerButtons=on=>{
    susiskleidzia (V 08-12). Vietos rodiklis LIEKA matomas: kuriant modeli
    verta matyti, kiek kortelėje liko. */
 const sdCollapse=on=>{
-  ['filesFilter','filesList','sdUsageBox','uploadHint'].forEach(id=>{
+  ['filesFilter','filesList','uploadHint'].forEach(id=>{
     const e=$(id); if(e)e.style.display=on?'none':'';
   });
+  /* Vietos juostele LIEKA ir suskleistame bloke: ji ir yra ta santrauka - kiek modeliu
+     ir kiek vietos, - o sliceriui atsidarius apacioje vis tiek yra tuscios vietos
+     (V 08-20). Tada tekstine eilute nebereikalinga: ji kartotu tuos pacius skaicius. */
   /* „Upload…" LIEKA ir suskleistame bloke: tai vienas mygtukas antrastėje, vietos
      nekainuoja, o failo ikelimas neturi priklausyti nuo to, kuris blokas atidarytas
      (V 08-20). */
+  const uz=$('sdUsageBox'), yraJuosta=!!(uz&&!uz.classList.contains('hidden'));
   const h=$('sdCollapsedHint');
-  if(h){h.style.display=on?'block':'none';
-        if(on)h.textContent=sdSantrauka();}
+  if(h){h.style.display=(on&&!yraJuosta)?'block':'none';
+        if(on&&!yraJuosta)h.textContent=sdSantrauka();}
   const t=$('sdToggle'); if(t){t.textContent=AKORD_ZENKLAS(!on);
     t.title=on?'Open the model list':'Collapse the model list';
     t.setAttribute('aria-expanded',on?'false':'true');}
