@@ -1275,11 +1275,18 @@ $('slicerSave').addEventListener('click',async()=>{
          (auditas 08-17). */
       x.open('POST','/upload');
       x.setRequestHeader('X-TinyMaker','1');
+      /* Vaizde - vaikstantis ruozelis, ne procentai. `upload.onprogress` rodo, kiek
+         baitu prarijo SIO kompiuterio siuntimo buferis, o ne kiek priem\u0117 printeris:
+         drobeje akimirksniu atsirasdavo \u201eUploading 100 %", ir toliau tas pilnas
+         ruozas kabodavo, kol printeris is tikruju \u0117m\u0117 fail\u0105 (V 08-20; tas pats
+         melas jau buvo gaudytas pulto ikelime, 08-18). Korteles eiluteje skaicius
+         lieka - ten jis skaitomas kaip \u201eissiusta", ne \u201epadaryta". */
+      if(window.paintPreviewIndet)
+        paintPreviewIndet($('printPreviewCanvas'),'Uploading\u2026');
       x.upload.onprogress=e=>{
         if(!e.lengthComputable){prog.textContent='Uploading \u2026';return;}
         const p=Math.round(e.loaded/e.total*100);
         prog.textContent='Uploading '+p+'%  ('+MB(e.loaded)+' / '+MB(e.total)+' MB)';
-        paintPreviewProgress($('printPreviewCanvas'),'Uploading '+p+'%',e.loaded/e.total,true);
       };
       x.onload=()=>{
         if(x.status<400){res(null);return;}
@@ -1313,7 +1320,10 @@ $('slicerSave').addEventListener('click',async()=>{
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
     prog.textContent='Unpacking on the printer \u2026';
-    paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null,true);
+    /* Ta pati priezastis, kaip ikelime: kiek printeris jau isvyniojo, mes nezinom,
+       o laukimas trunka. Ruozelis pasako, kad darbas gyvas, ir nieko nezada. */
+    if(window.paintPreviewIndet)paintPreviewIndet($('printPreviewCanvas'),'Unpacking\u2026');
+    else paintPreviewProgress($('printPreviewCanvas'),'Unpacking\u2026',null,true);
     for(let i=0;i<180;i++){
       await new Promise(r=>setTimeout(r,1000));
       try{
