@@ -357,6 +357,15 @@ String connectRecoveryCode = "";
 String connectLastStatus = "";
 bool connectAutoBackup = false;
 uint32_t connectBackupEpoch = 0;
+// TinyMaker Live gateway (0.18): remote status/commands over a signed plain-HTTP
+// beat. Separate from Connect - different server, different secret. See
+// docs/gateway-spec.md and src/TinyMakerGateway.ino.
+bool gatewayEnabled = false;
+String gatewayBaseUrl = "";         // empty = not configured; no default host
+String gatewayDeviceKey = "";       // HMAC secret, NVS only - never sent to a browser
+uint32_t gatewaySeq = 0;            // replay counter, persisted in coarse steps
+uint32_t gatewaySeqPersisted = 0;   // last value actually written to NVS
+String gatewayLastStatus = "";      // RAM only, shown in the dashboard
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
@@ -435,6 +444,15 @@ void loadDeviceConfig() {
   connectRecoveryCode = sysPrefs.getString("tmcRecovery", "");
   connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
   connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
+  gatewayEnabled = sysPrefs.getBool("tmgEnabled", false);
+  gatewayBaseUrl = sysPrefs.getString("tmgUrl", "");
+  gatewayDeviceKey = sysPrefs.getString("tmgKey", "");
+  // Jump the counter past anything a power loss may have left unwritten: the
+  // beat path only persists every GATEWAY_SEQ_STRIDE frames (flash wear), so a
+  // reused number - which the server rejects as a replay - is the failure mode
+  // to design out, not a few skipped integers.
+  gatewaySeq = sysPrefs.getULong("tmgSeq", 0) + 32;
+  gatewaySeqPersisted = gatewaySeq;   // the +32 jump is what we just promised NVS
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -522,6 +540,10 @@ void saveDeviceConfig() {
   sysPrefs.putString("tmcRecovery", connectRecoveryCode);
   sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
   sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
+  sysPrefs.putBool("tmgEnabled", gatewayEnabled);
+  sysPrefs.putString("tmgUrl", gatewayBaseUrl);
+  sysPrefs.putString("tmgKey", gatewayDeviceKey);
+  sysPrefs.putULong("tmgSeq", gatewaySeq);
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
@@ -783,6 +805,8 @@ void tgNotifyLowResin();
 void tgNotifyCanceled();
 void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
 void tgNotifyLowResinSoon(float ml, int minsToStop);   // 0.17 #40: pre-warn before low-resin stop
+void gatewayLoop();        // Live gateway beat (TinyMakerGateway.ino, #if-guarded)
+void gatewayPrintTick();   // ...and its one safe call site inside the layer cycle
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -2713,6 +2737,11 @@ void loop() {
           gfx1->fillScreen(BLACK);
           #if ENABLE_NETWORK
           network_service_window(160);
+          // The layer is cured and the peel has not started: the one point in
+          // the cycle where a bounded network call cannot hurt. It never
+          // overlaps UV exposure (turn_on_LED services HTTP only) and never
+          // sits inside a stepper move; a pause here is just resin settling.
+          gatewayPrintTick();
           #endif
           
           if (current_state != 4 && current_state != 5){
