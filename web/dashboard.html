@@ -2096,7 +2096,11 @@ const refreshSlicerCard=()=>{
 // Statistics view + Settings>About pane (0-17d, split 07-21): both fill from
 // the regular status poll - no extra endpoint. One renderer covers both (the
 // ab* ids live in either view; all stay in the DOM).
-const fmtWhen=d=>d.toLocaleString([],{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+/* 24 valandos VISADA (V 08-18). Be `hour12:false` formata parenka narsykle
+   pagal savo kalba, ir lietuviskoje sistemoje islisdavo amerikietiskas
+   „03:48 PM“. Laikas pulte turi atrodyti vienodai visur, tad ta pati zyme
+   deta ir prie spaudinio pabaigos laiko zemiau. */
+const fmtWhen=d=>d.toLocaleString([],{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const renderAbout=()=>{const s=statusData;if(!s)return;
   setText('abVersion',s.firmwareVersion||'-');setText('abBuild',fwBuildParen());
   setText('abBuilt',s.buildDate||'-');
@@ -2272,7 +2276,7 @@ const applyStatus=s=>{
     {const e=$('wifiBars');
      if(e){for(let i=0;i<3;i++)e.children[i].classList.toggle('on',i<wn);
            e.title='WiFi: '+(s.wifiText||'-')+(s.ip&&s.ip!=='-'?' · '+s.ip:'');}}
-    const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+    const eta=(s.busy&&s.remainingSecs>0)?new Date(Date.now()+s.remainingSecs*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}):'';
     /* Procentai prie sluoksniu, o ne drobeje: skaiciu vieta yra busenos kortele, o
        piesinyje jie buvo neatzymimi, nesilauze ir kainavo perpiesima (V 08-13). */
     const lpct=(s.busy&&s.totalLayers>0)?' ('+Math.round(s.currentLayer/s.totalLayers*100)+'%)':'';
