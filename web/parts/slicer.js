@@ -98,7 +98,7 @@ const slicerStep=()=>{
     /* Ir formos irankiai ant vaizdo - jie yra ta pati kortele, tik kitoje vietoje. */
     const t=$('gl3dTools');
     if(t&&spausdina)t.querySelectorAll('button').forEach(b=>{
-      if(b.id!=='gl3dCage'&&b.id!=='gl3dMask')b.disabled=true;
+      if(b.id!=='gl3dCage'&&b.id!=='gl3dV3'&&b.id!=='gl3dV2')b.disabled=true;
     });}}
   /* Formos irankiai turi prasme tik IKI pjovimo. Po jo jie keicia tai, kas jau
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
@@ -135,7 +135,7 @@ const slicerButtons=on=>{
      daikto forma, o apie ziurejima, tad slicerio uzraktas ju neliecia. Be sios
      islygos jie uzsirakindavo kartu su formos irankiais ir tokie - negyvi - keliaudavo
      atgal i savo grupe: perziuroje narvas nebesispausdavo visai (V 08-20). */
-  const svecias=id=>id==='gl3dCage'||id==='gl3dMask';
+  const svecias=id=>id==='gl3dCage'||id==='gl3dV3'||id==='gl3dV2';
   if(t){t.querySelectorAll('button').forEach(b=>{if(!svecias(b.id))b.disabled=!on;});
         t.style.display=on&&slicerOwnsPreview?'flex':'none';
     const pp=$('gl3dPop');
@@ -713,6 +713,15 @@ let slicerOut=null;   // supjaustytas rezultatas, laukiantis sprendimo
    pati PNG, kuri keliauja i archyva: nedidinta, be glotninimo. Nieko naujo
    neskaiciuojam - failai jau atmintyje (V 08-13). */
 let slicerMaskOn=false, slicerView=0;
+/* Ar plokscias vaizdas rodomas taip, kaip sviecia ekranas: detale ir atramos
+   viena spalva. Pasirinkimas isliekantis - kas ji ijunge, kito atidarymo
+   nejunginetu is naujo. Numatytoji busena - senoji (atramos melynos): 08-13 V
+   pasake, kad matyti, KUR atrama, yra butina, ir tas sprendimas galioja. */
+const slicerUvOn=()=>{try{return localStorage.getItem('tmUvView')==='1';}catch(e){return false;}};
+/* ~405 nm pro dangti. Sviesesnis vidus - ne pagrazinimas: sluoksnio nuotrauka
+   turi pilkus krastus (antialiasing), o jie reiskia MAZESNE ekspozicija, tad ta
+   pati informacija lieka matoma ir perdazius. */
+const UV_DIM=[139,92,246], UV_HOT=[196,181,253];
 /* Einamas sluoksnis. Iki 08-17 ji laike paslepto lauko `value` - elementas buvo
    nematomas, bet kodas ji skaite kaip busena. Dabar busena yra busena, o vienintelis
    slankiklis (`#gl3dLayerRange`) tik ja rodo. */
@@ -729,6 +738,21 @@ function slicerMaskDraw(n){
     const ctx=cv.getContext('2d');
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(im,0,0);
+    /* „Kaip sviecia“: jokio atskyrimo - viskas, kas kietėja, yra vienas plotas, ir
+       butent ji zmogus turi ivertinti. Atramu kauke cia NEPIESIAMA (V 08-22). */
+    if(slicerUvOn()){
+      const px=ctx.getImageData(0,0,cv.width,cv.height);
+      for(let p=0;p<px.data.length;p+=4){
+        const v=px.data[p];
+        if(v<24){px.data[p]=px.data[p+1]=px.data[p+2]=0;px.data[p+3]=255;continue;}
+        const w=(v/255)*0.55;
+        for(let q=0;q<3;q++)px.data[p+q]=Math.round(UV_DIM[q]+(UV_HOT[q]-UV_DIM[q])*w);
+        px.data[p+3]=255;
+      }
+      ctx.putImageData(px,0,0);
+      URL.revokeObjectURL(url);
+      return;
+    }
     /* Supportai perpiesiami KITA spalva. Sluoksnio nuotrauka juoda-balta -
        is jos neatskirsi, kur detale, o kur atrama; o butent tai ir reikia
        matyti (V 08-13, butina). Spalva tik ekrane - i archyva keliauja
@@ -773,59 +797,27 @@ function slicerMaskDraw(n){
   im.src=url;
   box.style.display='flex';   // drobe centruojama: juodas staciakampis IR yra plokste
 }
-/* Plokscias vaizdas = pati plokste, tad langas jam pasidaro tokiu pat santykiu
-   (320:240). Kitaip aplink juoda staciakampi likdavo tuscias kraštas: pirma ten
-   prasisviesdavo 3D scena, paskui ji uzdaziau korteles spalva - ir abu variantai
-   buvo apie ta pati, kad langas ir plokste ne to paties pavidalo (V 08-19).
-   Aukstis ribojamas lango auksciu: geriau siauresnė plokste, nei blokas, kurio
-   apacios nematyti. Ankstesnis aukstis grazinamas iseinant - jis gali buti
-   nustatytas „lango didinimo" mygtuko. */
-let slicerStageFlat=false, slicerStageBusy=false;
-function slicerFlatStage(on){
-  const st=$('previewStage'); if(!st||slicerStageBusy)return;
-  const buvo=st.style.height;
-  if(on){
-    const w=st.clientWidth||st.getBoundingClientRect().width; if(!w)return;
-    const h=Math.min(Math.round(w*240/320),Math.round(innerHeight*0.78));
-    st.style.height=h+'px';
-    /* Zyme pultui: plokscio vaizdo aukstis - musu, tad `stageBoxSize` i ji nesikisa.
-       Be jos abi puses raše ta pati stiliu ir vaizdas soktelėdavo (V 08-20). */
-    st.classList.add('stageFlat');
-    st.dataset.boxH='';
-    slicerStageFlat=true;
-  }else{
-    if(!slicerStageFlat)return;
-    slicerStageFlat=false;
-    /* NEgrazinam senos reiksmes: per ta laika galejo buti paspaustas „lango
-       didinimas", ir sena reiksme ji nurasytu (V 08-19: uzdarius sliceri perziura
-       likdavo istempta). Nuvalom ir leidziam pulto logikai nusistatyti pačiai. */
-    st.classList.remove('stageFlat');
-    st.style.height=''; st.dataset.boxH='';
-    if(window.stageBoxSize)stageBoxSize();
-  }
-  /* Renderis savo dydi persiskaiciuoja per lango „resize". Zyme saugo nuo ciklo:
-     musu pacio zenklas neturi vel kviesti sio metodo. */
-  if(st.style.height!==buvo){
-    slicerStageBusy=true;
-    try{window.dispatchEvent(new Event('resize'));}finally{slicerStageBusy=false;}
-  }
-}
-/* Langui pasikeitus (taip pat ir paspaudus „didinima") plokscias vaizdas turi
-   likti 4:3 - kitaip aplink juoda staciakampi vel atsiranda kraštas. */
+window.slicerMaskDraw=slicerMaskDraw;   // jungiklis perpiesia ta pati sluoksni
+/* Plokscias vaizdas nebekeicia bloko auksčio (V 08-22). Iki tol jis perstatydavo
+   `#previewStage` i 320:240, kad aplink juoda staciakampi neliktu tuscio krasto -
+   bet tada perjungiant 3D <-> 2D blokas paaukstedavo ir visas puslapis soktelėdavo.
+   Dabar plokste tiesiog susitraukia savo proporcija i TA PATI bloka (drobe yra
+   `height:100%; width:auto`), o jos krasta pazymi kadro kampai - zr. `#plateFrame`
+   pulte. Ismatuota stende: blokas 486x283 ir isdidintas 1023x702 abiem vaizdais,
+   plokste 4:3 abiejuose. */
+/* Langui pasikeitus (taip pat ir paspaudus „didinima") plokscio vaizdo taisykles
+   turi praeiti is naujo: dydzio keitimas eina per `gl3dShow`, o tas grazina visas
+   3D grupes, ir be sito valdikliai issibarstytu per kauke (V 08-20). */
 window.addEventListener('resize',()=>{
   if(!(slicerMaskOn&&slicerView===2))return;
-  slicerFlatStage(true);
-  /* Dydzio keitimas eina per `gl3dShow`, o tas grazina visas 3D grupes - tad po jo
-     plokscio vaizdo taisykles turi praeiti dar karta (V 08-20). */
   slicerViewChrome();
 });
-/* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad po jo
-   plokscia vaizda persistatom rankomis - kitaip sumazinus langa juodas
-   staciakampis liktu mazesnis uz pati langa (V 08-19). */
+/* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad chrome
+   po jo persistatom rankomis. */
 {const g=$('stageOpen');
  if(g)g.addEventListener('click',()=>setTimeout(()=>{
    if(!(slicerMaskOn&&slicerView===2))return;
-   slicerFlatStage(true); slicerViewChrome();},0));}
+   slicerViewChrome();},0));}
 let slicer3dLayer=null;      // kur stovejo slankiklis 3D vaizde
 function slicerMaskSet(on){
   slicerMaskOn=!!on&&!!slicerOut&&!!slicerOut.files;
@@ -890,13 +882,39 @@ function slicerLayerUI(on){
   /* Rodyti slankikli ant svetimo vaizdo nera prasmes: jis valdo MUSU rezultata. */
   if(on&&!slicerIsOpen())return;
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
-  const b=$('gl3dMask'); if(b)b.style.display=on?'':'none';
+  ['gl3dV3','gl3dV2'].forEach(id=>{const b=$(id); if(b)b.style.display=on?'':'none';});
+  /* Piesinys ir aktyvi puse perskaiciuojami CIA PAT: valdikliai pasirodo anksciau,
+     nei ivyksta pirmas vaizdo perjungimas, ir be sitos eilutes mygtukai mirktelėdavo
+     tusti (ismatuota stende 08-22). */
+  if(on)slicerViewButtons();
   /* Sluoksnio NUMERIS cia NEBENULINAMAS: valdikliai dingsta ir grizta kaskart
      perjungiant akordeona, o zmogaus vieta sluoksniuose priklauso REZULTATUI -
      ji nulinama tik ten, kur rezultatas keiciasi (`slicerReset`, „Discard"). */
-  if(!on){slicerMaskSet(false); slicerFlatStage(false); slicerView=0;
+  if(!on){slicerMaskSet(false); slicerView=0;
           if(window.gl3dSupports)gl3dSupports(null);}
   else slicerSetView(slicerView);
+}
+/* Kurioje 3D poros pusėje zmogus buvo paskutini karta. Be sios atminties
+   grizimas is 2D visada mestu i „su atramomis“, nors zmogus zurejo be ju. */
+let slicer3dSub=0;
+/* Abieju mygtuku isvaizda vienoje vietoje: kuris piesinys, kuris aktyvus, koks
+   uzrasas. Kvieciama is `slicerSetView` ir verciant UV puse. */
+function slicerViewButtons(){
+  const uv=slicerUvOn(), flat=slicerView===2;
+  if(!flat)slicer3dSub=slicerView;
+  const b3=$('gl3dV3');
+  if(b3){const s=flat?slicer3dSub:slicerView;
+    b3.classList.remove('s0','s1'); b3.classList.add('s'+s);
+    b3.classList.toggle('act',!flat);
+    b3.title=(flat?'Back to 3D - ':'3D - ')+
+      (s===0?'the model with its supports. Click for the model alone.'
+            :'the model alone. Click to bring the supports back.');}
+  const b2=$('gl3dV2');
+  if(b2){b2.classList.remove('f0','f1'); b2.classList.add(uv?'f1':'f0');
+    b2.classList.toggle('act',flat);
+    b2.title=(flat?'':'Flat layer - ')+
+      (uv?'as the screen lights it: the part and its supports in one colour. Click for the supports marked.'
+         :'the true layer with its supports marked. Click to see it as the screen lights it.');}
 }
 const VIEW_TITLES=[
   '3D with supports - shapes, not pictures. Click for the printed layers.',
@@ -909,6 +927,12 @@ const VIEW_TITLES=[
    sluoksnius. Sukimas, stumdymas, pagalba, narvas ir priartinimas - 3D reikalai. */
 function slicerViewChrome(){
   const plokscia=!!window.slicerFlatView;
+  /* Zyme pultui: rodomas PLOKSCIAS vaizdas. Pultas pagal ja atiduoda sluoksniu
+     slankikliui beveik visa auksti - 3D valdikliu, kuriems tie tarpai buvo
+     palikti, cia nebera (V 08-22). Zyme sako TIK „koks vaizdas rodomas", ne
+     „kas valdo auksti" - senoji `stageFlat` reiske antra, ir butent del to
+     abi puses raše ta pati stiliu. */
+  {const st=$('previewStage'); if(st)st.classList.toggle('flatView',plokscia);}
   const cg=$('gl3dCage'); if(cg)cg.style.display=plokscia?'none':'';
   const zc=$('gl3dZoomCorner'); if(zc)zc.style.display=plokscia?'none':'flex';
   [['gl3dPad','grid'],['gl3dRot','grid'],['gl3dHelp','block']].forEach(([id,d])=>{
@@ -918,18 +942,12 @@ function slicerViewChrome(){
 window.slicerViewChrome=slicerViewChrome;
 function slicerSetView(v){
   slicerView=((v%3)+3)%3;
-  const b=$('gl3dMask');
-  if(b){/* Klase pasako, KURIS piesinys rodomas; `on` cia nebereiskia „ijungta",
-        tad ji nuimam - spalva dabar priklauso nuo v0 (zr. slicer.css). */
-    b.classList.remove('on');
-    b.classList.remove('v0','v1','v2'); b.classList.add('v'+slicerView);
-    b.title=VIEW_TITLES[slicerView];}
+  slicerViewButtons();
   slicerMaskSet(slicerView===2);
   /* Tikro sluoksnio vaizde priartinimas ir narvas nieko nedaro: tai plokscia
      kauke, pikselis prie pikselio, ir tokia ji turi likti (tam ji ir yra).
      Mygtukai slepiami, o ne uzrakinami - valdiklis, kuris nieko nekeicia, meluoja
      labiau uz nesancio mygtuko nebuvima (V 08-19). */
-  slicerFlatStage(slicerView===2);
   window.slicerFlatView=(slicerView===2);
   slicerViewChrome();
   if(slicerView!==2)slicerBuildView();
@@ -1268,7 +1286,11 @@ function slicerBarUI(on){
 function slicerBarMerge(on){
   const tools=$('gl3dTools'), zoom=$('gl3dZoom');
   if(!tools||!zoom)return;
-  ['gl3dCage','gl3dMask'].forEach(id=>{
+  /* ABU vaizdo mygtukai CIA (V 08-22). Zymes vieta nieko nelemia: sliceriui
+     peremus perziura visas `#gl3dZoom` paslepiamas, o jo turinys, kuris turi likti
+     matomas, perkeliamas i irankiu juosta. Praleidus si sarasa mygtukas buvo
+     „rodomas“ nematomoje dezeje - V du kartus jo nerado, ir teisingai. */
+  ['gl3dCage','gl3dV3','gl3dV2'].forEach(id=>{
     const b=$(id); if(!b)return;
     const kur=on?tools:zoom;
     if(b.parentElement!==kur)kur.appendChild(b);
@@ -1387,10 +1409,27 @@ $('popScaleMm').addEventListener('change',e=>{
   const now=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size[2];
   if(now>0)popScaleApply(slicerTr.scale*(want/now)*100);
 });
-/* Kaukes jungiklis stovi salia priartinimo, nes tai to paties vaizdo kita puse. */
-{const b=$('gl3dMask');
- if(b){b.addEventListener('click',e=>{e.stopPropagation();slicerSetView(slicerView+1);});
-       b.addEventListener('pointerdown',e=>e.stopPropagation());}}
+/* Du vaizdo mygtukai. Kiekvienas junginėja SAVO pora, o paspaustas is svetimos
+   poros pirma parsiveda i save - i ta puse, kurioje zmogus buvo paskutini karta.
+   Del to pirmas paspaudimas niekada nenustebina: atidaro tai, ka mygtukas rodo. */
+{const b3=$('gl3dV3');
+ if(b3){b3.addEventListener('click',e=>{e.stopPropagation();
+   if(slicerView===2)slicerSetView(slicer3dSub);
+   else{slicer3dSub=slicerView?0:1; slicerSetView(slicer3dSub);}
+ });
+ b3.addEventListener('pointerdown',e=>e.stopPropagation());}}
+{const b2=$('gl3dV2');
+ if(b2){b2.addEventListener('click',e=>{e.stopPropagation();
+   if(slicerView!==2){slicerSetView(2);return;}
+   /* Jau plokščiame - vercia UV puse. Sluoksnis perpiesiamas TAS PATS: slankiklis
+      nejuda, keiciasi tik dazymas. */
+   const on=!slicerUvOn();
+   try{localStorage.setItem('tmUvView',on?'1':'0');}catch(err){}
+   slicerViewButtons();
+   if(window.slicerMaskDraw&&typeof slicerOut!=='undefined'&&slicerOut)
+     slicerMaskDraw(slicerLayerN||slicerOut.layers);
+ });
+ b2.addEventListener('pointerdown',e=>e.stopPropagation());}}
 $('gl3dLayerRange').addEventListener('input',e=>slicerShowLayer(Number(e.target.value)));
 $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
 

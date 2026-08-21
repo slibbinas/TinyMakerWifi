@@ -38,6 +38,8 @@
 #include <ArduinoOTA.h>    // PlatformIO espota uploads
 #include <WiFiClientSecure.h> // HTTPS to GitHub for version check + self-update
 #include <HTTPClient.h>       // fetch version.txt
+#include <uri/UriBraces.h>   // /lib/{} - slicerio failai is korteles (0.17 SL-mod)
+#include "slicer_ca.h"   // gh-pages saknis: manifesto TLS tikrinamas (08-22)
 #include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
@@ -1706,10 +1708,13 @@ void applyConfigRequest() {
     float g = server.arg("vat_empty_g").toFloat();
     if (g > 0.0f && g <= VAT_EMPTY_G_MAX) vatEmptyG = g;
   }
-  // Only ever set explicitly: formCheck would read its ABSENCE from the normal
-  // settings form as "switch it off", and the form does not carry this field.
-  if (server.hasArg("slicer_on"))
-    slicerModuleOn = server.arg("slicer_on") == "1" || server.arg("slicer_on") == "true";
+  // 08-22: the dashboard now carries this box in the FULL settings form
+  // (Settings > Network), so it goes through formCheck like every other
+  // toggle - that is what makes unchecking it actually switch the slicer off.
+  // formCheck still ignores a partial POST (no form_full), so the old
+  // "slicer_on=1" one-liner from a script keeps working and nothing else in
+  // the form gets cleared by it.
+  slicerModuleOn = formCheck("slicer_on", slicerModuleOn);
   askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
   previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
@@ -3681,6 +3686,396 @@ void handleLibThreeUploadDone() {
   sendApiOk("\"bytes\":" + String((uint32_t)sz));
 }
 
+// ---- Slicer module on the SD card (0.17 SL-mod, 08-22) ---------------------
+// Same idea as three.js above: the browser fetches the module from our gh-pages
+// once and hands it to the printer, and from then on the slicer works with no
+// internet at all. One thing had to differ. three.js is pinned to a SHA-256
+// compiled into the firmware - fine for a library we bump once a year, but for
+// the slicer it would mean a firmware release AND a reflash for every module
+// version, which is exactly why the SD copy was never wired up.
+//
+// So the printer fetches the expected sums ITSELF, over HTTPS, from the same
+// host it already trusts for self-update, and holds them in RAM for the upload
+// that follows. The 3.6 MB payload still travels browser -> printer over the
+// LAN, where it is fast; only ~400 bytes of manifest cross the internet from
+// here. A LAN device can still POST bytes, but they will not match a sum that
+// came from our host, so they never stay on the card.
+//
+// The files are stored ALREADY gzipped (published that way - the browser cannot
+// compress them reproducibly, and without reproducible bytes no sum ever
+// matches; that was learned with three.js on 08-12) and served with
+// Content-Encoding: gzip under their plain names, because the module resolves
+// its own satellites by relative name.
+#define SLICER_SET_FILES  5   // publikuojamas rinkinys: 4 .js + 1 .wasm
+#define SLICER_MAX_FILES  6
+#define SLICER_FILE_MAX   4500000u   // sla-web wasm is ~3.4 MB raw, less gzipped
+#define SLICER_MANIFEST_MAX 1024     // 5 lines of "<64 hex>  <name>"
+
+struct SlicerSum { char name[48]; uint8_t sha[32]; bool onCard; };
+static SlicerSum slicerSums[SLICER_MAX_FILES];
+static uint8_t   slicerSumCount = 0;
+static String    slicerSumVer;       // which version the sums in RAM belong to
+static uint32_t  slicerSumAt = 0;    // kada tos sumos parsiustos (kesui)
+
+// Only the shapes we publish. Anything else never becomes a path.
+static bool slicerNameOk(const String &n) {
+  if (n.length() < 8 || n.length() > 46) return false;
+  if (!(n.startsWith("slicer-") || n.startsWith("sla-web-"))) return false;
+  if (!n.endsWith(".gz")) return false;
+  for (size_t i = 0; i < n.length(); i++) {
+    char c = n[i];
+    bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_';
+    if (!ok) return false;
+  }
+  return n.indexOf("..") < 0;
+}
+
+// "3.1.1" and nothing else - the URL is built here, never taken from the
+// request, exactly like otaInstallVersion().
+static bool slicerVerOk(const String &v) {
+  if (v.length() < 3 || v.length() > 15) return false;
+  for (size_t i = 0; i < v.length(); i++)
+    if (!((v[i] >= '0' && v[i] <= '9') || v[i] == '.')) return false;
+  return v.indexOf("..") < 0;
+}
+
+static int slicerSumIndex(const String &name) {
+  for (uint8_t i = 0; i < slicerSumCount; i++)
+    if (name.equals(slicerSums[i].name)) return i;
+  return -1;
+}
+
+static bool slicerHexByte(const String &s, size_t at, uint8_t &out) {
+  uint8_t v = 0;
+  for (int k = 0; k < 2; k++) {
+    char c = s[at + k];
+    v <<= 4;
+    if (c >= '0' && c <= '9') v |= (uint8_t)(c - '0');
+    else if (c >= 'a' && c <= 'f') v |= (uint8_t)(c - 'a' + 10);
+    else if (c >= 'A' && c <= 'F') v |= (uint8_t)(c - 'A' + 10);
+    else return false;
+  }
+  out = v;
+  return true;
+}
+
+// Every slicer file on the card that the new manifest does not name. Without
+// this the card would collect another 3.6 MB per released version.
+static void slicerPruneOld() {
+  File dir = SD.open("/lib");
+  if (!dir) return;
+  // Two passes: collecting the names first keeps us from removing entries while
+  // the directory is still being walked.
+  // 20, ne 12: viena versija = 5 failai, tad su 12 kortele, kurioje uzsileziojo
+  // trys senos versijos, per viena praejima neissivalytu (auditas 08-22).
+  String doomed[20];
+  uint8_t n = 0;
+  while (n < 20) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    char nm[101];
+    nm[0] = 0;
+    e.getName(nm, sizeof(nm));
+    bool isDir = e.isDirectory();
+    e.close();
+    String name(nm);
+    if (isDir || !slicerNameOk(name)) continue;
+    if (slicerSumIndex(name) < 0) doomed[n++] = name;
+  }
+  dir.close();
+  for (uint8_t i = 0; i < n; i++) SD.remove(("/lib/" + doomed[i]).c_str());
+}
+
+// GET /api/lib/slicer - which version the card actually holds. Read off the
+// filenames, so it answers with no internet and with no manifest in RAM: this
+// is what the dashboard shows as "Installed", and what tells it whether the
+// module will come up at all when GitHub is unreachable.
+void handleApiLibSlicerStatus() {
+  // BUSY PIRMA, SD tik paskui. sdCardReady() nera nekaltas skaitymas: nepavykus
+  // SD.open("/") jis daro pilna SD.begin() ant bendros VSPI, o si vieta
+  // pasiekiama vidury spaudinio - uztenka atsidaryti Settings > Update, ir
+  // pulto slmRefresh() sita kvies (auditas 08-22, blokuojantis radinys).
+  if (printerBusy()) { sendApiError(409, "printer is busy"); return; }
+  if (!sdCardReady()) { sendApiOk("\"version\":\"\",\"files\":0"); return; }
+  File dir = SD.open("/lib");
+  if (!dir) { sendApiOk("\"version\":\"\",\"files\":0"); return; }
+  String ver = "";
+  uint8_t files = 0;
+  while (true) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    char nm[101];
+    nm[0] = 0;
+    e.getName(nm, sizeof(nm));
+    bool isDir = e.isDirectory();
+    e.close();
+    String name(nm);
+    if (isDir || !(name.startsWith("slicer-") || name.startsWith("sla-web-"))) continue;
+    files++;
+    // The wasm carries the version the whole set is pinned to; the loaders are
+    // named after it, so one file is enough to name the set.
+    if (name.startsWith("sla-web-") && name.endsWith(".wasm.gz") &&
+        slicerNameOk(name))
+      ver = name.substring(8, name.length() - 8);
+  }
+  dir.close();
+  // A HALF-copied set must not read as installed. An interrupted upload used to
+  // leave the wasm on the card and nothing else, and the dashboard would then
+  // say "3.1.1 on the printer" for a slicer that cannot start without internet
+  // (auditas 08-22). The published set is five files; fewer means not installed.
+  if (files < SLICER_SET_FILES) ver = "";
+  sendApiOk("\"version\":\"" + ver + "\",\"files\":" + String(files) +
+            ",\"complete\":" + String(files >= SLICER_SET_FILES ? "true" : "false"));
+}
+
+// Atsakymas pultui: ka rinkinys turi ir ko kortelej dar nera. Bendras kesuotam
+// ir sviezei parsiustam manifestui, kad abu keliai atsakytu vienodai.
+static void slicerAnswerFiles(const String &ver) {
+  String out = "\"version\":\"" + ver + "\",\"files\":[";
+  for (uint8_t i = 0; i < slicerSumCount; i++) {
+    if (i) out += ",";
+    out += "{\"name\":\"";
+    out += slicerSums[i].name;
+    out += "\",\"onCard\":";
+    out += slicerSums[i].onCard ? "true" : "false";
+    out += "}";
+  }
+  out += "]";
+  sendApiOk(out);
+}
+
+// POST /api/lib/slicer/check  (ver=X.Y.Z)
+// Pulls lib/slicer-X.Y.Z.sha256 off gh-pages and remembers the sums, then tells
+// the dashboard which of the files the card already holds - so a printer that
+// is already up to date uploads nothing at all.
+void handleApiLibSlicerCheck() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;                 // TLS handshake blocks the loop
+  if (!slicerModuleOn) { sendApiError(409, "slicer module is off"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (WiFi.status() != WL_CONNECTED) { sendApiError(503, "no internet"); return; }
+  String ver = server.arg("ver");
+  if (!slicerVerOk(ver)) { sendApiError(400, "bad version"); return; }
+
+  // Ta pati versija per minute - antra karto neiname. Blokuojantis TLS cia
+  // uztrunka iki ~10 s, o si kelia paleidzia AUTOMATIKA, ne zmogus, tad
+  // kartojimosi tikimybe didesne nei OTA (auditas 08-22). otaCheckLatest
+  // kesuoja del lygiai tos pacios priezasties.
+  if (slicerSumCount && slicerSumVer == ver && slicerSumAt &&
+      millis() - slicerSumAt < 60000UL) {
+    slicerAnswerFiles(ver);
+    return;
+  }
+  // Sertifikatas TIKRINAMAS - vieninteliame kelyje visame firmware. Priezastis
+  // paprasta: cia sprendziama, kokie JS ir wasm baitai gali atgulti i kortele ir
+  // paskui suktis pulto vardu. Su setInsecure() pakakdavo pastoti kelia tinkle
+  // ir atiduoti savo manifesta kartu su savo failais - sumos sutaptu, nes jos
+  // paties uzpuoliko (saugumo perziura 08-22). Patikrinus manifesta, uzteks:
+  // 3,6 MB priimami tik tada, kai sutampa su per patikrinta jungti gauta suma.
+  //
+  // Sertifikatu galiojimas remiasi laikrodziu, o jis cia ateina is SNTP fone.
+  // Nesulaukus sinchronizacijos verifikacija kristu su beprasmiu pranesimu, tad
+  // pasakom tiesiai: dar per anksti, pabandyk po minutes.
+  if (time(nullptr) < 1700000000L) {
+    sendApiError(503, "the printer's clock is not synced yet - try again in a minute");
+    return;
+  }
+  String url = OTA_VERSION_URL;
+  url = url.substring(0, url.lastIndexOf('/') + 1) + "lib/slicer-" + ver + ".sha256";
+  WiFiClientSecure client;
+  client.setCACert(SLICER_CA_PEM);            // zr. slicer_ca.h - du patikrinti anchor'ai
+  HTTPClient https;
+  if (!https.begin(client, url)) { sendApiError(502, "manifest unreachable"); return; }
+  // ABU timeout'ai, kaip otaCheckLatest: be setConnectTimeout lieka HTTPClient
+  // numatytieji 5 s prisijungimui VIRS musu 6 s, t. y. iki ~11 s uzblokuoto
+  // loop'o - ekranas ir mygtukai tuo metu negyvi (auditas 08-22).
+  https.setConnectTimeout(4000);
+  https.setTimeout(6000);
+  int code = https.GET();
+  // Nepavykusi TLS verifikacija HTTPClient viduje virsta neigiamu kodu, ne 404 -
+  // atskiriam, kad zmogus matytu skirtuma tarp „nera tokios versijos" ir
+  // „negaliu patikrinti, su kuo kalbu".
+  if (code < 0) { https.end(); sendApiError(502, "could not verify GitHub - refusing to trust this connection"); return; }
+  if (code != 200) { https.end(); sendApiError(502, "manifest not found"); return; }
+  int len = https.getSize();
+  if (len > (int)SLICER_MANIFEST_MAX) { https.end(); sendApiError(502, "manifest too large"); return; }
+  // Riba turi veikti SKAITANT, ne po. Chunked atsakymui getSize() grazina -1,
+  // tad ankstesne patikra praeidavo, o getString() butu traukes neribota kuna i
+  // heap'a - su setInsecure() tinkle stovintis kas nors atiduotu kelis MB ir
+  // ESP32 be PSRAM tiesiog nusibaigtu (auditas 08-22).
+  String body;
+  {
+    WiFiClient *st = https.getStreamPtr();
+    uint8_t buf[129];
+    uint32_t got = 0, t0 = millis();
+    while (st && https.connected() && got < SLICER_MANIFEST_MAX &&
+           millis() - t0 < 6000) {
+      size_t avail = st->available();
+      if (!avail) {
+        if (len >= 0 && got >= (uint32_t)len) break;
+        delay(1);
+        continue;
+      }
+      int rd = st->read(buf, avail > 128 ? 128 : avail);
+      if (rd <= 0) break;
+      buf[rd] = 0;                    // manifestas yra ASCII: NUL'iu jame nera
+      got += rd;
+      body += (const char *)buf;
+      if (len >= 0 && got >= (uint32_t)len) break;
+    }
+  }
+  https.end();
+  if (!body.length() || body.length() > SLICER_MANIFEST_MAX) { sendApiError(502, "bad manifest"); return; }
+
+  slicerSumCount = 0;
+  slicerSumVer = "";
+  int at = 0;
+  while (at < (int)body.length() && slicerSumCount < SLICER_MAX_FILES) {
+    int nl = body.indexOf('\n', at);
+    String line = (nl < 0) ? body.substring(at) : body.substring(at, nl);
+    at = (nl < 0) ? (int)body.length() : nl + 1;
+    line.trim();
+    if (line.length() < 67) continue;
+    String name = line.substring(64);
+    name.trim();
+    if (!slicerNameOk(name)) continue;
+    SlicerSum &e = slicerSums[slicerSumCount];
+    bool ok = true;
+    for (int i = 0; i < 32 && ok; i++) ok = slicerHexByte(line, i * 2, e.sha[i]);
+    if (!ok) continue;
+    strncpy(e.name, name.c_str(), sizeof(e.name) - 1);
+    e.name[sizeof(e.name) - 1] = 0;
+    e.onCard = SD.exists(("/lib/" + name).c_str());
+    slicerSumCount++;
+  }
+  if (!slicerSumCount) { sendApiError(502, "manifest empty"); return; }
+  slicerSumVer = ver;
+  slicerSumAt = millis();
+  if (!SD.exists("/lib")) SD.mkdir("/lib");
+  // Senos versijos NEBETRINAMOS cia. Iki 08-22 taip ir buvo, ir tai reiske: kas
+  // paprase naujesnes - iskart neteko veikiancios senos, o jei 3,6 MB kelione
+  // nutruko (skirtukas, WiFi, pradetas spaudinys), kortelej nelikdavo NE VIENOS
+  // versijos ir sliceris be interneto mirdavo. Dabar valymas vyksta tik tada, kai
+  // naujas rinkinys jau pilnas - zr. handleApiLibSlicerUploadDone.
+  slicerAnswerFiles(ver);
+}
+
+// POST /api/lib/slicer - one file of the set the check above authorised. The
+// body goes straight to SD in chunks, so a 3.4 MB payload costs no heap.
+static File     slicerUp;
+static bool     slicerUpBad = false;
+static bool     slicerUpSeen = false;
+static uint32_t slicerUpLen = 0;
+static int      slicerUpIdx = -1;
+static String   slicerUpPath;
+static mbedtls_sha256_context slicerUpSha;
+static bool     slicerUpShaOn = false;
+void handleApiLibSlicerUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    // Same gate as the three.js path: without it any LAN device could drop a JS
+    // module that the dashboard then imports on its own origin (audit 08-12).
+    slicerUpBad = printerBusy() || !sdCardReady() || !slicerModuleOn ||
+                  !webDashboardRuntimeEnabled() || !requestFromOwnUi();
+    slicerUpLen = 0;
+    slicerUpSeen = true;
+    // Gynybiskai: zemiau yra du ankstyvi return'ai PRIES mbedtls_sha256_init,
+    // tad zyme neturi ateiti is praeitos uzklausos (auditas 08-22).
+    slicerUpShaOn = false;
+    slicerUpIdx = slicerUpBad ? -1 : slicerSumIndex(up.filename);
+    // No sum in RAM for this name means no check() ran, or it named something
+    // else - either way there is nothing to verify these bytes against.
+    if (slicerUpIdx < 0) { slicerUpBad = true; return; }
+    slicerUpPath = "/lib/" + String(slicerSums[slicerUpIdx].name);
+    if (!SD.exists("/lib")) SD.mkdir("/lib");
+    SD.remove(slicerUpPath.c_str());
+    slicerUp = SD.open(slicerUpPath.c_str(), FILE_WRITE);
+    if (!slicerUp || slicerUp.size() != 0) { slicerUpBad = true; return; }  // FILE_WRITE = append
+    mbedtls_sha256_init(&slicerUpSha);
+    mbedtls_sha256_starts_ret(&slicerUpSha, 0);
+    slicerUpShaOn = true;
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (slicerUpBad || !slicerUp) return;
+    // gzip magic in the first chunk: wrong content is rejected before it costs
+    // three megabytes of SD writes.
+    if (slicerUpLen == 0 && up.currentSize >= 2 &&
+        !(up.buf[0] == 0x1f && up.buf[1] == 0x8b)) { slicerUpBad = true; return; }
+    slicerUpLen += up.currentSize;
+    if (slicerUpLen > SLICER_FILE_MAX) { slicerUpBad = true; return; }
+    if (slicerUpShaOn) mbedtls_sha256_update_ret(&slicerUpSha, up.buf, up.currentSize);
+    if (slicerUp.write(up.buf, up.currentSize) != up.currentSize) slicerUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    bool opened = (bool)slicerUp;
+    if (slicerUpShaOn) {
+      uint8_t got[32];
+      mbedtls_sha256_finish_ret(&slicerUpSha, got);
+      mbedtls_sha256_free(&slicerUpSha);
+      slicerUpShaOn = false;
+      if (up.status != UPLOAD_FILE_END || slicerUpIdx < 0 ||
+          memcmp(got, slicerSums[slicerUpIdx].sha, 32) != 0) slicerUpBad = true;
+    }
+    if (slicerUp) slicerUp.close();
+    // Remove only what we actually opened: a rejected upload mid-print must not
+    // touch the shared SPI bus at all (audit 08-12).
+    if (opened && (slicerUpBad || up.status == UPLOAD_FILE_ABORTED))
+      SD.remove(slicerUpPath.c_str());
+    else if (opened && slicerUpIdx >= 0) slicerSums[slicerUpIdx].onCard = true;
+    // Nutrukus siuntimui WebServer atsako pats ir uzbaigimo funkcijos NEKVIECIA,
+    // tad zymes liktu gulejusios iki kitos uzklausos, ir bekune POST butu gavusi
+    // „upload rejected" vietoj „no file in request" (auditas 08-22).
+    if (up.status == UPLOAD_FILE_ABORTED) { slicerUpSeen = false; slicerUpBad = false; }
+  }
+}
+void handleApiLibSlicerUploadDone() {
+  // Own gates: a POST with no multipart body never calls the upload callback at
+  // all, so without these an unauthenticated request would reach SD mid-print
+  // (audit 08-12).
+  bool bad = slicerUpBad, seen = slicerUpSeen;
+  uint32_t len = slicerUpLen;
+  slicerUpBad = false; slicerUpSeen = false; slicerUpIdx = -1;
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (!seen) { sendApiError(400, "no file in request"); return; }
+  if (bad) { sendApiError(400, "upload rejected - unknown file or checksum mismatch"); return; }
+  // Rinkinys pilnas - dabar ir tik dabar senos versijos gali keliauti lauk.
+  bool all = slicerSumCount > 0;
+  for (uint8_t i = 0; i < slicerSumCount && all; i++) all = slicerSums[i].onCard;
+  if (all) slicerPruneOld();
+  sendApiOk("\"bytes\":" + String(len) + ",\"version\":\"" + slicerSumVer +
+            "\",\"complete\":" + String(all ? "true" : "false"));
+}
+
+// GET /lib/<name> - the slicer module out of the card. Stored gzipped, served
+// under the plain name because the module asks for its satellites by relative
+// name (new URL('./', import.meta.url)). A missing file answers 404 and the
+// dashboard quietly falls back to gh-pages, exactly as it does today.
+void handleLibSlicerFile() {
+  if (rejectIfBusy()) return;                 // SD belongs to the print
+  if (!sdCardReady()) { server.send(503, "text/plain", "sd unavailable"); return; }
+  String name = server.pathArg(0);
+  int q = name.indexOf('?');
+  if (q >= 0) name = name.substring(0, q);
+  if (!slicerNameOk(name + ".gz")) { server.send(404, "text/plain", "not cached"); return; }
+  File f = SD.open(("/lib/" + name + ".gz").c_str());
+  if (!f) { server.send(404, "text/plain", "not cached"); return; }
+  server.sendHeader("Content-Encoding", "gzip");
+  server.sendHeader("Cache-Control", "max-age=604800, immutable");
+  server.setContentLength(f.size());
+  // WebAssembly.instantiateStreaming refuses anything that is not this type.
+  server.send(200, name.endsWith(".wasm") ? "application/wasm" : "application/javascript", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  // Closed peer: WiFiClient::write retries 10 x 1 s, and 3.4 MB is ~7000
+  // chunks - without this check the UI would freeze for hours (audit 08-12).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
 // GET /api/boot-anim/file?name=<slug> - stream an installed TMB1 animation for
 // browser preview. Read-only, but still blocked while printing because SD is busy.
 void handleApiBootAnimFile() {
@@ -4250,6 +4645,12 @@ void network_setup() {
   server.on("/api/files/model/slices", HTTP_POST, handleApiModelSlicesUploadDone,
             handleApiModelSlicesUploadData);
   server.on("/api/lib/three", HTTP_POST, handleLibThreeUploadDone, handleLibThreeUploadData);
+  // 0.17 SL-mod: slicerio rinkinys kortelej. `/lib/three.js` registruotas AUKSCIAU -
+  // WebServer eina per handlerius eiles tvarka, tad jis pasiima savo kelia pirmas.
+  server.on(UriBraces("/lib/{}"), HTTP_GET, handleLibSlicerFile);
+  server.on("/api/lib/slicer", HTTP_GET, handleApiLibSlicerStatus);
+  server.on("/api/lib/slicer/check", HTTP_POST, handleApiLibSlicerCheck);
+  server.on("/api/lib/slicer", HTTP_POST, handleApiLibSlicerUploadDone, handleApiLibSlicerUploadData);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);

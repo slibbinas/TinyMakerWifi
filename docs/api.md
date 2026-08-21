@@ -137,6 +137,49 @@ homing diagnostics.
 | `/api/update/install` | POST | self-update; no arg = latest, `version=X.Y.Z` = that release (strict SemVer validation, 400 on anything else) |
 | `/update` | GET/POST | human fallback page / multipart `firmware.bin` flash |
 
+## Browser modules on the SD card
+
+The dashboard needs two things it does not carry in flash: the 3D library and
+the slicer. Both are fetched once from our GitHub Pages and then kept on the SD
+card, so a printer with no internet still shows models and still slices. The
+card is always tried first; a miss falls back to gh-pages, and a miss there
+falls back to the plain canvas renderer (3D) or to no slicer at all.
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/lib/three.js` | GET | the 3D library out of the card (stored gzipped, served with `Content-Encoding: gzip`); 404 when not cached |
+| `/api/lib/three` | POST | store the gzipped library the browser just fetched. Verified against a SHA-256 **compiled into the firmware** - only our own published bytes are accepted |
+| `/lib/<name>` | GET | one slicer file out of the card. Stored as `<name>.gz`, served under the plain name because the module resolves its satellites by relative name. `.wasm` is served as `application/wasm` |
+| `/api/lib/slicer` | GET | which slicer version the card holds, read off the filenames: `{"version":"3.1.1","files":5}`. Needs no internet; 409 while printing |
+| `/api/lib/slicer/check` | POST | `ver=X.Y.Z` - the printer fetches `lib/slicer-X.Y.Z.sha256` from gh-pages over **certificate-verified** HTTPS (`src/slicer_ca.h`), keeps the sums in RAM and answers with the file list and which of them are already on the card. Idle-only, and 503 until the clock is SNTP-synced (certificate dates need it) |
+| `/api/lib/slicer` | POST | multipart upload of ONE file the check above authorised. The filename must be in the RAM list and the bytes must match its sum, or the file is deleted again |
+
+**The manifest fetch is the one place in this firmware that validates a TLS
+certificate.** Everywhere else (`version.txt`, self-update, pings) runs
+`setInsecure()`. Here it matters more: what the manifest authorises is code the
+dashboard later executes on its own origin, and the copy happens automatically
+rather than on a button press. See `src/slicer_ca.h` for the anchors and for what
+breaks if GitHub Pages ever changes issuer.
+
+**Why the slicer verifies differently from three.js.** The three.js sum is a
+constant in the firmware, which is fine for a library that moves once a year.
+The slicer module is published far more often, and pinning it the same way
+would mean a firmware release and a reflash for every version - so the printer
+fetches the expected sums itself, over HTTPS, from the same host it already
+trusts for self-update. Only ~400 bytes of manifest cross the internet from the
+printer; the 3.6 MB payload travels browser to printer over the LAN. A LAN
+device can still POST bytes, but they will not match a sum that came from our
+host, so they never stay on the card.
+
+Every write here is idle-only, needs Web control on, and needs the dashboard's
+own `X-TinyMaker` header. `POST /api/lib/slicer/check` additionally refuses
+while the slicer module is switched off (`slicer_on`).
+
+The two **reads** - `GET /lib/<name>` and `GET /api/lib/slicer` - are open like
+any other GET: they only hand back a file the printer wrote itself, after its
+checksum matched. They are still idle-only, because the card belongs to the
+print.
+
 ## Integrations
 
 | Endpoint | Method | Purpose |

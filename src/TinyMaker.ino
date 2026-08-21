@@ -1112,6 +1112,10 @@ String buildConfigBackupJson(bool includeSecrets = true) {
                             // backup as (mililitrai) atkurtu klaidinga kalibracija
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
+  out += ",\"slicerOn\":";           /* 0.17 SL-mod: be sito po pilno reflash'o
+                                       jungiklis tyliai grizta i OFF, o su juo
+                                       dingsta ir slicerio kortele (auditas 08-22) */
+  out += slicerModuleOn ? "true" : "false";
   out += ",\"previewFlip\":";
   out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -1310,6 +1314,7 @@ void applyConfigBackup(const String &j) {
     }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
+  slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
   previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
