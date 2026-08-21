@@ -30,7 +30,7 @@ const slicerBusyStop=()=>{
 /* Kiekvienas pjaustymas turi savo numeri: sustabdytas darbas fone dar gali
    pasibaigti, ir jo atsakymas neturi nei pakeisti vaizdo, nei atsukti mygtuku,
    kuriuos zmogus jau mato (V 08-20). */
-let sliceRunning=false, sliceStopWanted=false, sliceRun=0;
+let sliceRunning=false, sliceRun=0;
 /* Ar dabartinis modelis telpa. „Slice" tokio nepjauna (`fitCheck` sarga zemiau),
    tad juosta apie tai turi pasakyti PRIES paspaudima, o ne po jo (V 08-19:
    „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
@@ -1070,31 +1070,18 @@ const slicerShowLayer=n=>{
    MUSU eigos funkcija, o is jos galima ismesti klaida. Ji niekur viduje nera
    gaudoma, tad `slice()` nutrūksta ties artimiausiu sluoksniu (paieskoje kas 32,
    piesime kas 8) ir isnyra cia, apacioje, kaip iprasta klaida. */
-const SLICE_STOP='__slicer_stopped__';
+/* „Stop" isimtas (V 08-22). Jis atrodė kaip stabdymas, bet variklio nestabdė:
+   modulis sukasi VIENAME bendrame Web Worker'yje ir nutraukimo neturi (jo kode
+   nera nei abort, nei cancel, nei terminate). Paspaudus tik nustodavom laukti
+   atsakymo, o darbas fone likdavo suktis - ir kitas „Slice" atsistodavo i to
+   paties darbininko EILE, tad juostele stovedavo ties nuliu, kol senasis
+   pasibaigs. Atrodytu kaip pakibimas.
+   Dabar sasaja sako tiesa: pjaustymo metu mygtukas lieka „Slice", uzrakintas ir
+   su suktuku (`btnBusy` - ta pati idioma, kaip „Start" laukiant perziuros).
+   Antro paleidimo neimanoma, ir niekas nemeluoja. Tikras nutraukimas grizs, kai
+   modulis atiduos `abort()` - suplanuota 1.1. */
 $('slicerGo').addEventListener('click',async()=>{
-  /* Tas pats mygtukas, kuris pradejo, ir sustabdo: kito ieskoti nereikia, o
-     eilute lieka dvieju mygtuku ploCio. */
-  if(sliceRunning){
-    /* Sustabdymas nebelaukia variklio. Anksciau tik pazymedavom nora ir laukdavom
-       artimiausio eigos kvietimo - o WASM variklis ilgus tarpsnius (paskutinis
-       praejimas, .sl1 surinkimas) dirba be ju, tad „Stopping…" likdavo kabeti,
-       kol darbas pasibaigs (V 08-20: uzstrigo). Dabar pultas atsisako rezultato
-       is karto: darbas fone tegul baigiasi, jo atsakymas bus ismestas (ji ismes
-       `sliceRun` numeris). */
-    sliceStopWanted=true; sliceRun++;
-    sliceRunning=false;
-    slicerOverlayOff(); slicerWorkUI(false);
-    /* Raudona spalva nusiima CIA: sustabdzius `sliceRun` jau pakeistas, tad darbo
-       `finally` iseina anksti ir jo nebenuima - mygtukas likdavo raudonas su uzrasu
-       „Slice" (V 08-21). */
-    $('slicerGo').textContent='Slice'; $('slicerGo').disabled=false;
-    $('slicerGo').classList.remove('danger');
-    slicerButtons(true);
-    /* Snacko cia nebera (V 08-21): ta pati zinia jau stovi korteleje, o mygtukas grizes
-       i „Slice" - trecias pranesimas apie ta pati tik uzstoja vaizda. */
-    $('slicerProg').textContent='Slicing stopped. Nothing was changed.';
-    slicerRender();          // vaizde vel modelis, ne eigos uzrasas
-    return;}
+  if(sliceRunning)return;                 // uzrakintas, bet sarga pigi
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
   const placed=slicerMod.place(slicerRaw,slicerTr);
@@ -1102,10 +1089,14 @@ $('slicerGo').addEventListener('click',async()=>{
   if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
   const go=$('slicerGo'), prog=$('slicerProg');
   const myRun=++sliceRun;
-  sliceRunning=true; sliceStopWanted=false;
-  /* Raudonas, kaip spausdinimo „Stop" (V 08-21): tas pats zodis ir ta pati prasme -
-     nutraukti tai, kas vyksta, - tad ir spalva ta pati. */
-  go.textContent='Stop'; go.disabled=false; go.classList.add('danger');   // vienintelis gyvas mygtukas
+  sliceRunning=true;
+  /* Uzrakintas ir su suktuku. Raudono „Stop" cia nebera - zr. komentara virsuje. */
+  btnBusy(go,true);
+  /* Ir visas pultas uzsirakina, kaip per printerio darba: uzraktai skaito `uiBusy`,
+     tad uztenka pakelti zyme ir paprasyti ju persiskaiciuoti dabar pat - apklausa
+     tai padarytu tik po dvieju sekundziu (V 08-22). */
+  slicerBusyNow=true;
+  if(typeof syncActionLocks==='function')syncActionLocks();
   slicerButtons(false);
   slicerWorkUI(true);
   try{
@@ -1119,7 +1110,10 @@ $('slicerGo').addEventListener('click',async()=>{
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
       supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,'')},
       (done,total,phase)=>{
-        if(sliceStopWanted)throw new Error(SLICE_STOP);
+        /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
+           mygtuko amzinai suktis). Didelis modelis pjaustomas ilgiau, tad zyme
+           gali nukristi vidury darbo - uzdedam atgal. */
+        if(!go.classList.contains('btnBusy'))btnBusy(go,true);
         const f=phase==='scan'?done/total*0.3
                :phase==='draw'?0.3+done/total*0.7
                :done/total;                      // senas modulis - viena faze
@@ -1140,10 +1134,6 @@ $('slicerGo').addEventListener('click',async()=>{
         slicerPaint(
           what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f);
       });
-    /* Paspaudus „Stop" po PASKUTINIO eigos kvietimo, pjaustymas spetu baigtis
-       sekmingai, ir zmogus gautu rezultata, kurio ka tik atsisake (auditas 08-17).
-       Tas pats zenklas cia uzdaro ta plysi. */
-    if(sliceStopWanted)throw new Error(SLICE_STOP);
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
        o jo niekas nebelaukia - net „stop" zenklas jau nuvalytas (V 08-20). */
     if(sliceRun!==myRun)return;
@@ -1177,26 +1167,20 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerStep();
     slicerShowLayer(slicerLayerN);
   }catch(e){
-    /* Sustabde ne klaida: nei raudono snako, nei „kazkas nutiko" - modelis
-       lieka toks pat, tik nesupjaustytas, ir viskas grizta i „galima pjauti". */
-    if(e&&e.message===SLICE_STOP){
-      msg('Slicing stopped.');
-      slicerRender();                  // vaizde vel modelis, ne eigos uzrasas
-      /* Uzrasas - PO perpiesimo: `slicerRender` per `slicerInvalidate` uzrasytu
-         „Settings changed - slice again to save.", ir sustabdymas atrodytu kaip
-         nustatymu pakeitimas (auditas 08-17). */
-      prog.textContent='Slicing stopped. Nothing was changed.';
-    }else{
-      prog.textContent=e.message;
-      msg(e.message,true);
-    }
+    /* Sustabdymo sakos cia nebeliko kartu su paciu „Stop“ (V 08-22): pjaustymo
+       nutraukti neimanoma, tad kiekviena klaida cia yra tikra klaida. */
+    prog.textContent=e.message;
+    msg(e.message,true);
   }finally{
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
     slicerOverlayOff();
     slicerWorkUI(false);
-    sliceRunning=false; sliceStopWanted=false;
+    sliceRunning=false;
+    btnBusy(go,false);
+    slicerBusyNow=false;
+    if(typeof syncActionLocks==='function')syncActionLocks();
     go.textContent='Slice'; go.classList.remove('danger');
     /* Mygtukas atrakinamas VISADA, ir tai ne aplaidumas: virsuje (po sekmingo
        pjaustymo) jis uzrakinamas, bet atrakinti ji paskui butu nebe kam -

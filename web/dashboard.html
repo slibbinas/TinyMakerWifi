@@ -2597,7 +2597,7 @@ const refreshStatus=async()=>{
        yra ne gedimas, o tas pats ikelimas: skundas cia tik pakeistu ramia zinute
        „priimu modeli" nerimo zinute, ir taip kas kelias sekundes. 30 s: priemimas
        tyli iki ~20 s (ismatuota 08-19), o po jo ateina ispakavimas su savo snacku. */
-    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy
+    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
        ||(Date.now()-lastRxAt<30000)){}
     else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
@@ -5516,7 +5516,13 @@ $('filesList').addEventListener('keydown',e=>{
    tada pasikeicia busena (V 08-17). Todel paruosimas turi savo veliavele - mygtukai
    uzsirakina tuoj pat, o pranesimas pasako, kas is tikro vyksta. */
 let startBusy=false;
-const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startBusy;
+/* Pjaustymas - irgi darbas, nors ji dirba NARSYKLE, o ne printeris (V 08-22:
+   „nerakina kitu controlsu“). Per tas ~30 s liko gyvi SD sarasas, „Start“,
+   dalinimasis, paieska ir nustatymai - o zmogus tuo metu ruosia visai kita
+   modeli. Uztenka ideti ji CIA: `syncActionLocks` ir `slicerStep` jau remiasi
+   siuo klausimu, tad uzsirakina viskas vienu ejimu, be atskiru isimciu. */
+let slicerBusyNow=false;
+const uiBusy=()=>!!(statusData&&statusData.busy)||uploadBusy||deleteBusy||startBusy||slicerBusyNow;
 /* Vienas sakinys, KAS butent uzima printeri - kad zinutes nesakytu „spausdina" tada,
    kai jis ispakuoja ar trina (V 08-14). */
 /* Tas pats klausimas, tik trumpu pavidalu peržiūros dėžei ir snackui. */
@@ -5533,6 +5539,9 @@ const busyBoxText=()=>{
   if(uploadBusy)return 'Uploading the model…';
   if(deleteBusy)return 'Deleting…';
   if(startBusy)return 'Processing files. Please wait...';
+  /* Paskutinis, nes printerio darbai svarbesni: jei jis kaip tik ispakuoja, zmogui
+     reikia zinoti apie TAI. Ir zodziai kiti - pjausto narsykle, printeris laisvas. */
+  if(slicerBusyNow)return 'Slicing the model in your browser\u2026';
   return '';
 };
 const busyWhat=()=>{
@@ -6047,7 +6056,12 @@ const loadUpdate=async()=>{
     }
     refreshInstallSelected();
   }catch(e){show('updVerLabel',false);show('updInstallSelected',false);}
-  const verSnackDone=waitSnackLater('Checking for a newer version');
+  /* Snacko cia NEBERA (V 08-22). Jis sake tiksliai ta pati, ka lange jau rodo
+     updMsg („Checking the latest version...“), tik antra karta ir kitoje
+     vietoje; o snackbarai skirti laukimui, is kurio zmogus KA NORS sprendzia -
+     cia zmogus tik atsidare skilti, ir ji uzsipildo pati. Be to jis kartais
+     uzstrigdavo: statusMsg priklauso busenos apklausai, ir jos perrasyta zyme
+     neleisdavo snacko nuimti - tas pats spastas jau pagautas du kartus. */
   try{
     const u=await api('/api/update',null,30000);
     updInstalledVer=u.installed;
@@ -6069,7 +6083,6 @@ const loadUpdate=async()=>{
     // and the page opens in the theme the user is already in.
     if(preRel&&statusData)$('updTestsLink').href='https://tinymakerwifi.com/tests?lang=en&fw='+enc(statusData.firmwareVersion||'')+'&build='+enc(statusData.firmwareBuild||'')+'&theme='+(document.documentElement.getAttribute('data-theme')||'dark');
   }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
-  finally{verSnackDone();}
 };
 
 /* ---- Slicer module versions (0.17 SL-mod, 08-22) --------------------------
@@ -6088,6 +6101,10 @@ const GHP='https://slibbinas.github.io/TinyMakerWifi/';
 const slicerPin=()=>{try{return localStorage.getItem('tmSlicerVer')||'';}catch(e){return '';}};
 window.slicerPinnedVer=slicerPin;
 let slmBusy=false, slmManifest=[], slmOnCard='';
+/* Deklaruojama ANKSCIAU uz apklausa? Ne - apklausa ja skaito tik veikdama,
+   o `let` iki tol jau ivykdytas. Vardas globalus tycia: sarga gyvena
+   apklausoje, o zyme - cia. */
+var slicerLibBusy=false;
 
 /* Vienas laukimas - vienas snackas: patikra, siuntimas is GitHub ir irasymas i
    kortele zmogui yra VIENAS darbas („idedu sliceri i printeri"), tad tarpiniu
@@ -6098,7 +6115,11 @@ window.slicerCacheToSD=async(ver,loud)=>{
      kunas vidury spaudinio uzblokuotu loop'a, o tai ta pati klaida, kuri buvo
      pagauta su three.js (auditas 08-12). */
   if(!statusData||statusData.busy)return null;
-  slmBusy=true;
+  /* Praneša apie save. 1,13 MB kelia printerio vienagijis serveris, tad busenos
+     apklausa tuo metu negauna atsakymo - be sios zymes pultas parodydavo geltona
+     „Printer not answering" (V pastebejo 08-22). Ta pati sarga jau turi visi kiti
+     ilgi darbai; sitas i ju sarasa nebuvo itrauktas. */
+  slmBusy=true; slicerLibBusy=true;
   try{
     const q=new URLSearchParams();q.append('ver',ver);
     const chk=await api('/api/lib/slicer/check',{method:'POST',body:q},20000);
@@ -6120,7 +6141,7 @@ window.slicerCacheToSD=async(ver,loud)=>{
   }catch(e){
     if(loud)msg('Could not copy the slicer: '+e.message,true,false,true);
     return null;
-  }finally{slmBusy=false;}
+  }finally{slmBusy=false; slicerLibBusy=false;}
 };
 
 const slmRefresh=async()=>{
