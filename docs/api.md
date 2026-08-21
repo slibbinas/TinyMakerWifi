@@ -129,6 +129,18 @@ homing diagnostics.
 | `/api/config/restore`, `/api/config/restore/sd` | POST | restore from an uploaded JSON / from the SD copy |
 | `/api/config/dry-run` | POST | `enabled=0|1` — the banner's quick toggle |
 
+### Live gateway fields (0.18)
+
+`/api/config` carries `gatewayEnabled`, `gatewayBaseUrl`, `gatewayKeySet` and
+`gatewayLastStatus`; the POST form accepts `gateway_enabled`,
+`gateway_base_url` and `gateway_key`. The device key follows the same rule as
+the MQTT password and the Telegram token — it is never read back, and a blank
+field keeps the stored one.
+
+There is no inbound gateway endpoint on the printer: it is always the client.
+The outbound contract (beat payload, signing, command set) lives in
+[gateway-spec.md](gateway-spec.md).
+
 ## Firmware update
 
 | Endpoint | Method | Purpose |
