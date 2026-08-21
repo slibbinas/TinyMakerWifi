@@ -1762,6 +1762,7 @@ void applyConfigRequest() {
   if (server.hasArg("gateway_key") && server.arg("gateway_key").length() > 0) {
     gatewayDeviceKey = formString("gateway_key", gatewayDeviceKey, 64);
   }
+  gatewayConfigChanged();   // a corrected URL or key must not wait out a backoff
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
   String ntf = formString("notify_channel", tgEnabled ? "tg" : (waEnabled ? "wa" : (dcEnabled ? "dc" : "none")), 8);

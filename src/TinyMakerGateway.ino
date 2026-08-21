@@ -8,6 +8,16 @@
  *
  * Separate from TinyMakerConnect.ino on purpose - different server, different
  * secret, different failure domain. The wire contract is docs/gateway-spec.md.
+ *
+ * Three deliberate choices, all of them about not hurting a running print:
+ *  - plain HTTP, never TLS. A handshake's heap spike is what the print-time
+ *    preview cache budget assumes never happens (see Network.ino).
+ *  - a hand-rolled request instead of HTTPClient, so the host is resolved while
+ *    idle and the print-time beat talks to a cached IP with a real deadline.
+ *    HTTPClient cannot do either: it resolves inside connect() (DNS is not
+ *    covered by its timeout) and it silently drops a custom Host header.
+ *  - both directions are signed. An unsigned reply would let anything on the
+ *    path stop an eight-hour print with one forged packet.
  */
 
 #ifndef ENABLE_NETWORK
@@ -17,20 +27,28 @@
 
 #include "mbedtls/md.h"
 
-// Beat cadence. Idle is chatty enough for a dashboard to feel live; printing is
-// deliberately slower and on a tighter timeout, because every millisecond spent
-// here is a millisecond the print loop is not running.
-static const unsigned long GATEWAY_IDLE_MS      = 30000UL;
-static const unsigned long GATEWAY_PRINT_MS     = 60000UL;
-static const uint16_t      GATEWAY_IDLE_TIMEOUT = 2500;
-static const uint16_t      GATEWAY_PRINT_TIMEOUT= 1200;
-static const uint8_t       GATEWAY_SEQ_STRIDE   = 32;   // NVS writes per counter step
-static const uint8_t       GATEWAY_MAX_FAILS    = 6;
+static const unsigned long GATEWAY_IDLE_MS       = 30000UL;
+static const unsigned long GATEWAY_PRINT_MS      = 60000UL;
+static const uint16_t      GATEWAY_IDLE_TIMEOUT  = 2500;
+static const uint16_t      GATEWAY_PRINT_TIMEOUT = 1200;
+static const uint8_t       GATEWAY_SEQ_STRIDE    = 32;
+static const uint8_t       GATEWAY_MAX_FAILS     = 6;
+static const size_t        GATEWAY_MAX_BODY      = 1024;   // replies are tiny by contract
+static const unsigned long GATEWAY_DNS_TTL_MS    = 600000UL;
 
 unsigned long gatewayNextBeatMs = 0;
-unsigned long gatewayBackoffMs = 0;     // 0 = healthy, otherwise the current penalty
 uint8_t gatewayFailStreak = 0;
-String gatewayPendingAck = "";          // ids executed since the last beat
+
+// Parsed once from gatewayBaseUrl, refreshed whenever the setting changes.
+String gatewayHost = "";
+uint16_t gatewayPort = 80;
+String gatewayPath = "";
+String gatewayParsedFrom = "";      // the URL these three came from
+IPAddress gatewayIp;
+bool gatewayIpValid = false;
+unsigned long gatewayIpAtMs = 0;
+
+String gatewayPendingAck = "";
 
 bool gatewayConfigured() {
   return gatewayBaseUrl.length() > 0 && gatewayDeviceKey.length() > 0;
@@ -38,6 +56,53 @@ bool gatewayConfigured() {
 
 bool gatewayRuntimeEnabled() {
   return gatewayEnabled && gatewayConfigured() && WiFi.status() == WL_CONNECTED;
+}
+
+// http:// only in v1. https would have to be idle-only anyway (no TLS during a
+// print), and a half-available transport is worse than one honest rule: the
+// HMAC on both directions is what makes the channel trustworthy, not the URL.
+bool gatewayParseUrl() {
+  if (gatewayParsedFrom == gatewayBaseUrl) return gatewayHost.length() > 0;
+  gatewayParsedFrom = gatewayBaseUrl;
+  gatewayHost = ""; gatewayPort = 80; gatewayPath = "";
+  gatewayIpValid = false;
+
+  String url = gatewayBaseUrl;
+  url.trim();
+  while (url.endsWith("/")) url.remove(url.length() - 1);
+  if (!url.startsWith("http://")) {
+    gatewayLastStatus = "gateway URL must start with http://";
+    return false;
+  }
+  url.remove(0, 7);
+
+  int slash = url.indexOf('/');
+  if (slash >= 0) { gatewayPath = url.substring(slash); url.remove(slash); }
+  int colon = url.indexOf(':');
+  if (colon >= 0) {
+    long p = url.substring(colon + 1).toInt();
+    if (p < 1 || p > 65535) { gatewayLastStatus = "bad gateway port"; return false; }
+    gatewayPort = (uint16_t)p;
+    url.remove(colon);
+  }
+  if (url.length() == 0) { gatewayLastStatus = "bad gateway URL"; return false; }
+  gatewayHost = url;
+  return true;
+}
+
+// Resolved while idle only. A print-time beat either has a cached address or
+// skips - DNS is the one step whose duration we cannot bound.
+bool gatewayResolveHost() {
+  if (gatewayIpValid && millis() - gatewayIpAtMs < GATEWAY_DNS_TTL_MS) return true;
+  IPAddress ip;
+  if (!WiFi.hostByName(gatewayHost.c_str(), ip)) {
+    gatewayLastStatus = "cannot resolve " + gatewayHost;
+    return false;
+  }
+  gatewayIp = ip;
+  gatewayIpValid = true;
+  gatewayIpAtMs = millis();
+  return true;
 }
 
 String gatewayHmacHex(const String &key, const String &message) {
@@ -63,11 +128,20 @@ String gatewayHmacHex(const String &key, const String &message) {
   return String(hex);
 }
 
+// Constant-time-ish compare. Not a real side-channel defence over the network,
+// but free, and it keeps a lazy `==` from becoming the interesting part.
+bool gatewaySigEquals(const String &a, const String &b) {
+  if (a.length() != b.length() || a.length() == 0) return false;
+  uint8_t diff = 0;
+  for (size_t i = 0; i < a.length(); i++) diff |= (uint8_t)(a[i] ^ b[i]);
+  return diff == 0;
+}
+
 // The counter must never repeat: the server rejects a replayed seq, and a
 // printer that reuses one locks itself out until someone re-pairs it. Writing
-// every beat would burn flash, so we persist in strides and loadDeviceConfig()
-// jumps a whole stride ahead on boot - a power loss costs a few unused numbers,
-// never a reused one.
+// every beat would burn flash, so we persist in strides - and loadDeviceConfig()
+// writes the boot jump immediately, so a power loss costs unused numbers rather
+// than reused ones.
 void gatewayNextSeq() {
   gatewaySeq++;
   if (gatewaySeq - gatewaySeqPersisted >= GATEWAY_SEQ_STRIDE) {
@@ -83,7 +157,9 @@ void gatewayNextSeq() {
 // act on.
 String gatewayBuildPayload() {
   bool busy = printerBusy();
-  String out = "{\"v\":1,\"st\":\"";
+  String out;
+  out.reserve(256);
+  out += "{\"v\":1,\"st\":\"";
   out += jsonEscape(printerStateText());
   out += "\",\"by\":";
   out += busy ? "1" : "0";
@@ -115,58 +191,62 @@ String gatewayBuildPayload() {
   return out;
 }
 
-// One command from the reply. Returns true if it was accepted, so the caller
-// can acknowledge it and the server can stop re-sending.
-bool gatewayRunCommand(const String &cmd) {
+// Every command is acknowledged, including ones we could not carry out. The
+// server re-sends whatever is unacknowledged, so refusing to ack a "resume"
+// that arrived while already printing would pin that command at the head of the
+// queue forever - and a later "stop" behind it would never be delivered.
+void gatewayRunCommand(const String &cmd) {
   // Remote control obeys the same switch as the dashboard: with Web control off
   // the printer answers to its own buttons only.
-  if (!webDashboardRuntimeEnabled()) return false;
+  if (!webDashboardRuntimeEnabled()) return;
   String error;
-  if (cmd == "pause")  return requestPrintPause(error);
-  if (cmd == "resume") return requestPrintResume(error);
-  if (cmd == "stop")   return requestPrintStop(error);
-  // Unknown verbs are acknowledged, not retried: an older firmware must not
-  // trap a newer server in a resend loop it can never satisfy.
-  return true;
+  if (cmd == "pause")       requestPrintPause(error);
+  else if (cmd == "resume") requestPrintResume(error);
+  else if (cmd == "stop")   requestPrintStop(error);
+  // Unknown verbs fall through: an older firmware must not trap a newer server
+  // in a resend loop it can never satisfy.
 }
 
 void gatewayHandleCommands(const String &response) {
   gatewayPendingAck = "";
   int pos = response.indexOf("\"cmds\"");
   if (pos < 0) return;
-  // Walk the array by hand - ArduinoJson is not a dependency here and the
-  // shape is fixed by our own contract.
-  while (true) {
+  uint8_t guard = 0;
+  while (guard++ < 8) {
     int idPos = response.indexOf("\"id\":\"", pos);
     if (idPos < 0) break;
     idPos += 6;
     int idEnd = response.indexOf('"', idPos);
-    if (idEnd < 0) break;
+    if (idEnd < 0 || idEnd - idPos > 32) break;      // ids are short by contract
     String id = response.substring(idPos, idEnd);
 
     int cmdPos = response.indexOf("\"cmd\":\"", idEnd);
     if (cmdPos < 0) break;
     cmdPos += 7;
     int cmdEnd = response.indexOf('"', cmdPos);
-    if (cmdEnd < 0) break;
+    if (cmdEnd < 0 || cmdEnd - cmdPos > 24) break;
     String cmd = response.substring(cmdPos, cmdEnd);
 
-    if (gatewayRunCommand(cmd)) {
-      if (gatewayPendingAck.length() > 0) gatewayPendingAck += ",";
-      gatewayPendingAck += "\"" + jsonEscape(id) + "\"";
-    }
+    gatewayRunCommand(cmd);
+    if (gatewayPendingAck.length() > 0) gatewayPendingAck += ",";
+    gatewayPendingAck += "\"" + jsonEscape(id) + "\"";
     pos = cmdEnd;
-    if (gatewayPendingAck.length() > 200) break;   // sanity bound
   }
 }
 
-// Blocking, but bounded: see the timeout constants. Returns false on any
-// failure - a missed beat is invisible to the user, a stalled print is not.
+// Hand-rolled so the whole exchange sits under one deadline and the request can
+// go to a cached IP while still sending the right Host header.
 bool gatewayBeat(bool busy) {
-  String base = gatewayBaseUrl;
-  base.trim();
-  while (base.endsWith("/")) base.remove(base.length() - 1);
-  if (base.length() == 0) return false;
+  if (!gatewayParseUrl()) return false;
+  if (!gatewayIpValid) {
+    // Resolving is idle-only work; a print-time beat waits for the next idle
+    // window rather than risk an unbounded lookup between two layers.
+    if (busy) return false;
+    if (!gatewayResolveHost()) return false;
+  }
+
+  uint16_t budget = busy ? GATEWAY_PRINT_TIMEOUT : GATEWAY_IDLE_TIMEOUT;
+  unsigned long deadline = millis() + budget;
 
   String body = gatewayBuildPayload();
   gatewayNextSeq();
@@ -174,59 +254,102 @@ bool gatewayBeat(bool busy) {
   String sig = gatewayHmacHex(gatewayDeviceKey, seq + "." + body);
   if (sig.length() == 0) return false;
 
-  uint16_t timeout = busy ? GATEWAY_PRINT_TIMEOUT : GATEWAY_IDLE_TIMEOUT;
-  String url = base + "/v1/beat";
-
-  HTTPClient http;
-  WiFiClient plain;
-  WiFiClientSecure secure;
-  bool started;
-  if (url.startsWith("https://")) {
-    // TLS is for idle beats only - the handshake's heap spike is exactly what
-    // the print-time preview cache budget assumes never happens (Network.ino).
-    if (busy) return false;
-    secure.setInsecure();
-    secure.setTimeout(timeout / 1000 + 1);
-    started = http.begin(secure, url);
-  } else {
-    started = http.begin(plain, url);
+  WiFiClient client;
+  client.setTimeout(budget / 1000 + 1);
+  if (!client.connect(gatewayIp, gatewayPort, budget)) {
+    gatewayIpValid = false;                 // stale address: re-resolve when idle
+    gatewayLastStatus = "gateway unreachable";
+    return false;
   }
-  if (!started) return false;
 
-  // Both halves matter: setTimeout() alone still lets a dead host hold us in
-  // the TCP connect.
-  http.setConnectTimeout(timeout);
-  http.setTimeout(timeout);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-TM-Device", connectHardwareId());
-  http.addHeader("X-TM-Seq", seq);
-  http.addHeader("X-TM-Sig", sig);
+  String req;
+  req.reserve(320);
+  req += "POST " + (gatewayPath.length() ? gatewayPath : String("")) + "/v1/beat HTTP/1.1\r\n";
+  req += "Host: " + gatewayHost + "\r\n";
+  req += "Content-Type: application/json\r\n";
+  req += "Content-Length: " + String(body.length()) + "\r\n";
+  req += "X-TM-Device: " + connectHardwareId() + "\r\n";
+  req += "X-TM-Seq: " + seq + "\r\n";
+  req += "X-TM-Sig: " + sig + "\r\n";
+  req += "Connection: close\r\n\r\n";
+  client.print(req);
+  client.print(body);
 
-  int code = http.POST(body);
-  String response = code > 0 ? http.getString() : String("");
-  http.end();
+  // --- response, all of it under `deadline` --------------------------------
+  String status = "";
+  String respSig = "";
+  size_t contentLength = 0;
+  bool headersDone = false;
+  String line = "";
+  String respBody = "";
+  bool first = true;
 
-  if (code < 200 || code >= 300) {
-    gatewayLastStatus = code < 0 ? "gateway unreachable" : ("gateway HTTP " + String(code));
+  while (client.connected() || client.available()) {
+    if ((long)(millis() - deadline) >= 0) {
+      client.stop();
+      gatewayLastStatus = "gateway timed out";
+      return false;
+    }
+    if (!client.available()) { delay(1); continue; }
+
+    if (!headersDone) {
+      char c = client.read();
+      if (c == '\n') {
+        line.trim();
+        if (first) { status = line; first = false; }
+        else if (line.length() == 0) headersDone = true;
+        else if (line.startsWith("X-TM-RSig:") || line.startsWith("x-tm-rsig:")) {
+          respSig = line.substring(10); respSig.trim();
+        } else if (line.startsWith("Content-Length:") || line.startsWith("content-length:")) {
+          long n = line.substring(15).toInt();
+          if (n < 0 || n > (long)GATEWAY_MAX_BODY) {
+            client.stop();
+            gatewayLastStatus = "gateway reply too large";
+            return false;
+          }
+          contentLength = (size_t)n;
+        }
+        line = "";
+      } else if (c != '\r' && line.length() < 200) {
+        line += c;
+      }
+      continue;
+    }
+
+    // Body: bounded by Content-Length, and by GATEWAY_MAX_BODY if the server
+    // omitted it (chunked replies are not part of the contract).
+    respBody += (char)client.read();
+    if (respBody.length() >= GATEWAY_MAX_BODY) break;
+    if (contentLength > 0 && respBody.length() >= contentLength) break;
+  }
+  client.stop();
+
+  if (status.indexOf(" 200") < 0) {
+    gatewayLastStatus = status.length() ? status : "no reply from gateway";
+    return false;
+  }
+
+  // The reply decides whether a print keeps running, so it has to prove it came
+  // from the gateway. Signed over the same seq, so a valid reply cannot be
+  // replayed onto a later beat either.
+  String expect = gatewayHmacHex(gatewayDeviceKey, seq + "." + respBody);
+  if (!gatewaySigEquals(expect, respSig)) {
+    gatewayLastStatus = "gateway reply failed signature check";
     return false;
   }
 
   gatewayLastStatus = "connected";
-  gatewayHandleCommands(response);
+  gatewayHandleCommands(respBody);
   return true;
 }
 
-// Shared by both entry points below. `busy` decides the cadence, the timeout and
-// whether TLS is allowed at all.
 void gatewayTick(bool busy) {
   if (!gatewayRuntimeEnabled()) return;
   if ((long)(millis() - gatewayNextBeatMs) < 0) return;
 
-  bool ok = gatewayBeat(busy);
   unsigned long base = busy ? GATEWAY_PRINT_MS : GATEWAY_IDLE_MS;
-  if (ok) {
+  if (gatewayBeat(busy)) {
     gatewayFailStreak = 0;
-    gatewayBackoffMs = 0;
     gatewayNextBeatMs = millis() + base;
     return;
   }
@@ -234,16 +357,17 @@ void gatewayTick(bool busy) {
   // Same shape as the Connect sync backoff: a dead server must not be retried
   // on the normal cadence, because every attempt is a blocking call.
   if (gatewayFailStreak < GATEWAY_MAX_FAILS) gatewayFailStreak++;
-  gatewayBackoffMs = base << (gatewayFailStreak - 1);
-  if (gatewayBackoffMs > 1800000UL) gatewayBackoffMs = 1800000UL;   // cap at 30 min
-  gatewayNextBeatMs = millis() + gatewayBackoffMs;
+  unsigned long penalty = base << (gatewayFailStreak - 1);
+  if (penalty > 1800000UL) penalty = 1800000UL;      // cap at 30 min
+  gatewayNextBeatMs = millis() + penalty;
 }
 
-// Idle path: called from network_loop(), which the print loop never reaches
-// except through network_service_window() - hence the busy guard here.
+// Idle path, plus a paused print: the motor is stopped and the UV LED is off
+// while paused, so a beat there is as safe as an idle one - and without it a
+// remote "pause" could never be followed by a remote "resume".
 void gatewayLoop() {
-  if (printerBusy()) return;
-  gatewayTick(false);
+  if (printerBusy() && !print_paused) return;
+  gatewayTick(printerBusy());
 }
 
 // Print path: called from ONE safe point in the layer cycle - after the layer
@@ -253,6 +377,15 @@ void gatewayLoop() {
 void gatewayPrintTick() {
   if (!printerBusy()) return;
   gatewayTick(true);
+}
+
+// Settings changed: re-parse, drop the cached address and beat promptly, so a
+// corrected URL or key is visible in seconds instead of after a 30 min backoff.
+void gatewayConfigChanged() {
+  gatewayParsedFrom = "";
+  gatewayIpValid = false;
+  gatewayFailStreak = 0;
+  gatewayNextBeatMs = millis();
 }
 
 #endif

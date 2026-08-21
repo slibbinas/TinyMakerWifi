@@ -452,7 +452,11 @@ void loadDeviceConfig() {
   // reused number - which the server rejects as a replay - is the failure mode
   // to design out, not a few skipped integers.
   gatewaySeq = sysPrefs.getULong("tmgSeq", 0) + 32;
-  gatewaySeqPersisted = gatewaySeq;   // the +32 jump is what we just promised NVS
+  gatewaySeqPersisted = gatewaySeq;
+  // Write the jump now, not later: the beat path persists only every 32 frames,
+  // so without this a reboot would hand out numbers the server has already seen
+  // and reject as replays.
+  sysPrefs.putULong("tmgSeq", gatewaySeq);
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -544,6 +548,7 @@ void saveDeviceConfig() {
   sysPrefs.putString("tmgUrl", gatewayBaseUrl);
   sysPrefs.putString("tmgKey", gatewayDeviceKey);
   sysPrefs.putULong("tmgSeq", gatewaySeq);
+  gatewaySeqPersisted = gatewaySeq;
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
@@ -807,6 +812,7 @@ void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
 void tgNotifyLowResinSoon(float ml, int minsToStop);   // 0.17 #40: pre-warn before low-resin stop
 void gatewayLoop();        // Live gateway beat (TinyMakerGateway.ino, #if-guarded)
 void gatewayPrintTick();   // ...and its one safe call site inside the layer cycle
+void gatewayConfigChanged();   // re-parse + beat promptly after a settings save
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -1210,6 +1216,15 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   }
   out += ",\"connectAutoBackup\":";
   out += connectAutoBackup ? "true" : "false";
+  out += ",\"gatewayEnabled\":";
+  out += gatewayEnabled ? "true" : "false";
+  out += ",\"gatewayBaseUrl\":\"";
+  out += backupEscape(gatewayBaseUrl);
+  out += "\"";
+  // gatewayDeviceKey is deliberately absent even from a secrets-carrying
+  // backup: this JSON is downloadable from the dashboard, and a pairing secret
+  // that leaves the device would let anyone impersonate the printer. Re-pair
+  // after a restore instead.
   out += ",\"connectBackupEpoch\":";
   out += String(connectBackupEpoch);
   out += ",\"statsPing\":";
@@ -1373,6 +1388,8 @@ void applyConfigBackup(const String &j) {
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
   connectRecoveryCode = backupStr(j, "connectRecoveryCode", connectRecoveryCode);
   connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
+  gatewayEnabled = backupBool(j, "gatewayEnabled", gatewayEnabled);
+  gatewayBaseUrl = backupStr(j, "gatewayBaseUrl", gatewayBaseUrl);
   connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
   statsPingEnabled = backupBool(j, "statsPing", statsPingEnabled);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
