@@ -1157,6 +1157,14 @@ $('slicerGo').addEventListener('click',async()=>{
      slicerLayerUI(true);}
     slicerBuildView(true);        // ka tik suslicinta -> parodyti visa
     $('slicerName').disabled=false;
+    /* Uzraktai nusiimami CIA - kai darbas tikrai baigtas, o ne `finally` bloke.
+       Tvarka svarbi: zemiau atrakinam „Save“, o po jo eina `slicerStep()`, kuris
+       darbo metu ta pati mygtuka VeL uzrakina. Palikus zyme pakelta, ka tik
+       atrakintas mygtukas tuoj pat uzsirakindavo, ir „Send to printer“ likdavo
+       pilkas iki kito veiksmo (V rado 08-22). `finally` zyme nusiima dar karta -
+       ji ten lieka kaip saugiklis klaidos keliui. */
+    slicerBusyNow=false;
+    if(typeof syncActionLocks==='function')syncActionLocks();
     /* Tas pats modelis du kartus nepjaunamas: mygtukas atsirakina tik kai
        kas nors pasikeicia arba ikeliamas naujas failas (V 08-12). */
     $('slicerGo').disabled=true;

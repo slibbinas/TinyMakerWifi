@@ -5036,10 +5036,13 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
      ji tiek, kiek trunka sluoksniu perskaiciavimas SD kortelėje (~1-3 s). Trukmes
      is anksto nezinom - ji priklauso nuo sluoksniu kiekio - tad be juosteles ir be
      skaiciaus, o blykstelejimo isvengiam atidejimu (V 08-18). */
-  /* Ruozelis: kiek truks paruosimas, nezino niekas - nei pultas, nei printeris
-     (priklauso nuo modelio dydzio ir korteles). Tuscia vieta po sakiniu atrode kaip
-     sustingimas; ruozelis pasako viena dalyka - dar dirbam (V 08-18). */
-  startSnackDone=waitSnackLater('Processing files. Please wait...',null,true);
+  /* Snacko cia NEBERA (V 08-22). Ta pati sakini jau rodo „State" laukas busenos
+     korteleje, ir rodo TEISINGIAU: jis pasikeicia i „Homing", „Curing", kai
+     printeris pradeda dirbti, o snackas likdavo kaboti ties senu tekstu -
+     spausdintuvas jau homina, o langas ant modeliu saraso tebesako „Processing
+     files". Priezastis ta pati, kaip Update skiltyje: `statusMsg` priklauso
+     busenos apklausai, ir jos perrasyta zyme neleidzia snackui nusiimti.
+     `startSnackDone` lieka tuscia funkcija - ja kviecia `finally`. */
   try{
   const r=await api('/api/print/start?name='+enc(name)+(force?'&force=1':''),{method:'POST'},8000);
   if(r&&r.warning==='low_resin'){if(await uiConfirm('Low resin: ~'+r.vatRemainingMl+' ml left in the VAT (estimate).\nStart anyway?'))startPrint(nameEnc,true);return;}
