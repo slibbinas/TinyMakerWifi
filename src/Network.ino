@@ -4555,10 +4555,26 @@ void network_setup() {
     wm.stopConfigPortal();
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
+  // Boot-time connect failed (router still coming up after a power cut, AP out
+  // of range for a moment). This is NOT a dead end: the watchdog in
+  // network_loop() keeps nudging WiFi.reconnect() every 15 s and the link
+  // usually comes back on its own.
+  //
+  // So we must NOT return here. Everything below - the reconnect flags, the
+  // HTTP routes and server.begin() - has to be in place BEFORE that happens,
+  // or the printer rejoins the network as a mute node: badge green, WiFi up,
+  // and every request refused because the server was never started. That is
+  // exactly what bit feedback #24 (Simon, 0.16.2): two printers back on WiFi,
+  // both unreachable from PrusaSlicer, and re-plugging only repeated the same
+  // 15 s miss. The one escape hatch was System -> Update, which clears
+  // networkStarted and re-runs this function.
+  //
+  // Only mDNS is deferred: MDNS.begin() needs an interface with an address.
+  // The watchdog already re-announces it the moment the link returns.
+  bool bootOnline = (WiFi.status() == WL_CONNECTED);
+  if (!bootOnline) {
     netMessage("WiFi: offline mode", "");
     delay(1200);
-    return;
   }
 
   // Modem sleep (the default) delays the first request after an idle spell by
@@ -4575,7 +4591,11 @@ void network_setup() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
-  MDNS.begin("tinymaker"); // http://tinymaker.local
+  if (bootOnline) {
+    MDNS.begin("tinymaker");   // http://tinymaker.local
+    mdnsAnnounced = true;
+  }                            // offline boot: the network_loop watchdog
+                               // announces it the moment the link returns
 
   // OctoPrint-style API for PrusaSlicer "Send to printer".
   // NOTE: SL1-derived profiles make PrusaSlicer use its SL1Host client,
@@ -4702,18 +4722,23 @@ void network_setup() {
   // this succeeding - it seeds on-device time for future features.
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
-  if (saved) {
-    // Routine boot: the bars just turn green - the separate "WiFi connected"
-    // screen (and its 1.5 s of delays) is gone, the main screen's badge
-    // carries the state from here.
-    netWifiBarsPhase(4, true);
-    delay(400);
-  } else {
-    // First-time setup via the portal: the portal page promises the printer
-    // "shows its address", and this is the one moment the user needs it.
-    String ip = "IP: " + WiFi.localIP().toString();
-    netMessage("WiFi connected", ip.c_str());
-    delay(1800);
+  // Only when the link is actually up: green bars or an IP would otherwise be
+  // a lie told right after the "WiFi: offline mode" notice (the bars would go
+  // green with no connection, the portal branch would print "IP: 0.0.0.0").
+  if (bootOnline) {
+    if (saved) {
+      // Routine boot: the bars just turn green - the separate "WiFi connected"
+      // screen (and its 1.5 s of delays) is gone, the main screen's badge
+      // carries the state from here.
+      netWifiBarsPhase(4, true);
+      delay(400);
+    } else {
+      // First-time setup via the portal: the portal page promises the printer
+      // "shows its address", and this is the one moment the user needs it.
+      String ip = "IP: " + WiFi.localIP().toString();
+      netMessage("WiFi connected", ip.c_str());
+      delay(1800);
+    }
   }
   statsPingMaybe();
   crashPingMaybe();
@@ -4837,7 +4862,10 @@ void network_loop() {
   // WiFi task. Dormant during a print (network_loop isn't reached then); the
   // background auto-reconnect covers that window.
   static unsigned long wifiWatchTs = 0;
-  static bool wifiWasDown = false;
+  // Seeded from the boot result: a printer that booted offline still owes an
+  // mDNS announcement, even if the link returns before this watchdog's first
+  // tick (otherwise tinymaker.local would stay dead until the next drop).
+  static bool wifiWasDown = !mdnsAnnounced;
   if (millis() - wifiWatchTs > 15000) {
     wifiWatchTs = millis();
     if (WiFi.status() != WL_CONNECTED) {
@@ -4845,8 +4873,9 @@ void network_loop() {
       WiFi.reconnect();
     } else if (wifiWasDown) {
       wifiWasDown = false;
-      MDNS.end();
-      MDNS.begin("tinymaker");
+      if (mdnsAnnounced) MDNS.end();   // nothing to tear down after an
+      MDNS.begin("tinymaker");         // offline boot - it was never begun
+      mdnsAnnounced = true;
     }
   }
 }

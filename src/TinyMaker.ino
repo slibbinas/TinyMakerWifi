@@ -186,6 +186,9 @@ bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
 bool resumeBootPending = false;     // suppresses the boot-update prompt
 bool powerRestoreNotifyPending = false; // 0.17: send one "power restored" push once WiFi is up this boot
 bool networkStarted = false;        // network_setup ran (it is idempotent via this)
+bool mdnsAnnounced = false;         // MDNS.begin() succeeded; false after an
+                                    // offline boot, so the network_loop
+                                    // watchdog knows it still owes the announce
 // 0-33: the dashboard's answer to the boot resume prompt - set by the
 // /api/resume/* handlers, consumed in loop() while screen 427 is up.
 // 'R' resume, 'L' lift plate + discard, 'D' discard. Deferred to loop()
