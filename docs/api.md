@@ -21,6 +21,12 @@
 - **Update gate**: web firmware flashing works while idle with Web control on,
   or whenever the printer sits on its Update screen (`otaWebAllowed()`); the
   dev espota path additionally requires the Update screen to be open.
+- **CSRF gate (#95)**: on every endpoint behind the Web control gate, a
+  non-GET request must also prove it comes from the printer's own page —
+  either a browser `Origin` header matching `Host`, or the `X-TinyMaker: 1`
+  header for scripts and tools (`curl -H "X-TinyMaker: 1" …`). A request with
+  a foreign `Origin` is refused even with the header. GETs are open as before,
+  and the ungated paths (PrusaSlicer upload, MQTT) stay ungated.
 
 ## Versioning policy
 
