@@ -38,6 +38,7 @@ static const unsigned long GATEWAY_DNS_TTL_MS    = 600000UL;
 
 unsigned long gatewayNextBeatMs = 0;
 uint8_t gatewayFailStreak = 0;
+unsigned long gatewayServerNextMs = 0;   // cadence the gateway asked for, clamped
 
 // Parsed once from gatewayBaseUrl, refreshed whenever the setting changes.
 String gatewayHost = "";
@@ -207,6 +208,21 @@ void gatewayRunCommand(const String &cmd) {
   // in a resend loop it can never satisfy.
 }
 
+// The server sets the pace: it knows its own write budget and how many printers
+// it is holding, and only it can slow everyone down during a busy hour. Clamped
+// on this side so a broken or hostile reply can neither hammer the link nor
+// silence the printer for a day - and the signature is already checked by the
+// time we get here.
+void gatewayParseNext(const String &response) {
+  gatewayServerNextMs = 0;
+  int pos = response.indexOf("\"next\":");
+  if (pos < 0) return;
+  long secs = atol(response.c_str() + pos + 7);
+  if (secs < 10) secs = 10;
+  if (secs > 900) secs = 900;
+  gatewayServerNextMs = (unsigned long)secs * 1000UL;
+}
+
 void gatewayHandleCommands(const String &response) {
   gatewayPendingAck = "";
   int pos = response.indexOf("\"cmds\"");
@@ -339,6 +355,7 @@ bool gatewayBeat(bool busy) {
   }
 
   gatewayLastStatus = "connected";
+  gatewayParseNext(respBody);
   gatewayHandleCommands(respBody);
   return true;
 }
@@ -350,7 +367,7 @@ void gatewayTick(bool busy) {
   unsigned long base = busy ? GATEWAY_PRINT_MS : GATEWAY_IDLE_MS;
   if (gatewayBeat(busy)) {
     gatewayFailStreak = 0;
-    gatewayNextBeatMs = millis() + base;
+    gatewayNextBeatMs = millis() + (gatewayServerNextMs ? gatewayServerNextMs : base);
     return;
   }
 

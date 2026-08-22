@@ -78,8 +78,10 @@ Response `200`:
 - `cmds` — zero or more queued commands, oldest first. v1 set: `pause`,
   `resume`, `stop`. The printer executes them from `loop()`, never inside the
   HTTP call.
-- `next` — seconds the server suggests until the next beat; the printer clamps
-  it to its own floor/ceiling, so a broken server cannot make it hammer.
+- `next` — seconds until the next beat. The server sets the pace because only it
+  knows its write budget and how many printers it is holding; the printer clamps
+  the value to 10–900 s, so a broken or hostile reply can neither make it hammer
+  nor silence it for a day. Reference server: 120 s idle, 60 s printing.
 - Commands are acknowledged by their `id` on the **next** beat
   (`"ack":["c17"]`), so a lost reply cannot silently drop a command. The server
   re-sends anything unacknowledged.
@@ -89,7 +91,16 @@ printer treats any failure as "skip this beat" and backs off.
 
 ### `POST /v1/claim` (pairing, §5)
 
-Body: `code`, `device`, `name`. Returns the device key once.
+Body: `code`, `device`, `name`. Returns `deviceKey`, `publicId` and `viewKey`
+once — the code is single use and expires in an hour.
+
+## 3b. Reference implementation
+
+`Firmware_Hosting/gateway-worker/` implements all of this on Cloudflare Workers,
+with a phone page and a test suite that covers the signature both ways, a
+replayed `seq` and the command ack round-trip. Its README carries the deploy
+steps and the one zone setting that is easy to miss: `/gw/*` must not be forced
+to HTTPS, or every beat meets a redirect the printer will not follow.
 
 ## 4. Signing and replay
 
