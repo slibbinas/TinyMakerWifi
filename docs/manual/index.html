@@ -180,6 +180,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><a href="#wifi">Connecting to WiFi</a></li>
     <li><a href="#screens">The printer screens</a></li>
     <li><a href="#print-prusa">Printing from PrusaSlicer</a></li>
+    <li><a href="#slicer">Slicing in the browser</a></li>
     <li><a href="#print-sd">Printing from the SD card</a></li>
     <li><a href="#manage">Starting &amp; deleting models</a></li>
     <li><a href="#resin">Resin estimate &amp; refills</a></li>
@@ -306,7 +307,20 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="print-sd"><span class="num">7</span>Printing from the SD card (no network)</h2>
+  <h2 class="sec" id="slicer"><span class="num">7</span>Slicing in the browser (no slicer install)</h2>
+  <p>The dashboard can also <b>slice STL files itself</b> — no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and a <b>Slicer</b> card appears on the dashboard.</p>
+  <ol class="steps">
+    <li><b>Choose STL</b> and pick a model file.</li>
+    <li>Watch it slice — supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
+    <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> — each layer exactly as the masking LCD will shine it.</li>
+    <li>Press <b>Send to printer</b> — the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
+  </ol>
+  <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware — see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>; a slicer update never reflashes the printer.</p>
+  <div class="note">💡 PrusaSlicer remains the fully-featured path — manual support placement, hollowing, orientation tools. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="print-sd"><span class="num">8</span>Printing from the SD card (no network)</h2>
   <p>No WiFi? Copy an <code>.sl1</code> or <code>.zip</code> (exported by PrusaSlicer or UVtools) into the <b>root</b> of the SD card. It appears in the <b>Print</b> menu in <b>blue</b>, among the models.</p>
   <ul>
     <li>Press <kbd>OK</kbd> on a blue entry to convert it into a printable model (progress is shown). When done, the model appears in the list and the archive is deleted from the card.</li>
@@ -315,7 +329,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="manage"><span class="num">8</span>Starting &amp; deleting models</h2>
+  <h2 class="sec" id="manage"><span class="num">9</span>Starting &amp; deleting models</h2>
   <p>In the <b>Print</b> menu:</p>
   <ul>
     <li><b>Start a print:</b> select a model and give <kbd>OK</kbd> a short press. The preview shows Layers / Height / Time; press <kbd>Up</kbd> there to estimate resin (see below), or <kbd>OK</kbd> to start.</li>
@@ -324,7 +338,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="resin"><span class="num">9</span>Resin estimate &amp; level tracking</h2>
+  <h2 class="sec" id="resin"><span class="num">10</span>Resin estimate &amp; level tracking</h2>
   <p>The printer has no resin sensor — instead it <b>keeps count</b>. Every printed layer’s cured volume is subtracted from the VAT level, and the estimate survives reboots and firmware updates.</p>
 
   <h3>Estimate before printing</h3>
@@ -342,7 +356,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="dashboard"><span class="num">10</span>The web dashboard</h2>
+  <h2 class="sec" id="dashboard"><span class="num">11</span>The web dashboard</h2>
   <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
   <div class="note">🧪 No printer at hand? <a href="https://tinymakerwifi.com/demo/">Try the dashboard live</a> — the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
   <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form — what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
@@ -382,10 +396,6 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
   <img class="shot" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
 
-  <h3>Slicing in the browser (optional)</h3>
-  <p>The dashboard can also <b>slice STL files itself</b> — no PrusaSlicer, no computer-side install. Switch it on under Settings → Network → <i>STL slicer in the dashboard</i> and a <b>Slicer</b> card appears: <b>Choose STL</b>, watch it slice (supports and a raft are generated automatically; the dashboard locks while it works, like during a print), check the result in the preview — 3D with or without supports, flat 2D or the <b>UV view</b> — and press <b>Send to printer</b>. The model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</p>
-  <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware — see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>.</p>
-
   <h3>The Settings tab</h3>
   <p>Settings is split into sections, switched by underline tabs — <b>Print / Network / Notifications / Display / Backup / Update / About</b> — shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
   <ul>
@@ -401,7 +411,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="advanced"><span class="num">11</span>System menu reference</h2>
+  <h2 class="sec" id="advanced"><span class="num">12</span>System menu reference</h2>
   <p>The <b>System</b> menu is where everything beyond printing lives. <kbd>OK</kbd> opens an item or changes a value, <kbd>Back</kbd> steps out:</p>
   <div class="table-scroll">
   <table>
@@ -510,7 +520,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>; Shuffle by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</i></p>
 
 <section>
-  <h2 class="sec" id="update"><span class="num">12</span>Updating the firmware</h2>
+  <h2 class="sec" id="update"><span class="num">13</span>Updating the firmware</h2>
   <div class="note">🔒 Firmware flashing is <b>blocked while printing</b>, and the web paths need <b>Web control</b> on. (PrusaSlicer upload is separate and works any time.)</div>
   <p>Three ways to update:</p>
   <ul>
@@ -537,7 +547,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="mqtt"><span class="num">13</span>Home Assistant (MQTT) &amp; notifications</h2>
+  <h2 class="sec" id="mqtt"><span class="num">14</span>Home Assistant (MQTT) &amp; notifications</h2>
   <p>Optional ways for the printer to reach you, all configured in the dashboard’s <b>Settings</b> tab (MQTT in the <i>Network</i> section, the messaging channels in <i>Notifications</i>).</p>
 
   <h3>Home Assistant (MQTT)</h3>
@@ -578,7 +588,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="faq"><span class="num">14</span>Troubleshooting &amp; FAQ</h2>
+  <h2 class="sec" id="faq"><span class="num">15</span>Troubleshooting &amp; FAQ</h2>
 
   <h3>The printer won’t connect to WiFi</h3>
   <p>After 15&nbsp;s it boots offline — SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
