@@ -722,6 +722,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       <label class='check'><input type='radio' name='notify_channel' id='ntfWa' value='wa'><span>WhatsApp<a href='#' class='qHelp' data-help='wa'>?</a></span></label>
       <label class='check'><input type='radio' name='notify_channel' id='ntfDc' value='dc'><span>Discord<a href='#' class='qHelp' data-help='dc'>?</a></span></label>
     </div>
+    <!-- #88: whether the LAST message actually arrived. Hidden until something
+         has been sent, so a fresh printer is not accused of failing. -->
+    <div id='ntfLast' class='hint spanAll hidden'></div>
     <div id='tgFields' class='spanAll hidden'>
       <div class='configGrid'>
         <label class='spanAll'><span>Bot token</span><span class='pwWrap'><input name='tg_token' id='cfgTgToken' type='password' maxlength='64' autocomplete='off' placeholder='Leave blank to keep current'><button id='cfgTgTokenShow' class='eyeBtn' type='button' title='Show/hide what you typed'>&#128065;</button></span></label>
@@ -5457,6 +5460,21 @@ const loadConfig=async()=>{
     $('cfgTgToken').value=''; $('cfgTgToken').type='password'; $('cfgTgChat').value=c.tgChat||'';
     $('cfgTgToken').placeholder=c.tgTokenSet?('Saved token: ********'+(c.tgTokenTail||'')+' (hidden) - type a new one to replace it'):'Paste the token from @BotFather';
     $('tgHint').textContent=(c.tgTokenSet?('Bot token saved (last 4 chars: '+(c.tgTokenTail||'?')+' - check they match your token). '):'Bot token is not set. ')+'Messages you when a print finishes, pauses for low resin, or is canceled.';
+    // #88: one line saying whether the last message reached the phone. Without
+    // it a broken channel looks exactly like a working one - the settings are
+    // filled in either way, and the failure only shows on a phone that stays
+    // quiet. Shown for whichever channel is active.
+    (function(){var e=$('ntfLast'); if(!e) return;
+      if(c.notifyLastOk===undefined){e.classList.add('hidden'); return;}
+      var ago=Number(c.notifyLastAgo)||0, w;
+      if(ago<90) w='just now';
+      else if(ago<5400) w=Math.round(ago/60)+' min ago';
+      else w=Math.round(ago/3600)+' h ago';
+      e.textContent=c.notifyLastOk
+        ? ('Last message: delivered '+w+'.')
+        : ('Last message: NOT delivered '+w+(c.notifyLastReason?(' - '+c.notifyLastReason):'')+'.');
+      e.style.color=c.notifyLastOk?'':'var(--bad,#d7454f)';
+      e.classList.remove('hidden');})();
     updateConnectView(c);
     updateNetworkFields();updateMqttFields();updateConnectFields();updateTgFields();
     show('configMqttResetButton',!!c.mqttConfigured);
