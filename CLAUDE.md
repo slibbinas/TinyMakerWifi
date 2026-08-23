@@ -122,6 +122,12 @@ Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu
 kelis langus atidarytus, ir iš turinio ne visada aišku, kuris kuris - o supainiojus
 sritį nurodymas nukeliauja ne tai sesijai.
 
+**Nežinai, kuri esi - KLAUSK, nespėk.** Jei iš šakos, katalogo ir istorijos neaišku,
+kurią iš keturių sričių sprendi, pirmas dalykas yra klausimas V: *„Kurią sritį imu -
+printerį, slicerį, Connect Live ar curing stotelę?"* ir laukimas atsakymo. Spėjimas
+čia pigus tik atrodo: sesija ima ne tos srities darbą, dirba valandą, ir tik tada
+paaiškėja, kad tai buvo kito lango eilė.
+
 **Kiekvienos naujos sesijos PIRMAS dalykas** (po `/clear` ar naujame lange) - dar
 prieš imantis bet ko, pateikti V **numatomų artimiausių darbų sąrašą lentele**:
 
