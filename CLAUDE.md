@@ -57,6 +57,26 @@ Arduino-style: all `.ino` files in `src/` are concatenated into one translation 
 
 `lib/` holds four vendor-verified libraries unpacked from the original TinyMaker3D `Firmware/Libraries/*.zip` — **do not replace with registry versions** (APIs changed): `AccelStepper` 1.64, `Arduino_GFX` 1.2.0, `PNGdec` 1.0.1, `SdFat` 1.1.2.
 
+### Pultas: `web/dashboard.html` + `web/parts/`
+
+Pultas gzip'inamas ir įdedamas į flash'ą. Nuo 0.17 **slicerio dalys gyvena
+`web/parts/`** (`slicer.css`, `slicer-view.html`, `slicer-card.html`,
+`slicer.js`, `slicer-3d-bridge.js`), o pulte jų vietoje stovi žymė
+`<!--#include parts/…-->` (CSS/JS kontekste - `/*#include …*/`).
+[scripts/assemble_dashboard.py](scripts/assemble_dashboard.py) sulipdo juos
+**build metu**; naršyklė gauna vieną failą kaip anksčiau, flash'ui kaina nulinė.
+
+**Kodėl:** prie projekto dirba dvi sesijos - viena prie printerio, kita prie
+slicerio - ir abi rašė į tą patį failą iš skirtingų šakų. Riba dabar tokia:
+printerio pusė valdo `dashboard.html` ir firmware, slicerio pusė - `web/parts/*`
+ir `web/lib/slicer*.js`. Kelios vietos, kur sliceris tikrai lenda į pulto vidų
+(3D vaizdo perdanga, `applyStatus` kabliukai), lieka pulte kaip pavieniai
+iškvietimai; jas keičia printerio pusė.
+
+Bet kas, kas skaito pultą (stendai, demo, testai), turi imti jį **per
+`assemble()`**, ne tiesiai iš failo - kitaip slicerio ten paprasčiausiai nebus.
+Patikra: `python scripts/assemble_dashboard.py --check <senas failas>`.
+
 Build-time switches (top of `TinyMaker.ino`):
 ```cpp
 #define ENABLE_NETWORK       1   // 0 = original network-free firmware
@@ -94,6 +114,57 @@ debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei p
 
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)
 - `upstream` → `TinyMaker3D/TinyMaker-Open-Source-3D-Printer` (original project)
+
+## Sesijos pradžia: iškart duok darbų sąrašą
+
+**Pirma - paleisk `python scripts/dev/kur_esu.py`.** Jis pasako sritį, šaką, katalogą,
+ar medis švarus ir ar šaka apskritai yra GitHub'e. Šakų vardai keičiasi (2026-08-23
+pervadinti du iš karto), tad atsakymas imamas iš git, o ne iš atminties ar iš šio failo.
+
+**Paskui - prisistatyk.** Vienas sakinys: **kuri tai sritis** (printeris / sliceris /
+Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu turi
+kelis langus atidarytus, ir iš turinio ne visada aišku, kuris kuris - o supainiojus
+sritį nurodymas nukeliauja ne tai sesijai. **Šaka įvardijama visada**, ne tik sritis:
+„Slicerio sesija, šaka `slcr/dev`, katalogas `C:/PIO-build/exp2-wt`" - be šakos V
+nežino, ar sesija stovi ten, kur guli darbas.
+
+**Nežinai, kuri esi - KLAUSK, nespėk, ir pasiūlyk variantus.** Jei iš šakos, katalogo
+ir istorijos neaišku, kurią sritį sprendi, klausimas turi būti **pasirenkamas meniu**,
+ne atviras klausimas - kad V atsakytų vienu žodžiu, o ne aiškintų:
+
+> Nesuprantu, kuri sritis esu. Kurią imu?
+>
+> | Sritis | Ką ji dirba | Kur |
+> |---|---|---|
+> | **Printeris** | firmware, pultas, docs, leidyba | `prnt/`, pagrindinis katalogas |
+> | **Sliceris** | naršyklės pjaustyklė, WASM modulis | `slcr/`, `C:/PIO-build/exp2-wt` |
+> | **Connect Live** | spausdintuvo valdymas iš interneto | `cliv/`, PR #111 |
+> | **Curing** | plovimo/kietinimo moduliukas | `cure/`, atskira repo `TinyMakerCuring` |
+
+Ir laukti atsakymo. Spėjimas čia pigus tik atrodo: sesija ima ne tos srities darbą,
+dirba valandą, ir tik tada paaiškėja, kad tai buvo kito lango eilė.
+
+**Kiekvienos naujos sesijos PIRMAS dalykas** (po `/clear` ar naujame lange) - dar
+prieš imantis bet ko, pateikti V **numatomų artimiausių darbų sąrašą lentele**:
+
+| Nr | Darbas | Ką tai reiškia |
+|---|---|---|
+| 1 | trumpas pavadinimas | vienas sakinys žmogiška kalba |
+
+Taisyklės sąrašui:
+
+- **Trys iki penkių punktų**, ne daugiau - tai ne visas backlog'as, o „kas toliau".
+- Numeris be aprašymo yra triukšmas: `#116` nieko nesako, `#116 (tuščios atramos)` sako.
+- Jei punktas reikalauja **V sprendimo**, o ne darbo - pažymėk atskirai.
+- Imk iš tikros būsenos: `plan.json`, atviri GitHub issue'ai, savo srities būsenos
+  failas atmintyje. Ne iš antraščių ir ne iš atminties.
+
+**Kodėl:** V dirba su keliomis lygiagrečiomis sesijomis (printeris, sliceris,
+Connect Live, curing). Po `/clear` sesija pati žino, kur sustojo, o V - ne. Tas
+sąrašas yra pirmas dalykas, iš kurio jis mato, ar sesija atsistojo teisingoje
+vietoje, ir gali iškart pasakyti „ne, pirma kitas".
+
+Galioja **visoms** šio projekto sesijoms, ne tik pagrindinei.
 
 ## Tikslinimas iš kodo
 
