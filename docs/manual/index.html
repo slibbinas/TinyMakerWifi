@@ -416,9 +416,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>After refilling</b>, tell the printer: <b>System → Advanced → Resin → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
     <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT refilled?”</i> question so the estimate stays honest. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
     <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
-    <li><b>Low resin pause</b> (optional, default Off): mid-print, when the level hits the threshold, the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> — top up, press VAT refilled or resume.</li>
+    <li><b>A heads-up before the stop</b> (<i>Warn (ml)</i>, 3&ndash;15&nbsp;ml): while printing, the level crossing this mark says so on the screen and, if notifications are set up, on your phone - with the layer it is on, so you can decide whether to top up now or let it run.</li>
+    <li><b>Low resin stop</b> (optional, default Off): mid-print, when the level reaches <i>Stop (ml)</i> (1&ndash;3&nbsp;ml), the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> - top up, press VAT refilled or resume.</li>
   </ul>
-  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. Refills you don’t confirm won’t be counted.</div>
+  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. For a real number instead of a running total, weigh the vat - see <a href="#resin-profiles">Grams instead of guesswork</a> above. Refills you don’t confirm won’t be counted.</div>
 </section>
 
 <section>
@@ -503,14 +504,20 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="table-scroll">
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
+    <tr><td>Resin profile</td><td>Steps through <code>Fast</code>, <code>Slow</code> and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
     <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
-    <tr><td>Low resin pause</td><td>On = the print pauses for a refill when the estimate runs low.</td></tr>
-    <tr><td>Low resin warn</td><td>The warning/pause threshold, 1–3&nbsp;ml (OK cycles).</td></tr>
+    <tr><td>Low resin stop</td><td>On = mid-print, when the estimate reaches <i>Stop (ml)</i>, the printer finishes the layer, lifts and pauses for a refill.</td></tr>
+    <tr><td>Stop (ml)</td><td>The level that stops the print: 1&ndash;3&nbsp;ml (OK cycles).</td></tr>
+    <tr><td>Warn (ml)</td><td>The earlier heads-up, before the stop - on the screen and on your phone: 3 &rarr; 5 &rarr; 8 &rarr; 10 &rarr; 12 &rarr; 15&nbsp;ml (OK cycles).</td></tr>
     <tr><td>Ask refill</td><td>On = every print starts with a “VAT refilled?” question.</td></tr>
+    <tr><td>Power resume</td><td>On = the printer checkpoints as it prints and offers to resume after a power cut. Off = it never checkpoints and always starts fresh, like the stock firmware.</td></tr>
+    <tr><td>Resume mode</td><td><b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement, <b>Precise</b> every 400&nbsp;ms: a resume closer to where the power went, at the cost of more writes to the card.</td></tr>
+    <tr><td>Pause lift</td><td>How high the plate rises when you pause to look at the print: 20&ndash;40&nbsp;mm in 5&nbsp;mm steps (OK cycles). A dry run uses the same height instead of going to the top.</td></tr>
     <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer — each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
     <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test.</td></tr>
   </table>
   </div>
+
   <h3>Advanced → Display</h3>
   <div class="table-scroll">
   <table>
@@ -622,6 +629,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>Phone notifications — pick a channel</h3>
   <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice — <b>Off / Telegram / WhatsApp / Discord</b> — each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
   <div class="note">Telegram is the one used daily here. <b>WhatsApp and Discord ship untested</b> — they run on your own CallMeBot key or channel webhook, so testing them with our setup would prove nothing about yours. If you try one, <a href="https://tinymakerwifi.com/feedback/">tell us how it went</a> — working or not, both are useful.</div>
+  <p><b>Did the last message actually arrive?</b> Under the channel picker the dashboard shows the
+  result of the printer&rsquo;s last <i>automatic</i> message - <i>&ldquo;Last automatic message:
+  delivered 5 min ago&rdquo;</i>, or <b>NOT delivered</b> with the reason. It says <i>automatic</i>
+  on purpose: <b>Send test message</b> takes a different path, so &ldquo;the test works but nothing
+  arrives while printing&rdquo; is itself a useful clue - usually a token or chat id that is fine
+  for a test but blocked when the printer is busy. The line stays hidden until there has been an
+  automatic message to report on.</p>
 
   <h3 id="telegram">Telegram</h3>
   <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
