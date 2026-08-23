@@ -173,6 +173,9 @@ async function handleBeat(request, env) {
     mo: String(frame.mo || '').slice(0, 80),
     fw: String(frame.fw || '').slice(0, 24),
     hp: Number(frame.hp) || 0,
+    // Web control on the printer. 1 unless the printer said otherwise, so a
+    // firmware too old to send the field keeps working buttons.
+    wc: frame.wc === 0 || frame.wc === '0' ? 0 : 1,
     ts: Date.now(),
   };
 
@@ -220,6 +223,10 @@ async function handleQueueCommand(request, env, publicId) {
 
 function page(dev, st, queue, viewKey) {
   const live = st && Date.now() - st.ts < 180000;
+  // Buttons are offered only when the printer says it would act on them.
+  // Queueing a command the printer will drop is worse than no button: it is
+  // acknowledged either way, so the page would report a stop that never was.
+  const remote = !st || st.wc !== 0;
   const pct = st && st.lt ? Math.round(100 * st.ly / st.lt) : 0;
   const body = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -260,11 +267,12 @@ button:disabled{opacity:.45}
 </div>
 <div class="card">
   <div class="btns">
-    <button data-cmd="pause">Pause</button>
-    <button data-cmd="resume">Resume</button>
-    <button data-cmd="stop" class="danger">Stop</button>
+    <button data-cmd="pause"${remote ? '' : ' disabled'}>Pause</button>
+    <button data-cmd="resume"${remote ? '' : ' disabled'}>Resume</button>
+    <button data-cmd="stop" class="danger"${remote ? '' : ' disabled'}>Stop</button>
   </div>
-  <p class="note" id="note">${queue.length ? `${queue.length} command(s) waiting for the next beat.`
+  <p class="note" id="note">${!remote ? 'Web control is switched off on the printer, so it would ignore these. Turn it on in Settings → Network.'
+    : queue.length ? `${queue.length} command(s) waiting for the next beat.`
     : 'A command is picked up on the printer’s next beat — up to a minute while printing.'}</p>
 </div>
 <p class="note">Starting a print remotely is deliberately not possible here: UV and motion with
@@ -272,7 +280,7 @@ nobody in the room is a decision for the printer itself.<br>This page refreshes 
 </div>
 <script>
 const k=${JSON.stringify(viewKey)},id=${JSON.stringify(dev.publicId)};
-document.querySelectorAll('button[data-cmd]').forEach(b=>b.onclick=async()=>{
+document.querySelectorAll('button[data-cmd]:not([disabled])').forEach(b=>b.onclick=async()=>{
   const cmd=b.dataset.cmd;
   if(cmd==='stop'&&!confirm('Stop the print? This cannot be undone.'))return;
   document.querySelectorAll('button').forEach(x=>x.disabled=true);
@@ -283,7 +291,7 @@ document.querySelectorAll('button[data-cmd]').forEach(b=>b.onclick=async()=>{
       ?(cmd+' queued — the printer picks it up on its next beat.')
       :('Could not queue: '+(j.error||'unknown error'));
   }catch(e){document.getElementById('note').textContent='Network error - try again.';}
-  document.querySelectorAll('button').forEach(x=>x.disabled=false);
+  document.querySelectorAll('button[data-cmd]').forEach(x=>x.disabled=false);
 });
 setTimeout(()=>location.reload(),30000);
 </script></body></html>`;

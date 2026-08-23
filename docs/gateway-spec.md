@@ -53,7 +53,7 @@ Request body (compact by design — not the full `/api/status`):
 
 ```json
 {"v":1,"st":"printing","by":1,"ly":42,"lt":480,"rs":5400,"ml":12.4,
- "mo":"skull","fw":"0.18.0","up":98311,"hp":121400}
+ "mo":"skull","fw":"0.18.0","up":98311,"hp":121400,"wc":1}
 ```
 
 | Field | Meaning |
@@ -68,6 +68,7 @@ Request body (compact by design — not the full `/api/status`):
 | `fw` | firmware version |
 | `up` | uptime seconds |
 | `hp` | free heap (diagnostics) |
+| `wc` | 1 if Web control is on, 0 if the printer would ignore commands. A server that sees 0 should not offer Pause/Resume/Stop: the printer acks every command either way, so an offered button would report success for something that never happened. Absent means 1, for firmware older than this field. |
 
 Response `200`:
 

@@ -142,4 +142,17 @@ await check('the printing page shows layer progress', async () => {
   assert.ok(html.includes('skull'), 'model name missing');
 });
 
+// Web control off on the printer: it acks every command anyway, so a live
+// button here would report a stop that never happened.
+await check('web control off greys out the buttons', async () => {
+  await beat(310, { ...printing, wc: 0 });
+  const off = await (await call(`/gw/p/${publicId}?k=${viewKey}`)).text();
+  assert.ok(off.includes('data-cmd="stop" class="danger" disabled'), 'stop still live');
+  assert.ok(off.includes('Web control is switched off'), 'no explanation shown');
+
+  await beat(311, printing);                       // switched back on
+  const on = await (await call(`/gw/p/${publicId}?k=${viewKey}`)).text();
+  assert.ok(!on.includes('data-cmd="stop" class="danger" disabled'), 'buttons stayed disabled');
+});
+
 console.log(`\n${passed} checks passed`);

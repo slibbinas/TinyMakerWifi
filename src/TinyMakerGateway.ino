@@ -183,6 +183,13 @@ String gatewayBuildPayload() {
   out += String(millis() / 1000);
   out += ",\"hp\":";
   out += String(ESP.getFreeHeap());
+  // Whether the printer would obey a command at all. Without this the phone
+  // page offers Pause/Stop, the printer silently drops them (Web control is
+  // off), and the ack still says 'done' - the person is told they stopped a
+  // print that is still running. Sent every beat so the page can grey the
+  // buttons out instead of lying about them.
+  out += ",\"wc\":";
+  out += webDashboardRuntimeEnabled() ? "1" : "0";
   if (gatewayPendingAck.length() > 0) {
     out += ",\"ack\":[";
     out += gatewayPendingAck;
@@ -261,7 +268,13 @@ bool gatewayBeat(bool busy) {
     if (!gatewayResolveHost()) return false;
   }
 
+  // One budget for the whole exchange, split in two on purpose: connect may
+  // spend at most half of it, so a slow-but-alive server can never eat the
+  // deadline before the reply has been read. Without the split a sluggish
+  // gateway looks exactly like a dead one - every print-time beat times out
+  // and the printer backs off from a server that was answering all along.
   uint16_t budget = busy ? GATEWAY_PRINT_TIMEOUT : GATEWAY_IDLE_TIMEOUT;
+  uint16_t connectBudget = budget / 2;
   unsigned long deadline = millis() + budget;
 
   String body = gatewayBuildPayload();
@@ -272,7 +285,7 @@ bool gatewayBeat(bool busy) {
 
   WiFiClient client;
   client.setTimeout(budget / 1000 + 1);
-  if (!client.connect(gatewayIp, gatewayPort, budget)) {
+  if (!client.connect(gatewayIp, gatewayPort, connectBudget)) {
     gatewayIpValid = false;                 // stale address: re-resolve when idle
     gatewayLastStatus = "gateway unreachable";
     return false;
@@ -313,7 +326,13 @@ bool gatewayBeat(bool busy) {
       if (c == '\n') {
         line.trim();
         if (first) { status = line; first = false; }
-        else if (line.length() == 0) headersDone = true;
+        else if (line.length() == 0) {
+          headersDone = true;
+          // One allocation for the whole body, now that Content-Length is known.
+          // (String::capacity() cannot be used as an 'already reserved' test - a
+          // short string lives inside the object and reports non-zero capacity.)
+          respBody.reserve((contentLength ? contentLength : 256) + 1);
+        }
         else if (line.startsWith("X-TM-RSig:") || line.startsWith("x-tm-rsig:")) {
           respSig = line.substring(10); respSig.trim();
         } else if (line.startsWith("Content-Length:") || line.startsWith("content-length:")) {
@@ -333,8 +352,24 @@ bool gatewayBeat(bool busy) {
     }
 
     // Body: bounded by Content-Length, and by GATEWAY_MAX_BODY if the server
-    // omitted it (chunked replies are not part of the contract).
-    respBody += (char)client.read();
+    // omitted it (chunked replies are not part of the contract). Read in
+    // blocks into a String reserved once: appending a char at a time would
+    // reallocate up to a thousand times per beat, and this runs on the print
+    // path, where a fragmented heap is the failure we spend the most effort
+    // avoiding.
+    uint8_t chunk[64];
+    size_t room = GATEWAY_MAX_BODY - respBody.length();
+    if (contentLength > 0) {
+      size_t left = contentLength - respBody.length();
+      if (left < room) room = left;
+    }
+    size_t want = client.available();
+    if (want > sizeof(chunk)) want = sizeof(chunk);
+    if (want > room) want = room;
+    if (want == 0) break;
+    int got = client.read(chunk, want);
+    if (got <= 0) break;
+    for (int i = 0; i < got; i++) respBody += (char)chunk[i];
     if (respBody.length() >= GATEWAY_MAX_BODY) break;
     if (contentLength > 0 && respBody.length() >= contentLength) break;
   }
