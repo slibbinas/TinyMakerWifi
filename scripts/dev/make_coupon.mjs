@@ -38,12 +38,24 @@ const M = await import('file:///' +
   join(here, '..', '..', 'web', 'lib', 'slicer.js').replace(/\\/g, '/'));
 
 const W = M.RES.w, H = M.RES.h;                       // 320 x 240
-const OUT = process.argv[2] || 'C:/PIO-build/kuponas.zip';
 
-/* Ryškumai: 16 kopėtėlių per visą skalę. Visi yra 8 kartotiniai, nes ekranas
+/* `--siauras` - atsarginė versija mažesniu pagrindu. Platusis kuponas remiasi
+   į FEP 743 mm² vientisu padu (60 % plokštės), ir jei toks plotas nenusiplėš
+   gražiai, spaudinio diena praeitų laukiant naujo failo. Siaurasis guli šalia
+   kortelėje: tie patys matavimai, bet du atskiri padai vietoj vieno ir 12
+   ryškumų vietoj 16 - didžiausia vientisa sala nukrenta 743 → ~324 mm².
+   Numestas būtent skalės VIRŠUS (240…192): tie ryškumai kietėja garantuotai,
+   tad informacijos juose mažiausiai. */
+const SIAURAS = process.argv.includes('--siauras');
+const OUT = process.argv.slice(2).find(a => !a.startsWith('--')) ||
+  (SIAURAS ? 'C:/PIO-build/kuponas-siauras.zip' : 'C:/PIO-build/kuponas.zip');
+
+/* Ryškumai: kopėtėlės per visą skalę. Visi yra 8 kartotiniai, nes ekranas
    piešiamas per RGB565 - realių pilkumo lygių ten ~32, ne 256, ir ne kartotinis
    skaičius ekrane virstų kaimyniniu. */
-const RYSKUMAI = [255, 240, 224, 208, 192, 176, 160, 144, 128, 112, 96, 80, 64, 48, 32, 16];
+const RYSKUMAI = SIAURAS
+  ? [255, 176, 160, 144, 128, 112, 96, 80, 64, 48, 32, 16]
+  : [255, 240, 224, 208, 192, 176, 160, 144, 128, 112, 96, 80, 64, 48, 32, 16];
 
 const PAGRINDO_SL = 12;          // 0,60 mm - storesnis nei bet kuris base_layers
 const TESTO_SL = 40;             // 2,00 mm
@@ -51,9 +63,14 @@ const SL = PAGRINDO_SL + TESTO_SL;
 
 const X0 = 4, JUOSTA = 15, TARPAS = 4;                // 16 x 19 = 304 px
 const A_Y0 = 16, A_Y1 = 48;                           // stulpeliai, 4,2 mm
-const B_Y0 = 70, B_Y1 = 150;                          // briaunos, 10,2 mm
+/* Siaurajame B juosta pastumta žemyn, kad tarp dviejų padų liktų tarpas -
+   be jo abu padai susilietų ir sala vėl būtų viena. */
+const B_Y0 = SIAURAS ? 78 : 70, B_Y1 = SIAURAS ? 158 : 150;   // briaunos, 10,2 mm
 const B_SERDIS = 8, B_APVADAS = 4;                    // 1,02 mm + 0,51 mm iš šonų
 const PAGR_Y0 = 4, PAGR_Y1 = 155;
+/* Du padai: viršutinis po A stulpeliais ir liniuotės žymomis, apatinis po B
+   briaunomis. Tarpas 3 px (0,38 mm) - to pakanka, kad plėvelė plyštų atskirai. */
+const PAGR_A = [8, 69], PAGR_B = [73, 162];
 
 const stulpX = i => X0 + i * (JUOSTA + TARPAS);
 
@@ -65,10 +82,17 @@ function sluoksnis(n) {
   };
 
   if (n < PAGRINDO_SL) {
-    dazyk(X0, stulpX(15) + JUOSTA, PAGR_Y0, PAGR_Y1, 255);
+    const xMax = stulpX(RYSKUMAI.length - 1) + JUOSTA;
+    if (SIAURAS) {
+      dazyk(X0, xMax, PAGR_A[0], PAGR_A[1], 255);
+      dazyk(X0, xMax, PAGR_B[0], PAGR_B[1], 255);
+    } else {
+      dazyk(X0, xMax, PAGR_Y0, PAGR_Y1, 255);
+    }
     /* Įpjova kairiajame apatiniame kampe: PNG rašomi veidrodiniai, tad ant
        atspausdintos detalės be žymės neatskirtum, kuris galas yra 255. */
-    if (n >= PAGRINDO_SL - 3) dazyk(X0, X0 + 7, PAGR_Y0, PAGR_Y0 + 7, 0);
+    const zymY = SIAURAS ? PAGR_A[0] : PAGR_Y0;
+    if (n >= PAGRINDO_SL - 3) dazyk(X0, X0 + 7, zymY, zymY + 7, 0);
     return g;
   }
 
@@ -138,7 +162,16 @@ writeFileSync(OUT, Buffer.from(zip instanceof Blob ? await zip.arrayBuffer() : z
 const px = 40.8 / 320;
 console.log(`kuponas: ${OUT}`);
 console.log(`  ${SL} sluoksniai (${PAGRINDO_SL} pagrindo + ${TESTO_SL} testo) = ${(SL * M.LAYER_MM).toFixed(2)} mm`);
-console.log(`  16 juostų, ryškumai ${RYSKUMAI[0]} … ${RYSKUMAI[15]} (žingsnis 16)`);
+console.log(`  ${RYSKUMAI.length} juostos, ryškumai ${RYSKUMAI[0]} … ${RYSKUMAI[RYSKUMAI.length - 1]}`);
+{
+  const plotis = stulpX(RYSKUMAI.length - 1) + JUOSTA - X0 + 1;
+  const salos = SIAURAS
+    ? [PAGR_A[1] - PAGR_A[0] + 1, PAGR_B[1] - PAGR_B[0] + 1]
+    : [PAGR_Y1 - PAGR_Y0 + 1];
+  const mm2 = h => (plotis * h * px * px).toFixed(0);
+  console.log(`  pagrindas: ${salos.length} sala(-os), didžiausia ${mm2(Math.max(...salos))} mm²,` +
+    ` viso ${mm2(salos.reduce((a, b) => a + b, 0))} mm² (${(salos.reduce((a, b) => a + b, 0) * plotis * px * px / (40.8 * 30.6) * 100).toFixed(0)} % plokštės)`);
+}
 console.log(`  A stulpelis ${(JUOSTA * px).toFixed(2)} x ${((A_Y1 - A_Y0) * px).toFixed(2)} mm`);
 console.log(`  B šerdis ${(B_SERDIS * px).toFixed(2)} mm, apvadas ${(B_APVADAS * px).toFixed(2)} mm iš abiejų pusių`);
 console.log(`  trukmė ~${Math.round((PAGRINDO_SL * 35 + TESTO_SL * 14) / 60)} min be lifto`);
