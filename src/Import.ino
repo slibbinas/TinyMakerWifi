@@ -503,8 +503,12 @@ uint32_t scanMaxImportSeqOnCard() {
     if (!named || !isDir || rawName[0] == '.') continue;
     // The dashboard is polled every 2 s and this walk opens up to a hundred small
     // files - without this the status line freezes mid-import for no visible
-    // reason. Same call the unpack loop already makes.
+    // reason. Same call the unpack loop already makes - including its guard:
+    // sdJobService() lives inside Network.ino's #if, so an unguarded call here
+    // fails to link the ENABLE_NETWORK 0 build.
+    #if ENABLE_NETWORK
     sdJobService();
+    #endif
     String json;
     if (!readModelMetadataJson(String(rawName), json)) continue;
     double v = 0;

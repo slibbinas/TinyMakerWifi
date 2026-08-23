@@ -7,7 +7,10 @@ name: build
 
 on:
   push:
-    branches: [ main, experimental ]
+    # Long-lived feature branches build too: 0.17 work happens in 0.17/*
+    # branches, so without them a regression could sit there unbuilt until
+    # someone opened a PR (that is exactly how #113 slipped through).
+    branches: [ main, experimental, '0.17/**' ]
   pull_request:
 
 jobs:
