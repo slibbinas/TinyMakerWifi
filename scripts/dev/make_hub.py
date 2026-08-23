@@ -104,6 +104,8 @@ PLANAI = [
      "Visas darbu planas: busenos, sprintai, idejos. Kopija atnaujinama kas paleidima."),
     ("team-roadmap.html", "Komandos roadmap",
      "Ka mato Brianas ir Tanneris: be vidines virtuves. Kopija is memory."),
+    ("disko-zemelapis.html", "Disko zemelapis",
+     "Kur diske guli printeris, sliceris ir curing: keliai, worktree'ai, build."),
 ]
 
 def copy_plans():
