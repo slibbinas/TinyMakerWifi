@@ -24,15 +24,28 @@ function zipFailai(buf) {
   return out;
 }
 
-const [OUT = 'C:/PIO-build/kupono-kadras.html', ...zipai] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+/* `--sl=1,7,21` - kuriuos sluoksnius rodyti. Kuponui tinka numatytieji, bet
+   rafto testui reikia kitų: ten įdomu ties kiekvieno rafto pabaiga. */
+const SL = (argv.find(a => a.startsWith('--sl=')) || '--sl=6,31').slice(5)
+  .split(',').map(Number);
+const [OUT = 'C:/PIO-build/kupono-kadras.html', ...zipai] =
+  argv.filter(a => !a.startsWith('--'));
 const saltiniai = zipai.length ? zipai
   : ['C:/PIO-build/kuponas.zip', 'C:/PIO-build/kuponas-siauras.zip'];
 
 let blokai = '';
 for (const kelias of saltiniai) {
   const f = zipFailai(readFileSync(kelias));
-  const kadrai = [['6.png', 'PAGRINDAS (sluoksnis 6) - šitas plotas remiasi į plėvelę'],
-                  ['31.png', 'TESTAS (sluoksnis 31) - stulpeliai ir briaunos']];
+  /* Vardai skiriasi pagal kilmę: mūsų generatoriai rašo `7.png`, o variklio
+     SL1 eksportas - `tinymaker/00007.png`. Ieškom pagal numerį, ne pagal
+     tikslų vardą. */
+  const pagalNr = new Map();
+  for (const v of f.keys()) {
+    const m = v.match(/(\d+)\.png$/);
+    if (m) pagalNr.set(parseInt(m[1], 10), v);
+  }
+  const kadrai = SL.map(n => [pagalNr.get(n), `sluoksnis ${n}`]).filter(([v]) => v);
   let vid = '';
   for (const [vardas, antraste] of kadrai) {
     const b64 = f.get(vardas).toString('base64');
