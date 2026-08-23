@@ -117,10 +117,16 @@ debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei p
 
 ## Sesijos pradžia: iškart duok darbų sąrašą
 
-**Pirma - prisistatyk.** Vienas sakinys: **kuri tai sritis** (printeris / sliceris /
+**Pirma - paleisk `python scripts/dev/kur_esu.py`.** Jis pasako sritį, šaką, katalogą,
+ar medis švarus ir ar šaka apskritai yra GitHub'e. Šakų vardai keičiasi (2026-08-23
+pervadinti du iš karto), tad atsakymas imamas iš git, o ne iš atminties ar iš šio failo.
+
+**Paskui - prisistatyk.** Vienas sakinys: **kuri tai sritis** (printeris / sliceris /
 Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu turi
 kelis langus atidarytus, ir iš turinio ne visada aišku, kuris kuris - o supainiojus
-sritį nurodymas nukeliauja ne tai sesijai.
+sritį nurodymas nukeliauja ne tai sesijai. **Šaka įvardijama visada**, ne tik sritis:
+„Slicerio sesija, šaka `slcr/dev`, katalogas `C:/PIO-build/exp2-wt`" - be šakos V
+nežino, ar sesija stovi ten, kur guli darbas.
 
 **Nežinai, kuri esi - KLAUSK, nespėk, ir pasiūlyk variantus.** Jei iš šakos, katalogo
 ir istorijos neaišku, kurią sritį sprendi, klausimas turi būti **pasirenkamas meniu**,
