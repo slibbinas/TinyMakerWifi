@@ -115,6 +115,30 @@ debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei p
 - `origin` → `slibbinas/TinyMakerWiFi` (this fork, active development)
 - `upstream` → `TinyMaker3D/TinyMaker-Open-Source-3D-Printer` (original project)
 
+## Sesijos pradžia: iškart duok darbų sąrašą
+
+**Kiekvienos naujos sesijos PIRMAS dalykas** (po `/clear` ar naujame lange) - dar
+prieš imantis bet ko, pateikti V **numatomų artimiausių darbų sąrašą lentele**:
+
+| Nr | Darbas | Ką tai reiškia |
+|---|---|---|
+| 1 | trumpas pavadinimas | vienas sakinys žmogiška kalba |
+
+Taisyklės sąrašui:
+
+- **Trys iki penkių punktų**, ne daugiau - tai ne visas backlog'as, o „kas toliau".
+- Numeris be aprašymo yra triukšmas: `#116` nieko nesako, `#116 (tuščios atramos)` sako.
+- Jei punktas reikalauja **V sprendimo**, o ne darbo - pažymėk atskirai.
+- Imk iš tikros būsenos: `plan.json`, atviri GitHub issue'ai, savo srities būsenos
+  failas atmintyje. Ne iš antraščių ir ne iš atminties.
+
+**Kodėl:** V dirba su keliomis lygiagrečiomis sesijomis (printeris, sliceris,
+Connect Live, curing). Po `/clear` sesija pati žino, kur sustojo, o V - ne. Tas
+sąrašas yra pirmas dalykas, iš kurio jis mato, ar sesija atsistojo teisingoje
+vietoje, ir gali iškart pasakyti „ne, pirma kitas".
+
+Galioja **visoms** šio projekto sesijoms, ne tik pagrindinei.
+
 ## Tikslinimas iš kodo
 
 Prieš teigdamas ką nors apie kodą (eilutės numerį, funkcijos elgesį,
