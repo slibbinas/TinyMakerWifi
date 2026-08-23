@@ -1,0 +1,52 @@
+{
+  "_doc": [
+    "KANONAS: kuri saka kuriai sriciai priklauso SIANDIEN.",
+    "Pervadinai saka arba perkelei darba i kita - atnaujink CIA, tame paciame commit'e.",
+    "scripts/dev/kur_esu.py si faila skaito ir PERSPEJA, jei tikrove nesutampa su irasu,",
+    "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu."
+  ],
+  "_atnaujinta": "2026-08-23",
+  "sritys": [
+    {
+      "sritis": "Printeris",
+      "priesdelis": "prnt/",
+      "saka": "0.17/slicer-merge",
+      "katalogas": "Documents/PlatformIO/Projects/TinyMakerWiFi",
+      "repo": "TinyMakerWifi",
+      "uz_ka": "firmware, pultas, dokumentacija, leidyba",
+      "pastaba": "0.17 integracine saka - joje VISKAS, kas ruosiama testams. Po isleidimo darbas pereis i prnt/0.18-*"
+    },
+    {
+      "sritis": "Sliceris",
+      "priesdelis": "slcr/",
+      "saka": "slcr/dev",
+      "katalogas": "C:/PIO-build/exp2-wt",
+      "repo": "TinyMakerWifi",
+      "uz_ka": "narsykles pjaustykle, WASM modulis",
+      "pastaba": "iki 2026-08-23 vadinosi experimental2. Laboratorija: slcr/lab (C:/PIO-build/s3-wt)"
+    },
+    {
+      "sritis": "Connect Live",
+      "priesdelis": "cliv/",
+      "saka": "feature/connect-live",
+      "katalogas": "(nuolatinio nera - debesu sesijos)",
+      "repo": "TinyMakerWifi",
+      "uz_ka": "spausdintuvo matymas ir valdymas is interneto",
+      "pastaba": "PERVADINTINA i cliv/gateway per GitHub sasaja (issue 114), kad PR 111 issilaikytu. NE tas pats, kas TinyMaker Connect - tas yra Briano serveris modeliu dalijimuisi"
+    },
+    {
+      "sritis": "Curing stotele",
+      "priesdelis": "cure/",
+      "saka": "main",
+      "katalogas": "Documents/PlatformIO/Projects/TinyMakerCuring",
+      "repo": "TinyMakerCuring",
+      "uz_ka": "plovimo ir kietinimo moduliukas (ESP32 + sava plokste)",
+      "pastaba": "ATSKIRA PRIVATI repo, ne sio repo saka. Su 0.17 nesusijusi"
+    }
+  ],
+  "pagrindines": {
+    "main": "stabilus leidimas, apsaugotas CI",
+    "experimental": "dideliu darbu linija",
+    "gh-pages": "leidyba: manualas, landing, firmware .bin, slicerio modulis"
+  }
+}
