@@ -7,7 +7,11 @@ name: build
 
 on:
   push:
-    branches: [ main, experimental ]
+    # Work branches build too, not just the trunks: without them a regression
+    # can sit in a branch unbuilt until someone opens a PR (that is exactly how
+    # #113 slipped through). One prefix per area - prnt/ printer, slcr/ slicer,
+    # cliv/ Connect Live; 0.17/** is the old scheme and retires with 0.17.
+    branches: [ main, experimental, 'prnt/**', 'slcr/**', 'cliv/**', '0.17/**' ]
   pull_request:
 
 jobs:

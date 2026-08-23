@@ -1,10 +1,13 @@
   <section id='slicerCard' class='card hidden'>
-    <!-- Varnele - IS KARTO po pavadinimo, pries versijos zenkleli (V 08-21): ji priklauso
-         pavadinimui, o versija yra prierasas prie jo. -->
+    <!-- Varnele - IS KARTO po pavadinimo (V 08-21): ji priklauso pavadinimui.
+         Versijos piliules cia nebera (V 08-22): antrasteje ji atrode kaip busenos
+         zenklas, nors yra tik prierasas, ir sedejo salia mygtuko, kuri reikia
+         matyti pirma. Versija nusikele i korteles apacia desineje - ten, kur jos
+         ieskoma tada, kai ji tikrai reikalinga. `slicerState` isnyko kartu su
+         septyniu bakstelejimu gestu: kortele dabar rodoma tik tada, kai modulis
+         gyvas, tad „not active" nebeturi kada suveikti. -->
     <div class='cardHead'><h2>STL slicer <button id='slicerToggle' class='button secondary'
-              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button>
-              <span id='slicerVer' class='fwBadge'
-              title='Slicer module version'></span> <span id='slicerState' class='navTag'></span></h2></div>
+              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button></h2></div>
     <div id='slicerBody' style='display:none'>
       <div id='slicerTools' class='toolbar' style='margin-top:0'>
         <button id='slicerAutoFit' class='button secondary' type='button' disabled
@@ -97,6 +100,14 @@
       <div id='slicerPlaceNote'></div>
       <div id='slicerIslands'></div>
       </div>
+      <!-- Versija - apatiniame desiniame kampe, smulkiai ir tyliai (V 08-22).
+           Reiksme ateina is `slicerMod.VERSION`, t. y. is PACIO uzsikrovusio
+           modulio, o ne is `SV` konstantos kode: modulis ateina is tinklo,
+           narsykle gali laikyti sena kese, ir 08-18 butent tas skirtumas
+           kainavo puse dienos. -->
+      <div id='slicerVerRow' style='text-align:right;margin-top:8px'><span id='slicerVer'
+           style='font-size:11px;color:var(--muted2);letter-spacing:.02em'
+           title='Slicer module version'></span></div>
 
     </div>
   </section>

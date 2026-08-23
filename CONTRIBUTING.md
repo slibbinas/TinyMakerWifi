@@ -22,6 +22,28 @@ If in doubt where to target — open the PR against `experimental` or just ask
 in an issue first. A quick "I'm planning X, sound OK?" issue before a big PR
 saves everyone time and avoids rework.
 
+## Naming your branch
+
+The trunks carry no prefix and no slash: `main`, `experimental`, `gh-pages`.
+Everything else is work, and work always names the area it belongs to. One
+glance at the branch list tells you both what a branch is about and that it is
+not a trunk.
+
+| Prefix | Area |
+|---|---|
+| `prnt/` | The printer itself: firmware, dashboard, docs |
+| `slcr/` | The browser slicer |
+| `cliv/` | Connect Live |
+| `cure/` | The wash/cure station |
+| `temp/` | Throwaway: experiments, session scratch |
+
+A release version belongs in the name, not in the prefix, so both axes stay
+readable: `prnt/0.18-pause-lift`, `slcr/supports-tree`, `cliv/gateway-auth`.
+CI builds every `prnt/**`, `slcr/**` and `cliv/**` push, so a branch that
+stops compiling says so the same day.
+
+(`0.17/*` branches predate this scheme and retire with the 0.17 release.)
+
 ## Build requirements
 
 - **PlatformIO** (not Arduino IDE). `pio run` must succeed for **both**
