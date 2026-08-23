@@ -117,6 +117,11 @@ debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei p
 
 ## Sesijos pradžia: iškart duok darbų sąrašą
 
+**Pirma - prisistatyk.** Vienas sakinys: **kuri tai sritis** (printeris / sliceris /
+Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu turi
+kelis langus atidarytus, ir iš turinio ne visada aišku, kuris kuris - o supainiojus
+sritį nurodymas nukeliauja ne tai sesijai.
+
 **Kiekvienos naujos sesijos PIRMAS dalykas** (po `/clear` ar naujame lange) - dar
 prieš imantis bet ko, pateikti V **numatomų artimiausių darbų sąrašą lentele**:
 
