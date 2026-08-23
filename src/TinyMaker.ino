@@ -377,6 +377,18 @@ String waPhone = "";                // phone with country code
 String waApiKey = "";               // CallMeBot key (secret - never echoed to browser)
 bool dcEnabled = false;             // Discord notifications via a channel webhook
 String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
+// 0.17 #88: was the last chat message actually delivered? The send result was
+// computed and thrown away, which is why the #40 heap bug could kill mid-print
+// notifications for weeks while an idle "Send test" kept working. A fixed char
+// buffer, not a String: this is written from the print loop, and a growing
+// allocation there is the very failure this field exists to expose.
+bool notifyLastOk = false;          // false until the first send attempt
+bool notifyLastTried = false;       // nothing sent yet = nothing to show
+char notifyLastReason[48] = "";     // failure text, empty when delivered
+// Raw millis, not seconds: the age is computed as (millis() - stamp) / 1000, so
+// the subtraction happens in the type that wraps cleanly. Dividing first would
+// wrap the counter every ~49.7 days and print an absurd age until the next send.
+uint32_t notifyLastAtMs = 0;        // millis() of that attempt
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
 uint16_t prevRegularExposure = 0;   // last replaced Regular exposure in DECISECONDS (0 = none) - dashboard Undo
 uint8_t  prevBaseExposure = 0;      // last replaced Base exposure in SECONDS (0 = none) - dashboard Undo

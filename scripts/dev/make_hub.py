@@ -106,6 +106,8 @@ PLANAI = [
      "Ka mato Brianas ir Tanneris: be vidines virtuves. Kopija is memory."),
     ("disko-zemelapis.html", "Disko zemelapis",
      "Kur diske guli printeris, sliceris ir curing: keliai, worktree'ai, build."),
+    ("pultas-0-17.html", "0.17 testu pultas",
+     "105 punktai is registro, sugrupuoti pagal tai, ko reikia rankoje. Generuoja _mk_panel.py."),
 ]
 
 def copy_plans():
