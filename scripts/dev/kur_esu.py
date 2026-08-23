@@ -10,6 +10,7 @@ du is karto - tad atsakymas imamas is git, ne is atminties.
 Isvestis tycia trumpa: viena eilute prisistatymui + kontekstas po ja.
 """
 import io
+import json
 import os
 import subprocess
 import sys
@@ -91,6 +92,32 @@ def main():
     say("  HEAD:     %s" % head)
     say("  medis:    %s" % ("svarus" if not dirty else "NESVARUS (%d failai)" % len(dirty.splitlines())))
     say("")
+
+    # Palyginam su uzfiksuotu kanonu: pasenes irasas turi issiduoti PATS.
+    reg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sritys.json")
+    if os.path.isfile(reg):
+        try:
+            data = json.load(io.open(reg, encoding="utf-8"))
+        except Exception as e:
+            say("  (!) sritys.json neperskaitomas: %s" % e)
+            data = None
+        if data:
+            rec = None
+            for it in data.get("sritys", []):
+                if sritis and it.get("sritis", "").lower().startswith(sritis.split()[0].lower()):
+                    rec = it
+                    break
+            if rec:
+                if rec.get("saka") != branch:
+                    say("  (!) SRITYS.JSON PASENES: uzfiksuota saka '%s', realiai '%s'."
+                        % (rec.get("saka"), branch))
+                    say("      Atnaujink scripts/dev/sritys.json tame paciame commit'e.")
+                if rec.get("pastaba"):
+                    say("  pastaba:  %s" % rec["pastaba"])
+                say("")
+            elif sritis:
+                say("  (!) sritys.json neturi irašo sriciai '%s' - pridek." % sritis)
+                say("")
 
     wt = git("worktree", "list")
     if wt:

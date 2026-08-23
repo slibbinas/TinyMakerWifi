@@ -44,6 +44,11 @@ stops compiling says so the same day.
 
 (`0.17/*` branches predate this scheme and retire with the 0.17 release.)
 
+**Renaming or moving a branch:** update `scripts/dev/sritys.json` in the same
+commit. That file records which branch each area works on today, and
+`scripts/dev/kur_esu.py` compares it against reality at session start - so a
+stale entry announces itself the next morning instead of two weeks later.
+
 ## Build requirements
 
 - **PlatformIO** (not Arduino IDE). `pio run` must succeed for **both**
