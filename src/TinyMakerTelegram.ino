@@ -103,7 +103,7 @@ void telegramNotify(const String &text) {
   // while nothing arrives. One place for all three channels, on purpose.
   notifyLastTried = true;
   notifyLastOk = sent;
-  notifyLastAtSecs = millis() / 1000UL;
+  notifyLastAtMs = millis();
   if (sent) notifyLastReason[0] = 0;
   else {
     strncpy(notifyLastReason, error.c_str(), sizeof(notifyLastReason) - 1);
@@ -204,7 +204,7 @@ String tinymakerTelegramConfigJson() {
     out += ",\"notifyLastOk\":";
     out += notifyLastOk ? "true" : "false";
     out += ",\"notifyLastAgo\":";
-    out += String((millis() / 1000UL) - notifyLastAtSecs);
+    out += String((millis() - notifyLastAtMs) / 1000UL);
     out += ",\"notifyLastReason\":\"";
     out += jsonEscape(String(notifyLastReason));
     out += "\"";

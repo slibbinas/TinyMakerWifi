@@ -5465,15 +5465,21 @@ const loadConfig=async()=>{
     // filled in either way, and the failure only shows on a phone that stays
     // quiet. Shown for whichever channel is active.
     (function(){var e=$('ntfLast'); if(!e) return;
-      if(c.notifyLastOk===undefined){e.classList.add('hidden'); return;}
+      // Nothing sent yet, or every channel switched off: no line. A red verdict
+      // about a channel the user has just turned off is noise, not information.
+      var anyCh=!!(c.tgEnabled||c.waEnabled||c.dcEnabled);
+      if(c.notifyLastOk===undefined||!anyCh){e.classList.add('hidden'); return;}
       var ago=Number(c.notifyLastAgo)||0, w;
       if(ago<90) w='just now';
       else if(ago<5400) w=Math.round(ago/60)+' min ago';
       else w=Math.round(ago/3600)+' h ago';
+      // 'automatic' is the whole point: 'Send test' goes out on its own path, so
+      // a green test toast can sit above a red line here - and that difference
+      // ('the test works, printing does not') is exactly the #40 symptom.
       e.textContent=c.notifyLastOk
-        ? ('Last message: delivered '+w+'.')
-        : ('Last message: NOT delivered '+w+(c.notifyLastReason?(' - '+c.notifyLastReason):'')+'.');
-      e.style.color=c.notifyLastOk?'':'var(--bad,#d7454f)';
+        ? ('Last automatic message: delivered '+w+'.')
+        : ('Last automatic message: NOT delivered '+w+(c.notifyLastReason?(' - '+c.notifyLastReason):'')+'.');
+      e.style.color=c.notifyLastOk?'':'var(--danger)';
       e.classList.remove('hidden');})();
     updateConnectView(c);
     updateNetworkFields();updateMqttFields();updateConnectFields();updateTgFields();

@@ -376,7 +376,10 @@ String dcWebhook = "";              // webhook URL (secret - never echoed to bro
 bool notifyLastOk = false;          // false until the first send attempt
 bool notifyLastTried = false;       // nothing sent yet = nothing to show
 char notifyLastReason[48] = "";     // failure text, empty when delivered
-uint32_t notifyLastAtSecs = 0;      // uptime seconds of that attempt
+// Raw millis, not seconds: the age is computed as (millis() - stamp) / 1000, so
+// the subtraction happens in the type that wraps cleanly. Dividing first would
+// wrap the counter every ~49.7 days and print an absurd age until the next send.
+uint32_t notifyLastAtMs = 0;        // millis() of that attempt
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
 uint16_t prevRegularExposure = 0;   // last replaced Regular exposure in DECISECONDS (0 = none) - dashboard Undo
 uint8_t  prevBaseExposure = 0;      // last replaced Base exposure in SECONDS (0 = none) - dashboard Undo
