@@ -49,6 +49,12 @@ commit. That file records which branch each area works on today, and
 `scripts/dev/kur_esu.py` compares it against reality at session start - so a
 stale entry announces itself the next morning instead of two weeks later.
 
+**A branch with an open PR:** rename it only in the GitHub **web UI**
+(Branches → pencil). Renaming through git (`push :old new`) or through the REST
+API (`branches/{name}/rename`) **closes the PR** as `head_ref_deleted` and it
+cannot be reopened on the new name - you end up opening a fresh PR, which is how
+#111 became #117. Learned on 2026-08-23.
+
 ## Build requirements
 
 - **PlatformIO** (not Arduino IDE). `pio run` must succeed for **both**
