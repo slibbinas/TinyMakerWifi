@@ -31,7 +31,7 @@ BY_PATH = {
 }
 # Senos, dar nepervadintos sakos - kad sesija nesiblaskytu.
 LEGACY = {
-    "feature/connect-live": ("Connect Live", "turi buti pervadinta i cliv/gateway (issue 114)"),
+    "feature/connect-live": ("Connect Live", "pervadinta i cliv/gateway 2026-08-23 (issue 114)"),
     "experimental2": ("Sliceris", "pervadinta i slcr/dev 2026-08-23"),
     "slicer3": ("Sliceris", "pervadinta i slcr/lab 2026-08-23"),
 }

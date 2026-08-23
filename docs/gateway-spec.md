@@ -1,6 +1,6 @@
 # TinyMaker Live gateway — contract (draft v1)
 
-Status: **draft**, branch `feature/connect-live` (0.18). Firmware side lives in
+Status: **draft**, branch `cliv/gateway` (0.18). Firmware side lives in
 `src/TinyMakerGateway.ino`; the server is a separate companion project
 (`CONTRIBUTING.md`: this repo stays firmware-only).
 
