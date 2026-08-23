@@ -122,11 +122,21 @@ Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu
 kelis langus atidarytus, ir iš turinio ne visada aišku, kuris kuris - o supainiojus
 sritį nurodymas nukeliauja ne tai sesijai.
 
-**Nežinai, kuri esi - KLAUSK, nespėk.** Jei iš šakos, katalogo ir istorijos neaišku,
-kurią iš keturių sričių sprendi, pirmas dalykas yra klausimas V: *„Kurią sritį imu -
-printerį, slicerį, Connect Live ar curing stotelę?"* ir laukimas atsakymo. Spėjimas
-čia pigus tik atrodo: sesija ima ne tos srities darbą, dirba valandą, ir tik tada
-paaiškėja, kad tai buvo kito lango eilė.
+**Nežinai, kuri esi - KLAUSK, nespėk, ir pasiūlyk variantus.** Jei iš šakos, katalogo
+ir istorijos neaišku, kurią sritį sprendi, klausimas turi būti **pasirenkamas meniu**,
+ne atviras klausimas - kad V atsakytų vienu žodžiu, o ne aiškintų:
+
+> Nesuprantu, kuri sritis esu. Kurią imu?
+>
+> | Sritis | Ką ji dirba | Kur |
+> |---|---|---|
+> | **Printeris** | firmware, pultas, docs, leidyba | `prnt/`, pagrindinis katalogas |
+> | **Sliceris** | naršyklės pjaustyklė, WASM modulis | `slcr/`, `C:/PIO-build/exp2-wt` |
+> | **Connect Live** | spausdintuvo valdymas iš interneto | `cliv/`, PR #111 |
+> | **Curing** | plovimo/kietinimo moduliukas | `cure/`, atskira repo `TinyMakerCuring` |
+
+Ir laukti atsakymo. Spėjimas čia pigus tik atrodo: sesija ima ne tos srities darbą,
+dirba valandą, ir tik tada paaiškėja, kad tai buvo kito lango eilė.
 
 **Kiekvienos naujos sesijos PIRMAS dalykas** (po `/clear` ar naujame lange) - dar
 prieš imantis bet ko, pateikti V **numatomų artimiausių darbų sąrašą lentele**:
