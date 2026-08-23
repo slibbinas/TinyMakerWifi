@@ -17,8 +17,22 @@ set -euo pipefail
 
 WORK="${WORK:-/c/PIO-build}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT="${OUT:-$WORK/wasm-build}"
+# Numatytasis katalogas yra tas pats, i kuri ziuri publish.py ir testas.py.
+# Buvo `wasm-build`, o realus darbas visada ejo i `wasm-verify` per OUT=,
+# tad paleidus skripta be OUT= viskas kompiliuodavosi nuo nulio salia
+# gatavu objektu (2026-08-23).
+OUT="${OUT:-$WORK/wasm-verify}"
 PRUSA_TAG="${PRUSA_TAG:-version_2.9.6}"
+# Dvi antrastes anksciau buvo imamos is gyvu master/develop saku - vadinasi
+# tas pats skriptas po metu galejo surinkti kitoki varikli. Dabar prisegtos
+# (2026-08-23). nanosvg neturi NEI tagu, NEI leidimu (patikrinta per API),
+# tad jam vienintelis pinas yra commit'as; sitas commit'as duoda BAITAS I
+# BAITA tuos pacius failus, su kuriais dirbam siandien (blob SHA sutampa).
+NANOSVG_REF="${NANOSVG_REF:-239e102ec2c691f2902e20ace2ed36ee4a35cfe6}"
+# nlohmann anksciau imtas is `develop`; prisegam prie LEIDIMO, kaip ir
+# visos kitos priklausomybes. Failas nuo develop varianto skiriasi, tad po
+# pirmo svaraus perbudavimo praeiti `python wasm/testas.py`.
+NLOHMANN_REF="${NLOHMANN_REF:-v3.12.0}"
 JOBS="${JOBS:-8}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
@@ -58,10 +72,10 @@ fetch() {
 
   mkdir -p "$WORK/wasm-inc/nanosvg" "$WORK/wasm-inc/nlohmann" "$WORK/wasm-gen"
   for f in nanosvg.h nanosvgrast.h; do
-    [ -f "$WORK/wasm-inc/nanosvg/$f" ] || curl -sL "https://raw.githubusercontent.com/memononen/nanosvg/master/src/$f" -o "$WORK/wasm-inc/nanosvg/$f"
+    [ -f "$WORK/wasm-inc/nanosvg/$f" ] || curl -sL "https://raw.githubusercontent.com/memononen/nanosvg/$NANOSVG_REF/src/$f" -o "$WORK/wasm-inc/nanosvg/$f"
   done
   for f in json.hpp json_fwd.hpp; do
-    [ -f "$WORK/wasm-inc/nlohmann/$f" ] || curl -sL "https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/$f" -o "$WORK/wasm-inc/nlohmann/$f"
+    [ -f "$WORK/wasm-inc/nlohmann/$f" ] || curl -sL "https://raw.githubusercontent.com/nlohmann/json/$NLOHMANN_REF/single_include/nlohmann/$f" -o "$WORK/wasm-inc/nlohmann/$f"
   done
 
   # CMake ji generuoja is version.inc; mums uztenka keturiu eiluciu.
