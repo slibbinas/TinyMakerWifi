@@ -129,6 +129,22 @@ rekomenduojamo varianto ir vienos eilutės „kodėl" — trumpi pros/cons.
 Ne neutralus sąrašas, o aiški rekomendacija pirmiausia. Galioja visose
 sesijose.
 
+## Nuorodos į PR ir issue
+
+Kai mini PR ar issue numerį, VISADA iškart po jo dėk trumpą santrauką
+skliausteliuose — apie ką tas PR/issue. Ne „žr. #111", o
+„#111 *(Connect Live gateway — nuotolinė stebėsena iš interneto)*".
+Vartotojas neturi eiti į GitHub prisiminti, apie ką kalbama. Galioja
+visose sesijose ir visur: pokalbyje, issue tekstuose, PR aprašymuose,
+commit'uose.
+
+## Atsakymai kitoms sesijoms
+
+Prieš siunčiant bet ką kitai sesijai (issue komentarą, PR komentarą,
+žinutę) — pirma parodyk vartotojui juodraštį ir palauk OK. Tai ta pati
+„siūlyk, palauk patvirtinimo" taisyklė, tik pritaikyta susirašinėjimui
+tarp sesijų.
+
 ## Siūlyk, palauk patvirtinimo
 
 **Meta-principas (kanonas).** Prieš darydamas dalyką, kurį sunku atšaukti ar kuris
