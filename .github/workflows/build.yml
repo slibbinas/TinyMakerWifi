@@ -11,7 +11,11 @@ on:
     # can sit in a branch unbuilt until someone opens a PR (that is exactly how
     # #113 slipped through). One prefix per area - prnt/ printer, slcr/ slicer,
     # cliv/ Connect Live; 0.17/** is the old scheme and retires with 0.17.
-    branches: [ main, experimental, 'prnt/**', 'slcr/**', 'cliv/**', '0.17/**' ]
+    # claude/** is where cloud sessions push. They cannot run PlatformIO at all,
+    # so without this line their firmware changes are compiled by nobody until a
+    # PR exists. GitHub reads this file from the branch being pushed to, so the
+    # rule only covers cloud branches cut after it reaches main.
+    branches: [ main, experimental, 'prnt/**', 'slcr/**', 'cliv/**', 'claude/**', '0.17/**' ]
   pull_request:
 
 jobs:
