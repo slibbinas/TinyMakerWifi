@@ -860,21 +860,32 @@ function slicerSupportFacts(s){
   /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
      matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
   if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
+  /* #116: „atramu nereikia" galima sakyti TIK tada, kai niekas nekabo. Jei
+     modulis atsiuntė ispejima, jis jau zino, kad kabo - tada si eilute neturi
+     tvirtinti, kad viskas gerai. */
   a.textContent=s.pillars
     ?'Supports: '+s.pillars+(s.pillars===1?' pillar':' pillars')
       +(s.onModel?' ('+s.onModel+' standing on the part itself)':'')
       +(s.raft?' · raft on':'')
-    :'No supports needed - nothing on this part hangs in the air.';
+      +(s.pakelta?' · part lifted so they would fit':'')
+    :s.perspejimas
+      ?'No supports were built.'
+      :'No supports needed - nothing on this part hangs in the air.';
   /* Supportai patys pasitikrina: suslicinus SU jais dar kartą ieškoma kabanciu
      vietu. Jei atsirado nauju - tai MUSU pacio klaida, ir apie ja butina
      pasakyti, o ne tyliai issaugoti (V 08-13). */
-  b.textContent=s.hanging
-    ?'⚠ '+s.hanging+' support'+(s.hanging===1?'':'s')+' would print hanging in the air - do not save this, tell the maintainer.'
-    :s.islands
-      ?s.islands+(s.islands===1?' spot starts':' spots start')+' in mid-air (the lowest at layer '
-        +s.firstIsland+') - all held by supports.'
-      :'';
-  b.style.color=s.hanging?'#e8a020':'';
+  /* #116: modulio ispejimas eina PIRMAS - jei kazkas spausdintusi ore be
+     atramos, tai svarbiausias dalykas kortelėje. Pakelimo atveju ta pati eilute
+     yra ne pavojus, o paaiskinimas, kodel spaudinys pailgo. */
+  b.textContent=s.perspejimas
+    ?(s.pakelta?'':'⚠ ')+s.perspejimas
+    :s.hanging
+      ?'⚠ '+s.hanging+' support'+(s.hanging===1?'':'s')+' would print hanging in the air - do not save this, tell the maintainer.'
+      :s.islands
+        ?s.islands+(s.islands===1?' spot starts':' spots start')+' in mid-air (the lowest at layer '
+          +s.firstIsland+') - all held by supports.'
+        :'';
+  b.style.color=(s.hanging||(s.perspejimas&&!s.pakelta))?'#e8a020':'';
 }
 /* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
    pati kauke. Anksciau trys vietos slepe tik slankikli. */
