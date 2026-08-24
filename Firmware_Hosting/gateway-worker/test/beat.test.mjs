@@ -68,7 +68,7 @@ async function beat(seq, frame, key = deviceKey, device = 'AABBCCDDEEFF') {
   });
 }
 
-const printing = { v: 1, st: 'Curing', by: 1, ly: 42, lt: 480, rs: 5400, ml: 12.4, mo: 'skull', fw: '0.18.0' };
+const printing = { v: 1, st: 'Curing', by: 1, ly: 42, lt: 480, rs: 5400, ml: 12.4, mo: 'skull', fw: '1.0.0' };
 
 await check('a correctly signed beat is accepted', async () => {
   const r = await beat(100, printing);

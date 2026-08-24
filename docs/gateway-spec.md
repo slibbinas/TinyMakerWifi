@@ -1,6 +1,8 @@
 # TinyMaker Live gateway — contract (draft v1)
 
-Status: **draft**, branch `cliv/gateway` (0.18). Firmware side lives in
+Status: **draft**, branch `cliv/gateway`. Ships **after 1.0.0**; the release
+number is not fixed yet, because the gateway has a firmware side and can only
+go out with a firmware release. Firmware side lives in
 `src/TinyMakerGateway.ino`; the server is a separate companion project
 (`CONTRIBUTING.md`: this repo stays firmware-only).
 
@@ -53,7 +55,7 @@ Request body (compact by design — not the full `/api/status`):
 
 ```json
 {"v":1,"st":"printing","by":1,"ly":42,"lt":480,"rs":5400,"ml":12.4,
- "mo":"skull","fw":"0.18.0","up":98311,"hp":121400,"wc":1}
+ "mo":"skull","fw":"1.0.0","up":98311,"hp":121400,"wc":1}
 ```
 
 | Field | Meaning |

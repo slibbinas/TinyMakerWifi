@@ -135,7 +135,7 @@ homing diagnostics.
 | `/api/config/restore`, `/api/config/restore/sd` | POST | restore from an uploaded JSON / from the SD copy |
 | `/api/config/dry-run` | POST | `enabled=0|1` — the banner's quick toggle |
 
-### Live gateway fields (0.18)
+### Live gateway fields (after 1.0.0)
 
 `/api/config` carries `gatewayEnabled`, `gatewayBaseUrl`, `gatewayKeySet` and
 `gatewayLastStatus`; the POST form accepts `gateway_enabled`,

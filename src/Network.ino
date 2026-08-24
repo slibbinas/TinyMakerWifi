@@ -1758,9 +1758,10 @@ void applyConfigRequest() {
   if (server.hasArg("connect_auto_backup_set")) {
     connectAutoBackup = formCheck("connect_auto_backup", connectAutoBackup);
   }
-  // Live gateway (0.18). The device key is a secret and follows the same rule
-  // as the MQTT password and the Telegram token: a blank field keeps what is
-  // stored, so the browser never has to hold it to save the rest of the form.
+  // Live gateway (ships after 1.0.0). The device key is a secret and follows
+  // the same rule as the MQTT password and the Telegram token: a blank field
+  // keeps what is stored, so the browser never has to hold it to save the rest
+  // of the form.
   gatewayEnabled = formCheck("gateway_enabled", gatewayEnabled);
   if (!wifiEnabled) gatewayEnabled = false;
   gatewayBaseUrl = connectNormalizeBaseUrl(formString("gateway_base_url", gatewayBaseUrl, 128));

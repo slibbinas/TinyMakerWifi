@@ -360,9 +360,9 @@ String connectRecoveryCode = "";
 String connectLastStatus = "";
 bool connectAutoBackup = false;
 uint32_t connectBackupEpoch = 0;
-// TinyMaker Live gateway (0.18): remote status/commands over a signed plain-HTTP
-// beat. Separate from Connect - different server, different secret. See
-// docs/gateway-spec.md and src/TinyMakerGateway.ino.
+// TinyMaker Live gateway (ships after 1.0.0): remote status/commands over a
+// signed plain-HTTP beat. Separate from Connect - different server, different
+// secret. See docs/gateway-spec.md and src/TinyMakerGateway.ino.
 bool gatewayEnabled = false;
 String gatewayBaseUrl = "";         // empty = not configured; no default host
 String gatewayDeviceKey = "";       // HMAC secret, NVS only - never sent to a browser
