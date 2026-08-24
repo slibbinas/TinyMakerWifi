@@ -130,7 +130,8 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 .rbPick{flex:1 1 auto;width:100%;margin:0;display:flex;align-items:center;gap:8px;
   background:var(--btnsec);color:var(--btnsec-t);border:1px solid var(--line);border-radius:8px;
   padding:9px 12px;font-size:15px;font-weight:600;cursor:pointer;text-align:left}
-.rbPick .rbCaret{color:var(--muted);font-weight:400}
+/* Tas pats PILNAS trikampis, kaip akordeono zenklas (V 08-24): mazasis &#9662; savo eiluteje uzima gal trecdali ir dingdavo, o du skirtingi trikampiai tam paciam „po siuo yra sarasas“ verstu klausti, kuo jie skiriasi. 13 px - kaip akordeone, ne 15, kuriuos paveldetu is mygtuko: pilnas ties 15 px atrodytu sunkesnis uz pati uzrasa. Spalva lieka pilka: oranzine pulte reiskia „sita galima spausti“, o cia spaudziamas visas mygtukas. */
+.rbPick .rbCaret{color:var(--muted);font-weight:400;font-size:13px}
 .rbRow{display:flex;align-items:center;gap:8px;padding:2px 0}
 .rbRow .rbMain{flex:1 1 auto;width:auto;margin:0;text-align:left;background:transparent;border:1px solid transparent;
   border-radius:8px;padding:10px 12px;color:var(--text);font-size:15px;cursor:pointer}
@@ -231,7 +232,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          widget and ate a stats cell (V 08-16). -->
     <div class='resinBar' id='homeResinBar'>
       <button id='homeResinButton' class='rbPick' type='button'>
-        <span class='rbName' id='homeResinName'>-</span><span class='rbCaret'>&#9662;</span>
+        <span class='rbName' id='homeResinName'>-</span><span class='rbCaret'>&#9660;</span>
       </button>
     </div>
     <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'>
@@ -511,7 +512,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <h2>Resin</h2>
   <div class='resinBar'>
     <button id='cfgResinButton' class='rbPick' type='button'>
-      <span class='rbName' id='cfgResinName'>-</span><span class='rbCaret'>&#9662;</span>
+      <span class='rbName' id='cfgResinName'>-</span><span class='rbCaret'>&#9660;</span>
     </button>
   </div>
   <div class='configGrid grid4'>
