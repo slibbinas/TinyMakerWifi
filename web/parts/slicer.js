@@ -457,8 +457,8 @@ const slicerRender=()=>{
    {const didelis=slicerPerDidelis();
     if(didelis){vd=didelis;col='var(--danger)';}
     else if(n>TRI_SUNKU)
-      vd+=' · heavy file ('+n.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
-          +'), slicing will take a minute or more';}
+      vd+=' · heavy file: '+n.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
+          +', slicing will take a minute or more';}
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
@@ -525,6 +525,17 @@ $('slicerFile').addEventListener('change',async e=>{
        gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
     slicerOut=null;
     if(window.gl3dSupports)gl3dSupports(null);   // naujas modelis - senos atramos ne jo
+    /* Ir senos EILUTES ne jo. `slicerInvalidate()` cia neveikia - ji grizta
+       nieko nedariusi, kai `slicerOut` jau nulis, o mes ji ka tik nunulinom.
+       Be sito naujas failas paveldedavo praeito atsakyma: „Sliced in 1,7 s",
+       atramu skaiciu ir net paaiskinima, kodel detale buvo pakelta (pagauta
+       nuotraukoje 08-24 - failas 1,6 mln. trikampiu rode praeito puodelio
+       atramas). */
+    slicerSupportFacts(null);
+    $('slicerProg').textContent='';
+    slicerLayerUI(false);
+    $('slicerSave').disabled=true;
+    $('slicerDiscardLink').style.visibility='hidden';
     slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
