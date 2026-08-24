@@ -858,8 +858,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       <!-- Pastaba stovi CIA, po „Latest", o ne atskira eilute per visa ploti:
            zemiau ji nustumdavo mygtukus ir skiltis issitempdavo (V 08-24). -->
       <div id='slmReload' class='hint warn hidden'></div>
-      <button id='slmUseCard' class='button secondary hidden' type='button'
-              style='margin:6px 0 0;padding:6px 10px;font-size:13px;width:auto'></button></div>
+</div>
   </div>
   <div id='slmMsg' class='hint'>Checking...</div>
   <div class='actions'>
@@ -6157,8 +6156,16 @@ const loadUpdate=async()=>{
 const GHP='https://slibbinas.github.io/TinyMakerWifi/';
 /* Kuria versija krauti. Tuscia = ta, kurios prasо pats modulis (`SV` slicer.js
    viduje) - t. y. numatytoji elgsena nesikeicia, kol zmogus nieko nepasirinko. */
-const slicerPin=()=>{try{return localStorage.getItem('tmSlicerVer')||'';}catch(e){return '';}};
-window.slicerPinnedVer=slicerPin;
+/* Prisegimo nebera (V 08-24). Vietoj jo - kortelės versija: kas idiegta, tas
+   ir sukasi. Senas raktas nuvalomas, kad niekas neliktu prikaltas prie senienos
+   (V buvo istrigęs ties 3.2.0, kai kortelėje jau gulejo 3.2.1). */
+try{localStorage.removeItem('tmSlicerVer');}catch(e){}
+let slmCardVer='';                       // ka atsake printeris; '' = dar neklausem
+window.slicerCardVer=async()=>{
+  if(slmCardVer)return slmCardVer;
+  try{const c=await api('/api/lib/slicer');
+      slmCardVer=(c&&c.complete&&c.version)||'';}catch(e){slmCardVer='';}
+  return slmCardVer;};
 let slmBusy=false, slmManifest=[], slmOnCard='';
 /* Deklaruojama ANKSCIAU uz apklausa? Ne - apklausa ja skaito tik veikdama,
    o `let` iki tol jau ivykdytas. Vardas globalus tycia: sarga gyvena
@@ -6168,16 +6175,6 @@ var slicerLibBusy=false;
 /* Vienas laukimas - vienas snackas: patikra, siuntimas is GitHub ir irasymas i
    kortele zmogui yra VIENAS darbas („idedu sliceri i printeri"), tad tarpiniu
    pranesimu nera, tik viena juostele ir viena pabaiga (snackbaru taisykle). */
-/* Isejimas is prisegimo: pasirenkam ta, kas guli korteleje, ir perkraunam -
-   modulis kraunamas kartą per puslapio gyvenima, tad be perkrovimo pakeitimas
-   butu tik popierinis. */
-document.addEventListener('click',e=>{
-  if(!e.target||e.target.id!=='slmUseCard')return;
-  e.preventDefault();
-  if(!slmOnCard)return;
-  try{localStorage.setItem('tmSlicerVer',slmOnCard);}catch(err){}
-  location.reload();
-});
 window.slicerCacheToSD=async(ver,loud)=>{
   if(!ver||slmBusy)return null;
   /* Fail-closed: kol statuso dar nezinom arba spausdinama - nesiunciam. 3,6 MB
@@ -6231,24 +6228,17 @@ const slmRefresh=async()=>{
      apie versija, kuri jau idiegta (pagauta 08-24 tikrinant ant printerio). */
   if(typeof slicerOnCardVer!=='undefined'&&slmOnCard&&slicerOnCardVer!==slmOnCard){
     slicerOnCardVer=slmOnCard; renderFwBadges();}
-  const pin=slicerPin();
-  setText('slmInstalled',slmOnCard?slmOnCard+(pin&&pin!==slmOnCard?' (using '+pin+')':''):'not on the card');
+  setText('slmInstalled',slmOnCard||'not on the card');
   /* Įdiegus naują modulį senasis lieka gyvas puslapio atmintyje, kol puslapis
      neperkrautas - ir niekas apie tai nesakydavo, tad žmogus manydavo, kad jau
      naudoja naują (V 08-24). Sakom tik tada, kai skirtumas TIKRAI yra. */
+  /* Liko vienintelis atvejis: idiegei, o puslapis dar suka ta, kuri uzsikrove
+     atsidarant. Tai ne pasirinkimas, o tiesiog neperkrautas puslapis. */
   {const kraunamas=String(window.slicerLoadedVer||'').replace('-wasm','');
-   const e=$('slmReload'), b=$('slmUseCard');
-   /* Du skirtingi dalykai, ir juos butina atskirti. Prisegta versija yra zmogaus
-      PASIRINKIMAS (jis rankomis idiege butent ta), tad jos netraukiam savavaliskai -
-      duodam mygtuka. O „puslapis dar suka sena" yra tiesiog nepekrautas puslapis. */
-   const prisegta=!!(pin&&slmOnCard&&pin!==slmOnCard);
-   const nepekrauta=!prisegta&&!!(kraunamas&&slmOnCard&&kraunamas!==slmOnCard);
-   if(e){e.textContent=prisegta?('Pinned to '+pin+'.')
-                     :nepekrauta?('Page still runs '+kraunamas+' - reload (Ctrl+F5).')
-                     :'';
-     show('slmReload',prisegta||nepekrauta);}
-   if(b){b.textContent=prisegta?('Use '+slmOnCard):'';
-     show('slmUseCard',prisegta);}}
+   const e=$('slmReload');
+   if(e){const kitaip=!!(kraunamas&&slmOnCard&&kraunamas!==slmOnCard);
+     e.textContent=kitaip?('Page still runs '+kraunamas+' - reload (Ctrl+F5).'):'';
+     show('slmReload',kitaip);}}
   try{
     const r=await fetch(GHP+'slicer-versions.txt',{cache:'no-store'});
     if(!r.ok)throw 0;
@@ -6258,7 +6248,7 @@ const slmRefresh=async()=>{
     const sel=$('slmVersionSelect');sel.innerHTML='';
     list.forEach(v=>{const o=document.createElement('option');o.value=v;
       o.textContent=v+(v===slmOnCard?' (on the card)':'');sel.appendChild(o);});
-    if(pin&&list.indexOf(pin)>=0)sel.value=pin;
+    if(slmOnCard&&list.indexOf(slmOnCard)>=0)sel.value=slmOnCard;
     show('slmVerLabel',list.length>0);show('slmInstallSelected',list.length>0);
     const idle=!(statusData&&statusData.busy);
     sel.disabled=!idle;
@@ -6283,9 +6273,9 @@ const slmInstall=async ver=>{
      !await uiConfirm('Install the older slicer '+ver+'?\nThe printer currently has '+slmOnCard+'.'))return;
   const res=await window.slicerCacheToSD(ver,true);
   if(!res)return;
-  /* Pasirinkimas issaugomas TIK po sekmingo nukopijavimo: kitaip pultas rodytu i
-     versija, kurios kortelėj nera, ir be interneto sliceris nebepakiltu. */
-  try{localStorage.setItem('tmSlicerVer',ver);}catch(e){}
+  /* Prisegti nebereikia: pultas ims tai, kas dabar guli kortelėje. Uztenka
+     pamirsti sena atsakyma, kad kitas krovimas paklaustu is naujo. */
+  slmCardVer='';
   msg(res.copied?'The slicer '+ver+' is on the printer now - reload the page to use it.'
                 :'The slicer '+ver+' was already on the printer.',false,false,true);
   slmRefresh();
@@ -6383,22 +6373,30 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      autoOrient, fitCheck, bounds, toSceneMesh, supportMesh - t. y. butent to, ka
      pultas kviecia. `?v=` yra tik keso lauziklis, versijos jis NEparenka. */
   window.loadModule=async(name,ver,cdnUrl)=>{
-    /* Zmogaus pasirinkta versija (Settings > Update > Slicer module) nusveria ta,
-       kurios prasо pats modulis: kitaip „idiegiau 3.1.2" idetu failus i kortele,
-       o pultas ir toliau kviestu 3.1.1. Pin'as taikomas TIK slicerio rinkiniui -
-       three.js jo neliecia. Perrasom ir varda, ir versija, nes vardas prie jos
-       prisegtas (`slicer-wasm-3.1.1`). */
-    if(name.indexOf('slicer-')===0&&window.slicerPinnedVer){
-      const pin=slicerPinnedVer();
-      if(pin&&pin!==ver&&name.indexOf(ver)>0){
-        name=name.split(ver).join(pin);
-        if(cdnUrl)cdnUrl=cdnUrl.split(ver).join(pin);
-        ver=pin;
+    /* KORTELĖS versija nusveria i firmware iraSyta konstanta. Kortelėje telpa
+       vienas rinkinys, tad jis ir yra pasirinkimas: idiegei 3.2.1 - suksi 3.2.1,
+       gryzai i 3.2.0 - suksi 3.2.0, ir jokio „idiegta viena, sukama kita".
+       Taikoma TIK sliceriui - three.js cia neliecia. */
+    const pradinis={name:name,ver:ver,cdn:cdnUrl};
+    if(name.indexOf('slicer-')===0&&window.slicerCardVer){
+      const kort=await window.slicerCardVer();
+      if(kort&&kort!==ver&&name.indexOf(ver)>0){
+        name=name.split(ver).join(kort);
+        if(cdnUrl)cdnUrl=cdnUrl.split(ver).join(kort);
+        ver=kort;
       }
     }
     const sdUrl='/lib/'+name+'.js?v='+ver;
     let used=sdUrl, mod=await tryLoad(sdUrl,'SD');
     if(!mod&&cdnUrl){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
+    /* Kortelės versija neuzsikrove (senas pultas, naujas modulis, sugadintas
+       rinkinys) - griztam prie tos, kuria zino firmware. Geriau sena veikianti
+       nei jokia. */
+    if(!mod&&pradinis.ver!==ver){
+      name=pradinis.name; ver=pradinis.ver; cdnUrl=pradinis.cdn;
+      used='/lib/'+name+'.js?v='+ver; mod=await tryLoad(used,'SD');
+      if(!mod&&cdnUrl){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
+    }
     /* Pasiemem is interneto - vadinasi, kortelej jo nera. Idedam ta pati automata,
        kaip three.js: kitas kartas jau veiks ir be tinklo (V 08-21). Tyliai, fone,
        ir tik tada, kai printeris nespausdina - patikras daro `slicerCacheToSD`. */
