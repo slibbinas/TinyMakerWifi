@@ -2328,6 +2328,25 @@ void handleApiVatWeight() {
 // already in force. Idle-only (rejectIfBusy) - it rewrites the number every
 // resin reading depends on, and lastPrintRawMl belongs to a FINISHED print.
 // "reset=1" restores the uncalibrated 1.0 without needing a print.
+/*
+ * R-cal: pasverti spaudiniai priklauso DERVAI, ne masinai.
+ *
+ * Ismatuota 2026-08-24: suvedus du pavyzdzius ir perjungus profili ju nebelieka,
+ * o grizus atgal nebera ir tu, kurie buvo suvesti anksciau. Rasem i bendra
+ * irenginio atminti, o `applyResinProfile` ta pacia atminti perrasydavo is
+ * profilio failo - kuriame pavyzdziu niekada nebuvo. Tad kalibracija
+ * nepergyvendavo ne vieno dervos perjungimo.
+ *
+ * Sprendimas be naujos mechanikos: tas pats kelias, kuriuo veikia „issaugoti i
+ * si profili". Kviesti BUTINA po kiekvieno kalibracija keiciancio veiksmo -
+ * pavyzdzio, tankio ir atstatymo.
+ */
+static void resinPersistToActiveProfile() {
+  ResinProfileInfo info;
+  if (!resinProfileInfo(resinProfileName, info)) return;
+  writeResinProfile(resinProfileName, info.display);
+}
+
 void handleApiResinCalibrate() {
   if (rejectIfWebControlOff()) return;
   if (rejectIfBusy()) return;
@@ -2335,6 +2354,7 @@ void handleApiResinCalibrate() {
   if (server.arg("reset") == "1") {          // "reset=0" must NOT wipe it
     resinClearCalibration();
     saveDeviceConfig();
+    resinPersistToActiveProfile();      // atstatymas irgi priklauso dervai
     tinymakerConnectScheduleBackup();
     sendApiOk("\"factor\":1.000,\"fixedMl\":0.00,\"reset\":true");
     return;
@@ -2380,6 +2400,7 @@ void handleApiResinCalibrate() {
     resinSetSample(slot, clear ? -1 : raw, clear ? -1 : g);
     bool two = calRawA > 0 && calMeasA > 0 && calRawB > 0 && calMeasB > 0;
     saveDeviceConfig();
+    resinPersistToActiveProfile();      // kitaip perjungimas ji nusluos
     tinymakerConnectScheduleBackup();
     sendApiOk("\"factor\":" + String(resinCalFactor, 3) +
               ",\"fixedMl\":" + String(resinFixedMl, 2) +
@@ -2401,6 +2422,7 @@ void handleApiResinCalibrate() {
     resinDensity = d;
     resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
     saveDeviceConfig();
+    resinPersistToActiveProfile();      // tankis - taip pat dervos savybe
     tinymakerConnectScheduleBackup();
     sendApiOk("\"density\":" + String(resinDensity, 3) +
               ",\"factor\":" + String(resinCalFactor, 3) +
