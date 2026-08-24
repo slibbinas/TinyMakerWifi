@@ -31,6 +31,12 @@ let dabartinisId = 0;
  */
 const PLOKSTE_X_MM = 40.8;        // toks pat, kaip variklio PLOKSTE_X_MM
 const ORE_RIBA_PX = 20;           // maziau = trianguliacijos dulkes
+/* Virs sitos ribos antro ejimo NEBANDOM. Antras pjaustymas kainuoja tiek pat,
+   kiek pirmas, o atminties poreikis auga tiesiskai su trikampiais (ismatuota
+   2026-08-24: 300 tukst. = 157 MB ir 13 s, 490 tukst. = 226 MB ir 22 s). Sunkiam
+   modeliui tai butu antras zingsnis link tos pacios sienos, kuri narsykleje
+   baigiasi „Aborted()". Geriau pasakyti, kad nepavyko, nei nukristi bandant. */
+const AUTO_PAKELTI_MAX_TRI = 600000;
 
 function oreLiktu(buferis, sluoksniuViso, sluoksnisMm) {
   const dv = new DataView(buferis);
@@ -150,7 +156,11 @@ self.onmessage = async function (ev) {
       let auto = null;
       if (z.autoPakelti !== false && !z.pakelta && !r.d.atramu_trikampiu && r.preview) {
         const ore = oreLiktu(r.preview, (r.previewInfo || {}).sluoksniu_is_viso, sluoksnis);
-        if (ore) {
+        if (ore && pos.length / 9 > AUTO_PAKELTI_MAX_TRI) {
+          /* Sunkus modelis: pasakom, kad kabo, bet antro ejimo nedarom. */
+          auto = { pakelta: false, perDidelis: true, trikampiu: Math.round(pos.length / 9),
+                   mm2: ore.mm2, sluoksnis: ore.sluoksnis };
+        } else if (ore) {
           self.postMessage({ tipas: 'eiga', id: z.id,
                              etapas: 'atramoms nera vietos - keliam detale', proc: 60 });
           const plokscia = { ml: r.d.turis.viso_ml, sluoksniu: r.info.sluoksniu };

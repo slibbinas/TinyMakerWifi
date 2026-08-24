@@ -13,7 +13,7 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.2.0-wasm';
+export const VERSION = '3.2.1-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
@@ -255,6 +255,13 @@ export async function slice(pos, opts, onProgress) {
          + a.mm2.toFixed(1) + ' mm² of it would otherwise have printed in mid-air. '
          + 'That costs ' + (a.pakeltas.ml - a.plokscia.ml).toFixed(3) + ' ml more resin and '
          + (a.pakeltas.sluoksniu - a.plokscia.sluoksniu) + ' extra layers.')
+    : a.perDidelis
+      /* Sunkus modelis: antro ejimo nedareme sąmoningai, ir taip ir sakom - kitaip
+         zmogus lauktu, kad „sliceris pats susitvarkys", o jis nesitvarke. */
+      ? ('No supports were built, and about ' + a.mm2.toFixed(1) + ' mm² of this model would '
+         + 'print in mid-air. This file is too heavy ('
+         + a.trikampiu.toLocaleString('en-US') + ' triangles) to try again with the part '
+         + 'lifted - simplify it, or scale it up and slice again.')
       : ('No supports were built, and about ' + a.mm2.toFixed(1) + ' mm² of this model would '
          + 'print in mid-air (worst spot around layer ' + a.sluoksnis + '). Lifting it did not '
          + 'help either - scale the model up or tilt it, and slice again.');
