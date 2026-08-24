@@ -213,7 +213,12 @@ export async function slice(pos, opts, onProgress) {
   const kopija = new Float32Array(pos);          // savininkyste keliauja i gija
   const r = await paklausk(
     { tipas: 'pjaustyk', pos: kopija.buffer, sluoksnis, medis,
-      vardas: o.name || 'spaudinys' },
+      vardas: o.name || 'spaudinys',
+      /* #116: pado rezimas. `pakelta` - priverstinai, `autoPakelti` - leidimas
+         darbininkui perpjauti pakelta detale, kai kitaip atramu nera. Jungiklis
+         reikalingas ir 1.1 (`SL-rank`), kur rezima pasirinks zmogus. */
+      pakelta: o.pakelta ? 1 : 0,
+      autoPakelti: o.autoPakelti !== false },
     [kopija.buffer],
     (z) => {
       if (!onProgress) return;
@@ -241,10 +246,18 @@ export async function slice(pos, opts, onProgress) {
      diskais per `pillarDiscs` (V 08-13 pazymejo atskyrima kaip butina). */
   const p = r.preview ? isKaukiu(r.preview, r.previewInfo) : null;
 
-  /* #116: jei atramu nera, dar nereiskia, kad blogai - plokscia detale ju ir
-     nereikalauja. Skiriam du atvejus per PACIAS kaukes, kurias jau turim. */
-  const perspejimas = (!d.atramu_trikampiu && p)
-    ? oreLiktu(p, d.sluoksniu, sluoksnis) : null;
+  /* #116: sprendima priima darbininkas (jis turi kaukes ir gali perpjauti be
+     jokio perdavimo per zinutes), o cia tik paverciam ji zinute kortelei. */
+  const a = r.auto;
+  const perspejimas = !a ? null
+    : a.pakelta
+      ? ('This model had to be lifted 5 mm so supports would fit - about '
+         + a.mm2.toFixed(1) + ' mm² of it would otherwise have printed in mid-air. '
+         + 'That costs ' + (a.pakeltas.ml - a.plokscia.ml).toFixed(3) + ' ml more resin and '
+         + (a.pakeltas.sluoksniu - a.plokscia.sluoksniu) + ' extra layers.')
+      : ('No supports were built, and about ' + a.mm2.toFixed(1) + ' mm² of this model would '
+         + 'print in mid-air (worst spot around layer ' + a.sluoksnis + '). Lifting it did not '
+         + 'help either - scale the model up or tilt it, and slice again.');
 
   return {
     blob: new Blob([r.sl1], { type: 'application/zip' }),
@@ -264,6 +277,7 @@ export async function slice(pos, opts, onProgress) {
       pillars: d.atramu_trikampiu ? d.tasku : 0,
       taskai: d.tasku,                   // sejos taskai - diagnostikai
       perspejimas,                       // #116: null arba tekstas kortelei
+      pakelta: !!(a && a.pakelta),       // #116: ar detale buvo pakelta virs pado
       onModel: 0,
       braces: 0,
       hanging: 0,
@@ -281,70 +295,6 @@ export async function slice(pos, opts, onProgress) {
                     supportSlices: p.atramos },
     wasm: d,
   };
-}
-
-/*
- * #116: ar kas nors spausdintusi ORE, kai atramu nera?
- *
- * Klausimas gimė is tikro atvejo: modelis gauna sejos taskus, o atramu iseina
- * nulis, ir niekas apie tai nepraneša - failas atrodo tvarkingas. Bet nulis
- * atramu turi DU skirtingus atsakymus, ir juos butina atskirti:
- *
- *   a) detale ju nereikalauja - visa remiasi i plokste arba i pacia save
- *      (ismatuota su kronsteinu: nuokabos yra, bet PO kiekviena is ju stovi
- *      pats modelis, tad tikru nuokabu 0 - PrusaSlicer jam atramu irgi nededa);
- *   b) reikalauja, bet variklis ju nepastate (tas pats puodelis, sumazintas
- *      iki 10-12 mm: 128 tikros nuokabos, 34 mm2, ir nulis atramu).
- *
- * Atsakymas imamas is PERZIUROS KAUKIU, kurias ir taip turim: pikselis, kuris
- * sluoksnyje yra, o po juo nera nei modelio, nei atramos, spausdintusi ore.
- *
- * ⚠️ Kodel praplatinimas. Perziura retinta (160 kadru is visu sluoksniu), tad
- * tarp dvieju kadru nuozulni siena „paauga". Praplatinam apacia tiek, kiek
- * paaugtu 45 laipsniu siena - toks pat kriterijus, kaip variklio profilio
- * `support_critical_angle`: stačiau nei 45 laiko save pati.
- *
- * Skaiciuojam TIK tada, kai atramu nulis - kitaip butu melagingi pavojaus
- * signalai: didele nuokaba, laikoma stulpu, kaukese vis tiek atrodo „ore"
- * (ismatuota: puodelis 25 mm su 75 690 atramu trikampiu duoda 12 176 tokiu
- * pikseliu, ir viskas su juo gerai).
- */
-const ORE_RIBA_PX = 20;          // smulkmena = trianguliacijos dulkes
-
-function oreLiktu(p, sluoksniuViso, sluoksnisMm) {
-  const { model, atramos, w, h } = p;
-  if (!model || model.length < 2) return null;
-  const mmPx = PLATE.x / w;                                // 40,8 / 320 = 0,1275
-  const zingsnis = Math.max(1, (sluoksniuViso || model.length) / model.length);
-  const auga = Math.max(1, Math.ceil(zingsnis * (sluoksnisMm || 0.05) / mmPx));
-
-  let viso = 0, blogiausias = 0, kur = 0;
-  const apacia = new Uint8Array(w * h), platus = new Uint8Array(w * h);
-  for (let i = 1; i < model.length; i++) {
-    const zem = model[i - 1], zemA = atramos[i - 1], sis = model[i];
-    for (let q = 0; q < apacia.length; q++) apacia[q] = (zem[q] || zemA[q]) ? 1 : 0;
-    for (let k = 0; k < auga; k++) {
-      platus.set(apacia);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        if (!platus[y * w + x]) continue;
-        if (x) apacia[y * w + x - 1] = 1;
-        if (y) apacia[(y - 1) * w + x] = 1;
-        if (x + 1 < w) apacia[y * w + x + 1] = 1;
-        if (y + 1 < h) apacia[(y + 1) * w + x] = 1;
-      }
-    }
-    let kabo = 0;
-    for (let q = 0; q < sis.length; q++) if (sis[q] && !apacia[q]) kabo++;
-    viso += kabo;
-    if (kabo > blogiausias) { blogiausias = kabo; kur = i; }
-  }
-  if (viso <= ORE_RIBA_PX) return null;                    // atramu tikrai nereikia
-
-  const mm2 = viso * mmPx * mmPx;
-  return 'No supports were built, but about ' + mm2.toFixed(1) +
-    ' mm² of this model would print in mid-air (worst spot around layer ' +
-    Math.round(kur * (sluoksniuViso || model.length) / model.length) +
-    '). Scale the model up or tilt it, and slice again.';
 }
 
 /** Perziuros dvejetainis pavidalas -> masyvai, kuriuos piesia pultas. */

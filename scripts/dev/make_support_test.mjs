@@ -27,8 +27,13 @@ const vertė = (p, num) => {
   return a ? (num ? Number(a.slice(p.length)) : a.slice(p.length)) : null;
 };
 
-const AUKSTIS = vertė('--mm=', true) || 10;
-const STL = vertė('--stl=') || 'C:/PIO-build/slicer-lab/cup45.stl';
+/* Numatytieji = TIKSLIAI tai, kuo padarytas geleziai isduotas T-92 failas
+   (patikrinta 2026-08-24 lyginant archyvus baitas i baita). Anksciau cia stovejo
+   cup45 @10 mm, ir paleidus be argumentu iseidavo KITAS spaudinys nei tas, kuri
+   V laiko rankose - o tai butent tas atvejis, kai testas ir tikrove issiskiria
+   tyliai. */
+const AUKSTIS = vertė('--mm=', true) || 12;
+const STL = vertė('--stl=') || 'C:/PIO-build/slicer-lab/cup9.stl';
 const OUT = argv.find(a => !a.startsWith('--')) || 'C:/PIO-build/atramu-testas.zip';
 const WASM = process.env.WASM_BUILD || 'C:/PIO-build/wasm-verify';
 

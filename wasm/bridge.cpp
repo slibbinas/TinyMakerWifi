@@ -111,11 +111,28 @@ static long ms_since(Clock::time_point t)
  *
  * ⚠️ `pad_around_object = 1` reiskia „zero elevation", tad object_elevation_mm
  * yra 0, nors profilyje irasyta 5. Su 5 visos atramos pakiltu 5 mm i ora.
+ *
+ * `pakelta` = PrusaSlicer „Pad: Below object": detale pakeliama virs pado ir
+ * stovi ant atramu. Reikalinga smulkiems modeliams - sedint pacia me pade po
+ * ju nuokabomis nera kur istatyti galvutes su stulpu, ir medis lieka tuscias
+ * (#116, ismatuota 2026-08-24: puodelis ties 10 mm ant ploksces duoda 0 atramu,
+ * pakeltas - 48 600 trikampiu). Aukstis - is profilio `support_object_elevation`.
  */
-static sla::SupportTreeConfig make_tree_cfg(bool branching)
+static const double PAKELIMAS_MM = 5.0;
+
+static sla::SupportTreeConfig make_tree_cfg(bool branching, bool /*pakelta*/)
 {
     sla::SupportTreeConfig scfg;
     scfg.enabled = true;
+    /*
+     * ⚠️ Lieka 0 IR pakeltame rezime, nors profilyje irasyta 5.
+     *
+     * Ismatuota 2026-08-24: `object_elevation_mm = 5` nuleidzia zeme i -5
+     * nepriklausomai nuo to, kur stovi modelis (`AABBMesh` zeme yra 0, o
+     * konfiga is jos pakelima ATIMA). Pakelus modeli i 5..15 atramos vis tiek
+     * leidosi iki -5, t. y. 5 mm po ploksten. Todel pakelima daro TIK modelio
+     * perkelimas (zr. `run_chain`), o zeme lieka ties nuliu.
+     */
     scfg.object_elevation_mm = 0.0;
     scfg.bridge_slope = 45.0 * M_PI / 180.0;        // (branching)support_critical_angle 45
     scfg.ground_facing_only = false;                // support_buildplate_only 0
@@ -154,8 +171,10 @@ static sla::SupportTreeConfig make_tree_cfg(bool branching)
     return scfg;
 }
 
-/** `make_pad_cfg` (SLAPrint.cpp:136-149) su V profilio reiksmemis. */
-static sla::PadConfig make_pad_config()
+/** `make_pad_cfg` (SLAPrint.cpp:136-149) su V profilio reiksmemis.
+ *  `pakelta` isjungia `pad_around_object` - padas lieka APACIOJE, o detale
+ *  pakelta virs jo (PrusaSlicer „Below object"). */
+static sla::PadConfig make_pad_config(bool pakelta)
 {
     sla::PadConfig pcfg;
     pcfg.wall_thickness_mm = 0.15;                  // pad_wall_thickness
@@ -163,7 +182,7 @@ static sla::PadConfig make_pad_config()
     pcfg.max_merge_dist_mm = 50.0;                  // pad_max_merge_distance
     pcfg.wall_height_mm = 0.0;                      // pad_wall_height
     pcfg.brim_size_mm = 1.6;                        // pad_brim_size
-    pcfg.embed_object.enabled = true;               // pad_around_object 1
+    pcfg.embed_object.enabled = !pakelta;           // pad_around_object 1 / 0
     pcfg.embed_object.everywhere = false;           // pad_around_object_everywhere 0
     pcfg.embed_object.object_gap_mm = 1.0;          // pad_object_gap
     pcfg.embed_object.stick_width_mm = 0.5;         // pad_object_connector_width
@@ -231,7 +250,7 @@ static struct {
  * failas, kai kompiliuojama ne i WASM).
  */
 static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
-                             bool centruoti, bool verbose)
+                             bool centruoti, bool verbose, bool pakelta)
 {
     char buf[2048];
     /* Modelis pastatomas ant plokstes taip pat, kaip tai daro PrusaSlicer,
@@ -252,6 +271,16 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
         const Vec3d c = bb0.center();
         mesh.translate(float(-c.x()), float(-c.y()), float(-bb0.min.z()));
     }
+
+    /*
+     * Pakeltas padas: originalas tokiu atveju detale FIZISKAI pakelia virs pado
+     * (elevation), tad ir mes ja pakeliam tiek pat. Be sito visas apacios
+     * rinkinys atsiduria PO ploksten - ismatuota 2026-08-24: atramos
+     * -5,00..0,30, padas -5,15..-5,00. Tokia bukle: `.sl1` tinklelis
+     * prasidetu nuo neigiamo pado, o perziuros apkirpimas ties nuliu
+     * (`apkirpk`) suplotu visas atramas i blyna.
+     */
+    if (pakelta) mesh.translate(0.f, 0.f, float(PAKELIMAS_MM));
 
     const indexed_triangle_set &its = mesh.its;
     if (verbose) {
@@ -292,8 +321,8 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     AABBMesh emesh{its};
     sla::SupportPoints pts = sla::move_on_mesh_surface(layer_pts, emesh, 1.0);
 
-    sla::SupportableMesh sm{its, pts, make_tree_cfg(branching)};
-    sm.pad_cfg = make_pad_config();
+    sla::SupportableMesh sm{its, pts, make_tree_cfg(branching, pakelta)};
+    sm.pad_cfg = make_pad_config(pakelta);
 
     praneskEiga("statomos atramos", 65);
     t0 = Clock::now();
@@ -410,13 +439,13 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     its_write_stl_binary("/out_pad.stl", "padas", pad);
 
     std::snprintf(buf, sizeof(buf),
-        "{\"tipas\":\"%s\",\"trikampiu\":%zu,\"sluoksniu\":%zu,\"tasku\":%zu,"
+        "{\"tipas\":\"%s\",\"pakelta\":%d,\"trikampiu\":%zu,\"sluoksniu\":%zu,\"tasku\":%zu,"
         "\"z\":{\"modelis\":[%.3f,%.3f],\"atramos\":[%.3f,%.3f],\"padas\":[%.3f,%.3f]},"
         "\"atramu_trikampiu\":%zu,\"pado_trikampiu\":%zu,"
         "\"turis\":{\"modelis\":%.1f,\"atramos\":%.1f,\"padas\":%.1f,\"viso_ml\":%.4f},"
         "\"laikas_ms\":{\"slice\":%ld,\"prepare\":%ld,\"points\":%ld,\"tree\":%ld,"
         "\"pad\":%ld,\"viso\":%ld}}",
-        branching ? "tree" : "regular",
+        branching ? "tree" : "regular", pakelta ? 1 : 0,
         its.indices.size(), grid.size(), layer_pts.size(),
         mz0, mz1, sz0, sz1, pz0, pz1,
         tree.first.indices.size(), pad.indices.size(),
@@ -436,14 +465,14 @@ extern "C" {
  * pastatomas i plokstes vidurį (kaip PrusaSlicer, ikeldamas STL).
  */
 EMSCRIPTEN_KEEPALIVE
-const char *sla_slice(const char *path, double layer_h, int branching)
+const char *sla_slice(const char *path, double layer_h, int branching, int pakelta)
 {
     TriangleMesh mesh;
     if (!mesh.ReadSTLFile(path)) {
         g_json = "{\"klaida\":\"STL neperskaitytas\"}";
         return g_json.c_str();
     }
-    return run_chain(mesh, layer_h, branching != 0, true, false);
+    return run_chain(mesh, layer_h, branching != 0, true, false, pakelta != 0);
 }
 
 /**
@@ -451,7 +480,8 @@ const char *sla_slice(const char *path, double layer_h, int branching)
  * jau pasukti ir pastatyti - pultas tai daro pats, tad cia NECENTRUOJAM.
  */
 EMSCRIPTEN_KEEPALIVE
-const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branching)
+const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branching,
+                           int pakelta)
 {
     if (!pos || ntri <= 0) {
         g_json = "{\"klaida\":\"tuscias tinklas\"}";
@@ -479,7 +509,7 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
         for (auto &t : its.indices) std::swap(t[1], t[2]);
 
     TriangleMesh mesh{std::move(its)};
-    return run_chain(mesh, layer_h, branching != 0, false, false);
+    return run_chain(mesh, layer_h, branching != 0, false, false, pakelta != 0);
 }
 
 /**
@@ -899,13 +929,16 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree]\n"); return 2; }
+    if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree|regular] [isvestis.sl1] [pakelta]\n"); return 2; }
     const double layer_h = argc > 2 ? std::atof(argv[2]) : 0.05;
     const std::string t  = argc > 3 ? argv[3] : "regular";
     TriangleMesh mesh;
     if (!mesh.ReadSTLFile(argv[1])) { std::printf("STL neperskaitytas: %s\n", argv[1]); return 3; }
     std::printf("model            %s\n", argv[1]);
-    run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true);
+    /* Penktas argumentas - pakeltas padas (#116). Numatytai isjungtas, kad
+       regresijos testas ir etalonai liktu nepakite. */
+    const bool pakelta = argc > 5 && std::string(argv[5]) == "pakelta";
+    run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true, pakelta);
     if (argc > 4) std::printf("sl1              %s\n", sla_export_sl1(argv[4], "spaudinys"));
     return 0;
 }
