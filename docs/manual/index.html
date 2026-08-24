@@ -183,7 +183,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><a href="#slicer">The built-in slicer</a></li>
     <li><a href="#print-sd">Printing from the SD card</a></li>
     <li><a href="#manage">Starting &amp; deleting models</a></li>
-    <li><a href="#resin">Resin estimate &amp; refills</a></li>
+    <li><a href="#resin">Resin profiles, estimate &amp; refills</a></li>
     <li><a href="#dashboard">The web dashboard</a></li>
     <li><a href="#advanced">System menu reference</a></li>
     <li><a href="#update">Updating the firmware</a></li>
@@ -338,8 +338,74 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="resin"><span class="num">10</span>Resin estimate &amp; level tracking</h2>
+  <h2 class="sec" id="resin"><span class="num">10</span>Resin profiles, estimate &amp; refills</h2>
   <p>The printer has no resin sensor — instead it <b>keeps count</b>. Every printed layer’s cured volume is subtracted from the VAT level, and the estimate survives reboots and firmware updates.</p>
+
+  <h3 id="resin-profiles">Resin profiles</h3>
+  <p>A <b>profile</b> is the whole print recipe for one resin: layer height, base and regular
+  exposure, base and transition layers, all four lift settings, and the resin&rsquo;s density with
+  its weighing calibration. Switching resin is one press instead of ten fields, and a number that
+  took an exposure test to find can no longer be lost to a stray edit.</p>
+  <p>Layer height is <i>part of</i> the profile, because exposure without it is only half a number:
+  0.05&nbsp;mm needs less light than 0.10&nbsp;mm. Two profiles for one resin is the normal case.
+  What describes the <i>printer</i> rather than the resin - vat size, the low-resin levels, the
+  pause lift - stays outside.</p>
+  <p>Two profiles are <b>built into the firmware</b>, <code>Fast</code> and <code>Slow</code>, so
+  the list is never empty: no SD card, no network, and after a factory reset. Editing a built-in
+  writes a small overlay file on the card that shadows the flash values;
+  <b>Reset to factory</b> deletes it. Every other profile lives in <code>/resin/*.json</code> on
+  the card.</p>
+
+  <h3>Picking the resin</h3>
+  <ul>
+    <li><b>Dashboard, main view:</b> the resin row sits next to how much is left - which resin is
+      in the vat is <i>state</i>, not a setting. Press it and pick from the list.</li>
+    <li><b>Dashboard, Settings &rarr; Print:</b> the same row, and the recipe opens underneath it.</li>
+    <li><b>At the printer:</b> <b>System &rarr; Advanced &rarr; Resin &rarr; Resin profile</b> steps
+      through the installed profiles and applies the one shown. Creating and renaming stay in the
+      dashboard - there is no keyboard at the machine.</li>
+  </ul>
+  <p>With no profile selected the row reads <b>&ldquo;Not set - printing is blocked&rdquo;</b> and
+  the printer refuses to start. That is deliberate: printing with nobody&rsquo;s recipe used to run
+  on whatever numbers happened to be left in memory.</p>
+
+  <h3>Installing a profile from the library</h3>
+  <p>The picker also lists profiles you do <i>not</i> have yet, published by this project. Press
+  <b>Install</b> and the profile is written to the card. A <b>&ldquo;&#10003; tested by&rdquo;</b>
+  badge means someone actually printed with that resin on this printer and wrote down what worked -
+  it saves you an exposure test. Some entries carry a <b>Buy</b> link; the price is the same,
+  the link simply goes through us.</p>
+  <p>Your browser fetches the profile and posts the values to the printer, so the printer itself
+  never opens an outside address. Profiles you already have are not shown again - a corrected
+  profile is therefore published under a new name, not silently swapped underneath you.</p>
+
+  <h3>Editing and saving</h3>
+  <ul>
+    <li><b>Save</b> stores the values in the printer <b>and</b> in the profile above it.</li>
+    <li><b>Save as&hellip;</b> keeps the original and starts a new profile from the values on screen.</li>
+    <li><b>Rename&hellip;</b> is offered for your own profiles (a built-in keeps its name).</li>
+    <li><b>Discard changes</b> appears as soon as a field differs from the saved profile and puts
+      all ten back.</li>
+    <li><b>Reset to factory</b> appears when a built-in has been edited, and removes the overlay.</li>
+  </ul>
+  <div class="warn">&#9888;&#65039; A profile is a <b>starting point</b>. This printer&rsquo;s colour
+  screen absorbs UV, so manufacturer tables read far too short here - run the exposure test with
+  your own resin and save the result.</div>
+
+  <h3>Grams instead of guesswork</h3>
+  <p>Under <b>Settings &rarr; Print &rarr; Resin calibration</b> the printer learns to turn weight
+  into millilitres for the resin above; the calibration travels inside the profile.</p>
+  <ul>
+    <li><b>Resin left, by weight:</b> weigh the vat, type the grams, press <b>Set</b>. The printer
+      subtracts the empty vat&rsquo;s weight and divides by the density. The marker on the vat says
+      <i>full or not</i>; a scale says <i>how much</i>, and that is the number the low-resin warning
+      and the per-model estimate work with.</li>
+    <li><b>Density</b> is measured once per resin: weigh a known volume, enter both, press Set.</li>
+    <li><b>Weighed prints:</b> after a print, enter what the printer estimated and what the vat
+      actually lost. Two such samples fit a correction curve, and from then on the estimate follows
+      your resin rather than an assumption. On this printer the fitted correction landed within
+      about 1&nbsp;% of the weighed truth.</li>
+  </ul>
 
   <h3>Estimate before printing</h3>
   <p>On a model’s print preview, press <kbd>Up</kbd> to estimate the resin it needs. It is shown in ml <i>and</i> in vat fills — e.g. <code>12.4 ml = 0.8 VAT</code>. Your VAT size is adjustable (10–40&nbsp;ml, default 15) in Settings. Live ml is shown while printing.</p>
@@ -350,9 +416,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>After refilling</b>, tell the printer: <b>System → Advanced → Resin → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
     <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT refilled?”</i> question so the estimate stays honest. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
     <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
-    <li><b>Low resin pause</b> (optional, default Off): mid-print, when the level hits the threshold, the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> — top up, press VAT refilled or resume.</li>
+    <li><b>A heads-up before the stop</b> (<i>Warn (ml)</i>, 3&ndash;15&nbsp;ml): while printing, the level crossing this mark says so on the screen and, if notifications are set up, on your phone - with the layer it is on, so you can decide whether to top up now or let it run.</li>
+    <li><b>Low resin stop</b> (optional, default Off): mid-print, when the level reaches <i>Stop (ml)</i> (1&ndash;3&nbsp;ml), the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> - top up, press VAT refilled or resume.</li>
   </ul>
-  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. Refills you don’t confirm won’t be counted.</div>
+  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. For a real number instead of a running total, weigh the vat - see <a href="#resin-profiles">Grams instead of guesswork</a> above. Refills you don’t confirm won’t be counted.</div>
 </section>
 
 <section>
@@ -437,14 +504,20 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="table-scroll">
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
+    <tr><td>Resin profile</td><td>Steps through <code>Fast</code>, <code>Slow</code> and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
     <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
-    <tr><td>Low resin pause</td><td>On = the print pauses for a refill when the estimate runs low.</td></tr>
-    <tr><td>Low resin warn</td><td>The warning/pause threshold, 1–3&nbsp;ml (OK cycles).</td></tr>
+    <tr><td>Low resin stop</td><td>On = mid-print, when the estimate reaches <i>Stop (ml)</i>, the printer finishes the layer, lifts and pauses for a refill.</td></tr>
+    <tr><td>Stop (ml)</td><td>The level that stops the print: 1&ndash;3&nbsp;ml (OK cycles).</td></tr>
+    <tr><td>Warn (ml)</td><td>The earlier heads-up, before the stop - on the screen and on your phone: 3 &rarr; 5 &rarr; 8 &rarr; 10 &rarr; 12 &rarr; 15&nbsp;ml (OK cycles).</td></tr>
     <tr><td>Ask refill</td><td>On = every print starts with a “VAT refilled?” question.</td></tr>
+    <tr><td>Power resume</td><td>On = the printer checkpoints as it prints and offers to resume after a power cut. Off = it never checkpoints and always starts fresh, like the stock firmware.</td></tr>
+    <tr><td>Resume mode</td><td><b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement, <b>Precise</b> every 400&nbsp;ms: a resume closer to where the power went, at the cost of more writes to the card.</td></tr>
+    <tr><td>Pause lift</td><td>How high the plate rises when you pause to look at the print: 20&ndash;40&nbsp;mm in 5&nbsp;mm steps (OK cycles). A dry run uses the same height instead of going to the top.</td></tr>
     <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer — each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
     <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test.</td></tr>
   </table>
   </div>
+
   <h3>Advanced → Display</h3>
   <div class="table-scroll">
   <table>
@@ -556,6 +629,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>Phone notifications — pick a channel</h3>
   <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice — <b>Off / Telegram / WhatsApp / Discord</b> — each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
   <div class="note">Telegram is the one used daily here. <b>WhatsApp and Discord ship untested</b> — they run on your own CallMeBot key or channel webhook, so testing them with our setup would prove nothing about yours. If you try one, <a href="https://tinymakerwifi.com/feedback/">tell us how it went</a> — working or not, both are useful.</div>
+  <p><b>Did the last message actually arrive?</b> Under the channel picker the dashboard shows the
+  result of the printer&rsquo;s last <i>automatic</i> message - <i>&ldquo;Last automatic message:
+  delivered 5 min ago&rdquo;</i>, or <b>NOT delivered</b> with the reason. It says <i>automatic</i>
+  on purpose: <b>Send test message</b> takes a different path, so &ldquo;the test works but nothing
+  arrives while printing&rdquo; is itself a useful clue - usually a token or chat id that is fine
+  for a test but blocked when the printer is busy. The line stays hidden until there has been an
+  automatic message to report on.</p>
 
   <h3 id="telegram">Telegram</h3>
   <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>

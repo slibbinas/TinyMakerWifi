@@ -47,6 +47,90 @@ unless noted. Community contributors are tagged inline.
 - **Per-model print time in the SD list** (plan EST-model), recomputed from the
   resin profile in force — switch profile and every row updates.
 
+- **Model preview, rebuilt as a real 3D view** (plan #93, PV-native, PV-slices,
+  PV-stage). It used to draw 36 slices stacked like pancakes, which made anything
+  detailed unreadable. Now the same slices become a smooth surface drawn on the
+  GPU by three.js - served from the SD card, and failing that from our own pages,
+  never from a stranger's CDN. The view takes the printer's native 320x240 masks
+  instead of shrinking them to 80x60, and every layer of the model instead of 72
+  of them, so what is on screen is measured data rather than interpolation.
+  The window grows to the full width of a desktop, a slider cuts the model at any
+  height, and the heavy build runs in ~30 ms slices so the browser never offers to
+  close the page.
+- **The growing print is visible in every browser** (plan P-live), not only in the
+  window that happened to open Preview before the print started. A phone picked up
+  mid-print now shows the model as it is being built, with the unprinted part left
+  as a ghost.
+- **Exposure in tenths of a second** (plan 0-3). Whole seconds in a single EEPROM
+  byte flattened the short times that fast resins need; the Base minimum also comes
+  down from 10 s to 5 s.
+- **Adjustable pause lift height** (20-40 mm, default 20). Testing a new resin means
+  looking at the plate mid-print, and 20 mm is not always enough room.
+- **The printer says when a file is being sent to it.** While it receives, the ESP32
+  answers no status polls at all, so a second device used to blink "idle" between two
+  uploads. Now one calm line stands there and turns into "Unpacking" with a real
+  count, on the printer's screen and in every dashboard (plan RX-say, RX-listen,
+  SD-prog).
+- **The slicer module lives on the SD card** (plan SL-mod), so a printer with no
+  internet can still slice. The printer downloads the files once, compares each one
+  against a checksum fetched from our pages, and accepts only matching bytes - this
+  is the one place in the whole firmware where a TLS certificate is verified.
+- **Marking a defect on the model** (plan MARK-bug). A tap leaves a mark with
+  millimetres and a layer number, a drag marks a zone. The report attaches the slicer
+  version, the dashboard's checksum, the firmware build and a 3D frame by itself, and
+  arrives in the feedback box already tagged as a bug - so a complaint carries the
+  facts needed to reproduce it.
+- **A push message when power comes back** (plan PR-notify). An interruption used to
+  be announced only on the printer's own screen; away from the machine, you learned
+  about it when you came back.
+- **Sub-millimetre resume** (plan 1-38b). A cut during the plate's motion used to
+  resume from the pre-lift position, which could leave the rest of the print up to a
+  lift-distance too high. Checkpoints now record mid-motion, with a Balanced/Precise
+  toggle for how often they are written.
+- **Crash telemetry** (plan CT). The reset reason was already shown on the About
+  screen; it now travels with the anonymous ping, so it is possible to see how many
+  printers fall over and why, instead of hearing about it one report at a time.
+- **The printer says whether the last automatic message actually arrived**
+  (GitHub #88). Sending returned success or failure with a reason, and the common
+  path threw both away, so a broken Telegram token looked exactly like a quiet print.
+  The delivery result and its reason are now kept and shown in the dashboard. The row
+  names it the last *automatic* message on purpose: "Send test" takes a different
+  path, and "the test works but printing sends nothing" is a diagnosis worth keeping.
+- **Two-step low-resin handling** (GitHub #40): a heads-up before the stop, on the
+  phone and in the dashboard, and paused or cancelled messages that carry the layer
+  and the time elapsed instead of a bare word.
+- **Everyday dashboard work**: the newest model on top of the SD list (it is a work
+  queue, not an archive); Start and Delete appearing under the mouse on a desktop, so
+  a row can be printed without paying for a preview; one SD footer line instead of
+  two; buttons that visibly accept a press and show they are working; a 24-hour clock
+  everywhere; lifetime and UV hours moved out of the live view into Statistics.
+
+### Changed
+
+- **Writes are accepted only from the printer's own dashboard** (GitHub #95). Any
+  request that changes something must come with a matching Origin or the
+  `X-TinyMaker: 1` header, so a page open in another tab cannot drive the printer.
+  PrusaSlicer's upload path and the machine API are exempt by design; the rule is
+  written up in [docs/api.md](docs/api.md).
+- **About 60 KB of flash reclaimed** (plan F-opt), most of it a 576-case timing
+  switch turned into a PROGMEM table, with identical behaviour. Done early on
+  purpose: every feature after it had room to land.
+- **Checkpoints are written once per layer instead of twice** (plan 1-38), which is
+  half the SD wear for the same power-loss guarantee. Design by
+  **Tanner Steorts ([@Tann2019](https://github.com/Tann2019))**.
+- **A dry run no longer lifts the plate to the ceiling** (plan DRY-lift). Nothing was
+  printed, so there is nothing to lift away from; it rises to the pause lift height
+  and stops.
+- **One busy rule for the whole dashboard.** Controls used to be locked one at a
+  time, so some stayed live while the printer was working. Locking is now decided as
+  a table and applied everywhere at once, including the settings pane and the SD list.
+- **Ten fewer voices in the message area.** Long operations used to announce every
+  stage; a chain of steps is one message now, with a bar when there is a number and
+  silence when the screen already shows it.
+- **The dashboard restores the last preview only within the same printer session**
+  (plan DASH-boot). After a reboot it opens empty instead of pulling yesterday's model
+  off the card, but F5 during a print still brings the progress view straight back.
+
 ### Fixed
 
 - **A print of zero layers could be started.** The guard before Start compares
@@ -99,6 +183,19 @@ unless noted. Community contributors are tagged inline.
 - The offline demo dashboard read no POST parameters at all: it expected a
   string body while the app sends `URLSearchParams`, so every simulated action
   silently lost its arguments.
+- **Every print came out flat if the slicer's layer height was not 0.05 mm**
+  (GitHub #63, plan LH-chk). The height inside the uploaded `config.ini` was thrown
+  away during unpacking and 0.05 mm silently assumed. It is read now, and a mismatch
+  is refused rather than printed - and after a later fix, it is found even when the
+  config outgrew the first kilobyte the reader looked at.
+- **The network-free build stopped compiling** (GitHub #113): `Import.ino` called
+  `sdJobService()` outside `#if ENABLE_NETWORK`, so the original firmware could not be
+  built from this fork. CI now builds the working branches too, because a session in
+  the cloud cannot run PlatformIO at all and nothing else would catch it.
+- **A printer that booted with no network came back as half a printer** until it was
+  restarted once more.
+- **A preview cut used to lie about what was inside**, an upload of our own was
+  reported as somebody else's, and a cancelled upload kept saying it was uploading.
 
 ## [0.16.2] — 2026-08-03 (beta)
 

@@ -9,6 +9,23 @@ let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
    pertaikydavo, ir mastelio pokytis ekrane dingdavo (V 08-12). */
 let slicerHome=true;
 let slicerFileName='';
+let slicerFileBytes=0;            // failo dydis - zmogui suprantamesnis uz trikampius
+/* Kiek modelis dar imanomas. Skaiciai is matavimu (08-24): 300 tukst. trikampiu
+   uzima 157 MB WASM atminties ir 13 s, 490 tukst. - 226 MB ir 22 s. Poreikis
+   auga tiesiskai (~480 B trikampiui), o narsykles riba yra 2 GB. Virs SUNKU
+   pjaustymas trunka minutemis; virs PER_DAUG variklis nukrinta su „Aborted()",
+   ir tai vienintelis dalykas, kuri zmogus pamato - todel sakom is anksto. */
+const TRI_SUNKU=600000, TRI_PER_DAUG=1500000;
+const mbTeksto=b=>b?(' ('+(b/1048576).toFixed(0)+' MB)'):'';
+/* Grazina paaiskinima, jei failas per didelis, arba '' jei viskas gerai. */
+function slicerPerDidelis(){
+  const tri=slicerRaw?slicerRaw.length/9:0;
+  if(tri<=TRI_PER_DAUG)return '';
+  return 'This file is too big for the browser slicer: '+tri.toLocaleString()+' triangles'
+    +mbTeksto(slicerFileBytes)+'. It can handle about '+TRI_PER_DAUG.toLocaleString()
+    +' - beyond that the slicer runs out of memory and stops. Simplify the mesh '
+    +'(your CAD or MeshLab can reduce it) and load it again.';
+}
 /* Kol slicer'is piesia i perziuros kortele, ji yra JO. Be sios veliaveles
    busenos apklausa po sekundes padeda tuscia vietele ir vaizdas dingsta
    (V 08-12). Spaudinys vis tiek svarbesnis - zr. busyPrint saka. */
@@ -165,6 +182,7 @@ const sdCollapse=on=>{
   if(h){h.style.display=(on&&!yraJuosta)?'block':'none';
         if(on&&!yraJuosta)h.textContent=sdSantrauka();}
   const t=$('sdToggle'); if(t){t.textContent=AKORD_ZENKLAS(!on);
+    t.classList.toggle('atidaryta',!on);
     t.title=on?'Open the model list':'Collapse the model list';
     t.setAttribute('aria-expanded',on?'false':'true');}
 };
@@ -186,12 +204,17 @@ const ICON_SLICER_CLOSE="<svg viewBox='0 0 16 16' width='13' height='13' fill='n
    „isdidinti" virs peržiūros) ir ta pati rodykle - zemyn, kai atidaryta, i desine, kai
    suskleista. Anksciau sliceris rodė zodi „Open" ir kryziuka, o SD - rodykle: du
    skirtingi zenklai tam paciam veiksmui (V 08-20). */
-const AKORD_ZENKLAS=on=>on?'▾':'▸';
+/* PILNI trikampiai, ne mazieji: ▸ savo eiluteje uzima gal trecdali, tad jo
+   didinimas nieko neduoda - 13, 17 ir 20 px atrodo vienodai (V 08-24, palyginta
+   renderiu). ▶ ties tuo paciu 13 px matomas is karto, o eilutes aukstis
+   nesikeicia. */
+const AKORD_ZENKLAS=on=>on?'▼':'▶';
 const slicerToggleUI=open=>{
   const t=$('slicerToggle'); if(!t)return;
   /* Busena jau tokia - iseinam: si funkcija kvieciama ir is apklausos (1 Hz). */
   if(t.classList.contains('narrow')===open&&t.textContent===AKORD_ZENKLAS(open))return;
   t.classList.add('narrow');
+  t.classList.toggle('atidaryta',open);
   t.textContent=AKORD_ZENKLAS(open);
   t.title=open?'Collapse the slicer':'Open the slicer';
   t.setAttribute('aria-expanded',open?'true':'false');
@@ -295,7 +318,12 @@ const slicerLoadMod=async()=>{
      modelio apacios, tad po plokste nulindusi atrama nebevirsta pirmais
      sluoksniais. 3.0.6 - ta pati atrama nebematoma ir 3D vaizde, o `layers`
      imamas is paties failo (rodem 340, faile buvo 334). */
-  const SV='3.1.1';
+  /* ⚠️ Sita versija PRIVALO sutapti su ta, kuri paskelbta gh-pages ir gula i
+     kortele: printeris naujausia rinkini persikelia i SD pats, o senojo
+     nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
+     pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
+     (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
+  const SV='3.2.1';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -303,7 +331,11 @@ const slicerLoadMod=async()=>{
      turėti sena kese, ir is pulto iki siol nebuvo kaip pasakyti, kuris algoritmas
      veikia - sugaista du kartus per diena (V 08-18). */
   {const e=$('slicerVer');
-   if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';}
+   if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';
+   /* Ta pati versija reikalinga ir Update skilciai (ji sedi kitame skripte):
+      idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
+      apie tai butina pasakyti (V 08-24). */
+   window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
                                   :'The slicer module could not be loaded.');
   return slicerMod;
@@ -425,6 +457,16 @@ const slicerRender=()=>{
     if(hMm<1||px<8)
       vd+=' · very small: '+hMm.toFixed(2)+' mm tall ('+nL+' layer'+(nL===1?'':'s')
           +'), '+Math.max(1,Math.round(px))+' px across its smallest side';}
+   /* #116 tesinys: dydzio tiesa nusveria visa kita. Failas, kurio variklis
+      nepakels, gali puikiai „telpa i plokste" - ir butent tai buvo parasyta,
+      kol pranesimas guleojo nematomame elemente (pagauta nuotraukoje 08-24). */
+   {const didelis=slicerPerDidelis();
+    /* Tekstui - NE `--danger`: jis skirtas mygtuko fonui ir tamsioje temoje
+       duoda 1,56 kontrasta (ismatuota 08-24). `--dangertxt` skaitomas abiejose. */
+    if(didelis){vd=didelis;col='var(--dangertxt)';}
+    else if(n>TRI_SUNKU)
+      vd+=' · heavy file: '+n.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
+          +', slicing will take a minute or more';}
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
@@ -491,7 +533,18 @@ $('slicerFile').addEventListener('change',async e=>{
        gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
     slicerOut=null;
     if(window.gl3dSupports)gl3dSupports(null);   // naujas modelis - senos atramos ne jo
-    slicerRaw=r.positions; slicerFileName=f.name;
+    /* Ir senos EILUTES ne jo. `slicerInvalidate()` cia neveikia - ji grizta
+       nieko nedariusi, kai `slicerOut` jau nulis, o mes ji ka tik nunulinom.
+       Be sito naujas failas paveldedavo praeito atsakyma: „Sliced in 1,7 s",
+       atramu skaiciu ir net paaiskinima, kodel detale buvo pakelta (pagauta
+       nuotraukoje 08-24 - failas 1,6 mln. trikampiu rode praeito puodelio
+       atramas). */
+    slicerSupportFacts(null);
+    $('slicerProg').textContent='';
+    slicerLayerUI(false);
+    $('slicerSave').disabled=true;
+    $('slicerDiscardLink').style.visibility='hidden';
+    slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
@@ -860,21 +913,32 @@ function slicerSupportFacts(s){
   /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
      matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
   if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
+  /* #116: „atramu nereikia" galima sakyti TIK tada, kai niekas nekabo. Jei
+     modulis atsiuntė ispejima, jis jau zino, kad kabo - tada si eilute neturi
+     tvirtinti, kad viskas gerai. */
   a.textContent=s.pillars
     ?'Supports: '+s.pillars+(s.pillars===1?' pillar':' pillars')
       +(s.onModel?' ('+s.onModel+' standing on the part itself)':'')
       +(s.raft?' · raft on':'')
-    :'No supports needed - nothing on this part hangs in the air.';
+      +(s.pakelta?' · part lifted so they would fit':'')
+    :s.perspejimas
+      ?'No supports were built.'
+      :'No supports needed - nothing on this part hangs in the air.';
   /* Supportai patys pasitikrina: suslicinus SU jais dar kartą ieškoma kabanciu
      vietu. Jei atsirado nauju - tai MUSU pacio klaida, ir apie ja butina
      pasakyti, o ne tyliai issaugoti (V 08-13). */
-  b.textContent=s.hanging
-    ?'⚠ '+s.hanging+' support'+(s.hanging===1?'':'s')+' would print hanging in the air - do not save this, tell the maintainer.'
-    :s.islands
-      ?s.islands+(s.islands===1?' spot starts':' spots start')+' in mid-air (the lowest at layer '
-        +s.firstIsland+') - all held by supports.'
-      :'';
-  b.style.color=s.hanging?'#e8a020':'';
+  /* #116: modulio ispejimas eina PIRMAS - jei kazkas spausdintusi ore be
+     atramos, tai svarbiausias dalykas kortelėje. Pakelimo atveju ta pati eilute
+     yra ne pavojus, o paaiskinimas, kodel spaudinys pailgo. */
+  b.textContent=s.perspejimas
+    ?(s.pakelta?'':'⚠ ')+s.perspejimas
+    :s.hanging
+      ?'⚠ '+s.hanging+' support'+(s.hanging===1?'':'s')+' would print hanging in the air - do not save this, tell the maintainer.'
+      :s.islands
+        ?s.islands+(s.islands===1?' spot starts':' spots start')+' in mid-air (the lowest at layer '
+          +s.firstIsland+') - all held by supports.'
+        :'';
+  b.style.color=(s.hanging||(s.perspejimas&&!s.pakelta))?'#e8a020':'';
 }
 /* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
    pati kauke. Anksciau trys vietos slepe tik slankikli. */
@@ -1084,6 +1148,11 @@ $('slicerGo').addEventListener('click',async()=>{
   if(sliceRunning)return;                 // uzrakintas, bet sarga pigi
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
+  /* Dydzio sarga PRIES darba: kitaip vienintelis atsakymas butu „Aborted()"
+     po kelių minuciu, ir dar su mirusiu moduliu (po jo reikia perkrauti
+     puslapi). Zr. `slicerPerDidelis`. */
+  const perDidelis=slicerPerDidelis();
+  if(perDidelis){msg(perDidelis,true);return;}
   const placed=slicerMod.place(slicerRaw,slicerTr);
   const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
   if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
@@ -1099,10 +1168,23 @@ $('slicerGo').addEventListener('click',async()=>{
   if(typeof syncActionLocks==='function')syncActionLocks();
   slicerButtons(false);
   slicerWorkUI(true);
+  /* Laikrodis gyvena UZ `try`, nes ji sustabdo `finally`. */
+  let tiksi=null;
   try{
     prog.textContent='';
     slicerPaint('Slicing\u2026',0);
     const t0=performance.now();
+    /* Laikrodis. Variklis apie ilgiausia etapa nepranesa nieko (ismatuota:
+       9,9 s tylos 700 tukst. trikampiu modeliui), tad be sito juostele stovi ir
+       atrodo mirusi. Tiksi PATS, is paskutinio zinomo teksto - o teksta atnaujina
+       eigos kvietimai. */
+    let paskutinis={ka:'Looking for overhangs',dalis:0};
+    const laikas=()=>{const s=Math.round((performance.now()-t0)/1000);
+      return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+    const piesk=()=>slicerPaint(paskutinis.ka+' \u00b7 '+laikas()
+      +(paskutinis.eilute?'\n'+paskutinis.eilute:''),paskutinis.dalis);
+    piesk();
+    tiksi=setInterval(()=>{ if(sliceRun===myRun)piesk(); },500);
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
@@ -1131,8 +1213,11 @@ $('slicerGo').addEventListener('click',async()=>{
            eiluteje „Looking for overhangs 28% (161 / 173 layers)" issitempdavo per
            visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
-        slicerPaint(
-          what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f);
+        /* Ne piesiam tiesiogiai: atiduodam laikrodziui, kad procentas ir laikas
+           visada eitu kartu ir viena neistrintu kito. */
+        paskutinis={ka:what+' '+pct+'%', dalis:f,
+                    eilute:tikri?(done+' / '+total+' layers'):''};
+        piesk();
       });
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
        o jo niekas nebelaukia - net „stop" zenklas jau nuvalytas (V 08-20). */
@@ -1180,6 +1265,7 @@ $('slicerGo').addEventListener('click',async()=>{
     prog.textContent=e.message;
     msg(e.message,true);
   }finally{
+    clearInterval(tiksi);
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
