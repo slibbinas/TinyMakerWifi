@@ -455,7 +455,9 @@ const slicerRender=()=>{
       nepakels, gali puikiai „telpa i plokste" - ir butent tai buvo parasyta,
       kol pranesimas guleojo nematomame elemente (pagauta nuotraukoje 08-24). */
    {const didelis=slicerPerDidelis();
-    if(didelis){vd=didelis;col='var(--danger)';}
+    /* Tekstui - NE `--danger`: jis skirtas mygtuko fonui ir tamsioje temoje
+       duoda 1,56 kontrasta (ismatuota 08-24). `--dangertxt` skaitomas abiejose. */
+    if(didelis){vd=didelis;col='var(--dangertxt)';}
     else if(n>TRI_SUNKU)
       vd+=' · heavy file: '+n.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
           +', slicing will take a minute or more';}
