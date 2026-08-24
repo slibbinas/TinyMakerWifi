@@ -854,6 +854,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <h2>Slicer module</h2>
   <div class='grid'>
     <div><div class='label'>On the printer</div><div class='value' id='slmInstalled'>-</div></div>
+    <div id='slmReload' class='hint spanAll warn hidden'></div>
     <div><div class='label'>Latest</div><div class='value' id='slmLatest'>-</div></div>
   </div>
   <div id='slmMsg' class='hint'>Checking...</div>
@@ -2131,16 +2132,35 @@ const loadCommunityStats=()=>{if(communityLoaded)return;communityLoaded=true;
 // under Settings (0-17d), a dot on the Settings tab + the Update nav item
 // surfaces a waiting update without opening anything.
 let publishedVer='',verChecked=false;
+/* Slicerio modulis atsinaujina ATSKIRAI nuo firmware (jis guli kortelėje, o ne
+   flash'e), tad ir jo nauja versija turi pati apie save pasakyti - iki tol
+   naujausią numerį matydavai tik pats nuėjęs į Settings > Update (V 08-24).
+   Tas pats taškas, ta pati piliulė: žmogui tai vienas klausimas „ar yra kas
+   naujo", o ne du. */
+let publishedSlicerVer='',slicerOnCardVer='';
+const slicerUpdAvail=()=>!!(publishedSlicerVer&&slicerOnCardVer
+  &&cmpVer(publishedSlicerVer,slicerOnCardVer)>0);
 const renderFwBadges=()=>{const inst=statusData&&statusData.firmwareVersion;
-  const avail=!!(publishedVer&&inst&&cmpVer(publishedVer,inst)>0);
+  const fwAvail=!!(publishedVer&&inst&&cmpVer(publishedVer,inst)>0);
+  const avail=fwAvail||slicerUpdAvail();
   show('cfgBtnDot',avail);show('updNavDot',avail);
-  $('fwVersion').classList.toggle('upd',avail);};
+  /* Piliulė antraštėje yra FIRMWARE piliulė - ji rodo tik firmware naujieną,
+     kitaip meluotų apie savo pačios versiją. */
+  $('fwVersion').classList.toggle('upd',fwAvail);};
 const checkPublishedVersion=()=>{if(verChecked)return;verChecked=true;
   fetch('https://slibbinas.github.io/TinyMakerWifi/version.txt',{cache:'no-store'})
     // version.txt is TWO lines (version + firmware URL) - take line 1 only,
     // or the patch digit swallows the URL and the compare goes wrong.
     .then(r=>r.ok?r.text():'').then(t=>{publishedVer=(t||'').split('\n')[0].trim();renderFwBadges();})
-    .catch(()=>{verChecked=false;});};
+    .catch(()=>{verChecked=false;});
+  /* Slicerio pusė: viena eilutė iš gh-pages ir vienas mažas klausimas pačiam
+     printeriui (ką turi kortelė). Abu pigūs ir daromi vieną kartą - kortelės
+     atsakymas yra tas pats, kurį rodo Update skiltis. */
+  fetch('https://slibbinas.github.io/TinyMakerWifi/slicer-version.txt',{cache:'no-store'})
+    .then(r=>r.ok?r.text():'').then(t=>{publishedSlicerVer=(t||'').split('\n')[0].trim();
+      renderFwBadges();}).catch(()=>{});
+  api('/api/lib/slicer').then(c=>{slicerOnCardVer=(c&&c.version)||'';renderFwBadges();})
+    .catch(()=>{});};
 const openView=view=>{
   // Leaving the model view cancels an in-flight slice run (fetchSlices checks
   // the sequence each layer) - it must not keep loading behind another view.
@@ -6190,6 +6210,15 @@ const slmRefresh=async()=>{
   catch(e){slmOnCard='';}
   const pin=slicerPin();
   setText('slmInstalled',slmOnCard?slmOnCard+(pin&&pin!==slmOnCard?' (using '+pin+')':''):'not on the card');
+  /* Įdiegus naują modulį senasis lieka gyvas puslapio atmintyje, kol puslapis
+     neperkrautas - ir niekas apie tai nesakydavo, tad žmogus manydavo, kad jau
+     naudoja naują (V 08-24). Sakom tik tada, kai skirtumas TIKRAI yra. */
+  {const kraunamas=String(window.slicerLoadedVer||'').replace('-wasm','');
+   const e=$('slmReload');
+   if(e){const kitaip=!!(kraunamas&&slmOnCard&&kraunamas!==slmOnCard);
+     e.textContent=kitaip?('This page is still running '+kraunamas
+       +' - reload it (Ctrl+F5) to use '+slmOnCard+'.'):'';
+     show('slmReload',kitaip);}}
   try{
     const r=await fetch(GHP+'slicer-versions.txt',{cache:'no-store'});
     if(!r.ok)throw 0;

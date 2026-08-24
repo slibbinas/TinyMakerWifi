@@ -9,6 +9,23 @@ let slicerMod=null, slicerRaw=null, slicerTr=null, slicerBudget=0;
    pertaikydavo, ir mastelio pokytis ekrane dingdavo (V 08-12). */
 let slicerHome=true;
 let slicerFileName='';
+let slicerFileBytes=0;            // failo dydis - zmogui suprantamesnis uz trikampius
+/* Kiek modelis dar imanomas. Skaiciai is matavimu (08-24): 300 tukst. trikampiu
+   uzima 157 MB WASM atminties ir 13 s, 490 tukst. - 226 MB ir 22 s. Poreikis
+   auga tiesiskai (~480 B trikampiui), o narsykles riba yra 2 GB. Virs SUNKU
+   pjaustymas trunka minutemis; virs PER_DAUG variklis nukrinta su „Aborted()",
+   ir tai vienintelis dalykas, kuri zmogus pamato - todel sakom is anksto. */
+const TRI_SUNKU=600000, TRI_PER_DAUG=1500000;
+const mbTeksto=b=>b?(' ('+(b/1048576).toFixed(0)+' MB)'):'';
+/* Grazina paaiskinima, jei failas per didelis, arba '' jei viskas gerai. */
+function slicerPerDidelis(){
+  const tri=slicerRaw?slicerRaw.length/9:0;
+  if(tri<=TRI_PER_DAUG)return '';
+  return 'This file is too big for the browser slicer: '+tri.toLocaleString()+' triangles'
+    +mbTeksto(slicerFileBytes)+'. It can handle about '+TRI_PER_DAUG.toLocaleString()
+    +' - beyond that the slicer runs out of memory and stops. Simplify the mesh '
+    +'(your CAD or MeshLab can reduce it) and load it again.';
+}
 /* Kol slicer'is piesia i perziuros kortele, ji yra JO. Be sios veliaveles
    busenos apklausa po sekundes padeda tuscia vietele ir vaizdas dingsta
    (V 08-12). Spaudinys vis tiek svarbesnis - zr. busyPrint saka. */
@@ -295,7 +312,12 @@ const slicerLoadMod=async()=>{
      modelio apacios, tad po plokste nulindusi atrama nebevirsta pirmais
      sluoksniais. 3.0.6 - ta pati atrama nebematoma ir 3D vaizde, o `layers`
      imamas is paties failo (rodem 340, faile buvo 334). */
-  const SV='3.1.1';
+  /* ⚠️ Sita versija PRIVALO sutapti su ta, kuri paskelbta gh-pages ir gula i
+     kortele: printeris naujausia rinkini persikelia i SD pats, o senojo
+     nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
+     pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
+     (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
+  const SV='3.2.1';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -303,7 +325,11 @@ const slicerLoadMod=async()=>{
      turėti sena kese, ir is pulto iki siol nebuvo kaip pasakyti, kuris algoritmas
      veikia - sugaista du kartus per diena (V 08-18). */
   {const e=$('slicerVer');
-   if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';}
+   if(e)e.textContent=(slicerMod&&slicerMod.VERSION)?slicerMod.VERSION:'';
+   /* Ta pati versija reikalinga ir Update skilciai (ji sedi kitame skripte):
+      idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
+      apie tai butina pasakyti (V 08-24). */
+   window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
                                   :'The slicer module could not be loaded.');
   return slicerMod;
@@ -450,7 +476,18 @@ const slicerRender=()=>{
   slicerScaleUI(b);
   /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
   const tri=slicerRaw.length/9;
-  if(slicerBudget&&tri>slicerBudget)
+  /* #116 tesinys: dydzio tiesa sakoma cia, vos ikelus - tada zmogus dar gali
+     ka nors padaryti. Anksciau vienintelis atsakymas buvo „Aborted()" po
+     kelių minuciu laukimo (V 08-24). */
+  const didelis=slicerPerDidelis();
+  if(didelis){
+    fit.textContent=didelis;
+    fit.style.color='var(--danger)';
+  }else if(tri>TRI_SUNKU){
+    fit.textContent+='  Heavy file ('+tri.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
+      +') - slicing will take a minute or more.';
+  }
+  if(!didelis&&slicerBudget&&tri>slicerBudget)
     fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
       +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
   const home=slicerHome;
@@ -491,7 +528,7 @@ $('slicerFile').addEventListener('change',async e=>{
        gali persideti ant naujo ir vaizdas atrodo istemptas (V 08-12). */
     slicerOut=null;
     if(window.gl3dSupports)gl3dSupports(null);   // naujas modelis - senos atramos ne jo
-    slicerRaw=r.positions; slicerFileName=f.name;
+    slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
@@ -1095,6 +1132,11 @@ $('slicerGo').addEventListener('click',async()=>{
   if(sliceRunning)return;                 // uzrakintas, bet sarga pigi
   if(!slicerRaw||!slicerMod)return;
   if(slicerBusyStop())return;
+  /* Dydzio sarga PRIES darba: kitaip vienintelis atsakymas butu „Aborted()"
+     po kelių minuciu, ir dar su mirusiu moduliu (po jo reikia perkrauti
+     puslapi). Zr. `slicerPerDidelis`. */
+  const perDidelis=slicerPerDidelis();
+  if(perDidelis){msg(perDidelis,true);return;}
   const placed=slicerMod.place(slicerRaw,slicerTr);
   const f=slicerMod.fitCheck(slicerMod.bounds(placed).size);
   if(!f.fits){msg('It does not fit yet - turn or scale it first.',true);return;}
