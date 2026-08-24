@@ -451,6 +451,14 @@ const slicerRender=()=>{
     if(hMm<1||px<8)
       vd+=' · very small: '+hMm.toFixed(2)+' mm tall ('+nL+' layer'+(nL===1?'':'s')
           +'), '+Math.max(1,Math.round(px))+' px across its smallest side';}
+   /* #116 tesinys: dydzio tiesa nusveria visa kita. Failas, kurio variklis
+      nepakels, gali puikiai „telpa i plokste" - ir butent tai buvo parasyta,
+      kol pranesimas guleojo nematomame elemente (pagauta nuotraukoje 08-24). */
+   {const didelis=slicerPerDidelis();
+    if(didelis){vd=didelis;col='var(--danger)';}
+    else if(n>TRI_SUNKU)
+      vd+=' · heavy file ('+n.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
+          +'), slicing will take a minute or more';}
    /* Virsuje - tik verdiktas; matmenys ir trikampiai nusileido prie kitos
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
@@ -476,18 +484,7 @@ const slicerRender=()=>{
   slicerScaleUI(b);
   /* Detalumo biudzetas: virs jo printeris papildomu trikampiu parodyti nebegali. */
   const tri=slicerRaw.length/9;
-  /* #116 tesinys: dydzio tiesa sakoma cia, vos ikelus - tada zmogus dar gali
-     ka nors padaryti. Anksciau vienintelis atsakymas buvo „Aborted()" po
-     kelių minuciu laukimo (V 08-24). */
-  const didelis=slicerPerDidelis();
-  if(didelis){
-    fit.textContent=didelis;
-    fit.style.color='var(--danger)';
-  }else if(tri>TRI_SUNKU){
-    fit.textContent+='  Heavy file ('+tri.toLocaleString()+' triangles'+mbTeksto(slicerFileBytes)
-      +') - slicing will take a minute or more.';
-  }
-  if(!didelis&&slicerBudget&&tri>slicerBudget)
+  if(slicerBudget&&tri>slicerBudget)
     fit.textContent+='  This file holds more detail ('+tri.toLocaleString()+' triangles) than the '
       +'printer can show at this size (~'+slicerBudget.toLocaleString()+').';
   const home=slicerHome;
