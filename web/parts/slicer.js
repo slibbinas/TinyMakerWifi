@@ -1162,10 +1162,23 @@ $('slicerGo').addEventListener('click',async()=>{
   if(typeof syncActionLocks==='function')syncActionLocks();
   slicerButtons(false);
   slicerWorkUI(true);
+  /* Laikrodis gyvena UZ `try`, nes ji sustabdo `finally`. */
+  let tiksi=null;
   try{
     prog.textContent='';
     slicerPaint('Slicing\u2026',0);
     const t0=performance.now();
+    /* Laikrodis. Variklis apie ilgiausia etapa nepranesa nieko (ismatuota:
+       9,9 s tylos 700 tukst. trikampiu modeliui), tad be sito juostele stovi ir
+       atrodo mirusi. Tiksi PATS, is paskutinio zinomo teksto - o teksta atnaujina
+       eigos kvietimai. */
+    let paskutinis={ka:'Looking for overhangs',dalis:0};
+    const laikas=()=>{const s=Math.round((performance.now()-t0)/1000);
+      return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+    const piesk=()=>slicerPaint(paskutinis.ka+' \u00b7 '+laikas()
+      +(paskutinis.eilute?'\n'+paskutinis.eilute:''),paskutinis.dalis);
+    piesk();
+    tiksi=setInterval(()=>{ if(sliceRun===myRun)piesk(); },500);
     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
@@ -1194,8 +1207,11 @@ $('slicerGo').addEventListener('click',async()=>{
            eiluteje „Looking for overhangs 28% (161 / 173 layers)" issitempdavo per
            visa drobe ir `fitFont` dar sumazindavo srifta, kad tilptu (V 08-17). */
         prog.textContent='';
-        slicerPaint(
-          what+' '+pct+'%'+(tikri?('\n'+done+' / '+total+' layers'):''),f);
+        /* Ne piesiam tiesiogiai: atiduodam laikrodziui, kad procentas ir laikas
+           visada eitu kartu ir viena neistrintu kito. */
+        paskutinis={ka:what+' '+pct+'%', dalis:f,
+                    eilute:tikri?(done+' / '+total+' layers'):''};
+        piesk();
       });
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
        o jo niekas nebelaukia - net „stop" zenklas jau nuvalytas (V 08-20). */
@@ -1243,6 +1259,7 @@ $('slicerGo').addEventListener('click',async()=>{
     prog.textContent=e.message;
     msg(e.message,true);
   }finally{
+    clearInterval(tiksi);
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
