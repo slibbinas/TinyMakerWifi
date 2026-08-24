@@ -29,10 +29,13 @@ PRUSA_TAG="${PRUSA_TAG:-version_2.9.6}"
 # tad jam vienintelis pinas yra commit'as; sitas commit'as duoda BAITAS I
 # BAITA tuos pacius failus, su kuriais dirbam siandien (blob SHA sutampa).
 NANOSVG_REF="${NANOSVG_REF:-239e102ec2c691f2902e20ace2ed36ee4a35cfe6}"
-# nlohmann anksciau imtas is `develop`; prisegam prie LEIDIMO, kaip ir
-# visos kitos priklausomybes. Failas nuo develop varianto skiriasi, tad po
-# pirmo svaraus perbudavimo praeiti `python wasm/testas.py`.
-NLOHMANN_REF="${NLOHMANN_REF:-v3.12.0}"
+# nlohmann anksciau imtas is `develop`. Prisegtas prie COMMIT'O, o ne prie
+# leidimo, ir tam yra priezastis: paskutinis leidimas v3.12.0 yra 2025-04, o
+# musu failas is 2026-08 develop - skirtumas 2462 eilutes (pvz. `std::optional`
+# palaikymas). Prisegus prie leidimo mes ne prisisegtume, o ZENGTUME ATGAL i
+# koda, su kuriuo niekada nedirbom. Sitas commit'as duoda abu failus baitas i
+# baita tokius, su kuriais varikliai buvo suderinti (blob SHA sutikrinti).
+NLOHMANN_REF="${NLOHMANN_REF:-6285225fd068df42d043721f3bef65fca48c59fb}"
 JOBS="${JOBS:-8}"
 
 say() { printf '\n=== %s ===\n' "$*"; }
