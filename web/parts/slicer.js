@@ -182,6 +182,7 @@ const sdCollapse=on=>{
   if(h){h.style.display=(on&&!yraJuosta)?'block':'none';
         if(on&&!yraJuosta)h.textContent=sdSantrauka();}
   const t=$('sdToggle'); if(t){t.textContent=AKORD_ZENKLAS(!on);
+    t.classList.toggle('atidaryta',!on);
     t.title=on?'Open the model list':'Collapse the model list';
     t.setAttribute('aria-expanded',on?'false':'true');}
 };
@@ -203,12 +204,17 @@ const ICON_SLICER_CLOSE="<svg viewBox='0 0 16 16' width='13' height='13' fill='n
    „isdidinti" virs peržiūros) ir ta pati rodykle - zemyn, kai atidaryta, i desine, kai
    suskleista. Anksciau sliceris rodė zodi „Open" ir kryziuka, o SD - rodykle: du
    skirtingi zenklai tam paciam veiksmui (V 08-20). */
-const AKORD_ZENKLAS=on=>on?'▾':'▸';
+/* PILNI trikampiai, ne mazieji: ▸ savo eiluteje uzima gal trecdali, tad jo
+   didinimas nieko neduoda - 13, 17 ir 20 px atrodo vienodai (V 08-24, palyginta
+   renderiu). ▶ ties tuo paciu 13 px matomas is karto, o eilutes aukstis
+   nesikeicia. */
+const AKORD_ZENKLAS=on=>on?'▼':'▶';
 const slicerToggleUI=open=>{
   const t=$('slicerToggle'); if(!t)return;
   /* Busena jau tokia - iseinam: si funkcija kvieciama ir is apklausos (1 Hz). */
   if(t.classList.contains('narrow')===open&&t.textContent===AKORD_ZENKLAS(open))return;
   t.classList.add('narrow');
+  t.classList.toggle('atidaryta',open);
   t.textContent=AKORD_ZENKLAS(open);
   t.title=open?'Collapse the slicer':'Open the slicer';
   t.setAttribute('aria-expanded',open?'true':'false');
