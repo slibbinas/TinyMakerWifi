@@ -793,7 +793,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   </div>
   <div id='pane-update' class='cfgPane hidden'>
   <section id='updateView' class='card'>
-  <h2>Firmware update</h2>
+  <h2>Firmware update<span id='fwSecDot' class='updDot hidden'></span></h2>
   <div class='grid'>
     <!-- 0-20: each version number links to its GitHub Release notes. The link
          only shows for versions present in the gh-pages manifest (release.py
@@ -851,7 +851,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
        that a new slicer must not cost a reflash. Only shown when the module is
        switched on (Settings > Network) - otherwise there is nothing to version. -->
   <section id='slicerUpdateView' class='card hidden'>
-  <h2>Slicer module</h2>
+  <h2>Slicer module<span id='slmDot' class='updDot hidden'></span></h2>
   <div class='grid'>
     <div><div class='label'>On the printer</div><div class='value' id='slmInstalled'>-</div></div>
     <div id='slmReload' class='hint spanAll warn hidden'></div>
@@ -2144,6 +2144,10 @@ const renderFwBadges=()=>{const inst=statusData&&statusData.firmwareVersion;
   const fwAvail=!!(publishedVer&&inst&&cmpVer(publishedVer,inst)>0);
   const avail=fwAvail||slicerUpdAvail();
   show('cfgBtnDot',avail);show('updNavDot',avail);
+  /* Trecias to paties kelio taskas: Settings -> Update -> Slicer module. Sitas
+     dega TIK del slicerio - kitaip nuvestu prie skyriaus, kuriame nieko naujo. */
+  show('slmDot',slicerUpdAvail());
+  show('fwSecDot',fwAvail);
   /* Piliulė antraštėje yra FIRMWARE piliulė - ji rodo tik firmware naujieną,
      kitaip meluotų apie savo pačios versiją. */
   $('fwVersion').classList.toggle('upd',fwAvail);};
@@ -6208,6 +6212,11 @@ const slmRefresh=async()=>{
      pusiau nukopijuotas rinkinys neturi atrodyti kaip idiegtas (auditas 08-22). */
   try{const c=await api('/api/lib/slicer');slmOnCard=c.version||'';}
   catch(e){slmOnCard='';}
+  /* Kortelė gali buti pasikeitusi nuo puslapio uzkrovimo: modulis, paimtas is
+     interneto, pats nusikopijuoja i SD. Be sito atnaujinimo taskelis liktu degti
+     apie versija, kuri jau idiegta (pagauta 08-24 tikrinant ant printerio). */
+  if(typeof slicerOnCardVer!=='undefined'&&slmOnCard&&slicerOnCardVer!==slmOnCard){
+    slicerOnCardVer=slmOnCard; renderFwBadges();}
   const pin=slicerPin();
   setText('slmInstalled',slmOnCard?slmOnCard+(pin&&pin!==slmOnCard?' (using '+pin+')':''):'not on the card');
   /* Įdiegus naują modulį senasis lieka gyvas puslapio atmintyje, kol puslapis
