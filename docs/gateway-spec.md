@@ -143,7 +143,19 @@ inside a stepper move. The exposure wait loop services HTTP only
 (`src/UVLED.ino`), so a beat cannot reach it by construction.
 
 A beat is skipped, never queued, when the printer is mid-move, unpacking, or
-homing. Missing one is invisible to the user; delaying a layer is not.
+homing. Missing one is invisible to the user; delaying a layer is not. A paused
+print counts as idle only once the plate has actually stopped
+(`stepper.distanceToGo() == 0`): pause is accepted from inside the lift loop, so
+the flag alone would still allow a beat mid peel.
+
+**What the timeout does and does not cover.** The budget above is enforced over
+the connect and the whole read. The send is not separately bounded: the Arduino
+core's `write()` runs its own retry loop (10 rounds of a 1 s `select`) and
+ignores the socket timeout, so a socket that accepts a connection and then stops
+draining can hold the call longer than the number in the table. Headers and body
+are therefore written in one call, which narrows the window but does not close
+it. Closing it properly means a non-blocking send loop on the print path, and
+that is deliberately not written yet: it has to be measured on hardware first.
 
 ## 7. Free vs paid (product note)
 

@@ -468,10 +468,10 @@ void loadDeviceConfig() {
   // to design out, not a few skipped integers.
   gatewaySeq = sysPrefs.getULong("tmgSeq", 0) + 32;
   gatewaySeqPersisted = gatewaySeq;
-  // Write the jump now, not later: the beat path persists only every 32 frames,
-  // so without this a reboot would hand out numbers the server has already seen
-  // and reject as replays.
-  sysPrefs.putULong("tmgSeq", gatewaySeq);
+  // The jump is written at the end of this function, not here: this handle is
+  // read-only and Preferences drops a put() on it without a word, which would
+  // leave the jump in RAM only - exactly the reboot-hands-out-a-used-number
+  // case the jump exists to prevent.
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -530,6 +530,14 @@ void loadDeviceConfig() {
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
+  // Now that the read-only handle is closed, persist the gateway seq jump read
+  // above. Only for a printer that actually has a gateway key: an unconfigured
+  // one must not spend a flash write on every boot.
+  if (gatewayDeviceKey.length() > 0) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putULong("tmgSeq", gatewaySeq);
+    sysPrefs.end();
+  }
 }
 
 void saveDeviceConfig() {

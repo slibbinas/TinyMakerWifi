@@ -291,8 +291,14 @@ bool gatewayBeat(bool busy) {
     return false;
   }
 
+  // Headers and body go out as ONE write. Two client.print() calls can each
+  // sit in the core's write-retry loop (10 rounds of a 1 s select, where the
+  // socket timeout does not apply), which would add seconds to a beat that is
+  // supposed to be bounded by `budget` - in the middle of a layer cycle. One
+  // buffer is not a hard guarantee, but it halves the exposure and costs
+  // nothing.
   String req;
-  req.reserve(320);
+  req.reserve(320 + body.length());
   req += "POST " + (gatewayPath.length() ? gatewayPath : String("")) + "/v1/beat HTTP/1.1\r\n";
   req += "Host: " + gatewayHost + "\r\n";
   req += "Content-Type: application/json\r\n";
@@ -301,8 +307,8 @@ bool gatewayBeat(bool busy) {
   req += "X-TM-Seq: " + seq + "\r\n";
   req += "X-TM-Sig: " + sig + "\r\n";
   req += "Connection: close\r\n\r\n";
+  req += body;
   client.print(req);
-  client.print(body);
 
   // --- response, all of it under `deadline` --------------------------------
   String status = "";
@@ -417,8 +423,16 @@ void gatewayTick(bool busy) {
 // Idle path, plus a paused print: the motor is stopped and the UV LED is off
 // while paused, so a beat there is as safe as an idle one - and without it a
 // remote "pause" could never be followed by a remote "resume".
+//
+// But "paused" has to mean the plate has stopped, not that the flag went up.
+// Pause is accepted from inside the lift loop (Motor.ino sets print_paused
+// while stepper.distanceToGo() != 0), and that loop serves the network every
+// 300 ms - so the flag can be set with the plate still mid travel. A beat there
+// would hold stepper.run() for the whole exchange and freeze the plate in the
+// middle of a peel with the coils energised. distanceToGo() == 0 is the
+// difference between "asked to pause" and "standing still".
 void gatewayLoop() {
-  if (printerBusy() && !print_paused) return;
+  if (printerBusy() && !(print_paused && stepper.distanceToGo() == 0)) return;
   gatewayTick(printerBusy());
 }
 
