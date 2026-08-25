@@ -148,8 +148,9 @@ bool gatewaySigEquals(const String &a, const String &b) {
 // The counter must never repeat: the server rejects a replayed seq, and a
 // printer that reuses one locks itself out until someone re-pairs it. Writing
 // every beat would burn flash, so we persist in strides - and loadDeviceConfig()
-// writes the boot jump immediately, so a power loss costs unused numbers rather
-// than reused ones.
+// writes the boot jump at its end (after the read-only handle is closed, and
+// only for a printer that has a key), so a power loss costs unused numbers
+// rather than reused ones.
 void gatewayNextSeq() {
   gatewaySeq++;
   if (gatewaySeq - gatewaySeqPersisted >= GATEWAY_SEQ_STRIDE) {
@@ -268,6 +269,14 @@ void gatewayHandleCommands(const String &response) {
 // go to a cached IP while still sending the right Host header.
 bool gatewayBeat(bool busy) {
   if (!gatewayParseUrl()) return false;
+  // Expire the cached address on the idle path. The TTL check inside
+  // gatewayResolveHost() can never fire on its own: that function is only ever
+  // called when the address is already gone. Without this the printer keeps a
+  // stale IP for as long as something still answers on port 80 there - and
+  // since V1 it takes three failed connects, not one, to notice.
+  if (!busy && gatewayIpValid && millis() - gatewayIpAtMs >= GATEWAY_DNS_TTL_MS) {
+    gatewayIpValid = false;
+  }
   if (!gatewayIpValid) {
     // Resolving is idle-only work; a print-time beat waits for the next idle
     // window rather than risk an unbounded lookup between two layers.

@@ -466,6 +466,9 @@ void loadDeviceConfig() {
   // beat path only persists every GATEWAY_SEQ_STRIDE frames (flash wear), so a
   // reused number - which the server rejects as a replay - is the failure mode
   // to design out, not a few skipped integers.
+  // Literal 32, not GATEWAY_SEQ_STRIDE: that constant lives inside the
+  // ENABLE_NETWORK block of TinyMakerGateway.ino, which is compiled after this
+  // file and not at all in a network-free build. Keep the two in step by hand.
   gatewaySeq = sysPrefs.getULong("tmgSeq", 0) + 32;
   gatewaySeqPersisted = gatewaySeq;
   // The jump is written at the end of this function, not here: this handle is
