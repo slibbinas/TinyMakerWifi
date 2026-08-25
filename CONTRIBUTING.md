@@ -38,7 +38,7 @@ not a trunk.
 | `temp/` | Throwaway: experiments, session scratch |
 
 A release version belongs in the name, not in the prefix, so both axes stay
-readable: `prnt/0.18-pause-lift`, `slcr/supports-tree`, `cliv/gateway-auth`.
+readable: `prnt/1.1-pause-lift`, `slcr/supports-tree`, `cliv/gateway-auth`.
 CI builds every `prnt/**`, `slcr/**` and `cliv/**` push, so a branch that
 stops compiling says so the same day.
 
