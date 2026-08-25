@@ -35,6 +35,11 @@ static const uint8_t       GATEWAY_SEQ_STRIDE    = 32;
 static const uint8_t       GATEWAY_MAX_FAILS     = 6;
 static const size_t        GATEWAY_MAX_BODY      = 1024;   // replies are tiny by contract
 static const unsigned long GATEWAY_DNS_TTL_MS    = 600000UL;
+// How many connects in a row must fail before the cached address is treated as
+// stale. One failure is normal on a home network (Wi-Fi hiccup, the edge
+// dropping an idle socket); throwing the address away on the first one costs
+// the rest of the print, because re-resolving is idle-only work.
+static const uint8_t       GATEWAY_IP_FAILS      = 3;
 
 unsigned long gatewayNextBeatMs = 0;
 uint8_t gatewayFailStreak = 0;
@@ -48,6 +53,7 @@ String gatewayParsedFrom = "";      // the URL these three came from
 IPAddress gatewayIp;
 bool gatewayIpValid = false;
 unsigned long gatewayIpAtMs = 0;
+uint8_t gatewayIpFails = 0;              // consecutive failed connects to that IP
 
 String gatewayPendingAck = "";
 
@@ -103,6 +109,7 @@ bool gatewayResolveHost() {
   gatewayIp = ip;
   gatewayIpValid = true;
   gatewayIpAtMs = millis();
+  gatewayIpFails = 0;      // a fresh address starts with a clean record
   return true;
 }
 
@@ -286,10 +293,16 @@ bool gatewayBeat(bool busy) {
   WiFiClient client;
   client.setTimeout(budget / 1000 + 1);
   if (!client.connect(gatewayIp, gatewayPort, connectBudget)) {
-    gatewayIpValid = false;                 // stale address: re-resolve when idle
+    // Only give up on the address after several in a row. A print serves ~480
+    // beats over eight hours; dropping the IP on the first miss ended remote
+    // monitoring for the rest of the print, silently, because a new lookup can
+    // only happen when the printer is idle.
+    if (gatewayIpFails < GATEWAY_IP_FAILS) gatewayIpFails++;
+    if (gatewayIpFails >= GATEWAY_IP_FAILS) gatewayIpValid = false;
     gatewayLastStatus = "gateway unreachable";
     return false;
   }
+  gatewayIpFails = 0;
 
   // Headers and body go out as ONE write. Two client.print() calls can each
   // sit in the core's write-retry loop (10 rounds of a 1 s select, where the
@@ -339,16 +352,22 @@ bool gatewayBeat(bool busy) {
           // short string lives inside the object and reports non-zero capacity.)
           respBody.reserve((contentLength ? contentLength : 256) + 1);
         }
-        else if (line.startsWith("X-TM-RSig:") || line.startsWith("x-tm-rsig:")) {
-          respSig = line.substring(10); respSig.trim();
-        } else if (line.startsWith("Content-Length:") || line.startsWith("content-length:")) {
-          long n = line.substring(15).toInt();
-          if (n < 0 || n > (long)GATEWAY_MAX_BODY) {
-            client.stop();
-            gatewayLastStatus = "gateway reply too large";
-            return false;
+        else {
+          // HTTP header names are case-insensitive and proxies do rewrite them
+          // ("X-Tm-Rsig"), so compare on a folded copy and cut from the original.
+          String lower = line;
+          lower.toLowerCase();
+          if (lower.startsWith("x-tm-rsig:")) {
+            respSig = line.substring(10); respSig.trim();
+          } else if (lower.startsWith("content-length:")) {
+            long n = line.substring(15).toInt();
+            if (n < 0 || n > (long)GATEWAY_MAX_BODY) {
+              client.stop();
+              gatewayLastStatus = "gateway reply too large";
+              return false;
+            }
+            contentLength = (size_t)n;
           }
-          contentLength = (size_t)n;
         }
         line = "";
       } else if (c != '\r' && line.length() < 200) {
@@ -432,8 +451,14 @@ void gatewayTick(bool busy) {
 // middle of a peel with the coils energised. distanceToGo() == 0 is the
 // difference between "asked to pause" and "standing still".
 void gatewayLoop() {
-  if (printerBusy() && !(print_paused && stepper.distanceToGo() == 0)) return;
-  gatewayTick(printerBusy());
+  bool stoppedPause = print_paused && stepper.distanceToGo() == 0;
+  if (printerBusy() && !stoppedPause) return;
+  // A stopped pause is passed as idle, not busy, and that is the whole point of
+  // beating here: `busy` also forbids a DNS lookup, so a paused printer whose
+  // cached address had gone stale could never be resumed remotely - the person
+  // would have to walk to the machine. Nothing is moving and the UV LED is off,
+  // so the longer idle budget is safe.
+  gatewayTick(printerBusy() && !stoppedPause);
 }
 
 // Print path: called from ONE safe point in the layer cycle - after the layer
@@ -450,6 +475,7 @@ void gatewayPrintTick() {
 void gatewayConfigChanged() {
   gatewayParsedFrom = "";
   gatewayIpValid = false;
+  gatewayIpFails = 0;
   gatewayFailStreak = 0;
   gatewayNextBeatMs = millis();
 }

@@ -1762,13 +1762,23 @@ void applyConfigRequest() {
   // the same rule as the MQTT password and the Telegram token: a blank field
   // keeps what is stored, so the browser never has to hold it to save the rest
   // of the form.
+  const bool   gatewayWasEnabled = gatewayEnabled;
+  const String gatewayUrlWas     = gatewayBaseUrl;
+  const String gatewayKeyWas     = gatewayDeviceKey;
   gatewayEnabled = formCheck("gateway_enabled", gatewayEnabled);
   if (!wifiEnabled) gatewayEnabled = false;
   gatewayBaseUrl = connectNormalizeBaseUrl(formString("gateway_base_url", gatewayBaseUrl, 128));
   if (server.hasArg("gateway_key") && server.arg("gateway_key").length() > 0) {
     gatewayDeviceKey = formString("gateway_key", gatewayDeviceKey, 64);
   }
-  gatewayConfigChanged();   // a corrected URL or key must not wait out a backoff
+  // Only when a gateway field actually moved: this handler runs for every
+  // settings save, and gatewayConfigChanged() clears the failure streak and
+  // asks for an immediate beat - so saving an unrelated setting would cancel a
+  // backoff the printer had a good reason for, and hammer a dead server.
+  if (gatewayEnabled != gatewayWasEnabled || gatewayBaseUrl != gatewayUrlWas ||
+      gatewayDeviceKey != gatewayKeyWas) {
+    gatewayConfigChanged();   // a corrected URL or key must not wait out a backoff
+  }
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
   String ntf = formString("notify_channel", tgEnabled ? "tg" : (waEnabled ? "wa" : (dcEnabled ? "dc" : "none")), 8);
