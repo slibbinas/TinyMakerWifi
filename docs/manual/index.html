@@ -236,6 +236,17 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </ol>
   <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again.</div>
 
+  <h3 id="install-timeout">Flashing fails with “ERROR: Timeout”</h3>
+  <p>If the flasher connects, downloads the firmware and then dies partway through <b>Writing firmware-full.bin</b>, the transfer speed is almost always the culprit - not the browser. Work down this list:</p>
+  <ol class="steps">
+    <li><b>Lower the baud rate.</b> The <b>Baud rate</b> dropdown on the flasher page defaults to <code>921600</code>. Set it to <code>115200</code> and flash again. It takes a few minutes instead of about half a minute, but it copes far better with marginal cables and USB-serial chips.</li>
+    <li><b>Swap the USB cable.</b> Charge-only cables, and cables with thin data lines, are the second most common cause. Use a short, known-good data cable.</li>
+    <li><b>Plug straight into the computer</b> - not through a hub, dock, monitor or keyboard port.</li>
+    <li><b>Update the CH340 driver</b> (see the note above) - an old Windows-bundled driver produces exactly this symptom.</li>
+    <li><b>Several ports in the picker?</b> Unplug the printer, reopen the port picker, plug it back in, and choose the entry that appears.</li>
+  </ol>
+  <div class="note">💬 Still stuck after all five? Open an <a href="https://github.com/slibbinas/TinyMakerWifi/issues">issue</a> with the flasher log and the baud rate you used.</div>
+
   <h3>Method 2 — already running TinyMakerWifi?</h3>
   <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Settings → Update</b> — see <a href="#update">Updating the firmware</a>.</p>
 
@@ -696,6 +707,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
   <h3>How do I clean the resin VAT?</h3>
   <p>When changing resin or storing the printer, pour the resin back through a <b>paint filter</b> into its bottle, then wipe the VAT with IPA and a soft <b>paper towel</b> — never anything hard: the clear <b>FEP film</b> on the bottom scratches easily. Held to the light the FEP should be clear, with no cured skin or cloudiness stuck to it; gently <b>flexing</b> the VAT pops leftover cured bits loose so you can peel them off by hand, not with a scraper.</p>
+
+  <h3>The web flasher stops with “ERROR: Timeout”</h3>
+  <p>Almost always the transfer speed, not the browser: set the flasher’s <b>Baud rate</b> to <code>115200</code> and flash again. Cable, hub and driver checks are in <a href="#install-timeout">Installing the firmware</a>.</p>
 
   <h3>A firmware update failed</h3>
   <p>The dual OTA partition keeps the previous firmware, so the printer should still boot. Try again from System → Update, or upload a <code>firmware.bin</code> from the dashboard’s Settings → Update.</p>
