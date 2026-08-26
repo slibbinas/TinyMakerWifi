@@ -71,6 +71,18 @@ Three ways to get the firmware onto the printer — the first is by far the easi
 
 If your computer does **not** recognize the printer over USB, install the CH340 driver from the `Driver` folder of this repository (`CH341SER.EXE`), then try again.
 
+#### Flashing fails with `ERROR: Timeout`?
+
+If the flasher connects, downloads the firmware and then dies partway through **Writing firmware-full.bin**, the transfer speed is almost always the culprit - not the browser:
+
+1. **Lower the baud rate.** The **Baud rate** dropdown on the flasher page defaults to `921600`. Set it to **115200** and flash again. It takes a few minutes instead of ~30 seconds, but it tolerates marginal cables and USB-serial chips far better.
+2. **Swap the USB cable.** Charge-only cables and cables with thin data lines are the second most common cause. Use a short, known-good data cable.
+3. **Plug straight into the computer**, not through a hub, dock, monitor or keyboard port.
+4. **Update the CH340 driver** (see above) - an old Windows-bundled driver produces exactly this symptom.
+5. **Several ports in the picker?** Unplug the printer, reopen the port picker, plug it back in, and choose the entry that appears.
+
+Still stuck after all five? Open an [issue](https://github.com/slibbinas/TinyMakerWifi/issues) with the flasher log and the baud rate you used.
+
 ### Method 2: Already running TinyMakerWifi? Update over WiFi
 
 No USB needed — use `System → Update` on the printer or the dashboard's **Update tab**. See [Wireless Firmware Updates](#wireless-firmware-updates).
