@@ -115,6 +115,11 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    Ismatuota: 345x76 -> 307x57. Nuimti visai negalima - tada dezute pulsuotu kas sekunde. */
 #statusMsg .snackPct{flex:0 0 auto;min-width:4.5em;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent)}
 #statusMsg .snackPct:empty{min-width:0}
+/* Kai iš anksto žinom, kad skaičiai ateis (trynimas, išpakavimas), langelis
+   rezervuojamas nuo pirmos sekundės: kitaip tuščias jis suplokščiamas iki nulio, o
+   atsiradus „120/240" dėžutė (width:max-content) praplatėja ir persicentruoja -
+   akiai tai ANTRAS pranešimas, nors elementas tas pats (V 08-27). */
+#statusMsg .snackPct.reserve:empty{min-width:4.5em}
 #statusMsg .snackBar{margin-top:8px;height:3px;border-radius:2px;background:var(--line2);overflow:hidden}
 #statusMsg .snackBar>span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}@keyframes toastIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}/* Vienas neutralus fonas abiem busenom: rausvas ispejimo fonas buvo vienintele rausva vieta visame pulte. Busena skiriasi remeliu ir teksto spalva - snackbaro esme yra suprasti NEPASKAICIUS, tad skirtumas turi likti (V 08-13). */#statusMsg.warn{background:var(--toast);border-color:var(--warncol);color:var(--warncol)}#statusMsg:empty{display:none}.configGrid .hint{grid-column:1/-1}.cfgNav{display:flex;flex-wrap:wrap;gap:2px 22px;border-bottom:1px solid var(--line);margin:0 0 16px}.cfgBreak{display:none}@media(max-width:520px){.cfgNav{gap:2px 14px}.cfgBreak{display:block;flex-basis:100%;height:0}}.cfgNav a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 2px 9px;border-bottom:2px solid transparent;white-space:nowrap}.cfgNav a.on{color:var(--text);border-bottom-color:var(--accent)}.cfgNav a:hover{color:var(--text);text-decoration:none}@media(max-width:520px){.toolbar button,.toolbar .button{flex:1 1 calc(50% - 4px)}.configGrid,.actions{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.head{display:block}.fw{margin-top:4px}.file{align-items:flex-start;flex-direction:column}.rowActions{width:100%}.files .rowActions{width:100%}#uploadButton{width:auto}.connectTabs{gap:16px}.leaderRow{grid-template-columns:32px minmax(0,1fr);gap:4px}.leaderRow .pill{width:max-content}}@media(min-width:1000px){.wrap{max-width:1100px}/* Isdidinus placiame ekrane vietos yra iki pat oranzines linijos (V 08-19). Kortele sedi KAIRIAJAME stulpelyje, tad jai pačiai `grid-column` negalioja - isskleidziamas visas maketas i viena stulpeli, ir tada perziura uzima visa plotį, o desiniojo stulpelio korteles nusileidzia zemiau. Telefone niekas nesikeicia. */.wrap #homeView.stageWideOn{grid-template-columns:1fr}#homeView:not(.hidden){display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}/* Desinys stulpelis - lankstus: atidarytas akordeono blokas uzima visa likusia vieta,
    tad bendras aukstis sutampa su kairiuoju stulpeliu, kad ir kuris atidarytas (V 08-20). *//* Kairio stulpelio korteles NESITEMPIA: stulpeliai vienodinami tarpusavyje, bet
@@ -2646,7 +2651,7 @@ const refreshStatus=async()=>{
        yra ne gedimas, o tas pats ikelimas: skundas cia tik pakeistu ramia zinute
        „priimu modeli" nerimo zinute, ir taip kas kelias sekundes. 30 s: priemimas
        tyli iki ~20 s (ismatuota 08-19), o po jo ateina ispakavimas su savo snacku. */
-    if(deleteBusy||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
+    if(deleteBusy||Date.now()<deleteQuietUntil||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
        ||(Date.now()-lastRxAt<30000)){}
     else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
@@ -5114,6 +5119,14 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
 // for a while - keep a persistent "deleting" toast and silence the status-poll
 // timeouts instead of flashing "Status unavailable" (user finding, 0.14.3).
 let deleteBusy=false;
+/* Trynimas i eile: HTTP atsakymas grizta IS KARTO, o printeris trina dar
+   desimtis sekundziu. Tuo metu `deleteBusy` jau nuimta (mygtukai atrakinti), o
+   `sdJobCur` dar neatsirado - ir tarp ju lieka skyle, kurioje apklausa krinta ir
+   isoka geltonas „Printer not answering". `msg()` israuna eigos snacko vidu, o
+   printeriui paskelbus darba snackas statomas i\u0161 naujo - zmogui tai TRYS
+   pranesimai (V 08-27). Si zyme dengia butent ta skyle; mygtuku ji NELIECIA.
+   20 s riba, kad tikras rysio dingimas nebutu nutylėtas amziams. */
+let deleteQuietUntil=0;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;
   /* Trynimas ir perziuros krovimas eina i ta pati vieninteli printerio rysi. Nuo tada,
      kai Delete pasiekiamas tik pazymejus eilute (o pazymejimas paleidzia krovima), abu
@@ -5132,12 +5145,14 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
      rodomas BE juosteles, o printeriui paskelbus darba ji staiga atsiranda - pranesimas
      paaukstėja ir atrodo kaip ANTRAS popup'as. Su ja forma nesikeicia: is pradziu
      „dirbu", paskui toje pacioje vietoje atsiranda skaiciai. */
-  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'',undefined,'indet');try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
+  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'',undefined,'indet');
+  /* B1: skaičių langelis rezervuojamas iš karto - trynimui jie tikrai ateis. */
+  {const pc=$('statusMsg').querySelector('.snackPct'); if(pc)pc.classList.add('reserve');}try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
   syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
-  if(r&&r.queued){refreshStatus();return;}
+  if(r&&r.queued){deleteQuietUntil=Date.now()+20000;refreshStatus();return;}
   msg('Deleted '+shortName(name)+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
@@ -5320,6 +5335,7 @@ const renderSdJob=s=>{
       sdJobCur='';
       // one-shot closure - the job just finished
       if(sdJobLast==='delete'){
+        deleteQuietUntil=0;   // darbas baigtas - tyla nebereikalinga
         msg('Deleted '+shortName(sdJobLastName)+'.');
         if(localStorage.getItem('dashPreviewModel')===sdJobLastName)forgetDashPreview();
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
