@@ -494,7 +494,13 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 <div id='promptModal' class='modal hidden'>
   <div class='modalCard'>
     <div id='promptText' class='modalText'></div>
-    <input id='promptInput' type='text' maxlength='40' style='width:100%'>
+    <!-- Jokio autocomplete: narsykle siulydavo visus anksciau ivestus vardus, ir tas
+         sarasas uzguldavo Cancel/OK mygtukus po laukeliu - zmogus nebematydavo, ka spaudzia
+         (V radinys 08-27). Vardas duotas savas, nes Chrome i „off" atsizvelgia tik tada,
+         kai lauko vardas jam nieko nesako. -->
+    <input id='promptInput' type='text' maxlength='40' style='width:100%'
+           name='tm-noac' autocomplete='off' autocorrect='off' autocapitalize='off'
+           spellcheck='false' data-form-type='other'>
     <div class='modalBtns' style='margin-top:14px'>
       <button id='promptCancel' class='button secondary' type='button'>Cancel</button>
       <button id='promptOk' type='button'>OK</button>
