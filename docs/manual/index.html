@@ -186,6 +186,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><a href="#resin">Resin profiles, estimate &amp; refills</a></li>
     <li><a href="#dashboard">The web dashboard</a></li>
     <li><a href="#advanced">System menu reference</a></li>
+    <li><a href="#maint">Maintenance menu</a></li>
     <li><a href="#update">Updating the firmware</a></li>
     <li><a href="#mqtt">Home Assistant &amp; notifications</a></li>
     <li><a href="#faq">Troubleshooting &amp; FAQ</a></li>
@@ -472,6 +473,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </ul>
   <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> — it decodes every layer, so expect roughly a minute per 100 layers.</p>
   <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
+  <p><b>Any device, at any point in the print.</b> You do not have to have opened the preview beforehand, and it does not have to be the same browser or the same phone — open the dashboard an hour into a print, on a device that has never seen the model, and the growing shape is there. The printer keeps a small stack of layer silhouettes in memory as it prints and hands them to whoever asks, so nothing is read from the SD card mid-print. (Opening the preview first still gives the fuller picture: the complete model as a ghost, rather than only what has been printed so far.)</p>
   <img class="shot" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
 
   <h3>The Settings tab</h3>
@@ -554,6 +556,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <tr><th>R = 14 s</th><td>6</td><td>8</td><td>10</td><td>12</td><td><b>14</b></td><td>16</td><td>19</td><td>22</td></tr>
   </table>
   </div>
+  <div class="note">⚙️ <b>Regular exposure moves in tenths of a second</b> (0.1&nbsp;s steps, 1–30&nbsp;s) — on the printer each press changes it by 0.1&nbsp;s, and in the dashboard you can type the value straight in. <b>Base exposure stays in whole seconds</b> (5–60&nbsp;s): it is about the first layers gripping the plate, where a tenth of a second changes nothing. Use the tenths for fine-tuning once the test has put you in the right area — not for finding that area in the first place.</div>
   <p><b>The ladder follows your setting automatically.</b> To test shorter (or longer) times, just change <i>Regular exposure</i> in one place — dashboard → Settings → <i>Regular exposure</i> → Save, or the printer’s Settings menu — and the test range recalculates itself; the Advanced menu row shows the current range (e.g. “2-16s strip”). After the test, set the winning bar’s time as your final value.</p>
   <div class="note">💡 <b>Count the dots, not the sides.</b> Each bar carries its number as holes near one end — 1 dot = bar 1 (shortest) … 8 dots = bar 8 (longest). The strip stays identifiable no matter how it is flipped or mirrored (the vat view often is!), and the dots double as a fine-detail check: on a well-exposed bar the holes come out round and open.</div>
   <ol class="steps">
@@ -604,7 +607,42 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>; Shuffle by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</i></p>
 
 <section>
-  <h2 class="sec" id="update"><span class="num">13</span>Updating the firmware</h2>
+  <h2 class="sec" id="maint"><span class="num">13</span>Maintenance menu</h2>
+  <p>The main menu’s <b>Maintenance</b> entry holds the three jobs that touch the hardware rather than a file: levelling the plate, moving it by hand, and curing the leftovers out of the vat. None of them need a computer.</p>
+
+  <div class="warn">⚠️ <b>Know which way each one moves.</b> <i>Level Build Plate</i> drives the plate <b>down</b>, towards the screen. <i>Move Build Plate</i> goes wherever you tell it. Picking the wrong one with a part still on the plate is the one mistake here that can damage the FEP film or the LCD.</div>
+
+  <h3 id="maint-level">Level Build Plate</h3>
+  <p>Homes the plate <b>downwards</b> until it sits flat on the screen, which is how the plate is squared up and its zero is set. The printer says so before it moves — a red screen reading <i>“Plate must be EMPTY. Homing goes DOWN.”</i></p>
+  <ul>
+    <li><b>Take the printed part off the plate first</b>, and take the vat out (or make sure levelling is what you actually want) — the plate is going to travel all the way down.</li>
+    <li>Use it when prints stop sticking evenly, after you have removed or refitted the plate, or after transport.</li>
+  </ul>
+  <div class="warn">⚠️ <b>Never use Level Build Plate to rescue a print.</b> After a power cut, with a half-finished part still hanging on the plate, the instinct is to reach for the levelling item to get the plate up and out of the way. It goes <b>down</b> instead, and presses the part into the film. To raise the plate use <a href="#maint-move">Move Build Plate</a>, or the <b>Lift plate only</b> button on the <i>Power restored</i> screen (see <a href="#resin">Power-loss recovery</a>). <em>Found the hard way by a user, 2026.</em></div>
+
+  <h3 id="maint-move">Move Build Plate</h3>
+  <p>Drives the plate up or down by hand, in the step you pick: <b>0.1&nbsp;mm</b>, <b>1&nbsp;mm</b> or <b>10&nbsp;mm</b>. This is the tool for everything that is not levelling:</p>
+  <ul>
+    <li><b>Raising the plate after a power cut</b> so you can look at the part or take it off.</li>
+    <li>Getting the plate clear before pulling the vat out.</li>
+    <li>Closing in on a position gently — 10&nbsp;mm to travel, 1&nbsp;mm to approach, 0.1&nbsp;mm for the last bit.</li>
+  </ul>
+
+  <h3 id="maint-clean">Clean Resin Vat</h3>
+  <p>Lights the <b>whole screen</b> for a set time, so everything left in the vat cures into one thin sheet you can lift out in one piece — instead of chasing hardened crumbs around with a spatula. Run it when you change resin, when a print has failed and left something behind, or before putting the printer away.</p>
+  <ol class="steps">
+    <li><b>Take the build plate out</b> and leave the vat in place with the resin still in it.</li>
+    <li><b>Maintenance → Clean Resin Vat.</b> Set the exposure with the arrows — <b>30 to 60 seconds</b> — and start. Longer means a thicker, sturdier sheet; thin resin needs the longer end.</li>
+    <li>Wait for it to finish, then <b>lift the sheet by a corner</b> and peel it out slowly. <b>Gently flexing the vat</b> pops it loose if it clings.</li>
+    <li>Wipe what is left with IPA and a soft paper towel, and check the film against the light: it should be clear, with nothing cured stuck to it.</li>
+  </ol>
+  <div class="warn">⚠️ <b>Nothing hard in the vat, ever.</b> No blades, no metal spatulas, no scraping — the clear FEP film on the bottom scratches, and a scratched film prints marks into everything after it. If a sheet will not come loose, run another cleaning cycle rather than forcing it.</div>
+  <div class="note">💡 <b>Dry run makes this do nothing.</b> While <i>Dry run</i> is on, the UV LED stays off <b>everywhere</b>, this cycle included: the screen lights up, the timer runs, and no resin cures. Turn it off first (System → Advanced → Resin → Dry run) if the sheet never forms. Cleaning exposures do count towards the LED’s recorded hours, exactly like printing.</div>
+  <div class="note">🧤 <b>Gloves on for all of this.</b> Uncured resin irritates skin, and a cured sheet still has liquid resin under it. Dispose of the sheet with your cured waste, not down a drain.</div>
+</section>
+
+<section>
+  <h2 class="sec" id="update"><span class="num">14</span>Updating the firmware</h2>
   <div class="note">🔒 Firmware flashing is <b>blocked while printing</b>, and the web paths need <b>Web control</b> on. (PrusaSlicer upload is separate and works any time.)</div>
   <p>Three ways to update:</p>
   <ul>
@@ -631,7 +669,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="mqtt"><span class="num">14</span>Home Assistant (MQTT) &amp; notifications</h2>
+  <h2 class="sec" id="mqtt"><span class="num">15</span>Home Assistant (MQTT) &amp; notifications</h2>
   <p>Optional ways for the printer to reach you, all configured in the dashboard’s <b>Settings</b> tab (MQTT in the <i>Network</i> section, the messaging channels in <i>Notifications</i>).</p>
 
   <h3>Home Assistant (MQTT)</h3>
@@ -679,7 +717,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="faq"><span class="num">15</span>Troubleshooting &amp; FAQ</h2>
+  <h2 class="sec" id="faq"><span class="num">16</span>Troubleshooting &amp; FAQ</h2>
 
   <h3>The printer won’t connect to WiFi</h3>
   <p>After 15&nbsp;s it boots offline — SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
@@ -716,6 +754,17 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
   <h3>How do I keep my settings through a USB reflash?</h3>
   <p>Before flashing: dashboard → Settings → <b>Backup to SD</b>. After the reflash the printer finds the backup on the SD card and offers to restore it on first boot. Only WiFi needs to be set up again.</p>
+
+  <h3 id="faq-connect">What is TinyMaker Connect, and do I need it?</h3>
+  <p><b>No, you do not need it</b> — everything in this manual works without it. Connect is an <b>optional online service</b> (built by <a href="https://github.com/Briadark">Brian Karmelk</a>) that the printer can register with. What it adds: your settings backed up off the printer, a <b>recovery code</b> to get that profile back after a factory reset, and a way to <b>share a model</b> from the preview. It is switched on in Settings → <b>Network</b> → <i>TinyMaker Connect</i>; until you register, the Connect tab is not even shown. Leaving it off costs you nothing but those extras.</p>
+
+  <h3 id="faq-remote">Can I reach the printer when I am not at home?</h3>
+  <p>The dashboard is <b>LAN-only and has no password</b> — anyone who can reach the address can start and stop prints. So there are two safe ways and one that is not:</p>
+  <ul>
+    <li><b>TinyMaker Connect</b> — the printer connects <i>outwards</i> to the service, so nothing on your router has to be opened.</li>
+    <li><b>A VPN into your own network</b> (Tailscale, WireGuard, your router’s own VPN) — your phone joins the home network from anywhere and the dashboard works exactly as it does at home. Nothing of ours is involved.</li>
+  </ul>
+  <div class="warn">⚠️ <b>Do not port-forward the printer to the internet</b>, and do not point a dynamic-DNS name at it. There is no login to stop anyone who finds it — and what they find is a machine that cures resin with a UV light. If you want access from outside, use one of the two ways above.</div>
 
   <h3>How do I go fully offline?</h3>
   <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
