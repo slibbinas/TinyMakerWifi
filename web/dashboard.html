@@ -5174,7 +5174,10 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // device; its closure announces "Deleted X." and refreshes the list.
   syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
   if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;refreshStatus();return;}
-  msg('Deleted '+shortName(name)+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
+  /* Be tasko: zinute baigiasi VARDU, o vardai patys turi taskus („model.zip.")
+     ir trumpinami daugtaskiu („ilgas_varda…."). Kitur pulte sakiniai taska turi -
+     cia jis ne sakinio pabaiga zymi, o lipa prie svetimo teksto (V 08-27). */
+  msg('Deleted '+shortName(name));if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;pendingPrintCmdAt=Date.now();applyPendingPrintUi();
@@ -5357,13 +5360,13 @@ const renderSdJob=s=>{
       // one-shot closure - the job just finished
       if(sdJobLast==='delete'){
         sdJobQuietUntil=0;   // darbas baigtas - tyla nebereikalinga
-        msg('Deleted '+shortName(sdJobLastName)+'.');
+        msg('Deleted '+shortName(sdJobLastName));
         if(localStorage.getItem('dashPreviewModel')===sdJobLastName)forgetDashPreview();
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
         loadFiles();
       }else if(sdJobLast==='import'){
         sdJobQuietUntil=0;
-        msg('Unpacked '+shortName(sdJobLastName)+'.');   // tas pats zodis kaip eigoje
+        msg('Unpacked '+shortName(sdJobLastName));   // tas pats zodis kaip eigoje
         const justName=sdJobLastName;
         /* Naujas modelis atsistoja saraso VIRSUJE (T-79), o zmogus gali stoveti
            antrame puslapyje - tada ikeltas modelis lieka uz akiracio, nors butent
