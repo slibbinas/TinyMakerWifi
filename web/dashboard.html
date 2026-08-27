@@ -2661,7 +2661,7 @@ const refreshStatus=async()=>{
        yra ne gedimas, o tas pats ikelimas: skundas cia tik pakeistu ramia zinute
        „priimu modeli" nerimo zinute, ir taip kas kelias sekundes. 30 s: priemimas
        tyli iki ~20 s (ismatuota 08-19), o po jo ateina ispakavimas su savo snacku. */
-    if(deleteBusy||Date.now()<deleteQuietUntil||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
+    if(deleteBusy||Date.now()<sdJobQuietUntil||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
        ||(Date.now()-lastRxAt<30000)){}
     else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
@@ -5135,8 +5135,14 @@ let deleteBusy=false;
    isoka geltonas „Printer not answering". `msg()` israuna eigos snacko vidu, o
    printeriui paskelbus darba snackas statomas i\u0161 naujo - zmogui tai TRYS
    pranesimai (V 08-27). Si zyme dengia butent ta skyle; mygtuku ji NELIECIA.
-   20 s riba, kad tikras rysio dingimas nebutu nutylėtas amziams. */
-let deleteQuietUntil=0;
+   20 s riba, kad tikras rysio dingimas nebutu nutyletas amziams.
+   TAS PATS galioja IKELIMUI (V radinys 08-27): kol siunciam baitus, tyla dengia
+   `uploadBusy`, o kai POST grizta, printeris dar tik pradeda ispakuoti - ir vel
+   lieka skyle iki `sdJobCur`. Esamas 30 s langas (`lastRxAt`) cia nepadeda: jis
+   remiasi PAVYKUSIA apklausa, maciusia `receiving:true`, o savo ikelimo metu
+   vienintelis rysys uzimtas ir apklausos krinta. Svetimam (PrusaSlicer) ikelimui
+   `lastRxAt` veikia kaip veikes. */
+let sdJobQuietUntil=0;
 const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;
   /* Trynimas ir perziuros krovimas eina i ta pati vieninteli printerio rysi. Nuo tada,
      kai Delete pasiekiamas tik pazymejus eilute (o pazymejimas paleidzia krovima), abu
@@ -5167,7 +5173,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
   syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
-  if(r&&r.queued){deleteQuietUntil=Date.now()+20000;refreshStatus();return;}
+  if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;refreshStatus();return;}
   msg('Deleted '+shortName(name)+'.');if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
@@ -5350,12 +5356,13 @@ const renderSdJob=s=>{
       sdJobCur='';
       // one-shot closure - the job just finished
       if(sdJobLast==='delete'){
-        deleteQuietUntil=0;   // darbas baigtas - tyla nebereikalinga
+        sdJobQuietUntil=0;   // darbas baigtas - tyla nebereikalinga
         msg('Deleted '+shortName(sdJobLastName)+'.');
         if(localStorage.getItem('dashPreviewModel')===sdJobLastName)forgetDashPreview();
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
         loadFiles();
       }else if(sdJobLast==='import'){
+        sdJobQuietUntil=0;
         msg('Unpacked '+shortName(sdJobLastName)+'.');   // tas pats zodis kaip eigoje
         const justName=sdJobLastName;
         /* Naujas modelis atsistoja saraso VIRSUJE (T-79), o zmogus gali stoveti
@@ -5762,7 +5769,7 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
      vadinosi ir „importing", ir „imported", ir „uploaded" - telefone matei „Predator2
      imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
-  else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;bgJob='';syncActionLocks();}});
+  else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;sdJobQuietUntil=Date.now()+20000;bgJob='';syncActionLocks();}});
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
