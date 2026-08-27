@@ -7175,11 +7175,6 @@ window.__markToolInit=()=>{
         if(k.length)modUrl=mm[k[k.length-1]]||'';}catch(e){}
     return {
       kind:'slicer-bug', at:new Date().toISOString(), mode:slicerHere()?'slicer':'preview',
-      /* Ar modelis PJAUSTYTAS. Be sito lauko skaitantysis turi speti, ar sluoksniu
-         nera todel, kad dar nepjaustyta, ar todel, kad kazkas nulužo. Zymeti galima
-         ir nesuslicinus - pasukimas, mastelis, kabantis modelis ar isejimas uz turio
-         matomi is karto, ir tai lygiai tokios pat slicerio bedos (V 08-27). */
-      sliced: !!(o&&o.layers),
       markers:marks.map(m=>({n:m.n,model:m.model,slicer:m.sver,stage:m.stage,
                              viewPct:m.pct,hint:m.hint,layerMm:m.lm,cam:m.cam,text:m.text})),
       model:{name:sName()||'unknown',layers:(o&&o.layers)||null,
