@@ -5128,7 +5128,11 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   renderFiles();       // sarasas uzsirakina is karto, nelaukiant printerio atsakymo
   /* Ta pati snacko forma kaip visiems ilgiems darbams; skaiciai atsiras, kai printeris
      paskelbs darba (iki tol - tik tekstas ir tuscia juostele). */
-  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'');try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
+  /* Vaikstanti juostele nuo pirmos sekundes (V 08-27, variantas A): be jos snackas
+     rodomas BE juosteles, o printeriui paskelbus darba ji staiga atsiranda - pranesimas
+     paaukstėja ir atrodo kaip ANTRAS popup'as. Su ja forma nesikeicia: is pradziu
+     „dirbu", paskui toje pacioje vietoje atsiranda skaiciai. */
+  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'',undefined,'indet');try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
