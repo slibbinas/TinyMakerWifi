@@ -10,11 +10,21 @@ Rezultatas - scripts/dev/index.html, tad `http://localhost:8899/` atidaro pultą
 Archyvuoti = perkelti failą į scripts/dev/archyvas/ (jis lieka pasiekiamas, tik
 atskiroje, suskleistoje sekcijoje).
 """
-import io, os, re, time, html
+import io, os, re, time, html, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ARCH = os.path.join(HERE, "archyvas")
 OUT = os.path.join(HERE, "index.html")
+
+# Asmeniniai raktai gyvena SALIA, o ne cia: sis failas commit'inamas i vieša
+# repo, o scripts/dev/local-links.json yra .gitignore. Nera failo - pultas
+# rodo paprasta nuoroda ir pasako, kur raktas guli.
+def local_links():
+    try:
+        return json.load(io.open(os.path.join(HERE, "local-links.json"),
+                                 encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 # Ką kiekvienas failas yra. Nėra sąraše = pultas jį parodys kaip „be aprašymo",
 # ir tai pats savaime signalas: arba aprašyk, arba archyvuok.
@@ -46,6 +56,25 @@ KITUR = [
     ("Printerio pultas", "http://tinymaker.local/",
      "Tikras printeris: būsena, modeliai, dervos, nustatymai.", None),
 ]
+
+def kitur_all():
+    """KITUR + testų pultas su asmeniniu raktu, jei raktas yra vietiniame faile.
+
+    Su raktu žymos saugomos serveryje, tad telefonas prie printerio ir kompiuteris
+    ant stalo rodo tą patį; be rakto pultas veikia, bet žymos lieka toje naršyklėje.
+    """
+    k = local_links().get("tests_key", "")
+    if k:
+        url = "https://tinymakerwifi.com/tests?k=" + k
+        desc = ("0.17 testų pultas su TAVO raktu: žymos saugomos serveryje ir "
+                "keliauja tarp telefono ir kompiuterio. Nedalink šios nuorodos - "
+                "kas turi raktą, tas gali žymes keisti.")
+    else:
+        url = "https://tinymakerwifi.com/tests"
+        desc = ("0.17 testų pultas be rakto: veikia, bet žymos lieka tik šioje "
+                "naršyklėje. Raktas guli memory key-links; įdėk jį į "
+                "scripts/dev/local-links.json kaip {\"tests_key\": \"...\"}.")
+    return KITUR + [("Testų pultas (www)", url, desc, None)]
 
 AGE_FRESH, AGE_OLD = 7, 30      # dienos
 
@@ -153,9 +182,10 @@ def main():
   <div class="cp">{d}</div>
   <div class="cm">{cmd}</div>
 </a>""".format(u=html.escape(u), n=html.escape(n), d=html.escape(d),
-               tag="kitas portas" if "localhost" in u else "printeris",
+               tag=("kitas portas" if "localhost" in u else
+                    "www" if u.startswith("https://") else "printeris"),
                cmd=("paleisti: <code>%s</code>" % html.escape(c)) if c else "visada įjungtas")
-        for n, u, d, c in KITUR)
+        for n, u, d, c in kitur_all())
     body.append("<h2>Kitur</h2>\n<div class=\"grid\">%s</div>" % kitur)
 
     if arch:
