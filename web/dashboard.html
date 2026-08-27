@@ -5145,7 +5145,12 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
      rodomas BE juosteles, o printeriui paskelbus darba ji staiga atsiranda - pranesimas
      paaukstėja ir atrodo kaip ANTRAS popup'as. Su ja forma nesikeicia: is pradziu
      „dirbu", paskui toje pacioje vietoje atsiranda skaiciai. */
-  snackProgress(jobText('Deleting ',shortName(name)),-1,-1,'',undefined,'indet');
+  /* Laukimas rodomas ZODZIU, ne judesiu: vaikstantis 34 % gabalas slinko i desine ir
+     ten buvo nukerpamas (atrode, kad MAZEJA), o tuo pat metu tikroji juostele pradedavo
+     augti nuo kaires - dvi priesingos kryptys viename plote (V 08-27). Dabar griovelis
+     rodomas su 0 % uzpildu: aukstis rezervuotas, o vienintelis judesys per visa trynima
+     yra viena kryptis - i prieki. */
+  snackProgress(jobText('Deleting ',shortName(name),'starting…'),-1,-1,'',undefined,0);
   /* B1: skaičių langelis rezervuojamas iš karto - trynimui jie tikrai ateis. */
   {const pc=$('statusMsg').querySelector('.snackPct'); if(pc)pc.classList.add('reserve');}try{const r=await api('/api/files/delete?name='+enc(name),{method:'POST'},30000);deleteBusy=false;
   // Folders come back "queued" (1-32): the printer deletes from its idle loop
@@ -5343,7 +5348,12 @@ const renderSdJob=s=>{
       }else if(sdJobLast==='import'){
         msg('Unpacked '+shortName(sdJobLastName)+'.');   // tas pats zodis kaip eigoje
         const justName=sdJobLastName;
-        loadFiles();
+        /* Naujas modelis atsistoja saraso VIRSUJE (T-79), o zmogus gali stoveti
+           antrame puslapyje - tada ikeltas modelis lieka uz akiracio, nors butent
+           i ji ir ziurima (V radinys 08-27). filesShowName() persijungia i jo
+           puslapi ir atslenka prie eilutes; ji pati atsisako, jei zmogus KAIP TIK
+           raso filtra. */
+        loadFiles().then(()=>{try{filesShowName(justName);}catch(e){}});
         /* Ka tik ikeltas modelis - ir yra tas, i kuri zmogus ziuri. Sliceryje
            taip ir buvo: supjaustei - matai; o per korteles ikelima tekdavo dar
            susirasti eilute ir paspausti (V 08-20). Neatimam vaizdo, jei ekrane
