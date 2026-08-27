@@ -2756,50 +2756,38 @@ const sdFitRows=()=>{
      iki trijų irasu (V 08-20). Tokiame lange grazinam pilna puslapi. */
   const platus=(()=>{const hv=$('homeView');return !!(hv&&hv.classList.contains('stageWideOn'));})();
   if(!platus&&dvi&&left&&sd&&list&&!sd.classList.contains('hidden')&&sd.classList.contains('akordOpen')){
-    /* Skaiciuojam ne is formules, o is TIKROVES: kiek desine pusė islenda uz kaires,
-       tiek eiluciu ir nuimam. Formule reikstu, kad zinom kiekvienos antrastes ir
-       tarpo aukstį; matavimas to nezino ir neturi - jis tiesiog lygina du krastus
-       (V 08-20: „SD isskleidus issitempia dashboard ir preview"). */
+    /* Matuojam TALPA, ne uzpildyma. Anksciau buvo klausiama „ar sarasas islenda uz
+       kaires pusės" - o tai atsakymo neduoda, kai puslapis trumpas: penkios eilutes is
+       desimties niekur neislenda, tad telefoninis 10 likdavo galioti ir plaCiame lange,
+       ir puslapiu skaicius nepersiskaiciuodavo, kol nenueidavai i pilna puslapi
+       (V 08-27: „telefone 2 puslapyje, isplėtus i PC rodo 2/2"). Dabar skaiciuojam
+       tiesiai: kiek eiluciu telpa i likusi auksti. Atsakymas nepriklauso nuo to, kiek
+       ju nupiesta dabar, tad ir mirgeti nebeturi is ko. */
     const vaikai=[...left.children].filter(e=>e.getClientRects().length);
-    if(vaikai.length){
+    const eilutes=[...list.querySelectorAll('.file')];
+    if(vaikai.length&&eilutes.length){
+      /* Iki kur kortele turi baigtis: ties kairiojo stulpelio apacia - to ir siekia
+         visas sitas matavimas (V 08-20: „SD isskleidus issitempia dashboard ir preview"). */
       const kaireBot=vaikai[vaikai.length-1].getBoundingClientRect().bottom;
       const sdBot=sd.getBoundingClientRect().bottom;
-      const eil=list.firstElementChild?list.firstElementChild.getBoundingClientRect().height:44;
-      /* TIK eilutes: saraso viduje gyvena ir puslapiavimo juosta, tad children
-         skaiciuodavo viena per daug - trumpas paskutinis puslapis (4 eilutes is 5)
-         atrodydavo pilnas, ir auginimo salyga, kuri kaip tik nuo to ir saugo,
-         praleisdavo. Is to - mirgejimas perejus i paskutini puslapi (V 08-27:
-         mirgejimas, matosi i kita puslapi ir atgal). */
-      const rodoma=list.querySelectorAll('.file').length;
-      /* Kiek vietos liko KORTELES VIDUJE: nuo saraso apacios iki to, kas po juo
-         (vietos juostele prilipdyta prie korteles krasto, tad isore visada sutampa
-         su stulpeliu ir laisvos vietos nebeparodo - V 08-20: „vietos pakanka dar
-         vienam irasui, kodel jo nera"). */
-      /* Kas stovi PO sarasu: jei puslapiavimas rodomas, laisva vieta baigiasi ties
-         juo. Priesingu atveju matuoklis priskaiciuotu ir juostos auksti, pridetu
-         eilute, ir kita praejima ja atimtu. */
+      const lTop=list.getBoundingClientRect().top;
+      /* Eilutes zingsnis SU tarpu - imamas is dvieju kaimyniu, o ne is aukscio plius
+         spėjimas: tarpa nustato CSS, ir jis gali pasikeisti be sio kodo zinios. */
+      const r0=eilutes[0].getBoundingClientRect();
+      const zingsnis=eilutes.length>1
+        ? (eilutes[1].getBoundingClientRect().top-r0.top)
+        : (r0.height+8);
+      /* Kas stovi PO sarasu ir yra pastovu: puslapiavimo juosta (jei rodoma) su viskuo,
+         kas po ja. Laisva vieta i ta skaiciu neįeina - ji dabar renkasi VIRS juostos. */
       const pgB=$('filesPager');
       const po=(pgB&&pgB.firstChild)?pgB:$('sdUsageBox');
-      const vidineLaisva=po?(po.getBoundingClientRect().top-list.getBoundingClientRect().bottom-12):0;
-      const delta=sdBot-kaireBot;
-      n=FILES_PER_PAGE;
-      if(eil>0){
-        /* Riba (8 px) turi buti NE MAZESNE uz auginimo atlaida - kitaip vienas
-           irasas amzinai sokinetu: pridetas islistu keliais pikseliais, o
-           kitas praejimas ji vel nuimtu (V 08-20). */
-        const nuimt=Math.round(delta/eil);   // <pusė eilutes -> 0
-        if(nuimt>0)n=FILES_PER_PAGE-nuimt;
-        /* Auginam tik tada, kai puslapis PILNAS: kitaip trumpas sarasas augintu
-           skaiciu be galo - eiluciu vis tiek nepadaugetu. Su 8 px atlaida: laisvos
-           vietos beveik visada lieka keliais pikseliais maziau nei visa eilute, ir
-           be jos sarasas likdavo vienu irasu skurdesnis, nei telpa (V 08-20). */
-        else if(rodoma>=FILES_PER_PAGE){
-          /* Auga is DVIEJU saltiniu: laisvos vietos korteles viduje ir po kortele. */
-          const laisva=Math.max(vidineLaisva,-delta);
-          const auga=Math.floor(laisva/eil);
-          if(auga>0)n=FILES_PER_PAGE+auga;
-        }
-      }
+      const apacia=po?(sdBot-po.getBoundingClientRect().top):0;
+      const vieta=kaireBot-lTop-apacia;
+      /* Apvalinam, o ne nukertam: paskutine eilute tarpo po savimi neturi, ir
+         nukirtimas visada atimtu viena. Kartu tai ir yra „ramybes juosta" - iki pusės
+         eilutes islindes sarasas eilutes nepraranda (V 08-27: eilute vertingesne nei
+         tiksliai sulygintas krastas). */
+      if(zingsnis>0&&vieta>0)n=Math.round(vieta/zingsnis);
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
   }
@@ -2816,8 +2804,17 @@ const sdFitRows=()=>{
   setTimeout(sdFitRows,0);   // dar kartas: gali tekti pataisyti per viena eilute
 };
 window.sdFitRows=sdFitRows;
-/* Lango dydis pasikeite - senos lubos nebegalioja, matuojam is naujo. */
 addEventListener('resize',()=>setTimeout(sdFitRows,60));
+/* Vieno lango dydzio NEPAKANKA: maketas keiciasi ir tada, kai langas tas pats -
+   uzsikrauna perziuros paveikslas, parenkamas modelis, atsidaro kitas akordeono
+   blokas. Tada sarasas likdavo su svetimu eiluciu skaiciumi, kol zmogus ko nors
+   nepaspausdavo. Stebim abu stulpelius; matavimas nepriklauso nuo eiluciu skaiciaus,
+   tad antras praejimas gauna ta pati atsakyma ir sustoja pats (V 08-27). */
+try{
+  let sdFitLaukia=0;
+  const sdRO=new ResizeObserver(()=>{clearTimeout(sdFitLaukia);sdFitLaukia=setTimeout(sdFitRows,80);});
+  [$('homeLeft'),$('sdSection')].forEach(e=>{if(e)sdRO.observe(e);});
+}catch(e){}
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
@@ -2878,6 +2875,14 @@ const renderFiles=()=>{
   if(filesPage>=pages)filesPage=pages-1;
   if(filesPage<0)filesPage=0;
   const slice=items.slice(filesPage*FILES_PER_PAGE,(filesPage+1)*FILES_PER_PAGE);
+  /* Inkaras - modelis, nuo kurio prasideda matomas puslapis. Zmogus ji uzdeda
+     vaiksciodamas po puslapius; jei dar nevaiksciojo (arba tas modelis dingo is
+     korteles), pasiimam ta, kuris stovi virsuje dabar. Persimatavus sarasa - kad ir
+     del lango dydzio, kad ir del isdidintos perziuros - tas pats modelis lieka
+     matomas, ir zmogus atsiduria TAME PACIAME sarasO gale, ne pradzioje
+     (V 08-27: „pagal tai, kuris buvo rodomas pirmas modelis"). */
+  if(sdInkaras&&!items.some(it=>it.name===sdInkaras))sdInkaras='';
+  if(!sdInkaras&&slice.length)sdInkaras=slice[0].name;
   /* Uzimtumas TIK is busenos buvo per siauras: kol pats siunti faila ir printeris ji
      ispakuoja, jis apskritai neatsakineja i apklausas, tad paskutine zinoma busena lieka
      „Idle" ir sarasas atrodo laisvas - V 08-14 sugebejo tuo metu paspausti Start ir
