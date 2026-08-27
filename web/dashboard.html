@@ -7034,18 +7034,42 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
      zymi PAVIRSIU, ne daikta, o deze apgaubia ora aplink ji - abu meluoja apie tai, ka
      zmogus mato. Tikroji zinia yra „ziurek stai i SITA vietos gabala", tad ji ir imam:
      staciakampi is to paties kadro, kuri zmogus mato. */
+  /* Kuri drobe siuo metu MATOMA. Ploksciame (2D) vaizde sluoksnis piesiamas
+   ATSKIROJE drobeje (`slicerMaskCv`), o three.js drobe tuo metu paslepta - tad
+   iskarpa is jos rode 3D modeli, nors zmogus ziurejo i sluoksni (V patikrino
+   08-27: „3D joje"). Ataskaita, kurios paveikslelis rodo ne ta, i ka ziurejai,
+   yra blogiau nei jokios ataskaitos - todel imam ta drobe, kuri ekrane. */
+  const matomaDrobe=()=>{
+    try{
+      const mb=document.getElementById('slicerMask');
+      const mc=document.getElementById('slicerMaskCv');
+      if(mb&&mc&&mb.style.display!=='none'&&mc.width&&mc.height){
+        const r=mc.getBoundingClientRect();
+        if(r.width&&r.height)return {el:mc, three:false};
+      }
+    }catch(e){}
+    return (ren&&ren.domElement)?{el:ren.domElement, three:true}:null;
+  };
+  window.gl3dViewNow=()=>{const d=matomaDrobe();return d&&!d.three?'2D':'3D';};
+  window.gl3dCropCanvas=()=>{const d=matomaDrobe();return d?d.el:null;};
+
   window.gl3dCrop=(x0,y0,x1,y1)=>{
     let pr0=null;
+    const d=matomaDrobe();
+    if(!d)return '';
+    const three=d.three;
     try{
-      const el=ren.domElement,r0=el.getBoundingClientRect();
+      const el=d.el,r0=el.getBoundingClientRect();
       if(!r0.width||!r0.height)return '';
       /* Piesiam TRIS kartus tankiau tik siam kadrui. Ekrano raiska iskarpai per
          menka: 7 % vaizdo plocio duoda ~50 px, ir nuotraukoje nesimato NIEKO -
          butent tai ir atsitiko pirmoje V ataskaitoje (08-19). Priartinimas nepadeda,
          nes priartina ir raiska nedideja. Po kadro viska grazinam atgal. */
-      pr0=ren.getPixelRatio();
-      ren.setPixelRatio(Math.min(4,pr0*3));
-      ren.render(scene,cam);          // preserveDrawingBuffer nera - imam is karto
+      if(three){
+        pr0=ren.getPixelRatio();
+        ren.setPixelRatio(Math.min(4,pr0*3));
+        ren.render(scene,cam);        // preserveDrawingBuffer nera - imam is karto
+      }
       const r=el.getBoundingClientRect();
       const kx=el.width/r.width, ky=el.height/r.height;
       const sx=Math.max(0,(Math.min(x0,x1)-r.left)*kx), sy=Math.max(0,(Math.min(y0,y1)-r.top)*ky);
@@ -7176,6 +7200,7 @@ window.__markToolInit=()=>{
     return {
       kind:'slicer-bug', at:new Date().toISOString(), mode:slicerHere()?'slicer':'preview',
       markers:marks.map(m=>({n:m.n,model:m.model,slicer:m.sver,stage:m.stage,
+        view:m.view,layer2d:m.layer2d,
                              viewPct:m.pct,hint:m.hint,layerMm:m.lm,cam:m.cam,text:m.text})),
       model:{name:sName()||'unknown',layers:(o&&o.layers)||null,
              layerMm:Math.round(layerMm()*1000)/1000,
@@ -7375,7 +7400,11 @@ window.__markToolInit=()=>{
     if(Math.abs(to.x-from.x)+Math.abs(to.y-from.y)<=6){
       from.x-=26;from.y-=26;to={x:to.x+26,y:to.y+26};
     }
-    const cv=[...host.querySelectorAll('canvas')].find(c=>!c.id);
+    /* Ta pati drobe, is kurios imama iskarpa: ploksciame vaizde tai `slicerMaskCv`,
+         o three.js drobe tuo metu paslepta - nuo jos skaiciuoti staciakampi reikstu
+         deti zyme ten, kur zmogus nieko nemate (V patikrino 08-27). */
+    const cv=(window.gl3dCropCanvas&&gl3dCropCanvas())
+      ||[...host.querySelectorAll('canvas')].find(c=>!c.id);
     const r=cv?cv.getBoundingClientRect():null;
     if(!r||!r.width){say('The 3D view is not ready.',true);return;}
     const pct=v=>Math.round(v*1000)/10;
@@ -7391,9 +7420,18 @@ window.__markToolInit=()=>{
            w:pct(w/r.width),h:pct(h/r.height)},
       hint:mid?{on:mid.on,x:r2(mid.x),y:r2(mid.y),z:r2(mid.z),
                 layer:(mid.hMm===null||!lm)?null:Math.max(1,Math.round(mid.hMm/lm)+1)}:null,
-      stage:stageNow(), model:sName()||'unknown',
+      /* Zyme nusako PAVEIKSLELIO PLOTA, kuriame klaida (`pct` + `thumb`), o ne taska
+           erdveje - staciakampiu vieno tasko ir neivardysi. Prie to kiekvienas vaizdas
+           prideda savo: 3D - kameros padeti (is kur ziurima), 2D - kuris sluoksnis buvo
+           rodomas. Be `view` skaitantysis nezinotu, kuris priedas turi prasme. */
+        view:(window.gl3dViewNow?gl3dViewNow():'3D'),
+        layer2d:(()=>{try{return (window.gl3dViewNow&&gl3dViewNow()==='2D'
+          &&typeof slicerLayerN!=='undefined')?slicerLayerN:null;}catch(e){return null;}})(),
+        stage:stageNow(), model:sName()||'unknown',
       sver:(sMod()&&sMod().VERSION)||'',
-      lm:lm, cam:window.gl3dCamInfo?gl3dCamInfo():null, thumb:thumb, text:''};
+      lm:lm,
+        cam:((window.gl3dViewNow&&gl3dViewNow()==='2D')?null:(window.gl3dCamInfo?gl3dCamInfo():null)),
+        thumb:thumb, text:''};
     const t=prompt('#'+m.n+' marked. What is wrong here?','');
     if(t===null)return;
     m.text=String(t).slice(0,200);
