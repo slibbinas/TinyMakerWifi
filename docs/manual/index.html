@@ -201,7 +201,18 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>WiFi</b>, set up from your phone on first boot — no credentials in code.</li>
     <li><b>Direct upload from PrusaSlicer</b> with the “Send to printer” button.</li>
     <li><b>Import <code>.sl1</code>/<code>.zip</code> from the SD card</b> — no network needed.</li>
-    <li><b>A web dashboard</b> — print status, controls, SD manager and a 3D preview in any browser.</li>
+    <li><b>A web dashboard</b> — print status, controls, SD manager and a 3D preview in any
+        browser, on the computer or on the phone.</li>
+    <li><b>A slicer in the browser</b> — drop in an <b>STL</b> and the dashboard slices it itself:
+        supports, raft, a 3D and a layer-by-layer preview, then straight onto the SD card. No desktop
+        slicer needed.</li>
+    <li><b>Named resin profiles</b> — the whole recipe for one resin (both exposures, base and
+        transition layers, all four lifts, the density and its weighing calibration) under one name,
+        switched in a single press. Two are built into the firmware; more can be installed from a
+        published library.</li>
+    <li><b>A real 3D preview, and live print progress</b> — the model turns in the browser before you
+        start, and while it prints the shape fills in layer by layer, on any device that opens the
+        dashboard.</li>
     <li><b>Over-the-air firmware updates</b> — the printer updates itself over WiFi.</li>
     <li><b>Resin estimation &amp; level tracking</b> — how much resin a model needs, and how much is left in the VAT.</li>
     <li><b>Home Assistant / MQTT</b> integration (optional).</li>
@@ -217,7 +228,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Power on.</b> On first boot the printer opens a <code>TinyMaker-Setup</code> WiFi hotspot.</li>
     <li><b>Join it from your phone</b> and pick your home WiFi in the little page that pops up. The printer reboots and connects (~5&nbsp;s).</li>
     <li><b>Find the printer’s address</b> under <b>System → WiFi Info</b> (or use <code>tinymaker.local</code>).</li>
-    <li><b>Send a model</b> from PrusaSlicer (“Send to printer”), or copy an <code>.sl1</code>/<code>.zip</code> onto the SD card.</li>
+    <li><b>Get a model onto the printer</b> — three ways, pick one:
+      <ul>
+        <li><b>From PrusaSlicer</b> — slice, then “Send to printer”.</li>
+        <li><b>From the dashboard</b> — drop an <b>STL</b> into the browser slicer, let it slice, and it
+            lands on the card ready to print.</li>
+        <li><b>By hand</b> — copy an <code>.sl1</code>/<code>.zip</code> onto the SD card.</li>
+      </ul></li>
     <li><b>Print.</b> Pick the model in the <b>Print</b> menu and press OK — or start it from the web dashboard.</li>
   </ol>
 </section>
@@ -327,6 +344,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> — each layer exactly as the masking LCD will shine it.</li>
     <li>Press <b>Send to printer</b> — the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
   </ol>
+  <div class="note">⚖️ The slicing itself is done by <b>PrusaSlicer’s libslic3r</b>, the same engine the
+  desktop PrusaSlicer uses, compiled to run in your browser. It is used unmodified, under the AGPL-3.0 —
+  see <a href="#credits">Credits</a>.</div>
   <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware — see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>; a slicer update never reflashes the printer.</p>
   <div class="note">💡 PrusaSlicer remains the fully-featured path — manual support placement, hollowing, orientation tools. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
 </section>
@@ -460,6 +480,12 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer only knows the pre-lift height, so the resumed layers can sit slightly high — usually a faint seam, occasionally a separation at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film. <em>A future firmware update is planned to tighten this — checkpointing the plate's position more finely during the brief lift/drop, so even a mid-move outage recovers to within a fraction of a millimetre.</em></p>
   <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust.</p>
   <p><b>Power the printer from its mains adapter, not a USB power bank.</b> A weak or portable supply can sag the moment the plate lifts — the stepper's current draw briefly dips the voltage — and on a marginal supply that dip can even reset the printer part-way through the recovery. If a resume keeps rebooting back to the same prompt, that voltage dip is the usual cause: switch to the supplied adapter and try again.</p>
+  <p><b>Two settings decide how this behaves</b>, both under System → Advanced → Resin (and in the
+  dashboard’s Settings → Print). <b>Power resume</b> turns the whole thing on or off — off means the
+  printer never checkpoints and always starts fresh, like the stock firmware. <b>Resume mode</b> chooses
+  how finely it remembers: <b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement,
+  <b>Precise</b> every 400&nbsp;ms — a resume closer to where the power went, at the cost of more writes
+  to the card.</p>
   <p style="color:var(--muted);font-size:.9rem">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
@@ -595,7 +621,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The printer can play a short animation on its screen at power-on — and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
   <ul>
     <li><b>On the printer:</b> System → Advanced → Display → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
-    <li><b>In the dashboard:</b> Settings → the <b>Boot animation</b> tab. Picking a row only <b>stages</b> the choice — press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
+    <li><b>In the dashboard:</b> Settings → the <b>Display</b> tab (it holds the boot animations and the 3D-preview options). Picking a row only <b>stages</b> the choice — press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
   </ul>
   <img class="shot" src="images/boot-animations.png" alt="Settings, Display tab: boot animations with Show and Delete, the staged selection, and Prepare 3D for all models">
   <p><b>Shuffle</b> (offered once two or more animations are installed) plays a random installed animation on every boot.</p>
@@ -644,9 +670,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </section>
 
 <section>
-  <h2 class="sec" id="update"><span class="num">14</span>Updating the firmware</h2>
+  <h2 class="sec" id="update"><span class="num">14</span>Updating the firmware and the slicer</h2>
   <div class="note">🔒 Firmware flashing is <b>blocked while printing</b>, and the web paths need <b>Web control</b> on. (PrusaSlicer upload is separate and works any time.)</div>
-  <p>Three ways to update:</p>
+  <p><b>Two things update here, and they are separate.</b> The <b>firmware</b> is the printer itself
+  — installing one reboots it. The <b>browser slicer</b> is a module kept on the SD card: it carries its
+  own version and its own install button, and updating it never reboots the printer or interrupts a
+  print. Both live in the same pane.</p>
+  <p>Three ways to update the firmware:</p>
   <ul>
     <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up — press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
     <li><b>From the dashboard — Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
@@ -781,6 +811,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <ul>
     <li><b>The initial web dashboard, the Advanced menu</b> (WiFi &amp; Web-control switches), <b>the web flasher, safe model imports and TinyMaker Connect</b> (with auto-backup &amp; recovery) — contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
     <li><b>Boot animations</b> (the on-device library, playback and one-click install) — contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>.</li>
+    <li><b>The browser slicer’s engine</b> is PrusaSlicer’s <b>libslic3r</b> 2.9.6 (© Prusa Research a.s.), compiled to WebAssembly from the <b>unmodified</b> upstream sources — tag <code>version_2.9.6</code>, commit <code>b028299</code> — and used under the <b>GNU AGPL-3.0</b>. Everything else in TinyMakerWifi stays MIT-licensed;
+  the two are separate programs that ship side by side.</li>
     <li><b>Original TinyMaker firmware &amp; printer</b> — by the <a href="https://tinymaker3d.com/">TinyMaker3D Team</a>.</li>
     <li>Additional fixes, testing and ideas from the TinyMaker community.</li>
   </ul>

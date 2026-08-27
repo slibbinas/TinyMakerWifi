@@ -293,6 +293,7 @@ If you find this project useful and want to support my work, you can [buy me a c
 
 ## Credits & Acknowledgements
 
+* **The browser slicer's engine** — **PrusaSlicer's `libslic3r` 2.9.6** (© Prusa Research a.s.), compiled to WebAssembly from the **unmodified** upstream sources ([tag `version_2.9.6`](https://github.com/prusa3d/PrusaSlicer/tree/version_2.9.6), commit `b028299`) and used under the **[GNU AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html)**. The rest of TinyMakerWifi remains MIT-licensed — the two are separate programs shipped side by side.
 * **Original project:** [TinyMaker-Open-Source-3D-Printer](https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer)
 * **Original authors:** TinyMaker3D Team
 
