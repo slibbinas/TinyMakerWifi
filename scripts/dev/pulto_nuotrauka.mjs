@@ -40,6 +40,10 @@ const CFG = {
   click:    imk('--click', null),         // "#id" arba "#a,#b" - paspaudžiama iš eilės
   js:       imk('--js', null),            // išraiška; rezultatas spausdinamas
   laukti:   Number(imk('--wait', 8000)),  // kiek laukti po įkėlimo (ms)
+  /* Kiek laukti PO paspaudimu. Modelio perziura kraunasi kelias sekundes
+     („Building the 3D view 22/36“), ir kadras nuolat pagaudavo ja pusiaukeleje -
+     dokumentacijai toks netinka (V 08-27). */
+  poLaukti: Number(imk('--po', 0)),
   plotis:   Number(imk('--w', 1000)),
   aukstis:  Number(imk('--h', 1400)),
   mastelis: Number(imk('--scale', 2)),
@@ -141,6 +145,7 @@ try {
       await js(`(()=>{const e=document.querySelector('${sel.trim()}'); if(e)e.click(); return !!e;})()`);
       await miegok(2500);
     }
+    if (CFG.poLaukti) await miegok(CFG.poLaukti);
   }
 
   if (CFG.js) sako(await js(CFG.js, true));
