@@ -415,7 +415,9 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     </div>
     <div id='uploadHint' class='hint' style='margin:2px 0 10px'>Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.</div>
     <div id='sdActions' style='display:flex;align-items:center;gap:8px;margin-bottom:8px'>
+      <!-- Filtre siulymai uzgula pati modeliu sarasa, del kurio filtras ir spaudziamas. -->
       <input id='filesFilter' type='text' class='hidden' placeholder='Filter models...'
+             name='tm-noac-filter' autocomplete='off' data-form-type='other' data-lpignore='true' spellcheck='false'
              style='flex:1 1 0;min-width:0;margin:0'>
       <form id='uploadForm' style='margin:0;flex:0 0 auto'>
         <input id='uploadFile' type='file' name='file' accept='.sl1,.zip' class='hidden'>
@@ -686,11 +688,11 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <label class='check spanAll'><input name='mqtt_enabled' id='cfgMqttEnabled' type='checkbox' value='1'><span>Enable MQTT</span></label>
     <div id='mqttFields' class='spanAll hidden'>
       <div class='configGrid'>
-        <label><span>MQTT broker host</span><input name='mqtt_host' id='cfgMqttHost' type='text' maxlength='80' placeholder='192.168.1.10'></label>
+        <label><span>MQTT broker host</span><input name='mqtt_host' id='cfgMqttHost' type='text' maxlength='80' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='192.168.1.10'></label>
         <label><span>MQTT broker port</span><input name='mqtt_port' id='cfgMqttPort' type='number' min='1' max='65535' step='1'></label>
         <label><span>MQTT username</span><input name='mqtt_user' id='cfgMqttUser' type='text' maxlength='64' autocomplete='username'></label>
         <label><span>MQTT password</span><input name='mqtt_password' id='cfgMqttPassword' type='password' maxlength='64' autocomplete='current-password' placeholder='Leave blank to keep current'></label>
-        <label class='spanAll'><span>MQTT topic prefix</span><input name='mqtt_topic' id='cfgMqttTopic' type='text' maxlength='64' placeholder='TinyMaker'></label>
+        <label class='spanAll'><span>MQTT topic prefix</span><input name='mqtt_topic' id='cfgMqttTopic' type='text' maxlength='64' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='TinyMaker'></label>
       </div>
       <div id='mqttHint' class='hint'>MQTT publishing will use these settings in the SmartHome integration step.</div>
     </div>
@@ -698,8 +700,8 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <label class='check spanAll'><input name='connect_enabled' id='cfgConnectEnabled' type='checkbox' value='1'><span>Enable TinyMaker Connect</span></label>
     <div id='connectFields' class='spanAll hidden'>
       <div class='configGrid'>
-        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' placeholder='https://connect.tinymakerwifi.com'></label>
-        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' placeholder='My printer'></label>
+        <label class='spanAll'><span>Connect server URL</span><input name='connect_base_url' id='cfgConnectBaseUrl' type='text' maxlength='128' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='https://connect.tinymakerwifi.com'></label>
+        <label><span>Printer display name</span><input name='connect_printer_name' id='cfgConnectPrinterName' type='text' maxlength='64' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='My printer'></label>
         <label class='check'><input name='connect_leaderboard' id='cfgConnectLeaderboard' type='checkbox' value='1'><span>Share printer stats on leaderboard</span></label>
         <label class='check'><input name='connect_auto_backup' id='cfgConnectAutoBackup' type='checkbox' value='1'><span>Auto backup settings to Connect</span></label>
       </div>
@@ -745,14 +747,14 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <div id='tgFields' class='spanAll hidden'>
       <div class='configGrid'>
         <label class='spanAll'><span>Bot token</span><span class='pwWrap'><input name='tg_token' id='cfgTgToken' type='password' maxlength='64' autocomplete='off' placeholder='Leave blank to keep current'><button id='cfgTgTokenShow' class='eyeBtn' type='button' title='Show/hide what you typed'>&#128065;</button></span></label>
-        <label class='spanAll'><span>Chat ID</span><input name='tg_chat' id='cfgTgChat' type='text' maxlength='32' placeholder='123456789'></label>
+        <label class='spanAll'><span>Chat ID</span><input name='tg_chat' id='cfgTgChat' type='text' maxlength='32' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='123456789'></label>
       </div>
       <div id='tgHint' class='hint'>Messages you when a print finishes, pauses for low resin, or is canceled.</div>
       <button id='tgTestButton' class='button secondary' type='button'>Send test message</button>
     </div>
     <div id='waFields' class='spanAll hidden'>
       <div class='configGrid'>
-        <label><span>Phone (with country code)</span><input name='wa_phone' id='cfgWaPhone' type='text' maxlength='20' placeholder='+3706xxxxxxx'></label>
+        <label><span>Phone (with country code)</span><input name='wa_phone' id='cfgWaPhone' type='text' maxlength='20' autocomplete='off' data-form-type='other' data-lpignore='true' placeholder='+3706xxxxxxx'></label>
         <label><span>CallMeBot API key</span><input name='wa_apikey' id='cfgWaKey' type='password' maxlength='16' autocomplete='off' placeholder='Leave blank to keep current'></label>
       </div>
       <div id='waHint' class='hint'>Messages go through the free CallMeBot gateway - press ? above for the one-time activation.</div>

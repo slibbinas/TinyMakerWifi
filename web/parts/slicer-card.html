@@ -53,8 +53,16 @@
              vardas yra nustatymas, ne veiksmas (V 08-20).
              Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
              sustodavo vidury tuscios vietos ir nestovedavo po niekuo (V 08-20). -->
+        <!-- Jokio autocomplete: sarasas su anksciau vestais vardais nusileidzia
+             tiesiai ant „Choose STL · Slice · Send" eilutes, o zmogus tuo metu
+             ieško butent ju. Vardas cia ateina is failo, siulymo nereikia.
+             Chrome i „off" atsizvelgia tik tada, kai lauko vardas jam nieko
+             nesako - todel duotas savas (pultas laukeli ima pagal id). -->
         <input id='slicerName' type='text' placeholder='model name' maxlength='40'
                title='Letters, digits, - and _ . The printer screen shows about the first 14'
+               name='tm-noac-name' autocomplete='off' autocorrect='off'
+               autocapitalize='off' spellcheck='false' data-form-type='other'
+               data-lpignore='true'
                style='width:100%;min-width:0;margin:0' disabled>
       </div>
 
