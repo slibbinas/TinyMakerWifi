@@ -117,9 +117,24 @@ debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei p
 
 ## Sesijos pradžia: iškart duok darbų sąrašą
 
-**Pirma - paleisk `python scripts/dev/kur_esu.py`.** Jis pasako sritį, šaką, katalogą,
-ar medis švarus ir ar šaka apskritai yra GitHub'e. Šakų vardai keičiasi (2026-08-23
-pervadinti du iš karto), tad atsakymas imamas iš git, o ne iš atminties ar iš šio failo.
+**Pirma - paleisk `python scripts/dev/kur_esu.py --sesija <savo-sesijos-vardas>`.**
+Jis pasako sritį, šaką, katalogą, ar medis švarus ir ar šaka apskritai yra GitHub'e.
+Šakų vardai keičiasi (2026-08-23 pervadinti du iš karto), tad atsakymas imamas iš git,
+o ne iš atminties ar iš šio failo.
+
+⚠️ **Skripto įvardyta sritis yra SPĖJIMAS, ne atsakymas.** Jis mato tik šaką ir
+katalogą - kam V atidarė šitą langą, jis nemato. **Patvirtink su V prieš pirmą
+pakeitimą net tada, kai skriptas sritį įvardijo tvirtai.** 2026-08-27 slicerio darbui
+atidaryta sesija atsistojo ant `0.17/slicer-merge`, gavo „SRITIS: Printeris" ir
+patikėjo - visą pusvalandį dirbo ne tos srities darbą.
+
+**`--sesija` nėra papuošalas.** Su juo skriptas pasižymi, kad šis darbo medis užimtas
+(`.claude/uzimta.json`, git jo nemato), ir kita sesija, atsistojusi tame pačiame
+kataloge, gauna įspėjimą. Tą patį vakarą dvi sesijos sėdėjo viename medyje ant tos
+pačios šakos; antroji tai pamatė tik iš to, kad HEAD pajudėjo jai už nugaros. Du
+redaktoriai viename medyje susipjauna: vieno pakeitimai nukrenta į kito commit'ą.
+Pamačiusi tokį įspėjimą, sesija **neima to medžio** - pasiima savo worktree arba
+klausia V, kuri sesija ten lieka.
 
 **Paskui - prisistatyk.** Vienas sakinys: **kuri tai sritis** (printeris / sliceris /
 Connect Live / curing stotelė), kurioje šakoje ir kataloge dirbi. V vienu metu turi
