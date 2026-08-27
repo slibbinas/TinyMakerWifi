@@ -1,0 +1,36 @@
+TinyMakerWifi browser slicer - third-party notice
+=================================================
+
+The slicing engine served from this directory (sla-web-*.js / sla-web-*.wasm)
+is PrusaSlicer's libslic3r, compiled to WebAssembly.
+
+    Component : libslic3r (part of PrusaSlicer)
+    Version   : 2.9.6
+    Source    : https://github.com/prusa3d/PrusaSlicer
+                tag  version_2.9.6
+                commit b028299
+    Copyright : (C) Prusa Research a.s. and PrusaSlicer contributors
+    Licence   : GNU Affero General Public License, version 3 (AGPL-3.0)
+                https://www.gnu.org/licenses/agpl-3.0.html
+
+The upstream sources were compiled UNMODIFIED. No patches were applied to
+libslic3r; the tag and commit above identify exactly what was built, and the
+complete corresponding source is available at the URL above.
+
+The WebAssembly wrapper that calls the engine, and the rest of TinyMakerWifi
+(firmware, dashboard, tooling), are separate works by Viktoras Sidlauskas and
+are MIT-licensed:
+
+    https://github.com/slibbinas/TinyMakerWifi
+
+If you received the compiled module and want the corresponding source of the
+wrapper as well, it is in that repository; open an issue there if anything is
+missing and it will be added.
+
+Other third-party code served from this directory:
+
+    three.js          - MIT              https://github.com/mrdoob/three.js
+    Clipper (6.4.2)   - Boost Software   http://www.angusj.com/delphi/clipper.php
+                        License 1.0
+
+Last checked: 2026-08-27
