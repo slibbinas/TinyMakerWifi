@@ -35,7 +35,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Resin usage estimate** — press UP on the print preview to estimate the resin a model needs — shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-profiles-level--refills))
 * **Model preview in the dashboard** — click any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card as a smooth, GPU-rendered 3D model (three.js, cached on the SD card — falls back to the built-in renderer without it), with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate — click it to run the exact scan. A **Detailed** button re-renders at full print resolution (about a minute per model the first time, instant afterwards — the result is cached next to the model)
-* **Slice in the browser** (optional) — switch the **Slicer** on under Settings → Network and the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
+* **Slice in the browser** — the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
 * **Safe model uploads** — uploads unpack into a temporary folder and replace the old model only after unpacking succeeds; a name conflict asks *Replace / Rename / Cancel* (PrusaSlicer re-uploads just replace) *(contributed by [@Briadark](https://github.com/Briadark))*
 * **3D print progress** — while printing, the dashboard shows the same 3D view filling up in real time: the printed part in color, the rest as a ghost outline. Zero load on the printer (the browser renders from prefetched layers)
 * **WiFi reset** — from the System menu, or by holding the BACK button while powering on
@@ -165,6 +165,8 @@ No network? Copy an `.sl1` or `.zip` (exported by PrusaSlicer/UVtools) into the 
 
 In the **Print** menu, **press and hold OK for ~1.5 seconds** on a model — a *Delete model?* confirmation appears (release the button first, then **OK = Delete**, **Back = No**). Deletion removes the whole model folder from the SD card and shows a progress bar (large models take a while — hundreds of layer files). A short OK press starts printing as usual.
 
+<img src="Images/mockups/browser-slicer.png" width="820" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
+
 ## Web dashboard
 
 Open the printer's IP address in any browser for the full dashboard *(initial version contributed by [@Briadark](https://github.com/Briadark))*: live print status and controls, SD card management with one-click start/import, device settings, backups and firmware updates — all in tabs styled to match the printer's UI.
@@ -239,6 +241,7 @@ Both switches default to **On**, and stay On after upgrading from an older versi
 ## Resin profiles, level & refills
 
 <img src="Images/mockups/resin-profiles.png" width="420" alt="The resin picker: built-in and installed profiles, one marked tested by with a Buy link, and a line offering ready-made profiles to install">
+<img src="Images/mockups/resin-recipe.png" width="420" alt="Settings, Print tab: the selected profile with its whole recipe - layer height, exposures, layers and the four lift settings - then Save, Save as and Rename, and the resin calibration by weight">
 
 The printer has no resin sensor — instead it **keeps count**: every printed layer's cured volume (the same white-pixel estimate used for the ml counter) is subtracted from the VAT level. The estimate survives reboots and firmware updates.
 

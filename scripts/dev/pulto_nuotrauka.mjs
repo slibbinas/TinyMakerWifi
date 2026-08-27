@@ -44,6 +44,10 @@ const CFG = {
      („Building the 3D view 22/36“), ir kadras nuolat pagaudavo ja pusiaukeleje -
      dokumentacijai toks netinka (V 08-27). */
   poLaukti: Number(imk('--po', 0)),
+  /* --file 'selektorius|kelias' - paduoda TIKRA faila i <input type=file>.
+     Be sito slicerio nenufotografuosi: jam reikia STL, o puslapis pats failo
+     nuo disko paimti negali (V 08-27, README slicerio vaizdas). */
+  failas:   imk('--file', null),
   plotis:   Number(imk('--w', 1000)),
   aukstis:  Number(imk('--h', 1400)),
   mastelis: Number(imk('--scale', 2)),
@@ -145,6 +149,21 @@ try {
       await js(`(()=>{const e=document.querySelector('${sel.trim()}'); if(e)e.click(); return !!e;})()`);
       await miegok(2500);
     }
+    if (CFG.poLaukti) await miegok(CFG.poLaukti);
+  }
+
+  if (CFG.failas) {
+    const [sel, kelias] = CFG.failas.split('|');
+    if (!kelias) { console.error('--file: reikia „selektorius|kelias\u201c'); await baigti(1); }
+    /* Per CDP, ne per JS: naršyklė failo nuo disko pati paimti negali, o
+       DOM.setFileInputFiles yra tam skirtas kelias. */
+    const ev = await cmd('Runtime.evaluate',
+      { expression: `document.querySelector('${sel.trim()}')`, returnByValue: false });
+    const objectId = ev.result && ev.result.objectId;
+    if (!objectId) { console.error('--file: elementas nerastas: ' + sel); await baigti(1); }
+    await cmd('DOM.enable');
+    await cmd('DOM.setFileInputFiles', { files: [path.resolve(kelias.trim())], objectId });
+    sako('failas paduotas:', path.basename(kelias.trim()));
     if (CFG.poLaukti) await miegok(CFG.poLaukti);
   }
 
