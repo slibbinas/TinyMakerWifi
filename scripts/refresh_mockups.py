@@ -179,7 +179,7 @@ def extend_printer_screens():
     p = MOCKUPS / "printer-screens.png"
     src = Image.open(p).convert("RGB")
     base = src.crop((0, 0, 2080, 1920))
-    img = Image.new("RGB", (2080, 2768), (0, 0, 0))
+    img = Image.new("RGB", (2080, 3184), (0, 0, 0))
     img.paste(base, (0, 0))
     d = ImageDraw.Draw(img)
 
@@ -279,8 +279,47 @@ def extend_printer_screens():
         d.text((lx + 18, ry), k, font=_seg(26), fill=CAPTION)
         d.text((lx + 190, ry), v, font=_seg(26), fill=c)
 
+    # ---------------- septinta eile: Advanced meniu is arti --------------------
+    # V praše (08-27), kad Advanced meniu butu parodytas ne viena plytele, o
+    # pilna eile: zmogus, atsivertes 12 skyriu, nori pamatyti, KAIP tos grupes
+    # atrodo ekrane, o ne tik perskaityti ju sarasa.
+    Y2 = Y1 + CH + 28
+
+    def tile7(cx, caption):
+        d.rounded_rectangle((cx, Y2, cx + CW, Y2 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y2 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y2 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    def rows(lx, ly, items, sel=0):
+        for i, (name, val) in enumerate(items):
+            ry = ly + 12 + i * 90
+            if i == sel:
+                d.rounded_rectangle((lx + 8, ry, lx + LW - 8, ry + 78), 10,
+                                    outline=(238, 238, 238), width=3)
+            d.text((lx + 26, ry + 8), name, font=_seg(32), fill=(238, 238, 238))
+            d.text((lx + 26, ry + 44), val, font=_seg(26), fill=CYAN)
+
+    # --- tile 7: Network grupes vidus
+    lx, ly = tile7(cols[0], "Advanced > Network")
+    rows(lx, ly, [("WiFi", "On"), ("Web control", "On"), ("Boot update", "On")])
+
+    # --- tile 8: Display grupes vidus
+    lx, ly = tile7(cols[1], "Advanced > Display")
+    rows(lx, ly, [("Idle timeout", "60s"), ("Boot animation", "Bunny")], sel=0)
+
+    # --- tile 9: Resin profile - 0.17 punktas, kuris keicia visa recepta
+    lx, ly = tile7(cols[2], "Advanced > Resin > Resin profile")
+    rows(lx, ly, [("Resin profile", "Sunlu Tough1"),
+                  ("Exposure test", "4.4-17.6s"),
+                  ("Dry run", "Off")])
+
     img.save(p)
-    print("  printer-screens.png: penkta eile atnaujinta, sesta (0.16-0.17) pridėta")
+    print("  printer-screens.png: penkta eile atnaujinta, sesta ir septinta pridėtos")
 
 
 def draw_dashboard(latest):
