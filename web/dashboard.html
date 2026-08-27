@@ -1106,7 +1106,17 @@ const snackProgress=(txt,done,total,extra,fmt,barPct)=>{
   /* Laukimas matuojamas SEKUNDEMIS. Plikas procentas buvo paskutine vieta, kur jis
      dar issprusdavo - ir atrode kaip antras, nieko nesakantis skaicius (V 08-18).
      Procentai lieka tik skaiciuojamiems darbams (baitai, failai, sluoksniai). */
-  if(p)p.textContent=(total>0)?(num(done)+'/'+num(total)+' · '+pct+' %'):(extra||'');
+  /* Skaitiklio eilutes ILGIS turi buti pastovus visa darba. `min-width` yra tik
+     apatine riba: „1/240 · 1 %" trumpesnis uz „120/240 · 50 %", tad langelis augdavo,
+     o su juo ir visa dezute - kas kelis procentus ji stumtelėdavo (V 08-27).
+     Uzpildom U+2007 (FIGURE SPACE) - jis lygiai skaitmens plocio, o snackPct jau turi
+     `tabular-nums`, tad stulpeliai sutampa ir niekas nejuda. */
+  const FIG='\u2007';
+  const padl=(t,n)=>t.length<n?FIG.repeat(n-t.length)+t:t;
+  if(p){
+    const nt=num(total), nd=padl(num(done),nt.length), np=padl(String(pct),3);
+    p.textContent=(total>0)?(nd+'/'+nt+' · '+np+' %'):(extra||'');
+  }
   /* `barPct==='indet'` - trukmes nezinom, bet darbas tikrai vyksta: juostele lieka,
      tik joje slenka ruozelis. Tuscia vieta butu sakiusi „nieko nevyksta". */
   const indet=barPct==='indet';
