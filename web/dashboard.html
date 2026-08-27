@@ -5708,9 +5708,20 @@ const loadConfig=async()=>{
     $('configHint').textContent=noWc?'Settings are disabled while Web control is off (enable it on the printer: System > Advanced).'
       :(locked?('Settings are locked while '+(busyWhat()||'the printer is busy')+' - they come back when it finishes.')
               :'Config locks automatically while the printer is busy.');
-    sdBackupPresent=!!c.sdBackupPresent; $('restoreSdButton').disabled=locked||!sdBackupPresent; $('restoreSdButton').title=sdBackupPresent?'':'No backup found on the SD card';
+    /* Spausdinant firmware siu dvieju laukeliu neskaito - kortele priklauso spaudiniui,
+       - ir grazina `false`. Tai NEZINIA, ne atsakymas: pultas anksciau ja skelbdavo kaip
+       fakta („No backup on the SD card yet"), nors kopija ramiai gulejo kortelėje. Ta
+       pati klaida, kaip su slicerio moduliu (V 08-28). */
+    const kortNezinia=!!(statusData&&statusData.busy);
+    sdBackupPresent=!!c.sdBackupPresent; $('restoreSdButton').disabled=locked||!sdBackupPresent;
+    $('restoreSdButton').title=sdBackupPresent?''
+      :(kortNezinia?'The card is locked while printing, so a backup on it cannot be checked now'
+                   :'No backup found on the SD card');
     const fmt24=e=>{const d=new Date(e*1000),p=n=>('0'+n).slice(-2);return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());};
-    $('backupHint').textContent=(c.sdBackupPresent?('Backup on SD: '+(c.sdBackupEpoch?fmt24(c.sdBackupEpoch):'date unknown')+'. '):'No backup on the SD card yet. ')+'With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.';
+    $('backupHint').textContent=(c.sdBackupPresent
+      ?('Backup on SD: '+(c.sdBackupEpoch?fmt24(c.sdBackupEpoch):'date unknown')+'. ')
+      :(kortNezinia?'The card is locked while printing, so what is on it cannot be checked now. '
+                   :'No backup on the SD card yet. '))+'With a backup on the SD card, the printer offers to restore it on the first boot after a full USB reflash.';
     show('connectBackupTools',!!c.connectEnabled);
     $('cfgConnectAutoBackup').checked=!!c.connectAutoBackup;
     $('cfgConnectAutoBackup').disabled=locked||!c.connectTokenSet;
@@ -6410,14 +6421,20 @@ const slmRefresh=async()=>{
      pasako, ar sliceris isvis pakils be tinklo. */
   /* `version` firmware atiduoda TIK tada, kai kortelej guli visi penki failai:
      pusiau nukopijuotas rinkinys neturi atrodyti kaip idiegtas (auditas 08-22). */
+  /* Spausdinant firmware i si klausima sazininai neatsako: SD tuo metu priklauso
+     spaudiniui, ir jos skaitymas vidury sluoksnio yra pavojingesnis nei nezinojimas
+     (Network.ino: 409 „printer is busy"). Bet pultas ta klaida vercdavo TEIGINIU -
+     „not on the card", - ir modulis, ramiai gulintis kortelėje, atrodydavo dinges
+     (V 08-28: „a bug, kodel slicer not on the card?"). Nezinia nera neigimas. */
+  let slmNezinia=false;
   try{const c=await api('/api/lib/slicer');slmOnCard=c.version||'';}
-  catch(e){slmOnCard='';}
+  catch(e){slmOnCard='';slmNezinia=/busy|unlocks|409/i.test(e.message||'');}
   /* Kortelė gali buti pasikeitusi nuo puslapio uzkrovimo: modulis, paimtas is
      interneto, pats nusikopijuoja i SD. Be sito atnaujinimo taskelis liktu degti
      apie versija, kuri jau idiegta (pagauta 08-24 tikrinant ant printerio). */
   if(typeof slicerOnCardVer!=='undefined'&&slmOnCard&&slicerOnCardVer!==slmOnCard){
     slicerOnCardVer=slmOnCard; renderFwBadges();}
-  setText('slmInstalled',slmOnCard||'not on the card');
+  setText('slmInstalled',slmOnCard||(slmNezinia?'not readable while printing':'not on the card'));
   /* Įdiegus naują modulį senasis lieka gyvas puslapio atmintyje, kol puslapis
      neperkrautas - ir niekas apie tai nesakydavo, tad žmogus manydavo, kad jau
      naudoja naują (V 08-24). Sakom tik tada, kai skirtumas TIKRAI yra. */
@@ -6444,7 +6461,9 @@ const slmRefresh=async()=>{
     $('slmInstallSelected').disabled=!idle;
     $('slmInstallLatest').disabled=!idle||!list.length||list[0]===slmOnCard;
     $('slmMsg').textContent=!idle
-      ? 'Copying is blocked while the printer is printing.'
+      ? (slmNezinia
+         ? 'The card is locked while printing, so what is on it cannot be read now. Copying resumes when the print ends.'
+         : 'Copying is blocked while the printer is printing.')
       :(!list.length?'No slicer versions published yet.'
        :(list[0]===slmOnCard?'The slicer on the printer is up to date.'
         :(slmOnCard?'A newer slicer module is available.'
