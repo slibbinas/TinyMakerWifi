@@ -170,7 +170,7 @@ Open the printer's IP address in any browser for the full dashboard *(initial ve
 
 While a print runs, the status card counts the current phase down next to its name — *Curing · 9s* — and a small dot says whether the printer answered just now or is mid-move. That matters on this hardware: one ESP32 drives the screen, the motor, the UV LED and the web server off a single SD card, so the dashboard is served in the gaps between layer moves. A pause of a few seconds with an amber *syncing* mark is the printer working, not the page hanging.
 
-<img src="Images/mockups/web-dashboard.png" width="420" alt="TinyMakerWiFi web dashboard: live print status, controls and SD manager">
+<img src="Images/mockups/web-dashboard.png" width="420" alt="TinyMakerWiFi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
 
 On a desktop-sized screen the dashboard spreads into two columns — here it is in real use, idle with a card full of models:
 
@@ -233,10 +233,11 @@ Three ways to update:
 * **On the printer (self-update, no computer):** `System → Update` shows the **installed** version and checks GitHub for the **latest**. If a newer one is available, the `Install` button lights up — press **OK** and the printer downloads and flashes it itself over WiFi.
 * **From the dashboard — the Update tab:** shows installed vs latest with an **Install latest** button, a **version picker** (install any released version, downgrades ask for confirmation) and a **file upload** for a `firmware.bin` from [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) or a local build.
 * **For developers:** PlatformIO OTA — open `System → Update` on the printer (this path keeps the strict screen gate), then select the `env:tinymaker-ota` environment and Upload goes over WiFi.
+* **The browser slicer updates separately.** The same Update tab holds a **Slicer module** card — the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
 
 Do not power off during an update — and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 
-<img src="Images/mockups/firmware-update-page.png" width="420" alt="Dashboard Update tab: installed vs latest, install latest, version picker and firmware.bin upload">
+<img src="Images/mockups/firmware-update-page.png" width="420" alt="Dashboard Update tab: installed version vs the stable channel, version picker, firmware.bin upload and the Slicer module card">
 
 
 > The self-update needs the latest `firmware.bin` + a `version.txt` hosted on GitHub Pages. See [`Firmware_Hosting/`](Firmware_Hosting/) for the one-time setup and per-release steps.

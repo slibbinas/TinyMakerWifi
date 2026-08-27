@@ -504,15 +504,23 @@ def main():
     print(f"  {p.name} ok")
     extend_printer_screens()
 
-    # --- web-dashboard.png: full redraw (kept in sync with the real UI) ---
-    p = MOCKUPS / "web-dashboard.png"
-    draw_dashboard(latest).save(p)
-    print(f"  {p.name} ok (regenerated)")
-
-    # --- firmware-update-page.png: full redraw of the Update tab ---
-    p = MOCKUPS / "firmware-update-page.png"
-    draw_update_page(installed, latest).save(p)
-    print(f"  {p.name} ok (regenerated)")
+    # --- web-dashboard.png / firmware-update-page.png: NEBEPIESIAMI ---
+    # Sie du buvo piesiami ranka, ir todel nuolat atsilikdavo nuo tikro pulto:
+    # 2026-08-27 README rode Update skirtuka su "Firmware 0.14.3" ir be slicerio
+    # kortele - funkcijos, kuri jau buvo isleista (V pagavo). Pieštas UI dreifuoja
+    # tyliai: niekas nesulužta, tik paveiksliukas pamazu tampa melu.
+    #
+    # Nuo dabar juos FOTOGRAFUOJAM nuo tikro printerio:
+    #   node scripts/dev/pulto_nuotrauka.mjs --url "http://<printerio-ip>/" \
+    #        --w 1500 --h 900 --out Images/mockups/web-dashboard.png
+    #   node scripts/dev/pulto_nuotrauka.mjs --url "http://<printerio-ip>/#settings" \
+    #        --w 1000 --h 1500 --click '#cfgNav a[data-pane="update"]' \
+    #        --out Images/mockups/firmware-update-page.png
+    # Tie patys failai dedami ir i docs/manual/images/.
+    #
+    # draw_dashboard() ir draw_update_page() PALIEKAMOS - jos dar praverstu, jei
+    # kada reiktu paveikslelio be tikro printerio (pvz. pristatymui), bet
+    # eiliniame paleidime nebekvieciamos.
 
     # --- model-preview-3d.png: full redraw of the 3D preview/progress ---
     draw_preview_mockup()
