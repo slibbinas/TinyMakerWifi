@@ -288,7 +288,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
         <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;align-items:center;justify-content:center;background:var(--card)'>
           <span id='plateFrame'><canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas><span id='plateCorners'></span></span>
         </div>
-        <div id='gl3dHelp' style='display:none;position:absolute;left:44px;top:8px;z-index:3'>
+        <!-- Numatytoji vieta - kairysis krastas. 44px buvo vieta defektu zymeklio
+             mygtukui, bet ji uzkalta: SD modelio perziuroje zymeklio nera, ir
+             klaustukas stovejo tuscioje vietoje (V radinys 08-27). Slicerio pusėje
+             slicerTopLeft() ir toliau perstumia ji i 44px, KAI zymeklis matomas -
+             ji visada prisiskiria reiksme, tad numatytoji cia jai netrukdo. -->
+        <div id='gl3dHelp' style='display:none;position:absolute;left:10px;top:8px;z-index:3'>
           <button id='gl3dHelpBtn' type='button' aria-label='Controls'>?</button>
           <div id='gl3dHelpBox'>
             <b>Drag</b> &ndash; rotate<br>
