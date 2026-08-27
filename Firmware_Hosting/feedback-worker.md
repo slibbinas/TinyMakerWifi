@@ -24,6 +24,34 @@ raktų (`panel:*`). HTML įkeliamas iš PC su `wrangler`, NE iš repo.
 
 Proxy į gh-pages (be KV): `/demo`, `/manual`, `/roadmap`.
 
+### `/tests/state` — testų pulto žymos serveryje (2026-08-27)
+
+Pultas lieka viešas ir be rakto veikia kaip anksčiau (žymos tik toje naršyklėje).
+Su asmeniniu raktu nuorodoje (`/tests?k=...`) žymos keliauja į serverių, tad
+telefonas prie printerio ir kompiuteris ant stalo rodo tą pačią būseną, o
+naršyklės išvalymas nebenužudo testavimo sesijos.
+
+| | |
+|---|---|
+| Raktas prieigai | KV `key:tests` (kaip `key:team`); blogas ar joks → **404** |
+| Būsena | KV `tests:state`, vienas JSON: `{"T-19":{"v":"pass","n":"...","t":<ms>}}` |
+| `GET /tests/state?k=` | grąžina būseną |
+| `POST /tests/state?k=` | prisiunčia **pilnuą to įrenginio kopiją**, grąžina sulietą būseną |
+
+**Susiliejimas pagal eilutės laiką, ne pagal atsiuntimo eilę.** Abu įrenginiai
+siunčia pilnas kopijas, tad vakar paliktas atidarytas langas kitaip nutrintų
+tai, kas ka tik pažymėta telefone. Taisyklė gyvena atskirai — `src/state.mjs`
+`mergeState()` — ir yra **unit-testuota**:
+
+```
+cd Firmware_Hosting/feedback-worker
+node --test test/state.test.mjs
+```
+
+⚠️ Windows'e `node --test test/` (katalogas) nesuveikia — `MODULE_NOT_FOUND`;
+paduok patį failą, kaip aukščiau.
+
+
 **SEO / AI-discovery route'ai** (inline turinys `src/index.js`, ne KV — apex neturi
 CNAME, tad worker juos servina pats): `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 Turinį keisti tiesiai `index.js` + `wrangler deploy`.
