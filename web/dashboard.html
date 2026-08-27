@@ -5363,7 +5363,15 @@ const renderSdJob=s=>{
            i ji ir ziurima (V radinys 08-27). filesShowName() persijungia i jo
            puslapi ir atslenka prie eilutes; ji pati atsisako, jei zmogus KAIP TIK
            raso filtra. */
-        loadFiles().then(()=>{try{filesShowName(justName);}catch(e){}});
+        loadFiles().then(()=>{
+          /* Pirmas puslapis - BE salygu. filesShowName() soka i to modelio puslapi, o
+             naujausias sarase yra virsuje, tad paprastai tai ir yra pirmas. Bet jei
+             vardo sarase nebutu (ispakuojant pasikeite, filtras kitoks), zmogus liktu
+             tame paciame antrame puslapyje - o ikeles jis tikisi matyti, ka atsiunte. */
+          filesPage=0;
+          let ok=false; try{ok=filesShowName(justName);}catch(e){}
+          if(!ok)renderFiles();
+        });
         /* Ka tik ikeltas modelis - ir yra tas, i kuri zmogus ziuri. Sliceryje
            taip ir buvo: supjaustei - matai; o per korteles ikelima tekdavo dar
            susirasti eilute ir paspausti (V 08-20). Neatimam vaizdo, jei ekrane
