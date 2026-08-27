@@ -31,8 +31,9 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Power-loss recovery** — the printer checkpoints its progress to a tiny file on the SD card while printing; after a power blip or outage it offers **Resume** right on the next boot and picks the print back up at the interrupted layer (no re-homing — the plate is trusted where it stopped)
 * **Exposure calibration test** — cures an 8-bar test strip straight from the printer (System → Advanced), each bar a different exposure; no slicer or SD file needed
 * **Clean Resin Vat** (Maintenance) — full-screen UV exposure cures a thin skin over the vat so debris lifts out in one piece (stock TinyMaker feature, kept and counted into LED hours)
+* **Named resin profiles** — one resin, one recipe: layer height, both exposures, base and transition layers, all four lift settings, and the resin’s density with its weighing calibration. Switching resin is one press instead of ten fields. Two profiles are **built into the firmware** (so the list is never empty - no SD card, no network, after a factory reset), and a **library of ready-made profiles** can be installed from the picker; a “✓ tested by” badge means someone actually printed with that resin on this printer. Pick the resin from the dashboard’s main view, from Settings → Print, or at the machine under System → Advanced → Resin
 * **Resin usage estimate** — press UP on the print preview to estimate the resin a model needs — shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
-* **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-level--refills))
+* **Resin level tracking** — the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-profiles-level--refills))
 * **Model preview in the dashboard** — click any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card as a smooth, GPU-rendered 3D model (three.js, cached on the SD card — falls back to the built-in renderer without it), with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate — click it to run the exact scan. A **Detailed** button re-renders at full print resolution (about a minute per model the first time, instant afterwards — the result is cached next to the model)
 * **Slice in the browser** (optional) — switch the **Slicer** on under Settings → Network and the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
 * **Safe model uploads** — uploads unpack into a temporary folder and replace the old model only after unpacking succeeds; a name conflict asks *Replace / Rename / Cancel* (PrusaSlicer re-uploads just replace) *(contributed by [@Briadark](https://github.com/Briadark))*
@@ -190,17 +191,41 @@ A real print in progress — a plate of teeth with supports, rendered live in th
 
 **System → Advanced** on the printer *(contributed by [@Briadark](https://github.com/Briadark))* holds the device toggles — OK changes a value, Back returns:
 
+Since 0.16 the items sit in **three groups** - Network, Resin and Display - so the list stays
+short at every step, and each group row shows its own state at a glance (`WiFi On`,
+`15.0 ml left`, `Sleep 60s`).
+
+**Network**
+
 | Item | What it does |
 |---|---|
-| Screen timeout | Blank the status screen after 30 s…10 min of inactivity (Off = never) |
-| Dry run | Test prints without UV — motion and display only |
-| VAT refilled | Press after refilling resin — restarts the level estimate from a full VAT |
-| Low resin pause | On = the print pauses for a refill when the estimate runs low |
-| Low resin warn | The warning/pause threshold, 1–3 ml (OK cycles) |
-| Ask refill | On = every print starts with a "VAT refilled?" question (Yes resets the estimate to a full VAT). Turn Off if you press *VAT refilled* yourself |
-| **WiFi** | **On/Off — the whole network** (web, PrusaSlicer upload, MQTT, self-update) |
-| Web control | On/Off — browser **actions**. Off = the dashboard turns view-only (watch, but no print control, SD changes, uploads, settings or firmware updates); slicer upload and MQTT/HA keep working |
+| **WiFi** | **On/Off - the whole network** (web, PrusaSlicer upload, MQTT, self-update) |
+| Web control | On/Off - browser **actions**. Off = the dashboard turns view-only (watch, but no print control, SD changes, uploads or firmware updates) |
 | MQTT | On/Off (shown once MQTT is configured in the dashboard) |
+| Boot update | On/Off - whether the printer checks for newer firmware shortly after it connects |
+
+**Resin**
+
+| Item | What it does |
+|---|---|
+| Resin profile | Steps through the installed profiles and applies the one shown - the whole recipe for that resin |
+| VAT refilled | Press after refilling - restarts the level estimate from a full VAT |
+| Low resin stop | On = mid-print, at *Stop (ml)*, the printer finishes the layer, lifts and pauses for a refill |
+| Stop (ml) | The level that stops the print: 1-3 ml (OK cycles) |
+| Warn (ml) | The earlier heads-up, on the screen and on your phone: 3 - 5 - 8 - 10 - 12 - 15 ml |
+| Ask refill | On = every print starts with a "VAT refilled?" question (Yes resets the estimate to a full VAT) |
+| Power resume | On = the printer checkpoints as it prints and offers to resume after a power cut |
+| Resume mode | **Balanced** checkpoints every 800 ms of plate movement, **Precise** every 400 ms |
+| Pause lift | How high the plate rises when you pause to look at the print: 20-40 mm in 5 mm steps |
+| Exposure test | Cures an 8-bar calibration strip around your Regular exposure - resin in the vat, no build plate |
+| Dry run | Test prints without UV - motion and display only (the UV stays off *everywhere*, the vat-cleaning cycle included) |
+
+**Display**
+
+| Item | What it does |
+|---|---|
+| Idle timeout | Blank the status screen after 30 s...10 min of inactivity (Off = never). Only while idle - never mid-print |
+| Boot animation | Which animation plays at power-on |
 
 How the network switches behave:
 
@@ -211,7 +236,9 @@ How the network switches behave:
 
 Both switches default to **On**, and stay On after upgrading from an older version — nothing changes until you change it.
 
-## Resin level & refills
+## Resin profiles, level & refills
+
+<img src="Images/mockups/resin-profiles.png" width="420" alt="The resin picker: built-in and installed profiles, one marked tested by with a Buy link, and a line offering ready-made profiles to install">
 
 The printer has no resin sensor — instead it **keeps count**: every printed layer's cured volume (the same white-pixel estimate used for the ml counter) is subtracted from the VAT level. The estimate survives reboots and firmware updates.
 
