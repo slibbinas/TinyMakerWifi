@@ -504,6 +504,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </ul>
   <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> — it decodes every layer, so expect roughly a minute per 100 layers.</p>
   <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
+  <p><b>The card&rsquo;s title is a link.</b> It names the model on screen, and clicking it
+  takes the model list to the page that model sits on &mdash; useful once you have more models
+  than fit on one page, and during a print, when the title reads <i>Printing 42% &middot;
+  Tooth</i> and you want that model in the list in front of you. Titles that name a state
+  rather than a model &mdash; <i>Model preview</i>, <i>Slicer preview</i> &mdash; are plain
+  text. The window itself is grown with the button in the card&rsquo;s corner, and <kbd>Esc</kbd>
+  brings it back.</p>
   <p><b>Any device, at any point in the print.</b> You do not have to have opened the preview beforehand, and it does not have to be the same browser or the same phone — open the dashboard an hour into a print, on a device that has never seen the model, and the growing shape is there. The printer keeps a small stack of layer silhouettes in memory as it prints and hands them to whoever asks, so nothing is read from the SD card mid-print. (Opening the preview first still gives the fuller picture: the complete model as a ghost, rather than only what has been printed so far.)</p>
 
   <h3>The Settings tab</h3>
@@ -689,12 +696,17 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
   <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware — a slicer update never reflashes the printer.</p>
 
+  <p><b>While a print runs the card is locked</b>, and the printer will not read it
+  mid-layer &mdash; so the module card does not claim anything about what is installed: it says
+  the card cannot be read now, and copying resumes when the print ends. The same is true of the
+  backup check in the <b>Backup</b> tab.</p>
+
   <h3>Backup &amp; restore</h3>
   <p>Everything you have configured — print settings, device toggles, MQTT, even the lifetime print and UV LED counters — fits in one backup file. In the dashboard’s Settings → <b>Backup</b> tab:</p>
   <ul>
     <li><b>Download backup</b> — saves <code>tinymaker-backup.json</code> to your computer.</li>
     <li><b>Backup to SD</b> — stores the file on the printer’s SD card. <b>Do this before a full USB reflash:</b> the reflash wipes all settings, but on the first boot the printer finds the backup on the SD card and asks <i>“Restore settings from SD backup?”</i> — one press and everything is back. Settings shows <b>when</b> the SD backup was made, so you can tell at a glance whether it’s fresh.</li>
-    <li><b>Restore from SD</b> — applies the backup stored on the SD card at any time (the button is enabled only when one is present).</li>
+    <li><b>Restore from SD</b> — applies the backup stored on the SD card at any time (the button is enabled only when one is present; while a print runs the card is locked, so the panel says it cannot check rather than claiming there is none).</li>
     <li><b>Restore from file</b> — applies an uploaded backup at any time.</li>
   </ul>
   <p><b>Auto backup to TinyMaker Connect</b> (optional, for registered Connect users): a checkbox under Settings → <b>Network</b> → <i>TinyMaker Connect</i> keeps a backup on the Connect server after settings changes and after prints; the Backup tab then offers <b>Download from Connect</b> and <b>Restore from Connect</b>. Connect backups do <b>not</b> include the stored MQTT, notification or Connect secrets. When you register, save the <b>recovery code</b> (Retrieve / Copy buttons in the Connect section) — it restores your Connect profile if you ever reset the printer without a backup.</p>
