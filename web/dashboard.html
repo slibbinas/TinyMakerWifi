@@ -2732,10 +2732,15 @@ let sdFitDirba=false;
    praejimas grazindavo i 2-a puslapi. Is salies atrode, kad `Next` neveikia ir
    paskutinis puslapis neatsidaro (V 08-27). Telefone matuoklis nedirba - ten veike. */
 let sdInkaras='';
-/* Lubos: kai matuoklis eilute NUIMA, grazinti jos negalima, kol nepasikeite maketas.
-   Be sito trumpas paskutinis puslapis atrodo laisvas, eilute grizta, po to vel
-   nuimama - ir puslapiu skaicius mirga po ranka. */
-let sdFitLubos=SD_EIL_MAX;
+/* Mirgejimas gimdavo is to, kad NUEMIMO ir GRAZINIMO ribos persidengdavo: 8 px
+   atlaida abiem pusem reiske, kad ta pati padetis vienu praejimu atrodo per ankšta, o
+   kitu - per laisva. Dabar ribos nesikerta ir yra išvestos is EILUTES aukscio:
+     nuimam  - kai sarasas islenda daugiau nei per PUSE eilutes,
+     grazinam - kai laisvos vietos yra PILNA eilute.
+   Tarp ju - ramybes juosta: kelis pikselius islindes sarasas paliekamas ramybeje, nes
+   eilute zmogui vertingesne nei tikslus dvieju stulpeliu sulyginimas (V 08-27: „vietoj
+   5 pradejo rodyti po 4"). Matematiskai uzdara: pridejus eilute laisvos vietos lieka
+   maziau nei puse, atemus - maziau nei pilna, tad kitas praejimas nieko nebekeicia. */
 const sdFitRows=()=>{
   if(sdFitDirba)return;
   const dvi=(()=>{try{return matchMedia('(min-width:1000px)').matches;}catch(e){return false;}})();
@@ -2768,17 +2773,17 @@ const sdFitRows=()=>{
         /* Riba (8 px) turi buti NE MAZESNE uz auginimo atlaida - kitaip vienas
            irasas amzinai sokinetu: pridetas islistu keliais pikseliais, o
            kitas praejimas ji vel nuimtu (V 08-20). */
-        if(delta>8){n=FILES_PER_PAGE-Math.ceil(delta/eil);sdFitLubos=Math.max(SD_EIL_MIN,n);}
+        const nuimt=Math.round(delta/eil);   // <pusė eilutes -> 0
+        if(nuimt>0)n=FILES_PER_PAGE-nuimt;
         /* Auginam tik tada, kai puslapis PILNAS: kitaip trumpas sarasas augintu
            skaiciu be galo - eiluciu vis tiek nepadaugetu. Su 8 px atlaida: laisvos
            vietos beveik visada lieka keliais pikseliais maziau nei visa eilute, ir
            be jos sarasas likdavo vienu irasu skurdesnis, nei telpa (V 08-20). */
         else if(rodoma>=FILES_PER_PAGE){
-          /* Auga is DVIEJU saltiniu: laisvos vietos korteles viduje ir po kortele.
-             Su 8 px atlaida - eilutei beveik visada trūksta keliu pikseliu. */
+          /* Auga is DVIEJU saltiniu: laisvos vietos korteles viduje ir po kortele. */
           const laisva=Math.max(vidineLaisva,-delta);
-          const auga=Math.floor((laisva+8)/eil);
-          if(auga>0)n=Math.min(FILES_PER_PAGE+auga,sdFitLubos);
+          const auga=Math.floor(laisva/eil);
+          if(auga>0)n=FILES_PER_PAGE+auga;
         }
       }
     }
@@ -2798,7 +2803,7 @@ const sdFitRows=()=>{
 };
 window.sdFitRows=sdFitRows;
 /* Lango dydis pasikeite - senos lubos nebegalioja, matuojam is naujo. */
-addEventListener('resize',()=>setTimeout(()=>{sdFitLubos=SD_EIL_MAX;sdFitRows();},60));
+addEventListener('resize',()=>setTimeout(sdFitRows,60));
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
@@ -4804,7 +4809,6 @@ const stageBox=on=>{
      laukia perpiesimo ar lango dydzio, o nei vieno cia nera, tad likdavo senas,
      susiaurintas eiluciu skaicius (V 08-27). Atidedam per kadra - maketas kaip tik
      persidelioja, ir matavimas turi vykti jau ant naujo. */
-  sdFitLubos=SD_EIL_MAX;
   setTimeout(sdFitRows,0);
   const ob=$('stageOpen');
   ob.title=on?'Back to the normal height':'Grow to the print volume';
