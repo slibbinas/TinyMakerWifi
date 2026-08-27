@@ -44,7 +44,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
 * **Telegram, WhatsApp or Discord notifications** — the printer messages you when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. Pick one channel: a Telegram bot, WhatsApp through the free CallMeBot gateway, or a Discord channel webhook — each with inline **?** setup help and a *Send test* button. *(Telegram is tested daily; WhatsApp and Discord ship untested — they ride on your own CallMeBot key or channel webhook, so the only test that proves anything is yours. Reports welcome, working or not.)*
 * **Anonymous usage ping** (optional) — once per firmware version the printer sends a one-way hash of its MAC address, the firmware version and the lifetime print hours, so we know how many printers are out there. Nothing else is sent, ever — switch it off under Settings → Network → *Anonymous usage ping*
-* **Firmware updates over WiFi** — self-update from the printer (System → Update) or from the dashboard's **Update tab** (install latest, pick **any version** from a list, or upload a file). PlatformIO OTA for developers. Flashing is blocked while printing.
+* **Firmware updates over WiFi** — self-update from the printer (System → Update) or from the dashboard's **Settings → Update** pane (install latest, pick **any version** from a list, or upload a file). PlatformIO OTA for developers. Flashing is blocked while printing.
 * Everything is switchable: WiFi and Web control can be turned off right on the printer (System → Advanced), and build switches still let developers compile the original, network-free firmware from the same code base
 
 ## Screens
@@ -86,7 +86,7 @@ Still stuck after all five? Open an [issue](https://github.com/slibbinas/TinyMak
 
 ### Method 2: Already running TinyMakerWifi? Update over WiFi
 
-No USB needed — use `System → Update` on the printer or the dashboard's **Update tab**. See [Wireless Firmware Updates](#wireless-firmware-updates).
+No USB needed — use `System → Update` on the printer or the dashboard's **Settings → Update** pane. See [Wireless Firmware Updates](#wireless-firmware-updates).
 
 ### Method 3: Manual flashing (fallback & developers)
 
@@ -152,10 +152,25 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 <p>
   <img src="Images/mockups/prusaslicer-physical-printer.png" width="440" alt="PrusaSlicer: add a physical printer pointing at tinymaker.local with API key auth">
   &nbsp;
-  <img src="Images/mockups/prusaslicer-send-to-printer.png" width="300" alt="PrusaSlicer: select the TinyMaker WiFi printer and press Send to printer">
+  <img src="Images/mockups/prusaslicer-send-to-printer.png" width="440" alt="PrusaSlicer: select the TinyMaker WiFi printer and press Send to printer">
 </p>
 
 **Always slice with the 0.05 mm profile.** Unlike FDM, the printed layer height is set **on the printer** (Settings → Layer Height), not by the sliced file — the file is just a stack of 0.05 mm images, and at the 0.10 mm printer setting the firmware takes every other image. Maximum model size: 1200 layers = 60 mm. If prints come out **flat or the wrong height**, check that PrusaSlicer's *Print settings* still show **0.05 mm** — an update or the wrong preset can silently reset it, and the printer can't detect it from the file.
+
+## Slice in the browser
+
+No slicer installed, and nothing to install: the dashboard slices STL files itself. Open the
+**STL slicer** card, choose an STL, pick **regular** or **tree** supports, and press
+**Send to printer** - the model arrives on the SD card ready to print. The result is shown
+before it goes anywhere: the part on its raft in 3D, layer by layer in 2D, with the numbers
+that matter underneath - size, triangles, layer count, supports and the resin estimate.
+
+The slicer is a **module the printer keeps on its own SD card**: fetched once from our GitHub
+Pages, verified byte-for-byte against checksums, and used from the card afterwards - so it
+works with no internet and survives firmware updates. Everything is sliced at 0.05 mm, the
+same as every other model here.
+
+<img src="Images/mockups/browser-slicer.png" width="400" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
 
 ## Importing models from the SD card
 
@@ -165,19 +180,19 @@ No network? Copy an `.sl1` or `.zip` (exported by PrusaSlicer/UVtools) into the 
 
 In the **Print** menu, **press and hold OK for ~1.5 seconds** on a model — a *Delete model?* confirmation appears (release the button first, then **OK = Delete**, **Back = No**). Deletion removes the whole model folder from the SD card and shows a progress bar (large models take a while — hundreds of layer files). A short OK press starts printing as usual.
 
-<img src="Images/mockups/browser-slicer.png" width="820" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
-
 ## Web dashboard
 
 Open the printer's IP address in any browser for the full dashboard *(initial version contributed by [@Briadark](https://github.com/Briadark))*: live print status and controls, SD card management with one-click start/import, device settings, backups and firmware updates — all in tabs styled to match the printer's UI.
 
+In a narrow window - a phone, or half a screen - everything is one column:
+
+<img src="Images/screenshots/dashboard-idle.png" width="430" alt="The dashboard in a narrow window: one column, with the status card, the model preview and the SD manager stacked">
+
+On a desktop-sized screen it spreads into two columns:
+
+<img src="Images/mockups/web-dashboard.png" width="820" alt="The dashboard on a wide screen: two columns, with status and model preview on the left, the STL slicer and SD manager on the right">
+
 While a print runs, the status card counts the current phase down next to its name — *Curing · 9s* — and a small dot says whether the printer answered just now or is mid-move. That matters on this hardware: one ESP32 drives the screen, the motor, the UV LED and the web server off a single SD card, so the dashboard is served in the gaps between layer moves. A pause of a few seconds with an amber *syncing* mark is the printer working, not the page hanging.
-
-<img src="Images/mockups/web-dashboard.png" width="420" alt="TinyMakerWiFi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
-
-On a desktop-sized screen the dashboard spreads into two columns — here it is in real use, idle with a card full of models:
-
-<img src="Images/screenshots/dashboard-idle.png" width="640" alt="Real dashboard screenshot on a desktop screen: status card with UV LED time and Manual link, SD manager with model list">
 
 ### 3D preview & live print progress
 
@@ -187,7 +202,7 @@ There is no mesh to render — the model reaches the printer already sliced into
 
 A real print in progress — a plate of teeth with supports, rendered live in the build-volume box:
 
-<img src="Images/screenshots/printing-eta.png" width="640" alt="Real dashboard screenshot while printing: status with finish-time estimate, print controls and the live 3D print progress render">
+<img src="Images/screenshots/printing-eta.png" width="430" alt="Real dashboard screenshot while printing: status with finish-time estimate, print controls and the live 3D print progress render">
 
 ## Advanced menu (WiFi and Web control switches)
 
@@ -240,8 +255,8 @@ Both switches default to **On**, and stay On after upgrading from an older versi
 
 ## Resin profiles, level & refills
 
-<img src="Images/mockups/resin-profiles.png" width="420" alt="The resin picker: built-in and installed profiles, one marked tested by with a Buy link, and a line offering ready-made profiles to install">
-<img src="Images/mockups/resin-recipe.png" width="420" alt="Settings, Print tab: the selected profile with its whole recipe - layer height, exposures, layers and the four lift settings - then Save, Save as and Rename, and the resin calibration by weight">
+<img src="Images/mockups/resin-profiles.png" width="330" alt="The resin picker: built-in and installed profiles, one marked tested by with a Buy link, and a line offering ready-made profiles to install">
+<img src="Images/mockups/resin-recipe.png" width="430" alt="Settings, Print tab: the selected profile with its whole recipe - layer height, exposures, layers and the four lift settings - then Save, Save as and Rename, and the resin calibration by weight">
 
 The printer has no resin sensor — instead it **keeps count**: every printed layer's cured volume (the same white-pixel estimate used for the ml counter) is subtracted from the VAT level. The estimate survives reboots and firmware updates.
 
@@ -267,8 +282,7 @@ Three ways to update:
 
 Do not power off during an update — and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 
-<img src="Images/mockups/firmware-update-page.png" width="420" alt="Dashboard Update tab: installed version vs the stable channel, version picker, firmware.bin upload and the Slicer module card">
-
+<img src="Images/mockups/firmware-update-page.png" width="430" alt="The dashboard Settings → Update pane: installed version vs the stable channel, version picker, firmware.bin upload and the Slicer module card">
 
 > The self-update needs the latest `firmware.bin` + a `version.txt` hosted on GitHub Pages. See [`Firmware_Hosting/`](Firmware_Hosting/) for the one-time setup and per-release steps.
 
