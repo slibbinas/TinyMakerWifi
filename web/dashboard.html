@@ -148,6 +148,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 .rbIcon:hover:not(:disabled){color:var(--text);background:var(--btnsec)}
 .rbIcon:disabled{opacity:.35;background:transparent}
 .rbIcon.rbDel{color:var(--dangertxt)}
+/* Perziuros pavadinimas, kai jis yra MODELIO vardas, veda i ta modeli SD sarase.
+   Zymeklis ir oranzine po pele - tokie patys, kaip visur kitur pulte, kur galima
+   spausti; be nuorodos antraste lieka paprastu uzrasu (V 08-27). */
+#printPreviewTitle.pvLink{cursor:pointer}
+#printPreviewTitle.pvLink:hover{color:var(--accent)}
+#printPreviewTitle.pvLink:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 /*#include parts/slicer.css*/</style></head><body><main class='wrap'>
 <div class='head'><div><h1><span id='brandHome' role='button' tabindex='0' aria-label='Dashboard' title='Dashboard'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</span><a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
@@ -2719,6 +2725,17 @@ const clearNew=n=>{if(newNames.delete(n))renderFiles();};
 let FILES_PER_PAGE=10;
 const SD_EIL_MIN=3, SD_EIL_MAX=12;
 let sdFitDirba=false;
+/* Nuo kurio irašo prasideda matomas puslapis - VARDU, ne skaiciumi. Eiluciu kiekis
+   puslapyje persiskaiciuoja pats, ir kai puslapis buvo atstatomas is aritmetikos
+   (puslapis x eilutes), kiekvienas perskaiciavimas nustumdavo pradzia atgal: 3 psl.
+   pradzia 10, sumazinus iki 4 eiluciu -> puslapis 2, o jo pradzia jau 8; kitas
+   praejimas grazindavo i 2-a puslapi. Is salies atrode, kad `Next` neveikia ir
+   paskutinis puslapis neatsidaro (V 08-27). Telefone matuoklis nedirba - ten veike. */
+let sdInkaras='';
+/* Lubos: kai matuoklis eilute NUIMA, grazinti jos negalima, kol nepasikeite maketas.
+   Be sito trumpas paskutinis puslapis atrodo laisvas, eilute grizta, po to vel
+   nuimama - ir puslapiu skaicius mirga po ranka. */
+let sdFitLubos=SD_EIL_MAX;
 const sdFitRows=()=>{
   if(sdFitDirba)return;
   const dvi=(()=>{try{return matchMedia('(min-width:1000px)').matches;}catch(e){return false;}})();
@@ -2751,7 +2768,7 @@ const sdFitRows=()=>{
         /* Riba (8 px) turi buti NE MAZESNE uz auginimo atlaida - kitaip vienas
            irasas amzinai sokinetu: pridetas islistu keliais pikseliais, o
            kitas praejimas ji vel nuimtu (V 08-20). */
-        if(delta>8)n=FILES_PER_PAGE-Math.ceil(delta/eil);
+        if(delta>8){n=FILES_PER_PAGE-Math.ceil(delta/eil);sdFitLubos=Math.max(SD_EIL_MIN,n);}
         /* Auginam tik tada, kai puslapis PILNAS: kitaip trumpas sarasas augintu
            skaiciu be galo - eiluciu vis tiek nepadaugetu. Su 8 px atlaida: laisvos
            vietos beveik visada lieka keliais pikseliais maziau nei visa eilute, ir
@@ -2761,7 +2778,7 @@ const sdFitRows=()=>{
              Su 8 px atlaida - eilutei beveik visada trūksta keliu pikseliu. */
           const laisva=Math.max(vidineLaisva,-delta);
           const auga=Math.floor((laisva+8)/eil);
-          if(auga>0)n=FILES_PER_PAGE+auga;
+          if(auga>0)n=Math.min(FILES_PER_PAGE+auga,sdFitLubos);
         }
       }
     }
@@ -2770,7 +2787,9 @@ const sdFitRows=()=>{
   if(n===FILES_PER_PAGE)return;
   /* Pirmas matomas irasas lieka matomas: be sito, ziurint 2 puslapi ir perjungus
      akordeona, akis prarastu vieta. */
-  const pirmas=filesPage*FILES_PER_PAGE;
+  const vis=filesVisible();
+  let pirmas=sdInkaras?vis.findIndex(it=>it.name===sdInkaras):-1;
+  if(pirmas<0)pirmas=filesPage*FILES_PER_PAGE;   // be inkaro - kaip anksciau
   FILES_PER_PAGE=n;
   filesPage=Math.floor(pirmas/n);
   sdFitDirba=true;
@@ -2778,7 +2797,8 @@ const sdFitRows=()=>{
   setTimeout(sdFitRows,0);   // dar kartas: gali tekti pataisyti per viena eilute
 };
 window.sdFitRows=sdFitRows;
-addEventListener('resize',()=>setTimeout(sdFitRows,60));
+/* Lango dydis pasikeite - senos lubos nebegalioja, matuojam is naujo. */
+addEventListener('resize',()=>setTimeout(()=>{sdFitLubos=SD_EIL_MAX;sdFitRows();},60));
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
@@ -2823,6 +2843,7 @@ window.filesShowName=name=>{
   const idx=filesVisible().findIndex(it=>it.name===name);
   if(idx<0)return false;
   filesPage=Math.floor(idx/FILES_PER_PAGE);
+  sdInkaras=name;
   renderFiles();
   /* `nearest`, ne `center`: eilute paprastai jau matoma, ir „center" tada be reikalo
      pastumtu visa puslapi. */
@@ -4778,6 +4799,13 @@ const stageBox=on=>{
      stulpeliu maketui, kad kortele nesielgtu kitaip nei visa aplinka. */
   const hv=$('homeView');
   if(hv)hv.classList.toggle('stageWideOn',on&&stageWideOk());
+  /* Isdidinta perziura stulpelius sulieja i viena - sarasas nusileidzia po ja, kaip
+     telefone, ir aukscio riboti nebereikia. Bet pats matuoklis to nepastebedavo: jis
+     laukia perpiesimo ar lango dydzio, o nei vieno cia nera, tad likdavo senas,
+     susiaurintas eiluciu skaicius (V 08-27). Atidedam per kadra - maketas kaip tik
+     persidelioja, ir matavimas turi vykti jau ant naujo. */
+  sdFitLubos=SD_EIL_MAX;
+  setTimeout(sdFitRows,0);
   const ob=$('stageOpen');
   ob.title=on?'Back to the normal height':'Grow to the print volume';
   ob.setAttribute('aria-label',ob.title);
@@ -4829,8 +4857,7 @@ const setStageGrowUI=canGrow=>{
   /* Inline `display`, ne klase „hidden": pats mygtukas CSS'e turi `display:flex`,
      tad klase pralaimetu (senas spastas - zr. dashboard-gotchas). */
   b.style.display=canGrow?'flex':'none';
-  const t=$('printPreviewTitle');
-  if(t&&t.parentElement)t.parentElement.classList.toggle('hdrAct',!!canGrow);
+  /* `hdrAct` zymejo, kad antraste yra lango jungiklis; nuo 08-27 ji juo nebera. */
 };
 /* Antraste perduoda paspaudima TAM PACIAM mygtukui, kuris stovi jos kampe: perziuros -
    lango didinimui, SD ir slicerio - bloko atidarymui. Tikras mygtukas lieka vietoje, tad
@@ -4853,7 +4880,48 @@ const hdrToggle=(sel,btnId)=>{
 /* Taikinys - VISA antrastes juosta, ne vien pavadinimas: tuscia vieta tarp uzraso ir
    mygtuko yra didziausia jos dalis, ir butent i ja ranka taiko natūraliausiai (V 08-20).
    Patys mygtukai juostoje lieka savimi - juos atmeta `closest` zemiau. */
-hdrToggle('#printPreviewCard .cardHead','stageOpen');
+/* Pavadinimas = nuoroda i ta pati modeli SD sarase (V 08-27: „spausdinimo metu
+   pavadinimas nieko neduoda"). Varda imam is paties TEKSTO, o ne is atskiro kintamojo:
+   antraste israso trys nepriklausomos vietos (kortele, spausdinimo eiga, sliceris), ir
+   viena skaitymo vieta cia pigiau nei trys sutartys, kuriu kiekviena gali issiskirti.
+   Nuoroda atsiranda TIK tada, kai toks modelis is tikruju guli kortelėje - „Slicer
+   preview" ar „Model preview" lieka paprastu uzrasu. */
+const pvLinkName=()=>{
+  const t=$('printPreviewTitle'); if(!t)return '';
+  let v=(t.textContent||'').trim();
+  /* „Printing 42% · Tooth" - vardas po paskutinio skirtuko. */
+  const i=v.lastIndexOf(' \u00b7 '); if(i>=0)v=v.slice(i+3).trim();
+  return (v&&filesItems.some(it=>it.name===v))?v:'';
+};
+const pvLinkSync=()=>{
+  const t=$('printPreviewTitle'); if(!t)return;
+  const n=pvLinkName();
+  t.classList.toggle('pvLink',!!n);
+  if(n){t.title='Show \u201c'+n+'\u201d in the model list';t.setAttribute('role','link');t.setAttribute('tabindex','0');}
+  else {t.removeAttribute('title');t.removeAttribute('role');t.removeAttribute('tabindex');}
+};
+/* Stebim pati uzrasa, o ne kviecianciasias vietas: taip nuoroda spėja ir po slicerio
+   raso, ir po kiekvienos apklausos spausdinant, nieko nepridedant i tuos kelius. */
+try{new MutationObserver(pvLinkSync).observe($('printPreviewTitle'),{childList:true,characterData:true,subtree:true});}catch(e){}
+const pvGo=e=>{
+  const n=pvLinkName(); if(!n)return;
+  e.preventDefault();
+  /* Antraste sedi ant korteles galvos - be sito paspaudimas nukeliautu ir i ja. */
+  e.stopPropagation();
+  const sd=$('sdSection');
+  if(!sd||sd.classList.contains('hidden'))return;
+  /* Susiskleides sarasas atsidaro pats: nueiti i puslapi, kurio nesimato, nera prasmes.
+     Per mygtuka, o ne per klase - akordeona valdo slicerio pusė, ir jos sutartis yra
+     butent tas mygtukas. */
+  if(!sd.classList.contains('akordOpen')){const b=$('sdToggle'); if(b)b.click();}
+  if(typeof filesShowName==='function')filesShowName(n);
+  try{sd.scrollIntoView({block:'nearest'});}catch(err){}
+};
+$('printPreviewTitle').addEventListener('click',pvGo);
+$('printPreviewTitle').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')pvGo(e);});
+/* Perziuros antraste lango NEBEDIDINA (V 08-27). Taisykle dabar viena ir be isimciu:
+   matai varda - jis nuoroda; matai busena - spausti nera ko. Lango didinimas lieka
+   savo mygtuke kampe (ir `Esc` grazina), kaip Windows lango valdiklis. */
 hdrToggle('#sdSection .cardHead','sdToggle');
 hdrToggle('#slicerCard .cardHead','slicerToggle');
 window.setStageGrowUI=setStageGrowUI;   // applyStatus gyvena auksciau uz si bloka
@@ -5636,8 +5704,14 @@ const loadConfig=async()=>{
 window.modelDetails=modelDetails;
 window.startPrint=startPrint;
 window.deleteFile=deleteFile;
-window.filesNav=d=>{filesPage+=d;renderFiles();};
-$('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;renderFiles();});
+window.filesNav=d=>{
+  filesPage+=d;
+  /* Inkara stato TIK zmogaus veiksmas; matuoklis ji tik skaito. */
+  const vis=filesVisible(), pr=vis[Math.max(0,filesPage)*FILES_PER_PAGE];
+  sdInkaras=pr?pr.name:'';
+  renderFiles();
+};
+$('filesFilter').addEventListener('input',e=>{filesQuery=e.target.value.trim();filesPage=0;sdInkaras='';renderFiles();});
 /* Enter/tarpas ant pazymetos eilutes daro ta pati, ka paspaudimas. Klausom sarasa, o ne
    kiekviena eilute atskirai - eilutes perpiesamos kas apklausa. */
 $('filesList').addEventListener('keydown',e=>{
