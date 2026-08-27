@@ -7402,7 +7402,13 @@ window.__markToolInit=()=>{
   host.addEventListener('pointercancel',()=>{dragFrom=null;bandHide();},true);
 };
 {const t=setInterval(()=>{
-   if(!(window.statusData&&statusData.slicerOn))return;
+   /* BE window. : `statusData` paskelbtas per `let`, o `let` sukuria LEKSINI
+      kintamaji - jis pasiekiamas visiems klasikiniams skriptams vardu, bet
+      window savybe NETAMPA. Su `window.statusData` salyga buvo amzinai
+      klaidinga, laikmatis suko be galo, ir defektu zymeklis nepasistatydavo
+      nuo pat vartu ivedimo 08-22 (V pastebejo, kad mygtukas dingo). */
+   let on=false; try{on=!!(statusData&&statusData.slicerOn);}catch(e){}
+   if(!on)return;
    clearInterval(t); try{__markToolInit();}catch(e){}
  },1000);}
 </script>
