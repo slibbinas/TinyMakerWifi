@@ -2783,11 +2783,13 @@ const sdFitRows=()=>{
       if(matomas(uB))apacia=sdBot-uB.getBoundingClientRect().top;
       if(matomas(pgJ))apacia+=pgJ.getBoundingClientRect().height+8;
       const vieta=kaireBot-lTop-apacia;
-      /* Apvalinam, o ne nukertam: paskutine eilute tarpo po savimi neturi, ir
-         nukirtimas visada atimtu viena. Kartu tai ir yra „ramybes juosta" - iki pusės
-         eilutes islindes sarasas eilutes nepraranda (V 08-27: eilute vertingesne nei
-         tiksliai sulygintas krastas). */
-      if(zingsnis>0&&vieta>0)n=Math.round(vieta/zingsnis);
+      /* Nukertam, ne apvalinam: kortele NIEKADA neturi nukarti zemiau kaires puses.
+         Bandyta atvirksciai - apvalinti, kad butu issaugota eilute, - bet ta puse
+         eilutes, kuria sarasas tada islenda, matosi labiau nei laimeta eilute
+         (V 08-28: „apacia sugadinai"). Paskutine eilute tarpo po savimi neturi, tad ta
+         viena tarpa pridedam atgal - kitaip visada prarastume eilute be reikalo. */
+      const tarpas=eilutes.length>1?Math.max(0,zingsnis-r0.height):0;
+      if(zingsnis>0&&vieta>0)n=Math.floor((vieta+tarpas)/zingsnis);
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
   }
