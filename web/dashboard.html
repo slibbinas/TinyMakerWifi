@@ -1474,6 +1474,20 @@ const uploadFixedThumb=async(name,type)=>{
     repaintPreviewForTheme();
   }
 };
+/* NEGYVA ŠIAME FAILE - IR VIS TIEK BŪTINA. Sio pulto kode kviteju nera, tad
+   paieska po repo ja rodo kaip negyva koda; taip ji ir buvo isimta (dbaa417,
+   „dead code out"). Bet ja kviecia Connect programele, kuri uzkraunama IS
+   SERVERIO (loadConnectApp -> printer-connect.js) ir musu repo nesimato.
+   Rezultatas: „Share" ties modeliais, turinčiais issaugota perziura, luzdavo su
+   „localPreviewBlob is not defined" (V radinys, testas T-48, 2026-08-27).
+   Del to ji ir eksportuojama i window - taip pat, kaip shareModel ir
+   loadConnectApp: viskas, ka Brian'o kodas kviečia, gyvena ten. NETRINTI. */
+const localPreviewBlob=async(name,type)=>{
+  const r=await fetch('/api/files/model/preview?name='+enc(name)+'&type='+enc(type)+'&r='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error('saved preview '+type+' failed to load');
+  return await r.blob();
+};
+window.localPreviewBlob=localPreviewBlob;
 /* Kai patys pradedam darba, kuris uzima vienintelį printerio rysi (dalijimasis,
    ikelimas), cia iraso zmogiska jo pavadinima - tada tyla paaiskinama tiksliai, o ne
    spejant (V 08-13). Tuscia = nezinom, kas vyksta. */
