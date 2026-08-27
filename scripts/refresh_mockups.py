@@ -179,7 +179,7 @@ def extend_printer_screens():
     p = MOCKUPS / "printer-screens.png"
     src = Image.open(p).convert("RGB")
     base = src.crop((0, 0, 2080, 1920))
-    img = Image.new("RGB", (2080, 2352), (0, 0, 0))
+    img = Image.new("RGB", (2080, 2768), (0, 0, 0))
     img.paste(base, (0, 0))
     d = ImageDraw.Draw(img)
 
@@ -202,13 +202,14 @@ def extend_printer_screens():
         _center(d, (x, y, x + w, y + 62), label, _seg(30, True), fg)
 
     # --- tile 1: System > Advanced (two visible rows, like drawAdvancedRow)
-    lx, ly = tile(cols[0], "System > Advanced - device toggles")
+    lx, ly = tile(cols[0], "Advanced > Resin - one group's rows")
     d.rounded_rectangle((lx + 8, ly + 10, lx + LW - 8, ly + 138), 10,
                         outline=(238, 238, 238), width=3)
-    d.text((lx + 26, ly + 26), "Low resin pause", font=_seg(32), fill=(238, 238, 238))
-    d.text((lx + 26, ly + 86), "Off", font=_seg(30), fill=CYAN)
-    d.text((lx + 26, ly + 160), "Low resin warn", font=_seg(32), fill=(238, 238, 238))
-    d.text((lx + 26, ly + 218), "2 ml", font=_seg(30), fill=CYAN)
+    # 0.17: eiluciu vardai pasikeite (advancedLabel) - mockup rase senuosius.
+    d.text((lx + 26, ly + 26), "Low resin stop", font=_seg(32), fill=(238, 238, 238))
+    d.text((lx + 26, ly + 86), "On", font=_seg(30), fill=CYAN)
+    d.text((lx + 26, ly + 160), "Warn (ml)", font=_seg(32), fill=(238, 238, 238))
+    d.text((lx + 26, ly + 218), "5 ml", font=_seg(30), fill=CYAN)
 
     # --- tile 2: low-resin warning (red frame, Refilled hint, Back/Start)
     lx, ly = tile(cols[1], "Low resin warning (UP = Refilled)")
@@ -231,8 +232,55 @@ def extend_printer_screens():
     btn(lx + 22, ly + 190, 240, "No", ORANGE_, (255, 255, 255))
     btn(lx + 296, ly + 190, 240, "Yes", CYAN, (10, 10, 10))
 
+    # ---------------- sesta eile: 0.16-0.17 ekranai ----------------------
+    # Kodel: koliaže nebuvo NE VIENO ekrano is meniu pertvarkos (0.16) ir is
+    # 0.17 - o manualas juos aprasineja. Trys, kuriuos zmogus pamato pirmus:
+    # Advanced grupes, isskleidimo juosta ir Statistika.
+    Y1 = Y0 + CH + 28
+
+    def tile6(cx, caption):
+        d.rounded_rectangle((cx, Y1, cx + CW, Y1 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y1 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y1 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    # --- tile 4: System > Advanced grupes (0.16 meniu pertvarka)
+    lx, ly = tile6(cols[0], "System > Advanced - three groups")
+    rows6 = [("Network", "WiFi On"), ("Resin", "15.0 ml left"), ("Display", "Sleep 30s")]
+    for i, (name, val) in enumerate(rows6):
+        ry = ly + 12 + i * 90
+        if i == 0:
+            d.rounded_rectangle((lx + 8, ry, lx + LW - 8, ry + 78), 10,
+                                outline=(238, 238, 238), width=3)
+        d.text((lx + 26, ry + 8), name, font=_seg(32), fill=(238, 238, 238))
+        d.text((lx + 26, ry + 44), val, font=_seg(26), fill=CYAN)
+
+    # --- tile 5: isskleidimas (netProgressStart; LCD koordinates x3.5)
+    lx, ly = tile6(cols[1], "Unpacking an uploaded model")
+    d.text((lx + 18, ly + 40), "Unpacking layers", font=_seg(34), fill=(238, 238, 238))
+    d.text((lx + 18, ly + 110), "120/240", font=_seg(30), fill=(238, 238, 238))
+    d.rounded_rectangle((lx + 35, ly + 168, lx + 525, ly + 224), 10,
+                        outline=(238, 238, 238), width=3)
+    d.rounded_rectangle((lx + 42, ly + 175, lx + 287, ly + 217), 6, fill=ORANGE_)
+
+    # --- tile 6: Statistics (0-17b) - tikri sio printerio skaiciai
+    lx, ly = tile6(cols[2], "System > Statistics - lifetime counters")
+    d.text((lx + 18, ly + 18), "Statistics", font=_seg(32, True), fill=ORANGE_)
+    d.line((lx + 18, ly + 62, lx + LW - 18, ly + 62), fill=(70, 70, 75), width=2)
+    for i, (k, v, c) in enumerate([("Printed:", "14h 36m", CYAN),
+                                   ("UV LED:", "1h 41m", CYAN),
+                                   ("Boot:", "software restart", (238, 238, 238)),
+                                   ("Crash:", "power-on", (238, 238, 238))]):
+        ry = ly + 80 + i * 48
+        d.text((lx + 18, ry), k, font=_seg(26), fill=CAPTION)
+        d.text((lx + 190, ry), v, font=_seg(26), fill=c)
+
     img.save(p)
-    print("  printer-screens.png extended with the toggles/resin row")
+    print("  printer-screens.png: penkta eile atnaujinta, sesta (0.16-0.17) pridėta")
 
 
 def draw_dashboard(latest):
