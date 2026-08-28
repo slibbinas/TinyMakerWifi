@@ -113,9 +113,22 @@ function startSim(name,dry){
   return true;}
 function simElapsed(){if(!sim)return 0;
   var end=sim.pausedAt||Date.now();return (end-sim.startMs-sim.pausedTotal)/1000;}
+/* Trynimo darbas eilėje (zr. /api/files/delete). Trys tarpsniai, kaip pas tikra
+   printeri: skaiciuojam dalis, paskui „done==total" su vaikstancia juostele (jis
+   dar trina sena kopija), paskui darbas dingsta ir pultas taria pabaigos zodi. */
+var del=null;
+var DEL_COUNT_MS=4000, DEL_TAIL_MS=1500;
+function delStatus(s){
+  if(!del)return;
+  var el=Date.now()-del.startMs;
+  if(el>DEL_COUNT_MS+DEL_TAIL_MS){delete MODELS[del.name];del=null;return;}
+  s.sdJob='delete';s.sdJobName=del.name;s.sdJobTotal=del.total;
+  s.sdJobDone=Math.min(del.total,Math.floor(del.total*el/DEL_COUNT_MS));
+  s.sdText='Busy';}
 function currentStatus(){
   var s=Object.assign({},STATUS);
   s.uptimeSecs=Math.round(performance.now()/1000)+33;
+  delStatus(s);
   s.vatRemainingMl=Math.max(0,15-(sim&&!sim.dry?Math.min(simElapsed()/(sim.total*sim.secsPerLayer),1)*sim.ml:0));
   s.vatText=s.vatRemainingMl.toFixed(1)+' ml';
   if(!sim)return s;
@@ -225,7 +238,15 @@ function route(path,opt){
     var meta=modelMeta(q(path,'name'));
     return meta?jresp(meta):jresp({ok:false,error:'model not found'},404);}
   if(path.indexOf('/api/files/delete')===0){
-    var dn=q(path,'name');delete MODELS[dn];return jresp({ok:true});}
+    /* Tikras printeris didelio modelio istrinti is karto negali: jis atsako
+       „priimta, 40 daliu" ir trina is savo laisvo ciklo, o pultas eiga mato per
+       busena (sdJob). Anksciau stendas atsakydavo „istrinta" akimirksniu, tad
+       butent tas kelias - su skaiciais ir su pabaigos zodziu - stende buvo
+       neistestuojamas (V 08-28, S-7). */
+    var dn=q(path,'name');
+    if(!MODELS[dn])return jresp({ok:false,error:'model not found'},404);
+    del={name:dn,total:40,startMs:Date.now()};
+    return jresp({ok:true,queued:del.total});}
   if(path.indexOf('/api/files')===0)return jresp(filesPayload());
   if(path.indexOf('/api/print/start')===0){
     var pn=q(path,'name');
