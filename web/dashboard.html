@@ -4308,7 +4308,15 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
   // ...ir niekada is grynu kubeliu: i kortele turi keliauti tas pats vaizdas,
   // kuri rodo printerio ekranas (auditas 08-15). Nuo 08-28 to pasiekia ne draudimas
   // (kubeliai tapo numatytuoju), o pats `uploadFixedThumb` - jis piesia glotniai.
-  if(!cacheIsDetail()&&slicesCache.name===name)try{
+  /* `busy` - toks pat sargas, kaip brolio `refreshModelThumb`. Ne saugumo riba:
+     korteles saugo firmware, kuris ikelima atmeta dar pries paliesdamas SD.
+     Bet atmesdamas jis vis tiek PRIIMA visus baitus (Network.ino, UPLOAD_FILE_WRITE
+     grizta jau gaves gabala), tad be sio sargo spausdinantis printeris gauna
+     kelias desimtis kilobaitu, kuriuos tuoj pat ismes - tuo metu, kai jis
+     labiausiai uzimtas. SD tvarkykles perziura (`modelPreview`) savo `busy`
+     patikros neturi, tad su jau atmintyje gulinciais pjuviais cia buvo
+     vienintelis kelias, kuriuo toks siuntinys isvis islekdavo. */
+  if(!cacheIsDetail()&&slicesCache.name===name&&!(statusData&&statusData.busy))try{
     await uploadFixedThumb(name,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
   }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
