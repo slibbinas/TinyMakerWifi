@@ -513,6 +513,30 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   brings it back.</p>
   <p><b>Any device, at any point in the print.</b> You do not have to have opened the preview beforehand, and it does not have to be the same browser or the same phone — open the dashboard an hour into a print, on a device that has never seen the model, and the growing shape is there. The printer keeps a small stack of layer silhouettes in memory as it prints and hands them to whoever asks, so nothing is read from the SD card mid-print. (Opening the preview first still gives the fuller picture: the complete model as a ghost, rather than only what has been printed so far.)</p>
 
+  <h3>Marking a defect</h3>
+  <p>When the browser slicer is switched on, the preview grows one more control in its
+  top-left corner: a <b>defect marker</b>. It exists for one job — telling us <i>where</i>
+  something went wrong, instead of describing it in words a week later.</p>
+  
+  <p>Press it and the view stops rotating: a red frame around the picture and a crosshair
+  say you are marking, not looking. <b>Drag a box over the bad spot</b> — a support that
+  grew into the part, a hole that closed, a raft that peeled — and add one line of text.
+  A <b>Defect markers</b> panel appears under the preview card with every mark you made,
+  each keeping <b>the picture of that spot</b> and the camera it was seen from, so the same
+  view can be recreated later.</p>
+  <p>Four buttons finish the job: <b>Send</b> posts the report to the feedback inbox (the
+  same one the dashboard header links to), while <b>Copy</b> and <b>JSON</b> keep it on your
+  machine and <b>Clear</b> throws the marks away. Nothing leaves the printer until you press
+  <i>Send</i>.</p>
+  <p><b>What travels with it, so nobody has to ask.</b> The slicer version and where its
+  module came from, the firmware version and build, the dashboard&rsquo;s own checksum, the
+  model&rsquo;s name, layer count and scale, and for every mark the layer number written with
+  its step (<code>~L152 @0.10 mm</code>) — because the preview counts in printer layers and
+  the slicer in the ones it sliced, and the same spot is 152 in one and 302 in the other.
+  Each mark also remembers whether it was made <b>before slicing</b> or <b>on the sliced
+  result</b>, so one report can carry both “here is what I asked for” and “here is what came
+  out”.</p>
+
   <h3>The Settings tab</h3>
   <p>Settings is split into sections, switched by underline tabs — <b>Print / Network / Notifications / Display / Backup / Update / About</b> — shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
   <ul>

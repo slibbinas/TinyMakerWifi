@@ -160,10 +160,11 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 ## Slice in the browser
 
 No slicer installed, and nothing to install: the dashboard slices STL files itself. Open the
-**STL slicer** card, choose an STL, pick **regular** or **tree** supports, and press
-**Send to printer** - the model arrives on the SD card ready to print. The result is shown
-before it goes anywhere: the part on its raft in 3D, layer by layer in 2D, with the numbers
-that matter underneath - size, triangles, layer count, supports and the resin estimate.
+**STL slicer** card, choose an STL, pick **regular** or **tree** supports and press **Slice**.
+You get the result before anything is sent anywhere: the part on its raft in 3D, layer by
+layer in 2D, and the numbers that matter underneath - size, triangles, layer count, supports
+and the resin estimate. **Send to printer** then puts it on the SD card, ready to print;
+**Discard** throws it away and costs nothing.
 
 The slicer is a **module the printer keeps on its own SD card**: fetched once from our GitHub
 Pages, verified byte-for-byte against checksums, and used from the card afterwards - so it
