@@ -329,7 +329,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button id='gl3dCage' type='button' title='Show or hide the build volume cage - the platform always stays'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round'><g class='bars'><path d='M8 1.3 14 4 8 6.7 2 4z'/><path d='M2 4v5.7M14 4v5.7M8 6.7v3'/></g><path d='M8 9.7 14.4 12.5 8 15.3 1.6 12.5z'/></svg></button>
           <button id='gl3dDet' type='button' title='Detailed view: the full resolution the printer slices at, and twice the slices. Takes a few seconds to build each time you switch it on.'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><rect x='1.9' y='1.9' width='12.2' height='12.2' rx='1.6'/><path d='M8 1.9v12.2M1.9 8h12.2'/><g class='fine' stroke-width='.85'><path d='M4.95 1.9v12.2M11.05 1.9v12.2M1.9 4.95h12.2M1.9 11.05h12.2'/></g></svg></button>
           <button id='gl3dClip' type='button' title='Cut the model at a height - look inside for hollows and inner supports'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round'><path d='M3 10.5 8 8.2l5 2.3-5 2.3z'/><path d='M3 10.5V7M13 10.5V7'/><path d='M1.5 5.2h13' stroke-dasharray='2 1.6'/></svg></button>
-          <button id='gl3dRaw' type='button' title='Raw voxels: no smoothing, so you see the real 0.13 mm steps'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15'><path d='M2 12.5h3v-3h3v-3h3v-3h3'/></svg></button>
+          <button id='gl3dRaw' type='button' title='Smooth the surface: rounds the voxel steps, but thin flat parts - the raft above all - can vanish. Off by default, so the view shows what is really on the plate.'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linecap='round'><path d='M2 12.5c3 0 3-9 6-9s3 9 6 9'/></svg></button>
           <!-- Vaizdo mygtukai (V 08-22, perdaryta is rato). Buvo VIENAS mygtukas, kuris
                sukosi per tris vaizdus ir rode ta, kuriame esi DABAR - o paspaudimas
                nuvesdavo KITUR. Dvi skirtingos zinios viename zenkle: plokščiame
@@ -1422,8 +1422,18 @@ const ICO_LS='tmIco:',ICO_PX=56,ICO_KEEP=24,ICO_SCAN=200;
 const ICO_SAT=60;
 const icoKeys=()=>{const a=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(ICO_LS)===0)a.push(k);}return a;};
 const icoDrop=name=>{try{localStorage.removeItem(ICO_LS+name);}catch(e){}};
+/* Iki 08-28 cia stovejo draudimas „jei VIEW_RAW - nerasom": glotnus buvo
+   numatytasis, o kubeliai - retas diagnostinis rezimas, kuriam nevalia nutekėti
+   i saugomus paveiksliukus. Apvertus numatytaji, tas draudimas butu reikses, kad
+   piktogramos NEBEATSIRANDA is viso, tad ji panaikinom.
+   Glotnumo cia priverstinai NEJUNGIAM ir jungti nereikia: piktograma yra
+   ICO_PX = 56 px, kur kubeliu nuo glotnumo neatskirtum. O kaina butu didele -
+   `SM` kesas laiko VIENA tinkleli, raktas skiriasi (`:raw`), tad glotnus
+   piesimas detaliame vaizde reikstu ~20 s perskaiciavima pagrindineje gijoje
+   PLIUS isstumta `SM.f`, is kurio piesamas pjuvio dangtis (auditas 08-28).
+   Kortelės miniatiurai - kitas reikalas, ji didele; ten glotnuma ijungia
+   `uploadFixedThumb`. */
 const saveRowIcon=(cv,name)=>{
-  if(VIEW_RAW)return;                                // kubeliai - diagnostika, ne i sarasa
   try{
     const w=cv.width,h=cv.height;
     if(!w||!h)return;
@@ -1475,7 +1485,7 @@ const rowIcon=name=>{
    kelias suveikia tik PIRMA karta pjaustant, tad ant printerio, kur modeliai jau paruosti,
    sarasas butu likes visai be piktogramu (auditas 08-16). Piesiam i maza drobe - pjuviai
    atmintyje, tad tai pigu - ir tik jei piktogramos dar nera. */
-const rowIconNeeded=name=>!(!name||rowIcon(name)||VIEW_RAW)&&
+const rowIconNeeded=name=>!(!name||rowIcon(name))&&
   !(!slicesCache.slices.length||slicesCache.name!==name||slicesCache.mode==='live');
 const ensureRowIcon=name=>{
   if(!rowIconNeeded(name))return;
@@ -1502,8 +1512,18 @@ const uploadFixedThumb=async(name,type)=>{
   const wasDark=PV_FORCE_DARK;
   PV_FORCE_DARK=true;
   try{
-    drawIso(tmp,1);                                  // pjuviai jau atmintyje - piesimas pigus
-    saveRowIcon(tmp,name);                           // ta pati piesini - ir i saraso piktograma
+    /* I kortele - glotnus, kad ir ka rodo ekranas: printerio ekrane miniatiura
+       didele, ten skirtumas matosi. Langas TIK apie piesima - `VIEW_RAW`
+       grazinamas dar pries siuntima. Anksciau grazinimas kabojo ir `finally`,
+       t.y. UZ 30 s siuntimo: per ta laika paspaudus glotninimo mygtuka, pabaiga
+       perrasydavo vartotojo pasirinkima ir palikdavo deganti mygtuka prie
+       isjungto glotnumo (auditas 08-28). */
+    const wasRaw=VIEW_RAW;
+    VIEW_RAW=false;
+    try{
+      drawIso(tmp,1);                                // pjuviai jau atmintyje - piesimas pigus
+      saveRowIcon(tmp,name);                         // ta pati piesini - ir i saraso piktograma
+    }finally{VIEW_RAW=wasRaw;}
     await uploadModelPreview(name,await canvasBlob(tmp),type);
   }finally{
     PV_FORCE_DARK=wasDark;
@@ -3160,9 +3180,17 @@ let VIEW_DETAIL=true;    // visada ijungta (V 08-20): mygtuko nebera, elgsena - 
 /* Gryni kubeliai: pavirsius suveriamas is NESULIETO lauko, tad matyti tikri
    0,1275 mm laipteliai. Skirta ziuretui, ar atrama tikrai liecia detale -
    suliejimas ploniausias jungtis parodo storesnes, nei jos yra. */
-/* Neisaugom: tai diagnostinis rezimas. Uzmirstas ijungtas jis nutekedavo i
-   miniatiuras, kurias irasom i kortele ir rodom printerio ekrane. */
-let VIEW_RAW=false;
+/* Numatytasis - GRYNI KUBELIAI; glotninimas ijungiamas mygtuku (V 08-28).
+   Isverstas po matavimo ant tikru modeliu: glotninimas nuo rafto - vieno pjuvio
+   storio plokstelės - palieka 24 % (langelio reiksme krenta 1.00 -> 0.38, kai
+   riba yra 0.50), t.y. perziura rodydavo daikta BE rafto, nors raftas yra.
+   Supportu jis nepliauna (islieka 97 %): jie ploni skersai, bet ilgi aukstyn, o
+   horizontalus branduolys silpnas. Naikinama tik tai, kas plonas AUKSTYJE.
+   Prie to: glotninimas veikia tik cia ir baigtame spaudinyje - t.y. ties
+   tankiausiais duomenimis, kur jo nauda maziausia; spausdinimo eigoje, kur
+   sluoksniu maziausia, jo is viso nera (zr. drawIsoGen). Ir kainuoja: tinklelis
+   ~15-17 s vs ~10 s. Neisaugom: tai vaizdo rezimas, ne nustatymas. */
+let VIEW_RAW=true;
 /* Detalus vaizdas - GIMTA sluoksnio raiska (320x240). 160x120 buvo pusiaukele,
    pasirinkta tada, kai atrode, kad sluoksniu parsiuntimas brangus; 08-12
    ismatuota: 72 sluoksniai = 5 s (mediana 67 ms), tad tinklas ne kliutis, o
@@ -4278,8 +4306,9 @@ const renderVoxelPreview=async(cv,name,layers,modelH)=>{
      `slicesCache.name` patikra - ta pati, kaip refreshModelThumb: statymas ilgas, o per
      ji galima persijungti i kita modeli. */
   // ...ir niekada is grynu kubeliu: i kortele turi keliauti tas pats vaizdas,
-  // kuri rodo printerio ekranas (auditas 08-15).
-  if(!cacheIsDetail()&&!VIEW_RAW&&slicesCache.name===name)try{
+  // kuri rodo printerio ekranas (auditas 08-15). Nuo 08-28 to pasiekia ne draudimas
+  // (kubeliai tapo numatytuoju), o pats `uploadFixedThumb` - jis piesia glotniai.
+  if(!cacheIsDetail()&&slicesCache.name===name)try{
     await uploadFixedThumb(name,statusData&&Number(statusData.layerHeight)>0.06?'1':'05');
   }catch(e){}  // cache write is best effort
   return slicesCache.mlEst;
@@ -5019,7 +5048,9 @@ const canvasBlob=cv=>new Promise(res=>cv.toBlob(b=>res(b),'image/png'));
 const refreshModelThumb=async(name,cv)=>{
   if(statusData&&statusData.busy)return;   // SD priklauso spaudiniui
   if(cacheIsDetail())return;               // detalus tankis to paties PNG nepagerina
-  if(VIEW_RAW)return;                      // kubeliai - tik ziurejimui, ne i kortele
+  // Kubeliu draudimo cia nebeliko (08-28): nuo tada jie yra numatytasis vaizdas, tad
+  // draudimas butu resikes, kad miniatiura kortelėje nebeatsinaujina niekada.
+  // Glotnuma piesiant ijungia pats `uploadFixedThumb`.
   /* Drobeje turi buti TAS PATS modelis, kurio vardu rasom. 3D statymas trunka
      sekundes, o per ta laika galima atidaryti kita modeli - tada senojo kelio pabaiga
      irasydavo NAUJO modelio piesini SENO vardu (V 08-13: „Skeletus" miniatiuroje buvo
@@ -5981,7 +6012,7 @@ $('gl3dRaw').addEventListener('click',async e=>{
   if(prep3dRunning||!dashPreviewName||slicesCache.slices.length<3)return;
   if(statusData&&statusData.busy){msg(busyNowText('this canvas is showing the print'),true);return;}
   VIEW_RAW=!VIEW_RAW;
-  b.classList.toggle('on',VIEW_RAW);
+  b.classList.toggle('on',!VIEW_RAW);   // mygtukas sako GLOTNINIMA, ne kubelius
   b.classList.add('busy');
   try{await buildIso($('printPreviewCanvas'));}
   catch(e2){msg(e2.message,true);}
@@ -6018,7 +6049,12 @@ $('prep3dButton').addEventListener('click',async()=>{
      ijungtu detaliu vaizdu ciklas butu skenaves po 72 sluoksnius modeliui,
      nieko neirases ir vis tiek parases „N prepared" (auditas 08-13). */
   const wasDet=VIEW_DETAIL; VIEW_DETAIL=false;
-  VIEW_RAW=false; $('gl3dRaw').classList.remove('on');   // ciklas piesia glotniai
+  /* Ciklas piesia glotniai - miniatiura yra paveikslelis sarase, ne tikrinimo
+     irankis. Bet pries tai isimenam, kaip zmogus ziurejo: nuo 08-28 numatytasis
+     yra RAW, tad nepasizymejus ciklas paliktu ijungta glotninima, kurio niekas
+     neprase (anksciau tai buvo nekenksminga - sutapo su numatytuoju). */
+  const wasRaw=VIEW_RAW;
+  VIEW_RAW=false; $('gl3dRaw').classList.add('on');
   try{
     const d=await api('/api/files');
     const models=(d.items||[]).filter(it=>it.type==='model');
@@ -6055,6 +6091,12 @@ $('prep3dButton').addEventListener('click',async()=>{
     }
     note.textContent='Done - '+made+' prepared, '+(models.length-made)+' already had data.';
     snackProgressClear();
+    /* Vaizdo rezimas grazinamas CIA, o ne `finally` - nes zemiau dar eina
+       `buildIso`, ir su veluojanciu grazinimu jis perpiestu ekrana glotniai, o
+       mygtukas tuo metu jau butu uzgesintas: zmogus matytu vaizda be rafto ir
+       isjungta jungikli (auditas 08-28). `finally` grazinimas lieka kaip tinklas
+       tam atvejui, kai ciklas nutrūksta anksciau. */
+    VIEW_RAW=wasRaw; $('gl3dRaw').classList.toggle('on',!wasRaw);
     /* Ciklas bendrame kese palieka PASKUTINI modeli, o „As printed" perpiesia
        is jo netikrindamas vardo - korteleje atsirasdavo svetimas modelis
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
@@ -6069,6 +6111,7 @@ $('prep3dButton').addEventListener('click',async()=>{
     prep3dRunning=false;
     btn.disabled=false;
     VIEW_DETAIL=wasDet;
+    VIEW_RAW=wasRaw; $('gl3dRaw').classList.toggle('on',!wasRaw);
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
     // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
     if(wasDet)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
