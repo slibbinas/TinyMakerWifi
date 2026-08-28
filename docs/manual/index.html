@@ -310,7 +310,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 <section>
   <h2 class="sec" id="screens"><span class="num">5</span>The printer screens</h2>
   <p>The small status display drives the whole on-printer interface — WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
-  <img class="shot" style="max-width:780px" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer screens: boot, WiFi setup, printing, the Advanced groups, unpacking an upload and the Statistics counters">
+  <img class="shot" style="max-width:728px" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer screens: boot, WiFi setup, printing, the Advanced groups, unpacking an upload and the Statistics counters">
   <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles, grouped into Network / Resin / Display), <b>Statistics</b> (lifetime counters and the last boot/crash record), <b>Update</b> (firmware) and <b>About</b> (version and build info). The full item-by-item reference is in <a href="#advanced">System menu reference</a>.</p>
 </section>
 
@@ -468,7 +468,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <img class="shot" style="max-width:406px" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
   <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card — so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> The SD card is locked for the same reason — uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
   <p>On a larger screen it spreads into two columns:</p>
-  <img class="shot" style="max-width:780px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
+  <img class="shot" style="max-width:728px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
   <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear — the printer serves plain HTTP on your LAN — but the shortcut works the same.)</p>
 
@@ -666,6 +666,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>By hand:</b> copy a <code>.tmb</code> animation file into the <code>/bootanim</code> folder on the SD card.</li>
   </ul>
   <div class="note">💡 <b>Keep animations short — 2–4 seconds is the sweet spot.</b> The firmware hard-caps playback at 250 frames or 10 seconds (whichever comes first), and pressing <kbd>Back</kbd> skips the animation immediately.</div>
+  <h3>3D previews</h3>
+  <p>The second card on the same <b>Display</b> tab has nothing to do with animations. A model can only be turned in 3D once its layers have been decoded, and that happens by itself the first time you open it — roughly a minute — after which the result is stored next to the model on the SD card and never has to be done again.</p>
+  <p><b>Prepare 3D for all models</b> does the whole card in one go, so no model keeps you waiting later. It is quicker per model — about half a minute — because it prepares the lighter version that the list and the phone use; opening a model still fills in the full-resolution one. It runs only while the printer is idle and <b>stops by itself if a print starts</b>. Old flat thumbnails are replaced as it goes, which is the other reason to run it once after an update: the pictures in the model list are redrawn to match what the dashboard draws today.</p>
   <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>; Shuffle by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</i></p>
 
 <section>
