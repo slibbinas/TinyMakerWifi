@@ -4463,6 +4463,47 @@ void handleApiResinProfileRename() {
 extern const uint8_t PWA_ICON_192[];
 extern const size_t PWA_ICON_192_LEN;
 
+// ---- Why the last WiFi attempt failed -------------------------------------
+// Until now every failure looked the same from the outside: the bar ran out and
+// the screen said "WiFi: offline mode". A wrong password, a router out of reach
+// and a router that simply will not have the ESP32 all ended on that one line,
+// so remote support was guesswork (GitHub #118: a printer that joined a repeater
+// but never the user's own router - neither he nor we could tell why).
+//
+// The chip does say why: a failed attempt ends in a STA_DISCONNECTED event
+// carrying an esp_wifi reason code. Keep the last one and show it.
+//
+// Deliberately NOT exposed over HTTP: when this matters the printer is offline,
+// so there is no API to ask. The screen is the only place it can be read.
+volatile uint8_t wifiLastReason = 0;   // written from the WiFi event task
+
+// Short label + the raw code. Kept to 20 characters so it fits the 160 px line
+// at FreeSans8pt ("Reset WiFi settings?" is the width reference). The number
+// stays even when the label is clear - a code is what makes a support answer
+// possible when the user is on the other side of an issue thread.
+String wifiReasonText() {
+  uint8_t r = wifiLastReason;
+  if (!r) return String("");
+  const char *w;
+  switch (r) {
+    case WIFI_REASON_NO_AP_FOUND:            w = "AP not found";  break;
+    case WIFI_REASON_AUTH_FAIL:              w = "Bad password";  break;
+    case WIFI_REASON_AUTH_EXPIRE:            w = "Auth expired";  break;
+    case WIFI_REASON_ASSOC_FAIL:             w = "Assoc refused"; break;
+    // A wrong password does NOT come back as AUTH_FAIL on this chip - the
+    // 4-way handshake simply never completes, so the honest esp_wifi answer is
+    // a timeout (measured on hardware 08-29: a deliberately wrong key gave
+    // 204, not 202). "Auth timeout" is true and useless; nobody reads it as
+    // "check your password", which is the one thing it almost always means.
+    // The question mark keeps it honest - 204 can also be a signal too weak to
+    // finish the handshake.
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:      w = "Wrong pass?";   break;
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: w = "Wrong pass?";   break;
+    default:                                 w = "WiFi error";
+  }
+  return String(w) + " (" + String(r) + ")";
+}
+
 void network_setup() {
   // Idempotent (0-33): the boot now brings the network up BEFORE the resume
   // prompt, and the prompt exits still call finishRestorePromptBoot, which
@@ -4496,6 +4537,41 @@ void network_setup() {
   }
 
   WiFiManager wm;
+
+  // Listen before the first attempt - the reason code only exists if someone is
+  // subscribed when that attempt fails. Covers both branches below: our own
+  // 15 s connect AND the config portal, where WiFiManager does the connecting.
+  // Once per boot: System -> Update clears networkStarted and re-runs this
+  // function, and onEvent() appends rather than replaces.
+  //
+  // KEEP THIS A LAMBDA. A named handler would be the tidier read, but its
+  // parameters are WiFi.h types, and PlatformIO auto-generates a prototype for
+  // every named function, hoisting it above the first definition in the
+  // concatenated .ino - which sits OUTSIDE the #if ENABLE_NETWORK guard, while
+  // #include <WiFi.h> sits inside it. The ENABLE_NETWORK 0 build would then
+  // stop compiling on a type it has never heard of. Anonymous functions get no
+  // prototype (audit, 08-29).
+  static bool reasonHooked = false;
+  if (!reasonHooked) {
+    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+      if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+        wifiLastReason = 0;                // connected: the old reason is history
+        return;
+      }
+      if (event != ARDUINO_EVENT_WIFI_STA_DISCONNECTED) return;
+      uint8_t r = info.wifi_sta_disconnected.reason;
+      // ASSOC_LEAVE (8) is us leaving, not a failure. The watchdog in
+      // network_loop() nudges WiFi.reconnect() every 15 s while offline, and
+      // that is esp_wifi_disconnect() + esp_wifi_connect() - so an unfiltered 8
+      // would overwrite the real reason within seconds and the screen would
+      // read "WiFi error (8)" nearly every time. WiFiManager and
+      // wifiEraseCredentials() disconnect the same way before a fresh attempt.
+      if (r == WIFI_REASON_ASSOC_LEAVE) return;
+      wifiLastReason = r;
+      DBG("WiFi disconnected, reason %u\n", (unsigned)r);
+    });
+    reasonHooked = true;
+  }
 
   // esp_wifi must be initialized before reading its config
   WiFi.mode(WIFI_STA);
@@ -4595,8 +4671,9 @@ void network_setup() {
   // The watchdog already re-announces it the moment the link returns.
   bool bootOnline = (WiFi.status() == WL_CONNECTED);
   if (!bootOnline) {
-    netMessage("WiFi: offline mode", "");
-    delay(1200);
+    String why = wifiReasonText();     // #118: say WHY, not just that it failed
+    netMessage("WiFi: offline mode", why.c_str());
+    delay(why.length() ? 2500 : 1200); // a code needs longer than a blank line
   }
 
   // Modem sleep (the default) delays the first request after an idle spell by
@@ -4936,6 +5013,13 @@ void wifiInfoValues() {
     gfx2->print(WiFi.localIP());
   } else {
     gfx2->print("Not connected");
+    // The boot message is gone in seconds; this screen is where the user can
+    // come back and read the reason - and quote it in a support thread.
+    String why = wifiReasonText();
+    if (why.length()) {
+      gfx2->setCursor(5, 55);
+      gfx2->print(why);
+    }
   }
 }
 
