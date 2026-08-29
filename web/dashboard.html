@@ -2270,7 +2270,17 @@ const openView=view=>{
      „Building the 3D view 100%", kuris atsileidzia tik paspaudus eilute is naujo.
      Sliceris to neturi, nes gyvena TAME PACIAME rodinyje ir drobe nedingsta - V
      pagristai paklause, kodel po Share neturetu likti taip pat. Dabar lieka. */
-  if(view==='home'||view==='model')restoreDashPreviewPicture();
+  if(view==='home'||view==='model'){
+    restoreDashPreviewPicture();
+    /* Ir Share zyma. Po dalijimosi ji atsinaujina ne is karto: viesaji ID i modelio
+       metaduomenis iraso Connect programele, o tikrasis paskelbimas vyksta dar veliau -
+       zmogui paspaudus Upload jos pusėje. Musu `refreshShareStateSoon` tuo metu jau
+       seniai nustojes klausti (jis pasiduoda, kai printeris uzimtas, o Connect kaip tik
+       tempia is jo visus sluoksnius). Todel mygtukas pagelsdavo tik „pavaikscius" - bet
+       kuris judesys, is naujo perskaitantis modeli, pagaudavo ID. Grizimas i spausdintuvo
+       rodini ir yra tas judesys, tad klausiam cia (V 2026-08-29, testas T-103). */
+    if(dashPreviewName&&!uiBusy())refreshShareState(dashPreviewName);
+  }
   if(view==='home')loadFiles();
   if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
