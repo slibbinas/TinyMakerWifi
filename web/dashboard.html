@@ -4632,6 +4632,7 @@ const refreshDashModelInfo=async()=>{
    lieka irasyti prie modelio (V 08-12). */
 const upgradeToSlices=async(name,d,quiet)=>{
   if(statusData&&statusData.busy)return;          // SD priklauso spaudiniui
+  if(shareInFlight)return;                        // dalijimasis pirmas - zr. dashPreview
   const layers=Number(d.sourceLayers)||Number(d.layers)||0;
   if(!layers)return;
   /* Savo eiles numerio cia NEGALIMA: fetchSlices skaitikli pasididina pats,
@@ -4691,6 +4692,16 @@ const dashPreview=async(nameEnc,opts)=>{
   const name=decodeURIComponent(nameEnc);
   clearNew(name);                          // 0-28: opening/previewing = seen
   if(statusData&&statusData.busy)return;   // the print progress owns the card
+  /* Dalijimasis pirmas. Perziuros krovimas pasididina `fetchSlicesSeq` PATS SAVYJE,
+     tad atidaryta kito modelio perziura nukirsdavo Connect'o darba lygiai taip pat,
+     kaip anksciau tai dare rodinio perjungimas - dalijimasis sustodavo ties
+     „preview superseded" (V 2026-08-30, T-48 tikrinimas). Vietoj tylios konkurencijos,
+     kurios printeris vis tiek neistemps, pasakom zmogui, kas vyksta. */
+  if(shareInFlight){
+    // Tylus kvietimas (pvz. po spaudinio pabaigos) irgi nekraunamas - tik be zinutes.
+    if(!(opts&&opts.silent))msg(busyNowText('the preview will load when it finishes'),true);
+    return;
+  }
   setDashPreviewName(name);
   setPreviewLoading(name);                 // eiluteje: suktukas vietoj Start
   fetchSlicesSeq++;                        // cancel a previous run right away
@@ -5910,6 +5921,7 @@ const busyNowText=kodel=>{
 const busyBoxText=()=>{
   const s=statusData||{}, jb=s.sdJob||'';
   if(jb)return (jb==='delete'?'Deleting ':'Unpacking ')+shortName(s.sdJobName||'')+'…';
+  if(shareInFlight)return 'Sharing this model…';
   if(uploadBusy)return 'Uploading the model…';
   if(deleteBusy)return 'Deleting…';
   if(startBusy)return 'Processing files. Please wait...';
