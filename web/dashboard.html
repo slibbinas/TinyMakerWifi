@@ -4275,15 +4275,8 @@ const restoreDashPreviewPicture=()=>{
   if(previewBusy>0)return;                        // statymas dar vyksta - jo nekertam
   if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
   if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
-  // Musu kesas vietoje (iprastas atvejis: Nustatymai, Connect be dalijimosi) -
-  // perpiesiam akimirksniu ir tokio pat detalumo, koks ka tik buvo ekrane.
   try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
-  /* Keso nebera arba jis svetimas (po Share ten guli Connect'o stiebas, kuri mes
-     tycia atmetam). Tada NE issaugotas PNG: jis grubus - 80x60 ir 36 sluoksniai, -
-     o PERZIURA GRUBAUS VAIZDO NERODO NIEKADA; grubus tinka tik spausdinimo
-     progresui (V taisykle 2026-08-30). Statom detalu is naujo: kelios sekundes su
-     iprasta juosta, bet vaizdas toks, kokio zmogus tikisi peržiuroje. */
-  dashPreview(enc(dashPreviewName),{scroll:false,silent:true});
+  try{ loadSavedPreviewTo(cv,dashPreviewName); }catch(e){}
 };
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
