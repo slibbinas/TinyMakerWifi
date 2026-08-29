@@ -4142,9 +4142,17 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
   let whiteSum=0; // for the quick resin estimate below
   const oc=document.createElement('canvas');oc.width=gw;oc.height=gh; // dydis paaiskes is pirmo sluoksnio
   const octx=oc.getContext('2d',{willReadFrequently:true});
+  /* Sluoksnio numeris visada SALTINIO steke (zemiau `&source=1`), o `layers` ateina
+     TO REZIMO skaiciumi. Sutampa jie ne visada: dalijimosi metu Connect prašo 0,10 mm
+     perziuros ir paduoda spausdinimo sluoksniu skaiciu (540 -> 270), o mes ta 270
+     imdavom kaip saltinio indeksu riba - t. y. apatine modelio puse. Rezultatas:
+     0,10 mm perziura buvo perpus nupjautas modelis, ir toks jis keliaudavo i Connect
+     bei liko kortelėje (V radinys 2026-08-29, sittingPredator4; testas T-104).
+     0,05 mm = saltinio zingsnis 1, 0,10 mm = kas antras saltinio sluoksnis. */
+  const srcStep=mode==='print1'?2:1;
   for(let k=0;k<N;k++){
     if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');
-    const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
+    const li=N>1?1+Math.round(k*(layers-1)/(N-1))*srcStep:1;
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
     // source=1 = the files as sliced, no printer-side re-mapping: the picture is
     // the model, not the printer's plan for it.
