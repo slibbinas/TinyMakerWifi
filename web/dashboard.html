@@ -2261,6 +2261,16 @@ const openView=view=>{
   $('connectViewButton').classList.toggle('active',view==='connect');
   $('configViewButton').classList.toggle('active',view==='config');
   $('statsViewButton').classList.toggle('active',view==='stats');
+  /* Grizus is kito rodinio perziura persipiesia PATI (V 2026-08-29, testas T-102).
+     Connect ir Nustatymai yra atskiri rodiniai, tad ju metu `printPreviewCanvas`
+     paslepta, o `openView` dar ir nutraukia vykstanti sluoksniu krovima
+     (`fetchSlicesSeq++` virsuje). Jei nutraukimas pataiko jau PO paskutinio
+     sluoksnio, ciklo sarga nebemeta „preview superseded", gaudykle nesuveikia, ir
+     statymas baigiamas i nematoma drobe - grizus zmogus randa uzsaldyta
+     „Building the 3D view 100%", kuris atsileidzia tik paspaudus eilute is naujo.
+     Sliceris to neturi, nes gyvena TAME PACIAME rodinyje ir drobe nedingsta - V
+     pagristai paklause, kodel po Share neturetu likti taip pat. Dabar lieka. */
+  if(view==='home'||view==='model')restoreDashPreviewPicture();
   if(view==='home')loadFiles();
   if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
@@ -4237,6 +4247,18 @@ const markPreviewStopped=(cv,name,why)=>{
 const clearPreviewStopped=cv=>{
   previewStoppedFor='';
   if(cv){cv.style.cursor='';cv.title='';}
+};
+/* Vaizdo atstatymas grizus i spausdintuvo rodini (zr. openView). Tyliai: jei
+   dar kas nors piesia (previewBusy), spausdinama ar zmogui rodomas „Preview
+   stopped" uzrasas - neliesti, kitaip perrasytume tai, ko jis laukia. */
+const restoreDashPreviewPicture=()=>{
+  const cv=$('printPreviewCanvas');
+  if(!cv||!dashPreviewName)return;
+  if(previewBusy>0)return;                        // statymas dar vyksta - jo nekertam
+  if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
+  if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
+  try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
+  try{ loadSavedPreviewTo(cv,dashPreviewName); }catch(e){}
 };
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
