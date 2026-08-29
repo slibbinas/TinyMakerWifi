@@ -2261,26 +2261,6 @@ const openView=view=>{
   $('connectViewButton').classList.toggle('active',view==='connect');
   $('configViewButton').classList.toggle('active',view==='config');
   $('statsViewButton').classList.toggle('active',view==='stats');
-  /* Grizus is kito rodinio perziura persipiesia PATI (V 2026-08-29, testas T-102).
-     Connect ir Nustatymai yra atskiri rodiniai, tad ju metu `printPreviewCanvas`
-     paslepta, o `openView` dar ir nutraukia vykstanti sluoksniu krovima
-     (`fetchSlicesSeq++` virsuje). Jei nutraukimas pataiko jau PO paskutinio
-     sluoksnio, ciklo sarga nebemeta „preview superseded", gaudykle nesuveikia, ir
-     statymas baigiamas i nematoma drobe - grizus zmogus randa uzsaldyta
-     „Building the 3D view 100%", kuris atsileidzia tik paspaudus eilute is naujo.
-     Sliceris to neturi, nes gyvena TAME PACIAME rodinyje ir drobe nedingsta - V
-     pagristai paklause, kodel po Share neturetu likti taip pat. Dabar lieka. */
-  if(view==='home'||view==='model'){
-    restoreDashPreviewPicture();
-    /* Ir Share zyma. Po dalijimosi ji atsinaujina ne is karto: viesaji ID i modelio
-       metaduomenis iraso Connect programele, o tikrasis paskelbimas vyksta dar veliau -
-       zmogui paspaudus Upload jos pusėje. Musu `refreshShareStateSoon` tuo metu jau
-       seniai nustojes klausti (jis pasiduoda, kai printeris uzimtas, o Connect kaip tik
-       tempia is jo visus sluoksnius). Todel mygtukas pagelsdavo tik „pavaikscius" - bet
-       kuris judesys, is naujo perskaitantis modeli, pagaudavo ID. Grizimas i spausdintuvo
-       rodini ir yra tas judesys, tad klausiam cia (V 2026-08-29, testas T-103). */
-    if(dashPreviewName&&!uiBusy())refreshShareState(dashPreviewName);
-  }
   if(view==='home')loadFiles();
   if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
@@ -3226,19 +3206,8 @@ const DET_GW=320, DET_GH=240;
    ir 24 mm modelio z zingsnis 0,1 mm, langelis 0,13 mm - asys susilygina. */
 const DET_N_MAX=240;
 const cacheIsDetail=()=>slicesCache.gw>=DET_GW;
-/* Kesas turi buti MUSU. Connect programele, kraunama is Briano serverio, dalijimosi
-   metu kviecia musu pacia `fetchSlices(name, layers, modelH, null, 'source05'|'print1')`
-   savo perziuroms - o ta funkcija raso i TA PATI globalu `slicesCache` (4212: mode:mode).
-   Tos perziuros statomos su kitokiais parametrais (sourceLayers, modelH = layers*0.05
-   arba layers/2 * 0.1), tad po „Share" keše lieka to paties modelio vardas su svetimu
-   auksciu. Be sio patikrinimo pultas ta kesa priimdavo kaip savo ir pieste modeli
-   nukirsta ties virsumi; atsidarius KITA modeli ir grizus - vel gerai, nes varda
-   nesutapus kesas atmetamas (V radinys 2026-08-29, testas T-101).
-   'live' paliekamas tycia: juo piesia spausdinimo progresas (temos perjungimas, lango
-   didinimas), ir ji uzdraudus spaudinio vaizdas dingtu vidury darbo. */
 const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
-                      cacheIsDetail()===VIEW_DETAIL&&
-                      (slicesCache.mode==='current'||slicesCache.mode==='live');
+                      cacheIsDetail()===VIEW_DETAIL;
 const showDetailToggle=()=>{
   const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
 };
@@ -4173,17 +4142,9 @@ const fetchSlicesInner=async(name,layers,modelH,btn,mode)=>{
   let whiteSum=0; // for the quick resin estimate below
   const oc=document.createElement('canvas');oc.width=gw;oc.height=gh; // dydis paaiskes is pirmo sluoksnio
   const octx=oc.getContext('2d',{willReadFrequently:true});
-  /* Sluoksnio numeris visada SALTINIO steke (zemiau `&source=1`), o `layers` ateina
-     TO REZIMO skaiciumi. Sutampa jie ne visada: dalijimosi metu Connect prašo 0,10 mm
-     perziuros ir paduoda spausdinimo sluoksniu skaiciu (540 -> 270), o mes ta 270
-     imdavom kaip saltinio indeksu riba - t. y. apatine modelio puse. Rezultatas:
-     0,10 mm perziura buvo perpus nupjautas modelis, ir toks jis keliaudavo i Connect
-     bei liko kortelėje (V radinys 2026-08-29, sittingPredator4; testas T-104).
-     0,05 mm = saltinio zingsnis 1, 0,10 mm = kas antras saltinio sluoksnis. */
-  const srcStep=mode==='print1'?2:1;
   for(let k=0;k<N;k++){
     if(mySeq!==fetchSlicesSeq)throw new Error('preview superseded');
-    const li=N>1?1+Math.round(k*(layers-1)/(N-1))*srcStep:1;
+    const li=N>1?1+Math.round(k*(layers-1)/(N-1)):1;
     let url='/api/files/layer?name='+enc(name)+'&i='+li;
     // source=1 = the files as sliced, no printer-side re-mapping: the picture is
     // the model, not the printer's plan for it.
@@ -4265,18 +4226,6 @@ const markPreviewStopped=(cv,name,why)=>{
 const clearPreviewStopped=cv=>{
   previewStoppedFor='';
   if(cv){cv.style.cursor='';cv.title='';}
-};
-/* Vaizdo atstatymas grizus i spausdintuvo rodini (zr. openView). Tyliai: jei
-   dar kas nors piesia (previewBusy), spausdinama ar zmogui rodomas „Preview
-   stopped" uzrasas - neliesti, kitaip perrasytume tai, ko jis laukia. */
-const restoreDashPreviewPicture=()=>{
-  const cv=$('printPreviewCanvas');
-  if(!cv||!dashPreviewName)return;
-  if(previewBusy>0)return;                        // statymas dar vyksta - jo nekertam
-  if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
-  if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
-  try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
-  try{ loadSavedPreviewTo(cv,dashPreviewName); }catch(e){}
 };
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
