@@ -2261,6 +2261,16 @@ const openView=view=>{
   $('connectViewButton').classList.toggle('active',view==='connect');
   $('configViewButton').classList.toggle('active',view==='config');
   $('statsViewButton').classList.toggle('active',view==='stats');
+  /* Grizus is kito rodinio perziura persipiesia PATI (V 2026-08-29, testas T-102).
+     Connect ir Nustatymai yra atskiri rodiniai, tad ju metu `printPreviewCanvas`
+     paslepta, o `openView` dar ir nutraukia vykstanti sluoksniu krovima
+     (`fetchSlicesSeq++` virsuje). Jei nutraukimas pataiko jau PO paskutinio
+     sluoksnio, ciklo sarga nebemeta „preview superseded", gaudykle nesuveikia, ir
+     statymas baigiamas i nematoma drobe - grizus zmogus randa uzsaldyta
+     „Building the 3D view 100%", kuris atsileidzia tik paspaudus eilute is naujo.
+     Sliceris to neturi, nes gyvena TAME PACIAME rodinyje ir drobe nedingsta - V
+     pagristai paklause, kodel po Share neturetu likti taip pat. Dabar lieka. */
+  if(view==='home'||view==='model')restoreDashPreviewPicture();
   if(view==='home')loadFiles();
   if(view==='connect')loadConnectApp().then(()=>loadConfig()).then(()=>loadConnectTab()).then(()=>tidyConnectHosted()).catch(e=>msg(e.message,true));
   if(view==='config'){loadConfig();loadBootAnims();}
@@ -3206,8 +3216,19 @@ const DET_GW=320, DET_GH=240;
    ir 24 mm modelio z zingsnis 0,1 mm, langelis 0,13 mm - asys susilygina. */
 const DET_N_MAX=240;
 const cacheIsDetail=()=>slicesCache.gw>=DET_GW;
+/* Kesas turi buti MUSU. Connect programele, kraunama is Briano serverio, dalijimosi
+   metu kviecia musu pacia `fetchSlices(name, layers, modelH, null, 'source05'|'print1')`
+   savo perziuroms - o ta funkcija raso i TA PATI globalu `slicesCache` (4212: mode:mode).
+   Tos perziuros statomos su kitokiais parametrais (sourceLayers, modelH = layers*0.05
+   arba layers/2 * 0.1), tad po „Share" keše lieka to paties modelio vardas su svetimu
+   auksciu. Be sio patikrinimo pultas ta kesa priimdavo kaip savo ir pieste modeli
+   nukirsta ties virsumi; atsidarius KITA modeli ir grizus - vel gerai, nes varda
+   nesutapus kesas atmetamas (V radinys 2026-08-29, testas T-101).
+   'live' paliekamas tycia: juo piesia spausdinimo progresas (temos perjungimas, lango
+   didinimas), ir ji uzdraudus spaudinio vaizdas dingtu vidury darbo. */
 const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
-                      cacheIsDetail()===VIEW_DETAIL;
+                      cacheIsDetail()===VIEW_DETAIL&&
+                      (slicesCache.mode==='current'||slicesCache.mode==='live');
 const showDetailToggle=()=>{
   const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
 };
@@ -4235,6 +4256,27 @@ const clearPreviewStopped=cv=>{
   previewStoppedFor='';
   if(cv){cv.style.cursor='';cv.title='';}
 };
+/* Vaizdo atstatymas grizus i spausdintuvo rodini (zr. openView). Tyliai: jei
+   dar kas nors piesia (previewBusy), spausdinama ar zmogui rodomas „Preview
+   stopped" uzrasas - neliesti, kitaip perrasytume tai, ko jis laukia. */
+const restoreDashPreviewPicture=()=>{
+  const cv=$('printPreviewCanvas');
+  if(!cv||!dashPreviewName)return;
+  if(previewBusy>0)return;                        // statymas dar vyksta - jo nekertam
+  if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
+  if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
+  try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
+  /* Issaugotas paveikslelis - IS KARTO, be juostos. Jis pilnavertis renderis, tik
+     statinis: pasukti ar pjuvio pastumti negalima, kol nepastatytas 3D. Todel tuoj
+     pat uz jo TYLIAI keliam tikra 3D, ir po keliu sekundziu jis uzima paveikslelio
+     vieta pats. Zmogus nieko nespaudzia ir laukimo nemato (V 2026-08-30). */
+  const name=dashPreviewName;
+  loadSavedPreviewTo(cv,name).then(async()=>{
+    if(dashPreviewName!==name)return;
+    const d=await api('/api/files/model?name='+enc(name));
+    if(dashPreviewName===name)upgradeToSlices(name,d,true);
+  }).catch(()=>{});
+};
 /* Uzrasas + kadro pauze. Be `await` cia narsykle nupiestu tik po to, kai
    skaiciavimas jau baigtas, t.y. niekada. */
 /* Kol vaizdas statomas, gija uzimta ir NE VIENAS mygtukas nereaguoja - bet atrodo,
@@ -4569,7 +4611,7 @@ const refreshDashModelInfo=async()=>{
 /* Vienkartinis fono skenavimas seniems modeliams: paveikslelis jau matomas,
    tad vartotojas nelaukia, o po ~37 s vaizdas tyliai virsta 3D ir pjuviai
    lieka irasyti prie modelio (V 08-12). */
-const upgradeToSlices=async(name,d)=>{
+const upgradeToSlices=async(name,d,quiet)=>{
   if(statusData&&statusData.busy)return;          // SD priklauso spaudiniui
   const layers=Number(d.sourceLayers)||Number(d.layers)||0;
   if(!layers)return;
@@ -4583,7 +4625,7 @@ const upgradeToSlices=async(name,d)=>{
      nieko nereflow'ina, tad problema dingsta is principo. */
   const cvp=$('printPreviewCanvas');
   const myRun=previewRun;   // ar sita perziura dar naujausia (zr. zemiau, gaudykleje)
-  const setN=t=>paintPreviewProgress(cvp,t,0);
+  const setN=t=>{ if(!quiet)paintPreviewProgress(cvp,t,0); };
   setN('Building the 3D view\u2026');
   setPreviewBusy(true);
   try{
@@ -4591,7 +4633,7 @@ const upgradeToSlices=async(name,d)=>{
       // fetchSlices raso 'Loading 45%' - pasukam i uzrasa ir juostele, kad
       // butu matyti, jog fone kazkas vyksta.
       set textContent(v){
-        if(dashPreviewName!==name)return;
+        if(quiet||dashPreviewName!==name)return;
         const pc=String(v).replace('Loading ','');
         const m=/\((\d+)%\)/.exec(pc);
         paintPreviewProgress(cvp,'Building the 3D view\n'+pc,(m?+m[1]:0)/100);
@@ -4615,7 +4657,7 @@ const upgradeToSlices=async(name,d)=>{
     /* Kiekviena klaida palieka pesciomis pasiekiama vaizda. Anksciau cia iskrisdavo
        TIK 'preview superseded', o sluoksnio timeout'as ar 409 dingdavo be zenklo -
        drobeje amzinai likdavo paskutinis skaicius („uzstrigo ties 221/240", V 08-16). */
-    if(dashPreviewName===name&&previewRun===myRun)
+    if(!quiet&&dashPreviewName===name&&previewRun===myRun)
       markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+((e&&e.message)||'the printer did not answer'));
   }
   finally{
