@@ -3206,8 +3206,19 @@ const DET_GW=320, DET_GH=240;
    ir 24 mm modelio z zingsnis 0,1 mm, langelis 0,13 mm - asys susilygina. */
 const DET_N_MAX=240;
 const cacheIsDetail=()=>slicesCache.gw>=DET_GW;
+/* Kesas turi buti MUSU. Connect programele, kraunama is Briano serverio, dalijimosi
+   metu kviecia musu pacia `fetchSlices(name, layers, modelH, null, 'source05'|'print1')`
+   savo perziuroms - o ta funkcija raso i TA PATI globalu `slicesCache` (4212: mode:mode).
+   Tos perziuros statomos su kitokiais parametrais (sourceLayers, modelH = layers*0.05
+   arba layers/2 * 0.1), tad po „Share" keše lieka to paties modelio vardas su svetimu
+   auksciu. Be sio patikrinimo pultas ta kesa priimdavo kaip savo ir pieste modeli
+   nukirsta ties virsumi; atsidarius KITA modeli ir grizus - vel gerai, nes varda
+   nesutapus kesas atmetamas (V radinys 2026-08-29, testas T-101).
+   'live' paliekamas tycia: juo piesia spausdinimo progresas (temos perjungimas, lango
+   didinimas), ir ji uzdraudus spaudinio vaizdas dingtu vidury darbo. */
 const slicesFit=name=>slicesCache.name===name&&slicesCache.slices.length>2&&
-                      cacheIsDetail()===VIEW_DETAIL;
+                      cacheIsDetail()===VIEW_DETAIL&&
+                      (slicesCache.mode==='current'||slicesCache.mode==='live');
 const showDetailToggle=()=>{
   const b=$('gl3dDet'); if(b)b.classList.toggle('on',VIEW_DETAIL);
 };
