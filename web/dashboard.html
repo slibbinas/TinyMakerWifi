@@ -3844,7 +3844,14 @@ function* drawIsoGen(cv,doneFrac){
     }
     // GPU - tik pagrindinei pulto drobei; detaliu vaizdas turi savo canvas,
     // o #gl3d gyvena homeView viduje. (Jei ji jau parodem auksciau - nekartojam.)
-    if(!gpu&&window.gl3dShow)gl3dShow(ok&&cv.id==='printPreviewCanvas');
+    /* SVETIMA drobe musu 3D sluoksnio NEGESINA. Ta pati `drawIso` kvieciasi ir Connect
+       dalijimosi metu - su SAVO drobe. Uzgesinus sluoksni, po juo pulto kortelėje
+       islisdavo paskutinis 2D kadras, o detaliame rezime tai buvo „Building the 3D
+       view 100%": modelis dingdavo tiksliai ta sekunde, kai Connect'e pasirodydavo jo
+       perziura, ir atrodydavo, kad pultas ka nors stato - nors nestate nieko (V
+       2026-08-30; pedsakas rode NULI naujus buildIso kvietimus). Kai piesiam ne i
+       pagrindine drobe, sluoksnio busena paliekam tokia, kokia buvo. */
+    if(!gpu&&window.gl3dShow&&cv.id==='printPreviewCanvas')gl3dShow(ok);
     if(ok)return;
   }
   /* SPAUSDINANT - visada grubus rinkinys, PERZIUROJE (doneFrac=1) - koki turim.
