@@ -181,6 +181,29 @@ vietoje, ir gali iškart pasakyti „ne, pirma kitas".
 
 Galioja **visoms** šio projekto sesijoms, ne tik pagrindinei.
 
+## Testuoju pats, jei galiu
+
+Prieš siūlant vartotojui ką nors patikrinti, pirma savęs paklausti: **ar galiu tai
+padaryti pats?** Jei taip - pasiūlyti tai kaip pirmą variantą: „galiu patikrinti
+pats - ar tikrinu aš, ar nori pats?" ir palaukti atsakymo.
+
+Per naršyklės įrankius pasiekiamas visas pultas (`http://<printerio-ip>`): atidaryti
+modelį, paleisti **dry run**, perjungti temą, stabdyti spausdinimą, skaityti konsolę,
+matuoti drobės turinį, kviesti pulto funkcijas. Per `curl` - printerio API: būsena,
+modelių sąrašas, peržiūros, liejimas. Trynimas ir kiti veiksmai eina **tik per pultą** -
+printeris atmeta svetimą kilmę (CSRF sarga).
+
+Vartotojui lieka tai, ko negaliu: derva, spaudinio apžiūra, printerio **ekranas**,
+garsai, geležis rankomis.
+
+⚠️ Naršyklės langas dažnai būna paslėptas, tad piešimo ciklas jame pristabdomas
+(`document.hidden`). Duomenys atsinaujina, o drobė - ne. Tai atmesti PRIEŠ skelbiant
+„vaizdas neatsinaujina".
+
+**Kodėl:** 2026-08-30 naktį V rankomis atliko keliolika ratų (įkėlimai, dalijimasis,
+vaikščiojimas po rodinius, konsolės kopijavimas), o didžiąją dalį to buvo galima
+padaryti pačiam. Galioja visoms sesijoms.
+
 ## Tikslinimas iš kodo
 
 Prieš teigdamas ką nors apie kodą (eilutės numerį, funkcijos elgesį,
