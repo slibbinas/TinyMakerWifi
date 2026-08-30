@@ -4691,6 +4691,11 @@ const upgradeToSlices=async(name,d,quiet)=>{
     // rašo į SD - persidengę jie tik trukdytų vienas kitam (auditas 08-13).
     await saveSlicesToPrinter(name);
     await refreshModelThumb(name,$('printPreviewCanvas'));   // kortelėje lieka ŠVIEŽIAS vaizdas
+    /* Ir saraso piktograma. `dashPreview` ja bando padaryti perziuros pabaigoje, bet
+       TEN sluoksniu dar nera: modelis, turintis issaugota paveiksleli, rodomas is jo, o
+       tikri pjuviai ateina cia, fone. Todel tokio modelio eiluteje likdavo pilkas
+       zenkliukas amzinai - niekas nebegrizdavo jos padaryti (V 2026-08-30, „skeltool"). */
+    ensureRowIcon(name);
   }catch(e){
     /* Cia krovimas nutrūksta perjungus vaizdą (openView pasididina
        fetchSlicesSeq). Gaudyklė buvo tyli, tad drobėje likdavo paskutinis
