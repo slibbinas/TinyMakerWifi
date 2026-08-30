@@ -211,6 +211,20 @@ kintamojo reikšmę, API, elgseną prie kraštinių sąlygų), patikrink tai
 realiame faile — Read/Grep — o ne iš atminties. Tai galioja VISADA ir
 visose sesijose, ne tik čia. Jei netikrinai — pasakyk, kad tai spėjimas.
 
+**Kodo perskaitymo NEUŽTENKA, kai aiškini, KODĖL kažkas elgiasi taip, o ne kitaip.**
+Iš kodo gimusi priežasčių grandinė yra **hipotezė**, kol ji nepamatuota veikiančioje
+sistemoje. Prieš ją pateikiant kaip paaiškinimą: paleisti, išmatuoti, parodyti skaičių.
+
+Kaip matuoti (visa tai pasiekiama iš čia): `javascript_tool` gyvame pulte - kintamųjų
+reikšmės, `localStorage`, drobės turinys, funkcijų kvietimas rankomis; `console.trace`
+laikinai įdėtas į įtariamą funkciją; `read_console_messages`; `curl` į printerio API.
+**Vieno tokio matavimo užtenka ten, kur trys hipotezės iš eilės buvo klaidingos**
+(2026-08-30: „Building the 3D view" priežastis rasta per vieną `console.trace`, o prieš
+tai trys mano paaiškinimai iš kodo buvo ne tie).
+
+Jei matavimo nepadarei - sakyk „įtariu", ne „taip yra". Ir jei matavimas paneigia
+tavo paaiškinimą, pasakyk tai garsiai, o ne tyliai persuk į kitą versiją.
+
 ## Pasirinkimų pateikimas
 
 Kai siūlai vartotojui rinktis iš variantų, VISADA iškart pradėk nuo
