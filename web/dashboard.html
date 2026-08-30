@@ -4289,6 +4289,12 @@ const restoreDashPreviewPicture=()=>{
   const cv=$('printPreviewCanvas');
   if(!cv||!dashPreviewName)return;
   if(previewBusy>0)return;                        // statymas dar vyksta - jo nekertam
+  /* Dalijimosi metu - NIEKO. Nuo `fcb726e` musu 3D sluoksnis nebeuzgesta, kai Connect
+     piesia savo drobeje, tad grizus modelis tebestovi vietoje ir atstatyti nera ko.
+     O atstatymas cia tik pakenkdavo: uzrasydavo ant gyvo vaizdo „Loading preview…"
+     ir likdavo su juo kaboti, nes issaugoto paveikslelio (~200 KB) printeris tuo metu
+     vis tiek neatiduoda - jis uzimtas dalijimusi (V 2026-08-30). */
+  if(shareInFlight)return;
   if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
   if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
   try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
