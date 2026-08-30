@@ -6241,8 +6241,15 @@ $('prep3dButton').addEventListener('click',async()=>{
        (auditas 08-12). Grazinam kesa i ta, kuris rodomas. */
     /* Ciklas piešė į atskirą drobę, o tai paslėpė GPU rodinį (drawIso jį gesina, kai
        drobė ne pagrindinė) - grįžus į Dashboard likdavo 2D (auditas 08-13). */
-    if(dashPreviewName){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); await buildIso($('printPreviewCanvas')); }
-    else slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+    /* Kortele perpiesiama CIA tik tada, kai zmogus ir taip ziuri grubu vaizda. Su
+       detaliu (o jis numatytasis) tai buvo zingsnis atgal: ciklas dar sukasi grubiame
+       rezime, tad kortelėje atsirasdavo stambus kubeliai, o `finally` tuoj po to dar ir
+       isvalydavo kesa - likdavo grubus piesinys virs tustumos, nucentruotas ir
+       priartintas, nes matmenys skaiciuoti kitokiam tankiui. Perkurimas turi tvarkyti
+       PIKTOGRAMAS, o ne gadinti perziura (V 2026-08-30; ismatuota: po ciklo kesas
+       `/80x60/0`, o `loadSlicesFromPrinter` detaliame rezime nieko negrazina). */
+    if(dashPreviewName&&!wasDet){ if(!slicesFit(dashPreviewName))await loadSlicesFromPrinter(dashPreviewName); await buildIso($('printPreviewCanvas')); }
+    else if(!dashPreviewName)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
     loadFiles&&loadFiles();
   }catch(e){note.textContent=e.message;}
   finally{
@@ -6253,7 +6260,13 @@ $('prep3dButton').addEventListener('click',async()=>{
     VIEW_RAW=wasRaw; $('gl3dRaw').classList.toggle('on',!wasRaw);
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
     // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
-    if(wasDet)slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+    if(wasDet){
+      slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
+      /* Ir TUOJ PAT atstatom perziura tokia, kokia buvo pries perkurima. Vien kesa
+         isvalyti neuztenka: korteleje lieka paskutinis kadras, o po juo nieko nera,
+         tad bet koks perpiesimas duoda tuscia stambia deze. */
+      if(dashPreviewName)dashPreview(enc(dashPreviewName),{scroll:false,silent:true});
+    }
   }
 });
 
