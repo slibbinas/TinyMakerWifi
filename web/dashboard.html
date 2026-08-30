@@ -4677,8 +4677,10 @@ const upgradeToSlices=async(name,d,quiet)=>{
     /* Kiekviena klaida palieka pesciomis pasiekiama vaizda. Anksciau cia iskrisdavo
        TIK 'preview superseded', o sluoksnio timeout'as ar 409 dingdavo be zenklo -
        drobeje amzinai likdavo paskutinis skaicius („uzstrigo ties 221/240", V 08-16). */
-    if(!quiet&&dashPreviewName===name&&previewRun===myRun)
-      markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+((e&&e.message)||'the printer did not answer'));
+    if(!quiet&&dashPreviewName===name&&previewRun===myRun){
+      if(shareInFlight&&e&&e.message==='preview superseded')paintPreviewProgress(cvp,'Sharing this model\u2026\nthe preview will load when it finishes',null);
+      else markPreviewStopped(cvp,name,e&&e.message==='preview superseded'?null:'Preview stopped - '+((e&&e.message)||'the printer did not answer'));
+    }
   }
   finally{
     setPreviewBusy(false);    // uzimtumo zyma nuimama kartu su visu kitu
@@ -4774,7 +4776,12 @@ const dashPreview=async(nameEnc,opts)=>{
          patikrinimo pirmojo „nutraukta" uzrasas nusestu ant dar besikraunancio
          vaizdo (auditas 08-16). Nutraukus is salies (isejus i kita vaizda, istrynus)
          numeris NEpasikeicia, tad uzrasas su keliu atgal lieka - taip ir turi buti. */
-      if(dashPreviewName===name&&previewRun===myRun)markPreviewStopped(cv,name);
+      if(dashPreviewName===name&&previewRun===myRun){
+        /* Nutraukė dalijimasis - tai ne gedimas ir ne „stopped": pasakom, kas vyksta
+           ir ko laukti, viena eilute be netikro progreso. */
+        if(shareInFlight)paintPreviewProgress(cv,'Sharing this model\u2026\nthe preview will load when it finishes',null);
+        else markPreviewStopped(cv,name);
+      }
       return;
     }
     /* Nepavykes krovimas irgi turi ISEITI: anksciau drobeje likdavo negyvas
@@ -5185,6 +5192,11 @@ const shareModel=async(name,btn)=>{
      printeris veikia, o ne speti „greiciausiai ikelimas" (V 08-13). */
   bgJob='Sharing this model';
   shareInFlight=true;
+  /* MUSU krovimas pasitraukia. Kol `openView` jo nebekirsdavo (kad neuzmustu
+     dalijimosi), jis likdavo gyvas ir toliau piese „Building the 3D view" - nors tik
+     lauke eiles prie printerio, kuris aptarnauja po viena uzklausa. Zmogus matydavo
+     dvi zinutes vienu metu, ir perziuros zinute meluodavo (V 2026-08-30). */
+  fetchSlicesSeq++;
   /* Mygtukas uzsirakina su suktuku, kol dalijimasis vyksta (V 08-13): jis ir taip po
      to virsta „Shared", tad tarpine busena buvo vienintele, kurios truko - spaudei
      antra karta, nes atrode, kad pirmas paspaudimas dingo. */
