@@ -420,6 +420,10 @@ void handlePreviewUploadData() {
     } else if (previewType == "1") {
       previewUploadPath = "/" + previewUploadName + "/preview1s.png";
       previewUploadOld  = "/" + previewUploadName + "/preview1.png";
+    } else if (previewType == "ico") {
+      // Saraso piktograma: 56x56 PNG, ~4 KB. Guli PRIE MODELIO, ne narsykleje - tad
+      // ta pati mato ir telefonas, ir kompiuteris, ir naujas langas (V 2026-08-30).
+      previewUploadPath = "/" + previewUploadName + "/icon.png";
     } else previewUploadPath = "/" + previewUploadName + "/preview.png";
     // Senoji miniatiura trinama TIK pavykus irasyti nauja (zr. UPLOAD_FILE_END):
     // cia vardas dar nepatikrintas (name=../X taikytusi i svetima aplanka), o
@@ -444,7 +448,9 @@ void handlePreviewUploadData() {
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
     if (previewUploadRejected) return;
-    if (up.totalSize > 524288) {
+    // Piktogramai uztenka 32 KB (tikroji ~4 KB): be atskiros ribos ji galetu teisetai
+    // uzimti puse megabaito kortelėje (auditas 08-30).
+    if (up.totalSize > (previewUploadPath.endsWith("/icon.png") ? 32768u : 524288u)) {
       previewUploadRejected = true;
       if (previewUploadFile) previewUploadFile.close();
       SD.remove(previewUploadTmpPath.c_str());
@@ -577,7 +583,10 @@ void handleApiFileModelPreview() {
   // The type arg is ignored here: one snapshot is taken per print, and the
   // picture is the same model at any layer height (see openModelRender).
   // Other models (or no snapshot) fall through to the 409.
-  if (printerBusy() && previewCacheBuf && server.arg("name") == previewCacheModel) {
+  // ISSKYRUS piktograma: ji kito dydzio ir kitos paskirties, o cia gulintis didysis
+  // renderis narsykleje uzsikabintu PARAI po piktogramos adresu (auditas 08-30).
+  if (printerBusy() && previewCacheBuf && server.arg("type") != "ico" &&
+      server.arg("name") == previewCacheModel) {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.setContentLength(previewCacheLen);
     server.send(200, "image/png", "");
@@ -602,6 +611,29 @@ void handleApiFileModelPreview() {
 
   String previewType = server.arg("type");
   File f;
+  // Saraso piktograma: maza (~4 KB), tad narsyklei leidziam ja laikyti - sarasas
+  // atsiverciamas daznai, o piesinys keiciasi tik pergaminus.
+  if (previewType == "ico") {
+    File fi = SD.open(("/" + name + "/icon.png").c_str());
+    if (!fi) { sendApiError(404, "icon not found"); return; }
+    server.sendHeader("Cache-Control", "max-age=600");
+    server.setContentLength(fi.size());
+    server.send(200, "image/png", "");
+    // Rankinis ciklas, o ne streamFile: pastarasis nezino apie nukeliavusi klienta, ir
+    // kiekvienas gabalas degintu po sekunde `select()` laukimo. Ta pati sarga stovi
+    // ir didziosios perziuros kelyje zemiau (auditas 08-30).
+    {
+      uint8_t buf[512];
+      int n;
+      WiFiClient client = server.client();
+      while ((n = fi.read(buf, sizeof(buf))) > 0) {
+        if (!client.connected()) break;
+        client.write(buf, n);
+      }
+    }
+    fi.close();
+    return;
+  }
   if (previewType == "05") f = SD.open(("/" + name + "/preview05s.png").c_str());
   else if (previewType == "1") f = SD.open(("/" + name + "/preview1s.png").c_str());
   // One consistent look (user decision): our voxel render everywhere; the

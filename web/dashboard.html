@@ -1458,6 +1458,11 @@ const saveRowIcon=(cv,name)=>{
           cx=(x0+x1)/2*s,cy=(y0+y1)/2*s;
     const ic=document.createElement('canvas');ic.width=ic.height=ICO_PX;
     ic.getContext('2d').drawImage(cv,cx-side/2,cy-side/2,side,side,0,0,ICO_PX,ICO_PX);
+    /* Ir i kortele, prie modelio. Iki 2026-08-30 piktograma gyveno TIK narsykleje
+       (`localStorage`, iki 24 naujausiu), tad telefonas nematydavo to, ka padare
+       kompiuteris, ir atvirksciai - o kiekvienas naujas langas pradedavo nuo tuscio
+       saraso. Failas mazas (~4 KB), tad printeriui tai pigu. */
+    try{ ic.toBlob(b=>{ if(b)uploadModelPreview(name,b,'ico').then(()=>{icoMissing.delete(name);}).catch(()=>{}); },'image/png'); }catch(_){ }
     const url=ic.toDataURL('image/png');
     if(url.length>12000)return;                      // per sunki - geriau piestine
     const rec=JSON.stringify({t:Date.now(),u:url});
@@ -2868,6 +2873,16 @@ try{
 }catch(e){}
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
+/* Kortelėje piktogramos nera - grazinam piestini zenkla. Atskira funkcija, o ne
+   inline kodas `onerror` viduje: ten SVG su kabutėmis reiktu ekranuoti tris kartus. */
+/* Kuriems modeliams kortelėje piktogramos NERA. Be sio saraso kiekvienas saraso
+   perpiesimas - o jis vyksta ir kas klavisa filtro laukelyje - vel siustu uzklausas
+   uz visas beikonias eilutes, ir vienagijis printerio serveris skendetu 404-uose
+   (auditas 08-30). Gyvena tik siame lange: piktograma atsiradus, sarasas vis tiek
+   perpiesiamas is naujo su ja localStorage. */
+const icoMissing=new Set();
+window.icoFallback=img=>{ try{ const n=img.getAttribute('data-ico'); if(n)icoMissing.add(n);
+                               img.outerHTML=FICO_MODEL; }catch(e){} };
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
   '<rect x="2" y="10" width="12" height="2.6" rx="1"/><rect x="3.5" y="6.4" width="9" height="2.6" rx="1" opacity=".7"/>'+
   '<rect x="5" y="2.8" width="6" height="2.6" rx="1" opacity=".45"/></svg>';
@@ -2977,7 +2992,12 @@ const renderFiles=()=>{
     // (Preview mygtukas tai turejo savaime, o `div` be sio - ne).
     h+='<div class="file'+(sel?' sel':'')+(clickable?'':' locked')+'" data-n="'+esc(it.name)+'"'+
       (clickable?' tabindex="0" onclick="pickModel(\''+enc(it.name)+'\')"':'')+'><div class="fwrap">'+
-      (isModel?(ico?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">':FICO_MODEL):FICO_ZIP)+
+      /* Nera narsykleje - bandom is kortelės: ten ji guli prie paties modelio, tad ta
+         pacia mato visi irenginiai. Nepavykus (`onerror`) grazinamas piestinis zenklas,
+         tad tuscios vietos nebuna niekada. */
+      (isModel?(ico?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">'
+                   :(icoMissing.has(it.name)?FICO_MODEL
+                     :'<img class="fico ficoImg" draggable="false" alt="" data-ico="'+esc(it.name)+'" onerror="icoFallback(this)" src="/api/files/model/preview?name='+enc(it.name)+'&type=ico">')):FICO_ZIP)+
       '<div class="ftext"><div class="nm"><strong>'+esc(it.name)+'</strong>'+
       (isNew?'<span class="newPill">New</span>':'')+'</div>'+
       (meta?'<div class="meta">'+esc(meta)+'</div>':'')+'</div></div>'+
