@@ -2810,12 +2810,8 @@ const sdFitRows=()=>{
      matavimo nebuvo prieita - o taip nutinka akimirka po slicerio ikelimo, kol SD
      dar nepazymetas atidarytu ir perziura tebekraunasi, - paliktdavo sarasa su
      desimt eiluciu, nukarusiu zemiau kaires puses, iki pirmo puslapio paspaudimo. */
-  const platusPr=(()=>{const hv=$('homeView');return !!(hv&&hv.classList.contains('stageWideOn'));})();
-  let n=(matchMedia('(min-width:1000px)').matches&&!platusPr)?SD_EIL_IPRASTAS:10;
-  /* Isdidinta perziura uzima visa ploti - stulpeliu nebelieka, tad lygiuoti nera su
-     kuo. Matavimas tada lygindavo saraso apacia su perziuros apacia ir nukapodavo ji
-     iki trijų irasu (V 08-20). Tokiame lange grazinam pilna puslapi. */
   const platus=(()=>{const hv=$('homeView');return !!(hv&&hv.classList.contains('stageWideOn'));})();
+  let n=(dvi&&!platus)?SD_EIL_IPRASTAS:10;
   if(!platus&&dvi&&left&&sd&&list&&!sd.classList.contains('hidden')&&sd.classList.contains('akordOpen')){
     /* Matuojam TALPA, ne uzpildyma. Anksciau buvo klausiama „ar sarasas islenda uz
        kaires pusės" - o tai atsakymo neduoda, kai puslapis trumpas: penkios eilutes is
@@ -2855,21 +2851,6 @@ const sdFitRows=()=>{
          (V 08-28: „apacia sugadinai"). Paskutine eilute tarpo po savimi neturi, tad ta
          viena tarpa pridedam atgal - kitaip visada prarastume eilute be reikalo. */
       const tarpas=eilutes.length>1?Math.max(0,zingsnis-r0.height):0;
-      /* Neismatavus NEKEICIAM nieko. `vieta` isseina neigiama, kai kairysis stulpelis dar
-         trumpesnis uz sarasa - taip buna akimirka po slicerio ikelimo: SD isskleidziamas
-         iskart, o perziuros kortele dar tik kraunasi („Loading preview…"), tad kaireje
-         stovi tik busenos kortele. Anksciau tada likdavo pradine reiksme 10 - telefonine
-         atsargine, ne matavimas, - ir sarasas nukardavo per visa auksti, kol zmogus
-         paspausdavo puslapi (V 2026-08-30). Stulpelio auktis po to nebesikeicia, tad
-         `ResizeObserver` nieko nebepagauna - todel bandom patys po akimirkos. */
-      /* Neismatavus atsakymas ZINOMAS is anksto, ir jis susietas su PERZIUROS KORTELES
-         REZIMU, o ne su tuo, ar ji spejo uzsikrauti (V 2026-08-30): iprastame rezime -
-         penkios eilutes, isdidintame - pilnas puslapis (ta saka aukstyje, `platus`).
-         Isseina neismatuojama kaip tik tada, kai kaireje dar stovi viena busenos
-         kortele: taip buna akimirka po slicerio ikelimo, kai SD isskleidziamas iskart,
-         o perziura dar kraunasi. Anksciau tada likdavo pradine reiksme 10 - telefonine
-         atsargine, ne matavimas, - ir sarasas nukardavo per visa auksti iki pirmo
-         puslapio paspaudimo. */
       if(zingsnis>0&&vieta>0)n=Math.floor((vieta+tarpas)/zingsnis);
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
