@@ -6261,11 +6261,11 @@ $('prep3dButton').addEventListener('click',async()=>{
     // Ciklas paliko grubu kesa; grizus i detalu vaizda jis nebeatitinka
     // pasirinkimo - geriau tuscias nei ne to tankio (ar ne to modelio).
     if(wasDet){
+      /* Perziuros NEATSTATINEJAM. Ekrane matomas vaizdas gyvena GPU sluoksnyje, o jo
+         ciklas neliecia - tad atstatyti nera ko, ir perpiesimas butu darbas be
+         priezasties (V 2026-08-30: „kam atstatineti to, ko nepakeitem?"). Isvalom tik
+         kesa: jis liko grubus ir svetimo modelio. */
       slicesCache={name:'',mode:'',slices:[],gw:80,gh:60,modelH:0,layers:0};
-      /* Ir TUOJ PAT atstatom perziura tokia, kokia buvo pries perkurima. Vien kesa
-         isvalyti neuztenka: korteleje lieka paskutinis kadras, o po juo nieko nera,
-         tad bet koks perpiesimas duoda tuscia stambia deze. */
-      if(dashPreviewName)dashPreview(enc(dashPreviewName),{scroll:false,silent:true});
     }
   }
 });
