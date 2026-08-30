@@ -3826,6 +3826,9 @@ function* drawIsoGen(cv,doneFrac){
       if(cacheIsDetail()&&cv.id==='printPreviewCanvas'&&window.gl3dShow){
         yield* smSubGen(smMeshGen(),0,1);
         gpu=ok=!!gl3dShow(true);
+        /* Kieno modelis dabar stovi sluoksnyje. Kesas to nebepasako: po dalijimosi
+           jame guli Connect'o stiebas, nors ekrane tebestovi musu vaizdas. */
+        if(ok)glModelName=slicesCache.name;
       }
       if(!ok){yield* drawSmoothGen(cv);ok=true;}
     }
@@ -4295,6 +4298,14 @@ const restoreDashPreviewPicture=()=>{
      ir likdavo su juo kaboti, nes issaugoto paveikslelio (~200 KB) printeris tuo metu
      vis tiek neatiduoda - jis uzimtas dalijimusi (V 2026-08-30). */
   if(shareInFlight)return;
+  /* Jei sluoksnyje JAU stovi sis modelis - nieko. Lygiai kaip dalijimosi metu, kur
+     kortele paliekama ramybeje ir vaizdas geras. Anksciau cia buvo sprendziama pagal
+     kesa, o kesas po Share yra Connect'o - tad atstatymas manydavo, kad musu vaizdo
+     nera, ir perpiesdavo: pirma Connect'o paveiksleli, po sekundes musu 3D. Zmogus
+     mate du perpiesimus be jokios priezasties (V 2026-08-30: „kam perpiesineti po
+     sharinimo, kodel negalima palikti kaip ir sharinimo metu?"). */
+  const glNow=document.getElementById('gl3d');
+  if(glNow&&glNow.style.display!=='none'&&glModelName===dashPreviewName)return;
   if(statusData&&statusData.busy)return;          // spausdinant drobe priklauso spaudiniui
   if(previewStoppedFor===dashPreviewName)return;  // uzrasas su kvietimu bandyti is naujo
   try{ if(slicesFit(dashPreviewName)){drawIso(cv,1);return;} }catch(e){}
@@ -4314,6 +4325,7 @@ const restoreDashPreviewPicture=()=>{
 /* Kol vaizdas statomas, gija uzimta ir NE VIENAS mygtukas nereaguoja - bet atrodo,
    kad reaguos (V 08-13). Prigesinam juos, kaip ir SD darbu metu: geriau matyti, kad
    dabar negalima, nei spausti i tuscia. */
+let glModelName='';   // kieno modelis siuo metu matomas GPU sluoksnyje
 let previewBusy=0;
 const setPreviewBusy=on=>{
   previewBusy=Math.max(0,previewBusy+(on?1:-1));
