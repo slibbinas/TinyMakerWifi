@@ -1462,7 +1462,8 @@ const saveRowIcon=(cv,name)=>{
        (`localStorage`, iki 24 naujausiu), tad telefonas nematydavo to, ka padare
        kompiuteris, ir atvirksciai - o kiekvienas naujas langas pradedavo nuo tuscio
        saraso. Failas mazas (~4 KB), tad printeriui tai pigu. */
-    try{ ic.toBlob(b=>{ if(b)uploadModelPreview(name,b,'ico').then(()=>{icoMissing.delete(name);}).catch(()=>{}); },'image/png'); }catch(_){ }
+    try{ ic.toBlob(b=>{ if(b)uploadModelPreview(name,b,'ico').then(()=>{icoMissing.delete(name);
+                          try{localStorage.setItem(ICO_UP+name,'1');}catch(_){}}).catch(()=>{}); },'image/png'); }catch(_){ }
     const url=ic.toDataURL('image/png');
     if(url.length>12000)return;                      // per sunki - geriau piestine
     const rec=JSON.stringify({t:Date.now(),u:url});
@@ -2881,6 +2882,34 @@ try{
    (auditas 08-30). Gyvena tik siame lange: piktograma atsiradus, sarasas vis tiek
    perpiesiamas is naujo su ja localStorage. */
 const icoMissing=new Set();
+/* Turimos piktogramos nukeliauja i kortele PACIOS. Be sito jos ten nepatektu niekada:
+   `ensureRowIcon` piesia tik tada, kai narsykleje piktogramos NERA, tad kas ja jau
+   turi - tas nieko ir nesiunciatu, o telefonas liktu tuscias (ismatuota 08-30: po
+   „Prepare 3D" kortelėje vis dar `404 icon not found`). Siuncia po viena, tik kai
+   printeris laisvas, ir kiekviena tik karta - zyme lieka narsykleje. */
+const ICO_UP='tmIcoUp:';
+const icoQueue=[]; let icoPushing=false;
+const icoPushRun=async()=>{
+  if(icoPushing)return; icoPushing=true;
+  try{
+    while(icoQueue.length){
+      if(uiBusy()||shareInFlight||previewBusy>0)break;   // printeris ir taip uzimtas
+      const n=icoQueue.shift(), u=rowIcon(n);
+      if(!u)continue;
+      try{
+        const b=await (await fetch(u)).blob();
+        await uploadModelPreview(n,b,'ico');
+        try{localStorage.setItem(ICO_UP+n,'1');}catch(_){}
+      }catch(e){ break; }                                 // nepavyko - bandysim kita karta
+      await new Promise(r=>setTimeout(r,400));
+    }
+  }finally{ icoPushing=false; }
+};
+const icoPushSoon=name=>{
+  try{ if(localStorage.getItem(ICO_UP+name))return; }catch(e){ return; }
+  if(!rowIcon(name)||icoQueue.indexOf(name)>=0)return;
+  icoQueue.push(name); setTimeout(icoPushRun,1200);
+};
 window.icoFallback=img=>{ try{ const n=img.getAttribute('data-ico'); if(n)icoMissing.add(n);
                                img.outerHTML=FICO_MODEL; }catch(e){} };
 const FICO_MODEL='<svg class="fico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
@@ -2987,6 +3016,7 @@ const renderFiles=()=>{
     const loading=sel&&previewLoadingName===it.name;
     const isNew=isModel&&newNames.has(it.name);
     const ico=isModel?rowIcon(it.name):'';   // viena uzklausa i saugykla, ne dvi
+    if(ico)icoPushSoon(it.name);             // turim, o kortelė gal ne - nusiuncia fone
     const clickable=isModel&&!busy&&!(statusData&&statusData.webControl===false);
     // Klaviatura: eilute yra mygtukas, tad ja galima pasiekti Tab'u ir paspausti Enter/tarpu
     // (Preview mygtukas tai turejo savaime, o `div` be sio - ne).
