@@ -2804,7 +2804,14 @@ const sdFitRows=()=>{
   if(sdFitDirba)return;
   const dvi=(()=>{try{return matchMedia('(min-width:1000px)').matches;}catch(e){return false;}})();
   const left=$('homeLeft'), sd=$('sdSection'), list=$('filesList');
-  let n=10;
+  /* Iseities reiksme - ne visada 10. Desimt yra TELEFONO puslapis; kompiuteryje su
+     iprastu perziuros rezimu atsakymas yra penki, ir jis zinomas is anksto (V
+     2026-08-30). Anksciau cia visada stovejo 10, tad kiekvienas kartas, kai iki
+     matavimo nebuvo prieita - o taip nutinka akimirka po slicerio ikelimo, kol SD
+     dar nepazymetas atidarytu ir perziura tebekraunasi, - paliktdavo sarasa su
+     desimt eiluciu, nukarusiu zemiau kaires puses, iki pirmo puslapio paspaudimo. */
+  const platusPr=(()=>{const hv=$('homeView');return !!(hv&&hv.classList.contains('stageWideOn'));})();
+  let n=(matchMedia('(min-width:1000px)').matches&&!platusPr)?SD_EIL_IPRASTAS:10;
   /* Isdidinta perziura uzima visa ploti - stulpeliu nebelieka, tad lygiuoti nera su
      kuo. Matavimas tada lygindavo saraso apacia su perziuros apacia ir nukapodavo ji
      iki trijų irasu (V 08-20). Tokiame lange grazinam pilna puslapi. */
@@ -2863,7 +2870,7 @@ const sdFitRows=()=>{
          o perziura dar kraunasi. Anksciau tada likdavo pradine reiksme 10 - telefonine
          atsargine, ne matavimas, - ir sarasas nukardavo per visa auksti iki pirmo
          puslapio paspaudimo. */
-      n=(zingsnis>0&&vieta>0)?Math.floor((vieta+tarpas)/zingsnis):SD_EIL_IPRASTAS;
+      if(zingsnis>0&&vieta>0)n=Math.floor((vieta+tarpas)/zingsnis);
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
   }
