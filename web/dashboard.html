@@ -2779,6 +2779,10 @@ const clearNew=n=>{if(newNames.delete(n))renderFiles();};
    Telefone (vienas stulpelis) lieka senasis 10 - ten aukscio riboti nereikia. */
 let FILES_PER_PAGE=10;
 const SD_EIL_MIN=3, SD_EIL_MAX=12;
+/* Kiek eiluciu, kai ismatuoti dar negalima: iprastas perziuros rezimas = penkios.
+   Isdidintame maketas vienastulpelis ir i si kelia isvis nepatenkama - ten lieka
+   pilnas puslapis (V 2026-08-30). */
+const SD_EIL_IPRASTAS=5;
 let sdFitDirba=false;
 /* Nuo kurio irašo prasideda matomas puslapis - VARDU, ne skaiciumi. Eiluciu kiekis
    puslapyje persiskaiciuoja pats, ir kai puslapis buvo atstatomas is aritmetikos
@@ -2844,7 +2848,22 @@ const sdFitRows=()=>{
          (V 08-28: „apacia sugadinai"). Paskutine eilute tarpo po savimi neturi, tad ta
          viena tarpa pridedam atgal - kitaip visada prarastume eilute be reikalo. */
       const tarpas=eilutes.length>1?Math.max(0,zingsnis-r0.height):0;
-      if(zingsnis>0&&vieta>0)n=Math.floor((vieta+tarpas)/zingsnis);
+      /* Neismatavus NEKEICIAM nieko. `vieta` isseina neigiama, kai kairysis stulpelis dar
+         trumpesnis uz sarasa - taip buna akimirka po slicerio ikelimo: SD isskleidziamas
+         iskart, o perziuros kortele dar tik kraunasi („Loading preview…"), tad kaireje
+         stovi tik busenos kortele. Anksciau tada likdavo pradine reiksme 10 - telefonine
+         atsargine, ne matavimas, - ir sarasas nukardavo per visa auksti, kol zmogus
+         paspausdavo puslapi (V 2026-08-30). Stulpelio auktis po to nebesikeicia, tad
+         `ResizeObserver` nieko nebepagauna - todel bandom patys po akimirkos. */
+      /* Neismatavus atsakymas ZINOMAS is anksto, ir jis susietas su PERZIUROS KORTELES
+         REZIMU, o ne su tuo, ar ji spejo uzsikrauti (V 2026-08-30): iprastame rezime -
+         penkios eilutes, isdidintame - pilnas puslapis (ta saka aukstyje, `platus`).
+         Isseina neismatuojama kaip tik tada, kai kaireje dar stovi viena busenos
+         kortele: taip buna akimirka po slicerio ikelimo, kai SD isskleidziamas iskart,
+         o perziura dar kraunasi. Anksciau tada likdavo pradine reiksme 10 - telefonine
+         atsargine, ne matavimas, - ir sarasas nukardavo per visa auksti iki pirmo
+         puslapio paspaudimo. */
+      n=(zingsnis>0&&vieta>0)?Math.floor((vieta+tarpas)/zingsnis):SD_EIL_IPRASTAS;
     }
     n=Math.max(SD_EIL_MIN,Math.min(SD_EIL_MAX,n));
   }
