@@ -7535,13 +7535,28 @@ window.__markToolInit=()=>{
                    try{if(typeof dashPreviewName!=='undefined'&&dashPreviewName)return dashPreviewName;}catch(e){}
                    return '';};
   const layerMm=()=>{
-    const o=sOut();
-    try{if(o&&o.layers&&typeof slicesCache!=='undefined'&&slicesCache&&slicesCache.modelH)
-          return slicesCache.modelH/o.layers;}catch(e){}
+    /* Cia buvo `slicesCache.modelH / slicerOut.layers` - DVIEJU SKIRTINGU daiktu
+       dalyba. Kesas priklauso SD perziurai, `slicerOut` - sliceriui, ir niekas
+       netikrino, ar tai tas pats modelis. Ismatuota 08-31 (T-78): sliceryje
+       supjaustytas cup45 (24 mm, 475 sluoksniai), o kese tuo metu gulejo ZiedasAA
+       (8,35 mm) - zingsnis isejo 8,35/475 = 0,018 mm vietoj 0,0505, ir ataskaitoje
+       atsirado ~L900 vietoj ~L130. Tas pats nutikdavo ir atvirksciai: pasliceravus
+       bet ka, SD perziuros zymes toliau dalijo is slicerio sluoksniu skaiciaus.
+       Sluoksnio numeris yra pats svarbiausias skaicius defekto ataskaitoje, tad
+       jis dabar imamas TIK is to, kas apie rodoma modeli tikrai zino. */
     /* Sliceryje zingsnis zinomas ir PRIES pjaustyma - jis visada pjausto 0,05 mm.
        Be sios eilutes dar nesupjaustytas modelis rodydavo printerio nustatyma (0,10)
        ir sluoksnio numeris buvo dvigubai per mazas (matyti V ataskaitoje #21). */
     if(slicerHere())return 0.05;
+    /* Perziuroje tikslus skaicius guli TAME PACIAME kese: `modelH` ir `layers`
+       uzpildomi kartu ir abu apie ta pati modeli. Butina salyga - vardas: kesas
+       lieka nuo praeito modelio, tad be patikros vel dalintume svetimus skaicius.
+       `statusData.layerHeight` yra printerio NUSTATYMAS; jis gali nesutapti su tuo,
+       kaip modelis supjaustytas (firmware pats tvarko 0,05 vs 0,10), ir sluoksnio
+       numeris tada iseina dvigubai ne toks. Todel jis - tik atsarginis. */
+    try{const c=(typeof slicesCache!=='undefined')?slicesCache:null;
+        if(c&&c.modelH&&c.layers&&c.name&&c.name===(typeof dashPreviewName!=='undefined'?dashPreviewName:''))
+          return c.modelH/c.layers;}catch(e){}
     try{if(statusData&&statusData.layerHeight)return statusData.layerHeight;}catch(e){}
     return 0.05;
   };
