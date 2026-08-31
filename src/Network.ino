@@ -1670,6 +1670,17 @@ String configJson() {
   out += ",\"sdBackupEpoch\":";
   out += String(sdBk ? sdBackupCacheEpoch : 0);
   out += tinymakerConnectConfigJson();
+  out += ",\"gatewayEnabled\":";
+  out += gatewayEnabled ? "true" : "false";
+  out += ",\"gatewayBaseUrl\":\"";
+  out += jsonEscape(gatewayBaseUrl);
+  // The key itself never leaves NVS - the dashboard only needs to know whether
+  // one is stored, the same hint the Connect token gets.
+  out += "\",\"gatewayKeySet\":";
+  out += gatewayDeviceKey.length() > 0 ? "true" : "false";
+  out += ",\"gatewayLastStatus\":\"";
+  out += jsonEscape(gatewayLastStatus);
+  out += "\"";
   out += tinymakerTelegramConfigJson();
   out += tinymakerWhatsAppConfigJson();
   out += tinymakerDiscordConfigJson();
@@ -1778,6 +1789,27 @@ void applyConfigRequest() {
   }
   if (server.hasArg("connect_auto_backup_set")) {
     connectAutoBackup = formCheck("connect_auto_backup", connectAutoBackup);
+  }
+  // Live gateway (ships after 1.0.0). The device key is a secret and follows
+  // the same rule as the MQTT password and the Telegram token: a blank field
+  // keeps what is stored, so the browser never has to hold it to save the rest
+  // of the form.
+  const bool   gatewayWasEnabled = gatewayEnabled;
+  const String gatewayUrlWas     = gatewayBaseUrl;
+  const String gatewayKeyWas     = gatewayDeviceKey;
+  gatewayEnabled = formCheck("gateway_enabled", gatewayEnabled);
+  if (!wifiEnabled) gatewayEnabled = false;
+  gatewayBaseUrl = connectNormalizeBaseUrl(formString("gateway_base_url", gatewayBaseUrl, 128));
+  if (server.hasArg("gateway_key") && server.arg("gateway_key").length() > 0) {
+    gatewayDeviceKey = formString("gateway_key", gatewayDeviceKey, 64);
+  }
+  // Only when a gateway field actually moved: this handler runs for every
+  // settings save, and gatewayConfigChanged() clears the failure streak and
+  // asks for an immediate beat - so saving an unrelated setting would cancel a
+  // backoff the printer had a good reason for, and hammer a dead server.
+  if (gatewayEnabled != gatewayWasEnabled || gatewayBaseUrl != gatewayUrlWas ||
+      gatewayDeviceKey != gatewayKeyWas) {
+    gatewayConfigChanged();   // a corrected URL or key must not wait out a backoff
   }
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
@@ -5035,6 +5067,8 @@ void network_loop() {
   if (otaMenuOpen()) ArduinoOTA.handle();
   mqtt_loop();
   tinymakerConnectLoop();
+  gatewayLoop();           // remote status beat - idle only; the print path
+                           // has its own tick at a safe point in the layer cycle
 
   // Live refresh of the WiFi info screen (312): redraw values every 2 s
   // while the screen is open. 'screen' global is defined in the main .ino

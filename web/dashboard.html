@@ -733,6 +733,15 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       <button id='connectRegisterButton' class='button secondary' type='button'>Register TinyMaker Connect</button>
       <button id='configConnectResetButton' class='button secondary hidden' type='button'>Reset TinyMaker Connect</button>
     </div>
+    <div class='subhead'>Remote access (Live gateway)</div>
+    <label class='check spanAll'><input name='gateway_enabled' id='cfgGatewayEnabled' type='checkbox' value='1'><span>Watch this printer over the internet</span></label>
+    <div id='gatewayFields' class='spanAll hidden'>
+      <div class='configGrid'>
+        <label class='spanAll'><span>Gateway URL</span><input name='gateway_base_url' id='cfgGatewayBaseUrl' type='text' maxlength='128' placeholder='http://gateway.example.com'></label>
+        <label class='spanAll'><span>Device key</span><input name='gateway_key' id='cfgGatewayKey' type='password' maxlength='64' autocomplete='off' placeholder='Leave blank to keep current'></label>
+      </div>
+      <div id='gatewayHint' class='hint'>The printer sends a small signed status frame to the gateway and receives pause / resume / stop from it. It never accepts incoming connections, so nothing has to be opened on your router.</div>
+    </div>
   </div>
   <button id='configSaveButton' type='submit'>Save config</button>
   </div>
@@ -5815,6 +5824,7 @@ const confirmNetworkToggle=async e=>{
 };
 const updateMqttFields=()=>show('mqttFields',$('cfgMqttEnabled').checked);
 const updateConnectFields=()=>show('connectFields',$('cfgConnectEnabled').checked);
+const updateGatewayFields=()=>show('gatewayFields',$('cfgGatewayEnabled').checked);
 const updateTgFields=()=>{show('tgFields',$('ntfTg').checked);show('waFields',$('ntfWa').checked);show('dcFields',$('ntfDc').checked);};
 const updateConnectView=c=>{
   c=c||connectConfig||{};
@@ -5888,6 +5898,9 @@ const loadConfig=async()=>{
     $('connectRecoveryCodeValue').value='';
     $('connectRecoveryCodeValue').type='password';
     $('connectCopyRecoveryButton').disabled=true;
+    $('cfgGatewayEnabled').checked=!!c.gatewayEnabled; $('cfgGatewayBaseUrl').value=c.gatewayBaseUrl||''; $('cfgGatewayKey').value='';
+    $('cfgGatewayKey').placeholder=c.gatewayKeySet?'Device key is saved - type a new one to replace it':'Paste the key from the gateway pairing page';
+    $('gatewayHint').textContent=c.gatewayEnabled?((c.gatewayLastStatus||'Waiting for the first beat.')+' The printer only sends out - nothing has to be opened on your router.'):'The printer sends a small signed status frame to the gateway and receives pause / resume / stop from it. It never accepts incoming connections, so nothing has to be opened on your router.';
     $('ntfTg').checked=!!c.tgEnabled; $('ntfWa').checked=!!c.waEnabled; $('ntfDc').checked=!!c.dcEnabled; $('ntfNone').checked=!c.tgEnabled&&!c.waEnabled&&!c.dcEnabled;
     $('cfgWaPhone').value=c.waPhone||''; $('cfgWaKey').value='';
     $('cfgWaKey').placeholder=c.waKeySet?('Saved key: ****'+(c.waKeyTail||'')+' - type a new one to replace it'):'Key from the CallMeBot activation reply';
@@ -5918,7 +5931,7 @@ const loadConfig=async()=>{
       e.style.color=c.notifyLastOk?'':'var(--danger)';
       e.classList.remove('hidden');})();
     updateConnectView(c);
-    updateNetworkFields();updateMqttFields();updateConnectFields();updateTgFields();
+    updateNetworkFields();updateMqttFields();updateConnectFields();updateGatewayFields();updateTgFields();
     show('configMqttResetButton',!!c.mqttConfigured);
     show('configConnectResetButton',!!c.connectConfigured);
     // The hosted Connect tab exists only after registration, so an
@@ -6451,6 +6464,7 @@ $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
 /*#include parts/slicer.js*/
 
 $('cfgConnectEnabled').addEventListener('change',updateConnectFields);
+$('cfgGatewayEnabled').addEventListener('change',updateGatewayFields);
 $('ntfNone').addEventListener('change',updateTgFields);
 $('ntfTg').addEventListener('change',updateTgFields);
 $('ntfWa').addEventListener('change',updateTgFields);

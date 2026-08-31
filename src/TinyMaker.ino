@@ -360,6 +360,15 @@ String connectRecoveryCode = "";
 String connectLastStatus = "";
 bool connectAutoBackup = false;
 uint32_t connectBackupEpoch = 0;
+// TinyMaker Live gateway (ships after 1.0.0): remote status/commands over a
+// signed plain-HTTP beat. Separate from Connect - different server, different
+// secret. See docs/gateway-spec.md and src/TinyMakerGateway.ino.
+bool gatewayEnabled = false;
+String gatewayBaseUrl = "";         // empty = not configured; no default host
+String gatewayDeviceKey = "";       // HMAC secret, NVS only - never sent to a browser
+uint32_t gatewaySeq = 0;            // replay counter, persisted in coarse steps
+uint32_t gatewaySeqPersisted = 0;   // last value actually written to NVS
+String gatewayLastStatus = "";      // RAM only, shown in the dashboard
 bool tgEnabled = false;             // Telegram outbound notifications (V1)
 String tgToken = "";                // bot token (secret - never echoed to browser)
 String tgChat = "";                 // chat id to notify
@@ -450,6 +459,22 @@ void loadDeviceConfig() {
   connectRecoveryCode = sysPrefs.getString("tmcRecovery", "");
   connectAutoBackup = sysPrefs.getBool("tmcAutoBk", false);
   connectBackupEpoch = sysPrefs.getULong("tmcBkEpoch", 0);
+  gatewayEnabled = sysPrefs.getBool("tmgEnabled", false);
+  gatewayBaseUrl = sysPrefs.getString("tmgUrl", "");
+  gatewayDeviceKey = sysPrefs.getString("tmgKey", "");
+  // Jump the counter past anything a power loss may have left unwritten: the
+  // beat path only persists every GATEWAY_SEQ_STRIDE frames (flash wear), so a
+  // reused number - which the server rejects as a replay - is the failure mode
+  // to design out, not a few skipped integers.
+  // Literal 32, not GATEWAY_SEQ_STRIDE: that constant lives inside the
+  // ENABLE_NETWORK block of TinyMakerGateway.ino, which is compiled after this
+  // file and not at all in a network-free build. Keep the two in step by hand.
+  gatewaySeq = sysPrefs.getULong("tmgSeq", 0) + 32;
+  gatewaySeqPersisted = gatewaySeq;
+  // The jump is written at the end of this function, not here: this handle is
+  // read-only and Preferences drops a put() on it without a word, which would
+  // leave the jump in RAM only - exactly the reboot-hands-out-a-used-number
+  // case the jump exists to prevent.
   tgEnabled = sysPrefs.getBool("tgEnabled", false);
   tgToken = sysPrefs.getString("tgToken", "");
   tgChat = sysPrefs.getString("tgChat", "");
@@ -508,6 +533,14 @@ void loadDeviceConfig() {
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
+  // Now that the read-only handle is closed, persist the gateway seq jump read
+  // above. Only for a printer that actually has a gateway key: an unconfigured
+  // one must not spend a flash write on every boot.
+  if (gatewayDeviceKey.length() > 0) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putULong("tmgSeq", gatewaySeq);
+    sysPrefs.end();
+  }
 }
 
 void saveDeviceConfig() {
@@ -537,6 +570,11 @@ void saveDeviceConfig() {
   sysPrefs.putString("tmcRecovery", connectRecoveryCode);
   sysPrefs.putBool("tmcAutoBk", connectAutoBackup);
   sysPrefs.putULong("tmcBkEpoch", connectBackupEpoch);
+  sysPrefs.putBool("tmgEnabled", gatewayEnabled);
+  sysPrefs.putString("tmgUrl", gatewayBaseUrl);
+  sysPrefs.putString("tmgKey", gatewayDeviceKey);
+  sysPrefs.putULong("tmgSeq", gatewaySeq);
+  gatewaySeqPersisted = gatewaySeq;
   sysPrefs.putBool("tgEnabled", tgEnabled);
   sysPrefs.putString("tgToken", tgToken);
   sysPrefs.putString("tgChat", tgChat);
@@ -798,6 +836,9 @@ void tgNotifyLowResin();
 void tgNotifyCanceled();
 void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
 void tgNotifyLowResinSoon(float ml, int minsToStop);   // 0.17 #40: pre-warn before low-resin stop
+void gatewayLoop();        // Live gateway beat (TinyMakerGateway.ino, #if-guarded)
+void gatewayPrintTick();   // ...and its one safe call site inside the layer cycle
+void gatewayConfigChanged();   // re-parse + beat promptly after a settings save
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -1205,6 +1246,15 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   }
   out += ",\"connectAutoBackup\":";
   out += connectAutoBackup ? "true" : "false";
+  out += ",\"gatewayEnabled\":";
+  out += gatewayEnabled ? "true" : "false";
+  out += ",\"gatewayBaseUrl\":\"";
+  out += backupEscape(gatewayBaseUrl);
+  out += "\"";
+  // gatewayDeviceKey is deliberately absent even from a secrets-carrying
+  // backup: this JSON is downloadable from the dashboard, and a pairing secret
+  // that leaves the device would let anyone impersonate the printer. Re-pair
+  // after a restore instead.
   out += ",\"connectBackupEpoch\":";
   out += String(connectBackupEpoch);
   out += ",\"statsPing\":";
@@ -1369,6 +1419,8 @@ void applyConfigBackup(const String &j) {
   connectPublishToken = backupStr(j, "connectToken", connectPublishToken);
   connectRecoveryCode = backupStr(j, "connectRecoveryCode", connectRecoveryCode);
   connectAutoBackup = backupBool(j, "connectAutoBackup", connectAutoBackup);
+  gatewayEnabled = backupBool(j, "gatewayEnabled", gatewayEnabled);
+  gatewayBaseUrl = backupStr(j, "gatewayBaseUrl", gatewayBaseUrl);
   connectBackupEpoch = (uint32_t)backupNum(j, "connectBackupEpoch", connectBackupEpoch);
   statsPingEnabled = backupBool(j, "statsPing", statsPingEnabled);
   totalPrintSecs = (uint32_t)backupNum(j, "printSecs", totalPrintSecs);
@@ -2733,6 +2785,11 @@ void loop() {
           gfx1->fillScreen(BLACK);
           #if ENABLE_NETWORK
           network_service_window(160);
+          // The layer is cured and the peel has not started: the one point in
+          // the cycle where a bounded network call cannot hurt. It never
+          // overlaps UV exposure (turn_on_LED services HTTP only) and never
+          // sits inside a stepper move; a pause here is just resin settling.
+          gatewayPrintTick();
           #endif
           
           if (current_state != 4 && current_state != 5){
