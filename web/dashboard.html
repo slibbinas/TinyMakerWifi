@@ -493,6 +493,14 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <div class='modalCard'>
     <h2 style='margin:0 0 4px'>Resin</h2>
     <div class='hint' id='resinModalHint' style='margin:0 0 10px'></div>
+    <!-- Dingusio profilio eilute. Slepiama, kol viskas gerai; matoma tik tada,
+         kai ijungto profilio failo korteleje nebera - tada ji ir pasako, kas
+         atsitiko, ir duoda vienintelį veiksma, kuris skaicius isgelbeja. -->
+    <div id='resinModalMissing' class='hidden'
+         style='margin:0 0 10px;padding:10px 12px;border:1px solid var(--warncol);border-radius:8px;background:var(--tile)'>
+      <div id='resinMissingText' style='color:var(--warncol);font-size:.88rem;margin-bottom:8px'></div>
+      <button id='resinMissingSave' class='button secondary' type='button' style='width:auto;padding:8px 14px;font-size:13px'>Write the current settings into it</button>
+    </div>
     <div id='resinModalList'></div>
     <div class='modalBtns' style='margin-top:14px'>
       <button id='resinModalClose' class='button secondary' type='button'>Close</button>
@@ -1755,7 +1763,12 @@ const RESIN_FIELDS=[['cfgLayerHeight','layerHeight',2],['cfgBaseExposure','baseE
   ['cfgFastLiftFeedrate','fastLiftFeedrate',0],['cfgDropBackFeedrate','dropBackFeedrate',0]];
 const resinFormDiffers=()=>{
   const p=resinById(resinSel);
-  if(!p)return false;
+  /* Ijungto profilio failo korteleje gali nebebuti (V radinys 08-31: pavadinimas
+     matesi, rinkiklyje jo nebuvo). Tada palyginti nera su kuo - o `false` cia
+     reiske „nera ko prarasti", ir perjungimo klausimas NEUZDUODAMAS. Butent tada
+     jis reikalingiausias: tikrosios reiksmes tuo metu gyvena TIK irenginio
+     nustatymuose, ir perjungus jos dingsta negriztamai. */
+  if(!p)return !!resinSel;
   return RESIN_FIELDS.some(function(f){
     const el=$(f[0]); if(!el||el.value==='')return false;
     return Number(el.value).toFixed(f[2])!==Number(p[f[1]]).toFixed(f[2]);});
@@ -1783,8 +1796,11 @@ const renderResinBars=()=>{
   // „not set" buvo per svelnu: nuo 08-17 tai ne tuscias laukas, o busena, kurioje
   // printeris spausdinti atsisako. Eilute pati yra mygtukas i profiliu sarasa,
   // tad ir kelias laukan cia pat, vienu paspaudimu.
-  const t=resinSel?resinTitle(resinSel):'Not set - printing is blocked';
   const p=resinById(resinSel);
+  /* Tie patys zodziai, kaip printerio ekrane (Interface.ino:740), kad pultas ir
+     ekranas sakytu viena. Be sito pultas rodydavo varda, uz kurio nieko nera. */
+  const t=resinSel?(resinTitle(resinSel)+(p?'':'  (missing)'))
+                  :'Not set - printing is blocked';
   // Main view: what it is. Settings: what it is set to. The exposure numbers
   // are noise next to the vat, and the point of the row there is recognition.
   const home=t+(p&&p.layerHeight?'  ·  '+Number(p.layerHeight).toFixed(2)+' mm':'');
@@ -1814,6 +1830,18 @@ const renderResinModal=()=>{
   if(h)h.textContent=resinModalLib
     ? 'Pick what is in the vat. The pencil opens its settings, the bin removes it (a built-in goes back to factory values). Tested resins you do not have yet are listed at the bottom.'
     : 'Pick what is in the vat.';
+  /* Dingusiam profiliui - atskira eilute rinkiklio virsuje. Rinkiklis rodo tik
+     tuos, kuriu failai yra, tad be sios eilutes ijungtas profilis cia tiesiog
+     nematomas, ir zmogus nesupranta, kodel jo nera (V 08-31). */
+  const miss=$('resinModalMissing');
+  if(miss){
+    const gone=!!resinSel&&!resinById(resinSel);
+    show('resinModalMissing',gone);
+    if(gone)$('resinMissingText').textContent=
+      'The profile in use, "'+resinTitle(resinSel)+'", has no file on the card. '+
+      'Its values live only in the printer\u2019s settings right now - '+
+      'write them back into it, or they go the moment you switch.';
+  }
   const wrap=$('resinModalList');
   wrap.innerHTML='';
   wrap.style.cssText='display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto';
@@ -2077,6 +2105,21 @@ $('resinSaveButton').addEventListener('click',async()=>{
     await api('/api/config',{method:'POST',body:configFormData()});
     await api('/api/resin-profile/save',{method:'POST',body:new URLSearchParams({name:resinSel})});
     msg('Saved into "'+resinTitle(resinSel)+'".');
+    await loadConfig();loadResinProfiles();
+  }catch(e){msg(e.message,true);}
+});
+/* Gelbejimo mygtukas: irasom TIKSLIAI tas reiksmes, kurios dabar yra formoje
+   (pirma jos nukeliauja i printeri, kaip ir „Save first" kelyje) - ne komanda
+   „imk, ka rasi". Skirtumas nera teorinis: 08-31 atkuriant profili tarp
+   nuskaitymo ir irasymo pasikeite printerio busena, ir i profili nukrito ne tie
+   skaiciai. */
+$('resinMissingSave').addEventListener('click',async()=>{
+  const name=resinSel; if(!name)return;
+  try{
+    await api('/api/config',{method:'POST',body:configFormData()});
+    await api('/api/resin-profile/save',{method:'POST',
+      body:new URLSearchParams({name,display:resinTitle(name)})});
+    msg('Saved "'+resinTitle(name)+'" back onto the card.');
     await loadConfig();loadResinProfiles();
   }catch(e){msg(e.message,true);}
 });
