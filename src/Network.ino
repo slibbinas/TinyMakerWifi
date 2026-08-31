@@ -3436,16 +3436,43 @@ void handleApiBootAnimInstall() {
 
   SD.mkdir(BOOTANIM_DIR);
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
-  SD.remove(savePath.c_str());
-  File out = SD.open(savePath.c_str(), FILE_WRITE);
+  // Siunciam i SALUTI ir i vieta perkeliam tik pilna faila. Anksciau rasyta tiesiai
+  // i savePath, o tai reiske, kad diegimas i JAU ESAMA varda pirmiausia sunaikina
+  // ta animacija, kuri ten buvo - ir jei siuntimas nutruko, zmogus liko be jos.
+  // Ismatuota 08-31 (T-2): nukirstas failas esamu vardu grazina 502, o senoji
+  // animacija dingsta is saraso. TMB1 vartai auksciau saugo nuo blogo TIPO (ne TMB
+  // failas duoda 422 ir senoji islieka), bet nukirstas failas juos praeina - jo
+  // antraste sveika, o trukumas paaiskeja tik pabaigoje. `.part` niekada nepatenka
+  // i sarasa: listBootAnims() ima tik tuos, kurie baigiasi ".tmb".
+  String partPath = savePath + ".part";
+  SD.remove(partPath.c_str());
+  File out = SD.open(partPath.c_str(), FILE_WRITE);
   if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); restoreIdleScreen(); return; }
 
   const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
   bool tooBig = false;
+  // `total` skaiciuoja baitus, atejusius IS TINKLO. Jei kortele pilna, `write`
+  // grazina (size_t)-1, o total vis tiek sutampa su expectedBytes - ir nukirstas
+  // failas butu pervadintas i vieta, istrinant senaji. Ta pati skyle, tik pro
+  // kitas duris. FatFile::write klaida = -1 (FatFile.cpp:1529).
+  bool writeFail = false;
   size_t total = 0;
-  out.write(buf, first);
+  if (out.write(buf, first) != (size_t)first) writeFail = true;
   total += first;
   if (remaining > 0) remaining -= first;
+
+  // Jei jau pirmas gabalas neirasytas, likusiu 2 MB parsisiuntimas nieko
+  // nepakeis - tik minute laukimo ir tiek pat bandymu isskirti klasteri
+  // pilnoje korteleje. Cikle toks `break` yra, cia jo truko.
+  if (writeFail) {
+    out.close();
+    http.end();
+    SD.remove(partPath.c_str());
+    sendApiError(507, "sd write failed - card full?");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
 
   // A real grow-only bar: the TMB header just told us the exact payload size
   // (expectedBytes), which beats both Content-Length and the old time-driven
@@ -3457,7 +3484,7 @@ void handleApiBootAnimInstall() {
     if (avail) {
       int n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
       if (n <= 0) break;
-      out.write(buf, n);
+      if (out.write(buf, n) != (size_t)n) { writeFail = true; break; }
       total += n;
       if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
       if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
@@ -3473,10 +3500,15 @@ void handleApiBootAnimInstall() {
   out.close();
   http.end();
 
-  if (tooBig) {
-    SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
-    sendApiError(413, "animation too large");
-    netMessage("Boot animation", "file too large");
+  if (tooBig || writeFail) {
+    SD.remove(partPath.c_str());          // don't leave a giant partial file eating the card
+    if (writeFail) {
+      sendApiError(507, "sd write failed - card full?");
+      netMessage("Boot animation", "SD write failed");
+    } else {
+      sendApiError(413, "animation too large");
+      netMessage("Boot animation", "file too large");
+    }
     delay(1200); restoreIdleScreen();
     return;
   }
@@ -3487,7 +3519,7 @@ void handleApiBootAnimInstall() {
   // that stops halfway through playback. Reported from the field on a slow link
   // - a 1.4 MB animation arrived as 538 KB and still looked installed.
   if (total != expectedBytes) {
-    SD.remove(savePath.c_str());
+    SD.remove(partPath.c_str());   // savePath neliestas: senoji to vardo animacija lieka
     String err = "download incomplete - " + String((unsigned long)total) +
                  " of " + String((unsigned long)expectedBytes) + " bytes";
     sendApiError(502, err.c_str());
@@ -3495,6 +3527,38 @@ void handleApiBootAnimInstall() {
     delay(1200); restoreIdleScreen();
     return;
   }
+
+  // Pilnas failas - tik dabar uzimam vieta. Iki sios eilutes senoji to vardo
+  // animacija tebera sveika, tad bet kuris auksciau esantis "return" palieka
+  // printeri lygiai tokia bukle, kokia buvo pries diegima.
+  //
+  // Sena pirma PASITRAUKIA I SALI, o istrinama tik tada, kai naujoji jau savo
+  // vietoje. Tiesmukas remove+rename butu ta pati skyle, kuria cia ir taisom,
+  // tik siauresne: nepavykus pervadinti zmogus liktu ir be senosios, ir be
+  // naujosios. Tas pats rastas kaip commitTempModel() Import.ino - ten jis
+  // saugo modeli, cia animacija.
+  String backupPath = savePath + ".old";
+  SD.remove(backupPath.c_str());
+  bool hadOld = SD.exists(savePath.c_str());
+  if (hadOld && !SD.rename(savePath.c_str(), backupPath.c_str())) {
+    SD.remove(partPath.c_str());
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (!SD.rename(partPath.c_str(), savePath.c_str())) {
+    SD.remove(partPath.c_str());
+    // `rename` nauja iraso su O_CREAT|O_EXCL (FatFile.cpp:945): jei jis nuluzo
+    // JAU sukures iraso, savePath egzistuoja, ir atstatymas atsimustu i ta pati
+    // O_EXCL - zmogus liktu tik su .old, kurio niekas nerodo.
+    if (hadOld) { SD.remove(savePath.c_str()); SD.rename(backupPath.c_str(), savePath.c_str()); }
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (hadOld) SD.remove(backupPath.c_str());
 
   // Install only downloads: the active choice stays whatever it was, picking
   // is an explicit act (dashboard pick + Save config, or the printer menu).
@@ -4181,6 +4245,11 @@ void handleApiBootAnimDelete() {
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   SD.remove(path.c_str());
   SD.remove(bootAnimMetadataPath(name).c_str());
+  // Diegimas raso i <slug>.tmb.part ir sena atideda i <slug>.tmb.old; dinges
+  // maitinimas viduryje palieka juos guleti. Saraso jie negadina (imami tik
+  // .tmb), bet uzima vieta, tad trynimas issiveza ir juos.
+  SD.remove((path + ".part").c_str());
+  SD.remove((path + ".old").c_str());
   String names[2];
   if (bootAnimName == name || (bootAnimShuffleSelected(bootAnimName) && listBootAnims(names, 2) < 2)) {
     bootAnimName = "";
