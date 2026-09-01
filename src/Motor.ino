@@ -181,6 +181,7 @@ void lift_print(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -188,7 +189,7 @@ void lift_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
-      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -292,6 +293,7 @@ void lower_print(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -299,7 +301,7 @@ void lower_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
-      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -344,7 +346,10 @@ void lower_print(){
    Likusi einamosios fazes dalis (ekspozicija ar judesys) plius pakelimo trukme is
    atstumo ir greicio. Galutinis pakelimas veliau persiskaiciuoja tiksliai, tad
    ivertis tik pagereja. */
-void publishStopEstimate() {
+void publishStopEstimate(int fromPhase) {
+  /* `fromPhase` - kas vyko PASPAUDIMO metu (1 kuria, 2 kelia, 3 leidzia; 6 - stovim
+     pauzeje). Perduodam argumentu del tos pacios priezasties, kaip ir
+     publishPauseEstimate: visi kvieteajai pries tai jau pasistato „stabdom" (4). */
   // Homing'as baigiasi BE galutinio pakelimo (TinyMaker: lift_finished_print
   // kvieciamas tik tada, kai homing'as nebuvo nutrauktas), tad zadeti sekundziu
   // ten negalima - V 08-18 stabdant pries spaudinio pradzia snackas rode ~23 s,
@@ -370,6 +375,18 @@ void publishStopEstimate() {
   phaseStartMs = millis();
   phaseTotalMs = (dtg > 0 && sps > 1.0f)
                ? (unsigned long)((float)dtg / sps * 1000.0f) : 0;
+  /* Nutraukta ekspozicija variklio nejudina (`distanceToGo == 0`), tad iki 09-01
+     cia likdavo nulis - ir zmogus po Stop matydavo bevardi sakini „Stopping the
+     current operation" apie 5 s. Bet laukti YRA ko: sluoksnio atplesimo pakelimas
+     (`lift_print`) ivyksta ir po nutraukimo, o jo trukme mes zinom is praeito
+     sluoksnio. Ismatuota: 7 ratai, pirmas etapas 7,4-9 s (T-116).
+     TIK is ekspozicijos: sustabdzius PAUZEJE plokste jau pakelta, atplesimo
+     nebebus, ir pazadas butu i tuscia (auditas 09-01). Pirmame spaudinyje po
+     ijungimo `prevLiftMs` dar nulis - tada imam puse lenteles ciklo (kilimas +
+     leidimasis), kad ir ten sakinys turetu skaiciu. */
+  if (phaseTotalMs == 0 && fromPhase == 1)
+    phaseTotalMs = prevLiftMs ? prevLiftMs
+                              : (unsigned long)(motor_updown_time * 500.0f);
   phaseWaitStage = "stopTail";
 }
 

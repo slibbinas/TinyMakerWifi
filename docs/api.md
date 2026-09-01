@@ -135,6 +135,13 @@ homing diagnostics.
 | `/api/config/restore`, `/api/config/restore/sd` | POST | restore from an uploaded JSON / from the SD copy |
 | `/api/config/dry-run` | POST | `enabled=0|1` — the banner's quick toggle |
 
+Dry run is a **mode, not a setting**: it is switched only by `/api/config/dry-run`.
+A `POST /api/config` therefore leaves it alone unless the body actually carries a
+`dry_run` field - unlike every other switch in that form, where a full post without
+the field means “off”. Until 0.17 it followed the common rule, so every “Save config”
+silently cleared dry run and the next print fired the UV LEDs (found 2026-09-01).
+Values `0`, `false`, `off` and an empty value all mean off; anything else means on.
+
 ## Firmware update
 
 | Endpoint | Method | Purpose |

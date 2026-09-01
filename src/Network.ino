@@ -1750,7 +1750,21 @@ void applyConfigRequest() {
   askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
   previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
-  uvLedEnabled = !formCheck("dry_run", !uvLedEnabled);
+  /* Dry run yra REZIMAS, ne formos nustatymas: ji jungia atskiras
+     /api/config/dry-run (pultas apie ji nieko nesiuncia su „Save config").
+     Todel `formCheck` cia melavo: pilnoje formoje laukelio nera, tad kiekvienas
+     nustatymu issaugojimas ji tyliai isjungdavo - zmogus pasiruosia sausa
+     bandyma, pataiso WiFi nustatyma, ir kitas paleidimas jau su degancia UV
+     lempa (ismatuota du kartus is eiles, 2026-09-01, T-114). Ziurim TIK i
+     atsiusta reiksme, kad skriptas ir toliau galetu jungti abi puses. */
+  if (server.hasArg("dry_run")) {
+    String dryArg = server.arg("dry_run");
+    // Tuscia reiksme irgi „isjungta": dalis formu neuzdeta varnele siuncia
+    // butent taip (`dry_run=`), o suprasti tai kaip „ijunk" reikstu tyliai
+    // isjungti UV - ta pati beda, tik apversta (auditas 09-01).
+    uvLedEnabled = (dryArg.length() == 0 || dryArg == "0" ||
+                    dryArg == "false" || dryArg == "off");
+  }
   wifiEnabled = formCheck("wifi_enabled", wifiEnabled);
   webDashboardEnabled = wifiEnabled && formCheck("web_dashboard_enabled", webDashboardEnabled);
   bootUpdateCheckEnabled = formCheck("boot_update_check", bootUpdateCheckEnabled);
@@ -2067,6 +2081,7 @@ bool requestPrintStop(String &error) {
   }
 
   bool wasHoming = current_state == 0;
+  const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
   digitalWrite(LED, LOW);
   screen1111();
   current_state = 4;
@@ -2080,7 +2095,7 @@ bool requestPrintStop(String &error) {
   webResumePrint = false;
   if (wasHoming) homing_canceled = true;
   // PO `homing_canceled`: ivertis turi zinoti, ar galutinis pakelimas apskritai bus.
-  publishStopEstimate();   // „kada sustos" nuo pirmos sekundes
+  publishStopEstimate(wasPhase);   // „kada sustos" nuo pirmos sekundes
   return true;
 }
 

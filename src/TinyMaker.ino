@@ -131,7 +131,7 @@ String resinProfilePath(const String &name);
 int listResinProfiles(String out[], int maxN);
 bool resinProfileExists(const String &name);
 bool applyResinProfile(const String &name);
-void publishStopEstimate();   // Motor.ino - stabdymo laukimo ivertis
+void publishStopEstimate(int fromPhase);   // Motor.ino - stabdymo laukimo ivertis
 bool writeResinProfile(const String &name, const String &display);
 bool writeResinProfileValues(const String &name, const String &display,
                              const ResinProfileValues &vals, const ResinProfileMeta &meta);
@@ -2686,7 +2686,11 @@ void loop() {
           // VAT bookkeeping: subtract this layer's cured volume; checkpoint to
           // NVS every 25 layers so a power loss costs little (flash-wear-friendly)
           vatRemaining();
-          vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
+          // Sausas ratas dervos nesukietina, tad ir nurasyti nera ko: iki 09-01
+          // nurasymas ejo be salygos, ir vien testai per viena vakara „suvalge"
+          // ~5 ml is skaitiklio - o ties 2 ml isijungia „mazai dervos" stabdymas
+          // (T-115). UV skaitiklis tokia pat apsauga turejo nuo pat pradziu.
+          if (uvLedEnabled) vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
           resinSampledMl = resinUsedMl;
           if (vatRemainingMl < 0) vatRemainingMl = 0;
           if (current_layer % 25 == 0) {
@@ -2913,11 +2917,12 @@ void loop() {
               }
               if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
               screen1111();
+              const int wasPhase = current_state;   // pauze (6) arba „pripilk dervos" (10)
               current_state = 4;
               screen1111_state();
               screen1111UP();
               print_canceled = true;
-              publishStopEstimate();
+              publishStopEstimate(wasPhase);
               print_paused = false;
               }  
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
@@ -2989,11 +2994,18 @@ void loop() {
           }
         }
         #if ENABLE_NETWORK
-        // Canceled: tell the phone NOW - the decision is final and the run
-        // time is known, while the lift below takes tens of seconds. Finished
-        // stays after the lift: that message means "come peel the print".
+        /* Pranesimas telefonui siunciamas PO pakelimo (zemiau, ten pat, kur
+           „Finished"). Iki 09-01 jis buvo cia, kad zinia ateitu anksciau, bet
+           kaina pasirode per didele: blokuojantis TLS laiko visa `loop()` 2-4 s,
+           o tuo metu printeris neatsakineja net i busenos uzklausas - pultas po
+           Stop rodydavo bevardi sakini ir „Printer not answering" (ismatuota
+           2026-09-01: isjungus pranesimus tarpas be atsakymo krito nuo 7,8 s iki
+           2,8 s, T-116). Zinia telefone veluoja tiek, kiek trunka pakelimas;
+           prie pulto stovintis zmogus uz tai gauna gyva sasaja. */
+        // Kabliukas: sarga lieka tam, kad grazinus ankstyva pranesima kur nors
+        // auksciau uztektu cia parasyti `cancelNotified = true`. Siandien niekas
+        // jos neuzdeda, tad zemiau esanti salyga visada tiesa (auditas 09-01).
         bool cancelNotified = false;
-        if (print_canceled || homing_canceled) { tgNotifyCanceled(); cancelNotified = true; }
         #endif
         if (!homing_canceled){
           if (!print_canceled){
