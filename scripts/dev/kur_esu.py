@@ -5,15 +5,29 @@ Sesijos pradzioje (zr. CLAUDE.md „Sesijos pradzia") reikia prisistatyti: kuri
 sritis, kuri saka, koks katalogas. Saku vardai keiciasi - 2026-08-23 pervadinom
 du is karto - tad atsakymas imamas is git, ne is atminties.
 
-    python scripts/dev/kur_esu.py
+    python scripts/dev/kur_esu.py --sesija <sesijos-vardas>
 
 Isvestis tycia trumpa: viena eilute prisistatymui + kontekstas po ja.
+
+DU dalykai, kuriu skriptas NEGALI zinoti, tad ir nesideda zinantis:
+
+1. Sritis cia yra SPEJIMAS is sakos ir katalogo. Skriptas nemato, kam V atidare
+   langa. 2026-08-27 sesija, atidaryta slicerio darbui, atsistojo ant sakos
+   0.17/slicer-merge, gavo "SRITIS: Printeris" ir patikejo - nes ankstesne
+   versija sriti spausdino kaip fakta, be jokio "gal". Todel dabar salia visada
+   eina pagrindas ir prasymas patvirtinti su V.
+
+2. Ar tame paciame darbo medyje jau sedi kita sesija. Tam yra zyme: su --sesija
+   skriptas irašo .claude/uzimta.json (git jo nemato, zr. .gitignore), ir kita
+   sesija, atsistojusi tame paciame kataloge, gauna perspejima. Tas pats
+   2026-08-27: dvi sesijos vienoje sakoje ir viename medyje.
 """
 import io
 import json
 import os
 import subprocess
 import sys
+import time
 
 # Sritis atpazistama pagal sakos priesdeli; kelias - atsarginis kelias tiems
 # atvejams, kai saka dar nepervadinta pagal nauja sistema.
@@ -37,6 +51,46 @@ LEGACY = {
 }
 
 
+# Kiek laiko svetimos sesijos zyme dar laikoma gyva. Ilgiau pasedejusi zyme
+# greiciausiai likusi nuo uzdarytos sesijos, ir triuksmauti del jos nebeverta.
+ZYME_GYVA_H = 8
+
+
+def zymes_kelias(root):
+    return os.path.join(root, ".claude", "uzimta.json")
+
+
+def zyme_skaityk(root):
+    try:
+        return json.load(io.open(zymes_kelias(root), encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def zyme_rasyk(root, sesija, branch):
+    try:
+        d = os.path.dirname(zymes_kelias(root))
+        if not os.path.isdir(d):
+            os.makedirs(d)
+        with io.open(zymes_kelias(root), "w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "sesija": sesija,
+                "saka": branch,
+                "laikas": time.strftime("%Y-%m-%d %H:%M"),
+                "epoch": int(time.time()),
+            }, ensure_ascii=False, indent=2))
+    except Exception:
+        pass  # zyme yra patogumas, ne butinybe - del jos skriptas negriuva
+
+
+def amzius(zyme):
+    """Zymes amzius valandomis (float) arba None, jei nesuprantama."""
+    try:
+        return (time.time() - float(zyme.get("epoch", 0))) / 3600.0
+    except Exception:
+        return None
+
+
 def git(*args):
     try:
         out = subprocess.check_output(("git",) + args, stderr=subprocess.STDOUT)
@@ -50,6 +104,12 @@ def say(text):
 
 
 def main():
+    sesija = ""
+    if "--sesija" in sys.argv:
+        i = sys.argv.index("--sesija")
+        if i + 1 < len(sys.argv):
+            sesija = sys.argv[i + 1]
+
     branch = git("branch", "--show-current") or "(detached HEAD)"
     root = git("rev-parse", "--show-toplevel") or os.getcwd()
     # Worktree kataloge basename yra worktree vardas, ne repo - imam is remote.
@@ -59,25 +119,30 @@ def main():
     upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
     dirty = git("status", "--porcelain")
 
-    sritis, pastaba = None, ""
+    sritis, pastaba, pagrindas = None, "", ""
     for pref, name in BY_PREFIX.items():
         if branch.startswith(pref):
             sritis = name
+            pagrindas = 'saka prasideda "%s"' % pref
             break
     if sritis is None and branch in LEGACY:
         sritis, pastaba = LEGACY[branch]
+        pagrindas = "senas sakos vardas"
     if sritis is None:
         low = root.replace("\\", "/").lower()
         for key, name in BY_PATH.items():
             if key in low:
                 sritis = name
+                pagrindas = 'kataloge yra "%s"' % key
                 break
     if sritis is None and branch in ("main", "experimental") or branch.startswith("0.17/"):
         sritis = "Printeris"
+        pagrindas = pagrindas or 'saka "%s" - atsarginis spejimas, ne taisykle' % branch
 
     say("")
     if sritis:
-        say("  SRITIS:   %s%s" % (sritis, ("  (%s)" % pastaba) if pastaba else ""))
+        say("  SRITIS:   %s   (spejimas: %s)%s"
+            % (sritis, pagrindas or "nezinia is ko", ("  [%s]" % pastaba) if pastaba else ""))
     else:
         say("  SRITIS:   NEAISKU - klausk V ir pasiulyk meniu (zr. CLAUDE.md)")
     say("  SAKA:     %s" % branch)
@@ -118,6 +183,39 @@ def main():
             elif sritis:
                 say("  (!) sritys.json neturi irašo sriciai '%s' - pridek." % sritis)
                 say("")
+
+    # Sritis yra spejimas, ir taip ir turi atrodyti - kitaip sesija ja perskaito
+    # kaip atsakyma ir nebeklausia (taip ir nutiko 2026-08-27).
+    say("  (!) SRITIS - SPEJIMAS. Skriptas mato tik saka ir kataloga; kam V atidare")
+    say("      si langa, jis nemato. Paklausk V, ar sritis teisinga, PRIES pirma")
+    say("      pakeitima (CLAUDE.md 'Sesijos pradzia').")
+    say("")
+
+    # Uzimtumo zyme: ar siame medyje jau sedi kita sesija.
+    sena = zyme_skaityk(root)
+    if sena and sena.get("sesija") and sena.get("sesija") != sesija:
+        val = amzius(sena)
+        if val is None or val < ZYME_GYVA_H:
+            if val is None:
+                kada = sena.get("laikas", "?")
+            elif val < 1:
+                kada = "pries %d min" % int(val * 60)
+            else:
+                kada = "pries %.1f val" % val
+            say("  (!!) SI DARBO MEDI JAU PASIEME KITA SESIJA")
+            say("       sesija:  %s" % sena["sesija"])
+            say("       saka:    %s   (%s, %s)" % (sena.get("saka", "?"),
+                                                   sena.get("laikas", "?"), kada))
+            say("       Du redaktoriai viename medyje susipjauna: vieno pakeitimai")
+            say("       nukrenta i kito commit'a. Imk sau atskira worktree arba")
+            say("       susitark su V, kuri sesija cia lieka.")
+            say("")
+    if sesija:
+        zyme_rasyk(root, sesija, branch)
+    else:
+        say("  (i) Zyme neirasyta: paleisk su --sesija <savo-vardas>, kad kita sesija")
+        say("      matytu, jog sis medis uzimtas.")
+        say("")
 
     wt = git("worktree", "list")
     if wt:
