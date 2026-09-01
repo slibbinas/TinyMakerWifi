@@ -28,11 +28,11 @@
     {
       "sritis": "Connect Live",
       "priesdelis": "cliv/",
-      "saka": "feature/connect-live",
+      "saka": "cliv/gateway",
       "katalogas": "(nuolatinio nera - debesu sesijos)",
       "repo": "TinyMakerWifi",
       "uz_ka": "spausdintuvo matymas ir valdymas is interneto",
-      "pastaba": "PERVADINTINA i cliv/gateway per GitHub sasaja (issue 114), kad PR 111 issilaikytu. NE tas pats, kas TinyMaker Connect - tas yra Briano serveris modeliu dalijimuisi"
+      "pastaba": "iki 2026-08-23 vadinosi feature/connect-live (issue 114); pervadinta per API ir PR 111 uzsidare, tesinys PR 117 - saka su atviru PR pervadinti TIK narsykleje. NE tas pats, kas TinyMaker Connect - tas yra Briano serveris modeliu dalijimuisi"
     },
     {
       "sritis": "Curing stotele",
