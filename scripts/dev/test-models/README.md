@@ -2,17 +2,19 @@
 
 Trys mažyčiai spausdinimo darbai, skirti **firmware eigai tikrinti**, o ne detalėms
 gaminti: startui, pauzei, stabdymui, pabaigai, skaitikliams. Su jais nereikia leisti
-50 min Ziedo tam, kad pamatytum, kaip elgiasi vienas pranešimas.
+50 min spaudinio tam, kad pamatytum, kaip elgiasi vienas pranešimas.
 
-| Modelis | Sluoksnių | Printerio spėjimas | Realiai |
+**Vardas sako trukmę** - tiek jis realiai ir užtrunka, tad rinkiesi ne spėliodamas:
+
+| Modelis | Sluoksnių | Realiai | Printerio spėjimas |
 |---|---|---|---|
-| `TestasMini.zip` | 4 | 1m 38s | **~2m 20s** |
-| `ShortTest.zip` | 9 | 3m 03s | **4m 20s** (išmatuota) |
-| `TestasLong.zip` | 28 | 8m 26s | ~10 min |
+| `Test2min.zip` | 4 | ~2 min 20 s | 1m 38s |
+| `Test4min.zip` | 9 | **4 min 20 s** (išmatuota) | 3m 03s |
+| `Test10min.zip` | 28 | ~10 min | 8m 26s |
 
 ⚠️ **Printerio spėjimas nuosekliai per mažas.** Trumpiems modeliams paklaida didžiausia
 (+42%), nes juose dominuoja ilgos bazinių sluoksnių ekspozicijos; ilgesniems ji mažėja
-(Ziedui, 173 sluoksniai, buvo +14%). Planuojant laiką imti su atsarga.
+(173 sluoksnių Ziedui buvo +14%). Vardai remiasi tikra trukme, ne tuo spėjimu.
 
 ## Iš ko jie padaryti
 
@@ -33,10 +35,10 @@ Vienas failas, viena komanda (tas pats kelias, kuriuo siunčia PrusaSlicer - pul
 jam nereikia):
 
 ```bash
-curl -F "file=@ShortTest.zip" -F "source=test" http://<printerio-ip>/upload
+curl -F "file=@Test4min.zip" -F "source=test" http://<printerio-ip>/upload
 ```
 
-Atsakymas `{"ok":true,"queued":true,"name":"ShortTest"}` reiškia, kad archyvas priimtas ir
+Atsakymas `{"ok":true,"queued":true,"name":"Test4min"}` reiškia, kad archyvas priimtas ir
 išpakuojamas. Kelis modelius kelti **po vieną**: kol vyksta išpakavimas, printeris atsako
 `{"error":"printer busy"}`.
 
@@ -48,3 +50,5 @@ išpakuojamas. Kelis modelius kelti **po vieną**: kol vyksta išpakavimas, prin
 atsiranda pati, kai modelį kartą atidarai pulte.
 
 Kilmė: 2026-09-01, V prašymu, kad kiekvienam bandymui nereikėtų ilgo spaudinio.
+Pirmieji vardai buvo `ShortTest`, `TestasLong` ir `TestasMini`; pakeisti tą patį vakarą,
+nes iš jų nesimatė, kuris kiek trunka.
