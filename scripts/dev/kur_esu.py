@@ -22,10 +22,12 @@ DU dalykai, kuriu skriptas NEGALI zinoti, tad ir nesideda zinantis:
    sesija, atsistojusi tame paciame kataloge, gauna perspejima. Tas pats
    2026-08-27: dvi sesijos vienoje sakoje ir viename medyje.
 
-Kanono patikra (sritys.json) tyli trimis atvejais, nes ju nei vienas nera
-pasenes irasas: laikina sesijos saka, antra tos pacios srities saka (slcr/lab
-salia slcr/dev) ir bendra main/experimental. Garsus ispejimas paliktas tikram
-pervadinimui - kitaip jis degtu kaskart, o degantis visada nebematomas.
+Kanono patikra (sritys.json) pirmiausia klausia, ar uzfiksuota saka apskritai
+dar egzistuoja - jei nebera, tai pasenes irasas, ir jokia isimtis to nedengia.
+Tik po to tyli trys atvejai, kuriu nei vienas nera pasenimas: laikina sesijos
+saka, antra tos pacios srities saka (slcr/lab salia slcr/dev) ir bendra
+main/experimental. Garsus ispejimas paliktas tikram pervadinimui - kitaip jis
+degtu kaskart, o degantis visada nebematomas.
 """
 import io
 import json
@@ -122,6 +124,21 @@ def saka_yra_nutolusi(branch):
                     "refs/remotes/origin/%s" % branch))
 
 
+def saka_yra(branch):
+    """Ar tokia saka apskritai egzistuoja - vietoje ARBA GitHub'e.
+
+    Sito klausiam apie sritys.json IRASA, ne apie darbo saka: jei uzfiksuotos
+    sakos niekur nebera, irasas pasenes, ir tai turi rekti nepriklausomai nuo to,
+    kurioje sakoje sesija sedi. 2026-09-02: be sio klausimo tylieji atvejai
+    pridengdavo tikra pasenima - sesija ant slcr/dev su irasu "experimental2"
+    (pervadinta 08-23) gaudavo rami "Ne pasenimas".
+    """
+    if not branch or branch.startswith("("):
+        return False
+    return bool(git("rev-parse", "--verify", "--quiet", "refs/heads/%s" % branch)
+                or saka_yra_nutolusi(branch))
+
+
 def main():
     sesija = ""
     if "--sesija" in sys.argv:
@@ -203,6 +220,13 @@ def main():
                 bendros = data.get("pagrindines", {})
                 if namu == branch:
                     pass
+                elif not saka_yra(namu):
+                    # PIRMAS klausimas: ar uzfiksuota saka apskritai dar yra. Jei
+                    # nebera - irasas pasenes, ir tylios isimtys jo dengti negali.
+                    say("  (!) SRITYS.JSON PASENES: uzfiksuotos sakos '%s' nebera nei "
+                        "vietoje, nei GitHub'e (pervadinta?)." % namu)
+                    say("      Dirbama '%s'. Atnaujink scripts/dev/sritys.json tame "
+                        "paciame commit'e." % branch)
                 elif branch.startswith("claude/") or not saka_yra_nutolusi(branch):
                     # Priezastis sakoma ta, kuri tikrai patikrinta: "claude/" saka
                     # atpazistama is vardo ir GitHub'e ji kaip tik daznai guli
