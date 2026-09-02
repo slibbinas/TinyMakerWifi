@@ -1580,6 +1580,14 @@ let pollWarnTxt='';
    del to stovi ekrane. Zr. refreshStatus. */
 let lastRxAt=0, rxSnackTxt='';
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0,lastSdRev=null;
+/* Kiek sekundziu tyla po ramios busenos dar vadinama uzimtumu, o ne gedimu (T-119).
+   9,5 s - ismatuota trukme, kiek printeris neatsakineja ruosdamas `Bibio` (897 sluoksniai,
+   3 MB, 2026-09-02). Riba NE 12 s: sprendimas priimamas tik tada, kai krenta apklausa, o
+   ji krenta po ~4 s timeout'o, tad vertinama ties ~4, ~8, ~12, ~16 s. Prie 12 000 trecias
+   patikrinimas gultu tiksliai ant ribos ir kiek didesnis modelis vel isskirtu garsuji
+   teksta. 15 s: tylima per 4/8/12 patikrinimus, o tikras dingimas paskelbiamas ties ~16 s -
+   viena apklausa veliau nei anksciau, bet vis dar tol, kol zmogus dar ziuri i ekrana. */
+const PRINTER_QUIET_GRACE_MS=15000;
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
 const pageFirmwareVersion=()=>$('fwVersion').textContent.trim();
@@ -2800,6 +2808,30 @@ const refreshStatus=async()=>{
     /* Ruosdami spaudini printeri uzimam MES, ir tai jau parasyta busenos langelyje -
        snackas apie „neatsako" cia tik kartotu ta pati kita forma (V 08-17) - todel
        `startBusy` guli auksciau, tarp snacko savininku. */
+    /* T-119 (ismatuota 2026-09-02). Kai dideli modeli paleidzia KITAS irenginys, siame
+       lange nera nei vienos zymes auksciau - starto jis nesiunte, tad tylos paaiskinti
+       negali. Tyla tikra: `Bibio` (897 sluoksniai, 3 MB) ruosimas printeri nutildo 9,5 s,
+       ir per ta laika langas 8,8 s skelbdavo „neatsako ... arba jis atjungtas". Melavo ne
+       tyla, o priezastis - printeris kaip tik startuoja to paties zmogaus spaudini.
+       Todel: trumpa tyla po RAMIOS busenos vadinama uzimtumu, ilgesne - vis dar rekia,
+       kad tikri dingimai liktu matomi (ju 2026-09-01 vakara buvo keturi). Spausdinancio
+       printerio tyla aptarnauja auksciau esanti „Syncing..." saka, todel cia tikrinam
+       butent `!busy`. */
+    /* `pollWarnTxt` cia butinas, o ne pagrazinimas: valymas (~2723) nuima TIK ta zinute,
+       kuri jame irasyta. Be jo lipnus tekstas kabetu per visa spaudini - ta pati duobe,
+       kuri jau du kartus buvo pagauta ([[statusmsg-poll-owns]]). `!bgJob` - kad dalijimasis
+       ir ikelimas ir toliau vadintusi vardais (V 08-13 „sakyk tiksliai"), o ne pasislepty
+       po bendresniu tekstu. `inPlace` - be pakartotinio isslinkimo. */
+    else if(statusData&&!statusData.busy&&!bgJob&&lastPollOkAt&&Date.now()-lastPollOkAt<PRINTER_QUIET_GRACE_MS){
+      /* `inPlace` tik KARTOJANT: pirmam rodymui jis praleistu `snackCentre()`, ir sviezaime
+         lange zinute atsirastu virsuje (CSS `top:14px`), o ties ~16 s, kai kalba garsioji
+         saka, persoktu i centra - akiai tai antras pranesimas ([[snackbaru-taisykle]],
+         T-26 „visi centruoti"). Kartojant centruoti nereikia: vieta jau nustatyta. */
+      const t='Printer busy - waiting for it to answer.';
+      const kartojam=$('statusMsg').textContent===t;
+      pollWarnTxt=t;
+      msg(t,false,true,kartojam);
+    }
     else if(statusFailCount>=1){
       pollWarnTxt=bgJob
         ?(bgJob+' - the printer stops answering until it finishes.')
