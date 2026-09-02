@@ -1831,6 +1831,20 @@ function slicerParamai(){
 /* „Reset“ - viena vieta, kur surasyta, kas yra numatytoji. Be jos zmogus,
    pasukiojes kelis jungiklius, nebeturetu kaip grizti, o „kaip buvo“ atmintinai
    neatsimenamas. */
+/*
+ * Tuscia rezultato eilute suskleidziama. Steta per stebetoja, o ne kiekvienoje
+ * vietoje, kur rasomas `slicerProg`: tu vietu yra sesios, ir septinta kada nors
+ * atsirastu be sitos eilutes (taip jau buvo su uzrakinimu - V 08-20).
+ */
+(function(){
+  const pr=document.getElementById('slicerProg');
+  const eil=pr&&pr.closest('.calRow');
+  if(!pr||!eil)return;
+  const tikrink=()=>eil.classList.toggle('tuscia',!(pr.textContent||'').trim());
+  tikrink();
+  new MutationObserver(tikrink).observe(pr,{childList:true,characterData:true,subtree:true});
+})();
+
 (function(){
   const a=document.getElementById('slicerParamsReset');
   if(a)a.addEventListener('click',e=>{e.preventDefault();slicerParamaiReset();});

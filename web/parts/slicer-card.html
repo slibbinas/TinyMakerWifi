@@ -81,6 +81,18 @@
         <button id='slicerSend' class='button secondary step' type='button'
                 style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
       </div>
+      <!-- Rezultatas ir jo atsisakymas - TIESIAI po mygtukais (V 08-20: „Discard“
+           desineje, tiksliai po „Slice“). 09-03: nukelus parametrus zemyn, si eilute
+           liko po jais ir „Discard“ atsidure prie „Reset to defaults“ - ne po tuo,
+           ko atsisakoma. Grazinta. Tuscia ji suskleidziama (zr. slicer.css). -->
+      <div class='calRow' id='slicerResRow'>
+        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
+             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
+             lieka kaireje - ji ir taip skaitoma is kaires. -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
+        <a href='#' id='slicerDiscardLink'
+           style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
+      </div>
       <!--
         SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
         Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
@@ -145,15 +157,6 @@
              title='Back to the values the slicer ships with'>Reset to defaults</a></div>
       </div>
 
-      <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
-      <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
-        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
-             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
-             lieka kaireje - ji ir taip skaitoma is kaires. -->
-        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
-        <a href='#' id='slicerDiscardLink'
-           style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
-      </div>
       <!-- Pats siuntimo mygtukas lieka, tik nematomas: visa jo logika (vardai,
            perrasymas, eiga) sukasi cia, o „Send to printer" ji tik paspaudzia. -->
       <button id='slicerSave' type='button' style='display:none' disabled>Save to printer</button>
