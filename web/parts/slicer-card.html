@@ -91,35 +91,56 @@
         viena sluoksni, tad jungiklis milimetrais nieko nekeistu.
       -->
       <div id='slicerParams'>
-        <div class='spRow'><span class='spLab'>Supports</span>
-          <label><input type='radio' name='slicerSupType' value='regular' checked> regular</label>
-          <label><input type='radio' name='slicerSupType' value='tree'> tree</label>
+        <div class='spBlk'><span class='spLab'>Supports</span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
+            <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
+          </div>
         </div>
-        <div class='spRow'><span class='spLab'>Strength</span>
-          <label><input type='radio' name='slicerSupDens' value='0.7'> light</label>
-          <label><input type='radio' name='slicerSupDens' value='1' checked> normal</label>
-          <label><input type='radio' name='slicerSupDens' value='1.4'> strong</label>
+        <div class='spBlk'><span class='spLab'>Strength</span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerSupDens' value='0.7'><span>light</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1' checked><span>normal</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1.4'><span>strong</span></label>
+          </div>
         </div>
-        <div class='spRow'><span class='spLab'>Placement</span>
-          <label><input type='radio' name='slicerPlace' value='auto' checked> auto</label>
-          <label><input type='radio' name='slicerPlace' value='pad'> on pad</label>
-          <label><input type='radio' name='slicerPlace' value='lift'> lifted</label>
+        <div class='spBlk'><span class='spLab'>Placement</span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerPlace' value='auto' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerPlace' value='pad'><span>pad</span></label>
+            <label><input type='radio' name='slicerPlace' value='lift'><span>lifted</span></label>
+          </div>
         </div>
-        <div class='spRow'><span class='spLab'>Tip</span>
-          <label><input type='radio' name='slicerTip' value='0' checked> auto</label>
-          <label><input type='radio' name='slicerTip' value='0.4'> 0.4</label>
-          <label><input type='radio' name='slicerTip' value='0.5'> 0.5 mm</label>
+        <div class='spBlk'><span class='spLab'>Tip</span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerTip' value='0' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerTip' value='0.4'><span>0.4</span></label>
+            <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
+          </div>
         </div>
-        <div class='spRow'><span class='spLab'>Raft</span>
-          <label><input type='radio' name='slicerRaft' value='1'> 1</label>
-          <label><input type='radio' name='slicerRaft' value='2' checked> 2</label>
-          <label><input type='radio' name='slicerRaft' value='3'> 3</label>
-          <label><input type='radio' name='slicerRaft' value='6'> 6 layers</label>
+        <!-- Milimetrai - PACIOJE antrasteje, ne uodegoje uz jungikliu: „6“ pats
+             savaime nieko nesako, o 0,30 mm sako, ir gale kabanti uodega buvo
+             kaip tik tai, kas ardė eilutes tvarka (V 09-02). Numatytoji cia
+             NEZYMIMA - ja stato JS pagal sluoksnio auksti. -->
+        <div class='spBlk'><span class='spLab'>Raft <em id='slicerRaftMm'></em></span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerRaft' value='1'><span>1</span></label>
+            <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
+            <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
+            <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
+          </div>
         </div>
-        <div class='spRow'><span class='spLab'>Smoothing</span>
-          <label><input type='checkbox' id='slicerSmooth' checked> on</label>
-          <a href='#' id='slicerParamsReset' title='Back to the values the slicer ships with'>Reset</a>
+        <div class='spBlk'><span class='spLab'>Smoothing</span>
+          <div class='seg'>
+            <label><input type='radio' name='slicerSmooth' value='on' checked><span>on</span></label>
+            <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
+          </div>
         </div>
+        <!-- „Reset“ - sava eilute per abi kolonas. Prilipdytas prie „Smoothing“
+             jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
+        <div class='spReset'><a href='#' id='slicerParamsReset'
+             title='Back to the values the slicer ships with'>Reset to defaults</a></div>
+      </div>
       </div>
 
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->

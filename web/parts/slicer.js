@@ -112,6 +112,12 @@ const slicerStep=()=>{
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
     });
+    /* „Reset“ yra NUORODA, tad i ejima per input/select/textarea ji nepatenka.
+       Ta pati idioma, kaip `slicerDiscardLink` virsuje: klase ant konteinerio,
+       o ne stilius ant elemento - kad prigesinimas ir pointer-events keliautu
+       kartu ir nesiskirtu (V 09-02). */
+    {const pr=$('slicerParams');
+     if(pr)pr.classList.toggle('uzrakintas',!!spausdina);}
     /* Ir formos irankiai ant vaizdo - jie yra ta pati kortele, tik kitoje vietoje. */
     const t=$('gl3dTools');
     if(t&&spausdina)t.querySelectorAll('button').forEach(b=>{
@@ -1772,16 +1778,41 @@ setTimeout(()=>{
 /*
  * SL-params (V 09-02). Surenka valdiklius i tai, ko laukia modulis.
  *
- * Nulis reiskia „palik varikliui numatytaji", tad nepaliestas jungiklis i
- * varikli nenukeliauja is viso - butent tuo ir remiasi pazadas, kad nieko
- * nesukant elgsena nesikeicia. Vienintele isimtis - RAFTAS: jo numatytoji
- * pakelta i 2 sluoksnius (V sprendimas 09-02), nes ismatuota, kad prie vieno
- * padas ir detale lieka atskiri kunai ir raftas savo darbo neatlieka.
+ * Siunciami VISI keturi laukai kiekviena karta; nulis juose reiskia „palik
+ * varikliui numatytaji". Tuo ir remiasi pazadas, kad nieko nesukant elgsena
+ * nesikeicia - NE tuo, kad laukas praleidziamas (taip klaidingai sake sitas
+ * komentaras; pagavo printerio sesija 09-02). Isimtis - RAFTAS: jo numatytoji
+ * skaiciuojama is sluoksnio aukscio (V: „0,05 - 6, 0,1 - 3"), t. y. siekiam
+ * 0,3 mm; prie vieno sluoksnio padas ir detale lieka atskiri kunai.
  */
+/*
+ * Sluoksnio aukstis, kuriuo pjausto NARSYKLE.
+ *
+ * ⚠️ Cia 0,05 stovi ne is gero: pultas modului `layerHeight` NEPADUODA is viso
+ * (patikrinta 09-02: zodzio `layerHeight` slicer.js nera nei karto), tad modulis
+ * ima savo numatytaji 0,05 net tada, kai printeryje aktyvus 0,1 profilis.
+ * Zmogus tokiu atveju tyliai gauna dvigubai daugiau sluoksniu, nei tikejosi.
+ * Atskiras darbas; kai jis bus padarytas, cia ateis tikroji profilio reiksme, o
+ * formule zemiau tada pati duos 3 sluoksnius vietoj 6.
+ */
+const SLICER_LH=0.05;
+/* Rafto storis, kurio siekiam - 0,3 mm (V 09-02: „0.05 - 6, 0.1 - 3“). Tai tas
+   pats storis, kuri duoda PrusaSlicer plokstele, ir V praktikos etalonas. */
+const RAFT_MM=0.30;
+const raftoNumatytas=()=>Math.max(1,Math.round(RAFT_MM/SLICER_LH));
+
+/* Milimetrai salia jungiklio: „6“ pats savaime nieko nesako, o 0,30 mm - sako. */
+function slicerRaftMm(){
+  const el=document.getElementById('slicerRaftMm');
+  if(!el)return;
+  const n=parseInt((document.querySelector('input[name=slicerRaft]:checked')||{}).value
+                   ||raftoNumatytas(),10);
+  el.textContent='— '+(n*SLICER_LH).toFixed(2)+' mm';
+}
+
 function slicerParamai(){
   const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
   const vieta=r('slicerPlace')||'auto';
-  const sm=document.getElementById('slicerSmooth');
   return {
     pakelta:vieta==='lift',
     /* „auto“ palieka #116 automatika (perpjauna pakelta, jei kitaip atramu
@@ -1790,8 +1821,9 @@ function slicerParamai(){
     parametrai:{
       tankis:parseFloat(r('slicerSupDens')||'1')||1,
       smaigalys:parseFloat(r('slicerTip')||'0')||0,
-      raftoSluoksniai:parseInt(r('slicerRaft')||'2',10)||2,
-      glotninimas:!sm||sm.checked
+      raftoSluoksniai:parseInt(r('slicerRaft')||String(raftoNumatytas()),10)
+                      ||raftoNumatytas(),
+      glotninimas:(r('slicerSmooth')||'on')!=='off'
     }
   };
 }
@@ -1802,15 +1834,19 @@ function slicerParamai(){
 (function(){
   const a=document.getElementById('slicerParamsReset');
   if(a)a.addEventListener('click',e=>{e.preventDefault();slicerParamaiReset();});
+  /* Numatytosios statomos cia, o ne zymeje: rafto reiksme skaiciuojama is
+     sluoksnio aukscio, tad markup'e jos ir negali buti. */
+  slicerParamaiReset();
+  document.querySelectorAll('input[name=slicerRaft]')
+    .forEach(el=>el.addEventListener('change',slicerRaftMm));
 })();
 
 function slicerParamaiReset(){
   const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
-             slicerTip:'0',slicerRaft:'2'};
+             slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on'};
   Object.keys(zym).forEach(n=>{
     const el=document.querySelector('input[name='+n+'][value="'+zym[n]+'"]');
     if(el)el.checked=true;
   });
-  const sm=document.getElementById('slicerSmooth');
-  if(sm)sm.checked=true;
+  slicerRaftMm();
 }
