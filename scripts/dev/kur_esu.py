@@ -204,8 +204,13 @@ def main():
                 if namu == branch:
                     pass
                 elif branch.startswith("claude/") or not saka_yra_nutolusi(branch):
-                    say("  laikina:  darbo saka '%s' GitHub'e dar neguli; namu saka - "
-                        "'%s', kanonas sutampa" % (branch, namu))
+                    # Priezastis sakoma ta, kuri tikrai patikrinta: "claude/" saka
+                    # atpazistama is vardo ir GitHub'e ji kaip tik daznai guli
+                    # (debesu sesijos), tad apie GitHub'a cia netvirtinam nieko.
+                    kodel = ("sesijos darbo saka" if branch.startswith("claude/")
+                             else "GitHub'e jos nera")
+                    say("  laikina:  darbo saka '%s' (%s); namu saka - '%s', "
+                        "kanonas sutampa" % (branch, kodel, namu))
                 elif pref and branch.startswith(pref):
                     say("  antra saka: dirbama '%s', tos pacios srities namu saka - "
                         "'%s'. Ne pasenimas" % (branch, namu))
