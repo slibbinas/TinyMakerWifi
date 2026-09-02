@@ -1295,10 +1295,14 @@ $('slicerGo').addEventListener('click',async()=>{
 });
 
 $('slicerAA').addEventListener('change',()=>slicerInvalidate());
-/* Perjungus atramu tipa, ankstesnis rezultatas nebegalioja - kitaip „Save"
-   issaugotu tai, ko ekrane jau nebera. */
-document.querySelectorAll('input[name=slicerSupType]').forEach(r=>
-  r.addEventListener('change',()=>slicerInvalidate()));
+/* Pakeitus BET KURI parametra, ankstesnis rezultatas nebegalioja - kitaip „Save"
+   issaugotu tai, ko ekrane jau nebera, o zmogus i printeri issiustu spaudini,
+   supjaustyta su kitais nustatymais.
+   Klausom VISO bloko, o ne kiekvieno jungiklio atskirai: iki 09-03 cia kabejo
+   tik `slicerSupType`, ir penki nauji parametrai si sarga apejo - o pridejus
+   septinta jungikli istorija kartotusi (V 09-03). */
+{const pr=document.getElementById('slicerParams');
+ if(pr)pr.addEventListener('change',()=>slicerInvalidate());}
 /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
 /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne
@@ -1855,7 +1859,17 @@ function slicerParamai(){
     .forEach(el=>el.addEventListener('change',slicerRaftMm));
 })();
 
+/* Kokie parametrai nustatyti dabar - vienu tekstu. Reikia tik palyginimui:
+   „Reset“ turi panaikinti rezultata TIK tada, kai jis is tikro ka nors pakeite,
+   o ne kaskart, kai i ji paspaudziama. */
+function slicerParamaiParasas(){
+  return ['slicerSupType','slicerSupDens','slicerPlace','slicerTip','slicerRaft',
+          'slicerSmooth'].map(n=>
+    (document.querySelector('input[name='+n+']:checked')||{}).value||'').join('|');
+}
+
 function slicerParamaiReset(){
+  const pries=slicerParamaiParasas();
   const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
              slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on'};
   Object.keys(zym).forEach(n=>{
@@ -1863,4 +1877,5 @@ function slicerParamaiReset(){
     if(el)el.checked=true;
   });
   slicerRaftMm();
+  if(pries!==slicerParamaiParasas())slicerInvalidate();
 }
