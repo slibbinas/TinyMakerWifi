@@ -40,15 +40,13 @@
            lentele uzdeta ir cia - kaireje nustatymai, desineje vardas. Del to vardo
            lauko krastai stovi tiksliai ties „Send to printer" krastais, nors jokiu
            liniju nesimato (V 08-20: „nematoma lentele"). -->
+      <!-- Atramu tipas nusikele i parametru bloka PO mygtuku eilute (V 09-02):
+           kartu su kitais penkiais jis yra nustatymas, o ne kelio dalis. Vardas
+           liko CIA, virs mygtuku, ir issitiese per visa ploti - ji rasai
+           kiekviena karta, o parametrus lieti retai, tad kasdienis kelias
+           (vardas -> Choose -> Slice -> Send) nepailgejo. -->
       <div class='calRow' id='slicerSupRow'
            style='margin-top:6px;gap:8px;align-items:center'>
-        <div style='display:flex;align-items:center;gap:8px;min-width:0'>
-        <span style='color:var(--muted);font-size:.9rem'>Supports</span>
-        <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
-          <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
-        <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
-          <input type='radio' name='slicerSupType' value='tree'> tree</label>
-        </div>
         <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
              vardas yra nustatymas, ne veiksmas (V 08-20).
              Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
@@ -83,6 +81,47 @@
         <button id='slicerSend' class='button secondary step' type='button'
                 style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
       </div>
+      <!--
+        SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
+        Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
+        raftas pakeltas i 2 sluoksnius: ismatuota, kad prie vieno padas ir
+        detale lieka atskiri kunai (18 dėmelių po 2-4 px), o prie dviejų useliai
+        suauga i viena - t. y. vienas sluoksnis rafto darbo neatlieka.
+        Raftas rodomas SLUOKSNIAIS, ne milimetrais: 0,15 ir 0,30 mm duoda ta pati
+        viena sluoksni, tad jungiklis milimetrais nieko nekeistu.
+      -->
+      <div id='slicerParams'>
+        <div class='spRow'><span class='spLab'>Supports</span>
+          <label><input type='radio' name='slicerSupType' value='regular' checked> regular</label>
+          <label><input type='radio' name='slicerSupType' value='tree'> tree</label>
+        </div>
+        <div class='spRow'><span class='spLab'>Strength</span>
+          <label><input type='radio' name='slicerSupDens' value='0.7'> light</label>
+          <label><input type='radio' name='slicerSupDens' value='1' checked> normal</label>
+          <label><input type='radio' name='slicerSupDens' value='1.4'> strong</label>
+        </div>
+        <div class='spRow'><span class='spLab'>Placement</span>
+          <label><input type='radio' name='slicerPlace' value='auto' checked> auto</label>
+          <label><input type='radio' name='slicerPlace' value='pad'> on pad</label>
+          <label><input type='radio' name='slicerPlace' value='lift'> lifted</label>
+        </div>
+        <div class='spRow'><span class='spLab'>Tip</span>
+          <label><input type='radio' name='slicerTip' value='0' checked> auto</label>
+          <label><input type='radio' name='slicerTip' value='0.4'> 0.4</label>
+          <label><input type='radio' name='slicerTip' value='0.5'> 0.5 mm</label>
+        </div>
+        <div class='spRow'><span class='spLab'>Raft</span>
+          <label><input type='radio' name='slicerRaft' value='1'> 1</label>
+          <label><input type='radio' name='slicerRaft' value='2' checked> 2</label>
+          <label><input type='radio' name='slicerRaft' value='3'> 3</label>
+          <label><input type='radio' name='slicerRaft' value='6'> 6 layers</label>
+        </div>
+        <div class='spRow'><span class='spLab'>Smoothing</span>
+          <label><input type='checkbox' id='slicerSmooth' checked> on</label>
+          <a href='#' id='slicerParamsReset' title='Back to the values the slicer ships with'>Reset</a>
+        </div>
+      </div>
+
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
       <div class='calRow' style='margin:9px 0;gap:8px;min-height:1.9em;align-items:center'>
         <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
@@ -101,7 +140,7 @@
       <div id='slicerDims'></div>
       <div id='slicerInfo'>No file loaded yet.</div>
       <div>Layers are 0.05 mm, as for every model.</div>
-      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - nothing to set.</div>
+      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - the settings below only nudge how.</div>
       <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
            Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
            prarado, ir galeti grizti (V 08-20). -->

@@ -323,7 +323,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.2.1';
+  const SV='3.3.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -1189,8 +1189,10 @@ $('slicerGo').addEventListener('click',async()=>{
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
     const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
+    const pad=slicerParamai();
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
-      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,'')},
+      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,''),
+      pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai},
       (done,total,phase)=>{
         /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
            mygtuko amzinai suktis). Didelis modelis pjaustomas ilgiau, tad zyme
@@ -1766,3 +1768,49 @@ setTimeout(()=>{
   if(yra&&window.akordPradinis&&akordPradinis()==='slicer'&&!slicerIsOpen())slicerOpen(true,true);
   else akordSync();
 },0);
+
+/*
+ * SL-params (V 09-02). Surenka valdiklius i tai, ko laukia modulis.
+ *
+ * Nulis reiskia „palik varikliui numatytaji", tad nepaliestas jungiklis i
+ * varikli nenukeliauja is viso - butent tuo ir remiasi pazadas, kad nieko
+ * nesukant elgsena nesikeicia. Vienintele isimtis - RAFTAS: jo numatytoji
+ * pakelta i 2 sluoksnius (V sprendimas 09-02), nes ismatuota, kad prie vieno
+ * padas ir detale lieka atskiri kunai ir raftas savo darbo neatlieka.
+ */
+function slicerParamai(){
+  const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
+  const vieta=r('slicerPlace')||'auto';
+  const sm=document.getElementById('slicerSmooth');
+  return {
+    pakelta:vieta==='lift',
+    /* „auto“ palieka #116 automatika (perpjauna pakelta, jei kitaip atramu
+       nulis); „on pad“ ir „lifted“ reiskia, kad zmogus nusprende pats. */
+    autoPakelti:vieta==='auto',
+    parametrai:{
+      tankis:parseFloat(r('slicerSupDens')||'1')||1,
+      smaigalys:parseFloat(r('slicerTip')||'0')||0,
+      raftoSluoksniai:parseInt(r('slicerRaft')||'2',10)||2,
+      glotninimas:!sm||sm.checked
+    }
+  };
+}
+
+/* „Reset“ - viena vieta, kur surasyta, kas yra numatytoji. Be jos zmogus,
+   pasukiojes kelis jungiklius, nebeturetu kaip grizti, o „kaip buvo“ atmintinai
+   neatsimenamas. */
+(function(){
+  const a=document.getElementById('slicerParamsReset');
+  if(a)a.addEventListener('click',e=>{e.preventDefault();slicerParamaiReset();});
+})();
+
+function slicerParamaiReset(){
+  const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
+             slicerTip:'0',slicerRaft:'2'};
+  Object.keys(zym).forEach(n=>{
+    const el=document.querySelector('input[name='+n+'][value="'+zym[n]+'"]');
+    if(el)el.checked=true;
+  });
+  const sm=document.getElementById('slicerSmooth');
+  if(sm)sm.checked=true;
+}
