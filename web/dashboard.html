@@ -1588,6 +1588,51 @@ let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlig
    teksta. 15 s: tylima per 4/8/12 patikrinimus, o tikras dingimas paskelbiamas ties ~16 s -
    viena apklausa veliau nei anksciau, bet vis dar tol, kol zmogus dar ziuri i ekrana. */
 const PRINTER_QUIET_GRACE_MS=15000;
+/* Slicerio valdikliai prigesinami, kai uzsikroves modulis ju nesupranta.
+   Kortelės versija SAMONINGAI nusveria firmware konstanta (zr. `loadModule`), tad
+   nulietas naujas pultas su sena kortele jungiklius rodo, o pjaustymas ju nemato -
+   jie juda ir nieko nedaro, be jokios klaidos. 2026-09-02 tokia pora praslydo DU
+   kartus per viena vakara, ir abu kartus ja pagavo zmogus, ne kodas. Cia ne grazinimas,
+   o sarga: kol modulis senesnis nei reikia, jungikliu paliesti negalima ir parasyta kodel.
+   Parametrus supranta nuo 3.3.0 (`sla_set_params`); vardas gali buti „3.3.0-wasm". */
+const PARAM_MODULIS_NUO=[3,3];
+const paramVartai=()=>{
+  const box=$('slicerParams'); if(!box)return;            // slicerio kortele neikelta
+  const ver=(window.slicerLoadedVer||'');
+  /* Tuscia versija reiskia „dar neuzsikrove ARBA krovimas nepavyko" - abiem atvejais
+     mes nieko nezinom, tad ir rakinti neturim uz ka. Anksciau cia buvo tik `return`, ir
+     jei modulis nukrisdavo po to, kai vartai jau buvo uzdaryti, blokas likdavo pilkas
+     visam laikui be jokios iseities, o paaiskinimas rode pasenusia versija. */
+  if(!ver){
+    if(box.dataset.vartai!==''){box.dataset.vartai='';box.inert=false;box.style.opacity='';
+      const s=$('slicerParamsOld'); if(s)s.hidden=true;}
+    return;
+  }
+  const m=/^(\d+)\.(\d+)/.exec(ver);
+  const gerai=!!m&&(+m[1]>PARAM_MODULIS_NUO[0]||(+m[1]===PARAM_MODULIS_NUO[0]&&+m[2]>=PARAM_MODULIS_NUO[1]));
+  if(box.dataset.vartai===(gerai?'ok':ver))return;        // nieko nepasikeite
+  box.dataset.vartai=gerai?'ok':ver;
+  /* `inert`, o NE `disabled` ant kiekvieno laukelio: slicerio kortele savo laukus
+     sluosto pati (`refreshSlicerCard` → `e.disabled=spausdina`) kas apklausos rata ir
+     musu `disabled` nutrintu jau antra sekunde. `pointer-events` tada dar laikytu pele,
+     bet klaviatura i jungikli vis tiek ieitu - t. y. liktu ta pati tyli skyle, tik
+     siauresne. `inert` turi VIENA savininka, ir slicerio sluostymas jo neliecia. */
+  box.inert=!gerai;
+  box.style.opacity=gerai?'':'.45';
+  let n=$('slicerParamsOld');
+  if(!gerai){
+    if(!n){n=document.createElement('div');n.id='slicerParamsOld';
+      n.style.cssText='font-size:12px;opacity:.85;margin-top:6px';
+      box.parentNode.insertBefore(n,box.nextSibling);}
+    /* Cia sakoma, ka suka PUSLAPIS, ne kas guli kortelėje: idiegus nauja modulį ir
+       neperkrovus puslapio, senasis lieka atmintyje. Pasakius „printeris turi 3.2.1"
+       zmogus diegtu antra karta ir vel nieko nepasikeistu. */
+    n.textContent='The page is running slicer '+ver.replace('-wasm','')
+      +'. These settings need 3.3.0 or newer - install it in Settings > Update > '
+      +'Slicer module, then reload the page.';
+    n.hidden=false;
+  }else if(n)n.hidden=true;
+};
 const showUpdLock=()=>{updLock=true;updSawDown=false;updLockAt=Date.now();$('updOverlay').classList.add('on');};
 const hideUpdLock=()=>{updLock=false;$('updOverlay').classList.remove('on');};
 const pageFirmwareVersion=()=>$('fwVersion').textContent.trim();
@@ -2767,6 +2812,7 @@ const refreshStatus=async()=>{
     }
     applyStatus(s);
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
+    paramVartai();
     if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&!sdJobCur&&!rxSnackTxt&&(!msg._until||Date.now()>=msg._until))msg('',false);
   }catch(e){
     statusFailCount++;
