@@ -112,6 +112,12 @@ const slicerStep=()=>{
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
     });
+    /* „Reset“ yra NUORODA, tad i ejima per input/select/textarea ji nepatenka.
+       Ta pati idioma, kaip `slicerDiscardLink` virsuje: klase ant konteinerio,
+       o ne stilius ant elemento - kad prigesinimas ir pointer-events keliautu
+       kartu ir nesiskirtu (V 09-02). */
+    {const pr=$('slicerParams');
+     if(pr)pr.classList.toggle('uzrakintas',!!spausdina);}
     /* Ir formos irankiai ant vaizdo - jie yra ta pati kortele, tik kitoje vietoje. */
     const t=$('gl3dTools');
     if(t&&spausdina)t.querySelectorAll('button').forEach(b=>{

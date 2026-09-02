@@ -70,3 +70,10 @@
 #slicerParams .seg input:focus-visible+span{outline:2px solid var(--link);outline-offset:-2px}
 #slicerParams .spReset{grid-column:1/-1;text-align:right;margin-top:1px}
 #slicerParams .spReset a{color:var(--link);font-size:.8rem}
+/* Spausdinant kortele uzrakinama (`slicer.js` vienu ejimu per konteineri), ir
+   radijo mygtukai tikrai tampa `disabled`. Bet jie NEMATOMI - zmogus mato tik
+   juosta, tad be sitos eilutes ji atrodytu gyva ir tyliai nereaguotu (V 09-02).
+   Pati juosta lieka skaitoma: matai, kas nustatyta, tik pakeisti negali. */
+#slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
+#slicerParams .seg label:has(input:disabled){cursor:default}
+#slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
