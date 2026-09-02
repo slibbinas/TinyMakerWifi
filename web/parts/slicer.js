@@ -1807,7 +1807,7 @@ function slicerRaftMm(){
   if(!el)return;
   const n=parseInt((document.querySelector('input[name=slicerRaft]:checked')||{}).value
                    ||raftoNumatytas(),10);
-  el.textContent='— '+(n*SLICER_LH).toFixed(2)+' mm';
+  el.textContent='- '+(n*SLICER_LH).toFixed(2)+' mm';
 }
 
 function slicerParamai(){
