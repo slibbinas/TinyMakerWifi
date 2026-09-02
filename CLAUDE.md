@@ -196,13 +196,26 @@ printeris atmeta svetimą kilmę (CSRF sarga).
 Vartotojui lieka tai, ko negaliu: derva, spaudinio apžiūra, printerio **ekranas**,
 garsai, geležis rankomis.
 
-⚠️ Naršyklės langas dažnai būna paslėptas, tad piešimo ciklas jame pristabdomas
-(`document.hidden`). Duomenys atsinaujina, o drobė - ne. Tai atmesti PRIEŠ skelbiant
-„vaizdas neatsinaujina".
+**Kuria naršykle.** Printerio pultą atidaryti per **Claude in Chrome**
+(`mcp__claude-in-chrome__*`), ne per Claude Code vidinį skydelį. Vidinis skydelis V
+ekrane dažnai būna **paslėptas**: tada jo puslapis nepiešiamas (nuotraukos juodos,
+paspaudimai prašauna) ir **užšaldomas** - pultas nustoja klausinėti printerio, o
+matavimas rodo ramybę ten, kur jos nėra. Chrome kortelę V mato, tad jis mato ir ką darai.
+
+**Mygtukus spausti per elemento nuorodą** (`find` → `ref`), ne per koordinates: nuotraukos
+mastelis nesutampa su puslapio, o sąrašai persipiešia, tad koordinatės nueina į tuščią
+vietą - tyliai, be klaidos.
+
+⚠️ Paslėptame lange pristabdomas ir piešimo ciklas (`document.hidden`). Tai atmesti PRIEŠ
+skelbiant „vaizdas neatsinaujina".
 
 **Kodėl:** 2026-08-30 naktį V rankomis atliko keliolika ratų (įkėlimai, dalijimasis,
 vaikščiojimas po rodinius, konsolės kopijavimas), o didžiąją dalį to buvo galima
 padaryti pačiam. Galioja visoms sesijoms.
+
+**Kodėl būtent Chrome:** 2026-09-02 T-119 testas užtruko pusvalandį vien dėl to, kad
+dirbau vidiniame skydelyje - V jo nematė ir klausė „kur tu ten matuoji", o paspaudimai
+nepasiekdavo mygtukų. Persijungus į Chrome testas praėjo per kelias minutes.
 
 ## Tikslinimas iš kodo
 
