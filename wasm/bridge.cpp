@@ -98,6 +98,24 @@ static constexpr double PLOKSTE_Y_MM = 30.6;
 /* `initial_layer_height` is V profilio - pirmas sluoksnis storesnis. */
 static constexpr double PIRMO_SLUOKSNIO_MM = 0.3;
 
+/*
+ * Parametrai, kuriuos nuo 3.3.0 gali pakeisti zmogus pulte (SL-params).
+ * Numatytosios reiksmes cia yra LYGIAI tos, kurios iki tol buvo ikaltos, tad
+ * nepalietus nieko failas iseina baitas i baita toks pat - be sito 0.17 testu
+ * rezultatai nustotu galioti.
+ *
+ * Atskira `sla_set_params`, o ne nauji argumentai kiekvienam iejimui: iejimu
+ * yra keturi, ir kiekvienas naujas parametras keistu visu keturiu parasa, o JS
+ * pusej atsirastu keturios vietos, kur galima praleisti viena.
+ */
+struct Parametrai {
+    double tankis = 1.0;          // density_relative: kiek atramu tasku sejama
+    double smaigalys_mm = 0.0;    // 0 = to tipo numatytasis (0,5 iprastoms, 0,4 medziui)
+    int    rafto_sluoksniai = 1;  // rafto storis SLUOKSNIAIS; 1 = kaip buvo
+    bool   glotninimas = true;    // AA: gama 1,0 ijungtas, 0,0 isjungtas
+};
+static Parametrai g_par;
+
 static long ms_since(Clock::time_point t)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - t).count();
@@ -145,7 +163,8 @@ static sla::SupportTreeConfig make_tree_cfg(bool branching, bool /*pakelta*/)
 
     if (!branching) {
         scfg.tree_type = sla::SupportTreeType::Default;
-        scfg.head_front_radius_mm = 0.5 * 0.5;      // support_head_front_diameter 0,5
+        scfg.head_front_radius_mm =                 // support_head_front_diameter 0,5
+            0.5 * (g_par.smaigalys_mm > 0 ? g_par.smaigalys_mm : 0.5);
         scfg.head_back_radius_mm = pillar_r;
         scfg.head_fallback_radius_mm = 0.01 * 60.0 * pillar_r;  // small_pillar 60 %
         scfg.head_penetration_mm = 0.3;
@@ -157,7 +176,8 @@ static sla::SupportTreeConfig make_tree_cfg(bool branching, bool /*pakelta*/)
         scfg.max_bridges_on_pillar = 3;
     } else {
         scfg.tree_type = sla::SupportTreeType::Branching;
-        scfg.head_front_radius_mm = 0.5 * 0.4;      // branchingsupport_head_front_diameter
+        scfg.head_front_radius_mm =                 // branchingsupport_head_front_diameter
+            0.5 * (g_par.smaigalys_mm > 0 ? g_par.smaigalys_mm : 0.4);
         scfg.head_back_radius_mm = pillar_r;
         scfg.head_fallback_radius_mm = 0.01 * 50.0 * pillar_r;  // small_pillar 50 %
         scfg.head_penetration_mm = 0.2;
@@ -174,10 +194,23 @@ static sla::SupportTreeConfig make_tree_cfg(bool branching, bool /*pakelta*/)
 /** `make_pad_cfg` (SLAPrint.cpp:136-149) su V profilio reiksmemis.
  *  `pakelta` isjungia `pad_around_object` - padas lieka APACIOJE, o detale
  *  pakelta virs jo (PrusaSlicer „Below object"). */
-static sla::PadConfig make_pad_config(bool pakelta)
+static sla::PadConfig make_pad_config(bool pakelta, double layer_h)
 {
     sla::PadConfig pcfg;
-    pcfg.wall_thickness_mm = 0.15;                  // pad_wall_thickness
+    /*
+     * Rafto storis skaiciuojamas SLUOKSNIAIS, ne milimetrais.
+     *
+     * Ismatuota 2026-09-02 (musu .sl1 pries PrusaSlicer etalona, tas pats
+     * puodelis): padas abiejuose uzima LYGIAI VIENA sluoksni, o musu
+     * `pad_wall_thickness` yra 0,15 - toks pat, kaip Prusos. Priezastis
+     * `sluoksniu_tinklelis`: pirmas pjuvis daromas ties `ilh/2` = 0,15 ir
+     * apima visa 0..0,3 mm juosta, o kitas jau ties 0,35. Todel 0,15 ir 0,30
+     * duoda TA PATI viena sluoksni, ir jungiklis milimetrais butu jungiklis,
+     * kuris nieko nekeicia.
+     */
+    pcfg.wall_thickness_mm = g_par.rafto_sluoksniai <= 1
+        ? 0.15                                      // pad_wall_thickness (kaip buvo)
+        : PIRMO_SLUOKSNIO_MM + (g_par.rafto_sluoksniai - 1) * layer_h;
     pcfg.wall_slope = 90.0 * M_PI / 180.0;          // pad_wall_slope
     pcfg.max_merge_dist_mm = 50.0;                  // pad_max_merge_distance
     pcfg.wall_height_mm = 0.0;                      // pad_wall_height
@@ -309,8 +342,10 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     /* Sejos parametrai - SLAPrintSteps.cpp:715-733 (density_relative = 100 %). */
     t0 = Clock::now();
     sla::SupportPointGeneratorConfig gen_cfg;
-    gen_cfg.density_relative = 1.f;
-    gen_cfg.head_diameter = branching ? 0.4f : 0.5f;
+    gen_cfg.density_relative = float(g_par.tankis);
+    gen_cfg.head_diameter = g_par.smaigalys_mm > 0
+        ? float(g_par.smaigalys_mm)
+        : (branching ? 0.4f : 0.5f);
     gen_cfg.island_configuration = sla::SampleConfigFactory::apply_density(
         sla::SampleConfigFactory::create(gen_cfg.head_diameter), gen_cfg.density_relative);
     praneskEiga("sejami atramu taskai", 55);
@@ -322,7 +357,7 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     sla::SupportPoints pts = sla::move_on_mesh_surface(layer_pts, emesh, 1.0);
 
     sla::SupportableMesh sm{its, pts, make_tree_cfg(branching, pakelta)};
-    sm.pad_cfg = make_pad_config(pakelta);
+    sm.pad_cfg = make_pad_config(pakelta, layer_h);
 
     praneskEiga("statomos atramos", 65);
     t0 = Clock::now();
@@ -459,6 +494,21 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
 
 
 extern "C" {
+
+/**
+ * Parametrai kitam pjaustymui. Kviesti NEBUTINA: nekviestas modulis elgiasi
+ * lygiai taip, kaip iki 3.3.0. Nulis ar neigiamas skaicius reiskia „palik
+ * numatytaji", tad pultas gali paduoti tik tuos laukus, kuriuos zmogus lietė.
+ */
+EMSCRIPTEN_KEEPALIVE
+void sla_set_params(double tankis, double smaigalys_mm, int rafto_sluoksniai,
+                    int glotninimas)
+{
+    g_par.tankis = tankis > 0 ? tankis : 1.0;
+    g_par.smaigalys_mm = smaigalys_mm > 0 ? smaigalys_mm : 0.0;
+    g_par.rafto_sluoksniai = rafto_sluoksniai > 0 ? rafto_sluoksniai : 1;
+    g_par.glotninimas = glotninimas != 0;
+}
 
 /**
  * Iejimas is JS su FAILU: STL nuskaitomas is modulio failu sistemos ir
@@ -728,7 +778,9 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
         g_json = "{\"klaida\":\"pirma reikia suslicinti\"}";
         return g_json.c_str();
     }
-    const EkranoCfg cfg;
+    EkranoCfg cfg;
+    /* Glotninimas: `gama = 0` isjungia pustonius, ir krastas iseina 0/1. */
+    cfg.gama = g_par.glotninimas ? 1.0 : 0.0;
     const double layer_h = g_last.layer_h;
     auto t0 = Clock::now();
 
@@ -938,6 +990,14 @@ int main(int argc, char **argv)
     /* Penktas argumentas - pakeltas padas (#116). Numatytai isjungtas, kad
        regresijos testas ir etalonai liktu nepakite. */
     const bool pakelta = argc > 5 && std::string(argv[5]) == "pakelta";
+    /* Sesti ir toliau - SL-params, TIK matavimui is komandines eilutes:
+       tankis, smaigalys mm, rafto sluoksniai, glotninimas 0/1. Nepaduoti -
+       lieka numatytieji, tad regresijos testas ir etalonai nepasikeicia. */
+    if (argc > 6)
+        sla_set_params(std::atof(argv[6]),
+                       argc > 7 ? std::atof(argv[7]) : 0.0,
+                       argc > 8 ? std::atoi(argv[8]) : 0,
+                       argc > 9 ? std::atoi(argv[9]) : 1);
     run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true, pakelta);
     if (argc > 4) std::printf("sl1              %s\n", sla_export_sl1(argv[4], "spaudinys"));
     return 0;

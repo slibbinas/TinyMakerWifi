@@ -13,7 +13,7 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.2.1-wasm';
+export const VERSION = '3.3.0-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
@@ -218,7 +218,10 @@ export async function slice(pos, opts, onProgress) {
          darbininkui perpjauti pakelta detale, kai kitaip atramu nera. Jungiklis
          reikalingas ir 1.1 (`SL-rank`), kur rezima pasirinks zmogus. */
       pakelta: o.pakelta ? 1 : 0,
-      autoPakelti: o.autoPakelti !== false },
+      autoPakelti: o.autoPakelti !== false,
+      /* SL-params: ko nera - to variklis nekeicia. Todel pultas gali paduoti
+         tik pajudintus jungiklius, o numatytoji elgsena lieka ta pati. */
+      parametrai: o.parametrai || null },
     [kopija.buffer],
     (z) => {
       if (!onProgress) return;

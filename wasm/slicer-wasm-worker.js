@@ -11,6 +11,7 @@ const BAZE = self.SLA_BAZE || './';
 importScripts(BAZE + 'sla-web.js');
 
 let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, rotFn = null, vardas = 'spaudinys';
+let setParamsFn = null;
 let dabartinisId = 0;
 
 /*
@@ -119,6 +120,9 @@ const paruostas = createSLA({ locateFile: function (p) { return BAZE + p; } }).t
   sliceMeshFn = m.cwrap('sla_slice_mesh', 'string',
                         ['number', 'number', 'number', 'number', 'number']);
   sl1Fn = m.cwrap('sla_export_sl1', 'string', ['string', 'string']);
+  /* SL-params: nekviesta - modulis elgiasi kaip iki 3.3.0. */
+  setParamsFn = m.cwrap('sla_set_params', null,
+                        ['number', 'number', 'number', 'number']);
   previewFn = m.cwrap('sla_preview', 'string', ['string', 'number']);
   /* Taip pat visi penki: `tikslumas` ir `max_trikampiu` anksciau likdavo
      nepaduoti, ir viskas laikesi ant C pusės sargu (SL-args). */
@@ -126,6 +130,21 @@ const paruostas = createSLA({ locateFile: function (p) { return BAZE + p; } }).t
                   ['number', 'number', 'number', 'number', 'number']);
   return m;
 });
+
+/*
+ * SL-params. Nuliai reiskia „palik numatytaji", tad pultas gali paduoti tik
+ * tuos laukus, kuriuos zmogus lietė, o nepaliestas jungiklis nieko nekeicia.
+ * Kvieciam PRIES kiekviena pjaustyma, ne karta uzsikrovus: modulis gyvas visa
+ * sesija, ir kitas modelis kitaip nepaveldetu naujo pasirinkimo.
+ */
+function paduokParametrus(p) {
+  if (!setParamsFn) return;
+  p = p || {};
+  setParamsFn(Number(p.tankis) > 0 ? Number(p.tankis) : 0,
+              Number(p.smaigalys) > 0 ? Number(p.smaigalys) : 0,
+              Number(p.raftoSluoksniai) > 0 ? Number(p.raftoSluoksniai) : 0,
+              p.glotninimas === false ? 0 : 1);
+}
 
 self.onmessage = async function (ev) {
   const z = ev.data || {};
@@ -140,6 +159,8 @@ self.onmessage = async function (ev) {
       const pos = new Float32Array(z.pos);
       const sluoksnis = z.sluoksnis || 0.05;
       const perziuros = z.perziuros || 160;
+
+      paduokParametrus(z.parametrai);
 
       /* Pirmas ejimas - taip, kaip visada: detale ant ploksces. */
       let r = pjaustymas(pos, sluoksnis, z.medis, z.pakelta ? 1 : 0, perziuros);
