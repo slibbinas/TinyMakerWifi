@@ -40,3 +40,13 @@
 /* Spausdinant slicerio blokas uzrakintas: `label` mygtuko `disabled` neturi, tad
    prigesinam ir atimam paspaudima (V 08-20). */
 #slicerChoose.locked{pointer-events:none;opacity:.45}
+/* SL-params. Dvi kolonos, kad sesios eilutes uzimtu tris, o ne sesis aukstus;
+   siaurame ekrane - viena kolona, nes „Raft 1 2 3 6 layers“ ten nebetelpa i
+   puse ploto ir laužtusi vidury saraso. `spLab` fiksuoto plocio: be to
+   antrasciu krastai nesutaptu ir dvi kolonos atrodytu kaip keturios. */
+#slicerParams{display:grid;grid-template-columns:1fr;gap:5px 16px;margin-top:9px;font-size:.85rem}
+#slicerParams .spRow{display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap}
+#slicerParams .spLab{color:var(--muted);flex:0 0 62px}
+#slicerParams label{margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+#slicerParams input[type=radio],#slicerParams input[type=checkbox]{margin:0}
+#slicerParamsReset{margin-left:auto;color:var(--link);font-size:.8rem}
