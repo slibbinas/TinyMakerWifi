@@ -3,9 +3,12 @@
     "KANONAS: kuri saka kuriai sriciai priklauso SIANDIEN.",
     "Pervadinai saka arba perkelei darba i kita - atnaujink CIA, tame paciame commit'e.",
     "scripts/dev/kur_esu.py si faila skaito ir PERSPEJA, jei tikrove nesutampa su irasu,",
-    "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu."
+    "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu.",
+    "Laukas 'saka' = NAMU saka, kur srities darbas galiausiai sugula. Sesija gali teisetai",
+    "sedeti kitoje (laikinoje, antroje tos pacios srities, bendroje main/experimental) -",
+    "tai ne pasenimas, ir kur_esu.py tokiais atvejais tyli."
   ],
-  "_atnaujinta": "2026-08-23",
+  "_atnaujinta": "2026-09-02",
   "sritys": [
     {
       "sritis": "Printeris",

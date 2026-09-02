@@ -21,6 +21,11 @@ DU dalykai, kuriu skriptas NEGALI zinoti, tad ir nesideda zinantis:
    skriptas irašo .claude/uzimta.json (git jo nemato, zr. .gitignore), ir kita
    sesija, atsistojusi tame paciame kataloge, gauna perspejima. Tas pats
    2026-08-27: dvi sesijos vienoje sakoje ir viename medyje.
+
+Kanono patikra (sritys.json) tyli trimis atvejais, nes ju nei vienas nera
+pasenes irasas: laikina sesijos saka, antra tos pacios srities saka (slcr/lab
+salia slcr/dev) ir bendra main/experimental. Garsus ispejimas paliktas tikram
+pervadinimui - kitaip jis degtu kaskart, o degantis visada nebematomas.
 """
 import io
 import json
@@ -103,6 +108,20 @@ def say(text):
     sys.stdout.buffer.write((text + "\n").encode("utf-8", "replace"))
 
 
+def saka_yra_nutolusi(branch):
+    """Ar tokia saka guli GitHub'e.
+
+    Imam vietine nutolusiu saku kopija (refs/remotes/origin/...), ne `ls-remote` -
+    veikia ir be tinklo, ir nekainuoja sekundes kiekvienam sesijos startui.
+    Sviezumas cia nesvarbus: klausiam tik „ar tai nuolatine saka, ar sesijos
+    laikinoji", ne „ar sutampa commit'ai".
+    """
+    if not branch or branch.startswith("("):
+        return False
+    return bool(git("rev-parse", "--verify", "--quiet",
+                    "refs/remotes/origin/%s" % branch))
+
+
 def main():
     sesija = ""
     if "--sesija" in sys.argv:
@@ -173,9 +192,29 @@ def main():
                     rec = it
                     break
             if rec:
-                if rec.get("saka") != branch:
-                    say("  (!) SRITYS.JSON PASENES: uzfiksuota saka '%s', realiai '%s'."
-                        % (rec.get("saka"), branch))
+                # sritys.json laiko NAMU saka. Sesija gali teisetai sedeti kitoje:
+                # laikinoje savo worktree sakoje, antroje tos pacios srities sakoje
+                # (slcr/lab salia slcr/dev) arba bendroje main/experimental. Nei
+                # vienas is tu atveju nera pasenes kanonas, o ispejimas, kuris dega
+                # visada, per savaite tampa nematomas - ir tada pradings tikras
+                # pervadinimas, del kurio si patikra apskritai atsirado (08-23).
+                namu = rec.get("saka")
+                pref = rec.get("priesdelis") or ""
+                bendros = data.get("pagrindines", {})
+                if namu == branch:
+                    pass
+                elif branch.startswith("claude/") or not saka_yra_nutolusi(branch):
+                    say("  laikina:  darbo saka '%s' GitHub'e dar neguli; namu saka - "
+                        "'%s', kanonas sutampa" % (branch, namu))
+                elif pref and branch.startswith(pref):
+                    say("  antra saka: dirbama '%s', tos pacios srities namu saka - "
+                        "'%s'. Ne pasenimas" % (branch, namu))
+                elif branch in bendros:
+                    say("  bendra saka: dirbama '%s' (%s); srities namu saka - '%s'"
+                        % (branch, bendros[branch], namu))
+                else:
+                    say("  (!) SRITYS.JSON PASENES: uzfiksuota saka '%s', realiai '%s' "
+                        "(pervadinta?)." % (namu, branch))
                     say("      Atnaujink scripts/dev/sritys.json tame paciame commit'e.")
                 if rec.get("pastaba"):
                     say("  pastaba:  %s" % rec["pastaba"])
