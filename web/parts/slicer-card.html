@@ -84,35 +84,38 @@
       <!--
         SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
         Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
-        raftas pakeltas i 2 sluoksnius: ismatuota, kad prie vieno padas ir
-        detale lieka atskiri kunai (18 dėmelių po 2-4 px), o prie dviejų useliai
-        suauga i viena - t. y. vienas sluoksnis rafto darbo neatlieka.
+        raftas: jo numatytoji skaiciuojama is sluoksnio aukscio taip, kad iseitu
+        0,30 mm (V 09-02: „0,05 - 6, 0,1 - 3“). Pirmas V sprendimas buvo 2
+        sluoksniai - jis pakeistas ta pacia diena, tad jei kur nors dar matote
+        dvejeta, tai pasenes tekstas, ne kodas. Riba, ties kuria raftas apskritai
+        prikimba, yra 2: ismatuota, kad prie vieno padas ir detale lieka atskiri
+        kunai (18 dėmelių po 2-4 px), o prie dvieju useliai suauga i viena.
         Raftas rodomas SLUOKSNIAIS, ne milimetrais: 0,15 ir 0,30 mm duoda ta pati
         viena sluoksni, tad jungiklis milimetrais nieko nekeistu.
       -->
       <div id='slicerParams'>
-        <div class='spBlk'><span class='spLab'>Supports</span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-supports'>
             <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
             <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
           </div>
         </div>
-        <div class='spBlk'><span class='spLab'>Strength</span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-strength'>Strength</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-strength'>
             <label><input type='radio' name='slicerSupDens' value='0.7'><span>light</span></label>
             <label><input type='radio' name='slicerSupDens' value='1' checked><span>normal</span></label>
             <label><input type='radio' name='slicerSupDens' value='1.4'><span>strong</span></label>
           </div>
         </div>
-        <div class='spBlk'><span class='spLab'>Placement</span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-placement'>Placement</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-placement'>
             <label><input type='radio' name='slicerPlace' value='auto' checked><span>auto</span></label>
             <label><input type='radio' name='slicerPlace' value='pad'><span>pad</span></label>
             <label><input type='radio' name='slicerPlace' value='lift'><span>lifted</span></label>
           </div>
         </div>
-        <div class='spBlk'><span class='spLab'>Tip</span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-tip'>Tip</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-tip'>
             <label><input type='radio' name='slicerTip' value='0' checked><span>auto</span></label>
             <label><input type='radio' name='slicerTip' value='0.4'><span>0.4</span></label>
             <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
@@ -122,16 +125,16 @@
              savaime nieko nesako, o 0,30 mm sako, ir gale kabanti uodega buvo
              kaip tik tai, kas ardė eilutes tvarka (V 09-02). Numatytoji cia
              NEZYMIMA - ja stato JS pagal sluoksnio auksti. -->
-        <div class='spBlk'><span class='spLab'>Raft <em id='slicerRaftMm'></em></span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft <em id='slicerRaftMm'></em></span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
             <label><input type='radio' name='slicerRaft' value='1'><span>1</span></label>
             <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
             <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
             <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
           </div>
         </div>
-        <div class='spBlk'><span class='spLab'>Smoothing</span>
-          <div class='seg'>
+        <div class='spBlk'><span class='spLab' id='spL-smoothing'>Smoothing</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-smoothing'>
             <label><input type='radio' name='slicerSmooth' value='on' checked><span>on</span></label>
             <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
           </div>
@@ -140,7 +143,6 @@
              jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
         <div class='spReset'><a href='#' id='slicerParamsReset'
              title='Back to the values the slicer ships with'>Reset to defaults</a></div>
-      </div>
       </div>
 
       <!-- Rezultatas ir jo atsisakymas - ten, kur zmogus ka tik paspaude. -->
@@ -161,7 +163,7 @@
       <div id='slicerDims'></div>
       <div id='slicerInfo'>No file loaded yet.</div>
       <div>Layers are 0.05 mm, as for every model.</div>
-      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - the settings below only nudge how.</div>
+      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - the settings above only nudge how.</div>
       <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
            Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
            prarado, ir galeti grizti (V 08-20). -->
