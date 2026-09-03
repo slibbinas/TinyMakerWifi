@@ -1309,13 +1309,19 @@ $('slicerGo').addEventListener('click',async()=>{
     msg(e.message,true);
   }finally{
     clearInterval(tiksi);
+    /* Vėliava nuleidziama PIRMA, dar pries isejima. Siandien sitas kelias
+       nepasiekiamas (antro ejimo neileidzia `if(sliceRunning)return`), bet
+       1.1 ateis tikras `abort()` (zr. komentara ties mygtuku), ir nutrauktas
+       ejimas paliktu `sliceRunning=true` amziams: „Slice“ liktu uzrakintas, o
+       rezultato eilute - amzinai issiskleitusi. Viena eilute dabar, valanda
+       ieskojimo tada (pasiule printerio sesija 09-03). */
+    sliceRunning=false;
+    if(window.slicerResRowSync)window.slicerResRowSync();
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
     slicerOverlayOff();
     slicerWorkUI(false);
-    sliceRunning=false;
-    if(window.slicerResRowSync)window.slicerResRowSync();
     btnBusy(go,false);
     slicerBusyNow=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
@@ -1837,18 +1843,12 @@ setTimeout(()=>{
  */
 const SLICER_LH=0.05;
 /* Rafto storis, kurio siekiam - 0,3 mm (V 09-02: „0.05 - 6, 0.1 - 3“). Tai tas
-   pats storis, kuri duoda PrusaSlicer plokstele, ir V praktikos etalonas. */
+   pats storis, kuri duoda PrusaSlicer plokstele, ir V praktikos etalonas.
+   ⚠️ Naudojama TIK numatytajai reiksmei apskaiciuoti. Zmogui milimetrai
+   NERODOMI (V 09-03): jie butu teisingi tik prie 0,05, nes `SLICER_LH` yra
+   konstanta - o sluoksniu skaicius teisingas prie bet kurio profilio. */
 const RAFT_MM=0.30;
 const raftoNumatytas=()=>Math.max(1,Math.round(RAFT_MM/SLICER_LH));
-
-/* Milimetrai salia jungiklio: „6“ pats savaime nieko nesako, o 0,30 mm - sako. */
-function slicerRaftMm(){
-  const el=document.getElementById('slicerRaftMm');
-  if(!el)return;
-  const n=parseInt((document.querySelector('input[name=slicerRaft]:checked')||{}).value
-                   ||raftoNumatytas(),10);
-  el.textContent='- '+(n*SLICER_LH).toFixed(2)+' mm';
-}
 
 function slicerParamai(){
   const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
@@ -1897,8 +1897,6 @@ function slicerParamai(){
   /* Numatytosios statomos cia, o ne zymeje: rafto reiksme skaiciuojama is
      sluoksnio aukscio, tad markup'e jos ir negali buti. */
   slicerParamaiReset();
-  document.querySelectorAll('input[name=slicerRaft]')
-    .forEach(el=>el.addEventListener('change',slicerRaftMm));
 })();
 
 /* Kokie parametrai nustatyti dabar - vienu tekstu. Reikia tik palyginimui:
@@ -1921,6 +1919,5 @@ function slicerParamaiReset(){
     const el=document.querySelector('input[name='+n+'][value="'+zym[n]+'"]');
     if(el)el.checked=true;
   });
-  slicerRaftMm();
   if(pries!==slicerParamaiParasas())slicerInvalidate();
 }

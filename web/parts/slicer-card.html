@@ -133,11 +133,13 @@
             <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
           </div>
         </div>
-        <!-- Milimetrai - PACIOJE antrasteje, ne uodegoje uz jungikliu: „6“ pats
-             savaime nieko nesako, o 0,30 mm sako, ir gale kabanti uodega buvo
-             kaip tik tai, kas ardė eilutes tvarka (V 09-02). Numatytoji cia
-             NEZYMIMA - ja stato JS pagal sluoksnio auksti. -->
-        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft <em id='slicerRaftMm'></em></span>
+        <!-- Vienetas - ANTRASTEJE, ir tai SLUOKSNIAI, ne milimetrai (V 09-03).
+             Milimetrai cia buvo ir buvo nuimti: „0,30 mm“ teisinga tik prie 0,05
+             profilio, o pultas moduliui sluoksnio aukscio nepaduoda (zr.
+             `SLICER_LH` komentara slicer.js) - tad prie 0,1 tas skaicius meluotu.
+             Sluoksniu skaicius teisingas visada.
+             Numatytoji cia NEZYMIMA - ja stato JS. -->
+        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft layers</span>
           <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
             <label><input type='radio' name='slicerRaft' value='1'><span>1</span></label>
             <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
