@@ -1054,11 +1054,41 @@ const slicerJoin=(bufs)=>{
   let o=0;parts.forEach(a=>{out.set(a,o);o+=a.length;});
   return out;
 };
+/*
+ * Kiek variklis PAKELE modeli virs pado. Nulis - kai nekele.
+ *
+ * Reiksme imama is paties rezultato (`wasm.z.modelis[0]`), o ne is konstantos:
+ * pakelimo dydis gyvena variklyje (`bridge.cpp` PAKELIMAS_MM), ir antra jo
+ * kopija pulte issiskirtu tyliai - vaizdas nuslinktu, o niekas nezinotu kodel.
+ */
+const slicerPakelimas=()=>{
+  const w=slicerOut&&slicerOut.wasm;
+  return (w&&w.pakelta&&w.z&&w.z.modelis&&w.z.modelis[0])||0;
+};
+const slicerKelk=(pos,dz)=>{
+  if(!dz)return pos;
+  const o=new Float32Array(pos);
+  for(let i=2;i<o.length;i+=3)o[i]+=dz;
+  return o;
+};
+
 const slicerGeomView=(home)=>{
   if(!slicerRaw||!slicerTr||!slicerMod)return false;
   if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
-  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
+  /*
+   * ⚠️ Pakeltame rezime modelis vaizde turi buti PAKELTAS.
+   *
+   * Atramos ir padas ateina is variklio jo koordinatemis, o `placed` yra musu
+   * kopija, gulinti ant ploksces. Kol pakelimo nebuvo, abi sutapo (zr. komentara
+   * zemiau), bet ijungus „lifted" jos issiskiria per 5 mm: vaizde matosi ilgos
+   * atramos, tarpas po detale - ir pati detale, gulinti pade. V pastebejo
+   * 09-03: „supportai gerai, kaip pakeltam objektui, o pats objektas nepakeltas".
+   * Faile viskas buvo teisinga (ismatuota: modelis z 5..11, atramos 0..10,3) -
+   * klaida buvo tik piesinyje, bet zmogus sprendzia pagal ji.
+   */
+  const kelk=slicerPakelimas();
+  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(slicerKelk(placed,kelk)),false);
   /* Pjuvio aukstis - PER SAVO lauka, ne per bendra `slicesCache`: i ji rasant
      kito modelio perziura likdavo su musu aukščiu ir suplokstedavo (V 08-20). */
   {const H=slicerModelH(); window.gl3dClipHeight=H||null;}
