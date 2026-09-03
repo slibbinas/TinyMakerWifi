@@ -354,7 +354,10 @@ $('slicerToggle').addEventListener('click',()=>{
 
 /* Bet koks pakeitimas panaikina supjaustyta rezultata: kitaip „Save"
    siulytu issaugoti tai, ko ekrane jau nebera (V 08-12). */
-const slicerInvalidate=()=>{
+/* `tyliai` - nepiesti modelio: kvietejas ji perpies pats. Be sito `slicerRender`
+   po pjaustymo dirbtu du kartus (du `place`, du `toSceneMesh`, du normalu
+   skaiciavimai) - zieduje su 275 tukst. trikampiu tai matytusi kaip blyksnis. */
+const slicerInvalidate=(tyliai)=>{
   if(typeof slicerOut==='undefined'||!slicerOut)return;
   slicerOut=null;
   /* Atramos priklauso TAM rezultatui: be sito senojo modelio atramos likdavo
@@ -372,7 +375,7 @@ const slicerInvalidate=()=>{
    * Cia pakelimo NEskaiciuojam: rezultato jau nebera, o be jo ir pakelimo nera -
    * detale grizta lygiai i ta busena, kurioje buvo pries pjaustyma.
    */
-  if(window.gl3dMesh&&slicerRaw&&slicerTr&&slicerMod&&slicerMod.place&&slicerMod.toSceneMesh){
+  if(!tyliai&&window.gl3dMesh&&slicerRaw&&slicerTr&&slicerMod&&slicerMod.place&&slicerMod.toSceneMesh){
     try{gl3dMesh(slicerMod.toSceneMesh(slicerMod.place(slicerRaw,slicerTr)),false);}catch(e){}
   }
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
@@ -448,7 +451,7 @@ window.slicerRetryRender=()=>{
 };
 const slicerRender=()=>{
   if(slicerPrinting()){slicerRenderPending=true;return;}
-  slicerInvalidate();
+  slicerInvalidate(true);          // modeli perpiesim zemiau, su ta pacia `place()` isvestimi
   const S=slicerMod;
   const placed=S.place(slicerRaw,slicerTr);
   const b=S.bounds(placed), f=S.fitCheck(b.size);
@@ -1817,6 +1820,12 @@ $('slicerSave').addEventListener('click',async()=>{
  if(b)b.addEventListener('click',()=>{const sv=$('slicerSave'); if(sv&&!sv.disabled)sv.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
+  /* Atramas nuimam CIA, ne per `slicerInvalidate`: rezultatas jau isvalytas eilute
+     auksciau, tad ji ties `if(!slicerOut)return` grizta nieko nedariusi. Modelis
+     nukrenta teisingai (ji perpiesia `slicerRender`), o atramos butu likusios
+     stoveti ore aplink tuscia vieta - antroji tos pacios ydos puse, kaip po
+     „Reset“ (pagavo printerio sesijos vartai 09-03). */
+  if(window.gl3dSupports)gl3dSupports(null);
   slicerLayerN=1; slicer3dLayer=null;   // rezultato nebera - nebera ir vietos jame
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
