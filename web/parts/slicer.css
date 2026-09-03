@@ -75,5 +75,25 @@
    juosta, tad be sitos eilutes ji atrodytu gyva ir tyliai nereaguotu (V 09-02).
    Pati juosta lieka skaitoma: matai, kas nustatyta, tik pakeisti negali. */
 #slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
-#slicerParams .seg label:has(input:disabled){cursor:default}
 #slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
+/*
+ * ⚠️ Klase, ne `:has(#slicerProg:empty)`: pulto naršyklėje `:has()` nesuveike
+ * (ismatuota 09-03 - taisykle nepakeite nei min-height, nei aukscio), tad
+ * suskleidima valdo JS.
+ *
+ * Rezultato eilute (eiga + „Discard“) tarp parametru ir faktu saraso yra TUSCIA,
+ * kol niekas nesupjaustyta, bet uzima 45 px: 27 px `min-height:1.9em` plius 9+9
+ * margin. Placiame lange tai matosi kaip desine kortele, ilgesne uz kaire maždaug
+ * centimetru - V pastebejo is karto po liejimo (09-03), o ismatavus paaiskejo,
+ * kad tai ne parametru blokas, o zemiau reservuota vieta.
+ *
+ * Suskleidziam TIK kol eilute tuscia. Kai pjaustymas prasideda, `#slicerProg`
+ * gauna teksta, taisykle nustoja galioti, ir eilute atsiranda su savo tarpais -
+ * tad zinute niekur nedingsta, o „Discard“ lieka ten, kur buvo.
+ */
+/* Tarpai ir aukstis CIA, ne `style=` atribute: inline stilius nugali bet kokia
+   taisykle, tad suskleidimas nieko nedarydavo, nors klase buvo uzdeta (ismatuota
+   09-03: klase „tuscia" yra, o `min-height` vis tiek 27,36 px). */
+#slicerResRow{margin:9px 0;min-height:1.9em}
+#slicerResRow.tuscia{margin:0;min-height:0}
+#slicerResRow.tuscia #slicerDiscardLink{display:none}
