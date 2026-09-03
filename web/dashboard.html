@@ -1203,7 +1203,7 @@ const waitSnackLater=(txt,ms,indet)=>{
 /* `inPlace` - TAS PATS snackas persirasomas, be naujo islindimo: grandinei
    („Sending…" -> atsakymas) tai vienas laukimas, tad ir vienas pranesimas.
    Be sito antras `msg` atrodydavo kaip antras snackas (V 08-17). */
-const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.dataset.prog='';e.dataset.ptxt='';e.textContent=t||'';e.classList.toggle('warn',!!warn);
+const msg=(t,warn,sticky,inPlace,lifeMs)=>{const e=$('statusMsg');e.dataset.prog='';e.dataset.ptxt='';e.textContent=t||'';e.classList.toggle('warn',!!warn);
   if(t&&!inPlace){
     snackCentre(e);
     e.style.animation='none';void e.offsetWidth;e.style.animation=''; // restart the slide-in on every message
@@ -1219,7 +1219,11 @@ const msg=(t,warn,sticky,inPlace)=>{const e=$('statusMsg');e.dataset.prog='';e.d
      gerbia. */
   clearTimeout(msg._t);
   if(t){
-    const life=sticky?0:(warn?6000:2000);
+    /* lifeMs: kai ivykis vienkartinis ir prasilenkia su akimis. 2 s uztenka
+       atsakymui i paspaudima (zmogus ziuri i ta vieta), bet ne pranesimui, kuris
+       ateina PO to, kai puslapis pats persikrove - persikrovimas patraukia deme-
+       si, ir kol pastebi, kad kazkas ivyko, juostelės jau nera (T-29, 09-03). */
+    const life=sticky?0:(lifeMs||(warn?6000:2000));
     if(life){msg._until=Date.now()+life;
              msg._t=setTimeout(()=>{if(e.textContent===t)e.textContent='';},life);}
     else msg._until=Infinity;
@@ -6951,7 +6955,7 @@ refreshSlicerCard();
  }}
 openView(location.hash==='#settings'?'config':(location.hash==='#connect'?'connect':'home'));refreshStatus().catch(()=>{}).then(restoreDashPreview);loadConfig();loadResinProfiles();checkPublishedVersion();setInterval(tickLocalStatus,1000);setInterval(()=>{refreshStatus();retryPendingPrintCommand();},2000);
 // 1-35: the pre-reload page left a note that the firmware changed under us.
-try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.removeItem('tmFwUpd');msg('Firmware updated - now running '+fwUpd+'.');}}catch(err){}
+try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.removeItem('tmFwUpd');msg('Firmware updated - now running '+fwUpd+'.',false,false,false,4000);}}catch(err){}
 </script>
 </main><script type="module">
 /* #93: GPU peržiūra, kai pavyksta gauti three.js. Pakopos: SD -> CDN -> drobė.
