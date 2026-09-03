@@ -1309,13 +1309,19 @@ $('slicerGo').addEventListener('click',async()=>{
     msg(e.message,true);
   }finally{
     clearInterval(tiksi);
+    /* Vėliava nuleidziama PIRMA, dar pries isejima. Siandien sitas kelias
+       nepasiekiamas (antro ejimo neileidzia `if(sliceRunning)return`), bet
+       1.1 ateis tikras `abort()` (zr. komentara ties mygtuku), ir nutrauktas
+       ejimas paliktu `sliceRunning=true` amziams: „Slice“ liktu uzrakintas, o
+       rezultato eilute - amzinai issiskleitusi. Viena eilute dabar, valanda
+       ieskojimo tada (pasiule printerio sesija 09-03). */
+    sliceRunning=false;
+    if(window.slicerResRowSync)window.slicerResRowSync();
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
     slicerOverlayOff();
     slicerWorkUI(false);
-    sliceRunning=false;
-    if(window.slicerResRowSync)window.slicerResRowSync();
     btnBusy(go,false);
     slicerBusyNow=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
