@@ -1195,6 +1195,11 @@ $('slicerGo').addEventListener('click',async()=>{
   const go=$('slicerGo'), prog=$('slicerProg');
   const myRun=++sliceRun;
   sliceRunning=true;
+  /* Eilute lieka issiskleidusi visa pjaustyma, nors `slicerProg` tuscias -
+     kitaip ji issitiestu tik pabaigoje ir pastumtu viska zemiau butent tada,
+     kai zmogus ziuri i rezultata. Kviesti PO `sliceRunning=true`: pries ji
+     patikra dar mato `false` (pirmas bandymas 09-03 tuo ir sukluppo). */
+  if(window.slicerResRowSync)window.slicerResRowSync();
   /* Uzrakintas ir su suktuku. Raudono „Stop" cia nebera - zr. komentara virsuje. */
   btnBusy(go,true);
   /* Ir visas pultas uzsirakina, kaip per printerio darba: uzraktai skaito `uiBusy`,
@@ -1310,6 +1315,7 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerOverlayOff();
     slicerWorkUI(false);
     sliceRunning=false;
+    if(window.slicerResRowSync)window.slicerResRowSync();
     btnBusy(go,false);
     slicerBusyNow=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
@@ -1874,7 +1880,13 @@ function slicerParamai(){
   const pr=document.getElementById('slicerProg');
   const eil=pr&&pr.closest('.calRow');
   if(!pr||!eil)return;
-  const tikrink=()=>eil.classList.toggle('tuscia',!(pr.textContent||'').trim());
+  /* Pjaustant `slicerProg` istustinamas (eiga piesiama drobeje), tad be
+     `sliceRunning` salygos eilute susiskleistu visam pjaustymui, o pabaigoje
+     staiga issitiestu ir pastumtu parametrus bei faktus - butent tada, kai
+     zmogus ziuri i rezultata (pagavo printerio sesija 09-03). */
+  const tikrink=()=>eil.classList.toggle('tuscia',
+    !(pr.textContent||'').trim() && !sliceRunning);
+  window.slicerResRowSync=tikrink;
   tikrink();
   new MutationObserver(tikrink).observe(pr,{childList:true,characterData:true,subtree:true});
 })();
@@ -1891,11 +1903,14 @@ function slicerParamai(){
 
 /* Kokie parametrai nustatyti dabar - vienu tekstu. Reikia tik palyginimui:
    „Reset“ turi panaikinti rezultata TIK tada, kai jis is tikro ka nors pakeite,
-   o ne kaskart, kai i ji paspaudziama. */
+   o ne kaskart, kai i ji paspaudziama.
+   Vardai imami IS PACIO bloko, o ne surasomi ranka: ranka surasytas sarasas yra
+   tas pats spastas, kaip klausytojas ties vienu jungikliu - septintas parametras
+   i parasa nepatektu, „Reset“ jo nepamatytu, ir „Send to printer“ liktu gyvas su
+   failu, supjaustytu kitais nustatymais (pagavo printerio sesija 09-03). */
 function slicerParamaiParasas(){
-  return ['slicerSupType','slicerSupDens','slicerPlace','slicerTip','slicerRaft',
-          'slicerSmooth'].map(n=>
-    (document.querySelector('input[name='+n+']:checked')||{}).value||'').join('|');
+  return [...document.querySelectorAll('#slicerParams input:checked')]
+    .map(e=>e.name+'='+e.value).join('|');
 }
 
 function slicerParamaiReset(){
