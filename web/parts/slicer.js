@@ -360,6 +360,21 @@ const slicerInvalidate=()=>{
   /* Atramos priklauso TAM rezultatui: be sito senojo modelio atramos likdavo
      stovėti scenoje salia naujo (V 08-20 - ikelus kita modeli suportai liko seni). */
   if(window.gl3dSupports)gl3dSupports(null);
+  /*
+   * ⚠️ Ir PATS MODELIS grazinamas ant ploksces.
+   *
+   * Pakelima modeliui uzdeda `slicerGeomView` (zr. `slicerKelk`), o be naujo
+   * pjaustymo tas kelias nebeivyksta - tad nuemus atramas scenoje likdavo
+   * pakeltas modelis, kabantis ore be nieko po juo. Iki „lifted" jungiklio to
+   * atvejo buti negalejo: modelis visada buvo piesiamas ant ploksces.
+   * Pagavo V, 09-03, is karto po `Reset to defaults`.
+   *
+   * Cia pakelimo NEskaiciuojam: rezultato jau nebera, o be jo ir pakelimo nera -
+   * detale grizta lygiai i ta busena, kurioje buvo pries pjaustyma.
+   */
+  if(window.gl3dMesh&&slicerRaw&&slicerTr&&slicerMod&&slicerMod.place&&slicerMod.toSceneMesh){
+    try{gl3dMesh(slicerMod.toSceneMesh(slicerMod.place(slicerRaw,slicerTr)),false);}catch(e){}
+  }
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
