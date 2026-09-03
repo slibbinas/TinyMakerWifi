@@ -1054,11 +1054,41 @@ const slicerJoin=(bufs)=>{
   let o=0;parts.forEach(a=>{out.set(a,o);o+=a.length;});
   return out;
 };
+/*
+ * Kiek variklis PAKELE modeli virs pado. Nulis - kai nekele.
+ *
+ * Reiksme imama is paties rezultato (`wasm.z.modelis[0]`), o ne is konstantos:
+ * pakelimo dydis gyvena variklyje (`bridge.cpp` PAKELIMAS_MM), ir antra jo
+ * kopija pulte issiskirtu tyliai - vaizdas nuslinktu, o niekas nezinotu kodel.
+ */
+const slicerPakelimas=()=>{
+  const w=slicerOut&&slicerOut.wasm;
+  return (w&&w.pakelta&&w.z&&w.z.modelis&&w.z.modelis[0])||0;
+};
+const slicerKelk=(pos,dz)=>{
+  if(!dz)return pos;
+  const o=new Float32Array(pos);
+  for(let i=2;i<o.length;i+=3)o[i]+=dz;
+  return o;
+};
+
 const slicerGeomView=(home)=>{
   if(!slicerRaw||!slicerTr||!slicerMod)return false;
   if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
-  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
+  /*
+   * ⚠️ Pakeltame rezime modelis vaizde turi buti PAKELTAS.
+   *
+   * Atramos ir padas ateina is variklio jo koordinatemis, o `placed` yra musu
+   * kopija, gulinti ant ploksces. Kol pakelimo nebuvo, abi sutapo (zr. komentara
+   * zemiau), bet ijungus „lifted" jos issiskiria per 5 mm: vaizde matosi ilgos
+   * atramos, tarpas po detale - ir pati detale, gulinti pade. V pastebejo
+   * 09-03: „supportai gerai, kaip pakeltam objektui, o pats objektas nepakeltas".
+   * Faile viskas buvo teisinga (ismatuota: modelis z 5..11, atramos 0..10,3) -
+   * klaida buvo tik piesinyje, bet zmogus sprendzia pagal ji.
+   */
+  const kelk=slicerPakelimas();
+  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(slicerKelk(placed,kelk)),false);
   /* Pjuvio aukstis - PER SAVO lauka, ne per bendra `slicesCache`: i ji rasant
      kito modelio perziura likdavo su musu aukščiu ir suplokstedavo (V 08-20). */
   {const H=slicerModelH(); window.gl3dClipHeight=H||null;}
@@ -1165,6 +1195,11 @@ $('slicerGo').addEventListener('click',async()=>{
   const go=$('slicerGo'), prog=$('slicerProg');
   const myRun=++sliceRun;
   sliceRunning=true;
+  /* Eilute lieka issiskleidusi visa pjaustyma, nors `slicerProg` tuscias -
+     kitaip ji issitiestu tik pabaigoje ir pastumtu viska zemiau butent tada,
+     kai zmogus ziuri i rezultata. Kviesti PO `sliceRunning=true`: pries ji
+     patikra dar mato `false` (pirmas bandymas 09-03 tuo ir sukluppo). */
+  if(window.slicerResRowSync)window.slicerResRowSync();
   /* Uzrakintas ir su suktuku. Raudono „Stop" cia nebera - zr. komentara virsuje. */
   btnBusy(go,true);
   /* Ir visas pultas uzsirakina, kaip per printerio darba: uzraktai skaito `uiBusy`,
@@ -1280,6 +1315,7 @@ $('slicerGo').addEventListener('click',async()=>{
     slicerOverlayOff();
     slicerWorkUI(false);
     sliceRunning=false;
+    if(window.slicerResRowSync)window.slicerResRowSync();
     btnBusy(go,false);
     slicerBusyNow=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
@@ -1844,7 +1880,13 @@ function slicerParamai(){
   const pr=document.getElementById('slicerProg');
   const eil=pr&&pr.closest('.calRow');
   if(!pr||!eil)return;
-  const tikrink=()=>eil.classList.toggle('tuscia',!(pr.textContent||'').trim());
+  /* Pjaustant `slicerProg` istustinamas (eiga piesiama drobeje), tad be
+     `sliceRunning` salygos eilute susiskleistu visam pjaustymui, o pabaigoje
+     staiga issitiestu ir pastumtu parametrus bei faktus - butent tada, kai
+     zmogus ziuri i rezultata (pagavo printerio sesija 09-03). */
+  const tikrink=()=>eil.classList.toggle('tuscia',
+    !(pr.textContent||'').trim() && !sliceRunning);
+  window.slicerResRowSync=tikrink;
   tikrink();
   new MutationObserver(tikrink).observe(pr,{childList:true,characterData:true,subtree:true});
 })();
@@ -1861,11 +1903,14 @@ function slicerParamai(){
 
 /* Kokie parametrai nustatyti dabar - vienu tekstu. Reikia tik palyginimui:
    „Reset“ turi panaikinti rezultata TIK tada, kai jis is tikro ka nors pakeite,
-   o ne kaskart, kai i ji paspaudziama. */
+   o ne kaskart, kai i ji paspaudziama.
+   Vardai imami IS PACIO bloko, o ne surasomi ranka: ranka surasytas sarasas yra
+   tas pats spastas, kaip klausytojas ties vienu jungikliu - septintas parametras
+   i parasa nepatektu, „Reset“ jo nepamatytu, ir „Send to printer“ liktu gyvas su
+   failu, supjaustytu kitais nustatymais (pagavo printerio sesija 09-03). */
 function slicerParamaiParasas(){
-  return ['slicerSupType','slicerSupDens','slicerPlace','slicerTip','slicerRaft',
-          'slicerSmooth'].map(n=>
-    (document.querySelector('input[name='+n+']:checked')||{}).value||'').join('|');
+  return [...document.querySelectorAll('#slicerParams input:checked')]
+    .map(e=>e.name+'='+e.value).join('|');
 }
 
 function slicerParamaiReset(){

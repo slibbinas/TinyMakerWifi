@@ -77,9 +77,17 @@
 #slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
 #slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
 /*
- * ⚠️ Klase, ne `:has(#slicerProg:empty)`: pulto naršyklėje `:has()` nesuveike
- * (ismatuota 09-03 - taisykle nepakeite nei min-height, nei aukscio), tad
- * suskleidima valdo JS.
+ * ⚠️ PATAISA (09-03). Buvau parases, kad pulto naršyklėje `:has()` neveikia -
+ * tai NETIESA, ir tai buvo blogas matavimas: tuo metu eilute dar turejo inline
+ * `style='min-height:1.9em'`, o inline nugali BET KOKI selektoriu, taip pat ir
+ * `:has()`. Matavau inline stiliu, ne selektoriu. Pertikrinta svariai:
+ * `CSS.supports('selector(:has(*))')` = true, ir bandomoji taisykle suveikia.
+ * Pagavo printerio sesija.
+ *
+ * Klase per JS vis tiek lieka, bet del kitos priezasties: pjaustymo metu
+ * `slicerProg` yra TUSCIAS (eiga piesiama drobeje), tad `:empty` suskleistu
+ * eilute visam pjaustymui ir pabaigoje ji staiga issitiestu. JS mato ir
+ * `sliceRunning`, o CSS - ne.
  *
  * Rezultato eilute (eiga + „Discard“) tarp parametru ir faktu saraso yra TUSCIA,
  * kol niekas nesupjaustyta, bet uzima 45 px: 27 px `min-height:1.9em` plius 9+9
