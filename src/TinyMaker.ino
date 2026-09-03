@@ -909,6 +909,7 @@ bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
 bool homing_canceled = false; // Flag: Homing process canceled
+bool zHomed = false;          // Z reference valid: homing reached the endstop since boot
 bool print_paused = false;    // Flag: Print is currently paused
 bool print_canceled = false;  // Flag: Print process canceled
 
@@ -2541,6 +2542,7 @@ void loop() {
           resumeCheckpoint('E');   // stationary at the next layer's height
         } else {
         resumeWriteStart();        // 'S': a loss during homing restarts cleanly
+        zHomed = false;            // no reference until this run reaches the endstop
         stepper.setCurrentPosition(0);
         stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
         stepper.enableOutputs();
@@ -2642,6 +2644,7 @@ void loop() {
         if (homing_canceled != true){
           stepper.disableOutputs();
           stepper.setCurrentPosition(0);
+          zHomed = true;           // endstop reached: API heights mean something again
           digitalWrite(FAN, HIGH);
           if (screen != 11111){
             gfx2->fillRect(136, 52, 6, 16, YELLOW);

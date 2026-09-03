@@ -232,6 +232,7 @@ void resumeRaisePlateAndDiscard() {
   // resumeClear() does not touch.
   resumeClear();
 
+  zHomed = false;   // a checkpoint is an estimate, not a homing run
   stepper.setCurrentPosition(resumePosSteps);
   stepper.enableOutputs();
 
@@ -277,6 +278,7 @@ void resumeRecoverPosition() {
   if (lowPos < 0) lowPos = 0;
   resumeCheckpointAt('M', lowPos);
 
+  zHomed = false;   // a checkpoint is an estimate, not a homing run
   stepper.setCurrentPosition(resumeLiveSteps);   // relabel to the real height (<= true; legacy == pos)
   stepper.enableOutputs();
 

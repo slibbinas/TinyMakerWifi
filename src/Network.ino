@@ -2667,7 +2667,7 @@ void handleApiStatus() {
   // lacks it as a truncated/garbled body. Status and the boot-anim list were
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
-  out.reserve(2368);   // 132 appends, polled mid-print; a failed one is silent
+  out.reserve(2368);   // 153 appends, polled mid-print; a failed one is silent
                        // Ismatuota 08-18: blogiausias realus atsakymas (100 simboliu
                        // modelio vardas) ~1,8 KB, tad su atsarga - vienas augimas
                        // reikstu realloc'a kas apklausa, o heap fragmentuojasi.
@@ -2898,6 +2898,19 @@ void handleApiStatus() {
   // or whether the carriage lost steps. Readable without moving anything.
   out += ",\"endstop\":";
   out += digitalRead(end_stop) ? "true" : "false";
+  // Where the printer thinks the plate is, in steps and in mm above the HOME
+  // position (not above the LCD - the physical zero is where the plate was
+  // levelled). zKnown is false until a homing run has reached the endstop since
+  // boot: the step counter starts at 0 wherever the carriage happens to stand,
+  // so an unhomed reading would claim "at home" for a plate parked up top. A
+  // power-loss resume restores a checkpointed, deliberately down-biased count -
+  // an estimate, not a measurement - so it does not set the flag either.
+  out += ",\"zSteps\":";
+  out += String(stepper.currentPosition());
+  out += ",\"zMm\":";
+  out += String(stepper.currentPosition() / steps_mm, 2);
+  out += ",\"zKnown\":";
+  out += zHomed ? "true" : "false";
   out += ",\"uptimeSecs\":";
   out += String(millis() / 1000UL);
   out += "}";

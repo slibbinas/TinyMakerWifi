@@ -123,6 +123,19 @@ Backups carry `calUnit:1` to mark the grams era; older files restore safely.
 `/api/status` additionally reports `endstop` (the raw optical Z sensor reading) — added for
 homing diagnostics.
 
+It also reports where the plate is: `zSteps` (raw step counter), `zMm` (height above the
+**home** position, not above the LCD - the physical zero is wherever the plate was
+levelled) and `zKnown`. Treat `zSteps`/`zMm` as meaningless while `zKnown` is `false`:
+the counter starts at 0 wherever the carriage happens to stand, so an unhomed printer
+would otherwise claim "at home" for a plate parked up top. `zKnown` turns true only
+when a homing run reaches the endstop, and false again the moment the next one starts;
+a power-loss resume restores a checkpointed, deliberately down-biased count - an
+estimate, not a measurement - and so leaves it false, as does a manual jog aimed above
+the build height (nothing stops that move at the top, so the counter can outrun the
+carriage). The value is only as fresh as the
+poll that fetched it: during a print the printer can go seconds without answering.
+Nothing here detects lost steps - the motor has no feedback.
+
 ## Settings, backup, restore
 
 | Endpoint | Method | Purpose |

@@ -956,6 +956,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <div><div class='label'>Free memory</div><div id='abHeap' class='value'>-</div></div>
     <div><div class='label'>Lowest ever</div><div id='abHeapMin' class='value'>-</div></div>
     <div><div class='label'>Largest free block</div><div id='abHeapBlk' class='value'>-</div></div>
+    <div><div class='label'>Plate height</div><div id='abZ' class='value'>-</div></div>
   </div>
 </section>
 
@@ -2502,6 +2503,10 @@ const applyStatus=s=>{
       setText('abHeapMin',Math.round(s.minFreeHeap/1024)+' kB');
       setText('abHeapBlk',Math.round(s.maxAllocHeap/1024)+' kB');
     }
+    /* Plokstes aukstis nuo namu padeties. Kol nebuvo homing'o, skaitiklis rodo 0
+       ten, kur plokste atsitiktinai stovi - todel tada sakomas zodis, o ne netikras
+       0,00 mm (tas pats melas, kuri gaudo zKnown firmware puseje). */
+    if(typeof s.zMm==='number') setText('abZ', s.zKnown ? s.zMm.toFixed(2)+' mm' : 'not homed');
     /* Pagaliukai dabar dviese: antrasteje (nuolatinis „rysys yra" zenklas, kuriam
        dingus zinai, kad kaltas tinklas - V 08-13) ir Statistics eiluteje. */
     const wr=s.wifiRssi,wn=(wr&&wr<0)?(wr>-60?3:(wr>-75?2:1)):0;

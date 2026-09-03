@@ -2135,11 +2135,16 @@ void screen213(){
   screen = 213;
 
   // Homing Motion
+  zHomed = false;   // no reference until this run reaches the endstop
   stepper.setCurrentPosition(0);
   stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
   long initial_homing = 0;
   long current_position;
+  // Both aborts below leave the loop through break, and the sensor is optical: a
+  // dirty one can read HIGH right after, which used to paint "Homing OK" over the
+  // cancel screen. Harmless as pixels; not harmless once zHomed rides on it.
+  bool homingAborted = false;
   while(!digitalRead(end_stop)){
     stepper.moveTo(initial_homing);  // Set the position to move to
     initial_homing--;  // Decrease by 1 for next move if needed
@@ -2164,6 +2169,7 @@ void screen213(){
       gfx2->setCursor(100, 64);
       gfx2->println("OK :(");
       while(digitalRead(buttonOK) == HIGH);
+      homingAborted = true;
       screen21();      
       break;      
     }     
@@ -2191,6 +2197,7 @@ void screen213(){
       gfx2->setCursor(46, 43);
       gfx2->print("Canceled");
       delay(600);
+      homingAborted = true;
       screen21();
       break;
     }
@@ -2198,8 +2205,9 @@ void screen213(){
   stepper.disableOutputs();
   delay(50); 
           
-  if (digitalRead(end_stop)){
+  if (!homingAborted && digitalRead(end_stop)){
     stepper.setCurrentPosition(0);
+    zHomed = true;   // endstop reached: API heights mean something again
     gfx2->fillRoundRect(0, 0, 160, 20, 3, ORANGE); 
     gfx2->setCursor(40, 14);
     gfx2->print("Homing OK");

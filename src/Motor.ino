@@ -16,6 +16,10 @@ void manual_lift(){
     stepper.move(10 * steps_mm);
       break;    
   }
+  // Nothing stops this jog at max_height: past the mechanical top the ULN2003
+  // silently drops steps while the counter keeps counting. The move is left as it
+  // always was, but the height stops claiming to be measured.
+  if (stepper.targetPosition() > (long)(max_height * steps_mm)) zHomed = false;
   byte cancel = 0;
   while (cancel == 0 && stepper.distanceToGo()!= 0){
     stepper.run(); 
