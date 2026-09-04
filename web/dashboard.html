@@ -2640,8 +2640,37 @@ const applyStatus=s=>{
              tada modelis jau pazymetas, Start po ranka. Kad spaudinio nebera, sako antraste
              (vietoj „Printing 40% · vardas" - modelio vardas), dinge Pause/Stop ir atsirades Start. */
           lastPrintFrac=0;
-          if(slicesFit(doneName)&&slicesCache.mode!=='live')dashPreview(enc(doneName),{scroll:false,silent:true});
-          else dashPreviewPlaceholder();
+          /* Jei TAS PATS modelis jau pastatytas sluoksnyje ir jo kesas nepasikeitė -
+             ji tereikia PARODYTI. `dashPreview` besalygiskai piesia „Loading preview...",
+             eina i printeri ir stato is naujo; dideliam modeliui tai ~30 s laukimo
+             tuscioje vietoje uz vaizda, kuris jau buvo (V 09-04: „turi grazint
+             nupiesta modeli", „perpiesineti nereikalinga"). `slicesFit` + `mode` sargos
+             butinos: spausdinant i kesa raso gyvi sluoksniai, ir tada rodyti nera ko. */
+          const kesasTinka=slicesFit(doneName)&&slicesCache.mode!=='live';
+          /* Trumpasis kelias turi nuvilkti ir SPAUSDINIMO APDARA, ne tik parodyti
+             modeli: antraste („Printing 100% - X"), pilna juostele ir i bruksnelius
+             nustatytas Layers/Time/Resin eilutes uzdejo 2599-2605, ir jokia kita
+             vieta ju nebenuima (auditas 09-04). `gl3dShow` grazinama reiksme
+             GERBIAMA: nepavykus (WebGL nera) krentam i sena kelia, kitaip kortele
+             liktu su paskutiniu spaudinio kadru ir be jokio atsarginio varianto. */
+          const trumpas = doneName && glModelName===doneName && kesasTinka
+            && window.gl3dShow && !window.slicerOwnsPreview;
+          let parode=false;
+          if(trumpas){
+            clearPreviewStopped($('printPreviewCanvas'));
+            setDashPreviewName(doneName);
+            parode=!!gl3dShow(true);
+            if(parode){
+              setText('printPreviewTitle',doneName);
+              $('printPreviewBarFill').style.width='0%';
+              previewBarShow(false);
+              refreshDashModelInfo();
+            }
+          }
+          if(!parode){
+            if(kesasTinka)dashPreview(enc(doneName),{scroll:false,silent:true});
+            else dashPreviewPlaceholder();
+          }
         }
         if(!dashPreviewName&&(busyPreviewShown||justConnected))dashPreviewPlaceholder();
         /* Kortelės darbo metu (ispakavimas, trynimas, MUSU siuntimas) deze sake „Pick a
@@ -2695,13 +2724,13 @@ const applyStatus=s=>{
           busyPreviewShown='live:'+s.model;
           paintPreviewProgress($('printPreviewCanvas'),'Loading live 3D…',cf);
         }else{
-          $('prevNote').textContent='Live 3D print progress isn’t available here - open the model in the SD card list before starting a print to see it.';
+          $('prevNote').textContent='Live 3D print progress isn’t available here - open the model in the SD manager before starting a print to see it.';
           show('prevNote',true);
           // Fill the canvas once (guarded): the RAM snapshot if the printer kept
           // one, otherwise a plain placeholder.
           /* Raktas su priesaga, ne plikas vardas: pradzioje `busyPreviewShown` ir
              `s.model` abu tusti, tad sarga sutapdavo ir uzrasas NEBUVO piesiamas -
-             drobeje likdavo senas „Tap a model in the SD card list", o antrasteje
+             drobeje likdavo senas „Tap a model in the SD manager", o antrasteje
              jau „Printing 0%" (sestas auditas 08-17). Atejus vardui raktas
              pasikeicia ir perpiesiama su nuotrauka. */
           if(busyPreviewShown!=='nolive:'+(s.model||'?')){
@@ -3995,13 +4024,24 @@ function* drawIsoGen(cv,doneFrac){
   if(cv&&cv.id==='printPreviewCanvas')lastPreviewMsg=null;
   // GPU sluoksnis paslepiamas PIRMA, pries bet kuri ankstyva return'a:
   // is perziuros paspaudus Print jis likdavo uzklojes spaudini (auditas 08-12).
-  if(doneFrac<1&&window.gl3dShow)gl3dShow(false);
+  /* Riba yra „spaudinys BAIGESI", ne „skaitiklis parode 100 %" (V 09-04): paskutinis
+     sluoksnis progresa padaro pilna, o printeris ji dar kietina - ir irankiu juosta
+     sugrizdavo ~74 s per anksti (ismatuota: Layer 4/4, „Curing - 4s", Pause aktyvus).
+     Sargos: `cv.id` - svetima drobe musu sluoksnio negesina (08-30); `sdJob` nera
+     spausdinimas; sliceris spausdinant gali rodyti SAVO vaizda. Ta pati `plokscias`
+     reiksme naudojama IR zemiau, nes ijungima sprendzia `doneFrac>=1` blokas - ta
+     pati riba is kitos puses, ir uztaisius tik viena puse juosta grizta tuoj pat. */
+  const darSpausdina = !!(cv && cv.id==='printPreviewCanvas')
+    && !!(statusData && statusData.busy && !(statusData.sdJob||''))
+    && !window.slicerOwnsPreview;
+  const plokscias = doneFrac<1 || darSpausdina;
+  if(plokscias&&window.gl3dShow)gl3dShow(false);
   // Masinos kadras - OPT-IN per ta pacia 'as printed' varnele (V 08-11):
   // be jos spausdinimo progresas piesamas senuoju staciu budu.
   // Perziura ir baigtas spaudinys - glotnus pavirsius (#93). Gyvam progresui
   // lieka voxeliai: ten sluoksniai ateina po viena, o tinklelio perskaiciavimas
   // (~0.5 s) vyktu kas kelias sekundes.
-  if(doneFrac>=1&&slicesCache.slices.length>2){
+  if(!plokscias&&slicesCache.slices.length>2){
     /* Drobe piesiama tada, kai jos piesinys kam nors reikalingas: po sio kvietimo
        einantis canvasBlob() irraso miniatiura i SD, o tuscia drobe ten butu ikelusi
        „Loading preview 100%" vietoj modelio (auditas 08-12). IsSKYRUS detalu rezima:
@@ -4050,7 +4090,9 @@ function* drawIsoGen(cv,doneFrac){
      kas 0.4% progreso, pagrindineje gijoje (ismatuota 371 ms vs 18 ms desktope, telefone
      ~1-2 s), o detalus kesas dar ir neirasomas i localStorage - F5 spausdinant prarastu
      vaizda. Vaiduoklis nuo to nenukenteia: jis ir taip visada is coarseSlices(). */
-  const {slices,gw,gh,modelH}=doneFrac<1?coarseSlices():slicesCache;
+  /* `plokscias`, ne `doneFrac<1`: spausdinant sis kelias dabar pasiekiamas ir prie
+     doneFrac===1, o ten `slicesCache` butu DETALUS - to atsisake 08-14 auditas. */
+  const {slices,gw,gh,modelH}=plokscias?coarseSlices():slicesCache;
   const ctx=drawVolumeBox(cv);
   const MX=40.8,MY=30.6;
   const N=slices.length;
@@ -4726,7 +4768,7 @@ const dashPreviewPlaceholder=()=>{
   {const sliceris=!!(window.slicerIsOpen&&slicerIsOpen());
    paintPreviewProgress($('printPreviewCanvas'),
      sliceris?'Choose an STL file to slice'
-     :(firstStatusSeen?'Tap a model in the SD card list':'Connecting to the printer...'),
+     :(firstStatusSeen?'Tap a model in the SD manager':'Connecting to the printer...'),
      null,'box');}
   showDetailToggle();
 };
