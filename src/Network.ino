@@ -871,7 +871,11 @@ String printerStateText() {
       case 5: return prefix + "Pausing";
       case 6: return prefix + "Paused";
       case 7: return prefix + "Resuming";
-      case 8: return prefix + "Finished";
+      // Ne „Finished": tuo metu platforma DAR kyla, ir salia rodomas laikas iki
+      // pabaigos - „baigta" su likusiu laiku yra du priestaraujantys teiginiai
+      // vienoje eiluteje (V 09-04). „Lifting" netinka - taip vadinasi kiekvieno
+      // sluoksnio atplesimas (case 2), ir per spaudini jis mirga simtus kartu.
+      case 8: return prefix + "Raising plate";
       case 10: return prefix + "Refill resin";
       default: return uvLedEnabled ? "Printing" : "Testing";
     }

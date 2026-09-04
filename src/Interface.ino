@@ -1663,7 +1663,14 @@ void screen1111(){
   gfx2->fillScreen(BLACK);
   gfx2->fillRoundRect(0, 0, 120, 80, 5, ORANGE);
   gfx2->fillRoundRect(2, 2, 116, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+  /* Juosta gyvena remelio VIDUJE (V 09-04). Anksciau ji buvo piesiama ant
+     (0,0,120,20) ir nukirsdavo oranzinio remelio virsutini krasta - kortele
+     atrodydavo apkirsta. Tikram spaudiniui to nesimatydavo, nes juosta tada
+     oranzine ir susilieja su remeliu; dry run rezime ji zydra, ir luzis matomas.
+     Du kvietimai, nes `fillRoundRect` apvalina VISUS keturis kampus, o antrastei
+     apacia turi buti tiesi. */
+  gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+  gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     
   // Icons (Pause/Cancel)    
   gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1712,7 +1719,10 @@ void screen1111_state(){
     }
   }
   if (screen != 11111 && screen != 11112){
-    gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+    // Ta pati juosta, kaip screen1111 - kitaip perpiesus busena ji atrodytu
+    // kitaip nei ka tik ijungus (zr. komentara ten).
+    gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+    gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
@@ -1750,8 +1760,17 @@ void screen1111_state(){
       gfx2->print("Resuming...");
         break;
       case 8:
-      gfx2->setCursor(32, 14);
-      gfx2->print("Finish :)");
+      // Tas pats zodis, kaip pulte (V 09-04): ekranas sakydavo „Finish :)", o
+      // pultas tuo metu rodo likusi laika - du priestaraujantys teiginiai.
+      // Vieta MATUOJAMA, ne imama is kaimyno: sriftas proporcingas (todel
+      // „Lifting..." stovi ties 37, o „Pausing..." ties 30 - abu po 10 zenklu).
+      // Ir centruojama JUOSTOJE, kuri yra 120 px (1715 eil.), ne 160 px ekrane:
+      // desinieji 40 px priklauso zenkliukams. „Raising plate" i 120 netilpo ir
+      // islisdavo uz zydro fono (V 09-04, foto) - todel trumpesnis zodis.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Raising...", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Raising...");
         break;
       case 10:                  // low-resin pause (paused variant)
       gfx2->setCursor(26, 14);
