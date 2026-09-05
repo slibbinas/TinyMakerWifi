@@ -1852,18 +1852,30 @@ setTimeout(()=>{
  * varikliui numatytaji". Tuo ir remiasi pazadas, kad nieko nesukant elgsena
  * nesikeicia - NE tuo, kad laukas praleidziamas (taip klaidingai sake sitas
  * komentaras; pagavo printerio sesija 09-02). Isimtis - RAFTAS: jo numatytoji
- * skaiciuojama is sluoksnio aukscio (V: „0,05 - 6, 0,1 - 3"), t. y. siekiam
- * 0,3 mm; prie vieno sluoksnio padas ir detale lieka atskiri kunai.
+ * skaiciuojama is `RAFT_MM`, siekiant 0,30 mm FIZINIO pado. Nuo 09-06 tai
+ * 3 sluoksniai (buvo 6): ismatuota, kad atspausdintas padas iseina ~0,15 mm
+ * storesnis uz nominala, tad nominalus 0,15 ir duoda tuos 0,30. Zemiau prie
+ * `RAFT_MM` - pilna matavimo lentele ir salygos.
  */
 /*
  * Sluoksnio aukstis, kuriuo pjausto NARSYKLE.
  *
- * ⚠️ Cia 0,05 stovi ne is gero: pultas modului `layerHeight` NEPADUODA is viso
- * (patikrinta 09-02: zodzio `layerHeight` slicer.js nera nei karto), tad modulis
- * ima savo numatytaji 0,05 net tada, kai printeryje aktyvus 0,1 profilis.
- * Zmogus tokiu atveju tyliai gauna dvigubai daugiau sluoksniu, nei tikejosi.
- * Atskiras darbas; kai jis bus padarytas, cia ateis tikroji profilio reiksme, o
- * formule zemiau tada pati duos 3 sluoksnius vietoj 6.
+ * ✅ 0,05 cia stovi SAMONINGAI (V 09-06) - tai ne trukumas ir netaisytina.
+ * Failas pjaustomas smulkiai VIENA karta, o greiti ir kokybe zmogus renkasi jau
+ * prie printerio: nustacius 0,1 mm firmware ima KAS ANTRA paveiksleli ir zengia
+ * 0,1 (`PNG.ino:229`; tas pats `Import.ino:112`, `Resume.ino:173`,
+ * `Network.ino:984`, `Network.ino:1465`). Jei narsykle pjaustytu pagal profili,
+ * to pasirinkimo nebeliktu - persigalvojus reiketu pjaustyti is naujo.
+ *
+ * ⚠️ Todel NEPADUOK cia tikrosios profilio reiksmes „pataisydamas" - sulauzytum
+ * ta pasirinkima. Plane buves punktas `SL-lh` aprase tai kaip yda; jis isimtas
+ * 09-06 V nurodymu (zr. atminties `sprendimu-registras`).
+ *
+ * Rafto pasekme, del kurios formules keisti NEREIKIA: raftas yra pirmi failo
+ * sluoksniai, tad spausdinant 0,1 mm is triju atspausdinami du - 0,20 mm vietoj
+ * 0,15. Abu V ruoze. (Jei kada sita konstanta vis delto taptu kintama: dalyba
+ * duotu 1, nes `0.15/0.1` kompiuteriui yra 1,4999999999999998 - iki 2 pakelia
+ * tik `Math.max` grindys zemiau. Pagavo printerio sesija 09-06.)
  */
 const SLICER_LH=0.05;
 /* Rafto storis, kurio siekiam. Tikslas nepakito - vis dar 0,3 mm fizinio pado,

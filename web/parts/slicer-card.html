@@ -96,14 +96,19 @@
       <!--
         SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
         Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
-        raftas: jo numatytoji skaiciuojama is sluoksnio aukscio taip, kad iseitu
-        0,30 mm (V 09-02: „0,05 - 6, 0,1 - 3“). Pirmas V sprendimas buvo 2
-        sluoksniai - jis pakeistas ta pacia diena, tad jei kur nors dar matote
-        dvejeta, tai pasenes tekstas, ne kodas. Riba, ties kuria raftas apskritai
-        prikimba, yra 2: ismatuota, kad prie vieno padas ir detale lieka atskiri
-        kunai (18 dėmelių po 2-4 px), o prie dvieju useliai suauga i viena.
-        Raftas rodomas SLUOKSNIAIS, ne milimetrais: 0,15 ir 0,30 mm duoda ta pati
-        viena sluoksni, tad jungiklis milimetrais nieko nekeistu.
+        raftas: jo numatytoji skaiciuojama is `RAFT_MM` taip, kad iseitu 0,30 mm
+        FIZINIO pado. Nuo 09-06 tai 3 sluoksniai (buvo 6) - V atspausdino kupona
+        tikra derva ir pamatavo, kad padas iseina ~0,15 mm storesnis uz nominala,
+        o storesni uz 0,30 mm nusiima tik su jega.
+        Mygtukai: 2 · 3 · 6. Vienetas isimtas 09-06, nes ties juo raftas prie
+        detales NEPRIKIMBA - padas ir modelis lieka atskiri kunai (18 demeliu po
+        2-4 px), o prie dvieju useliai suauga i viena. Sesetas paliktas kaip
+        atsarga dideliam spaudiniui, kuris gali nusilupti nuo plokstes - to
+        atvejo kuponas netikrino.
+        Raftas rodomas SLUOKSNIAIS, ne milimetrais, ir tam yra dvi priezastys:
+        atspausdintas padas storesnis uz nominala, o spausdinant 0,1 mm printeris
+        is triju sluoksniu apsviecia du. Milimetrai butu tikslus tik viename
+        rezime, sluoksniai teisingi visuose.
       -->
       <div id='slicerParams'>
         <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
