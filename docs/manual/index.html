@@ -706,6 +706,17 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li>Getting the plate clear before pulling the vat out.</li>
     <li>Closing in on a position gently — 10&nbsp;mm to travel, 1&nbsp;mm to approach, 0.1&nbsp;mm for the last bit.</li>
   </ul>
+  <p><b>Both ends of the travel stop themselves, and say so.</b> Going up, the plate stops at the
+  top of its travel and the screen reads <b>Plate is at the top</b> — press Up again and nothing
+  happens, which is the answer, not a fault. That is also where the plate stands right after every
+  print, because the finishing lift parks it there. Going down, the moment the plate reaches the
+  endstop the printer takes that as its <b>zero</b> and shows <b>Plate is home</b>: the height it
+  reports is trustworthy again, exactly as after a homing run.</p>
+  <div class="note">💡 The ceiling applies only once the printer has homed — by a print, or by
+  driving the plate down onto the endstop as above. Before that it has no idea where the bottom is,
+  so it cannot know where the top is either, and it lets you move freely rather than guess. You can
+  see which state it is in on the dashboard: <b>Plate height</b> reads <i>not homed</i> until there
+  is a reference.</div>
 
   <h3 id="maint-clean">Clean Resin Vat</h3>
   <p>Lights the <b>whole screen</b> for a set time, so everything left in the vat cures into one thin sheet you can lift out in one piece — instead of chasing hardened crumbs around with a spatula. Run it when you change resin, when a print has failed and left something behind, or before putting the printer away.</p>
