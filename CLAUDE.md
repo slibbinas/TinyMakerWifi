@@ -73,6 +73,19 @@ ir `web/lib/slicer*.js`. Kelios vietos, kur sliceris tikrai lenda į pulto vidų
 (3D vaizdo perdanga, `applyStatus` kabliukai), lieka pulte kaip pavieniai
 iškvietimai; jas keičia printerio pusė.
 
+**Liejimas: prie printerio eina TIK printerio sesija (V 2026-09-06).** Slicerio
+sesija daro pakeitimą, įrašo, išstumia ir perduoda - o kompiliuoja, praeina vartus
+ir lieja printerio pusė. Riba dėl **failų** lieka tokia pati, kaip aukščiau; ši
+taisyklė tik apie tai, **kas liečia geležį**.
+
+**Kodėl:** 2026-09-04 abi sesijos nuliejo per kelias sekundes viena nuo kitos, ir
+vienas build'as užgulė kitą. Tąkart pasisekė - commit'ai stovėjo vienas ant kito,
+tad turinyje buvo abu pakeitimai. Kitą kartą taip nebūtų, ir viena sesija testuotų
+ne tai, ką galvoja. Vienas printeris, viena eilė.
+
+⚠️ Tai NEPANAIKINA „liek" taisyklės: V žodis vis tiek reikalingas, ir jo negalima
+išsivesti iš konteksto. Pasikeitė tik tai, KAM tas žodis skirtas.
+
 Bet kas, kas skaito pultą (stendai, demo, testai), turi imti jį **per
 `assemble()`**, ne tiesiai iš failo - kitaip slicerio ten paprasčiausiai nebus.
 Patikra: `python scripts/assemble_dashboard.py --check <senas failas>`.
