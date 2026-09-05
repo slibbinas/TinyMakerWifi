@@ -1866,12 +1866,26 @@ setTimeout(()=>{
  * formule zemiau tada pati duos 3 sluoksnius vietoj 6.
  */
 const SLICER_LH=0.05;
-/* Rafto storis, kurio siekiam - 0,3 mm (V 09-02: „0.05 - 6, 0.1 - 3“). Tai tas
-   pats storis, kuri duoda PrusaSlicer plokstele, ir V praktikos etalonas.
+/* Rafto storis, kurio siekiam. Tikslas nepakito - vis dar 0,3 mm fizinio pado,
+   toks pat, koki duoda PrusaSlicer, ir V praktikos etalonas. Pakito supratimas:
+   ATSPAUSDINTAS padas iseina ~0,15 mm storesnis uz nominala, tad nominalus 0,15
+   praktikoje ir duoda tuos 0,3 mm. Iki 09-06 cia stovejo 0,30, t. y. sesi
+   sluoksniai, ir fiziskai isejo 0,50 mm.
+   Ismatuota ant gelezies (V 09-06, kuponas `raftai.zip`): 0,15 nominalo -> 0,30
+   fiziskai, nusiimo BE JEGOS; 0,30 -> 0,50, reikejo jegos; 0,60 -> 0,75 ir
+   1,00 -> 1,10, abu su jega. Visi keturi laikesi spausdinant, nei vienas neliko
+   ant pleveles - tad plonesnis nieko nepraranda.
+   ⚠️ SALYGOS, kuriomis tai matuota: sluoksnis 0,05 mm, greitoji derva,
+   ekspozicija 18 s / 8 s. Priedo priezastis NEISMATUOTA (itariam kietejimo gyli,
+   o jis priklauso nuo dervos ir ekspozicijos) - kita derva gali duoti kita prieda.
+   ⚠️ Rysys su `SL-lh`: siandien narsykle VISADA pjausto 0,05 mm, tad kitu
+   salygu ir nera. Sutvarkius `SL-lh` prie 0,1 mm ta pati konstanta duotu 2
+   sluoksnius - visai kita rezima, neismatuota. Tada numatytaji reikia PERMATUOTI,
+   ne perskaiciuoti.
    ⚠️ Naudojama TIK numatytajai reiksmei apskaiciuoti. Zmogui milimetrai
    NERODOMI (V 09-03): jie butu teisingi tik prie 0,05, nes `SLICER_LH` yra
    konstanta - o sluoksniu skaicius teisingas prie bet kurio profilio. */
-const RAFT_MM=0.30;
+const RAFT_MM=0.15;
 const raftoNumatytas=()=>Math.max(1,Math.round(RAFT_MM/SLICER_LH));
 
 function slicerParamai(){
