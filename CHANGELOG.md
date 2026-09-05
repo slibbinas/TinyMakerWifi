@@ -17,6 +17,23 @@ unless noted. Community contributors are tagged inline.
 
 ### Added
 
+- **Slice an STL in the browser** (plan SL-params, SL-mod). The printer now brings
+  its own slicer: open the dashboard, pick an STL, and the model is oriented,
+  supported, sliced and sent to the card - no PrusaSlicer, no ChiTuBox, no desktop
+  computer at all. A phone is enough, and so is a printer with no internet, because
+  the module lives on the SD card.
+  - `Choose STL` -> orientation (**Fast fit**; **Optimal fit**, which searches for
+    the rotation needing the fewest supports, the way PrusaSlicer does; **Lay flat**,
+    **Flip over**, **Tilt 90 deg**, **Rotate 90 deg**) -> **Supports** and
+    **Strength** -> **Slice** -> **Send to printer**.
+  - Six controls sit under those buttons - Supports, Strength, Placement, Tip, Raft
+    and Smoothing - plus **Reset**. The raft is counted in layers, not millimetres,
+    because that is what decides whether the pad grips: the default 6 layers at
+    0.05 mm is 0.30 mm, the same thickness PrusaSlicer gives.
+  - The engine is PrusaSlicer's own **libslic3r**, unmodified, compiled to
+    WebAssembly and used under **AGPL-3.0** - so the geometry is theirs, not an
+    approximation of it.
+
 - **Named resin profiles** (plan 0-16). A profile is the whole print recipe for
   one resin: base and regular exposure, base and transition layers, all four
   lift settings, the resin's density and its weighing calibration. Switching
@@ -132,7 +149,6 @@ unless noted. Community contributors are tagged inline.
   off the card, but F5 during a print still brings the progress view straight back.
 
 ### Fixed
-
 - **A print of zero layers could be started.** The guard before Start compares
   the layer count against the height it was counted with - but switching resin
   re-counted the model and re-stamped that height, which disarmed the guard, and

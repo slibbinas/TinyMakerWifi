@@ -160,7 +160,18 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 ## Slice in the browser
 
 No slicer installed, and nothing to install: the dashboard slices STL files itself. Open the
-**STL slicer** card, choose an STL, pick **regular** or **tree** supports and press **Slice**.
+**STL slicer** card, choose an STL, let it stand the right way up, then press **Slice**.
+Orientation is one press - **Fast fit**, or **Optimal fit**, which searches for the rotation
+that needs the fewest supports, the way PrusaSlicer does; **Lay flat**, **Flip over**,
+**Tilt 90 deg** and **Rotate 90 deg** are there when you want to decide yourself.
+
+Under those buttons sit six settings, and **Reset** puts them all back: **Supports**
+(regular or tree), **Strength**, **Placement**, **Tip**, **Raft** and **Smoothing**.
+The raft is counted **in layers, not millimetres**, because layers are what decide whether
+the pad grips - the default 6 at 0.05 mm is 0.30 mm, the same thickness PrusaSlicer gives,
+and at a single layer the pad does not hold the part at all. A thicker raft costs resin, not
+time - unless the part is lifted off the plate: then it adds layers too.
+
 You get the result before anything is sent anywhere: the part on its raft in 3D, layer by
 layer in 2D, and the numbers that matter underneath - size, triangles, layer count, supports
 and the resin estimate. **Send to printer** then puts it on the SD card, ready to print;

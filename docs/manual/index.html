@@ -204,8 +204,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>A web dashboard</b> — print status, controls, SD manager and a 3D preview in any
         browser, on the computer or on the phone.</li>
     <li><b>A slicer in the browser</b> — drop in an <b>STL</b> and the dashboard slices it itself:
-        supports, raft, a 3D and a layer-by-layer preview, then straight onto the SD card. No desktop
-        slicer needed.</li>
+        orientation, supports, raft, a 3D and a layer-by-layer preview, then straight onto the SD card.
+        No desktop slicer needed, and a phone is enough.</li>
     <li><b>Named resin profiles</b> — the whole recipe for one resin (both exposures, base and
         transition layers, all four lifts, the density and its weighing calibration) under one name,
         switched in a single press. Two are built into the firmware; more can be installed from a
@@ -340,16 +340,30 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard — no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and a <b>Slicer</b> card appears on the dashboard.</p>
   <ol class="steps">
     <li><b>Choose STL</b> and pick a model file.</li>
+    <li><b>Stand it the right way up.</b> <b>Fast fit</b> drops it flat; <b>Optimal fit</b> searches for
+      the rotation that needs the fewest supports, the way PrusaSlicer does, and then tells you what it
+      won or lost against the fast one. <b>Lay flat</b>, <b>Flip over</b>, <b>Tilt 90&deg;</b> and
+      <b>Rotate 90&deg;</b> are there when you would rather decide yourself.</li>
     <li>Watch it slice — supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
     <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> — each layer exactly as the masking LCD will shine it.</li>
     <li>Press <b>Send to printer</b> — the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
   </ol>
+  <p><b>Six settings sit under those buttons</b>, and <b>Reset</b> puts them all back: <b>Supports</b>
+  (regular or tree), <b>Strength</b> (light, normal, strong), <b>Placement</b>, <b>Tip</b>,
+  <b>Raft</b> and <b>Smoothing</b>. You can slice without touching any of them - they only nudge
+  what the slicer already decided.</p>
+  <div class="note">💡 <b>The raft is counted in layers, not millimetres</b>, because layers are what
+  decide whether the pad grips. The default <b>6</b> at 0.05&nbsp;mm is 0.30&nbsp;mm - the same thickness
+  PrusaSlicer gives; at a single layer the pad does not hold the part at all. And a thicker raft
+  <b>costs resin, not time</b>: measured on one ring, all four raft settings gave the same 167 layers
+  while the resin went 1.3 to 1.5&nbsp;ml, because the pad thickens <i>under</i> the part. The exception
+  is a part <b>lifted off the plate</b> - there the layers grow too.</div>
   <img class="shot" style="max-width:378px" src="images/browser-slicer.png" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
   <div class="note">⚖️ The slicing itself is done by <b>PrusaSlicer’s libslic3r</b>, the same engine the
   desktop PrusaSlicer uses, compiled to run in your browser. It is used unmodified, under the AGPL-3.0 —
   see <a href="#credits">Credits</a>.</div>
   <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware — see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>; a slicer update never reflashes the printer.</p>
-  <div class="note">💡 PrusaSlicer remains the fully-featured path — manual support placement, hollowing, orientation tools. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
+  <div class="note">💡 PrusaSlicer remains the fully-featured path — manual support placement, hollowing, fine-grained control over every parameter. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
 </section>
 
 <section>
