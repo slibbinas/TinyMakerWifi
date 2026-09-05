@@ -353,9 +353,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <b>Raft</b> and <b>Smoothing</b>. You can slice without touching any of them - they only nudge
   what the slicer already decided.</p>
   <div class="note">💡 <b>The raft is counted in layers, not millimetres</b>, because layers are what
-  decide whether the pad grips. The default <b>6</b> at 0.05&nbsp;mm is 0.30&nbsp;mm - the same thickness
-  PrusaSlicer gives; at a single layer the pad does not hold the part at all. And a thicker raft
-  <b>costs resin, not time</b>: measured on one ring, all four raft settings gave the same 167 layers
+  decide whether the pad grips. Your file is always sliced at 0.05&nbsp;mm and the printer decides how
+  many of those images to expose, so the same setting is a different number of millimetres at a
+  different layer height. The default is <b>3 layers</b>; the choice is 2, 3 or 6. One layer is not
+  offered any more - the pad does not bond to the part at all. Measured on this printer: a printed
+  pad comes out about 0.15&nbsp;mm thicker than asked, so 3 layers lands on the ~0.3&nbsp;mm a PrusaSlicer
+  plate gives, and lifts off with a spatula without force. And a thicker raft
+  <b>costs resin, not time</b>: measured on one ring, every raft setting gave the same 167 layers
   while the resin went 1.3 to 1.5&nbsp;ml, because the pad thickens <i>under</i> the part. The exception
   is a part <b>lifted off the plate</b> - there the layers grow too.</div>
   <img class="shot" style="max-width:378px" src="images/browser-slicer.png" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">

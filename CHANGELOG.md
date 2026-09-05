@@ -27,9 +27,14 @@ unless noted. Community contributors are tagged inline.
     **Flip over**, **Tilt 90 deg**, **Rotate 90 deg**) -> **Supports** and
     **Strength** -> **Slice** -> **Send to printer**.
   - Six controls sit under those buttons - Supports, Strength, Placement, Tip, Raft
-    and Smoothing - plus **Reset**. The raft is counted in layers, not millimetres,
-    because that is what decides whether the pad grips: the default 6 layers at
-    0.05 mm is 0.30 mm, the same thickness PrusaSlicer gives.
+    and Smoothing - plus **Reset**. The raft is counted in **layers**, not millimetres:
+    the file is always sliced at 0.05 mm, and the printer decides how many of those
+    images it actually exposes, so the same raft setting is a different number of
+    millimetres at a different layer height. The default is **3 layers**, and the
+    choice is 2, 3 or 6 - a one-layer raft was dropped because the pad does not bond
+    to the part at all. Measured on this printer: a printed pad comes out about
+    0.15 mm thicker than asked, so the 3-layer default lands on the ~0.3 mm that
+    PrusaSlicer's plate gives, and it lifts off with a spatula without force.
   - The engine is PrusaSlicer's own **libslic3r**, unmodified, compiled to
     WebAssembly and used under **AGPL-3.0** - so the geometry is theirs, not an
     approximation of it.

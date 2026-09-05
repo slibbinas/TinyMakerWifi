@@ -167,10 +167,13 @@ that needs the fewest supports, the way PrusaSlicer does; **Lay flat**, **Flip o
 
 Under those buttons sit six settings, and **Reset** puts them all back: **Supports**
 (regular or tree), **Strength**, **Placement**, **Tip**, **Raft** and **Smoothing**.
-The raft is counted **in layers, not millimetres**, because layers are what decide whether
-the pad grips - the default 6 at 0.05 mm is 0.30 mm, the same thickness PrusaSlicer gives,
-and at a single layer the pad does not hold the part at all. A thicker raft costs resin, not
-time - unless the part is lifted off the plate: then it adds layers too.
+The raft is counted **in layers, not millimetres**. The file is always sliced at 0.05 mm and
+the printer decides how many of those images to expose, so the same setting means different
+millimetres at a different layer height. The default is **3 layers**; the choice is 2, 3 or 6.
+One layer is not offered any more - the pad does not bond to the part at all. Measured here:
+a printed pad comes out about 0.15 mm thicker than asked, so 3 layers lands on the ~0.3 mm a
+PrusaSlicer plate gives and lifts off with a spatula without force. A thicker raft costs
+resin, not time - unless the part is lifted off the plate: then it adds layers too.
 
 You get the result before anything is sent anywhere: the part on its raft in 3D, layer by
 layer in 2D, and the numbers that matter underneath - size, triangles, layer count, supports
