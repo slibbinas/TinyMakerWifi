@@ -1878,15 +1878,20 @@ const SLICER_LH=0.05;
    ⚠️ SALYGOS, kuriomis tai matuota: sluoksnis 0,05 mm, greitoji derva,
    ekspozicija 18 s / 8 s. Priedo priezastis NEISMATUOTA (itariam kietejimo gyli,
    o jis priklauso nuo dervos ir ekspozicijos) - kita derva gali duoti kita prieda.
-   ⚠️ Rysys su `SL-lh`: siandien narsykle VISADA pjausto 0,05 mm, tad kitu
-   salygu ir nera. Sutvarkius `SL-lh` prie 0,1 mm ta pati konstanta duotu 2
-   sluoksnius - visai kita rezima, neismatuota. Tada numatytaji reikia PERMATUOTI,
-   ne perskaiciuoti.
+   ✅ Skirtingi sluoksniu aukstai issitvarko PATYS, formules keisti nereikia.
+   Narsykle pjausto 0,05 SAMONINGAI (V 09-06): failas pjaustomas smulkiai viena
+   karta, o greiti/kokybe zmogus renkasi prie printerio - nustacius 0,1 firmware
+   ima kas antra paveiksleli (`PNG.ino:229`). Tad is triju rafto sluoksniu tada
+   atspausdinami du: 0,20 mm vietoj 0,15. Abu V ruoze. Neismatuota tik viena -
+   ar +0,15 priedas toks pat prie 0,1 mm.
    ⚠️ Naudojama TIK numatytajai reiksmei apskaiciuoti. Zmogui milimetrai
    NERODOMI (V 09-03): jie butu teisingi tik prie 0,05, nes `SLICER_LH` yra
    konstanta - o sluoksniu skaicius teisingas prie bet kurio profilio. */
 const RAFT_MM=0.15;
-const raftoNumatytas=()=>Math.max(1,Math.round(RAFT_MM/SLICER_LH));
+/* Grindys 2, ne 1: prie VIENO sluoksnio raftas prie detales nepriauga - padas ir
+   detale lieka atskiri kunai (ismatuota 09-03). Todel „1" 09-06 isimtas ir is
+   korteles mygtuku (liko 2 · 3 · 6). */
+const raftoNumatytas=()=>Math.max(2,Math.round(RAFT_MM/SLICER_LH));
 
 function slicerParamai(){
   const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
