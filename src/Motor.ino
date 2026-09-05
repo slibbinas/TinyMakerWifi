@@ -16,10 +16,30 @@ void manual_lift(){
     stepper.move(10 * steps_mm);
       break;    
   }
-  // Nothing stops this jog at max_height: past the mechanical top the ULN2003
-  // silently drops steps while the counter keeps counting. The move is left as it
-  // always was, but the height stops claiming to be measured.
-  if (stepper.targetPosition() > (long)(max_height * steps_mm)) zHomed = false;
+  /* Jog ceiling (0.17). Past the mechanical top the ULN2003 silently drops steps
+     while the counter keeps counting, so the plate ends up lower than the number
+     says and nothing on screen admits it.
+     Clamping is only correct when the zero is REAL: without homing, zero is
+     wherever the carriage happened to stand when the printer booted, and a limit
+     measured from it would mean anything - worst case it would refuse to lift a
+     plate that is actually sitting at the bottom. Unhomed therefore keeps the old
+     behaviour (it moves), and the height already reads "not homed" there.
+     The second guard is for a plate that is somehow ALREADY above the ceiling:
+     a bare moveTo(ceiling) would drive it DOWN, so an Up press would move the
+     plate the wrong way. Target the current position instead - the jog simply
+     does nothing rather than surprising anyone. */
+  bool atTop = false;
+  if (zHomed) {
+    const long ceilingSteps = (long)(max_height * steps_mm);
+    if (stepper.targetPosition() > ceilingSteps) {
+      const long here = stepper.currentPosition();
+      stepper.moveTo(here > ceilingSteps ? here : ceilingSteps);
+      // Clamped to nothing: say so. Right after a print the plate IS at the
+      // ceiling, so this is the normal case, not an edge one - and a jog that
+      // silently does nothing reads as a broken button (audit 09-05).
+      atTop = (stepper.distanceToGo() == 0);
+    }
+  }
   byte cancel = 0;
   while (cancel == 0 && stepper.distanceToGo()!= 0){
     stepper.run(); 
@@ -27,7 +47,10 @@ void manual_lift(){
       cancel = 1;       
   }
   stepper.disableOutputs();  
-  if (cancel == 1){
+  if (atTop) screenPlateAtTop();
+  // The move screen is repainted for BOTH exits that leave something on screen:
+  // a cancel (the Back press) and the at-top notice above.
+  if (cancel == 1 || atTop){
     switch (screen){
       case 2211:
       screen221();

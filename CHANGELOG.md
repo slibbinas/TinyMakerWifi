@@ -149,6 +149,14 @@ unless noted. Community contributors are tagged inline.
   off the card, but F5 during a print still brings the progress view straight back.
 
 ### Fixed
+- **The manual jog stops at the top instead of grinding into it.** Above
+  `max_height` the ULN2003 quietly drops steps while the counter keeps counting,
+  so the plate ended up lower than the screen claimed. It now stops at the
+  ceiling and says **Plate is at the top** - which is what you see right after a
+  print, since the finishing lift parks the plate there. The limit applies only
+  once the printer has homed: without a homing the zero is wherever the carriage
+  happened to stand, and a limit measured from it would mean nothing.
+
 - **A print of zero layers could be started.** The guard before Start compares
   the layer count against the height it was counted with - but switching resin
   re-counted the model and re-stamped that height, which disarmed the guard, and

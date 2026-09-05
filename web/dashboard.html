@@ -5666,7 +5666,12 @@ let deleteBusy=false;
    vienintelis rysys uzimtas ir apklausos krinta. Svetimam (PrusaSlicer) ikelimui
    `lastRxAt` veikia kaip veikes. */
 let sdJobQuietUntil=0;
-const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete this SD item?',{danger:true}))return;
+/* Vardas dialoge, ne „this SD item": zmogus turi galeti PATIKRINTI, ka tvirtina,
+   o ne pasitiketi tuo, kad pataike i ta eilute (V 09-05). Kitos dvi trynimo vietos
+   pulte varda rodo nuo pat pradziu - cia buvo vienintele isimtis.
+   Komentaras stovi VIRS eilutes samoningai: `strip_html_comments.py` salina tik
+   istisas komentaru eilutes, tad prilipdytas prie kodo jis nukeliautu i flash'a. */
+const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!await uiConfirm('Delete "'+name+'"?',{danger:true}))return;
   /* Trynimas ir perziuros krovimas eina i ta pati vieninteli printerio rysi. Nuo tada,
      kai Delete pasiekiamas tik pazymejus eilute (o pazymejimas paleidzia krovima), abu
      darbai lengvai susitinka - tad krovima nutraukiam vietoj to, kad leistume jiems
@@ -6786,12 +6791,12 @@ const loadUpdate=async()=>{
     $('updFile').disabled=!u.allowed;
     $('updVersionSelect').disabled=!u.allowed;
     if(u.allowed)refreshInstallSelected();else $('updInstallSelected').disabled=true;
-    $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Picked versions and file upload still work.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':(preRel?'You are running a pre-release. The stable channel is at '+u.latest+' - nothing to install unless you want to go back.':'Firmware is up to date.')));
+    $('updMsg').textContent=u.state===4?'Version check failed - the printer could not reach GitHub. Installing a picked version needs that same server, so only a firmware.bin from your disk will work right now.':(!u.allowed?'Updates are blocked right now (printing, or Web control is off).':(u.hasUpdate?'A newer firmware is available.':(preRel?'You are running a pre-release. The stable channel is at '+u.latest+' - nothing to install unless you want to go back.':'Firmware is up to date.')));
     show('updBetaTests',!!preRel);
     // Carry version + theme into the checklist so its report is self-labelling
     // and the page opens in the theme the user is already in.
     if(preRel&&statusData)$('updTestsLink').href='https://tinymakerwifi.com/tests?lang=en&fw='+enc(statusData.firmwareVersion||'')+'&build='+enc(statusData.firmwareBuild||'')+'&theme='+(document.documentElement.getAttribute('data-theme')||'dark');
-  }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Picked versions and file upload still work.';}
+  }catch(e){$('updMsg').textContent='Version check did not respond ('+e.message+'). Installing a picked version needs that same server, so only a firmware.bin from your disk will work right now.';}
 };
 
 /* ---- Slicer module versions (0.17 SL-mod, 08-22) --------------------------

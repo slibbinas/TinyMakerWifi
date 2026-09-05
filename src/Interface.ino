@@ -1150,6 +1150,27 @@ void screenRestorePrompt(){
   screen = 426;
 }
 
+/**
+ * Manual jog has nowhere left to go: the plate already sits at max_height.
+ * Needed because right after EVERY print that is exactly where it stands -
+ * lift_finished_print() parks it at the ceiling - so without a word on screen
+ * the Up button looks broken: the move does not happen and nothing changes.
+ * Centred with getTextBounds like uiButton's label, so the line cannot run off
+ * the frame if the wording is ever changed.
+ */
+void screenPlateAtTop(){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  const char *t = "Plate is at the top";
+  int16_t bx, by; uint16_t bw, bh;
+  gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+  gfx2->setCursor((160 - (int)bw) / 2 - bx, 45);
+  gfx2->print(t);
+  delay(1100);
+}
+
 void screenRestoreDone(bool ok){
   uiFrame(ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
