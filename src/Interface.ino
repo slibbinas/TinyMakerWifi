@@ -1151,19 +1151,26 @@ void screenRestorePrompt(){
 }
 
 /**
- * Manual jog has nowhere left to go: the plate already sits at max_height.
- * Needed because right after EVERY print that is exactly where it stands -
- * lift_finished_print() parks it at the ceiling - so without a word on screen
- * the Up button looks broken: the move does not happen and nothing changes.
- * Centred with getTextBounds like uiButton's label, so the line cannot run off
- * the frame if the wording is ever changed.
+ * One line telling the operator where the plate ended up. Used at both ends of
+ * the manual jog: at the top, where the move is refused because the plate is
+ * already at max_height - which is where lift_finished_print() parks it after
+ * EVERY print, so the Up button would otherwise look broken - and at the bottom,
+ * where touching the endstop resets the height to zero.
+ * The bottom says "Plate is home" in every case. Whether the zero was freshly
+ * written or the plate was already sitting there is our bookkeeping; the
+ * operator knows one word for that position, and a second sentence would ask
+ * them to learn a distinction that changes nothing they do (V 09-05, after a
+ * two-message version was written and rejected - do not bring it back).
+ * Keep any new line no longer than the ones in use: centring with getTextBounds
+ * keeps it in the middle, but nothing stops a longer line from running off both
+ * edges of the 160 px frame. Measured widths - "Plate is at the top" 119 px,
+ * "Plate is home" 94 px, against 156 px of usable frame.
  */
-void screenPlateAtTop(){
+void screenPlateNote(const char *t){
   uiFrame(ORANGE);
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  const char *t = "Plate is at the top";
   int16_t bx, by; uint16_t bw, bh;
   gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
   gfx2->setCursor((160 - (int)bw) / 2 - bx, 45);

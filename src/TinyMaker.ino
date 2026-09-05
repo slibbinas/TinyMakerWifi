@@ -2828,10 +2828,21 @@ void loop() {
             Position_before_pause = stepper.currentPosition();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
-            if (Position_before_pause + (pauseLiftMm * steps_mm) <= max_height * steps_mm)
-              stepper.move(pauseLiftMm * steps_mm);
-            else
-              stepper.moveTo(max_height * steps_mm);
+            /* Three cases, not two. The plain lift fits, or it is trimmed to the
+               ceiling - and, if the plate somehow ALREADY stands at or above the
+               ceiling, nothing moves at all. That third branch matters more here
+               than in the manual jog: a bare moveTo(ceiling) from above would
+               drive the plate DOWNWARDS, into the part, in the middle of a print
+               (audit 09-05, same shape as manual_lift). */
+            {
+              const long ceilingSteps = (long)(max_height * steps_mm);
+              const long wanted = Position_before_pause + (long)(pauseLiftMm * steps_mm);
+              if (wanted <= ceilingSteps)
+                stepper.move(pauseLiftMm * steps_mm);
+              else if (Position_before_pause < ceilingSteps)
+                stepper.moveTo(ceilingSteps);
+              // else: already as high as it may go - the pause simply happens here.
+            }
             #if ENABLE_NETWORK
             // Phase countdown for the dashboard ("Pausing - ~Ns"): publish the
             // lift's estimated duration; polls are answered during the move

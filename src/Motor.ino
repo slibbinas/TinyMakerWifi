@@ -47,7 +47,7 @@ void manual_lift(){
       cancel = 1;       
   }
   stepper.disableOutputs();  
-  if (atTop) screenPlateAtTop();
+  if (atTop) screenPlateNote("Plate is at the top");
   // The move screen is repainted for BOTH exits that leave something on screen:
   // a cancel (the Back press) and the at-top notice above.
   if (cancel == 1 || atTop){
@@ -95,8 +95,47 @@ void manual_down(){
     if (digitalRead(buttonBack) == LOW)
       cancel = 1;       
   }
-  stepper.disableOutputs();  
-  if (cancel == 1){
+  stepper.disableOutputs();
+  delay(50);   // the sensor settles before it is trusted - see the note below
+  /* Reaching the endstop is a reference, so take the zero here too. Without it a
+     counter that had drifted upwards stayed drifted, and since the jog ceiling
+     landed (0.17) that finally has a price: the ceiling would be measured from a
+     stale zero and stop the plate short of the real top, with nothing on screen
+     to explain why.
+     `distanceToGo() != 0` is the test that matters: it means the jog did NOT
+     finish the distance it was asked for, and with `cancel` already excluded the
+     only thing that can cut it short is the endstop. A jog that ran its full
+     10 mm in mid-air therefore cannot write a zero even if the pin - optical,
+     and with no pull (TinyMaker.ino, pinMode(end_stop, INPUT)) - reads HIGH by
+     accident at that moment. The plate standing on the endstop before the press
+     passes too, and rightly: it IS home, and the pin is read with the motor at
+     rest, which is the cleanest reading there is.
+     THE delay(50) IS LOAD-BEARING. Read the pin the instant the loop drops out
+     and it can still say LOW: the flag sits exactly on the optical edge and the
+     reading is marginal until the motor has stopped. Measured 2026-09-05 - the
+     first build without it took no zero at all on a jog the endstop had clearly
+     cut short (counter left at -53 steps). The homing screen has carried the
+     same delay all along (Interface.ino ~2246); copying the working path was the
+     fix, and inventing a shorter one was the mistake.
+     zHomed is set here as well: the trigger point is a POSITION, not a moment,
+     and this approach reads the pin every step (~0.8-2 ms across the 20-50 mm/min range) in the same direction
+     as homing, so it lands on the same edge. The approach SPEED differs - homing
+     creeps a step at a time while a jog runs at full maxSpeed - so this was
+     measured on the hardware rather than argued from the code: jogged down the
+     full 68 mm onto the endstop, the counter read 15 steps, i.e. 0.010 mm out
+     (2026-09-05, before this fix, so nothing was resetting it). A fifth of one
+     0.05 mm layer, at the far end of a 68 mm travel - the zero is good. */
+  const bool home = (cancel == 0 && stepper.distanceToGo() != 0 && digitalRead(end_stop));
+  if (home) {
+    stepper.setCurrentPosition(0);
+    zHomed = true;
+  }
+  /* One word, and the same one the machine uses everywhere else: home. Whether
+     the zero was freshly written or the plate was already sitting there is our
+     bookkeeping, not the operator's - two different sentences here would only
+     ask them to learn a distinction that changes nothing they do (V 09-05). */
+  if (home) screenPlateNote("Plate is home");
+  if (cancel == 1 || home){
     switch (screen){
       case 2211:
       screen221();
