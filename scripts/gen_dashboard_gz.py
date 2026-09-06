@@ -33,7 +33,7 @@ out = os.path.join(proj, "src", "dashboard_html_gz.h")
 # They stay in web/dashboard.html and in git; only the copy that goes into the
 # firmware loses them. scripts/dev/test_strip.py proves nothing but comments go.
 sys.path.insert(0, os.path.join(proj, "scripts"))
-from strip_html_comments import strip_comments
+from strip_html_comments import strip_comments, style_spans
 from assemble_dashboard import assemble
 
 # The page plus web/parts/* - see the module docstring. A part that changes
@@ -41,13 +41,29 @@ from assemble_dashboard import assemble
 # the rebuild it should.
 raw = assemble(proj)
 stripped = strip_comments(raw)
-# Guard: every line that carries code must survive. The stripper only removes
-# whole-line comments, so anything else disappearing means it mis-tracked a
-# template literal - fail the build rather than flash a broken dashboard.
+# Guard: every line that carries code must survive. Outside <style> the stripper
+# only removes whole-line comments, so anything else disappearing means it
+# mis-tracked a template literal - fail the build rather than flash a broken
+# dashboard. The stylesheet is exempt and only it: there comments sit on the same
+# line as the rules, so removing them rewrites lines that carry code by design.
+# What the CSS pass may and may not do is checked by scripts/dev/test_strip.py,
+# which compares the whole stylesheet against an independent removal.
 _kept = set(l.strip() for l in stripped.splitlines() if l.strip())
+# Stylesheet bounds come from the stripper itself, not from spotting "<style" in
+# a line: a JS string like "<style>" with no closer would otherwise switch the
+# guard off for the whole rest of the file, and it would never say so (audit
+# 09-06). One source of truth, so the guard watches exactly what was rewritten.
+_spans = style_spans(raw)
+_pos, _skip = 0, []
+for _line in raw.splitlines(keepends=True):
+    _a, _b = _pos, _pos + len(_line)
+    _skip.append(any(_a < e and _b > s_ for s_, e in _spans))
+    _pos = _b
 _in_block = _in_html = False
-for _line in raw.splitlines():
+for _idx, _line in enumerate(raw.splitlines()):
     _s = _line.strip()
+    if _skip[_idx]:
+        continue
     if _in_block:
         if "*/" in _s: _in_block = False
         continue
