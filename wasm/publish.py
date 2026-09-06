@@ -12,6 +12,8 @@ Skriptas TIK paruosia failus gh-pages worktree'e; commit ir push - rankomis,
 kad butu matyti, kas skelbiama.
 """
 import argparse
+import gzip
+import hashlib
 import io
 import os
 import shutil
@@ -82,6 +84,63 @@ def main():
                 blogi.append('%s -> %s' % (f, vardas))
     if blogi:
         sys.exit('LIKO NEPRISEGTU VARDU:\n  ' + '\n  '.join(blogi))
+
+    # --- printerio rinkinys: suspausti failai + manifestas ----------------
+    # Narsykle ima NESUSPAUSTUS failus is lib/, o PRINTERIS - tik gzip'intus, ir
+    # tik tuos, kuriu SHA-256 sutampa su manifestu lib/slicer-<V>.sha256
+    # (`Network.ino`, handleApiLibSlicerCheck). Iki 09-06 si puse buvo daroma
+    # ranka ir todel pasimesdavo: leidziant 3.3.0 modulis narsykleje veike, o i
+    # kortele neisidiege - pultas atsake „manifest not found". Klaida islisdavo
+    # ne skelbiant, o tada, kai zmogus bando idiegti.
+    RINKINYS = ['slicer-wasm-%s.js' % V,
+                'slicer-core-%s.js' % V,
+                'slicer-wasm-worker-%s.js' % V,
+                'sla-web-%s.js' % V,
+                'sla-web-%s.wasm' % V]
+    eilutes = []
+    for vardas in RINKINYS:
+        kelias = os.path.join(lib, vardas)
+        if not os.path.isfile(kelias):
+            sys.exit('nerandu %s - rinkinys nepilnas, manifesto nerasau' % kelias)
+        zali = io.open(kelias, 'rb').read()
+        # mtime=0 BUTINAS: be jo gzip i antraste iraso laika, tad tie patys
+        # ivesties baitai kiekviena karta duotu kita suma, ir manifestas nustotu
+        # buti atkuriamas (to paties leidimo perleidimas atrodytu kaip kitas).
+        gz = gzip.compress(zali, 9, mtime=0)
+        # Isspaudziam ATGAL ir palyginam. Manifestas pasirasys butent siuos baitus,
+        # o printeris tikrina suma tik uzbaigus siunta - suklydus 3,5 MB kelione
+        # butu atmesta pacioje pabaigoje, jau prie gelezies.
+        if gzip.decompress(gz) != zali:
+            sys.exit('%s: isspaudus negaunami tie patys baitai' % vardas)
+        gzvardas = vardas + '.gz'
+        io.open(os.path.join(lib, gzvardas), 'wb').write(gz)
+        eilutes.append('%s  %s' % (hashlib.sha256(gz).hexdigest(), gzvardas))
+
+    # Firmware ribos - tikrinam CIA, kad nepaskelbtume rinkinio, kuri printeris
+    # tyliai atmes. Reiksmes is `Network.ino`: SLICER_MAX_FILES,
+    # SLICER_MANIFEST_MAX ir slicerNameOk().
+    if len(eilutes) > 6:
+        sys.exit('rinkinyje %d failai, o printeris priima daugiausia 6' % len(eilutes))
+    for vardas in [e.split('  ')[1] for e in eilutes]:
+        if not (8 <= len(vardas) <= 46):
+            sys.exit('%s: vardo ilgis %d, printeris priima 8..46' % (vardas, len(vardas)))
+        if not (vardas.startswith('slicer-') or vardas.startswith('sla-web-')):
+            sys.exit('%s: printeris priima tik slicer-* arba sla-web-*' % vardas)
+        if not vardas.endswith('.gz'):
+            sys.exit('%s: printeris priima tik .gz' % vardas)
+        if '..' in vardas or not all(
+                c.isalnum() or c in '.-_' for c in vardas):
+            sys.exit('%s: netinkami simboliai varde' % vardas)
+
+    manifestas = '\n'.join(eilutes) + '\n'
+    if len(manifestas) > 1024:
+        sys.exit('manifestas %d B, o printeris priima iki 1024' % len(manifestas))
+    rasyk(os.path.join(lib, 'slicer-%s.sha256' % V), manifestas)
+
+    print('printerio rinkinys (%d failai, manifestas %d B):' % (len(eilutes), len(manifestas)))
+    for e in eilutes:
+        print('   ', e)
+    print()
 
     print('paruosta %s:' % lib)
     for f in sorted(os.listdir(lib)):
