@@ -880,7 +880,8 @@ void advancedOptionsSelect() {
     else if (lowResinWarnMl < 15) lowResinWarnMl = 15;
     else lowResinWarnMl = 3;
   } else if (id == 17) {
-    // 0.17 0-16: cycle Fast -> Slow -> each profile on the card -> Fast. The
+    // 0.17 0-16: cycle every built-in in table order, then each profile on the
+    // card, then back to the first. The
     // pick applies immediately; applyResinProfile() persists everything itself
     // (and remembers the replaced exposures, so the dashboard Undo still works).
     /* Vienas sugadintas /resin/*.json duoda false, o resinProfileName lieka

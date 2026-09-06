@@ -4343,7 +4343,7 @@ bool rejectIfResumePending() {
 
 // GET /api/resin-profile - the picker: built-ins, then the card, plus which one
 // is active. One file read per profile (resinProfileInfo), and no sdCardReady()
-// gate on purpose: without a card the two built-ins are still perfectly usable,
+// gate on purpose: without a card the built-ins are still perfectly usable,
 // and an empty picker would look like a broken feature.
 void handleApiResinProfileList() {
   if (rejectIfBusy()) return;

@@ -213,7 +213,7 @@ print.
 | `/api/telegram/test`, `/api/whatsapp/test`, `/api/discord/test` | POST | send a test notification with the saved credentials |
 | `/api/connect/test`, `/register`, `/recovery-code`, `/backup` (GET/POST), `/restore` | POST/GET | TinyMaker Connect pairing + settings backup |
 | `/api/boot-anim` (+ `/file`, `/select`, `/delete`, `/preview`, `/install`) | GET/POST | boot-animation management; `/install` pulls a `.tmb` only from allowlisted hosts (gh-pages library, configured Connect server) — other sources go onto the SD card by hand |
-| `/api/resin-profile` | GET | resin profiles (0-16): the two built-in ones (`fast`, `slow`) plus `/resin/*.json` on the card, with `selected`. Works without an SD card — the built-ins live in flash |
+| `/api/resin-profile` | GET | resin profiles (0-16): the four built-in ones (`fast`, `fast-draft`, `slow`, `slow-fine` - two resins at both layer heights) plus `/resin/*.json` on the card, with `selected`. Works without an SD card — the built-ins live in flash |
 | `/api/resin-profile/select` | POST | `name=<slug>` — copies the profile into the live settings (exposure, layers, all four lift settings, density, R-cal) and saves them |
 | `/api/resin-profile/save` | POST | `name=<slug>&display=<label>[&mode=new]` — writes the CURRENT settings into that profile. With `base_exposure=…` and friends it writes those values instead, which is how the dashboard installs a library profile it fetched itself. `mode=new` refuses an existing name (409) |
 | `/api/resin-profile/delete` | POST | `name=<slug>` — deletes the file; for a built-in this drops the overlay and restores the factory values |

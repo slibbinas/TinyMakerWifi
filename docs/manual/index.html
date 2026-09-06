@@ -401,8 +401,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   0.05&nbsp;mm needs less light than 0.10&nbsp;mm. Two profiles for one resin is the normal case.
   What describes the <i>printer</i> rather than the resin - vat size, the low-resin levels, the
   pause lift - stays outside.</p>
-  <p>Two profiles are <b>built into the firmware</b>, <code>Fast</code> and <code>Slow</code>, so
-  the list is never empty: no SD card, no network, and after a factory reset. Editing a built-in
+  <p>Four profiles are <b>built into the firmware</b> - two resins, each at both layer heights:
+  <code>Fast fine</code> and <code>Fast draft</code>, <code>Slow fine</code> and <code>Slow draft</code>
+  (<i>fine</i> is 0.05 mm, <i>draft</i> is 0.10 mm). So the list is never empty: no SD card, no
+  network, and after a factory reset. Editing a built-in
   writes a small overlay file on the card that shadows the flash values;
   <b>Reset to factory</b> deletes it. Every other profile lives in <code>/resin/*.json</code> on
   the card.</p>
@@ -419,7 +421,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>With no profile selected the row reads <b>&ldquo;Not set - printing is blocked&rdquo;</b> and
   the printer refuses to start. That is deliberate: printing with nobody&rsquo;s recipe used to run
   on whatever numbers happened to be left in memory.</p>
-  <img class="shot" style="max-width:309px" src="images/resin-profiles.png" alt="The resin picker: the two built-in profiles, installed ones, a profile marked tested by with a Buy link, the selected resin ticked, and a line offering ready-made profiles to install">
+  <img class="shot" style="max-width:309px" src="images/resin-profiles.png" alt="The resin picker: the built-in profiles, installed ones, a profile marked tested by with a Buy link, the selected resin ticked, and a line offering ready-made profiles to install">
 
   <h3>Installing a profile from the library</h3>
   <p>The picker also lists profiles you do <i>not</i> have yet, published by this project. Press
@@ -597,7 +599,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="table-scroll">
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
-    <tr><td>Resin profile</td><td>Steps through <code>Fast</code>, <code>Slow</code> and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
+    <tr><td>Resin profile</td><td>Steps through the four built-in profiles and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
     <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
     <tr><td>Low resin stop</td><td>On = mid-print, when the estimate reaches <i>Stop (ml)</i>, the printer finishes the layer, lifts and pauses for a refill.</td></tr>
     <tr><td>Stop (ml)</td><td>The level that stops the print: 1&ndash;3&nbsp;ml (OK cycles).</td></tr>

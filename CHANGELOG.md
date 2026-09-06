@@ -44,10 +44,17 @@ unless noted. Community contributors are tagged inline.
   lift settings, the resin's density and its weighing calibration. Switching
   resin is one press instead of nine fields, and a value that took an exposure
   test to find can no longer be lost to a stray edit.
-  - Two profiles are **built into the firmware** — `Fast` and `Slow` — so the
-    picker is never empty: no SD card, no network, after a factory reset. Fast
-    carries the values measured on this printer (18 s / 8.0 s / 4 base layers,
-    density 1.157); Slow is the factory set.
+  - Four profiles are **built into the firmware** — `Fast fine`, `Fast draft`,
+    `Slow fine`, `Slow draft` — two resins at both layer heights, so the picker is
+    never empty: no SD card, no network, after a factory reset. The Fast pair
+    carries the values measured on this printer (18 s / 8.0 s, density 1.157);
+    the Slow pair is the factory set. The names say the LAYER: *fine* is 0.05 mm,
+    *draft* is 0.10 mm, and the base-layer COUNT differs between them so that the
+    printed base is 0.20 mm either way. The exposure is the same at both heights
+    per the resins' own sheets; it has not been measured here at 0.10 mm.
+    ⚠️ A profile of your own named `fast-draft` or `slow-fine` on the card becomes
+    an overlay of the built-in with that slug: it keeps your values but shows the
+    built-in's name, and “Reset to factory” deletes it. Rename yours first.
   - Editing a built-in writes an **overlay file** on the card that shadows the
     flash values; "Reset to factory" deletes it. Everything else lives in
     `/resin/*.json` — installed from the gh-pages library or saved by hand.

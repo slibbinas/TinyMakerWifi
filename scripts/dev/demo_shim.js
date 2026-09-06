@@ -64,17 +64,25 @@ var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'malfunction',display:'Malfunction',sizeBytes:1433612},
   {name:'resin-drip',display:'Resin Drip',sizeBytes:588812}]};
 
-// 0.17 0-16: the two built-in profiles plus one saved by "the user", so the
+// 0.17 0-16: the built-in profiles plus one saved by "the user", so the
 // demo shows all three row shapes (built-in, edited built-in, own profile).
 var RESIN={ok:true,selected:'fast',profiles:[
-  // Abu isiuti profiliai - svarus (edited:false, overlay:false), kaip po pirmo
-  // paleidimo; redaguoto profilio pavyzdys demo nebereikalingas (08-16).
-  {name:'fast',display:'Fast resin',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+  // Visi keturi isiuti profiliai - svarus (edited:false, overlay:false), kaip po
+  // pirmo paleidimo; redaguoto profilio pavyzdys demo nebereikalingas (08-16).
+  {name:'fast',display:'Fast fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
    baseExposure:18,regularExposure:8.0,baseLayers:4,transitionLayers:5,
    slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
    dropBackFeedrate:50,density:1.157,calFactor:1.092,calFixedMl:0.39,calSamples:0},
-  {name:'slow',display:'Slow resin (factory)',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+  {name:'fast-draft',display:'Fast draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+   baseExposure:18,regularExposure:8.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.157,calFactor:1.092,calFixedMl:0.39,calSamples:0},
+  {name:'slow',display:'Slow draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
    baseExposure:35,regularExposure:14.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
+  {name:'slow-fine',display:'Slow fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+   baseExposure:35,regularExposure:14.0,baseLayers:4,transitionLayers:5,
    slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
    dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
   {name:'anycubic-ww-clear',display:'Anycubic WW Clear',builtin:false,edited:false,overlay:true,layerHeight:0.10,testedBy:'TinyMakerWiFi',testedOn:'2026-08',

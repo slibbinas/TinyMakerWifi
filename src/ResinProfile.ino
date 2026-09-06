@@ -6,8 +6,9 @@
 // the ml bookkeeping keep reading the same variables as before.
 //
 // Three origins, in list order:
-//   1. two BUILT-IN profiles (Fast / Slow) that live in flash, so the picker is
-//      never empty - no card, no network, after a factory reset;
+//   1. four BUILT-IN profiles (two resins x two layer heights) that live in
+//      flash, so the picker is never empty - no card, no network, after a
+//      factory reset;
 //   2. an overlay file with a built-in's slug (/resin/fast.json) - written when
 //      the user edits a built-in, and takes precedence over the flash values.
 //      "Reset to factory" simply deletes it;
@@ -31,24 +32,66 @@ struct ResinBuiltin {
   ResinProfileValues v;
 };
 
-// Only two generic starting points live in flash, so the picker is never empty:
+// Only generic starting points live in flash, so the picker is never empty:
 // no card, no network, after a factory reset. NAMED resins (SUNLU, Anycubic...)
 // belong to the gh-pages library instead (V 08-16) - that way a new resin needs
 // a published file, not a firmware release, and the download path gets exercised
 // by the resins we actually ship.
 //
-// Fast carries values MEASURED on this printer (08-07 exposure test, 08-09
-// weighing, R-cal fit); Slow is the factory set. Manufacturer datasheets are
-// never used - this machine's colour TFT absorbs a lot of UV, so a "2-3 s" resin
-// wants roughly 8-15 s here. Movement values are the factory set in both: no
-// measurement says a fast resin wants a different lift.
+// Two of the four are the FACTORY set and two are OURS, and the split runs by
+// resin, not by height: Slow draft and Slow fine carry the manufacturer's
+// numbers, Fast draft and Fast fine carry values MEASURED on this printer (08-07
+// exposure test, 08-09 weighing, R-cal fit). All four ship in flash all the same
+// - "factory" describes where a number came from, not whether it belongs on the
+// machine (V 2026-09-06). Manufacturer datasheets are never used - this machine's
+// colour TFT absorbs a lot of UV, so a "2-3 s" resin wants roughly 8-15 s here.
+// Movement values are the factory set in all four: no measurement says a fast
+// resin wants a different lift.
+// The names say the LAYER, not the resin: "fine" is 0.05 mm, "draft" is 0.10 mm.
+// A built-in name cannot be changed from the card (see resinProfileInfo), so it
+// has to read correctly next to the sibling profiles a user makes - and the
+// DASHBOARD picker prints the height under every name, so repeating the number in
+// the name would say it twice (V 2026-09-06). The printer's own screen shows the
+// name alone (Interface.ino, advancedValue item 17), so there the word is all the
+// reader gets: "fine" and "draft" have to carry the meaning by themselves. "(factory)" is gone for the same
+// reason it looked informative: the factory numbers are the SAME at both heights,
+// so the word marked no real difference between this profile and its sibling.
+// Both resins ship at BOTH heights, so nobody has to build the second half by
+// hand: the printer only ever prints at 0.05 or 0.10 mm, and a resin that has a
+// profile for one of them but not the other is half a profile (V 2026-09-06).
+// The exposures are carried over unchanged, and that rests on V's reading of the
+// two resins' own sheets - the same seconds are given for both heights. It is NOT
+// something this printer has measured: the 08-07 exposure test ran at 0.05 mm
+// only. Physics would let a 0.10 mm layer want more light, so if a draft print
+// ever comes out soft or lets go of the plate, THIS is the number to suspect
+// first, and one exposure coupon at 0.10 mm settles it (audit 09-06).
+//
+// BASE LAYERS are the one value that does NOT carry over, and it is a count, not
+// a thickness: the two original profiles both start with 0.20 mm of base (4 x
+// 0.05 and 2 x 0.10). Copying the count instead of the thickness would give the
+// draft variant a 0.40 mm base and the fine one 0.10 mm - twice too thick and
+// twice too thin, and the base is what holds the print on the plate.
+//
+// THE CALIBRATION DOES carry over, and shipping the draft variant uncalibrated
+// was the wrong call - corrected the same day, before any of this reached the
+// hardware (audit 09-06). Neither term is a function of layer height: the slope
+// 1.092 corrects the pixel area and the resin's shrink, and the fixed 0.39 ml is
+// the film left on the plate ONCE PER PRINT, not per layer. And the estimate is
+// not cosmetic - it feeds the low-resin guard (TinyMaker.ino, needMl vs
+// vatRemaining), so an uncalibrated x1.000 would promise there is enough resin
+// when about 9 % is missing. Slow ships at x1.000 because nobody has weighed it,
+// which is a different thing from having a measurement and declining to use it.
 static const ResinBuiltin RESIN_BUILTIN[] = {
-  { "fast", "Fast resin", "", "", "",
+  { "fast", "Fast fine", "", "", "",
     { 0.05f, 18, 80,  4, 5, 1, 2, 40, 50, 50, 1.157f, 1.092f, 0.39f, -1, -1, -1, -1 } },
-  { "slow", "Slow resin (factory)", "", "", "",
+  { "fast-draft", "Fast draft", "", "", "",
+    { 0.10f, 18, 80,  2, 5, 1, 2, 40, 50, 50, 1.157f, 1.092f, 0.39f, -1, -1, -1, -1 } },
+  { "slow", "Slow draft", "", "", "",
     // 0.10 mm, not 0.05: this profile IS resetSettingsToDefault() (EEPROM addr 1
     // = 10), and the two have to agree or the name lies about the machine.
     { 0.10f, 35, 140, 2, 5, 1, 2, 40, 50, 50, 1.100f, 1.000f, 0.00f, -1, -1, -1, -1 } },
+  { "slow-fine", "Slow fine", "", "", "",
+    { 0.05f, 35, 140, 4, 5, 1, 2, 40, 50, 50, 1.100f, 1.000f, 0.00f, -1, -1, -1, -1 } },
 };
 #define RESIN_BUILTIN_COUNT ((int)(sizeof(RESIN_BUILTIN) / sizeof(RESIN_BUILTIN[0])))
 
@@ -469,7 +512,8 @@ bool deleteResinProfile(const String &name) {
   return true;
 }
 
-// Advanced-menu cycle: Fast -> Slow -> each file -> back to Fast.
+// Advanced-menu cycle: every built-in in table order, then each file, then
+// back to the first.
 String nextResinProfile(const String &current) {
   String names[RESIN_MAX_PROFILES];
   int n = listResinProfiles(names, RESIN_MAX_PROFILES);
