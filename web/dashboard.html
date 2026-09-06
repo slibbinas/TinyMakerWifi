@@ -4267,6 +4267,58 @@ const packSlices=()=>{
   }
   return buf;
 };
+/* Ta pati krova, tik suspausta iki 80x60 ir 36 pjuviu - toks failas ir keliauja i
+   kortele, nesvarbu, koks tikslumas guli narsykleje.
+   KODEL SITO REIKIA: nuo 08-20, kai isimtas detalumo jungiklis, `VIEW_DETAIL` visada
+   tiesa, tad iprastas kelias palieka 320x240 kesa, o senoji sarga `if(cacheIsDetail())
+   return` ji tiesiog atmesdavo. Nuo tada i kortele nebepatekdavo NIEKAS: ismatuota
+   09-06 - modeliai, ziureti pries 08-20, `slices.tmv` turi, o visi naujesni grazina
+   404, ir po pilno spaudinio failas nepasikeicia ne baitu. Zmogui tai reiskia, kad
+   atsidarius pulta telefone spaudinio viduryje nesimato vaiduoklio - neatspausdintos
+   dalies; matosi tik tai, ka printeris jau nufotografavo.
+   Detalaus kesuoti ir NEBUVO ko: `livePrefillFromCache` (PNG.ino) priima tik gw<=160
+   ir gh<=120, tad 320x240 failas butu atmestas ir printerio puseje. Senasis
+   komentaras apie 675 KB teisingas - todel cia ne ikeliam detalaus, o sumazinam.
+   Sumazinimas yra vietine aritmetika is jau turimu duomenu: nieko is naujo is
+   printerio nesiunciam.
+   TAISYKLE: „bet kuris uzdegtas pikselis" (OR) - TA PATI, kuria naudoja pats printeris
+   gyvam fiksavimui (PNG.ino ~200). Taip vaiduoklis ir jau atspausdinta dalis piesiami
+   vienodai, ir zmogus mato vienos detales tesini, o ne du skirtingai nupiestus objektus.
+   ⚠️ `livePrefillFromCache` komentaras (PNG.ino ~55) sako kitaip - kad kesas turetu buti
+   DAUGUMOS taisykles, nes OR uzdaro mazas skyles („a ring reads as a disc"). Tai patikrinta
+   09-06 ant TIKRU sluoksniu is printerio, ir daugumos nauda atkartoti nepavyko: Ziedo skyle
+   80x60 tinklelyje mazesnė uz langeli ir neislieka NE VIENA taisykle, o kaina ismatuota
+   aiskiai - ant atramu testo dauguma prarado 31 % langeliu pjuvyje ir 21 % visoje 36 pjuviu
+   kruvoje (18 987 -> 15 008). V sprendimas: OR, o vertinimas - akimis per artimiausia
+   spaudini. Keitimas yra VIENA eilute (`if(on>0)` -> `if(on*2>=tot)`), tad grizti pigu.
+   80x60 ir 36 sutampa su firmware LIVE_GW/LIVE_GH ir liveN riba, tad printerio puseje
+   tai paprastas kopijavimas. */
+const packSlicesCoarse=()=>{
+  const {slices,gw,gh,modelH,layers}=slicesCache;
+  const CW=80,CH=60,cells=CW*CH,per=(cells+7)>>3;
+  const n=Math.min(36,slices.length);
+  if(n<1||gw<1||gh<1)return null;
+  const buf=new Uint8Array(16+n*per),dv=new DataView(buf.buffer);
+  for(let i=0;i<4;i++)buf[i]=SLICES_MAGIC.charCodeAt(i);
+  dv.setUint16(4,CW);dv.setUint16(6,CH);dv.setUint16(8,n);
+  dv.setFloat32(10,modelH);dv.setUint16(14,layers||0);
+  let o=16;
+  for(let k=0;k<n;k++){
+    const s=slices[n>1?Math.round(k*(slices.length-1)/(n-1)):0];
+    for(let j=0;j<CH;j++){
+      const y0=(j*gh/CH)|0; let y1=((j+1)*gh/CH)|0; if(y1<=y0)y1=y0+1;
+      for(let i=0;i<CW;i++){
+        const x0=(i*gw/CW)|0; let x1=((i+1)*gw/CW)|0; if(x1<=x0)x1=x0+1;
+        let on=0,tot=0;
+        for(let y=y0;y<y1&&y<gh;y++){const row=y*gw;
+          for(let x=x0;x<x1&&x<gw;x++){tot++;if(s[row+x])on++;}}
+        if(on>0){const c=j*CW+i;buf[o+(c>>3)]|=1<<(c&7);}
+      }
+    }
+    o+=per;
+  }
+  return buf;
+};
 const unpackSlices=buf=>{
   const b=new Uint8Array(buf), dv=new DataView(b.buffer);
   for(let i=0;i<4;i++)if(b[i]!==SLICES_MAGIC.charCodeAt(i))return null;
@@ -4294,18 +4346,29 @@ let sliceCacheBusy=false;
 const saveSlicesToPrinter=async name=>{
   try{
     if(statusData&&statusData.busy)return;      // SD priklauso spaudiniui
-    /* Detalaus keso nebesaugom niekur (08-13). Gimtos raiskos kesas yra 675 KB,
-       o printeris atiduoda ~110 KB/s (ismatuota) - jo parsiuntimas trukty 5,5 s,
-       kai patys sluoksniai persisiuncia per 5,0 s (72 PNG po ~2,8 KB; laika ryja
-       ne baitai, o uzklausu skaicius). Kesas, letesnis uz tai, ka kesuoja, yra
-       tik firmware limitas, 6 s ikelimas ir 675 KB kortelės vienam modeliui. */
-    if(cacheIsDetail())return;
+    /* Kesas yra GLOBALUS, ir i ji raso ne tik pultas: Connect programele dalijimosi metu
+       kviecia musu pacia `fetchSlices` savo perziuroms (zr. komentara prie cacheIsDetail).
+       Iki 09-06 sitas kelias detaliame rezime buvo mires, tad tai nekainavo nieko; dabar
+       be sios eilutes i kortele galetu nukeliauti SVETIMO modelio siluetai, ir zmogus
+       vidury spaudinio matytu ne savo vaiduokli (auditas 09-06). */
+    if(slicesCache.name!==name)return;
+    /* Detalaus keso i kortele nesiunciam (08-13): gimtos raiskos failas yra iki ~2,25 MB
+       (240 pjuviu po 320x240; senas komentaras sake 675 KB - tiek butu prie 72 pjuviu,
+       bet `DET_N_MAX` yra 240). Printeris atiduoda ~110 KB/s, tad toks kesas butu letesnis
+       uz tai, ka kesuoja. Ir jis butu atmestas: `livePrefillFromCache` priima tik iki
+       160x120.
+       Bet ATMESTI ikelima irgi negalima: nuo 08-20 kito keso paprasciausiai nebuna, ir taip
+       i kortele nustojo patekti bet kas (zr. packSlicesCoarse). Todel sumazinam. */
+    const body=cacheIsDetail()?packSlicesCoarse():packSlices();
+    /* Tik antraste (16 B) yra tuscias kesas. Firmware toki priima ir irasyto - o tada
+       pries-uzpildymas grazintu `false`, t.y. TURETAS geras failas butu perrasytas
+       nieku (auditas 09-06). */
+    if(!body||body.length<=16)return;
     const fd=new FormData();
-    const hi=cacheIsDetail()?'&hi=1':'';
-    fd.append('file',new Blob([packSlices()]),'slices.tmv');
+    fd.append('file',new Blob([body]),'slices.tmv');
     sliceCacheBusy=true;
     try{
-      await fetch('/api/files/model/slices?name='+enc(name)+hi,
+      await fetch('/api/files/model/slices?name='+enc(name),
                   {method:'POST',body:fd,headers:{'X-TinyMaker':'1'}});
     }finally{ sliceCacheBusy=false; }
   }catch(e){}
