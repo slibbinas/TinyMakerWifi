@@ -26,6 +26,12 @@ def skaityk(p):
     return io.open(p, encoding='utf-8').read()
 
 
+def verOk(v):
+    """X.Y.Z ir nieko daugiau - tokia pat riba, kokia pulte tikrina sarasa."""
+    dalys = v.split('.')
+    return len(dalys) == 3 and all(d.isdigit() for d in dalys)
+
+
 def rasyk(p, t):
     io.open(p, 'w', encoding='utf-8', newline='\n').write(t)
 
@@ -37,6 +43,11 @@ def main():
     ap.add_argument('--build', default='C:/PIO-build/wasm-verify')
     a = ap.parse_args()
     V = a.versija
+    # Versija tikrinam PIRMA, dar nieko neirase: pultas versiju sarase priima
+    # tik X.Y.Z, o sustojus viduryje kelyje liktu pusinis rinkinys su vardais,
+    # kuriu niekas nebenaudos (ismatuota 09-06: krito po gz ir manifesto).
+    if not verOk(V):
+        sys.exit('versija %r nera X.Y.Z - pultas tokios versijos sarase nepriimtu' % V)
     lib = os.path.join(a.ghp, 'lib')
     if not os.path.isdir(lib):
         sys.exit('nerandu %s - ar tikrai gh-pages worktree?' % lib)
@@ -142,11 +153,30 @@ def main():
         print('   ', e)
     print()
 
+    # --- versiju sarasas: kad naujiena isvis pasimatytu Update skiltyje -----
+    # Pultas ji skaito is gh-pages saknies (`dashboard.html`: GHP+'slicer-versions.txt'),
+    # palieka tik eilutes pavidalo X.Y.Z ir laiko PIRMA eilute naujausia - nuo jos
+    # priklauso „Install latest" ir uzrasas „A newer slicer module is available".
+    # Iki 09-06 sis failas buvo pildomas ranka, tad paskelbta versija i kortele
+    # isidiegdavo, o versiju sarase nepasirodydavo, kol kas nors jo neatidarydavo.
+    sarasas_kelias = os.path.join(a.ghp, 'slicer-versions.txt')
+    senos = []
+    if os.path.isfile(sarasas_kelias):
+        senos = [x.strip() for x in skaityk(sarasas_kelias).split(chr(10))]
+    # Netinkamas eilutes ismetam TYLIAI: pultas jas ignoruotu bet kuriuo atveju,
+    # tad laikyti jas faile reikstu tik apgauti ta, kas ji atsivers.
+    visos = sorted({v for v in senos + [V] if verOk(v)},
+                   key=lambda v: tuple(int(x) for x in v.split('.')),
+                   reverse=True)
+    rasyk(sarasas_kelias, chr(10).join(visos) + chr(10))
+    print('versiju sarasas (%d, naujausia virsuje): %s' % (len(visos), ', '.join(visos[:5])))
+    print()
+
     print('paruosta %s:' % lib)
     for f in sorted(os.listdir(lib)):
         if V in f or f.startswith(('slicer-wasm', 'sla-web')):
             print('   ', f)
-    print('\nToliau rankomis:  cd %s && git add lib && git commit && git push' % a.ghp)
+    print('\nToliau rankomis:  cd %s && git add lib slicer-versions.txt && git commit && git push' % a.ghp)
 
 
 if __name__ == '__main__':
