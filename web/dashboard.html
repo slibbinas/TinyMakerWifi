@@ -2127,7 +2127,23 @@ const refreshAfterSettingsSwap=async()=>{
   await refreshDashModelInfo();
 };
 const resetResinRow=async(p)=>{
-  if(!await uiConfirm('Reset "'+p.display+'" back to its factory values?',{danger:true}))return;
+  /* Svarstykliu darbas dingsta kartu - ir tai reikia pasakyti PRIES, ne po.
+     „Reset to factory values" trina visa perdangos faila, o su juo ir gyvus
+     sverimus: budingiems profiliams tai `deleteResinProfile()` -> `applyResinProfile()`,
+     kuris uzdeda flash'o reiksmes su calRawA = -1. Zmogui tai ne ta pati zinia,
+     kaip ekspozicija: ekspozicija yra pasirinkimas, kuri jis ka tik pats ir
+     sugadino, o sverimai yra du tikri spaudiniai ir du priejimai prie svarstykliu.
+     Iki 09-06 patvirtinimas apie tai tylejo.
+     Skaicius imamas is eilutes (`p.calSamples`), ir tai teisinga: printeris
+     sverima irazo IR i profilio faila (`resinPersistToActiveProfile()`), tad failas
+     nevelouja. Velavo narsykle - `calPost` neatnaujindavo profiliu saraso; tai
+     pataisyta ten pat, o ne cia apeita (auditas 09-06).
+     Be sverimu sakinio nera visai - kitaip mygtukas gasdintu ten, kur nera ko
+     prarasti. */
+  const ns=p.calSamples|0;
+  const warn=ns?'\n\nIts '+ns+' weighed print'+(ns>1?'s are':' is')+
+    ' stored in the same file and will be erased with it.':'';
+  if(!await uiConfirm('Reset "'+p.display+'" back to its factory values?'+warn,{danger:true}))return;
   try{await api('/api/resin-profile/delete',{method:'POST',body:new URLSearchParams({name:p.name})});
     msg('"'+p.display+'" is back to factory values.');
     // Factory values can mean a different layer height, so the card's numbers are
@@ -2136,7 +2152,15 @@ const resetResinRow=async(p)=>{
   catch(e){msg(e.message,true);}
 };
 const deleteResinRow=async(p)=>{
-  if(!await uiConfirm('Delete "'+p.display+'" from the SD card?',{danger:true}))return;
+  /* Tas pats sakinys kaip prie „Reset to factory", ir del tos pacios priezasties:
+     sverimai gyvena tame paciame faile, tad trinant profili jie dingsta kartu -
+     cia net negrizus prie gamykliniu skaiciu, nes viso iraso nebelieka. Prideta
+     kartu su Reset sarga: du mygtukai, ta pati kaina, viena tyla butu atsitiktine
+     (auditas 09-06). */
+  const ns=p.calSamples|0;
+  const warn=ns?'\n\nIts '+ns+' weighed print'+(ns>1?'s go':' goes')+
+    ' with it.':'';
+  if(!await uiConfirm('Delete "'+p.display+'" from the SD card?'+warn,{danger:true}))return;
   try{await api('/api/resin-profile/delete',{method:'POST',body:new URLSearchParams({name:p.name})});
     /* Eilute dingsta is saraso - be snacko (V 08-17). */
     await loadConfig();loadResinProfiles();}
@@ -6628,7 +6652,11 @@ const calPost=async(slot,body,okMsg)=>{
       body:new URLSearchParams(Object.assign({slot:String(slot)},body))});
     msg(r.twoPoint?('Calibrated: \u00d7'+Number(r.factor).toFixed(3)+' + '+
         Number(r.fixedMl).toFixed(2)+' ml per print.'):okMsg);
-    loadConfig();refreshStatus();refreshDashModelInfo();
+    /* `loadResinProfiles()` BUTINAS: printeris sverima irazo ir i profilio faila
+       (`resinPersistToActiveProfile()`), tad po Set eilutes `calSamples` jau pasenes.
+       Be sito „Reset to factory" ispejimas skaiciuotu priesSet nuotrauka ir tyletu
+       butent tada, kai zmogus ka tik pasvere (auditas 09-06). */
+    loadConfig();loadResinProfiles();refreshStatus();refreshDashModelInfo();
   }catch(e){msg(e.message,true);}
 };
 [1,2].forEach(k=>{

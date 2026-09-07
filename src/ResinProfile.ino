@@ -41,7 +41,7 @@ struct ResinBuiltin {
 // Two of the four are the FACTORY set and two are OURS, and the split runs by
 // resin, not by height: Slow draft and Slow fine carry the manufacturer's
 // numbers, Fast draft and Fast fine carry values MEASURED on this printer (08-07
-// exposure test, 08-09 weighing, R-cal fit). All four ship in flash all the same
+// exposure test, 09-06 two-point weighing). All four ship in flash all the same
 // - "factory" describes where a number came from, not whether it belongs on the
 // machine (V 2026-09-06). Manufacturer datasheets are never used - this machine's
 // colour TFT absorbs a lot of UV, so a "2-3 s" resin wants roughly 8-15 s here.
@@ -53,9 +53,10 @@ struct ResinBuiltin {
 // DASHBOARD picker prints the height under every name, so repeating the number in
 // the name would say it twice (V 2026-09-06). The printer's own screen shows the
 // name alone (Interface.ino, advancedValue item 17), so there the word is all the
-// reader gets: "fine" and "draft" have to carry the meaning by themselves. "(factory)" is gone for the same
-// reason it looked informative: the factory numbers are the SAME at both heights,
-// so the word marked no real difference between this profile and its sibling.
+// reader gets: "fine" and "draft" have to carry the meaning by themselves.
+// "(factory)" is gone for the same reason it looked informative: the factory
+// numbers are the SAME at both heights, so the word marked no real difference
+// between this profile and its sibling.
 // Both resins ship at BOTH heights, so nobody has to build the second half by
 // hand: the printer only ever prints at 0.05 or 0.10 mm, and a resin that has a
 // profile for one of them but not the other is half a profile (V 2026-09-06).
@@ -75,17 +76,30 @@ struct ResinBuiltin {
 // THE CALIBRATION DOES carry over, and shipping the draft variant uncalibrated
 // was the wrong call - corrected the same day, before any of this reached the
 // hardware (audit 09-06). Neither term is a function of layer height: the slope
-// 1.092 corrects the pixel area and the resin's shrink, and the fixed 0.39 ml is
-// the film left on the plate ONCE PER PRINT, not per layer. And the estimate is
+// corrects the pixel area and the resin's shrink, and the fixed ml is the film
+// left on the plate ONCE PER PRINT, not per layer. And the estimate is
 // not cosmetic - it feeds the low-resin guard (TinyMaker.ino, needMl vs
-// vatRemaining), so an uncalibrated x1.000 would promise there is enough resin
-// when about 9 % is missing. Slow ships at x1.000 because nobody has weighed it,
-// which is a different thing from having a measurement and declining to use it.
+// vatRemaining), so an uncalibrated x1.000 would leave the fixed term out and
+// promise enough resin for a print that then runs the vat dry. Slow ships at
+// x1.000 because nobody has weighed it, which is a different thing from having
+// a measurement and declining to use it.
 static const ResinBuiltin RESIN_BUILTIN[] = {
+  // THE FAST PAIR ONLY - Slow below ships uncalibrated, because nobody has weighed it.
+  // x1.010 + 0.63 ml replaces the 08-09 pair (x1.092 + 0.39): that one came from a
+  // SINGLE weighing, and a single sample can only solve the slope - the offset was
+  // whatever happened to be standing. 09-06 gave a real two-point fit, 1.15 ml ->
+  // 2.07 g and 3.34 ml -> 4.63 g, far enough apart for the fit gate. The slope
+  // landing on ~1.0 says the geometric estimate was right all along, and the whole
+  // correction is the 0.63 ml of film left on the plate every print.
+  // The offset is OURS - our plate, our draining habit - while the slope is pixel
+  // area and shrink, the same on every one of these machines. It ships anyway,
+  // because an offset that is too LARGE only says "you may run out" a little early,
+  // while dropping it to zero would promise enough resin for a print that then
+  // stops half way. A shipped number errs upward on purpose (V 2026-09-06).
   { "fast", "Fast fine", "", "", "",
-    { 0.05f, 18, 80,  4, 5, 1, 2, 40, 50, 50, 1.157f, 1.092f, 0.39f, -1, -1, -1, -1 } },
+    { 0.05f, 18, 80,  4, 5, 1, 2, 40, 50, 50, 1.157f, 1.010f, 0.63f, -1, -1, -1, -1 } },
   { "fast-draft", "Fast draft", "", "", "",
-    { 0.10f, 18, 80,  2, 5, 1, 2, 40, 50, 50, 1.157f, 1.092f, 0.39f, -1, -1, -1, -1 } },
+    { 0.10f, 18, 80,  2, 5, 1, 2, 40, 50, 50, 1.157f, 1.010f, 0.63f, -1, -1, -1, -1 } },
   { "slow", "Slow draft", "", "", "",
     // 0.10 mm, not 0.05: this profile IS resetSettingsToDefault() (EEPROM addr 1
     // = 10), and the two have to agree or the name lies about the machine.
