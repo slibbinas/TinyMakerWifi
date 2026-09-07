@@ -1670,6 +1670,10 @@ let bootAnimSd=[];         // animations currently on the SD card
 let bootAnimLib=null;      // gh-pages manifest cache (null until fetched)
 const BOOTANIM_LIB='https://slibbinas.github.io/TinyMakerWifi/bootanims/';
 let resinSel='',resinRows=[],resinLib=null;
+/* Ar profiliu sarasas apskritai buvo gautas. `resinRows.length` to nepasako:
+   tuscias sarasas reiskia ir „dar neuzkrauta", ir „nieko nera", o skirtumas
+   zmogui didziulis - viena reiskia „palauk", kita „tavo derva dingo". */
+let resinRowsLoaded=false;
 const smallBtn=(txt,danger)=>{
   const b=document.createElement('button');
   b.type='button';b.textContent=txt;
@@ -1836,7 +1840,9 @@ const resinFormDiffers=()=>{
      reiske „nera ko prarasti", ir perjungimo klausimas NEUZDUODAMAS. Butent tada
      jis reikalingiausias: tikrosios reiksmes tuo metu gyvena TIK irenginio
      nustatymuose, ir perjungus jos dingsta negriztamai. */
-  if(!p)return !!resinSel;
+  /* ...bet TIK jei sarasas apskritai gautas. Spausdinant jis tuscias del uzrakto,
+     ir be sios sargos „Discard changes" issoktu ten, kur niekas nieko nekeite. */
+  if(!p)return resinRowsLoaded&&!!resinSel;
   return RESIN_FIELDS.some(function(f){
     const el=$(f[0]); if(!el||el.value==='')return false;
     return Number(el.value).toFixed(f[2])!==Number(p[f[1]]).toFixed(f[2]);});
@@ -1867,7 +1873,14 @@ const renderResinBars=()=>{
   const p=resinById(resinSel);
   /* Tie patys zodziai, kaip printerio ekrane (Interface.ino:740), kad pultas ir
      ekranas sakytu viena. Be sito pultas rodydavo varda, uz kurio nieko nera. */
-  const t=resinSel?(resinTitle(resinSel)+(p?'':'  (missing)'))
+  /* „(missing)" - TIK kai sarasas gautas ir profilio jame tikrai nera.
+     Spausdinant /api/resin-profile atmeta uzklausa (rejectIfBusy, Network.ino), o
+     /api/config - ne: `resinSel` yra, o `resinRows` tuscias. Iki 09-06 is to
+     issukdavo (iki 09-08) „Fast (missing)" kiekvienam, kas atsidare pulta darbo metu -
+     t. y. tam, kas is telefono ziuri, kaip sekasi spaudiniui. Duomenys buvo
+     vietoje, melavo tik uzrasas, ir melavo pacia negeriausia akimirka (atkartota
+     dry run metu: resinSel=fast, resinRows=0). */
+  const t=resinSel?(resinTitle(resinSel)+((p||!resinRowsLoaded)?'':'  (missing)'))
                   :'Not set - printing is blocked';
   // Main view: what it is. Settings: what it is set to. The exposure numbers
   // are noise next to the vat, and the point of the row there is recognition.
@@ -1903,7 +1916,10 @@ const renderResinModal=()=>{
      nematomas, ir zmogus nesupranta, kodel jo nera (V 08-31). */
   const miss=$('resinModalMissing');
   if(miss){
-    const gone=!!resinSel&&!resinById(resinSel);
+    /* Ta pati sarga kaip `renderResinBars` (virs): tuscias sarasas reiskia
+       „neuzkrauta",
+       ne „dingo" (auditas 09-08). */
+    const gone=resinRowsLoaded&&!!resinSel&&!resinById(resinSel);
     show('resinModalMissing',gone);
     if(gone)$('resinMissingText').textContent=
       'The profile in use, "'+resinTitle(resinSel)+'", has no file on the card. '+
@@ -2082,6 +2098,7 @@ const loadResinProfiles=async()=>{
     resinRows=(d.profiles||[]).slice().sort((a,b)=>
       String(a.display||a.name).localeCompare(String(b.display||b.name),
                                               undefined,{sensitivity:'base',numeric:true}));
+    resinRowsLoaded=true;
     renderResinProfiles();
   }catch(e){return;}
   loadResinLib(false);
@@ -2827,7 +2844,17 @@ const applyStatus=s=>{
          ju niekas nepastebedavo). Kortelėje - tik kodel viskas uzrakinta. */
       $('uploadHint').textContent='SD actions come back when it finishes.';
     } else if(s.busy){$('uploadHint').textContent='Locked while printing - SD contents and uploads come back when the print ends.';} else if(!s.sdReady){$('uploadHint').textContent='Insert an SD card before uploading or managing models.';} else {$('uploadHint').textContent='Uploaded SL1/ZIP files are unpacked into printable model folders on the SD card.';}
-    if(was!==s.busy&&!sdJob){loadFiles();loadConfig();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
+    /* `loadResinProfiles()` cia BUTINAS: spausdinant tas galas atmeta uzklausa, tad
+       langas, atidarytas darbo metu, lieka su TUSCIU sarasu. Be sito rinkiklis
+       pasibaigus spaudiniui atsirakina, o viduje - nieko: nei aktyvios dervos, nei
+       kitu. Melagingas uzrasas uzgniauztas atskirai (zr. `gone` sarga zemiau), bet
+       tuscias sarasas lieka tuscias, kol jo kas nors nepaprasys (auditas 09-08).
+       `was===true`, o ne `was!==s.busy`: pirmo apklausos rato metu `statusData` dar
+       `null`, tad senoji salyga suveikdavo ir RAMYBEJE - kiekvienas pulto atidarymas
+       siusdavo antra to paties saraso uzklausa, o kiekviena is ju skaito SD kataloga.
+       Salyga dabar atitinka tai, ka ir sako komentaras salia: atnaujinam, kai darbas
+       BAIGESI. Pradzioje atnaujinti beprasmiska - tada SD atsako 409. */
+    if(was===true&&!s.busy&&!sdJob){loadFiles();loadConfig();loadResinProfiles();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
     prevBusyPrint=busyPrint;   // paskutinis dalykas: kita apklausa is cia mato perejima
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
