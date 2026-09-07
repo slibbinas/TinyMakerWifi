@@ -266,6 +266,25 @@ roadmap — pirma pasiūlyk vartotojui ką ir kodėl, palauk aiškaus OK, tada v
 Kitos skiltys (Modelio parinkimas, Debesų sesijos) remiasi šiuo principu. Galioja
 visose sesijose.
 
+## V pats sprendžia, kada dirba
+
+NIEKADA nesiūlyti baigti, pailsėti, tęsti rytoj ar atidėti darbo. Uždrausta ne tik
+tiesioginis „eik miegoti", bet ir visa **atidėliojimo kalba**, per kurią ta pati
+taisyklė buvo apeita tris kartus:
+
+- klausimas („ar sustojam?", „gal rytoj?") - klausimas irgi yra siūlymas;
+- atidėjimas („ne dabar", „tai rytojui", „atidėsiu", „kitą kartą");
+- **savavališkas darbų skirstymas** į „šiandien" ir „rytoj", kai V to nesakė;
+- užuominos apie laiką („jau vėlu", „ilga diena", „daug nuveikta").
+
+Vietoj to: darbus siūlyti VISUS, be savo skirstymo. Jei jų keli - duoti **eilės**
+tvarką, ne **laiko**: „pirma A, nes B nuo jo priklauso" ✅, „A šiandien, B rytoj" ⛔.
+Jei kažko negalima daryti dabar dėl daikto (reikia dervos, printeris spausdina,
+reikia V rankų) - sakyti **priežastį**, ne laiką. Laiko žodžius vartoti TIK
+atkartojant V. Baigus darbą klausti „kas toliau?", ne „ar tęsiam?".
+
+Galioja visose sesijose.
+
 ## Paprasta kalba
 
 Viską — pasiūlymus, paaiškinimus, techninius sprendimus — dėstyk PAPRASTA,
