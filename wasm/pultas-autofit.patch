@@ -1,0 +1,37 @@
+--- a/web/parts/slicer.js
++++ b/web/parts/slicer.js
+@@ -269,10 +269,32 @@
+ 
+ /* Autofit = pasuka + sumazina TIK jei netelpa, ir apie tai pasako. Mazinimas
+    keicia tikra detales dydi, tad tylus jis nebuna niekada (V 08-12). */
+-$('slicerAutoFit').addEventListener('click',()=>{
++$('slicerAutoFit').addEventListener('click',async()=>{
+   if(!slicerRaw)return;
+   const s0=slicerTr.scale;
+-  slicerTr=slicerMod.autoOrient(slicerRaw).tr; slicerTr.scale=s0;
++  /* Kruopstusis pastatymas (3.1.0): PAKRYPIMA parenka PrusaSlicer Rotfinder -
++     tikras jo kodas, sukamas variklio gijoje - o posuki ant plokstes, talpinima
++     ir masteli toliau sprendziam mes. Matavimas 08-20: kreivai atsiustam failui
++     jo pakrypimas laimejo 4 modeliuose is 5 (kronsteinui 110 -> 0 mm3 atramu),
++     o musu Z posukis leidzia biusta spausdinti 37 % vietoj 36 % dydzio.
++     „Lay flat" lieka greitasis musu kelias - jis atsako per akimirka. */
++  const mygtukas=$('slicerAutoFit'), senasTekstas=mygtukas.textContent;
++  if(slicerMod.autoOrientPro){
++    mygtukas.disabled=true; mygtukas.textContent='Placing…';
++    slicerSay('slicerInfo','Looking for the best position…');
++    try{
++      slicerTr=(await slicerMod.autoOrientPro(slicerRaw)).tr;
++    }catch(e){
++      /* Variklis neatsake - imam greitaji atsakyma. Zmogui geriau pastatytas
++         modelis nei pranesimas, kad nepavyko. */
++      slicerTr=slicerMod.autoOrient(slicerRaw).tr;
++    }finally{
++      mygtukas.disabled=false; mygtukas.textContent=senasTekstas;
++    }
++  }else{
++    slicerTr=slicerMod.autoOrient(slicerRaw).tr;   // senesnis modulis
++  }
++  slicerTr.scale=s0;
+   const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+   const f=slicerMod.fitCheck(b.size);
+   if(!f.fits){
