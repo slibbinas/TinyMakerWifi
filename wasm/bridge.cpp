@@ -95,8 +95,23 @@ static void praneskEiga(const char *etapas, int proc)
 /* Plokste is V profilio (`bed_shape = 0x0,40.8x0,40.8x30.6,0x30.6`). */
 static constexpr double PLOKSTE_X_MM = 40.8;
 static constexpr double PLOKSTE_Y_MM = 30.6;
-/* `initial_layer_height` is V profilio - pirmas sluoksnis storesnis. */
-static constexpr double PIRMO_SLUOKSNIO_MM = 0.3;
+/*
+ * Pirmas sluoksnis pas mus yra TOKS PAT, kaip visi kiti (SL-ilh, 2026-09-08).
+ *
+ * Buvo 0,3 - paveldeta is PrusaSlicer profilio `initial_layer_height`, kur
+ * masina toki stora pirma sluoksni tikrai atspausdina. Musu firmware tokio
+ * neturi: is config.ini jis skaito tik `layerHeight` (Import.ino:197), o
+ * `initial_layer_height` jam neegzistuoja. Vadinasi prielaida, ant kurios tas
+ * 0,3 laikesi, cia negaliojo, ir kiekvieno modelio apatine 0,3 mm juosta
+ * buvo suspaudziama i VIENA sluoksni.
+ *
+ * Puodeliui tai kainavo 5 sluoksnius is 300 (14,75 mm vietoj 15,00) -
+ * nepastebima. Bareljefui tai nukirto pati pagrinda: V bareljefo pagrindas
+ * is 12 sluoksniu virto 3, ir detale atejo pastebimai plokstesne (09-08).
+ *
+ * Todel konstantos nebera: pirmo sluoksnio storis visur imamas is `layer_h`,
+ * kad ir 0,1 mm profilyje jis liktu toks pat, kaip visi kiti.
+ */
 
 /*
  * Parametrai, kuriuos nuo 3.3.0 gali pakeisti zmogus pulte (SL-params).
@@ -207,10 +222,15 @@ static sla::PadConfig make_pad_config(bool pakelta, double layer_h)
      * apima visa 0..0,3 mm juosta, o kitas jau ties 0,35. Todel 0,15 ir 0,30
      * duoda TA PATI viena sluoksni, ir jungiklis milimetrais butu jungiklis,
      * kuris nieko nekeicia.
+     *
+     * ⚠️ NEBEGALIOJA nuo SL-ilh (2026-09-08): `ilh` dabar lygus `layer_h`, tad
+     * pirmas pjuvis nebeapima 0..0,3 juostos, ir storis SLUOKSNIAIS reiskia
+     * tiek, kiek sako - N sluoksniu duoda N x layer_h. Virsuje esantis 09-02
+     * matavimas paliktas kaip istorija: jis aiskina, KODEL cia buvo 0,3.
      */
     pcfg.wall_thickness_mm = g_par.rafto_sluoksniai <= 1
         ? 0.15                                      // pad_wall_thickness (kaip buvo)
-        : PIRMO_SLUOKSNIO_MM + (g_par.rafto_sluoksniai - 1) * layer_h;
+        : g_par.rafto_sluoksniai * layer_h;
     pcfg.wall_slope = 90.0 * M_PI / 180.0;          // pad_wall_slope
     pcfg.max_merge_dist_mm = 50.0;                  // pad_max_merge_distance
     pcfg.wall_height_mm = 0.0;                      // pad_wall_height
@@ -805,7 +825,7 @@ const char *sla_export_sl1(const char *out_path, const char *job_name)
     for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
         for (const auto &v : m->vertices)
             if (v.z() > zmax) zmax = v.z();
-    std::vector<float> grid = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
+    std::vector<float> grid = sluoksniu_tinklelis(zmin, zmax, layer_h, layer_h);
 
     /* Modelis ir atramos pjaustomi atskirai, tada sujungiami - kaip SLAPrint. */
     std::vector<ExPolygons> mo = slice_mesh_ex(g_last.model, grid, 0.005f);
@@ -919,7 +939,7 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
     for (const indexed_triangle_set *m : {&g_last.model, &g_last.supports, &g_last.pad})
         for (const auto &v : m->vertices)
             if (v.z() > zmax) zmax = v.z();
-    std::vector<float> visi = sluoksniu_tinklelis(zmin, zmax, layer_h, PIRMO_SLUOKSNIO_MM);
+    std::vector<float> visi = sluoksniu_tinklelis(zmin, zmax, layer_h, layer_h);
     if (visi.empty()) { g_json = "{\"klaida\":\"nera sluoksniu\"}"; return g_json.c_str(); }
 
     /* Imam tik dali sluoksniu - perziurai uztenka, o kiekvienas kainuoja. */
