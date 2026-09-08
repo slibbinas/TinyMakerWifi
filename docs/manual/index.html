@@ -9,7 +9,7 @@
 <meta property="og:title" content="TinyMakerWifi — User Manual">
 <meta property="og:description" content="Set up and use TinyMakerWifi: WiFi, wireless PrusaSlicer upload, the web dashboard, OTA updates and troubleshooting for the TinyMaker resin printer.">
 <meta property="og:url" content="https://tinymakerwifi.com/manual/">
-<meta property="og:image" content="https://tinymakerwifi.com/og-card.png?v=0162">
+<meta property="og:image" content="https://tinymakerwifi.com/og-card.png?v=0170">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="TinyMakerWifi — WiFi firmware for the palm-sized TinyMaker resin printer">
@@ -208,7 +208,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
         No desktop slicer needed, and a phone is enough.</li>
     <li><b>Named resin profiles</b> — the whole recipe for one resin (both exposures, base and
         transition layers, all four lifts, the density and its weighing calibration) under one name,
-        switched in a single press. Two are built into the firmware; more can be installed from a
+        switched in a single press. Four are built into the firmware - two resins at both layer heights; more can be installed from a
         published library.</li>
     <li><b>A real 3D preview, and live print progress</b> — the model turns in the browser before you
         start, and while it prints the shape fills in layer by layer, on any device that opens the
@@ -337,7 +337,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
 <section>
   <h2 class="sec" id="slicer"><span class="num">7</span>The built-in slicer (slice in the browser)</h2>
-  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard — no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and a <b>Slicer</b> card appears on the dashboard.</p>
+  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard — no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and an <b>STL slicer</b> card appears on the dashboard - press <b>Open</b> to unfold it.</p>
   <ol class="steps">
     <li><b>Choose STL</b> and pick a model file.</li>
     <li><b>Stand it the right way up.</b> <b>Fast fit</b> drops it flat; <b>Optimal fit</b> searches for
@@ -348,9 +348,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> — each layer exactly as the masking LCD will shine it.</li>
     <li>Press <b>Send to printer</b> — the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
   </ol>
-  <p><b>Six settings sit under those buttons</b>, and <b>Reset</b> puts them all back: <b>Supports</b>
+  <p><b>Six settings sit under those buttons</b>, and <b>Reset to defaults</b> puts them all back: <b>Supports</b>
   (regular or tree), <b>Strength</b> (light, normal, strong), <b>Placement</b>, <b>Tip</b>,
-  <b>Raft</b> and <b>Smoothing</b>. You can slice without touching any of them - they only nudge
+  <b>Raft layers</b> and <b>Smoothing</b>. You can slice without touching any of them - they only nudge
   what the slicer already decided.</p>
   <div class="note">💡 <b>The raft is counted in layers, not millimetres</b>, because layers are what
   decide whether the pad grips. Your file is always sliced at 0.05&nbsp;mm and the printer decides how
@@ -359,8 +359,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   offered any more - the pad does not bond to the part at all. Measured on this printer: a printed
   pad comes out about 0.15&nbsp;mm thicker than asked, so 3 layers lands on the ~0.3&nbsp;mm a PrusaSlicer
   plate gives, and lifts off with a spatula without force. And a thicker raft
-  <b>costs resin, not time</b>: measured on one ring, every raft setting gave the same 167 layers
-  while the resin went 1.3 to 1.5&nbsp;ml, because the pad thickens <i>under</i> the part. The exception
+  <b>costs resin, not time</b>: the pad thickens <i>under</i> the part, so the layer count
+  stays where it was and only the resin grows. The exception
   is a part <b>lifted off the plate</b> - there the layers grow too.</div>
   <img class="shot" style="max-width:378px" src="images/browser-slicer.png" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
   <div class="note">⚖️ The slicing itself is done by <b>PrusaSlicer’s libslic3r</b>, the same engine the
@@ -404,7 +404,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Four profiles are <b>built into the firmware</b> - two resins, each at both layer heights:
   <code>Fast fine</code> and <code>Fast draft</code>, <code>Slow fine</code> and <code>Slow draft</code>
   (<i>fine</i> is 0.05 mm, <i>draft</i> is 0.10 mm). So the list is never empty: no SD card, no
-  network, and after a factory reset. Editing a built-in
+  network, and after a factory reset. The two <code>Fast</code> profiles ship with a weighing
+  calibration measured on this printer (&times;1.010 + 0.63&nbsp;ml); the <code>Slow</code> pair starts
+  uncalibrated until you weigh a print. Editing a built-in
   writes a small overlay file on the card that shadows the flash values;
   <b>Reset to factory</b> deletes it. Every other profile lives in <code>/resin/*.json</code> on
   the card.</p>
@@ -440,7 +442,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Rename&hellip;</b> is offered for your own profiles (a built-in keeps its name).</li>
     <li><b>Discard changes</b> appears as soon as a field differs from the saved profile and puts
       all ten back.</li>
-    <li><b>Reset to factory</b> appears when a built-in has been edited, and removes the overlay.</li>
+    <li><b>Reset to factory</b> appears when a built-in has been edited, and removes the overlay -
+      together with the weighed prints stored in the same file; the confirmation says how many.
+      <b>Delete</b> on a card profile takes its weighings the same way.</li>
   </ul>
   <div class="warn">&#9888;&#65039; A profile is a <b>starting point</b>. This printer&rsquo;s colour
   screen absorbs UV, so manufacturer tables read far too short here - run the exposure test with
@@ -457,9 +461,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
       and the per-model estimate work with.</li>
     <li><b>Density</b> is measured once per resin: weigh a known volume, enter both, press Set.</li>
     <li><b>Weighed prints:</b> after a print, enter what the printer estimated and what the vat
-      actually lost. Two such samples fit a correction curve, and from then on the estimate follows
-      your resin rather than an assumption. On this printer the fitted correction landed within
-      about 1&nbsp;% of the weighed truth.</li>
+      actually lost. Two such samples fit a correction curve - a multiplier plus a fixed amount per print, the
+      film that stays on the plate - and from then on the estimate follows your resin rather than
+      an assumption. On this printer the multiplier came out within 1&nbsp;% of the geometry; the
+      whole correction is about 0.6&nbsp;ml of film per print.</li>
   </ul>
 
   <h3>Estimate before printing</h3>

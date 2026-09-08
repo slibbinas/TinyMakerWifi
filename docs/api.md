@@ -67,6 +67,10 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `vatRemainingMl`, `vatText`, `vatLow` | resin-in-VAT estimate + low flag |
 | `vatGrams` | the same estimate in grams, using the configured resin density (R-cal, 0.17). `vatText` deliberately stays ml-only so older clients render unchanged |
 | `webControl`, `askRefill` | runtime toggles |
+| `sdJob`, `sdJobName`, `sdJobDone`, `sdJobTotal` | what the SD job is doing right now - `import` (unpacking an upload) or `delete` - the model it concerns, and how far it is (`0/0` = this job has no count). Lets every open dashboard show "Unpacking X 60/826" instead of the presser knowing and the observers guessing (1-32, SD-prog, 0.17) |
+| `slicerOn` | the browser slicer module is switched on (SL-mod, 0.17). Also in `/api/config`; polled here so a second dashboard notices the switch within one poll |
+| `liveN`, `liveCaptured` | the live 3D stack (P-live, 0.17): how many silhouette slots the running print has, and how many are captured so far - both `0` when idle. A client with no local slices fetches `/api/live/slices?since=<captured>` whenever `liveCaptured` grows |
+| `resumePending` | `null`, or an object naming the interrupted `model` while the boot resume prompt is on the printer's screen (0-33) - the only window in which `/api/resume/*` is accepted |
 | `sdRev` | SD content revision — bumps on any out-of-band SD change (upload/delete/boot-anim); a client reloads its file list when this changes (0-28) |
 | `freeHeap`, `minFreeHeap`, `maxAllocHeap`, `uptimeSecs` | runtime diagnostics (heap + uptime) |
 
@@ -74,6 +78,8 @@ Key `/api/status` fields (additive; ignore unknowns):
 
 | Endpoint | Method | Purpose / arguments |
 |---|---|---|
+| `/api/files/model/slices` | GET/POST | `name=<model>` - the packed 36-slice silhouette set the dashboard's 3D view needs, cached next to the model (~21 KB; re-fetching the 36 layer PNGs would take ~37 s). GET hands it back, POST stores what the browser computed. Idle-only, like every SD read |
+| `/api/live/slices` | GET | `since=<k>` - the live 3D stack (P-live, 0.17): 1-bit silhouettes of the layers exposed so far, slots `[since, captured)`. RAM-only, so it answers **mid-print** - the one model endpoint that does; a full fetch also carries the not-yet-printed slots, which the browser draws as a ghost |
 | `/api/files` | GET | SD inventory (models + archives) with sizes and free space |
 | `/api/files/model` | GET | one model's details; `name=`, optional `estimate=1` for the resin estimate |
 | `/api/files/model/metadata` | POST | update model metadata (`model.json`) |

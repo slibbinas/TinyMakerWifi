@@ -42,7 +42,7 @@ unless noted. Community contributors are tagged inline.
 - **Named resin profiles** (plan 0-16). A profile is the whole print recipe for
   one resin: base and regular exposure, base and transition layers, all four
   lift settings, the resin's density and its weighing calibration. Switching
-  resin is one press instead of nine fields, and a value that took an exposure
+  resin is one press instead of ten fields, and a value that took an exposure
   test to find can no longer be lost to a stray edit.
   - Four profiles are **built into the firmware** — `Fast fine`, `Fast draft`,
     `Slow fine`, `Slow draft` — two resins at both layer heights, so the picker is
@@ -136,6 +136,17 @@ unless noted. Community contributors are tagged inline.
 
 ### Changed
 
+- **The factory resin calibration is measured now, not assumed.** `Fast fine` and
+  `Fast draft` ship with ×1.010 + 0.63 ml, fitted from two weighed prints
+  (1.15 ml → 2.07 g and 3.34 ml → 4.63 g); it used to be ×1.092 + 0.39. The slope
+  says the geometry was right all along - the whole correction is the ~0.6 ml of
+  film left on the plate after every print. The published `sunlu-tough` library
+  profile carries the same numbers, so "resin left" changes for everyone after
+  the update.
+- **"Reset to factory" and "Delete" say what they take with them.** Both remove
+  the weighed prints stored in the same profile file; the confirmation now counts
+  them, and the list refreshes as soon as a weighing is entered, so the warning
+  cannot stay silent exactly when it matters.
 - **Writes are accepted only from the printer's own dashboard** (GitHub #95). Any
   request that changes something must come with a matching Origin or the
   `X-TinyMaker: 1` header, so a page open in another tab cannot drive the printer.
@@ -161,6 +172,35 @@ unless noted. Community contributors are tagged inline.
   off the card, but F5 during a print still brings the progress view straight back.
 
 ### Fixed
+- **Touching the endstop is a homing, and the pause lift no longer dives.**
+  Reaching the endstop now zeroes the height counter and the screen says
+  **Plate is home**. Before this, a pause lift requested at or above the ceiling
+  did `moveTo(ceiling)` - which drove the plate *down into the part* mid-print.
+- **"Save config" silently switched dry run off**, so the next print cured with
+  the UV LEDs on when a dry run had been intended.
+- **The 3D view comes back when the print ends**, not when the layer counter
+  happens to fill up.
+- **A dashboard opened mid-print showed the active resin as "Fast (missing)"**,
+  so a phone and a PC disagreed about what was in the vat: an empty profile list
+  was read as "gone" before it had loaded at all.
+- **Supports stay on screen while the model is on its way to the printer.**
+  Pressing Send used to strip them from the 3D view for the whole upload and
+  unpack (~40 s on an 800-layer model), leaving the part hanging in the air.
+- **The slicer card stopped jumping.** The "Saved as …" line always keeps its
+  place now (46 px → 1 px when a slice finishes), the module version left the card
+  (it lives under Settings → Update), and the preview no longer flashes an empty
+  "Tap a model" box between a finished send and the model opening by itself.
+- **The delete dialog names the file** instead of "Delete this SD item?", and the
+  Update card no longer promises "Picked versions still work" when the printer
+  cannot reach GitHub.
+- **Smaller dashboard fixes from the test rounds:** test models say how long they
+  take; a profile whose file is gone says so instead of carrying stale values; a
+  broken boot-animation download no longer takes the old one with it; both layer
+  sliders are the same length and usable on a phone; a print started by someone
+  else no longer looks like a dead printer; a disabled control says why; the
+  "firmware updated" message stays long enough to be read; the status bar fits
+  its frame and the final lift says what it does; and the layer number no longer
+  swallows clicks or drags the slider with it.
 - **The manual jog stops at the top instead of grinding into it.** Above
   `max_height` the ULN2003 quietly drops steps while the counter keeps counting,
   so the plate ended up lower than the screen claimed. It now stops at the
