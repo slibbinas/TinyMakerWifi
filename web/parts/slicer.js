@@ -928,7 +928,9 @@ function slicerMaskSet(on){
 }
 /* Supportai atsiranda patys, tad kortelei lieka tik pasakyti, kas gavosi -
    jokiu nustatymu neatsiranda (V 08-12). */
-const SUP_IDLE='Supports and a raft are added on their own, wherever the part hangs - nothing to set.';
+/* Vienoje eiluteje (V 09-08): ilgesnis sakinys lauzdavosi i dvi, o kortele ir taip
+   auga zemyn labiau uz kaireje esancia perziura. */
+const SUP_IDLE='Supports and a raft are added where the part hangs.';
 function slicerSupportFacts(s){
   const a=$('slicerSupports'), b=$('slicerIslands');
   if(!a||!b)return;
@@ -1759,7 +1761,16 @@ $('slicerSave').addEventListener('click',async()=>{
     if(gl3dUp())gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
     {const t=$('gl3dTools'); if(t)t.style.display='none';}
     slicerDetLock(false);
-    dashPreviewPlaceholder();
+    /* „Pasirink modeli" deze - TIK nepavykus. Pavykus po sios vietos dar eina
+       uodega: iki 6 s laukiama, kol printeris atsileis, tada `loadFiles`, ir tik
+       tada `pickModel` atidaro ka tik issaugota modeli. Piesiant deze cia, ta
+       6-10 s zmogus ziuretu i tuscia drobe su uzrasu „Tap a model in the SD
+       manager" - nors modelis jau printeryje ir tuoj atsidarys pats (V 09-08).
+       Nepavykus - atvirksciai: dezes reikia, nes daugiau nieko nebus.
+       ⚠️ Perdavimo (`slicerOwns(false)`) cia ATIDETI NEGALIMA - bandyta 09-08,
+       ir `dashPreviewPlaceholder()` po `pickModel` isvalydavo `dashPreviewName`,
+       o besikraunanti perziura nutrukdavo ties savo sarga. Atideta tik deze. */
+    if(!savedName)dashPreviewPlaceholder();
   }
   if(!savedName){loadFiles&&loadFiles();return;}
   /* Uodega irgi yra MUSU darbas: `loadFiles` perskaito korteles sarasa, po jo
@@ -1767,6 +1778,9 @@ $('slicerSave').addEventListener('click',async()=>{
      kaip tik po „... is on the printer." (V 08-18). Ta pati zyme, kaip perziuros
      siurbimui: apklausa tyli, kol dirbam. */
   if(typeof setPreviewBusy==='function')setPreviewBusy(true);
+  /* Ar perziura tikrai peremė drobe. Zemiau yra keliu, kur uodega baigiasi nieko
+     neatidariusi, ir tada deze reikalinga - zr. `finally`. */
+  let perimta=false;
   try{
   /* PIRMA palaukiam, kol busena atsileis, ir tik TADA imam sarasa. Atvirksciai
      buvo bergzdzia: `loadFiles` pati turi ankstyva isejima „spausdinant SD
@@ -1822,10 +1836,23 @@ $('slicerSave').addEventListener('click',async()=>{
      nedingsta, jis tik susiskleidzia (V 08-20). */
   slicerOpen(false);
   if(typeof pickModel==='function')pickModel(openName);
+  /* Ar perziura is tikruju atsidare. `pickModel` ir `dashPreview` turi tylius
+     ankstyvus isejimus (printeris dar dirba, web valdymas isjungtas, vyksta
+     dalijimasis), o varda jie uzsiraso PRIES pirma `await` - tad iskart po
+     kvietimo si eilute jau sako tiesa. */
+  perimta=(typeof dashPreviewName!=='undefined'&&dashPreviewName===openName);
   }finally{
     if(typeof setPreviewBusy==='function')setPreviewBusy(false);
     slicerWorkUI(false); slicerButtons(true);
     if(slicerOut)slicerLayerUI(true);
+    /* Deze kaip atsarginis variantas. Pirmajame `finally` ji piesiama tik nepavykus,
+       nes pavykus uodega modeli atidaro pati - bet uodegoje yra trys keliai, kur tai
+       neivyksta: neaisku, kuris modelis naujas (`openName` tuscias); `pickModel`
+       tyliai grizo, nes printeris dar dirba; `filesShowName` mete. Be sios eilutes
+       drobeje tada liktu kaboti senas slicerio vaizdas be irankiu, ir jo niekas
+       nebeperimtu - apklausos sarga irgi tyli, kol `slicerOwnsPreview` nuimtas, o
+       `dashPreviewName` tuscias (printerio sesijos vartai 09-08). */
+    if(!perimta)dashPreviewPlaceholder();
   }
 });
 

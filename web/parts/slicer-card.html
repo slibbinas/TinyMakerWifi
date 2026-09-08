@@ -172,21 +172,22 @@
       <div id='slicerDims'></div>
       <div id='slicerInfo'>No file loaded yet.</div>
       <div>Layers are 0.05 mm, as for every model.</div>
-      <div id='slicerSupports'>Supports and a raft are added on their own, wherever the part hangs - the settings above only nudge how.</div>
+      <div id='slicerSupports'>Supports and a raft are added where the part hangs.</div>
       <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
            Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
            prarado, ir galeti grizti (V 08-20). -->
       <div id='slicerPlaceNote'></div>
       <div id='slicerIslands'></div>
       </div>
-      <!-- Versija - apatiniame desiniame kampe, smulkiai ir tyliai (V 08-22).
-           Reiksme ateina is `slicerMod.VERSION`, t. y. is PACIO uzsikrovusio
-           modulio, o ne is `SV` konstantos kode: modulis ateina is tinklo,
-           narsykle gali laikyti sena kese, ir 08-18 butent tas skirtumas
-           kainavo puse dienos. -->
-      <div id='slicerVerRow' style='text-align:right;margin-top:8px'><span id='slicerVer'
-           style='font-size:11px;color:var(--muted2);letter-spacing:.02em'
-           title='Slicer module version'></span></div>
-
+      <!-- Versijos cia NEBERA (V 09-08). Korteleje ji tik ilgino bloka, o slicerio
+           kortele ir taip auga zemyn labiau uz kaireje esancia perziura.
+           Isimti saugu: `slicer.js` raso per `if(e)`, o Update skiltis versija gauna
+           atskirai, per `slicerLoadedVer`.
+           ⚠️ Settings -> Update rodo NE ta pacia reiksme: ten `slmInstalled` sako, kas
+           guli ant korteles (`/api/lib/slicer`), o uzsikrovusio modulio versija
+           parodoma tik `slmReload` eiluteje ir tik tada, kai abi zinomos IR skiriasi.
+           Vadinasi, kai modulis paimtas is tinklo (korteleje jo nera) arba kai
+           spausdinama, veikiancio modulio versijos nesimato niekur. Tai zinoma skola,
+           ne apsirikimas (printerio sesijos vartai 09-08). -->
     </div>
   </section>
