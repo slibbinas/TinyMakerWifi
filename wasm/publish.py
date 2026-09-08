@@ -67,13 +67,28 @@ def main():
 
     # --- adapteris: prisegam bazę ir darbininka ---------------------------
     ad = skaityk(os.path.join(HERE, 'slicer-wasm.js'))
-    rasyk(os.path.join(lib, 'slicer-wasm.js'), ad)          # neprisegtas - vietiniam darbui
+    # Neprisegtas - vietiniam darbui ir narsyklei, kuri ima is saknies. Nuorodos
+    # cia lieka be versiju, BET versija irasom: sis failas jau paskelbtas, ir
+    # „dev-wasm" jame meluotu lygiai taip pat, kaip meluodavo sena konstanta.
+    rasyk(os.path.join(lib, 'slicer-wasm.js'),
+          ad.replace("export const VERSION = 'dev-wasm';",
+                     "export const VERSION = '%s-wasm';" % V))
     ad_v = (ad
             .replace("from './slicer-core.js'", "from './slicer-core-%s.js'" % V)
             .replace("'slicer-wasm-worker.js'", "'slicer-wasm-worker-%s.js'" % V)
             .replace("const BAZES_FAILAS = 'slicer-core.js'",
                      "const BAZES_FAILAS = 'slicer-core-%s.js'" % V)
-            .replace("self.SLA_BAZE=", "self.SLA_VERSIJA=" + repr(V).replace("'", '"') + ";self.SLA_BAZE="))
+            .replace("self.SLA_BAZE=", "self.SLA_VERSIJA=" + repr(V).replace("'", '"') + ";self.SLA_BAZE=")
+            .replace("export const VERSION = 'dev-wasm';",
+                     "export const VERSION = '%s-wasm';" % V))
+    # Sarga: pultas rodo TA, ka modulis pats apie save skelbia, ir tai atskiras
+    # saltinis nuo failu vardu. Iki 09-08 versija cia buvo ikalta ranka, tad
+    # 3.3.1 ir 3.3.2 isejo skelbdamos „3.3.0-wasm" - idiegta nauja versija
+    # atrode kaip sena. Geriau neisleisti nieko, negu isleisti melaginga.
+    if ("export const VERSION = '%s-wasm';" % V) not in ad_v:
+        sys.exit('publish: adapteryje nepavyko irasyti VERSION = %s-wasm.\n'
+                 '  Ar `wasm/slicer-wasm.js` dar turi eilute '
+                 "`export const VERSION = 'dev-wasm';`?" % V)
     rasyk(os.path.join(lib, 'slicer-wasm-%s.js' % V), ad_v)
 
     # --- darbininkas: prisegam varikli -------------------------------------

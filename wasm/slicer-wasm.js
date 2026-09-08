@@ -13,7 +13,19 @@
  */
 import * as BAZE from './slicer-core.js';
 
-export const VERSION = '3.3.0-wasm';
+/*
+ * Versija. Sia eilute PERRASO `publish.py` - ranka jos keisti nereikia.
+ *
+ * Iki 2026-09-08 cia buvo ikalta '3.3.0-wasm', o publikavimas keite tik failu
+ * vardus. Todel 3.3.1 ir 3.3.2 apie save skelbe „3.3.0-wasm": pultas rodo tai,
+ * ka modulis pats sako, tad idiegta nauja versija atrode kaip sena, o zenklo
+ * „yra naujesne" niekas nesulaukdavo - palyginimas remesi ta pacia melaginga
+ * konstanta. Rado printerio sesija.
+ *
+ * Nepublikuotame medyje lieka 'dev-wasm' - taip is karto matyti, kad pultas
+ * kraunasi moduli is saknies, ne is paskelbto rinkinio.
+ */
+export const VERSION = 'dev-wasm';
 
 /* Ka pultas ima tiesiogiai - perduodam nepakeista. */
 export const {
