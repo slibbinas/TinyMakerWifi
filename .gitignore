@@ -37,3 +37,6 @@ scripts/dev/model-slices/
 
 # Testų išvestis (SVG peržiūros) — generuojama, ne šaltinis
 scripts/dev/test-out/
+
+# Python bytecode: build output, not source
+__pycache__/
