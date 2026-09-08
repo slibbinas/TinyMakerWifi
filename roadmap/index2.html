@@ -135,11 +135,13 @@ before the automatic self-update picks it up:</p>
 <ul>
 <li><b>Named resin profiles</b> - a profile is the whole recipe for one resin:
 exposures, base layers, all four lift settings, density and layer height. Switching
-resin is one press instead of nine fields. Two profiles are built into the firmware, so
+resin is one press instead of ten fields. Four profiles are built into the firmware - two resins at both layer heights - so
 the picker is never empty, and more install from the published library.</li>
 <li><b>Resin left, by weight</b> - weigh the vat once empty, then weigh it full, and the
 printer works out the millilitres left instead of assuming a full vat. A per-resin
-calibration makes the "will this print fit" warning a measured number.</li>
+calibration makes the "will this print fit" warning a measured number - and the two
+built-in Fast profiles ship already calibrated from weighed prints, so the number is
+right before you ever put the vat on a scale.</li>
 <li><b>The model preview is a real 3D view</b> - it used to stack 36 slices like
 pancakes, which made anything detailed unreadable. Now the printer's own layers become a
 surface drawn by your browser's GPU, at the printer's native resolution and with every
@@ -160,6 +162,16 @@ says where it failed rather than "it failed".</li>
 is no longer a mystery, and a push message tells you when power came back.</li>
 <li><b>The browser slicer can live on the SD card</b>, so a printer with no internet
 still slices, and the dashboard checks for a newer module by itself.</li>
+<li><b>The browser slicer places the part for you</b> - Fast fit, Optimal fit (the
+PrusaSlicer search for the tilt that needs the fewest supports), Lay flat, Flip, Tilt and
+Rotate, then six settings for supports, strength, placement, tip, raft and smoothing. The
+raft is counted in layers (2, 3 or 6; default 3), because layers are what decide whether
+the pad grips. Switched on under <i>Settings &rarr; Network</i>; it becomes the default
+with 1.0.0.</li>
+<li><b>The plate knows where the top and the bottom are</b> - the manual jog stops at the
+ceiling instead of grinding into it, touching the endstop is a homing ("Plate is home"),
+and a pause lift asked for at the ceiling no longer drives the plate down into the
+part.</li>
 <li><b>Adjustable pause lift height</b> for inspecting a print, and a dry run that no
 longer sends the plate to the ceiling.</li>
 <li><b>Everyday polish</b> - newest model on top of the card list, actions that appear
