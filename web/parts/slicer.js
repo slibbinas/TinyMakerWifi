@@ -602,12 +602,12 @@ $('slicerFile').addEventListener('change',async e=>{
 /* Kol vyksta ilgas darbas, ekrane lieka VIEN zinute. Nei sukti, nei priartinti,
    nei zymeti nera ko: daikto dar nera arba jis kaip tik gaminamas (V 08-20).
    Formos eilute pasitraukia per `slicerButtons(false)`, visa kita - cia. */
-const slicerWorkUI=dirba=>{
+const slicerWorkUI=(dirba,paliktiAtramas)=>{
   ['gl3dZoom','gl3dZoomCorner','gl3dMarkWrap','gl3dPad','gl3dRot','gl3dHelp']
     .forEach(id=>{const e=$(id); if(e&&dirba)e.style.display='none';});
   /* Ir sluoksniu slankiklis: kol pjaustoma, slinkti dar nera ko - o jis rodydavo
      „334 / 334" salia „Slicing 85 %" (V 08-20). */
-  if(dirba)slicerLayerUI(false);
+  if(dirba)slicerLayerUI(false,paliktiAtramas);
   if(!dirba){
     /* Grazina tas pats, kas ir sprendzia, kas kuriame vaizde matoma. */
     slicerViewChrome();
@@ -966,7 +966,21 @@ function slicerSupportFacts(s){
 }
 /* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
    pati kauke. Anksciau trys vietos slepe tik slankikli. */
-function slicerLayerUI(on){
+/* `paliktiAtramas` - tik siuntimo keliui. Slepiant valdiklius atramos is scenos
+   ISIMAMOS, ir tai teisinga visur, kur rezultato nebeliko: naujas STL, „Discard",
+   isejimas is slicerio. Bet siunciant rezultatas NIEKUR nedingsta, tad ju isemimas
+   nieko neduoda - tik atima is zmogaus ta, ka jis ka tik pasidare (V 09-08).
+   Ka jis matydavo iki 09-08: paspaudus „Save", visa siuntimo ir ispakavimo laika
+   (~40 s prie 800 sluoksniu) - detale BE ATRAMU ir KABANCIA ORE, nes `slicerGeomView`
+   piesia ja pakelta per atramu auksti (ta pati yda aprasyta auksciau, prie
+   `slicerKelk`). Ir butent tuo metu patikrinti nieko negali.
+   ⚠️ Ko si veliavele NEISPRENDZIA, ir tai zinoma:
+     * jei pries „Save" zmogus buvo uzsukes i SLUOKSNIU ar kaukes vaizda, atramu
+       scenoje jau nebera - jas isima `slicerBuildView`, ir tai atskiras kelias;
+     * uodegoje, po ispakavimo, drobe vis tiek buna tuscia ~6-10 s: atramos
+       nuimamos, paskui `dashPreviewPlaceholder`, iki 6 s laukiama `uiBusy`, tada
+       `loadFiles` ir tik po to `pickModel`. Pataisa uzdengia ILGAJA dali, ne visa. */
+function slicerLayerUI(on,paliktiAtramas){
   /* Rodyti slankikli ant svetimo vaizdo nera prasmes: jis valdo MUSU rezultata. */
   if(on&&!slicerIsOpen())return;
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
@@ -979,7 +993,7 @@ function slicerLayerUI(on){
      perjungiant akordeona, o zmogaus vieta sluoksniuose priklauso REZULTATUI -
      ji nulinama tik ten, kur rezultatas keiciasi (`slicerReset`, „Discard"). */
   if(!on){slicerMaskSet(false); slicerView=0;
-          if(window.gl3dSupports)gl3dSupports(null);}
+          if(!paliktiAtramas&&window.gl3dSupports)gl3dSupports(null);}
   else slicerSetView(slicerView);
 }
 /* Kurioje 3D poros pusėje zmogus buvo paskutini karta. Be sios atminties
@@ -1599,7 +1613,8 @@ $('slicerSave').addEventListener('click',async()=>{
      sukioti ar pjaustyti sluoksniais. Tad tos pacios juostos, kaip ir pjaustant:
      formos irankiai, vaizdo jungiklis ir sluoksniu slankiklis pasitraukia
      (V 08-20: „uploading ir unpacking rodo zoom ir toolus - ne i tema"). */
-  slicerButtons(false); slicerWorkUI(true); slicerLayerUI(false);
+  /* `true` abiem: siunciant atramos lieka scenoje (zr. `slicerLayerUI`). */
+  slicerButtons(false); slicerWorkUI(true,true); slicerLayerUI(false,true);
   /* Pasisakom, kad printeri uzimam MES. Be sito pultas per savo apklausa raso
      „Printer not answering - an upload, share or other background job..." tame
      paciame lange, kuris ka tik paspaude „Save": eiga sukasi korteleje, o virsuje
