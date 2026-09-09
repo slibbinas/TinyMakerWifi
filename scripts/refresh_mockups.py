@@ -179,7 +179,7 @@ def extend_printer_screens():
     p = MOCKUPS / "printer-screens.png"
     src = Image.open(p).convert("RGB")
     base = src.crop((0, 0, 2080, 1920))
-    img = Image.new("RGB", (2080, 3184), (0, 0, 0))
+    img = Image.new("RGB", (2080, 3600), (0, 0, 0))
     img.paste(base, (0, 0))
     d = ImageDraw.Draw(img)
 
@@ -205,7 +205,8 @@ def extend_printer_screens():
     lx, ly = tile(cols[0], "Advanced > Resin - one group's rows")
     d.rounded_rectangle((lx + 8, ly + 10, lx + LW - 8, ly + 138), 10,
                         outline=(238, 238, 238), width=3)
-    # 0.17: eiluciu vardai pasikeite (advancedLabel) - mockup rase senuosius.
+    # Vardai patikrinti pries advancedLabel() 2026-09-09: "Low resin stop" (4) ir
+    # "Warn (ml)" (16) tebera tokie patys - maketas teisingas.
     d.text((lx + 26, ly + 26), "Low resin stop", font=_seg(32), fill=(238, 238, 238))
     d.text((lx + 26, ly + 86), "On", font=_seg(30), fill=CYAN)
     d.text((lx + 26, ly + 160), "Warn (ml)", font=_seg(32), fill=(238, 238, 238))
@@ -318,8 +319,53 @@ def extend_printer_screens():
                   ("Exposure test", "4.4-17.6s"),
                   ("Dry run", "Off")])
 
+    # ---------------- astunta eile: 09-05 plokstes uzrasai + 0.17 dervos sarga ------
+    # Kodel: manualas (2 ir 10 skyriai) aprasineja "Plate is at the top", "Plate is
+    # home" ir "Resin not set", o kolaze ju nebuvo - ekranai atsirado 09-05 (Z lubos
+    # ir homing'as, 10f80bf/53dd915) ir 08-17 (screenNoResin). Geometrija is
+    # Interface.ino: uiFrame = 160x80 remelis, tekstas FreeSans8pt (x3.5 masteliu
+    # ~28-30 px), screenPlateNote centruoja viena eilute ties y=45, screenNoResin
+    # deda tris eilutes ties y=16/34/52 ir Back/Slow mygtukus.
+    Y3 = Y2 + CH + 28
+
+    def tile8(cx, caption):
+        d.rounded_rectangle((cx, Y3, cx + CW, Y3 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y3 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y3 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    def plate_note(cx, caption, text):
+        lx, ly = tile8(cx, caption)
+        d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
+                            outline=ORANGE_, width=6)
+        f = _seg(34)
+        bb = f.getbbox(text)
+        # y=45 LCD koordinatemis yra teksto BAZINE linija; x3.5 = 157 px nuo virsaus
+        d.text((lx + (LW - (bb[2] - bb[0])) / 2 - bb[0], ly + 157 - bb[3]), text,
+               font=f, fill=(238, 238, 238))
+
+    # --- tile 10: manual jog stops at the ceiling (Motor.ino:50)
+    plate_note(cols[0], "Manual jog at the ceiling", "Plate is at the top")
+    # --- tile 11: touching the endstop is a homing (Motor.ino:137)
+    plate_note(cols[1], "Endstop touched = homed", "Plate is home")
+
+    # --- tile 12: screen 116, screenNoResin - printing refused until a resin is picked
+    lx, ly = tile8(cols[2], "No resin picked - printing is refused")
+    d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
+                        outline=RED, width=6)
+    f = _seg(32)
+    for i, line in enumerate(("Resin not set", "Pick a resin before", "printing.")):
+        bb = f.getbbox(line)
+        d.text((lx + 21, ly + (16 + 18 * i) * 3.5 - bb[3]), line, font=f, fill=(238, 238, 238))
+    btn(lx + 22, ly + 210, 240, "Back", ORANGE_, (255, 255, 255))
+    btn(lx + 296, ly + 210, 240, "Slow", CYAN, (10, 10, 10))
+
     img.save(p)
-    print("  printer-screens.png: penkta eile atnaujinta, sesta ir septinta pridėtos")
+    print("  printer-screens.png: penkta eile atnaujinta, sesta-astunta pridėtos")
 
 
 def draw_dashboard(latest):
