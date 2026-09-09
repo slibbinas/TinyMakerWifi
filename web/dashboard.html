@@ -81,7 +81,21 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #previewStage.flatView #gl3dLayer{top:14px;bottom:14px}   /* ilgi riboja max-height, zr. slicer.css */
 /* Ikona, ne uzrasas: „Expand" mygtukas korteles antrasteje atrode kaip svetimkunis
    salia 3D irankiu, kurie visi yra maži kvadratėliai (V 08-13). */
-.cardBusy .cardHead button,.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dZoomCorner,.cardBusy #gl3dClipBar,.cardBusy #gl3dHelp{opacity:.4;pointer-events:none}
+/* Antrastes mygtukai (dalijimasis, lango didinimas) tik prigesta: jie stovi eiluteje,
+   ir paslepti juos reikstu, kad antraste kilnotusi kaskart, kai kortele uzsiima. */
+.cardBusy .cardHead button{opacity:.4;pointer-events:none}
+/* O valdikliai ANT VAIZDO kraunantis PASISLEPIA visai (V 09-10). Iki tol jie tik
+   prigesdavo, ir tai atrodydavo kaip klaida: „Loading preview…" bei „Building the 3D
+   view…" metu virsuje likdavo kaboti vienas vienisas narvo mygtukas - visus jo kaimynus
+   tuo momentu slepia kiti (`gl3dDet` - stiliai, `gl3dClip` ir `gl3dRaw` - slicerio riba,
+   `gl3dV3`/`gl3dV2` - sluoksniu valdikliai), o narvo nepaslepia niekas. V: „aplamai
+   neturetu ne vienas tame rezime matytis".
+   Kodel CIA, o ne JavaScript'e: `.cardBusy` uzdeda ir nuima `setPreviewBusy`, o jis yra
+   SKAITIKLIS - vienintele vieta, zinanti apie VISUS krovimo kelius vienu metu. Grazinti
+   nieko nereikia: nukritus klasei kiekvienas valdiklis atsiranda su savo paties reiksme,
+   tad nera ko isiminti ir nera kaip prasilenkti su `gl3dShow`.
+   `!important` butinas: siu grupiu `display` rasomas inline, o inline nugali stiliu. */
+.cardBusy #gl3dPad,.cardBusy #gl3dRot,.cardBusy #gl3dZoom,.cardBusy #gl3dZoomCorner,.cardBusy #gl3dClipBar,.cardBusy #gl3dHelp{display:none!important}
 .cardBusy .cardHead{cursor:progress}
 #stageOpen,#dashShareButton[data-icon]{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#stageOpen:hover,#dashShareButton[data-icon]:hover{color:var(--text);border-color:var(--line2)}#dashShareButton[data-icon].shared{color:var(--accent);border-color:var(--accent);cursor:default}
 /* Ikoniniai mygtukai savo fona/spalva nusako ID taisykle, tad bendras `button:disabled`
