@@ -297,7 +297,7 @@ Three ways to update:
 
 Do not power off during an update — and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 
-<img src="Images/mockups/firmware-update-page.png" width="430" alt="The dashboard Settings → Update pane: installed version vs the stable channel, version picker, firmware.bin upload and the Slicer module card">
+<img src="Images/mockups/firmware-update-page.png" width="400" alt="The dashboard Settings → Update pane: installed version vs the stable channel, version picker, firmware.bin upload and the Slicer module card">
 
 > The self-update needs the latest `firmware.bin` + a `version.txt` hosted on GitHub Pages. See [`Firmware_Hosting/`](Firmware_Hosting/) for the one-time setup and per-release steps.
 
