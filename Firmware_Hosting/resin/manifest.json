@@ -16,7 +16,7 @@
     },
     {
       "name": "sunlu-tough",
-      "display": "Sunlu Toughness -0.05",
+      "display": "Sunlu Toughness",
       "file": "sunlu-tough.json",
       "layerHeight": 0.05,
       "testedBy": "TinyMakerWiFi",
@@ -25,7 +25,7 @@
     },
     {
       "name": "sunlu-tough-010",
-      "display": "Sunlu Toughness -0.1",
+      "display": "Sunlu Toughness",
       "file": "sunlu-tough-010.json",
       "layerHeight": 0.10,
       "testedBy": "TinyMakerWiFi",
