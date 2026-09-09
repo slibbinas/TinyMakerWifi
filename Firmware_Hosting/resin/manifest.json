@@ -1,15 +1,6 @@
 {
   "profiles": [
     {
-      "name": "sunlu-tough",
-      "display": "Sunlu Toughness",
-      "file": "sunlu-tough.json",
-      "layerHeight": 0.05,
-      "testedBy": "TinyMakerWiFi",
-      "testedOn": "2026-09",
-      "buyUrl": "https://tinymakerwifi.com/r/sunlu-tough"
-    },
-    {
       "name": "anycubic-ww-clear",
       "display": "Anycubic Water-Washable Clear",
       "file": "anycubic-ww-clear.json",
@@ -22,6 +13,28 @@
       "file": "anycubic-ww-black.json",
       "layerHeight": 0.10,
       "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-black"
+    },
+    {
+      "name": "sunlu-tough-r2",
+      "display": "Sunlu Toughness (2026-09 rev)",
+      "file": "sunlu-tough-r2.json",
+      "layerHeight": 0.05,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-09",
+      "buyUrl": "https://tinymakerwifi.com/r/sunlu-tough-r2"
+    }
+  ],
+  "retired": [
+    {
+      "name": "sunlu-tough",
+      "display": "Sunlu Toughness",
+      "file": "sunlu-tough.json",
+      "layerHeight": 0.05,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-09",
+      "buyUrl": "https://tinymakerwifi.com/r/sunlu-tough",
+      "since": "2026-09-09",
+      "why": "pakeitė sunlu-tough-r2"
     }
   ]
 }
