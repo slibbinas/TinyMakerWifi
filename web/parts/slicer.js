@@ -1480,15 +1480,7 @@ function slicerBarMerge(on){
     if(b.parentElement!==kur)kur.appendChild(b);
     b.disabled=false;   // svecias niekada nelieka uzrakintas seimininko uzraktu
   });
-  /* Juostele turi prasme tik tada, kai 3D vaizdas is tikruju stovi ekrane. Iseinant is
-     slicerio ji buvo parodoma besalygiskai, ir tarpe tarp dvieju seimininku (sliceris jau
-     atidave, perziura dar kraunasi - „Loading preview…") ekrane likdavo vienas vienisas
-     narvo mygtukas. Visus jo kaimynus paslepia kiti: `gl3dDet` - stiliai, `gl3dClip` ir
-     `gl3dRaw` - slicerio riba (`SLICER_HIDE`), `gl3dV3` ir `gl3dV2` - `slicerLayerUI`;
-     narvo nepaslepia niekas. Juostele grazina `gl3dShow` tada, kai vaizdas atsistoja
-     (V 09-10: „aplamai neturetu ne vienas tame rezime matytis"). */
-  const h3=$('gl3d');
-  zoom.style.display=(!on&&h3&&h3.style.display==='block')?'flex':'none';
+  zoom.style.display=on?'none':'flex';
 }
 /* Zymeklis - slicerio irankis: spausdinimo perziuroje zymeti nera ko, o mygtukas
    ten tik kabojo (V 08-20). Rodom tik kai vaizdas priklauso sliceriui IR kai pats
