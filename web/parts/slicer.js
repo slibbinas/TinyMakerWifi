@@ -602,7 +602,8 @@ $('slicerFile').addEventListener('change',async e=>{
 /* Kol vyksta ilgas darbas, ekrane lieka VIEN zinute. Nei sukti, nei priartinti,
    nei zymeti nera ko: daikto dar nera arba jis kaip tik gaminamas (V 08-20).
    Formos eilute pasitraukia per `slicerButtons(false)`, visa kita - cia. */
-const slicerWorkUI=(dirba,paliktiAtramas)=>{
+/* `tyliai` keliauja i `slicerLayerUI`: grazinam valdiklius, bet vaizdo neliesime. */
+const slicerWorkUI=(dirba,paliktiAtramas,tyliai)=>{
   ['gl3dZoom','gl3dZoomCorner','gl3dMarkWrap','gl3dPad','gl3dRot','gl3dHelp']
     .forEach(id=>{const e=$(id); if(e&&dirba)e.style.display='none';});
   /* Ir sluoksniu slankiklis: kol pjaustoma, slinkti dar nera ko - o jis rodydavo
@@ -612,7 +613,7 @@ const slicerWorkUI=(dirba,paliktiAtramas)=>{
     /* Grazina tas pats, kas ir sprendzia, kas kuriame vaizde matoma. */
     slicerViewChrome();
     slicerMarkUI(!!slicerOwnsPreview);
-    if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true);
+    if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true,false,tyliai);
   }
 };
 /* Ar vaizdas DABAR musu. Darbas gali tesltis fone (pjaustymas trunka 26 s), bet jei
@@ -982,7 +983,12 @@ function slicerSupportFacts(s){
      * uodegoje, po ispakavimo, drobe vis tiek buna tuscia ~6-10 s: atramos
        nuimamos, paskui `dashPreviewPlaceholder`, iki 6 s laukiama `uiBusy`, tada
        `loadFiles` ir tik po to `pickModel`. Pataisa uzdengia ILGAJA dali, ne visa. */
-function slicerLayerUI(on,paliktiAtramas){
+/* `tyliai` (V 09-10): grazina valdiklius, BET vaizdo neperpiesia. Reikalinga
+   atsaukus siuntima - siunciant ant drobes nieko neuzdedama (eiga eina i korteles
+   eilute ir i snacka), tad piesinys tebestovi toks, koks buvo. `slicerSetView` cia
+   tik nuvestu kamera i pradine padeti ir sunaikintu zmogaus pasukta ir priartinta
+   vaizda - o jo niekas neprase keisti. */
+function slicerLayerUI(on,paliktiAtramas,tyliai){
   /* Rodyti slankikli ant svetimo vaizdo nera prasmes: jis valdo MUSU rezultata. */
   if(on&&!slicerIsOpen())return;
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
@@ -994,8 +1000,20 @@ function slicerLayerUI(on,paliktiAtramas){
   /* Sluoksnio NUMERIS cia NEBENULINAMAS: valdikliai dingsta ir grizta kaskart
      perjungiant akordeona, o zmogaus vieta sluoksniuose priklauso REZULTATUI -
      ji nulinama tik ten, kur rezultatas keiciasi (`slicerReset`, „Discard"). */
-  if(!on){slicerMaskSet(false); slicerView=0;
-          if(!paliktiAtramas&&window.gl3dSupports)gl3dSupports(null);}
+  /* Siunciant (`paliktiAtramas`) NIEKO nesugriaunam: kauke tik pasislepia, o jos drobe,
+     sluoksnio numeris, atramos ir `slicerView` lieka tokie patys. Taip „Cancel" grazina
+     zmogu tiksliai i ta vieta, is kurios jis isejo, ir grazina ja NIEKO nepiesdamas.
+     Visais kitais atvejais (akordeonas, „Discard", pabaigtas siuntimas) rezultatas is
+     tikruju paliekamas - tada valom viska (V 09-10). */
+  if(!on){
+    if(paliktiAtramas){const mb=$('slicerMask'); if(mb)mb.style.display='none';}
+    else{slicerMaskSet(false); slicerView=0;
+         if(window.gl3dSupports)gl3dSupports(null);}
+  }
+  else if(tyliai){
+    slicerViewChrome();
+    if(slicerView===2&&slicerMaskOn){const mb=$('slicerMask'); if(mb)mb.style.display='flex';}
+  }
   else slicerSetView(slicerView);
 }
 /* Kurioje 3D poros pusėje zmogus buvo paskutini karta. Be sios atminties
@@ -1605,11 +1623,15 @@ $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
 $('slicerSave').addEventListener('click',async()=>{
   if(!slicerOut)return;
   if(slicerBusyStop())return;
-  let savedName='', renamed=false, namesWere=[];
+  let savedName='', renamed=false, namesWere=[], cancelled=false;
   const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
   if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
   slicerOut.name=nm;
   const btn=$('slicerSave'), prog=$('slicerProg');
+  /* Ka kortele rase pries siuntima: „Sliced in 13.4 s · 172 layers · ~1.5 ml".
+     Atsaukus ta eilute grazinam - zr. `finally`. Vaizdo puses (`slicerView`) isiminti
+     nebereikia: siunciant ji nebenulinama, tad Cancel lieka ten, kur zmogus buvo. */
+  const progWas=prog.textContent;
   btn.disabled=true;
   /* Ikeliant ir ispakuojant ekrane - uzrasas, o ne daiktas, kuri butu galima
      sukioti ar pjaustyti sluoksniais. Tad tos pacios juostos, kaip ir pjaustant:
@@ -1692,7 +1714,7 @@ $('slicerSave').addEventListener('click',async()=>{
      if(conflict){
        /* Tas pats langelis, kaip pulto ikelimui - su abieju modeliu palyginimu. */
        const choice=await uploadConflictChoice(conflict);
-       if(choice!=='replace'&&choice!=='rename')throw new Error('Save cancelled');
+       if(choice!=='replace'&&choice!=='rename'){cancelled=true;throw new Error('Save cancelled');}
        renamed=choice==='rename';
        await send(choice);
      }}
@@ -1749,12 +1771,35 @@ $('slicerSave').addEventListener('click',async()=>{
     sdCollapse(false);
     savedName=done.name;
     namesWere=namesBefore;
-  }catch(e){ prog.textContent=e.message; msg(e.message,true); }
+  /* Atsaukimas nera klaida, tad ir snackas ne raudonas: raudona spalva cia sakytu,
+     kad kazkas nepavyko, o nepavykti neturejo ko - zmogus pats taip pasirinko. */
+  }catch(e){ prog.textContent=e.message; msg(e.message,!cancelled); }
   finally{
     btn.disabled=false;
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof bgJob!=='undefined')bgJob='';
     if(typeof syncActionLocks==='function')syncActionLocks();
+    /* ATSAUKIMAS NERA PABAIGA. Radus toki pati varda printeryje klausiama, ka daryti,
+       ir „Cancel" reiskia tik tiek, kad siuntimo nebuvo: suslicintas modelis liko
+       atmintyje, „Send to printer" veikia toliau. Tad ir vaizdas turi likti toks, koks
+       buvo pries paspaudziant - grazinam tik paslėptus valdiklius.
+       Be sitos sakos zmogus paspaudes Cancel likdavo su tuscia drobe („Choose an STL
+       file to slice"), be formos mygtuku ir be vaizdo juostos, nors modelis niekur
+       nedingo - o antras „Send" tada siusdavo daikta, kurio ekrane nebesimato
+       (V 09-10). `slicerOwnsPreview` cia NEnuimam, tad `slicerButtons(true)` grazina
+       ir juostele ant vaizdo. */
+    if(cancelled){
+      /* NIEKO NEPIESIAM (V 09-10). Siunciant ant drobes neuzdedama jokia perdanga -
+         eiga rodoma korteles eiluteje ir snacke, - tad piesinys visa laika stovejo
+         nepaliestas. Belieka grazinti tai, kas buvo PASLEPTA: formos irankius, vaizdo
+         juosta, sluoksniu slankikli ir kaukes dėžę. `tyliai` sarga neleidzia niekam
+         is to kelio nuklysti i `slicerSetView` - o butent jis persistato kamera ir
+         sunaikina zmogaus pasukta bei priartinta vaizda.
+         ⚠️ `slicerOverlayOff()` cia kviesti NEGALIMA: jis valo `printPreviewCanvas`,
+         o „Printed layers" vaizdas gyvena kaip tik toje drobeje - Cancel ji istrindavo. */
+      slicerButtons(true); slicerWorkUI(false,false,true);
+      prog.textContent=progWas;
+    }else{
     /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwns(false);
@@ -1771,6 +1816,7 @@ $('slicerSave').addEventListener('click',async()=>{
        ir `dashPreviewPlaceholder()` po `pickModel` isvalydavo `dashPreviewName`,
        o besikraunanti perziura nutrukdavo ties savo sarga. Atideta tik deze. */
     if(!savedName)dashPreviewPlaceholder();
+    }
   }
   if(!savedName){loadFiles&&loadFiles();return;}
   /* Uodega irgi yra MUSU darbas: `loadFiles` perskaito korteles sarasa, po jo
