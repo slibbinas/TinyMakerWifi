@@ -2919,6 +2919,8 @@ void loop() {
             resumeCheckpoint('P');  // parked position is exact
             screen1111_state();
             gfx2->fillRect(136, 12, 16, 16, RED);
+            gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
+            gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
             gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
             screen1111DOWN();
             #if ENABLE_NETWORK
