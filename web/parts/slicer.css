@@ -1,0 +1,112 @@
+/* ---- Sliceris (0.17 SL-mod), perkelta is experimental2 ---------------- Atskiru bloku gale SAMONINGAI: taip matosi, kas atejo su sliceriu, ir ji galima nuimti vienu gabalu. Kelios taisykles kartoja jau esamas su tomis paciomis reiksmemis (pvz. #uploadButton) - tik prisideda slicerio selektorius; jokia esama elgsena nesikeicia. */#gl3dTools{display:none;flex-direction:row;position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:2;gap:2px}/* Siaurame ekrane juosta i viena eilute netelpa, tad LAUZOM: virsuje kiek telpa, likusieji - eilute zemiau, abi centruotos. Vietos virsuje pakanka, nes stumdymo padas nusileido i apacia (V 08-21). Riba - iki priartinimo mygtuku desineje. */@media(max-width:460px){#gl3dTools{flex-wrap:wrap;justify-content:center;max-width:calc(100% - 130px);row-gap:2px}}
+/* ILGIS ribojamas is abieju pusiu (V 08-22, du kartus). Vien tarpu nuo krastu neuztenka: su fiksuotais pikseliais mazame lange slankiklis lieka trumpas, o atidavus jam beveik visa auksti isdidintame lange jis virsta maratonu - „nereikia tokio ilgo baisiai tampyti daug“. Todel max-height:min(62%,300px): auga kartu su bloku, bet sustoja ties patogiu ilgiu, o margin:auto 0 ji centruoja likusioje juostoje. */
+/* Tarpai nuo krastu - CIA, ne zymeje: irasyti tiesiai elemente jie nugalejo bet kokia taisykle, tad plokscios perziuros isimtis (dashboard.html) neveikdavo (V 08-22). Sios reiksmes skirtos 3D vaizdui: virsuje irankiai, apacioje sukimo ir stumdymo padai. */
+#gl3dLayer{display:none;top:56px;bottom:107px;max-height:min(74%,360px);margin:auto 0}
+/* `min-height:0` - be jo `flex:1` NIEKO nesuspaudzia: flex elementas negali buti mazesnis uz savo automatini minimuma, o Chrome numatytasis `input[type=range]` ilgis yra 129 px. Todel slankiklis visada buvo 129 px, kad ir koks butu remas: kompiuteryje jis islisdavo 18 px zemiau remo (ismatuota 08-31, T-83), o siaurame lange - uzlipdavo ant stumdymo pado (270 px blokas: -5 px, 240 px: -35 px). SD pusej to nebuvo, nes ten slankikliui duotas `height:100%`. */#gl3dLayerRange{writing-mode:vertical-lr;direction:rtl;width:22px;flex:1;min-height:0;margin:0;padding:0;background:transparent;border:0;accent-color:var(--accent)}
+#slicerFacts>div{position:relative;padding-left:14px;margin-top:3px;min-height:1.3em}
+#slicerFacts>div:empty{display:none}
+#slicerFacts>div::before{content:'\2022';position:absolute;left:2px;color:var(--muted)}
+#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}
+#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}
+#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}
+#gl3dPop span{color:var(--muted)}
+#gl3dPop input[type=number]::-webkit-inner-spin-button{opacity:1;height:20px}
+#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}
+#gl3dPop input[type=checkbox]{width:auto;margin:0}
+#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+#popDone:hover{color:var(--text)}
+#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}
+#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}
+#gl3dTools button.on .soft{opacity:1}
+#gl3dTools button.on .sharp{opacity:0}
+#gl3dDet svg,#gl3dTools svg{pointer-events:none}
+#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}
+/* order:-1 ATMESTAS pernesant. experimental2 isdestyme sliceris buvo skirtas
+   virsui, ir ta savybe ji trauke i priekį nepaisant DOM tvarkos - musu pulte
+   dėl to kortele soktelėdavo virs viso dashboard'o, o placiame ekrane atsidurdavo
+   virs busenos, nors DOM'e stovi PO 3D perziuros. Vieta cia nusako DOM, ne
+   order (V 08-17). *//* ---- Sliceris, antra CSS banga: ka praleido pirmas importas ----------- Pirmas ejimas rinko taisykles paprastu regex u ir prakiso tas, kurios guli @media viduje arba turi ilgus komentarus selektoriaus priekyje. Del to korteleje matesi mygtukai, kurie turi buti pasleti (irankiai gyvena ant vaizdo), ir dingo oranzinis vedlys (.step). V pastebejo abu. SAMONINGAI NEIMTA: @media(max-width:999px){#slicerCard{order:-1}} - ji telefone vel keltu sliceri virš SD, o sutarta tvarka yra perziura -> sliceris -> SD (V 08-17). *//* Konteinerio plotis FIKSUOTAS: anksciau ji lemdavo uzraso ilgis, o kadangi jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save - .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* ...bet „Stop" yra RAUDONAS, kaip spausdinimo (V 08-21). Bendra `.danger` taisykle cia pralaimedavo: vedlio selektorius su `#slicerCard` specifiskesnis, tad mygtukas likdavo oranzinis. Kartojam ta pati specifiskuma - ir laimim, nes stovim veliau. */#slicerCard .button.danger{background:var(--danger);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas + priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). *//* Aureole pagal TEMA, ne visada juoda (V 08-22: „skaiciai ant baltos temos isplauke"). Juodas seselis reikalingas ant tamsaus vaizdo, bet sviesioje temoje jis apglebia pilka teksta tamsia migla - is toliau tai atrodo ne kaip kontrastas, o kaip neryskus spaudas. Tekstas irgi stiprinamas iki --text: uzrasas guli ir ant juodos ploksces, ir ant korteles, tad jam reikia issilaikyti abiejuose fonuose. */
+/* Sluoksnio numeris VIRS slankiklio, o ne jo viduryje (V 09-04). Ismatuota gyvame pulte: viduryje jis stovejo uz 4 px nuo tako - rankenele jo NIEKADA neuzdengdavo, bet tempiantis pirstas uzdengia, ir kaip tik ties viduriu, kur ji ir skaitai. Stilius PAZODZIUI toks pat, kaip perziuros #gl3dClipNo pulte (V: 'kad butu identiskai'), iskaitant `var(--bg)` kontura: jis akiai nematomas (fono spalva), bet saugo teksta, jei sis atsidurtu ant modelio. Konteineris `gl3dLayer` SPECIALIAI be `gap` - perziuros #gl3dClipBar jo neturi, o su juo tarpas buvo 11 px vietoj 5. Keiciant VIENA, keisti ABU. *//* Plati (64 px) dezute, prisegta DESINIUOJU krastu per `align-self:flex-end` - be sito slankiklis slankiojo. Juosta prikabinta prie desinio krasto ir neturi savo plocio, tad ja matavo skaicius: is „5/75" i „38/75" slankiklis pasislinkdavo 2,7 px. Todel juostai duotas `width:22px`, o skaiciui - sava plati dezute. SPASTAI: vien `text-align:right` to NEPADARO - kai tekstas platesnis uz dezute, CSS pertekli visada isleidzia i DESINE, ir „897/897" islindo 19,7 px uz slankiklio bei buvo nukirstas `#gl3d` (`overflow:hidden`). Reikia, kad dezuteje LIKTU laisvos vietos - tik tada lygiavimas veikia. Ismatuota gyvai 09-04, abi puses. */#gl3dLayerNo{flex:0 0 auto;align-self:flex-end;width:64px;margin-right:2px;text-align:right;margin-bottom:5px;font-size:10px;line-height:1;color:var(--muted);white-space:nowrap;text-shadow:0 0 3px var(--bg);pointer-events:none}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo, ka daro, tad spalvos nereikia (V 08-12). *//* Vaizdo mygtukai: kiekvienas turi DU piesinius ir rodo ta, kuris atitinka jo
+   poros busena. Aktyvi pora - oranzine; 2D pora ijungus UV - violetine, nes
+   spalva cia pat rodo, kuo nusidazys vaizdas (V 08-22). */
+#gl3dV3 .s0,#gl3dV3 .s1,#gl3dV2 .f0,#gl3dV2 .f1{display:none}
+#gl3dV3.s0 .s0,#gl3dV3.s1 .s1,#gl3dV2.f0 .f0,#gl3dV2.f1 .f1{display:inline}
+#gl3dZoom #gl3dV3.act,#gl3dZoom #gl3dV2.act,#gl3dTools #gl3dV3.act,#gl3dTools #gl3dV2.act{color:var(--accent);border-color:var(--accent)}
+#gl3dZoom #gl3dV2.act.f1,#gl3dTools #gl3dV2.act.f1{color:#8b5cf6;border-color:#8b5cf6}
+#gl3dTools .soft{opacity:0}/* Forma sako, KA mygtukas daro; spalva - kad jis DABAR ijungtas. Prie 15 px formos skirtuma lengva praleisti, o oranzine visoje programoje jau reiskia aktyvu. Uzrakintas sliceryje - oranzinis, bet prigesintas (V 08-12). */#gl3dDet.on,#gl3dTools button.on{color:var(--accent);border-color:var(--accent)}/* Vienintelis jungiklis, kurio ijungta busena NE oranzine. Tai ne isimtis del grazumo: spalva cia ir yra zinia - mygtukas nusidazo lygiai tuo, kuo nusidazys vaizdas (V 08-22). *//* Violetinis IR isjungtas (V 08-22). Zenklas toks pat, kaip tikro sluoksnio mygtuko, ir tai buvo sazininga mintis - bet du vienodi kvadratai greta pasirode neatskiriami: V du kartus jo nerado, nors mygtukas buvo vietoje ir veike. Spalva cia daro du darbus is karto - sako, kad tai kitas dalykas, ir is anksto rodo, kuo vaizdas nusidazys. Isjungtas blankesnis, ijungtas sodrus. */
+   /* du ID: bendra #gl3dZoom button taisykle kitaip nurungia */
+/* Vaizdo jungiklis: TRYS piesiniai viename mygtuke, po viena kiekvienam rezimui, ir rodomas tas, kuri zmogus mato DABAR. Oranzine cia reiskia ne busena, o kad matai ATRAMAS - tai vienintelis rezimas, kuriame jos yra (V 08-20). *//* Busena matosi is paties piesinio (tankesnis tinklelis), tad spalva ta pacia zinia tik kartotu (V 08-12). *//* Uzrakintas sliceryje: prigesintas, bet ne pilkas keturkampis - bendra mygtuku taisykle cia netinka, sie mygtukai permatomi. */#gl3dZoom button:disabled,#gl3dTools button:disabled{background:rgba(20,20,22,.6);color:var(--muted);opacity:.45;cursor:default}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). Nuo 08-17 jam nereikia ir zodzio: uzdarytas mygtukas yra TA PATI seima, kaip lango didinimas virs perziuros (#stageOpen) - permatomas, plonu remeliu, su 13 px zenklu. Savybes cia israsytos, o ne prikabintos prie #stageOpen taisykles, samoningai: slicerio blokas turi likti nuimamas vienu gabalu, o selektorius, prilipdytas prie svetimos taisykles, kartu nenusiimtu (V 08-17). */#slicerToggle.narrow,#sdToggle.narrow{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#slicerToggle.narrow:hover,#sdToggle.narrow:hover{color:var(--text);border-color:var(--line2)}/* Irankiai gyvena ant vaizdo - ir telefone, ir plaziame ekrane, - tad stulpelis korteleje tik dubliuotu tuos pacius mygtukus (V 08-12). */#slicerTools{display:none}/* --- is 0.17 dashboard polish (PR #103): mygtuku paspaudimo ir „dirbama" busenos, #uploadButton, #homeLeft. #gl3dZoom kryptis NEIMTA - musu `row` yra MUSU pasirinkimas slicerio skydeliui, ne V nurodymas (0.17 sesija patikrino: V to neatpazista, istorijoje pedsako nera). --- */#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}/* Kadaise cia stovejo atramos ir vardas dviem stulpeliais. Atramos 09-02 nusikele i parametru bloka, tad liko VIENAS vaikas - o dvieju stulpeliu tinklelis ji paliko kairej pusej, nors komentaras zadejo visa ploti (pagavo printerio sesija). Vienas stulpelis. */#slicerSupRow{display:grid;grid-template-columns:1fr}@media(max-width:520px){/* Zr. dashboard.html ta pati riba: telefone slankiklis leidziamas zemiau, iki „aukstyn" mygtuko apacios - pado virsutines eilutes desinysis langelis tuscias. Keiciant VIENA, keisti ABU. */#gl3dLayer{bottom:66px}/* Riba palikta: vardo laukas ir siaurame lange lieka vienas stulpelis. */#slicerSupRow{row-gap:8px}#uploadButton,#slicerToggle{width:auto}}@media(min-width:1000px){/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo. Slicer'is keliauja pries SD (V 08-12). *//* order veikia tik lanksciame konteineryje - be sios eilutes taisykle nieko nedarydavo, ir telefone slicer'is likdavo po SD (V 08-12). */}/* Tuscias zenklelis vis tiek piesdavo remeli - salia „Slice an STL" likdavo tuscias burbuliukas (V 08-17). Ta pati idioma, kaip .fwBadge:empty. */#slicerState:empty{display:none}/* Slicerio modulio versijos piliules cia nebera - zr. slicer-card.html (V 09-08). */
+/* Spausdinant slicerio blokas uzrakintas: `label` mygtuko `disabled` neturi, tad
+   prigesinam ir atimam paspaudima (V 08-20). */
+#slicerChoose.locked{pointer-events:none;opacity:.45}
+/*
+ * SL-params, C variantas (V 09-02): antraste virs SAVO segmentu juostos, blokai
+ * po du. Bandyti buvo trys. A (antraste ir jungikliai vienoje eiluteje) atmestas
+ * - uodegos skirtingo ilgio, o radijo taskelis telefone per mazas taikinys.
+ * B (viena kolona per visa ploti) skaitosi geriausiai, bet uzima ~430 px, ir
+ * „Slice“ su rezultatu nuslenka nuo akiu. C uzima ~200 px ir isslaiko didelius
+ * taikinius.
+ *
+ * `auto-fit` cia butinas: media query ziuretu i LANGO ploti, o siauras yra
+ * BLOKAS - taip 09-02 ir prasprudo luztancios eilutes. Su minmax kolonu skaicius
+ * seka pacios korteles ploti, tad telefone C pats tampa B.
+ */
+#slicerParams{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));
+  gap:9px 14px;margin-top:10px}
+#slicerParams .spLab{display:block;color:var(--muted);font-size:.7rem;
+  letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+#slicerParams .spLab em{font-style:normal;color:var(--muted2);text-transform:none;
+  letter-spacing:0}
+/* Radijo mygtukas lieka - tik nematomas: taip islieka klaviatura, ekrano skaitytuvas
+   ir `input[name=...]:checked` skaitymas, o zmogus mato juosta. */
+#slicerParams .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#slicerParams .seg label{flex:1;margin:0;position:relative;cursor:pointer;min-width:0}
+#slicerParams .seg input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+#slicerParams .seg span{display:block;text-align:center;padding:7px 3px;font-size:.8rem;
+  color:var(--text);border-right:1px solid var(--line);white-space:nowrap}
+#slicerParams .seg label:last-child span{border-right:0}
+#slicerParams .seg input:checked+span{background:var(--accent);color:#fff;font-weight:600}
+#slicerParams .seg input:focus-visible+span{outline:2px solid var(--link);outline-offset:-2px}
+#slicerParams .spReset{grid-column:1/-1;text-align:right;margin-top:1px}
+#slicerParams .spReset a{color:var(--link);font-size:.8rem}
+/* Spausdinant kortele uzrakinama (`slicer.js` vienu ejimu per konteineri), ir
+   radijo mygtukai tikrai tampa `disabled`. Bet jie NEMATOMI - zmogus mato tik
+   juosta, tad be sitos eilutes ji atrodytu gyva ir tyliai nereaguotu (V 09-02).
+   Pati juosta lieka skaitoma: matai, kas nustatyta, tik pakeisti negali. */
+#slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
+#slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
+/*
+ * ⚠️ PATAISA (09-03). Buvau parases, kad pulto naršyklėje `:has()` neveikia -
+ * tai NETIESA, ir tai buvo blogas matavimas: tuo metu eilute dar turejo inline
+ * `style='min-height:1.9em'`, o inline nugali BET KOKI selektoriu, taip pat ir
+ * `:has()`. Matavau inline stiliu, ne selektoriu. Pertikrinta svariai:
+ * `CSS.supports('selector(:has(*))')` = true, ir bandomoji taisykle suveikia.
+ * Pagavo printerio sesija.
+ *
+ * Klase per JS vis tiek lieka, bet del kitos priezasties: pjaustymo metu
+ * `slicerProg` yra TUSCIAS (eiga piesiama drobeje), tad `:empty` suskleistu
+ * eilute visam pjaustymui ir pabaigoje ji staiga issitiestu. JS mato ir
+ * `sliceRunning`, o CSS - ne.
+ *
+ * Rezultato eilute (eiga + „Discard“) tarp parametru ir faktu saraso yra TUSCIA,
+ * kol niekas nesupjaustyta, bet uzima 45 px: 27 px `min-height:1.9em` plius 9+9
+ * margin. Placiame lange tai matosi kaip desine kortele, ilgesne uz kaire maždaug
+ * centimetru - V pastebejo is karto po liejimo (09-03), o ismatavus paaiskejo,
+ * kad tai ne parametru blokas, o zemiau reservuota vieta.
+ *
+ * Suskleidziam TIK kol eilute tuscia. Kai pjaustymas prasideda, `#slicerProg`
+ * gauna teksta, taisykle nustoja galioti, ir eilute atsiranda su savo tarpais -
+ * tad zinute niekur nedingsta, o „Discard“ lieka ten, kur buvo.
+ */
+/* Tarpai ir aukstis CIA, ne `style=` atribute: inline stilius nugali bet kokia
+   taisykle, tad suskleidimas nieko nedarydavo, nors klase buvo uzdeta (ismatuota
+   09-03: klase „tuscia" yra, o `min-height` vis tiek 27,36 px). */
+/* Vieta rezervuota VISADA, ir tuscia (V 09-08). Anksciau tuscia eilute
+   susiskleisdavo, o suslicinus issitiesdavo - kortele pasokteldavo 46 px
+   (28 aukscio + 2x9 tarpai, ismatuota), ir kartu su ja pasislinkdavo parametrai,
+   faktai bei visa desine kolona. Suslicinus zmogus ziuri butent i ta vieta, tad
+   sokinejantis makletas yra brangesnis uz tuscia eilute, kurios niekas nepastebi.
+   Klase `tuscia` lieka - ji tebeslepia „Discard", kol nera ka atmesti. */
+#slicerResRow{margin:9px 0;min-height:1.9em}
+#slicerResRow.tuscia #slicerDiscardLink{display:none}

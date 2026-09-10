@@ -34,7 +34,7 @@ var STATUS={ok:true,firmwareVersion:'0.15.4',firmwareBuild:'demo',busy:false,pau
 var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposure:14,
   prevRegularExposure:0,baseLayers:2,transitionLayers:5,slowLiftDistance:1,
   fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,dropBackFeedrate:50,
-  vatMl:15,lowResinPause:true,lowResinMl:2,askRefill:true,uiTimeoutSecs:300,
+  vatMl:15,lowResinPause:true,lowResinMl:4,askRefill:true,uiTimeoutSecs:300,
   dryRun:false,uvLedEnabled:true,wifiEnabled:true,webDashboardEnabled:true,
   bootUpdateCheck:true,statsPing:true,mqttEnabled:false,mqttConfigured:false,
   mqttHost:'',mqttPort:1883,mqttUser:'',mqttPasswordSet:false,mqttTopic:'TinyMaker',
@@ -46,7 +46,8 @@ var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposur
   connectPublishToken:'',connectLastStatus:'',
   tgEnabled:false,tgTokenSet:false,tgTokenTail:'',tgChat:'',
   waEnabled:false,waKeySet:false,waKeyTail:'',waPhone:'',
-  dcEnabled:false,dcHookSet:false,dcHookTail:''};
+  dcEnabled:false,dcHookSet:false,dcHookTail:'',
+  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157};   // 0.17 0-16
 
 // name -> [printLayers, heightMm, estSecs, resinMl, shape]
 var MODELS={
@@ -62,6 +63,32 @@ var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'bunny',display:'Bunny',sizeBytes:537612},
   {name:'malfunction',display:'Malfunction',sizeBytes:1433612},
   {name:'resin-drip',display:'Resin Drip',sizeBytes:588812}]};
+
+// 0.17 0-16: the built-in profiles plus one saved by "the user", so the
+// demo shows all three row shapes (built-in, edited built-in, own profile).
+var RESIN={ok:true,selected:'fast',profiles:[
+  // Visi keturi isiuti profiliai - svarus (edited:false, overlay:false), kaip po
+  // pirmo paleidimo; redaguoto profilio pavyzdys demo nebereikalingas (08-16).
+  {name:'fast',display:'Fast fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+   baseExposure:18,regularExposure:8.0,baseLayers:4,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.157,calFactor:1.010,calFixedMl:0.63,calSamples:0},
+  {name:'fast-draft',display:'Fast draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+   baseExposure:18,regularExposure:8.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.157,calFactor:1.010,calFixedMl:0.63,calSamples:0},
+  {name:'slow',display:'Slow draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+   baseExposure:35,regularExposure:14.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
+  {name:'slow-fine',display:'Slow fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+   baseExposure:35,regularExposure:14.0,baseLayers:4,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
+  {name:'anycubic-ww-clear',display:'Anycubic WW Clear',builtin:false,edited:false,overlay:true,layerHeight:0.10,testedBy:'TinyMakerWiFi',testedOn:'2026-08',
+   baseExposure:30,regularExposure:11.5,baseLayers:3,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:2}]};
 
 var UPDATE={ok:true,installed:'0.15.4',latest:'0.15.4',state:0,hasUpdate:false,allowed:true};
 
@@ -79,7 +106,10 @@ function modelMeta(name){var m=MODELS[name];if(!m)return null;
     heightMm:m[1],estimatedSecs:m[2],estimatedTime:estTime(m[2]),
     preview:false,preview05:false,preview1:false,resinEstimated:true,resinMl:m[3]};}
 function filesPayload(){
-  var items=Object.keys(MODELS).map(function(n){return {name:n,type:'model',printable:true,sizeBytes:'0'};});
+  // estimatedSecs: 0.17 EST-model - the per-model time the SD list shows.
+  var items=Object.keys(MODELS).map(function(n){
+    return {name:n,type:'model',printable:true,sizeBytes:'0',estimatedSecs:MODELS[n][2],
+      folderBytes:String(MODELS[n][0]*46000)};});   // ~46 KB per layer, as measured
   return {ok:true,sdReady:true,usageKnown:true,totalBytes:'248512512',
     freeBytes:'218304512',usedBytes:'30208000',usagePct:12,items:items,hiddenCount:3};}
 
@@ -91,9 +121,22 @@ function startSim(name,dry){
   return true;}
 function simElapsed(){if(!sim)return 0;
   var end=sim.pausedAt||Date.now();return (end-sim.startMs-sim.pausedTotal)/1000;}
+/* Trynimo darbas eilėje (zr. /api/files/delete). Trys tarpsniai, kaip pas tikra
+   printeri: skaiciuojam dalis, paskui „done==total" su vaikstancia juostele (jis
+   dar trina sena kopija), paskui darbas dingsta ir pultas taria pabaigos zodi. */
+var del=null;
+var DEL_COUNT_MS=4000, DEL_TAIL_MS=1500;
+function delStatus(s){
+  if(!del)return;
+  var el=Date.now()-del.startMs;
+  if(el>DEL_COUNT_MS+DEL_TAIL_MS){delete MODELS[del.name];del=null;return;}
+  s.sdJob='delete';s.sdJobName=del.name;s.sdJobTotal=del.total;
+  s.sdJobDone=Math.min(del.total,Math.floor(del.total*el/DEL_COUNT_MS));
+  s.sdText='Busy';}
 function currentStatus(){
   var s=Object.assign({},STATUS);
   s.uptimeSecs=Math.round(performance.now()/1000)+33;
+  delStatus(s);
   s.vatRemainingMl=Math.max(0,15-(sim&&!sim.dry?Math.min(simElapsed()/(sim.total*sim.secsPerLayer),1)*sim.ml:0));
   s.vatText=s.vatRemainingMl.toFixed(1)+' ml';
   if(!sim)return s;
@@ -174,7 +217,10 @@ window.fetch=function(path,opt){
   });};
 
 function route(path,opt){
-  var body=typeof opt.body==='string'?opt.body:'';
+  // The app posts URLSearchParams, not strings - without toString() every
+  // bodyVal() below read an empty body and POSTs silently lost their arguments.
+  var body=typeof opt.body==='string'?opt.body
+          :(opt.body&&typeof opt.body.toString==='function'?opt.body.toString():'');
   function bodyVal(key){var m=body.match(new RegExp('(?:^|&)'+key+'=([^&]*)'));return m?decodeURIComponent(m[1].replace(/\+/g,' ')):'';}
 
   if(path.indexOf('/api/status')===0)return jresp(currentStatus());
@@ -200,7 +246,15 @@ function route(path,opt){
     var meta=modelMeta(q(path,'name'));
     return meta?jresp(meta):jresp({ok:false,error:'model not found'},404);}
   if(path.indexOf('/api/files/delete')===0){
-    var dn=q(path,'name');delete MODELS[dn];return jresp({ok:true});}
+    /* Tikras printeris didelio modelio istrinti is karto negali: jis atsako
+       „priimta, 40 daliu" ir trina is savo laisvo ciklo, o pultas eiga mato per
+       busena (sdJob). Anksciau stendas atsakydavo „istrinta" akimirksniu, tad
+       butent tas kelias - su skaiciais ir su pabaigos zodziu - stende buvo
+       neistestuojamas (V 08-28, S-7). */
+    var dn=q(path,'name');
+    if(!MODELS[dn])return jresp({ok:false,error:'model not found'},404);
+    del={name:dn,total:40,startMs:Date.now()};
+    return jresp({ok:true,queued:del.total});}
   if(path.indexOf('/api/files')===0)return jresp(filesPayload());
   if(path.indexOf('/api/print/start')===0){
     var pn=q(path,'name');
@@ -221,6 +275,30 @@ function route(path,opt){
   if(path.indexOf('/api/boot-anim/preview')===0)return jresp({ok:true,note:'demo: pretend the printer screen just played it'});
   if(path.indexOf('/api/boot-anim/install')===0)return jresp({ok:false,error:'Demo mode: no SD card to install to'},400);
   if(path.indexOf('/api/boot-anim')===0)return jresp(BOOTANIM);
+  // 0.17 0-16: resin profiles. Selecting one rewrites the config the same way
+  // the firmware does, so the Print fields visibly follow the pick.
+  if(path.indexOf('/api/resin-profile/select')===0){
+    var pick=null,nm=bodyVal('name');
+    for(var pi=0;pi<RESIN.profiles.length;pi++)if(RESIN.profiles[pi].name===nm)pick=RESIN.profiles[pi];
+    if(!pick)return jresp({ok:false,error:'profile not found'},404);
+    RESIN.selected=nm;CONFIG.resinProfile=nm;
+    CONFIG.baseExposure=pick.baseExposure;CONFIG.regularExposure=pick.regularExposure;
+    CONFIG.baseLayers=pick.baseLayers;CONFIG.transitionLayers=pick.transitionLayers;
+    CONFIG.slowLiftDistance=pick.slowLiftDistance;CONFIG.fastLiftDistance=pick.fastLiftDistance;
+    CONFIG.slowLiftFeedrate=pick.slowLiftFeedrate;CONFIG.fastLiftFeedrate=pick.fastLiftFeedrate;
+    CONFIG.dropBackFeedrate=pick.dropBackFeedrate;CONFIG.resinDensity=pick.density;
+    CONFIG.layerHeight=pick.layerHeight;
+    return jresp({ok:true,selected:nm});}
+  if(path.indexOf('/api/resin-profile/save')===0||path.indexOf('/api/resin-profile/rename')===0||
+     path.indexOf('/api/resin-profile/delete')===0)
+    return jresp({ok:false,error:'Demo mode: no SD card to write profiles to'},400);
+  if(path.indexOf('/api/resin-profile')===0)return jresp(RESIN);
+  if(path.indexOf('/api/vat/weight')===0){
+    var g=Number(bodyVal('grams'))||0,empty=Number(CONFIG.vatEmptyG)||0;
+    if(!(g>0)||g<empty)return jresp({ok:false,error:'that is lighter than the empty vat'},400);
+    STATUS.vatRemainingMl=Math.min(CONFIG.vatMl,(g-empty)/(CONFIG.resinDensity||1.1));
+    STATUS.vatText=STATUS.vatRemainingMl.toFixed(1)+' ml';
+    return jresp({ok:true,vatRemainingMl:STATUS.vatRemainingMl.toFixed(1)});}
   if(path.indexOf('/api/telegram/test')===0||path.indexOf('/api/whatsapp/test')===0||path.indexOf('/api/discord/test')===0)
     return jresp({ok:true});
   if(path.indexOf('/api/connect')===0)return jresp({ok:false,error:'Demo mode: TinyMaker Connect needs a real printer'},400);

@@ -275,6 +275,18 @@ def main():
 
     data = fw.read_bytes()
     (GHPAGES_WORKTREE / f"firmware-{version}.bin").write_bytes(data)
+
+    # 0.17: the dashboard's 3D library is served from OUR pages, not a
+    # third-party CDN - the printer imports it as a same-origin script, so
+    # its contents must only change when we ship a release (V 08-12).
+    lib_src = REPO_ROOT / "web/lib"
+    if lib_src.is_dir():
+        lib_dst = GHPAGES_WORKTREE / "lib"
+        lib_dst.mkdir(exist_ok=True)
+        for f in lib_src.iterdir():
+            if f.is_file():
+                (lib_dst / f.name).write_bytes(f.read_bytes())
+        print(f"  lib/: {sum(1 for p in lib_src.iterdir() if p.is_file())} file(s) published")
     if args.beta:
         # Beta window: printers self-update only from version.txt + firmware.bin,
         # so leaving both untouched keeps the fleet on the previous release while

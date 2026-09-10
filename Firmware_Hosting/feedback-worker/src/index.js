@@ -1,3 +1,5 @@
+import { mergeState } from './state.mjs';
+
 // TinyMakerWifi feedback collector - a tiny standalone Cloudflare Worker.
 //
 //   GET  /feedback[/]            -> the form page (proxied from gh-pages)
@@ -41,10 +43,51 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Only for /slicerbug: the printer's dashboard is served from a LAN address
+// (http://tinymaker.local, http://192.168.x.x), so no fixed origin can be named.
+// The public form keeps the strict CORS above - this is a separate, rate-limited
+// door that accepts one kind of body and hands back nothing worth stealing.
+const WIDE_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 const FORM_ORIGIN = 'https://slibbinas.github.io/TinyMakerWifi/feedback/';
 const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
+
+// A photo is a RASTER photo. "image/*" was too generous: an SVG is a document,
+// and the inbox opens attachments in a tab whose URL carries LIST_KEY - so a
+// script inside an "image" would run on tinymakerwifi.com and could read that
+// key straight out of location.search. The type is declared by whoever uploads,
+// so it is checked on the way in AND again on the way out (/feedback/img).
+const SAFE_IMG = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const safeImgType = (t) => (SAFE_IMG.includes(String(t || '').toLowerCase().split(';')[0].trim()));
+
+// The two ways a /r/ link can fail to lead anywhere. Both say which resin was
+// asked for: these URLs are read off a printer screen and typed by hand, and
+// "not found" without the slug tells the person nothing they can act on.
+const rPage = (status, title, body) => new Response(
+  `<!doctype html><meta charset="utf-8"><title>${title}</title>` +
+  '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+  '<style>body{margin:0;padding:48px 20px;background:#f7f7f8;color:#1d1f24;' +
+  'font:16px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif}' +
+  'main{max-width:34rem;margin:0 auto}h1{font-size:1.3rem;margin:0 0 12px}' +
+  'a{color:#f07a1a}</style>' +
+  `<main><h1>${title}</h1><p>${body}</p>` +
+  '<p><a href="https://tinymakerwifi.com/">tinymakerwifi.com</a></p></main>',
+  { status, headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' } });
+
+const rGone = (slug) => rPage(404, 'No shop link for this resin',
+  `Nothing is published for <code>${String(slug).replace(/[<&]/g, '')}</code>. ` +
+  'The resin may have been renamed, or its link was never set - the profile ' +
+  'itself is unaffected and keeps working.');
+
+const rDown = () => rPage(503, 'The link list is unreachable',
+  'The shop links are published alongside the resin profiles and that file did ' +
+  'not answer just now. This is temporary; try again in a minute.');
 
 const PAGE = 25;                            // notes fetched in full per view
 
@@ -57,6 +100,13 @@ const PAGE = 25;                            // notes fetched in full per view
 const MAX_PER_IP_DAY = 5;
 const MAX_PER_DAY = 60;
 const DAY_TTL = 172800;                     // counters self-clean after 48 h
+// A bug hunt is bursty, but ten reports is already a long evening - and this is
+// the one door with no human check, so its worst day has to stay small: 10 x 1 MB
+// is ~10 MB, against a 1 GB namespace.
+const MAX_SLICERBUG_PER_DAY = 10;
+const MAX_SLICERBUG_PHOTO_BYTES = 1024 * 1024;
+const MAX_CRASH_PER_DAY = 200;             // crash pings are rare + firmware-deduped; cap guards a runaway fleet
+const CRASH_TTL = 60 * 60 * 24 * 90;       // crash records self-clean after 90 days
 
 const str = (v, n) => String(v || '').slice(0, n);
 
@@ -116,6 +166,53 @@ export default {
       });
     }
 
+    // --- /r/<slug>: the Buy link that survives being installed --------------
+    //
+    // The firmware takes a buy link only from our own domain
+    // (resinBuyUrlAllowed, src/ResinProfile.ino), so a manufacturer URL written
+    // into a profile was dropped the moment the profile reached the printer:
+    // the link showed in the library list and then vanished from the installed
+    // profile. Every profile now carries /r/<slug> instead, and the real shop
+    // URL lives outside the firmware - which is the point: a partner can change
+    // without a firmware release, and the printer never learns who it is.
+    //
+    // The table is NOT in this file. It is resin/links.json, published next to
+    // the profiles, so a resin and its shop link ship in the same commit. A
+    // table in here would let a profile go out with a /r/ URL that leads
+    // nowhere until somebody remembers to deploy the worker - the exact drift
+    // the manifest is written in one piece to avoid.
+    if (path.startsWith('/r/')) {
+      if (request.method !== 'GET' && request.method !== 'HEAD')
+        return new Response('method not allowed', { status: 405 });
+      const slug = path.slice(3);
+      if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(slug)) return rGone(slug);
+
+      let links = null;
+      try {
+        const r = await fetch(GHPAGES + '/resin/links.json', { cf: { cacheTtl: 300 } });
+        if (r.ok) links = await r.json();
+      } catch (e) { /* falls through to rDown() */ }
+      if (!links || typeof links !== 'object') return rDown();
+
+      // A plain string is the normal case. The object form exists because a
+      // shop is not one shop: the same resin is bought elsewhere depending on
+      // where the buyer is, and that is a property of the link, not of the
+      // resin - so it stays here rather than turning into two profiles.
+      const entry = links[slug];
+      const country = (request.cf && request.cf.country) || '';
+      const target = typeof entry === 'string'
+        ? entry
+        : (entry && ((entry.geo && entry.geo[country]) || entry.url)) || '';
+      if (!/^https:\/\//.test(target)) return rGone(slug);
+
+      // 302, not 301: the destination is a partner link, and a browser that
+      // cached it permanently would keep sending people to a partner we left.
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': target, 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
     // Test panel: the per-release physical-test checklist, PUBLIC by design -
     // it is linked from the firmware's pre-release banner and the feedback
     // form, turning every beta user into a structured tester (checklist ->
@@ -127,6 +224,53 @@ export default {
       url.pathname = '/tests';
       return Response.redirect(url.toString(), 301);
     }
+    // Test-panel marks, kept server-side. The panel itself stays public and
+    // localStorage-only for anyone who opens it; WRITING marks needs the
+    // 'key:tests' value from KV, which lives only in the tester's own link
+    // (/tests?k=...). No key -> 404, so the path stays invisible. Without this
+    // the marks lived in one browser: a phone tick was unreadable on the
+    // computer, and clearing site data threw a whole test session away.
+    //
+    // State is one JSON blob: { "T-19": {"v":"pass","n":"...","t":<ms>}, ... }.
+    // Both devices send FULL snapshots, so the merge is per row by its own
+    // timestamp - a stale snapshot from a tab left open yesterday must not
+    // undo a mark made on the phone a minute ago.
+    if (path === '/tests/state') {
+      const want = String((await env.FEEDBACK.get('key:tests')) || '').trim();
+      const got = (url.searchParams.get('k') || '').trim();
+      if (!want || got !== want) return new Response('Not found', { status: 404 });
+
+      const asJson = (obj) => new Response(JSON.stringify(obj), {
+        headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+      const readState = async () => {
+        try {
+          const v = JSON.parse((await env.FEEDBACK.get('tests:state')) || '{}');
+          return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+        } catch (e) { return {}; }
+      };
+
+      if (request.method === 'GET') return asJson(await readState());
+
+      if (request.method === 'POST') {
+        const body = await request.text();
+        if (body.length > 262144) return new Response('Too large', { status: 413 });
+        let incoming;
+        try { incoming = JSON.parse(body); } catch (e) { return new Response('Bad JSON', { status: 400 }); }
+        if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+          return new Response('Bad JSON', { status: 400 });
+        }
+        // The merge rule itself lives in state.mjs and is unit-tested there
+        // (test/state.test.mjs) - it is the part that can silently lose a
+        // testing session, so it must not be checkable only by hand.
+        const merged = mergeState(await readState(), incoming);
+        if (Object.keys(merged).length > 400) return new Response('Too many rows', { status: 413 });
+        await env.FEEDBACK.put('tests:state', JSON.stringify(merged));
+        return asJson(merged);
+      }
+      return new Response('Method not allowed', { status: 405 });
+    }
+
     if (request.method === 'GET' && path === '/tests') {
       const html = await env.FEEDBACK.get('panel:tests');
       if (!html) return new Response('No panel uploaded yet', { status: 404 });
@@ -226,8 +370,8 @@ export default {
       for (const p of photos) {
         if (p.size > MAX_PHOTO_BYTES)
           return new Response('photo too large', { status: 413, headers: CORS });
-        if (!String(p.type || '').startsWith('image/'))
-          return new Response('photos only', { status: 415, headers: CORS });
+        if (!safeImgType(p.type))
+          return new Response('photos only (png, jpeg, webp, gif)', { status: 415, headers: CORS });
       }
 
       // Turnstile, when it is configured: stops scripted floods at the door
@@ -312,6 +456,148 @@ export default {
       });
     }
 
+    // Slicer defect markers from the printer's own dashboard (0.17).
+    //
+    // Its own route rather than /feedback, for two reasons that are not style:
+    // the dashboard is served over http from the printer's LAN address, so the
+    // public form's CORS (locked to tinymakerwifi.com) would block it; and there
+    // is no Turnstile widget on a page that may have no internet at all. Both
+    // guards stay exactly as they are for the public form - this door is a
+    // different door, with its own lock: one report per minute per IP and a
+    // daily cap well under the form's.
+    //
+    // The record lands in the SAME inbox in the SAME shape, pre-tagged 'bug', so
+    // "what is new in feedback" picks it up with no new machinery anywhere.
+    if (path === '/slicerbug' && request.method === 'OPTIONS')
+      return new Response(null, { headers: WIDE_CORS });
+
+    if (path === '/slicerbug' && request.method === 'POST') {
+      let fields = {}, photo = null;
+      const ct = request.headers.get('Content-Type') || '';
+      try {
+        if (ct.includes('multipart/form-data')) {
+          const fd = await request.formData();
+          for (const [k, v] of fd.entries()) {
+            if (k === 'photo' && typeof v === 'object' && v.size) { if (!photo) photo = v; }
+            else fields[k] = String(v);
+          }
+        } else {
+          fields = await request.json();
+        }
+      } catch (e) {
+        return new Response('bad body', { status: 400, headers: WIDE_CORS });
+      }
+
+      const msg = str(fields.message, 8000).trim();   // a marker report is longer than a note
+      if (!msg) return new Response('empty', { status: 400, headers: WIDE_CORS });
+      if (photo) {
+        // Tighter than the public form on purpose: this door has no Turnstile,
+        // so its worst case has to be small. A 3D snapshot is tens of KB.
+        if (photo.size > MAX_SLICERBUG_PHOTO_BYTES)
+          return new Response('photo too large', { status: 413, headers: WIDE_CORS });
+        if (!safeImgType(photo.type))
+          return new Response('photos only (png, jpeg, webp, gif)', { status: 415, headers: WIDE_CORS });
+      }
+
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await env.FEEDBACK.get('sbgate:' + ip))
+        return new Response('one report a minute - the last one arrived', { status: 429, headers: WIDE_CORS });
+
+      // Two counters: its own (a bug hunt is bursty) and the shared daily one,
+      // because the thing actually being protected is the KV write budget.
+      const day = new Date().toISOString().slice(0, 10);
+      const sbKey = `sbday:${day}`, allKey = `day:${day}`;
+      const [sbUsed, allUsed] = await Promise.all([
+        env.FEEDBACK.get(sbKey).then((v) => Number(v) || 0),
+        env.FEEDBACK.get(allKey).then((v) => Number(v) || 0),
+      ]);
+      if (sbUsed >= MAX_SLICERBUG_PER_DAY)
+        return new Response('that is a lot of markers for one day - use Copy and open a GitHub issue', { status: 429, headers: WIDE_CORS });
+      if (allUsed >= MAX_PER_DAY)
+        return new Response('the inbox is over its daily limit - try tomorrow', { status: 503, headers: WIDE_CORS });
+
+      await env.FEEDBACK.put('sbgate:' + ip, '1', { expirationTtl: 60 });
+      await env.FEEDBACK.put(sbKey, String(sbUsed + 1), { expirationTtl: DAY_TTL });
+      await env.FEEDBACK.put(allKey, String(allUsed + 1), { expirationTtl: DAY_TTL });
+
+      const stamp = new Date().toISOString();
+      const id = crypto.randomUUID().slice(0, 8);
+      const num = (Number(await env.FEEDBACK.get('seq')) || 0) + 1;
+      await env.FEEDBACK.put('seq', String(num));
+      const imgKeys = [];
+      if (photo) {
+        const k = 'img:' + stamp + ':' + id + ':0';
+        await env.FEEDBACK.put(k, await photo.arrayBuffer(),
+                               { metadata: { ct: photo.type, size: photo.size } });
+        imgKeys.push(k);
+      }
+      const rec = {
+        num,
+        message: msg,
+        contact: '',
+        fw: str(fields.fw, 20),
+        build: str(fields.build, 20),
+        ua: str(fields.ua, 120),
+        src: 'slicer',
+        // Pre-tagged: this door only opens for one kind of thing, so making a
+        // human classify it later would be busywork.
+        tag: 'bug',
+        handled: false,
+        photos: imgKeys,
+        at: stamp,
+      };
+      await env.FEEDBACK.put('fb:' + stamp + ':' + id, JSON.stringify(rec),
+                             { metadata: metaOf(rec) });
+      // Deliberately no case number in the answer. This route replies to ANY
+      // origin, and `num` is the project-wide counter shared with /feedback -
+      // any web page could otherwise poll it to watch how much mail we get.
+      return new Response(JSON.stringify({ ok: true, photos: imgKeys.length }), {
+        headers: { 'Content-Type': 'application/json', ...WIDE_CORS },
+      });
+    }
+
+    // Firmware crash telemetry (GitHub #70): anonymous, opt-out on the device.
+    // NOT a browser form -> no Turnstile; the firmware de-dupes per crash event,
+    // and here a per-device 60 s gate + a daily cap + a bounded JSON parse keep a
+    // crashlooping or hostile device from flooding KV. No IP, no personal data -
+    // just a hashed device id + the ESP reset reason (+ optional layer/epoch).
+    if (path === '/crash' && request.method === 'POST') {
+      let f = {};
+      try { f = await request.json(); } catch (e) {
+        return new Response('bad body', { status: 400 });
+      }
+      const id = str(f.id, 64);
+      const reason = str(f.reason, 48);
+      if (!id || !reason) return new Response('bad', { status: 400 });
+
+      const gate = 'cgate:' + id;                 // 1 crash / 60 s / device
+      if (await env.FEEDBACK.get(gate))
+        return new Response('slow down', { status: 429 });
+      const day = new Date().toISOString().slice(0, 10);
+      const allKey = `cday:${day}`;
+      const allUsed = Number(await env.FEEDBACK.get(allKey)) || 0;
+      if (allUsed >= MAX_CRASH_PER_DAY)
+        return new Response('over daily limit', { status: 503 });
+      await env.FEEDBACK.put(gate, '1', { expirationTtl: 60 });
+      await env.FEEDBACK.put(allKey, String(allUsed + 1), { expirationTtl: DAY_TTL });
+
+      const stamp = new Date().toISOString();
+      const rec = {
+        id,
+        version: str(f.version, 20),
+        reason,
+        layer: Math.max(0, Math.min(60000, Number(f.layer) || 0)),
+        epoch: Math.max(0, Number(f.epoch) || 0),
+        at: stamp,
+      };
+      await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
+                             JSON.stringify(rec),
+                             { metadata: { reason: rec.reason, version: rec.version },
+                               expirationTtl: CRASH_TTL });
+      return new Response(JSON.stringify({ ok: true }),
+                         { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // 0-7 PUBLIC ticket status: the token IS the authorisation - unguessable
     // (uuid), and a wrong one answers 404 with no timing-relevant difference.
     // Only status fields go back out - never the message or the contact (a
@@ -372,6 +658,18 @@ export default {
       if (!keyOk) return new Response('Not found', { status: 404 });
       const html = await env.FEEDBACK.get('panel:plan');
       if (!html) return new Response('No plan uploaded yet', { status: 404 });
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      });
+    }
+
+    // Ops "farm map" (how-we-work reference: rules by trigger, farm-map.json).
+    // Same LIST_KEY as /plan so one key opens both, and plan<->map links carry it.
+    // Stable reference (separate from the changing plan); 404 without the key.
+    if (request.method === 'GET' && path === '/map') {
+      if (!keyOk) return new Response('Not found', { status: 404 });
+      const html = await env.FEEDBACK.get('panel:map');
+      if (!html) return new Response('No map uploaded yet', { status: 404 });
       return new Response(html, {
         headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
       });
@@ -488,17 +786,56 @@ export default {
       });
     }
 
+    // Crash telemetry admin view (same LIST_KEY as the feedback inbox).
+    if ((path === '/crash/inbox' || path === '/crash/list') && keyOk) {
+      const names = [];
+      let ccur;
+      do {
+        const page = await env.FEEDBACK.list({ prefix: 'crash:', limit: 1000, cursor: ccur });
+        for (const k of page.keys) names.push(k.name);
+        ccur = page.list_complete ? null : page.cursor;
+      } while (ccur);
+      names.reverse();                              // newest first
+      const recs = [];
+      for (const k of names.slice(0, 500)) {
+        const v = await env.FEEDBACK.get(k);
+        if (v) recs.push(JSON.parse(v));
+      }
+      if (path === '/crash/list')
+        return new Response(JSON.stringify(recs, null, 1),
+                           { headers: { 'Content-Type': 'application/json' } });
+      const hb = await env.FEEDBACK.get('hb:last');
+      return new Response(crashInboxPage(recs, hb),
+                         { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+
     if (path === '/feedback/img' && keyOk) {
       const k = url.searchParams.get('k') || '';
       if (!k.startsWith('img:')) return new Response('bad key', { status: 400 });
       const { value, metadata } = await env.FEEDBACK.getWithMetadata(k, { type: 'arrayBuffer' });
       if (!value) return new Response('not found', { status: 404 });
+      // Second lock on the same door: anything stored before the intake check
+      // existed, or stored with a lying type, is served as a download and never
+      // as a document. nosniff stops the browser from "helpfully" deciding.
+      const ct = metadata && metadata.ct;
       return new Response(value, {
-        headers: { 'Content-Type': (metadata && metadata.ct) || 'image/jpeg' },
+        headers: {
+          'Content-Type': safeImgType(ct) ? ct : 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': 'inline',
+          'Content-Security-Policy': "default-src 'none'; sandbox",
+        },
       });
     }
 
     return new Response('TinyMakerWifi feedback collector', { status: 200 });
+  },
+
+  // Weekly heartbeat (cron in wrangler.jsonc). Stamps hb:last so /crash/inbox can
+  // show "telemetry alive" - an empty crash list then means "no crashes", not
+  // "the pipeline is dead". Proves the worker + KV run on schedule.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(env.FEEDBACK.put('hb:last', new Date(event.scheduledTime).toISOString()));
   },
 };
 
@@ -514,6 +851,40 @@ const when = (iso) => {
   if (isNaN(d)) return esc(iso);
   const p = (n) => (n < 10 ? '0' : '') + n;
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+};
+
+// Crash telemetry inbox (GitHub #70): read behind LIST_KEY. Anonymous rows -
+// hashed device id + ESP reset reason (+ optional print layer). esc() on every
+// field: reason/version come off the wire from firmware.
+const crashInboxPage = (recs, hb) => {
+  const counts = {};
+  for (const r of recs) counts[r.reason] = (counts[r.reason] || 0) + 1;
+  const summary = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `<span class="pill">${esc(k)}: <b>${n}</b></span>`).join(' ')
+    || '<span class="sub">no reports</span>';
+  // Weekly heartbeat health line: fresh (<=10d) green, stale red, none amber.
+  let hbLine;
+  if (hb) {
+    const days = (Date.now() - new Date(hb).getTime()) / 86400000;
+    const fresh = days <= 10;
+    hbLine = `<div style="font-size:12px;margin:2px 0 12px;color:${fresh ? '#2fbf4f' : '#e24b4a'}">&#9679; Telemetry heartbeat: ${when(hb)}${fresh ? ' (weekly, healthy)' : ' &mdash; STALE, check the worker cron'}</div>`;
+  } else {
+    hbLine = `<div style="font-size:12px;margin:2px 0 12px;color:#e8a020">&#9679; Telemetry heartbeat: none yet (weekly cron)</div>`;
+  }
+  const rows = recs.map((r) =>
+    `<tr><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
+    `<td>${r.layer ? esc(String(r.layer)) : ''}</td><td class="mono">${esc(String(r.id).slice(0, 8))}</td></tr>`
+  ).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker crash telemetry</title>
+<style>body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#1c1c1e;color:#eee;padding:20px}
+h1{font-size:19px;color:#e8720c;margin:0 0 4px}.sub{color:#aaa;font-size:13px;margin-bottom:14px}
+.pill{display:inline-block;background:#3a2a10;border:1px solid #e8a020;color:#e8a020;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px}
+table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #333;font-size:13px}
+th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}</style></head>
+<body><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+${hbLine}
+<div>${summary}</div>
+<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th></tr>${rows}</table></body></html>`;
 };
 
 const contactLink = (c) => {
@@ -571,6 +942,7 @@ function inboxPage(notes, listKey, view) {
         <time>${when(n.at)}</time>
         ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
         ${n.src === 'printer' ? '<span class="pill src" title="Sent from a printer dashboard, not the open site">🖨 from a printer</span>' : ''}
+        ${n.src === 'slicer' ? '<span class="pill src" title="Marked on the model in the dashboard preview - coordinates and the exact build are in the note">⌖ slicer markers</span>' : ''}
         ${contactLink(n.contact)}
         <span class="tags">${TAGS.map(([v, label]) =>
           `<button class="tag${n.tag === v ? ' on' : ''}" data-tag="${v}">${label}</button>`).join('')}</span>

@@ -38,9 +38,12 @@
 #include <ArduinoOTA.h>    // PlatformIO espota uploads
 #include <WiFiClientSecure.h> // HTTPS to GitHub for version check + self-update
 #include <HTTPClient.h>       // fetch version.txt
+#include <uri/UriBraces.h>   // /lib/{} - slicerio failai is korteles (0.17 SL-mod)
+#include "slicer_ca.h"   // gh-pages saknis: manifesto TLS tikrinamas (08-22)
 #include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
+#include "mbedtls/sha256.h"  // three.js SD kopijos turinio patikra
 #include <PubSubClient.h>
 #include "mbedtls/sha256.h" // anonymous stats id (hash of the efuse MAC)
 #include "dashboard_html_gz.h" // gzipped web/dashboard.html (gen_dashboard_gz.py)
@@ -65,9 +68,9 @@ bool webDashboardRuntimeEnabled() {
 // state-changing browser/API actions - print control, SD delete, config,
 // VAT refill, firmware - return 403; viewing, status polling and the
 // PrusaSlicer/UVtools model upload keep working. WiFi off still kills all.
-bool rejectIfWebControlOff() {
-  if (webDashboardRuntimeEnabled()) return false;
-  sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
+bool rejectIfBusy() {
+  if (!printerBusy()) return false;
+  sendApiError(409, "printer busy");
   return true;
 }
 
@@ -76,8 +79,48 @@ bool rejectIfWebControlOff() {
 // (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
 #define OTA_VERSION_URL "https://slibbinas.github.io/TinyMakerWifi/version.txt"
 #define STATS_PING_URL  "https://tinymaker-stats.slibbinas.workers.dev/ping"
+#define CRASH_PING_URL  "https://tinymakerwifi.com/crash"   // anonymous crash telemetry (feedback worker, opt-out)
 
 WebServer server(80);
+
+// #95 CSRF: irodymas, kad rasymo uzklausa ateina IS MUSU pulto, o ne is
+// svetimo puslapio, kuri vartotojas tuo metu atsidare. multipart/form-data yra
+// CORS-safelisted, tad be sios patikros bet kuri svetaine galejo tyliai
+// POST'inti i printeri LAN'e - o su /api/lib/three tai reikstu nuolatini kodo
+// vykdyma pulte (auditas 08-12, issue #95).
+//
+// Dvi salygos, ne viena: Connect UI veikia MUSU puslapio viduje ir kreipiasi i
+// API savo kodu, be musu antrastes - ji islaiko Origin patikra. Svetimas
+// puslapis nepraeina nei vienos: antrastes jis neprides (reiketu preflight, o
+// i OPTIONS printeris neatsako), o Origin tures savo.
+bool requestFromOwnUi() {
+  // SVETIMAS Origin atmetamas VISADA, net su musu antraste: taip taisykle lieka
+  // vienareiksme ("is musu puslapio ar ne"), o ne dvieju keliu kombinacija.
+  if (server.hasHeader("Origin")) {
+    String o = server.header("Origin");
+    int p = o.indexOf("://");
+    if (p >= 0) o = o.substring(p + 3);
+    if (!server.hasHeader("Host") || o != server.header("Host")) return false;
+    return true;                     // musu pats puslapis (ir Connect UI jame)
+  }
+  // Origin nera: ne narsykles uzklausa. Praleidziam tik su musu antraste -
+  // ja prideda pultas ir musu pacio irankiai.
+  return server.hasHeader("X-TinyMaker");
+}
+
+bool rejectIfWebControlOff() {
+  if (!webDashboardRuntimeEnabled()) {
+    sendApiError(403, "web control is off - enable it on the printer (System > Advanced)");
+    return true;
+  }
+  if (server.method() != HTTP_GET && !requestFromOwnUi()) {
+    sendApiError(403, "request must come from the printer's own dashboard");
+    return true;
+  }
+  return false;
+}
+
+// No SD reads / model changes while a print is running. Same shape as above.
 Preferences netPrefs;
 WiFiClient mqttNet;
 PubSubClient mqttClient(mqttNet);
@@ -96,6 +139,7 @@ File previewUploadFile;
 String previewUploadName;
 String previewUploadPath;
 String previewUploadTmpPath;
+String previewUploadOld;    // senos kartos miniatiura, trinama pabaigoje
 bool previewUploadOk = false;
 bool previewUploadRejected = false;
 unsigned long otaShownBytes = 0;   // progress counter (upload + web OTA)
@@ -180,11 +224,39 @@ void refreshSdBackupCache() {
 }
 
 // Streaming part - called repeatedly with chunks of the multipart body
+/* „Kazkas man siuncia faila" - vienintelis budas ANTRAM irenginiui tai suzinoti.
+   Priimdamas baitus printeris didziaja laiko dali neatsakineja, bet tarpais tarp
+   gabalu speja atsakyti - ir iki siol tuose tarpuose sakydavo „Idle, laisvas".
+   Telefonas is to darydavo teisinga isvada apie neteisinga dalyka: zinute
+   „printeris neatsako" atsirasdavo, dingdavo ir vel atsirasdavo (V 08-19: tris
+   mirktelejimai; pedsakas rodo tris tylos-atsakymo ciklus).
+   Laiko zyme, o ne vien veliavele: nutrukus rysiui vidury siuntimo UPLOAD_FILE_END
+   niekada neateina, ir veliavele liktu kaboti amzinai. Penkios sekundes be gabalo
+   reiskia, kad siuntimo nebera. */
+uint32_t uploadRxAt = 0;        // millis() paskutinio priimto gabalo; 0 = nepriimam
+String   uploadRxName = "";
+
+/* Kiek zyme laikosi po paskutinio gabalo. Ne „kol baigsis siuntimas": sliceris
+   siuncia du kartus is eiles (perziuros kesas, tada modelis), ir printeris atsako
+   butent tame tarpe - ismatuota ~5 s (V pedsakas 08-19). Tad langas turi buti uz ji
+   ilgesnis, kitaip tarpas vel praneštu „laisvas". Kartu tai ir savaiminis atsistatymas,
+   jei rysys nutruko vidury siuntimo ir UPLOAD_FILE_END niekada neatejo. */
+#define RX_QUIET_MS 9000
+
+bool uploadReceiving() {
+  return uploadRxAt != 0 && (uint32_t)(millis() - uploadRxAt) < RX_QUIET_MS;
+}
+
 void handleUploadData() {
   HTTPUpload &up = server.upload();
 
   if (up.status == UPLOAD_FILE_START) {
-    modelName = safeModelName(up.filename);
+    /* Zymima IS KARTO ir net tada, kai ikelimas bus atmestas: kunas vis tiek
+       plaukia per tinkla, printeris vis tiek tyli, ir antram irenginiui tyla
+       atrodo lygiai taip pat. */
+    uploadRxAt = millis();
+    uploadRxName = safeModelName(up.filename);
+    modelName = uploadRxName;                    // ta pati reiksme, be antros alokacijos
     uploadPath = "/.tm_upload_" + String((uint32_t)millis()) + ".zip";
     uploadOk = false;
     uploadRejected = false;
@@ -221,6 +293,7 @@ void handleUploadData() {
     netProgressStart("Receiving model:", modelName.c_str());
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
+    uploadRxAt = millis();          // pries `uploadRejected`: baitai plaukia ir tada
     if (uploadRejected) return;
     if (uploadFile) uploadFile.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 262144) { // redraw every 256 KB - drawing while flash/SD writes run corrupts SPI pixels (orange streaks, user finding)
@@ -229,11 +302,19 @@ void handleUploadData() {
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
+    /* Zymes cia SAMONINGAI nenuimam - ji nusileidzia pati po RX_QUIET_MS.
+       Priezastis isaiskejo tik ant gelezies (08-19): sliceris siuncia DU kartus is
+       eiles - pirma perziuros kesa, paskui modeli - ir printeris atsako butent tame
+       tarpe. Nuimta is karto zyme reikstu, kad tas tarpas vel praneštu „Idle,
+       laisvas", o telefonas vel mirktelėtų. Tolesnis ispakavimas savo snacka pasiima
+       pats (sdJob), tad dvi zinutes nesivarzo. */
+    uploadRxAt = millis();
     if (uploadRejected) return;
     if (uploadFile) { uploadFile.close(); uploadOk = true; }
     DBG("Upload done: %u bytes\n", up.totalSize);
   }
   else if (up.status == UPLOAD_FILE_ABORTED) {
+    uploadRxAt = 0;
     if (uploadFile) uploadFile.close();
     SD.remove(uploadPath.c_str());
   }
@@ -252,7 +333,7 @@ void finishUpload() {
       netMessage("Upload blocked", "No SD card");
     }
     delay(1500);
-    screen1();
+    restoreIdleScreen();
     return;
   }
 
@@ -279,7 +360,7 @@ void finishUpload() {
       server.send(409, "application/json", out);
       netMessage("Upload blocked", "Model exists");
       delay(1500);
-      screen1();
+      restoreIdleScreen();
       return;
     }
 
@@ -320,7 +401,7 @@ void finishUpload() {
   netMessage("Upload FAILED", modelName.c_str());
   delay(1500);
   // Redraw UI - upload messages overwrote whatever screen was shown.
-  screen1();
+  restoreIdleScreen();
 }
 
 void handlePreviewUploadData() {
@@ -329,15 +410,31 @@ void handlePreviewUploadData() {
   if (up.status == UPLOAD_FILE_START) {
     previewUploadName = server.arg("name");
     String previewType = server.arg("type");
-    if (previewType == "05") previewUploadPath = "/" + previewUploadName + "/preview05.png";
-    else if (previewType == "1") previewUploadPath = "/" + previewUploadName + "/preview1.png";
-    else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    // "s" = smooth: 0.17 piesejo karta. Sena bevarde karta lieka SD, bet
+    // nebeskaitoma - kitaip jau perziureti modeliai amzinai rodytu kampuota
+    // voxelini vaizda (V 08-12).
+    previewUploadOld = "";
+    if (previewType == "05") {
+      previewUploadPath = "/" + previewUploadName + "/preview05s.png";
+      previewUploadOld  = "/" + previewUploadName + "/preview05.png";
+    } else if (previewType == "1") {
+      previewUploadPath = "/" + previewUploadName + "/preview1s.png";
+      previewUploadOld  = "/" + previewUploadName + "/preview1.png";
+    } else if (previewType == "ico") {
+      // Saraso piktograma: 56x56 PNG, ~4 KB. Guli PRIE MODELIO, ne narsykleje - tad
+      // ta pati mato ir telefonas, ir kompiuteris, ir naujas langas (V 2026-08-30).
+      previewUploadPath = "/" + previewUploadName + "/icon.png";
+    } else previewUploadPath = "/" + previewUploadName + "/preview.png";
+    // Senoji miniatiura trinama TIK pavykus irasyti nauja (zr. UPLOAD_FILE_END):
+    // cia vardas dar nepatikrintas (name=../X taikytusi i svetima aplanka), o
+    // apsaugu blokas dar nepraeitas - trynimas galejo vykti vidury spaudinio
+    // ant tos pacios SPI magistrales (auditas 08-12).
     previewUploadTmpPath = previewUploadPath + ".tmp";
     previewUploadOk = false;
     previewUploadRejected = false;
 
     if (printerBusy() || !webDashboardRuntimeEnabled() || !sdCardReady() ||
-        !validPrintableModel(previewUploadName)) {
+        !validPrintableModel(previewUploadName) || !requestFromOwnUi()) {   // #95
       previewUploadRejected = true;
       return;
     }
@@ -351,7 +448,9 @@ void handlePreviewUploadData() {
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
     if (previewUploadRejected) return;
-    if (up.totalSize > 524288) {
+    // Piktogramai uztenka 32 KB (tikroji ~4 KB): be atskiros ribos ji galetu teisetai
+    // uzimti puse megabaito kortelėje (auditas 08-30).
+    if (up.totalSize > (previewUploadPath.endsWith("/icon.png") ? 32768u : 524288u)) {
       previewUploadRejected = true;
       if (previewUploadFile) previewUploadFile.close();
       SD.remove(previewUploadTmpPath.c_str());
@@ -374,6 +473,8 @@ void handlePreviewUploadData() {
       previewUploadOk = SD.rename(previewUploadTmpPath.c_str(), previewUploadPath.c_str());
       if (previewUploadOk) {
         if (hadPreview) SD.remove(backupPath.c_str());
+        // Nauja karta vietoje - senoji nebeskaitoma, tad tik uzima vieta.
+        if (previewUploadOld.length()) SD.remove(previewUploadOld.c_str());
       } else {
         if (hadPreview) SD.rename(backupPath.c_str(), previewUploadPath.c_str());
         SD.remove(previewUploadTmpPath.c_str());
@@ -422,25 +523,46 @@ void freePreviewCache() {
   previewCacheModel = "";
 }
 
-void capturePreviewCache() {
+// slackBytes: contiguous-heap reserve required on top of the file size (print
+// start: 30 KB, plenty idle-ish; the mid-print re-capture after a notify uses
+// 16 KB - enough for the ~12 KB status-JSON String, the largest remaining
+// mid-print allocation). allowSdInit: print start may re-init a failed SD
+// (sdCardReady -> SD.begin); mid-print must not re-init the shared VSPI bus -
+// if the card errored, SD.open below just fails and the cache stays empty.
+// The saved 3D render does not depend on the layer height: the dashboard draws
+// the model from the source slices, so the same picture is right whatever resin
+// is loaded. Prefer the file rendered at this height, but take the other one
+// rather than none - switching resin used to blank the picture on 8 of the 12
+// models on this card and force a full re-render for an image that cannot
+// differ (measured 08-16). Empty return = neither exists.
+File openModelRender(const String &name) {
+  // Antra eilute sudedam tik jei pirmos nepakako: si funkcija pasiekiama ir
+  // spausdinant (Telegram re-capture), tad be reikalo nealokuojam (audit 08-16).
+  bool tall = (Layer_Height > 0.06);
+  File f = SD.open(("/" + name + (tall ? "/preview1s.png" : "/preview05s.png")).c_str());
+  if (!f) f = SD.open(("/" + name + (tall ? "/preview05s.png" : "/preview1s.png")).c_str());
+  return f;   // invalid = neither exists
+}
+
+void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   freePreviewCache();
-  if (!sdCardReady()) return;
+  if (allowSdInit && !sdCardReady()) return;
   String name = String(foldersel_long);
   if (!name.length()) return;
-  // Same pick as the serve path below: the render matching the active layer
-  // height, legacy single preview as the fallback.
-  String path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
-  File f = SD.open(path.c_str());
-  if (!f) f = SD.open(("/" + name + "/preview.png").c_str());
+  // Same pick as the serve path below: either saved render (the picture does
+  // not depend on the layer height), legacy single preview as the fallback.
+  File f = openModelRender(name);
+  if (!f) f = SD.open(("/" + name + "/preview.png").c_str());   // slicer'io, kaip ir buvo
   if (!f) return;
   size_t sz = f.size();
   // No PSRAM on the WROOM: cap the snapshot and require slack in the largest
-  // free block. Calibrated on hardware: real renders are 66-74 KB and idle
-  // maxAllocHeap sits ~110 KB, so a bigger slack would silently reject every
-  // preview. 30 KB is safe: print loops only service plain HTTP (no TLS),
-  // and the end-of-print TLS notify runs after freePreviewCache(). Too big /
-  // too tight -> silently no cache, the endpoint answers 409 as before.
-  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + 30 * 1024) { f.close(); return; }
+  // free block (slackBytes, see above). Calibrated on hardware: real renders
+  // are 66-74 KB and idle maxAllocHeap sits ~110 KB, so a bigger print-start
+  // slack would silently reject every preview. Mid-print TLS notifies
+  // (low-resin warn/stop, 0.17 #40) free this cache before sending - see
+  // telegramNotify(). Too big / too tight -> silently no cache, the endpoint
+  // answers 409 as before.
+  if (sz == 0 || sz > 120 * 1024 || ESP.getMaxAllocHeap() < sz + slackBytes) { f.close(); return; }
   previewCacheBuf = (uint8_t *)malloc(sz);
   if (!previewCacheBuf) { f.close(); return; }
   size_t got = 0;
@@ -458,9 +580,13 @@ void capturePreviewCache() {
 void handleApiFileModelPreview() {
   // 0-19: while printing, the active model's preview is served from the RAM
   // snapshot - no SD touch, so the no-SD-reads-mid-print rule still holds.
-  // The type arg is ignored here: the snapshot already matches the active
-  // layer height. Other models (or no snapshot) fall through to the 409.
-  if (printerBusy() && previewCacheBuf && server.arg("name") == previewCacheModel) {
+  // The type arg is ignored here: one snapshot is taken per print, and the
+  // picture is the same model at any layer height (see openModelRender).
+  // Other models (or no snapshot) fall through to the 409.
+  // ISSKYRUS piktograma: ji kito dydzio ir kitos paskirties, o cia gulintis didysis
+  // renderis narsykleje uzsikabintu PARAI po piktogramos adresu (auditas 08-30).
+  if (printerBusy() && previewCacheBuf && server.arg("type") != "ico" &&
+      server.arg("name") == previewCacheModel) {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.setContentLength(previewCacheLen);
     server.send(200, "image/png", "");
@@ -471,10 +597,7 @@ void handleApiFileModelPreview() {
   // asks for it mid-print, but HTTP is now serviced from inside the print
   // loops - an SD stream from in there costs motor/button latency, and the
   // no-SD-reads-mid-print rule is only a rule if it has no exceptions.
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -487,14 +610,36 @@ void handleApiFileModelPreview() {
   }
 
   String previewType = server.arg("type");
-  String path;
-  if (previewType == "05") path = "/" + name + "/preview05.png";
-  else if (previewType == "1") path = "/" + name + "/preview1.png";
+  File f;
+  // Saraso piktograma: maza (~4 KB), tad narsyklei leidziam ja laikyti - sarasas
+  // atsiverciamas daznai, o piesinys keiciasi tik pergaminus.
+  if (previewType == "ico") {
+    File fi = SD.open(("/" + name + "/icon.png").c_str());
+    if (!fi) { sendApiError(404, "icon not found"); return; }
+    server.sendHeader("Cache-Control", "max-age=600");
+    server.setContentLength(fi.size());
+    server.send(200, "image/png", "");
+    // Rankinis ciklas, o ne streamFile: pastarasis nezino apie nukeliavusi klienta, ir
+    // kiekvienas gabalas degintu po sekunde `select()` laukimo. Ta pati sarga stovi
+    // ir didziosios perziuros kelyje zemiau (auditas 08-30).
+    {
+      uint8_t buf[512];
+      int n;
+      WiFiClient client = server.client();
+      while ((n = fi.read(buf, sizeof(buf))) > 0) {
+        if (!client.connected()) break;
+        client.write(buf, n);
+      }
+    }
+    fi.close();
+    return;
+  }
+  if (previewType == "05") f = SD.open(("/" + name + "/preview05s.png").c_str());
+  else if (previewType == "1") f = SD.open(("/" + name + "/preview1s.png").c_str());
   // One consistent look (user decision): our voxel render everywhere; the
   // archive/slicer thumbnail is only the fallback when no render is cached
   // yet - it is big (slow off the SD), soft when scaled, and off-style.
-  else path = Layer_Height > 0.06 ? "/" + name + "/preview1.png" : "/" + name + "/preview05.png";
-  File f = SD.open(path.c_str());
+  else f = openModelRender(name);      // either render, see the note above it
   if (!f && previewType.length() == 0) f = SD.open(("/" + name + "/preview.png").c_str());
   if (!f) {
     sendApiError(404, "preview not found");
@@ -507,7 +652,12 @@ void handleApiFileModelPreview() {
   uint8_t buf[512];
   int n;
   WiFiClient client = server.client();
-  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  // ~100 KB into a browser that walked away holds the only request thread; the
+  // layer stream got this guard, this one is the same file, only bigger.
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if (!client.connected()) break;
+    client.write(buf, n);
+  }
   f.close();
 }
 
@@ -613,6 +763,16 @@ void handleUpdatePage() {
   server.send(200, "text/html", otaStyledPage(inner));
 }
 
+// "620 / 1424 KB" i progreso ekrana. Be alokaciju: OTA metu heap'as itemptas.
+static void otaProgressText(size_t done) {
+  char buf[24];
+  if (otaTotalBytes > 0)
+    snprintf(buf, sizeof buf, "%u / %u KB", (unsigned)(done / 1024), (unsigned)(otaTotalBytes / 1024));
+  else
+    snprintf(buf, sizeof buf, "%u KB", (unsigned)(done / 1024));
+  netProgressText(buf);
+}
+
 void handleUpdateUpload() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
@@ -640,13 +800,22 @@ void handleUpdateUpload() {
     Update.write(up.buf, up.currentSize);
     if (up.totalSize - otaShownBytes >= 524288) { // redraw every 512 KB - see the upload handler note on SPI streaks
       otaShownBytes = up.totalSize;
-      String p = String(up.totalSize / 1024) + " KB";
+      // "620 / 1424 KB", ne vien "620 KB": be antro skaiciaus zinai, kad kazkas vyksta,
+      // bet ne ar liko sekunde, ar minute (V 08-13). Bendra dydi zinom is Content-Length;
+      // jei jo nebutu (0) - grizt prie vieno skaiciaus, o ne rodyt dalyba is nulio.
+      // char buferis, ne String: cia pats itempciausias heap'o momentas (Update.write
+      // i flash'a), o kaimyninis netProgressCount daro lygiai taip pat (auditas 08-13).
+      otaProgressText(up.totalSize);
       netProgressBar(up.totalSize, otaTotalBytes);
-      netProgressText(p.c_str());
     }
   }
   else if (up.status == UPLOAD_FILE_END) {
     if (otaBlocked) return;
+    // Paskutinis perpiesimas: su 512 KB zingsniu skaitiklis niekada nepasiekdavo
+    // galo ir ekrane amzinai likdavo "1024 / 1425 KB" - atrode, kad pakibo
+    // (auditas 08-13).
+    otaProgressText(up.totalSize);
+    netProgressBar(up.totalSize, otaTotalBytes);
     if (Update.end(true)) otaWebOk = true;
     DBG("Web OTA end: %u bytes, ok=%d\n", up.totalSize, otaWebOk);
   }
@@ -677,7 +846,7 @@ void handleUpdateFinish() {
       "<div class='hint'>Check the firmware.bin file and try again.</div>"));
     netMessage("Update FAILED", "");
     delay(1500);
-    screen1();
+    restoreIdleScreen();
   }
 }
 
@@ -687,7 +856,10 @@ void handleUpdateFinish() {
 
 String printerStateText() {
   if (sdJobKind == "delete") return "Deleting model";
-  if (sdJobKind == "import") return "Importing model";
+  // „Unpacking", ne „Importing" (V sprendimas, SD-prog p.3): importas gali reiksti bet ka,
+  // o ispakavimas pasako, kas is tikruju vyksta - ir sutampa su printerio ekranu, kuris
+  // visa laika rase „Unpacking layers".
+  if (sdJobKind == "import") return "Unpacking model";
   if (screen == 1111 || screen == 1112 || screen == 11111 || screen == 11112 || screen == 11113) {
     String prefix = uvLedEnabled ? "" : "Testing - ";
     switch (current_state) {
@@ -699,7 +871,11 @@ String printerStateText() {
       case 5: return prefix + "Pausing";
       case 6: return prefix + "Paused";
       case 7: return prefix + "Resuming";
-      case 8: return prefix + "Finished";
+      // Ne „Finished": tuo metu platforma DAR kyla, ir salia rodomas laikas iki
+      // pabaigos - „baigta" su likusiu laiku yra du priestaraujantys teiginiai
+      // vienoje eiluteje (V 09-04). „Lifting" netinka - taip vadinasi kiekvieno
+      // sluoksnio atplesimas (case 2), ir per spaudini jis mirga simtus kartu.
+      case 8: return prefix + "Raising plate";
       case 10: return prefix + "Refill resin";
       default: return uvLedEnabled ? "Printing" : "Testing";
     }
@@ -751,7 +927,7 @@ uint32_t remainingPrintSecs() {
   if (current_layer < Base_Layer) {
     secs += (Base_Layer - current_layer) * Base_Exposure;
   }
-  secs += layersLeft * Regular_Exposure;
+  secs += layersLeft * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
   if (layersLeft > 1) {
     secs += (uint32_t)((layersLeft - 1) * motor_updown_time);
   }
@@ -781,7 +957,10 @@ bool modelSummaryForModel(const String &name, ModelSummary &summary) {
     sourceLayers = countModelSourceLayers(name);
     backfillModelMetadataLayers(name, sourceLayers);  // pay the scan once
   }
-  return modelSummaryFromSourceLayers(sourceLayers, summary);
+  if (!modelSummaryFromSourceLayers(sourceLayers, summary)) return false;
+  double lh = 0;
+  if (getModelMetadataSlicedLayerHeight(name, lh)) summary.slicedLayerHeightMm = (float)lh;
+  return true;
 }
 
 bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t &timeSecs) {
@@ -796,7 +975,7 @@ bool modelStats(const String &name, int &printLayers, float &heightMm, uint32_t 
 bool estimateModelResin(const String &name, int printLayers, double &ml) {
   if (printLayers <= 0) return false;
 
-  double volMm3 = 0.0;
+  double volMl = 0.0;
   countPixelsMode = true;
   estimateCancelReq = false;
 
@@ -811,11 +990,11 @@ bool estimateModelResin(const String &name, int printLayers, double &ml) {
       png.decode(NULL, 0);
       png.close();
     }
-    volMm3 += (double)whitePixelsAccum * 0.01626 * Layer_Height;
+    volMl += pxToMlRaw(whitePixelsAccum, Layer_Height);   // R-cal: shared formula (was a duplicated 0.01626)
   }
 
   countPixelsMode = false;
-  ml = volMm3 / 1000.0;
+  ml = volMl;          // RAW - the caller caches this and calibrates on read
   return true;
 }
 
@@ -911,6 +1090,7 @@ void sendApiError(int code, const char *message) {
 
 void sendApiOk(const String &extra) {
   String out = "{\"ok\":true";
+  out.reserve(extra.length() + 24);   // the body is copied here in full
   if (extra.length() > 0) {
     out += ",";
     out += extra;
@@ -949,10 +1129,7 @@ bool validPrintableModel(const String &name) {
 }
 
 void handleApiFiles() {
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -975,7 +1152,9 @@ void handleApiFiles() {
   // upload+unpack the heap is fragmented, and a failed String append is SILENT
   // - the list went out truncated and the dashboard's SD manager "disappeared"
   // (external beta report, feedback #4).
-  out.reserve(12288);
+  // 0.17 EST-model added ~20 B per row on top of the ~190 B it already used,
+  // and 64 rows have to fit with room to spare - see the silent-append note.
+  out.reserve(15360);
   out += ",\"usageKnown\":";
   out += usageOk ? "true" : "false";
   out += ",\"totalBytes\":\"";
@@ -1005,7 +1184,10 @@ void handleApiFiles() {
       skipped++;
       continue;
     }
-    if (shown >= 64) {
+    // Long model names (up to 100 chars) make a row far bigger than the
+    // ~210 B average, so cap on the buffer too - a String that outgrows
+    // its reservation fails its append SILENTLY on a fragmented heap.
+    if (shown >= 64 || out.length() > 14000) {
       skipped++;
       continue;
     }
@@ -1026,11 +1208,45 @@ void handleApiFiles() {
     out += uint64Json(bytes);
     out += "\"";
     if (isDir) {
-      String publicId;
-      if (getModelMetadataConnectPublicId(name, publicId)) {
-        out += ",\"connectPublicId\":\"";
-        out += jsonEscape(publicId);
-        out += "\"";
+      // ONE model.json read per row, reused for both fields. Two helpers would
+      // mean two SD opens per model, and this loop already runs 64 times.
+      String meta;
+      if (readModelMetadataJson(name, meta)) {
+        String publicId;
+        if (readJsonStringField(meta, "connect_public_id", publicId)) {
+          out += ",\"connectPublicId\":\"";
+          out += jsonEscape(publicId);
+          out += "\"";
+        }
+        // 0.17 EST-model: the time each model needs WITH the resin in force.
+        // Recomputed on the way out (like R-cal does with ml) rather than read
+        // from the file, so switching profile refreshes every row at once. A
+        // model without metadata simply has no time - re-scanning its layers
+        // here is the O(models x layers) walk that was deliberately removed.
+        // Rides along on the model.json read the row already does, so the file
+        // list gets folder sizes back without the O(models x layers) walk that
+        // made it slow enough to remove in the first place.
+        double fb = 0;
+        if (readJsonNumberField(meta, "folder_bytes", fb)) {
+          out += ",\"folderBytes\":\"";
+          out += uint64Json((uint64_t)fb);
+          out += "\"";
+        }
+        double layers = 0;
+        ModelSummary est;
+        if (readJsonNumberField(meta, "source_layers", layers) &&
+            modelSummaryFromSourceLayers((int)layers, est)) {
+          out += ",\"estimatedSecs\":";
+          out += String(est.estimatedSecs);
+        }
+        // Arrival order, so the dashboard can show the newest model first. Rides
+        // along on the same read; missing on anything imported before 0.17, which
+        // is exactly right - those ARE the older models.
+        double seq = 0;
+        if (readJsonNumberField(meta, "import_seq", seq) && seq > 0) {
+          out += ",\"importSeq\":";
+          out += String((uint32_t)seq);
+        }
       }
     }
     out += "}";
@@ -1048,10 +1264,7 @@ void handleApiFileModel() {
   // Plain details are read-only, but the ?estimate scan occupies the printer
   // for minutes (decodes every layer) - that is an action, so gate it.
   if (server.hasArg("estimate") && rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1083,11 +1296,17 @@ void handleApiFileModel() {
   out += String(summary.estimatedSecs);
   out += ",\"estimatedTime\":\"";
   out += formatDuration(summary.estimatedSecs);
-  out += "\",\"preview\":";
-  bool preview05 = sdPathExists("/" + name + "/preview05.png");
-  bool preview1 = sdPathExists("/" + name + "/preview1.png");
+  out += "\",\"slicedLayerHeightMm\":";
+  out += String(summary.slicedLayerHeightMm, 3);
+  out += ",\"flatWarning\":";
+  out += slicedIsFlat(summary.slicedLayerHeightMm) ? "true" : "false";
+  out += ",\"preview\":";
+  bool preview05 = sdPathExists("/" + name + "/preview05s.png");
+  bool preview1 = sdPathExists("/" + name + "/preview1s.png");
   bool previewLegacy = sdPathExists("/" + name + "/preview.png");
-  bool previewExists = (Layer_Height > 0.06 ? preview1 : preview05) || previewLegacy;
+  // Either render counts (see openModelRender): the picture is the same model
+  // at any layer height, so a resin switch must not make it "missing".
+  bool previewExists = preview1 || preview05 || previewLegacy;
   out += previewExists ? "true" : "false";
   out += ",\"preview05\":";
   out += preview05 ? "true" : "false";
@@ -1101,6 +1320,19 @@ void handleApiFileModel() {
     out += "\"";
   }
 
+  // Opening a model is the one moment we are already busy with just this one,
+  // so fill in the folder size for anything imported before 0.17 recorded it.
+  // After this the file list shows it like any other model.
+  {
+    String meta;
+    double have = 0;
+    if (readModelMetadataJson(name, meta) &&
+        !readJsonNumberField(meta, "folder_bytes", have)) {
+      uint32_t fb = sdFolderBytes(name);
+      if (fb > 0) setModelMetadataFolderBytes(name, fb);
+    }
+  }
+
   double ml = 0;
   bool resinKnown = getModelMetadataResin(name, ml);
   bool resinOk = resinKnown;
@@ -1111,8 +1343,10 @@ void handleApiFileModel() {
   out += ",\"resinEstimated\":";
   out += resinOk ? "true" : "false";
   if (resinOk) {
+    // R-cal: `ml` (fresh or from model.json) is the RAW geometric estimate -
+    // calibrate on the way out, so re-calibrating refreshes cached models too.
     out += ",\"resinMl\":";
-    out += String(ml, 1);
+    out += String(ml * resinCalFactor + resinFixedMl, 1);
   }
 
   out += "}";
@@ -1121,10 +1355,7 @@ void handleApiFileModel() {
 
 void handleApiFileModelMetadata() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1208,14 +1439,13 @@ bool deleteSdItem(const String &requestedName, String &error) {
 
 // GET /api/files/layer?name=X&i=N - one sliced-layer PNG straight from SD.
 // Feeds the dashboard's 3D preview (the browser renders; the ESP32 only
-// streams files). i is a PRINT layer index - mapped to the source file the
-// same way print_next_png() does (0.10 mm mode uses every other file).
+// streams files). With source=1 (what the dashboard always sends - the picture
+// must not change with the resin) i IS the file number. Without it, i is a
+// PRINT layer index, mapped the same way print_next_png() does: at 0.10 mm the
+// printer pairs two 0.05 mm slices, so it reads every other file.
 // Read-only, so allowed with Web control off; blocked while printing (SD busy).
 void handleApiFileLayer() {
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(503, "sd card unavailable");
     return;
@@ -1245,12 +1475,22 @@ void handleApiFileLayer() {
   uint8_t buf[512];
   int n;
   WiFiClient client = server.client();
-  while ((n = f.read(buf, sizeof(buf))) > 0) client.write(buf, n);
+  // Stop the moment the browser walks away (its layer fetch times out after
+  // 20 s and drops the image). Writing on into a dead socket held the single
+  // request thread and made the NEXT layer late too - which is how one stalled
+  // layer turned into a stalled preview (V: frozen at 221/240, 08-16).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if (!client.connected()) break;
+    client.write(buf, n);
+  }
   f.close();
 }
 
 void handleApiFileDelete() {
   if (rejectIfWebControlOff()) return;
+  // Nebaigtas spaudinys laukia atsakymo, o jo irasas rodo i modeli korteleje -
+  // istrynus ji tesimas nebeturetu is ko vykti (auditas 08-16).
+  if (rejectIfResumePending()) return;
   String error;
   if (!deleteSdItem(server.arg("name"), error)) {
     int code = 400;
@@ -1308,7 +1548,7 @@ bool queueModelPrint(const String &requestedName, String &error) {
 
   if (!prepareSelectedPrintPreview()) {
     delay(1000);
-    screen1();
+    restoreIdleScreen();
     error = "model is not printable";
     return false;
   }
@@ -1321,15 +1561,18 @@ String configJson() {
   bool mqttConfigured = mqttEnabled || mqttHost.length() > 0 || mqttUser.length() > 0 ||
                         mqttPass.length() > 0 || mqttPort != 1883 || mqttTopic != "TinyMaker";
   String out = "\"locked\":";
+  out.reserve(2560);   // ~98 appends incl. four sub-JSONs; a failed one is silent
   out += printerBusy() ? "true" : "false";
   out += ",\"layerHeight\":";
   out += String(Layer_Height, 2);
   out += ",\"baseExposure\":";
   out += String(Base_Exposure);
   out += ",\"regularExposure\":";
-  out += String(Regular_Exposure);
+  out += String(Regular_Exposure / 10.0, 1);      // 0.17 0-3: seconds (deciseconds/10)
   out += ",\"prevRegularExposure\":";
-  out += String(prevRegularExposure);
+  out += String(prevRegularExposure / 10.0, 1);   // seconds (0.0 = no undo available)
+  out += ",\"prevBaseExposure\":";
+  out += String(prevBaseExposure);                // seconds (0 = no undo available)
   out += ",\"baseLayers\":";
   out += String(Base_Layer);
   out += ",\"transitionLayers\":";
@@ -1350,8 +1593,42 @@ String configJson() {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"lowResinWarnMl\":";
+  out += String(lowResinWarnMl);
+  out += ",\"resinCalFactor\":";            // R-cal 0.17: slope
+  out += String(resinCalFactor, 3);
+  out += ",\"resinFixedMl\":";              // per-print plate film (ml)
+  out += String(resinFixedMl, 2);
+  out += ",\"resinDensity\":";
+  out += String(resinDensity, 3);
+  out += ",\"slicerOn\":";                  // 0.17 SL-mod: module live?
+  out += slicerModuleOn ? "true" : "false";
+  out += ",\"resinProfile\":\"";            // 0.17 0-16: the profile in force
+  out += jsonEscape(resinProfileName);
+  out += "\",\"vatEmptyG\":";               // moulded constant unless someone re-weighed it
+  out += String(vatEmptyG, 2);
+  out += ",\"lastPrintRawMl\":";            // -1 = nothing to calibrate against yet
+  out += String(lastPrintRawMl, 2);
+  {
+    // Mirror of the fit gate in resinFitCalibration(): the UI must not say
+    // "calibrated" when two samples exist but sit too close for a real fit.
+    float lo = calRawA < calRawB ? calRawA : calRawB;
+    float hi = calRawA < calRawB ? calRawB : calRawA;
+    bool two = calRawA > 0 && calMeasA > 0 && calRawB > 0 && calMeasB > 0 &&
+               (hi - lo) >= 0.5f && (hi - lo) >= 0.25f * hi;
+    out += ",\"calTwoPoint\":";
+    out += two ? "true" : "false";
+  }
+  out += ",\"calSamples\":[";               // [{raw,measured}, ...] 0..2 entries
+  if (calRawA > 0) { out += "{\"slot\":1,\"raw\":" + String(calRawA, 2) + ",\"grams\":" + String(calMeasA, 2) +
+                            ",\"ml\":" + String(calMeasA / resinDensity, 2) + "}"; }
+  if (calRawB > 0) { if (calRawA > 0) out += ","; out += "{\"slot\":2,\"raw\":" + String(calRawB, 2) + ",\"grams\":" + String(calMeasB, 2) +
+                            ",\"ml\":" + String(calMeasB / resinDensity, 2) + "}"; }
+  out += "]";
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
+  out += ",\"previewFlip\":";
+  out += previewFlip ? "true" : "false";
   out += ",\"uiTimeoutSecs\":";
   out += String(uiTimeoutSecs);
   out += ",\"dryRun\":";
@@ -1366,6 +1643,10 @@ String configJson() {
   out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"resumeEnabled\":";
   out += resumeEnabled ? "true" : "false";
+  out += ",\"resumePrecise\":";
+  out += resumePrecise ? "true" : "false";
+  out += ",\"pauseLiftMm\":";
+  out += String(pauseLiftMm);
   out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
@@ -1399,12 +1680,43 @@ String configJson() {
   return out;
 }
 
+// HTML varnele, kai ji nuimta, formoje NESIUNCIAMA, tad sis endpoint'as skaite
+// „nera = isjungta". Pultui tai teisinga (jis siuncia visa forma), bet bet kokia
+// daline uzklausa isjungdavo visus 13 jungikliu iskart, tarp ju WiFi - printeris
+// dingdavo is tinklo. Taip nutiko du kartus (08-11, 08-12).
+//
+// Pultas savo forma pazymi `form_full`. Be sios zymos varneles, kuriu uzklausoje
+// nera, paliekamos kaip buvo: daline uzklausa gali ijungti, bet ne isjungti.
+static bool formFullPost = false;
+static inline bool formCheck(const char *name, bool cur) {
+  if (server.hasArg(name)) return true;
+  return formFullPost ? false : cur;
+}
+
 void applyConfigRequest() {
   float requestedLayer = server.hasArg("layer_height") ? server.arg("layer_height").toFloat() : Layer_Height;
   Layer_Height = requestedLayer < 0.075 ? 0.05 : 0.10;
-  Base_Exposure = formLong("base_exposure", Base_Exposure, 10, 60);
+  // Pilna forma pripazistama tik jei kartu atkeliauja ir sunkieji laukai, kuriuos
+  // pultas siuncia VISADA. Vien zymos neuztenka: 08-12 pats testui nusiunciau
+  // "base_exposure=9&form_full=1" ir tuo isjungiau visus jungiklius - zyma buvo
+  // teisinga, o forma - ne. Dabar toks siuntinys skaitomas kaip dalinis.
+  formFullPost = server.hasArg("form_full") &&
+                 server.hasArg("layer_height") &&
+                 server.hasArg("regular_exposure") &&
+                 server.hasArg("slow_lift_feedrate");
+  long oldBase = Base_Exposure;
+  Base_Exposure = formLong("base_exposure", Base_Exposure, 5, 60);   // 0.17 0-3: base min 5 s
+  rememberPrevBaseExposure(oldBase);   // no-op unless it actually changed
   long oldRegular = Regular_Exposure;
-  Regular_Exposure = formLong("regular_exposure", Regular_Exposure, 1, 30);
+  {
+    // 0.17 0-3: the form sends Regular in SECONDS (step 0.1); store deciseconds.
+    float regSecs = server.hasArg("regular_exposure")
+                      ? server.arg("regular_exposure").toFloat()
+                      : (Regular_Exposure / 10.0f);
+    long regDs = lroundf(regSecs * 10.0f);
+    if (regDs < 10) regDs = 10; else if (regDs > 300) regDs = 300;
+    Regular_Exposure = regDs;
+  }
   rememberPrevRegularExposure(oldRegular);   // no-op unless it actually changed
   Base_Layer = formLong("base_layer", Base_Layer, 1, 8);
   Transition_Layer = formLong("transition_layer", Transition_Layer, 0, 10);
@@ -1414,17 +1726,58 @@ void applyConfigRequest() {
   Fast_Lift_Feedrate = formLong("fast_lift_feedrate", Fast_Lift_Feedrate, 20, 50);
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
-  lowResinPauseEnabled = server.hasArg("low_resin_pause");
-  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
-  askRefillEnabled = server.hasArg("ask_refill");
+  lowResinPauseEnabled = formCheck("low_resin_pause", lowResinPauseEnabled);
+  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 3, 8);
+  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 5, 8);    // 0.17 #40: WARN level
+  // R-cal: density is a measured property (weigh a known syringe volume), so it
+  // is a plain setting - not part of the print-weighing calibration.
+  if (server.hasArg("resin_density")) {
+    float d = server.arg("resin_density").toFloat();
+    if (d >= 0.8f && d <= 2.0f && d != resinDensity) {
+      resinDensity = d;
+      resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
+    }
+  }
+  // 0.17 0-16: normally the moulded constant, but a replaced or different vat
+  // can be weighed once from the calibration card.
+  if (server.hasArg("vat_empty_g")) {
+    float g = server.arg("vat_empty_g").toFloat();
+    if (g > 0.0f && g <= VAT_EMPTY_G_MAX) vatEmptyG = g;
+  }
+  // 08-22: the dashboard now carries this box in the FULL settings form
+  // (Settings > Network), so it goes through formCheck like every other
+  // toggle - that is what makes unchecking it actually switch the slicer off.
+  // formCheck still ignores a partial POST (no form_full), so the old
+  // "slicer_on=1" one-liner from a script keeps working and nothing else in
+  // the form gets cleared by it.
+  slicerModuleOn = formCheck("slicer_on", slicerModuleOn);
+  askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
+  previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
-  uvLedEnabled = !server.hasArg("dry_run");
-  wifiEnabled = server.hasArg("wifi_enabled");
-  webDashboardEnabled = wifiEnabled && server.hasArg("web_dashboard_enabled");
-  bootUpdateCheckEnabled = server.hasArg("boot_update_check");
-  resumeEnabled = server.hasArg("resume_enabled");
-  statsPingEnabled = server.hasArg("stats_ping");
-  mqttEnabled = server.hasArg("mqtt_enabled");
+  /* Dry run yra REZIMAS, ne formos nustatymas: ji jungia atskiras
+     /api/config/dry-run (pultas apie ji nieko nesiuncia su „Save config").
+     Todel `formCheck` cia melavo: pilnoje formoje laukelio nera, tad kiekvienas
+     nustatymu issaugojimas ji tyliai isjungdavo - zmogus pasiruosia sausa
+     bandyma, pataiso WiFi nustatyma, ir kitas paleidimas jau su degancia UV
+     lempa (ismatuota du kartus is eiles, 2026-09-01, T-114). Ziurim TIK i
+     atsiusta reiksme, kad skriptas ir toliau galetu jungti abi puses. */
+  if (server.hasArg("dry_run")) {
+    String dryArg = server.arg("dry_run");
+    // Tuscia reiksme irgi „isjungta": dalis formu neuzdeta varnele siuncia
+    // butent taip (`dry_run=`), o suprasti tai kaip „ijunk" reikstu tyliai
+    // isjungti UV - ta pati beda, tik apversta (auditas 09-01).
+    uvLedEnabled = (dryArg.length() == 0 || dryArg == "0" ||
+                    dryArg == "false" || dryArg == "off");
+  }
+  wifiEnabled = formCheck("wifi_enabled", wifiEnabled);
+  webDashboardEnabled = wifiEnabled && formCheck("web_dashboard_enabled", webDashboardEnabled);
+  bootUpdateCheckEnabled = formCheck("boot_update_check", bootUpdateCheckEnabled);
+  resumeEnabled = formCheck("resume_enabled", resumeEnabled);
+  resumePrecise = formCheck("resume_precise", resumePrecise);   // checked = Precise cadence, else Balanced
+  pauseLiftMm = formLong("pause_lift", pauseLiftMm, 20, 40);   // 0.17 #82: inspection lift height
+  pauseLiftMm = ((pauseLiftMm + 2) / 5) * 5;   // #82: snap to 5 mm so web matches the LCD cycle
+  statsPingEnabled = formCheck("stats_ping", statsPingEnabled);
+  mqttEnabled = formCheck("mqtt_enabled", mqttEnabled);
   if (!wifiEnabled) mqttEnabled = false;
   mqttHost = formString("mqtt_host", mqttHost, 80);
   mqttPort = formLong("mqtt_port", mqttPort, 1, 65535);
@@ -1434,15 +1787,15 @@ void applyConfigRequest() {
   }
   mqttTopic = formString("mqtt_topic", mqttTopic, 64);
   if (mqttTopic.length() == 0) mqttTopic = "TinyMaker";
-  connectEnabled = server.hasArg("connect_enabled");
+  connectEnabled = formCheck("connect_enabled", connectEnabled);
   if (!wifiEnabled) connectEnabled = false;
   connectBaseUrl = connectNormalizeBaseUrl(formString("connect_base_url", connectBaseUrl, 128));
   connectPrinterName = formString("connect_printer_name", connectPrinterName, 64);
   if (connectEnabled) {
-    connectLeaderboardOptIn = server.hasArg("connect_leaderboard");
+    connectLeaderboardOptIn = formCheck("connect_leaderboard", connectLeaderboardOptIn);
   }
   if (server.hasArg("connect_auto_backup_set")) {
-    connectAutoBackup = server.hasArg("connect_auto_backup");
+    connectAutoBackup = formCheck("connect_auto_backup", connectAutoBackup);
   }
   // One notification channel at a time (radio in the form): Telegram OR
   // WhatsApp OR off. Credentials of the inactive channel are kept.
@@ -1475,10 +1828,10 @@ void handleApiConfigGet() {
 
 void handleApiConfigSave() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
+  // Layer height lives in here, and the resume prompt is answered later - see
+  // the note at resumeLayerHeightCm. Same reason on restore/defaults below.
+  if (rejectIfResumePending()) return;
 
   bool wifiWasEnabled = wifiEnabled;
   applyConfigRequest();
@@ -1507,10 +1860,7 @@ void handleApiConfigBackupGet() {
 // future full USB reflash can offer to restore it at first boot.
 void handleApiConfigBackupSd() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) {
     sendApiError(409, "SD card not ready");
     return;
@@ -1526,10 +1876,8 @@ void handleApiConfigBackupSd() {
 // POST /api/config/restore (raw JSON body) -> apply an uploaded backup.
 void handleApiConfigRestore() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
   String body = server.arg("plain");
   if (body.length() < 10 || backupNum(body, "backupVersion", 0) < 1) {
     sendApiError(400, "not a TinyMaker backup file");
@@ -1552,10 +1900,8 @@ void handleApiConfigRestore() {
 // full USB reflash. Lets a user restore without keeping the file on a computer.
 void handleApiConfigRestoreSd() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
   if (!sdCardReady()) {
     sendApiError(409, "SD card not ready");
     return;
@@ -1580,13 +1926,14 @@ void handleApiConfigRestoreSd() {
 }
 
 void resetWebConfigToDefaults() {
-  resetSettingsToDefault();
-  uiTimeoutSecs = 60;  // matches the fresh-install default (0-23)
-  uvLedEnabled = true;
-  wifiEnabled = true;
-  webDashboardEnabled = true;
-  bootUpdateCheckEnabled = true;
-  resumeEnabled = true;
+  // Factory numbers are the factory resin's, so the name has to follow them -
+  // otherwise the row keeps naming a resin whose values are gone (audit 08-16).
+  // Everything the printer's own "Back to Default" does - one source, so the
+  // two entry points cannot drift (audit 08-16): factory numbers, the factory
+  // resin name, its overlay off the card, calibration cleared, lists marked stale.
+  // Viskas - bendroje funkcijoje (ir iranginio nustatymai): pulto ir printerio
+  // mygtukas atstato tiek pat. Cia lieka tik issaugojimas.
+  resetEverythingToFactory();
   saveDeviceConfig();
 }
 
@@ -1616,10 +1963,8 @@ void resetConnectConfigToDefaults() {
 
 void handleApiConfigDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
 
   resetWebConfigToDefaults();
   tinymakerConnectScheduleBackup();
@@ -1628,10 +1973,7 @@ void handleApiConfigDefaults() {
 
 void handleApiConfigMqttDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   resetMqttConfigToDefaults();
   mqttClient.disconnect();
@@ -1642,10 +1984,7 @@ void handleApiConfigMqttDefaults() {
 
 void handleApiConfigConnectDefaults() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   resetConnectConfigToDefaults();
   sendApiOk(configJson());
@@ -1653,10 +1992,7 @@ void handleApiConfigConnectDefaults() {
 
 void handleApiConfigDryRun() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) {
-    sendApiError(409, "printer busy");
-    return;
-  }
+  if (rejectIfBusy()) return;
 
   bool enabled = server.hasArg("enabled") &&
                  server.arg("enabled") != "0" &&
@@ -1665,6 +2001,14 @@ void handleApiConfigDryRun() {
   saveDeviceConfig();
   tinymakerConnectScheduleBackup();
   sendApiOk(configJson());
+}
+
+// Kiek liko einamajam paskelbtam etapui. Atsakymuose duodam butent likuti: narsykle
+// nuo jo tiksi pati, tad pakartotinis paspaudimas skaitliuko nebeatsuka atgal.
+unsigned long phaseRemainMs() {
+  if (phaseTotalMs == 0) return 0;
+  unsigned long el = millis() - phaseStartMs;
+  return (el < phaseTotalMs) ? (phaseTotalMs - el) : 0;
 }
 
 bool requestPrintPause(String &error) {
@@ -1686,6 +2030,7 @@ bool requestPrintPause(String &error) {
   }
 
   screen1111();
+  const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
   current_state = 5;
   screen1111_state();
   screen1112();
@@ -1693,6 +2038,7 @@ bool requestPrintPause(String &error) {
   gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
   gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
   print_paused = true;
+  publishPauseEstimate(wasPhase);   // zr. Motor.ino - kiek dar iki apziuros aukscio
   return true;
 }
 
@@ -1708,10 +2054,32 @@ bool requestPrintResume(String &error) {
     error = "printer is not paused";
     return false;
   }
+  /* A resin pause is left only by refilling (V 2026-09-10). Resuming without it used to
+     carry on from the old level with lowResinNotified still latched, so the print had no
+     low-resin protection left at all - and deciding "1.5 ml will do" means trusting the
+     very estimate that had just been off by half. Refilling costs nothing; guessing costs
+     the print. The latch is cleared by vatMarkRefilled(). (vatSetFromWeight() would clear
+     it too, but the weight route refuses a busy printer, pause included - so during a
+     print the only way out is a full refill.) The LCD confirm path marks the refill itself (see
+     the OK-on-11113 branch), because the paused screen has no other way to say it. */
+  if (current_state == 10 && lowResinNotified) {
+    error = "only Stop available, please refill";
+    return false;
+  }
 
   current_state = 7;
   screen1111_state();
   webResumePrint = true;
+  // Kelias zemyn zinomas jau dabar (plokste stovi pauzes aukstyje), o pats judesys
+  // prasidės tik kitame loop() rate - be sio paskelbimo pirmos sekundes butu be skaiciaus.
+  {
+    float sps = Fast_Lift_Feedrate * steps_mm / 60.0f;
+    long dist = labs(stepper.currentPosition() - Position_before_pause);
+    phaseStartMs = millis();
+    phaseTotalMs = (dist > 0 && sps > 1.0f)
+                 ? (unsigned long)((float)dist / sps * 1000.0f) : 0;
+    phaseWaitStage = "resume";
+  }
   return true;
 }
 
@@ -1729,6 +2097,7 @@ bool requestPrintStop(String &error) {
   }
 
   bool wasHoming = current_state == 0;
+  const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
   digitalWrite(LED, LOW);
   screen1111();
   current_state = 4;
@@ -1741,6 +2110,8 @@ bool requestPrintStop(String &error) {
   print_paused = false;
   webResumePrint = false;
   if (wasHoming) homing_canceled = true;
+  // PO `homing_canceled`: ivertis turi zinoti, ar galutinis pakelimas apskritai bus.
+  publishStopEstimate(wasPhase);   // „kada sustos" nuo pirmos sekundes
   return true;
 }
 
@@ -1955,6 +2326,16 @@ void mqtt_loop() {
 
 void handleApiPrintStart() {
   if (rejectIfWebControlOff()) return;
+  // Pirma atsakyk apie nebaigta spaudini: plokste tebera ten, kur nutruko darbas.
+  if (rejectIfResumePending()) return;
+  /* Be dervos masina nezino, kokia ekspozicija spausdinti: EEPROM tuo metu laiko
+     istrinto profilio skaicius. 409, ne 400 - tai busenos konfliktas, kaip
+     „printer busy". Narsykle sia eilute parodo be papildomo kodo (startPrint()
+     gale yra msg(e.message,true)). Ta pati sarga LCD puseje - ekranas 116. */
+  if (resinProfileName.length() == 0) {
+    sendApiError(409, "no resin selected - pick a resin before printing");
+    return;
+  }
   // Low-resin pre-start check (mirrors the LCD screen 114 warning). The
   // browser confirms and retries with force=1.
   if (!server.hasArg("force") && !printerBusy() &&
@@ -1986,6 +2367,191 @@ void handleApiVatRefilled() {
   sendApiOk(out);
 }
 
+// POST /api/vat/weight  body: grams=<full vat on the scale>
+// 0.17 0-16: the mark answers "full or not", a scale answers "how much". Its own
+// route rather than a /api/config field, because it is a one-shot action - as a
+// form field every later Save would re-apply the same stale weighing (and a
+// partial config POST is how the printer lost all its toggles twice in August).
+void handleApiVatWeight() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  float grams = server.arg("grams").toFloat();
+  if (!(grams > 0 && grams <= VAT_EMPTY_G_MAX)) { sendApiError(400, "weigh the full vat in grams"); return; }
+  if (vatEmptyG <= 0) { sendApiError(409, "weigh the empty vat first (Print settings)"); return; }
+  if (grams < vatEmptyG) { sendApiError(400, "that is lighter than the empty vat"); return; }
+  vatSetFromWeight(grams);
+  String out = "\"vatRemainingMl\":";
+  out += String(vatRemaining(), 1);
+  sendApiOk(out);
+}
+
+// R-cal (0.17): turn one weighed print into the white-pixel -> ml correction.
+// The user posts the GRAMS the scale measured (vat before minus vat after); the
+// factor is measured_ml / lastPrintRawMl, so it never compounds with the factor
+// already in force. Idle-only (rejectIfBusy) - it rewrites the number every
+// resin reading depends on, and lastPrintRawMl belongs to a FINISHED print.
+// "reset=1" restores the uncalibrated 1.0 without needing a print.
+/*
+ * R-cal: pasverti spaudiniai priklauso DERVAI, ne masinai.
+ *
+ * Ismatuota 2026-08-24: suvedus du pavyzdzius ir perjungus profili ju nebelieka,
+ * o grizus atgal nebera ir tu, kurie buvo suvesti anksciau. Rasem i bendra
+ * irenginio atminti, o `applyResinProfile` ta pacia atminti perrasydavo is
+ * profilio failo - kuriame pavyzdziu niekada nebuvo. Tad kalibracija
+ * nepergyvendavo ne vieno dervos perjungimo.
+ *
+ * Sprendimas be naujos mechanikos: tas pats kelias, kuriuo veikia „issaugoti i
+ * si profili". Kviesti BUTINA po kiekvieno kalibracija keiciancio veiksmo -
+ * pavyzdzio, tankio ir atstatymo.
+ */
+static void resinPersistToActiveProfile() {
+  ResinProfileInfo info;
+  if (!resinProfileInfo(resinProfileName, info)) return;
+  writeResinProfile(resinProfileName, info.display);
+}
+
+void handleApiResinCalibrate() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+
+  if (server.arg("reset") == "1") {          // "reset=0" must NOT wipe it
+    resinClearCalibration();
+    saveDeviceConfig();
+    resinPersistToActiveProfile();      // atstatymas irgi priklauso dervai
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"factor\":1.000,\"fixedMl\":0.00,\"reset\":true");
+    return;
+  }
+
+  // Explicit slot: the dashboard has two equal sample rows, so it says WHICH one
+  // it is writing. No guessing - resinAddSample's "keep the widest pair" logic
+  // only makes sense when the printer picks the slot itself.
+  if (server.hasArg("slot")) {
+    int slot = server.arg("slot").toInt();
+    if (slot != 1 && slot != 2) { sendApiError(400, "slot must be 1 or 2"); return; }
+    bool clear = server.arg("clear") == "1";
+    float raw = server.arg("raw").toFloat();
+    float g   = server.arg("grams").toFloat();
+    if (!clear) {
+      if (!(raw > 0.05f && raw < 500.0f)) {
+        sendApiError(400, "estimate must be a positive number of ml");
+        return;
+      }
+      if (!(g > 0.0f && g < 5000.0f)) {
+        sendApiError(400, "grams must be a positive number");
+        return;
+      }
+      // A sample the geometry cannot explain at all is a mis-entry - catch it
+      // before it enters a slot, exactly like the auto path does.
+      float ml = g / resinDensity;
+      if (ml < 0.2f * raw || ml > 3.0f * raw + RESIN_FIXED_MAX) {
+        String e = "measured " + String(ml, 2) + " ml vs an estimate of " +
+                   String(raw, 2) + " ml - too far apart; check the numbers";
+        sendApiError(400, e.c_str());
+        return;
+      }
+      // Same implied-slope gate as the non-slot path: a sample no fit could
+      // ever accept must not slip into a slot silently (auditor find, 08-11).
+      float implied = (ml - resinFixedMl) / raw;
+      if (!(implied >= RESIN_CAL_MIN && implied <= RESIN_CAL_MAX)) {
+        String e = "that would mean a x" + String(implied, 2) +
+                   " correction - outside the sane range; check the numbers";
+        sendApiError(400, e.c_str());
+        return;
+      }
+    }
+    resinSetSample(slot, clear ? -1 : raw, clear ? -1 : g);
+    bool two = calRawA > 0 && calMeasA > 0 && calRawB > 0 && calMeasB > 0;
+    saveDeviceConfig();
+    resinPersistToActiveProfile();      // kitaip perjungimas ji nusluos
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"factor\":" + String(resinCalFactor, 3) +
+              ",\"fixedMl\":" + String(resinFixedMl, 2) +
+              ",\"twoPoint\":" + String(two ? "true" : "false") +
+              ",\"slot\":" + String(slot) +
+              ",\"cleared\":" + String(clear ? "true" : "false"));
+    return;
+  }
+
+  // Density alone: the user weighed a known volume (vat to its marker, or a
+  // syringe). It is a measurement, not a sample - it takes no print, so it is
+  // answered before the "needs a finished print" gate below.
+  if (server.hasArg("density") && !server.hasArg("grams")) {
+    float d = server.arg("density").toFloat();
+    if (!(d >= 0.8f && d <= 2.0f)) {
+      sendApiError(400, "density must be between 0.8 and 2.0 g/ml");
+      return;
+    }
+    resinDensity = d;
+    resinRefitAfterDensityChange();   // samples are grams - re-derive the fit
+    saveDeviceConfig();
+    resinPersistToActiveProfile();      // tankis - taip pat dervos savybe
+    tinymakerConnectScheduleBackup();
+    sendApiOk("\"density\":" + String(resinDensity, 3) +
+              ",\"factor\":" + String(resinCalFactor, 3) +
+              ",\"fixedMl\":" + String(resinFixedMl, 2));
+    return;
+  }
+
+  // `raw` = the estimate this sample belongs to. Normally it is the last
+  // print, still in memory; passing it explicitly lets an older measurement
+  // be re-entered (the printer only ever remembers the LAST estimate, so
+  // without this a cleared or superseded sample was gone for good).
+  float rawMl = server.hasArg("raw") ? server.arg("raw").toFloat() : lastPrintRawMl;
+  if (server.hasArg("raw") && !(rawMl > 0.05f && rawMl < 500.0f)) {
+    sendApiError(400, "estimate must be a positive number of ml");
+    return;
+  }
+  if (!(rawMl > 0)) {
+    sendApiError(409, "no finished print to calibrate against - print something first");
+    return;
+  }
+  float grams = server.hasArg("grams") ? server.arg("grams").toFloat() : 0.0f;
+  if (!(grams > 0.0f)) {
+    sendApiError(400, "grams must be a positive number");
+    return;
+  }
+
+  // The density box lives in the same card, so accept it here too - otherwise a
+  // freshly typed density is ignored until the user also saves the config form.
+  if (server.hasArg("density")) {
+    float d = server.arg("density").toFloat();
+    if (d >= 0.8f && d <= 2.0f) resinDensity = d;   // fitas vyksta cia pat, zemiau
+  }
+  float measuredMl = grams / resinDensity;
+  // A sample the model cannot explain at all (more than ~3x the geometry, or a
+  // fraction of it) is a mis-entry - reject before it enters the fit.
+  if (measuredMl < 0.2f * rawMl || measuredMl > 3.0f * rawMl + RESIN_FIXED_MAX) {
+    String e = "measured " + String(measuredMl, 2) + " ml vs an estimate of " +
+               String(rawMl, 2) + " ml - too far apart; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  // Reject BEFORE storing: a sample the model cannot explain (implied slope
+  // outside 0.5-2.0) is a mis-entry. Letting it into a slot would keep poisoning
+  // later fits while the API still answered "ok".
+  float implied = (measuredMl - resinFixedMl) / rawMl;
+  if (!(implied >= RESIN_CAL_MIN && implied <= RESIN_CAL_MAX)) {
+    String e = "that would mean a x" + String(implied, 2) +
+               " correction - outside the sane range; check the grams";
+    sendApiError(400, e.c_str());
+    return;
+  }
+
+  resinAddSample(rawMl, grams);            // slotuose - GRAMAI (zr. TinyMaker.ino)
+  bool twoPoint = resinFitCalibration();
+  saveDeviceConfig();
+  tinymakerConnectScheduleBackup();
+  String out = "\"factor\":" + String(resinCalFactor, 3) +
+               ",\"fixedMl\":" + String(resinFixedMl, 2) +
+               ",\"twoPoint\":" + String(twoPoint ? "true" : "false") +
+               ",\"samples\":" + String((calRawA > 0 ? 1 : 0) + (calRawB > 0 ? 1 : 0)) +
+               ",\"estimatedMl\":" + String(rawMl, 2) +
+               ",\"measuredMl\":" + String(measuredMl, 2);
+  sendApiOk(out);
+}
+
 // 0-33: remote answers to the boot resume prompt. All three only queue a
 // flag consumed by loop() at screen 427 - lift moves the motor, and motor
 // moves never run inside an HTTP handler. 409 once the prompt is gone (a
@@ -2009,7 +2575,8 @@ void handleApiPrintPause() {
     return;
   }
 
-  sendApiOk("\"paused\":true");
+  sendApiOk("\"paused\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
 }
 
 void handleApiPrintResume() {
@@ -2020,7 +2587,8 @@ void handleApiPrintResume() {
     return;
   }
 
-  sendApiOk("\"resumeQueued\":true");
+  sendApiOk("\"resumeQueued\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
 }
 
 void handleApiPrintStop() {
@@ -2031,7 +2599,76 @@ void handleApiPrintStop() {
     return;
   }
 
-  sendApiOk("\"stopping\":true");
+  // Ivertis keliauja SU ATSAKYMU: narsykle nuo cia skaiciuoja pati ir nebepriklauso
+  // nuo apklausu, kurios stabdymo metu kaip tik danziausiai nespeja (V 08-18).
+  // LIKUTIS, ne visa trukme: antra karta paspaudus Stop printeris nieko is naujo
+  // neskelbia (current_state jau 4), o sena „visa trukme" grazintu skaitliuka atgal.
+  sendApiOk("\"stopping\":true,\"etaMs\":" + String(phaseRemainMs()) +
+            ",\"stage\":\"" + phaseWaitStage + "\"");
+}
+
+// Base64 of a byte buffer into out (caller sizes it: len*4/3 + pad + nul).
+static void liveBase64(const uint8_t *in, int len, char *out) {
+  static const char T[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  int o = 0;
+  for (int i = 0; i < len; i += 3) {
+    uint32_t n = (uint32_t)in[i] << 16;
+    if (i + 1 < len) n |= (uint32_t)in[i + 1] << 8;
+    if (i + 2 < len) n |= in[i + 2];
+    out[o++] = T[(n >> 18) & 63];
+    out[o++] = T[(n >> 12) & 63];
+    out[o++] = (i + 1 < len) ? T[(n >> 6) & 63] : '=';
+    out[o++] = (i + 2 < len) ? T[n & 63] : '=';
+  }
+  out[o] = 0;
+}
+
+// GET /api/live/slices?since=k - the P-live 3D stack (0.17). View-only and
+// RAM-only (no SD touch), so - unlike /api/files/layer - it is allowed to answer
+// mid-print: that is the whole point, a browser opened while printing gets the
+// growing 3D here. Returns the LIVE_GW x LIVE_GH 1-bit silhouettes in slots
+// [since, captured); the browser delta-fetches when status.liveCaptured grows.
+// Streamed chunked so the worst case (36 slices ~= 29 KB at 80x60) never allocates a big
+// String on the print-time heap.
+void handleApiLiveSlices() {
+  bool live = printerBusy() && liveBuf && liveN > 0;
+  int cap = live ? liveCaptured : 0;
+  int since = server.hasArg("since") ? server.arg("since").toInt() : 0;
+  if (since < 0) since = 0;
+  if (since > cap) since = cap;
+  // Pre-loaded stack: the FULL fetch also carries the slots above `captured` -
+  // they hold the model's own silhouettes, which is the un-printed part the
+  // browser draws as a ghost. Deltas keep returning only real captures, so a
+  // freshly exposed layer overwrites its pre-loaded slot.
+  // liveReady: homing'o metu pilno steko NEATIDUODAM - zr. paaiskinima prie veliavos.
+  int last = (live && livePrefilled && liveReady && since == 0) ? liveN : cap;
+  float modelH = live ? layer_counter * Layer_Height : 0;
+
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);   // chunked
+  server.send(200, "application/json", "");
+  String head = "{\"ok\":true,\"live\":";
+  head += live ? "true" : "false";
+  head += ",\"gw\":";       head += String(LIVE_GW);
+  head += ",\"gh\":";       head += String(LIVE_GH);
+  head += ",\"n\":";        head += String(live ? liveN : 0);
+  head += ",\"captured\":"; head += String(cap);
+  head += ",\"prefilled\":"; head += (live && livePrefilled && liveReady) ? "true" : "false";
+  head += ",\"since\":";    head += String(since);
+  head += ",\"layers\":";   head += String(live ? layer_counter : 0);
+  head += ",\"modelH\":";   head += String(modelH, 2);
+  head += ",\"model\":\"";  head += jsonEscape(live ? String(foldersel_long) : String(""));
+  head += "\",\"slices\":[";
+  server.sendContent(head);
+  char b64[LIVE_SLICE_BYTES * 4 / 3 + 8];   // 600 -> 800 chars + nul
+  for (int k = since; k < last; k++) {
+    liveBase64(liveBuf + (size_t)k * LIVE_SLICE_BYTES, LIVE_SLICE_BYTES, b64);
+    server.sendContent(k > since ? ",\"" : "\"");
+    server.sendContent(b64);
+    server.sendContent("\"");
+  }
+  server.sendContent("]}");
+  server.sendContent("");   // terminate the chunked body
 }
 
 void handleApiStatus() {
@@ -2046,6 +2683,11 @@ void handleApiStatus() {
   // lacks it as a truncated/garbled body. Status and the boot-anim list were
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
+  out.reserve(2368);   // 153 appends, polled mid-print; a failed one is silent
+                       // Ismatuota 08-18: blogiausias realus atsakymas (100 simboliu
+                       // modelio vardas) ~1,8 KB, tad su atsarga - vienas augimas
+                       // reikstu realloc'a kas apklausa, o heap fragmentuojasi.
+                       // Perteklius atlaisvinamas iskart po issiuntimo.
   out += "\"firmwareVersion\":\"";
 #ifdef FIRMWARE_VERSION
   out += jsonEscape(FIRMWARE_VERSION);
@@ -2058,8 +2700,28 @@ void handleApiStatus() {
 #endif
   out += "\",\"buildDate\":\"";
   out += __DATE__ " " __TIME__;  // compile moment - shown on Settings > About
+  // Content hash of the dashboard itself (same value the page is served with).
+  // The firmware version does not identify the page: a web-only change ships a
+  // new dashboard under an unchanged version, so a bug report needs this too.
+  out += "\",\"dashEtag\":\"";
+#ifdef DASHBOARD_ETAG
+  out += DASHBOARD_ETAG;
+#else
+  out += "dev";
+#endif
   out += "\",\"busy\":";
   out += busy ? "true" : "false";
+  /* Priimamas failas. `busy` cia SAMONINGAI neliecamas: jis rakina spausdinimo
+     valdiklius ir jo prasme yra „sukasi spaudinys ar SD darbas", o priemimas trunka
+     sekundes ir baigiasi ispakavimu, kuris `busy` uzsideda pats. Antram irenginiui
+     uztenka atskiro zodzio - jis nieko nerakina, tik paaiskina tyla. */
+  out += ",\"receiving\":";
+  out += uploadReceiving() ? "true" : "false";
+  if (uploadReceiving() && uploadRxName.length()) {
+    out += ",\"receivingName\":\"";
+    out += jsonEscape(uploadRxName);
+    out += "\"";
+  }
   out += ",\"paused\":";
   out += print_paused ? "true" : "false";
   out += ",\"pausing\":";
@@ -2074,6 +2736,10 @@ void handleApiStatus() {
   out += (busy && !print_paused && current_state >= 1 && current_state <= 3) ? "true" : "false";
   out += ",\"canResume\":";
   out += (current_state == 6 || current_state == 10) ? "true" : "false";
+  // Its own field, not a false canResume: that would hide Resume AND lock the
+  // "VAT refilled" button (busy && !canResume) - the one button this state needs.
+  out += ",\"refillPending\":";
+  out += (current_state == 10 && lowResinNotified) ? "true" : "false";
   out += ",\"canStop\":";
   out += (busy && current_state != 4 && current_state != 8) ? "true" : "false";
   out += ",\"state\":\"";
@@ -2086,7 +2752,25 @@ void handleApiStatus() {
   out += sdJobKind;
   out += "\",\"sdJobName\":\"";
   out += jsonEscape(sdJobName);
-  out += "\"";
+  // SD-prog: how far it is. The printer's screen has always shown this; the
+  // dashboards only ever got the noun. 0/0 = this job has no count.
+  out += "\",\"sdJobDone\":";
+  out += sdJobDone;          // String() temporaries add nothing here, and this
+  out += ",\"sdJobTotal\":"; // answer is built for every client every 2 s
+  out += sdJobTotal;
+  /* Ar derva pasirinkta. Turi buti BUTENT cia, o ne /api/config: pultas
+     apklausia /api/status kas 2 s, o config'a skaito tik atsidaromas - antras
+     atidarytas pultas apie profilio istrynima kitaip nesuzinotu ir rodytu
+     aktyvu Start mygtuka darbui, kuri printeris atmes (08-17). */
+  out += ",\"resinSet\":";
+  out += (resinProfileName.length() ? "true" : "false");
+  /* Sliceris irgi CIA, ne vien /api/config: pultas ji skaito is apklausos
+     (statusData.slicerOn), o config'a - tik atsidarant. Be sitos eilutes
+     slicerio kortele visada rodytu „not active", nors jungiklis butu ijungtas,
+     ir modulio ant gelezies isvis nebutu imanoma isbandyti. /api/config lauka
+     paliekam - ji skaito nustatymu forma (rado lygiagreti sesija, 08-17). */
+  out += ",\"slicerOn\":";
+  out += (slicerModuleOn ? "true" : "false");
   // 0-33: the boot resume prompt is up - the dashboard offers the same three
   // answers remotely. Valid ONLY while screen 427 shows (any button press at
   // the printer consumes it - the safety rule: remote resume only while the
@@ -2111,6 +2795,15 @@ void handleApiStatus() {
     bool phased = busy && phaseTotalMs > 0 &&
                   ((current_state >= 1 && current_state <= 5) ||
                    current_state == 7 || current_state == 8);
+    // Etapo VARDAS (0.17, V 08-18): be jo pultas nezino, ar dar baigiamas judesys,
+    // ar jau keliama plokste - o tai du skirtingi skaiciai ir du skirtingi sakiniai.
+    // Tuscia = eiline sluoksnio faze (Curing/Lifting/Dropping).
+    // Vardas skelbiamas visada, kai printeris uzimtas - jis nepriklauso nuo to, ar
+    // etapas turi trukme. Nutraukus per ekspozicija judesio likutis yra 0 (ji
+    // nutruksta tuoj pat), o pranesimas vis tiek turi pasakyti, KURIS etapas bega.
+    out += ",\"waitStage\":\"";
+    out += busy ? phaseWaitStage : "";
+    out += "\"";
     out += ",\"phaseTotalMs\":";
     out += String((unsigned long)(phased ? phaseTotalMs : 0));
     out += ",\"phaseElapsedMs\":";
@@ -2162,6 +2855,12 @@ void handleApiStatus() {
   out += String(statusCurrentLayer);
   out += ",\"totalLayers\":";
   out += String(statusTotalLayers);
+  // P-live: how many 3D silhouettes the printer has captured so far. A browser
+  // with no local slices polls /api/live/slices when liveCaptured grows.
+  out += ",\"liveN\":";
+  out += String(busy ? liveN : 0);
+  out += ",\"liveCaptured\":";
+  out += String(busy ? liveCaptured : 0);
   out += ",\"layerText\":\"";
   out += String(statusCurrentLayer) + " / " + String(statusTotalLayers);
   out += "\",\"resinUsedMl\":";
@@ -2173,7 +2872,10 @@ void handleApiStatus() {
   if (busy) {
     if (resinNeedForModelMl > 0) statusResinTotal = resinNeedForModelMl;
     else if (current_layer >= 3)
-      statusResinTotal = resinUsedMl / current_layer * layer_counter;
+      // R-cal: the plate-film offset is charged once at print start - project only
+      // the per-layer part, then add it back (dividing it blew the total up ~300x).
+      statusResinTotal = resinFixedMl +
+                         (resinUsedMl - resinFixedMl) / current_layer * layer_counter;
   }
   out += ",\"resinText\":\"";
   if (statusResinTotal > 0)
@@ -2195,7 +2897,11 @@ void handleApiStatus() {
   out += ",\"vatRemainingMl\":";
   out += String(vatRemaining(), 1);
   out += ",\"vatText\":\"";
-  out += String(vatRemaining(), 1) + " ml\",\"vatLow\":";
+  out += String(vatRemaining(), 1) + " ml\",\"vatGrams\":";
+  // R-cal: grams as their OWN field - vatText stays byte-identical for the demo
+  // shim and any older dashboard; the browser appends the grams itself.
+  out += String(vatRemaining() * resinDensity, 1);
+  out += ",\"vatLow\":";
   out += (vatRemaining() <= (float)lowResinThresholdMl) ? "true" : "false";
   // Heap/uptime instrumentation - the 1.0.0 stability yardstick.
   // minFreeHeap = lowest free heap since boot (leak detector);
@@ -2206,6 +2912,25 @@ void handleApiStatus() {
   out += String(ESP.getMinFreeHeap());
   out += ",\"maxAllocHeap\":";
   out += String(ESP.getMaxAllocHeap());
+  // Z endstop as the printer sees it RIGHT NOW. The sensor is optical, and a
+  // homing run ends only when this reads true - so when homing fails, this one
+  // field says whether the sensor ever reported "home" (stray light / wiring)
+  // or whether the carriage lost steps. Readable without moving anything.
+  out += ",\"endstop\":";
+  out += digitalRead(end_stop) ? "true" : "false";
+  // Where the printer thinks the plate is, in steps and in mm above the HOME
+  // position (not above the LCD - the physical zero is where the plate was
+  // levelled). zKnown is false until a homing run has reached the endstop since
+  // boot: the step counter starts at 0 wherever the carriage happens to stand,
+  // so an unhomed reading would claim "at home" for a plate parked up top. A
+  // power-loss resume restores a checkpointed, deliberately down-biased count -
+  // an estimate, not a measurement - so it does not set the flag either.
+  out += ",\"zSteps\":";
+  out += String(stepper.currentPosition());
+  out += ",\"zMm\":";
+  out += String(stepper.currentPosition() / steps_mm, 2);
+  out += ",\"zKnown\":";
+  out += zHomed ? "true" : "false";
   out += ",\"uptimeSecs\":";
   out += String(millis() / 1000UL);
   out += "}";
@@ -2379,6 +3104,60 @@ void statsPingMaybe() {
   }
 }
 
+// Was the last boot an abnormal reset (crash), as opposed to a clean power-on
+// or software restart? (0-30 telemetry names live in resetReasonName().)
+bool isAbnormalReset() {
+  switch (bootResetReason) {
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+    case ESP_RST_BROWNOUT: return true;
+    default:               return false;
+  }
+}
+
+// Anonymous crash telemetry (GitHub #70): report a mid-print death (crashSeen)
+// or any abnormal reset, so the maintainer sees fleet-wide instability without
+// waiting for a user report. Same opt-out as the install ping (statsPingEnabled)
+// and the same anonymous hashed id - no IP, name or model data. De-duped per
+// crash event (crashSeen/crashReason persist across boots, so a marker keeps us
+// from re-sending the same crash on every reboot). Called once from setup().
+void crashPingMaybe() {
+  if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
+  if (!crashSeen && !isAbnormalReset()) return;   // nothing worth reporting
+
+  uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
+  uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
+  uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
+  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer);
+
+  sysPrefs.begin("tinymaker", true);
+  String reported = sysPrefs.getString("crashPingId", "");
+  sysPrefs.end();
+  if (reported == eventId) return;                // already sent this event
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, CRASH_PING_URL)) return;
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  String body = "{\"id\":\"" + statsHardwareHash() +
+                "\",\"version\":\"" + connectFirmwareVersion() +
+                "\",\"reason\":\"" + String(resetReasonName(rsn)) +
+                "\",\"layer\":" + String(layer) +
+                ",\"epoch\":" + String(epoch) + "}";
+  int code = http.POST(body);
+  http.end();
+  if (code >= 200 && code < 300) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putString("crashPingId", eventId);
+    sysPrefs.end();
+    DBGLN("Crash ping sent");
+  }
+}
+
 // Download a firmware image over HTTPS and flash it. Shows progress on the
 // LCD; reboots on success. Shared by "Install latest" and the version picker.
 void otaFlashUrl(const String &url, const char *subtitle) {
@@ -2391,7 +3170,7 @@ void otaFlashUrl(const String &url, const char *subtitle) {
   if (ret == HTTP_UPDATE_FAILED) {   // on success the ESP reboots itself
     netMessage("Update FAILED", httpUpdate.getLastErrorString().c_str());
     delay(1800);
-    screen1();
+    restoreIdleScreen();
   }
 }
 
@@ -2541,7 +3320,7 @@ void drawWifiBadge() {
 // Boot-animation install: the printer pulls a TMB1 file from a trusted URL and
 // stores it in the /bootanim library, then makes it the active boot animation.
 // The URL is allowlisted to hosts we control (gh-pages default library and the
-// configured Connect server) — anything else goes onto the SD card by hand.
+// configured Connect server) - anything else goes onto the SD card by hand.
 //   POST /api/boot-anim/install   body: url=<allowlisted .tmb url>&name=<slug>
 String bootAnimMetadataPath(const String &name) {
   return String(BOOTANIM_DIR) + "/" + name + ".json";
@@ -2612,7 +3391,7 @@ bool writeBootAnimMetadataFile(const String &slug) {
 
 void handleApiBootAnimInstall() {
   if (rejectIfWebControlOff()) return;                       // 403 when web control off
-  if (printerBusy())   { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady())  { sendApiError(503, "sd card unavailable"); return; }
   if (WiFi.status() != WL_CONNECTED) { sendApiError(503, "wifi not connected"); return; }
 
@@ -2631,7 +3410,7 @@ void handleApiBootAnimInstall() {
     return;
   }
 
-  String slug = sanitizeAnimName(server.arg("name"));
+  String slug = sanitizeSlug(server.arg("name"));
 
   netProgressStart("Boot animation:", "downloading");
 
@@ -2641,7 +3420,7 @@ void handleApiBootAnimInstall() {
   bool ok;
   if (url.startsWith("https://")) { secure.setInsecure(); ok = http.begin(secure, url); }
   else                            { ok = http.begin(plain, url); }
-  if (!ok) { sendApiError(502, "could not start download"); netMessage("Boot animation", "download failed"); delay(1200); screen1(); return; }
+  if (!ok) { sendApiError(502, "could not start download"); netMessage("Boot animation", "download failed"); delay(1200); restoreIdleScreen(); return; }
 
   http.setTimeout(12000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -2654,7 +3433,7 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(502, (String("download HTTP ") + code).c_str());
     netMessage("Boot animation", "download failed");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -2682,7 +3461,7 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(422, "not a TMB1 animation");
     netMessage("Boot animation", "invalid file");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -2698,23 +3477,50 @@ void handleApiBootAnimInstall() {
     http.end();
     sendApiError(422, "not a TMB1 animation");
     netMessage("Boot animation", "invalid file");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
   const size_t expectedBytes = 12 + (size_t)animW * animH * 2 * animN;
 
   SD.mkdir(BOOTANIM_DIR);
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
-  SD.remove(savePath.c_str());
-  File out = SD.open(savePath.c_str(), FILE_WRITE);
-  if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); screen1(); return; }
+  // Siunciam i SALUTI ir i vieta perkeliam tik pilna faila. Anksciau rasyta tiesiai
+  // i savePath, o tai reiske, kad diegimas i JAU ESAMA varda pirmiausia sunaikina
+  // ta animacija, kuri ten buvo - ir jei siuntimas nutruko, zmogus liko be jos.
+  // Ismatuota 08-31 (T-2): nukirstas failas esamu vardu grazina 502, o senoji
+  // animacija dingsta is saraso. TMB1 vartai auksciau saugo nuo blogo TIPO (ne TMB
+  // failas duoda 422 ir senoji islieka), bet nukirstas failas juos praeina - jo
+  // antraste sveika, o trukumas paaiskeja tik pabaigoje. `.part` niekada nepatenka
+  // i sarasa: listBootAnims() ima tik tuos, kurie baigiasi ".tmb".
+  String partPath = savePath + ".part";
+  SD.remove(partPath.c_str());
+  File out = SD.open(partPath.c_str(), FILE_WRITE);
+  if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); restoreIdleScreen(); return; }
 
   const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
   bool tooBig = false;
+  // `total` skaiciuoja baitus, atejusius IS TINKLO. Jei kortele pilna, `write`
+  // grazina (size_t)-1, o total vis tiek sutampa su expectedBytes - ir nukirstas
+  // failas butu pervadintas i vieta, istrinant senaji. Ta pati skyle, tik pro
+  // kitas duris. FatFile::write klaida = -1 (FatFile.cpp:1529).
+  bool writeFail = false;
   size_t total = 0;
-  out.write(buf, first);
+  if (out.write(buf, first) != (size_t)first) writeFail = true;
   total += first;
   if (remaining > 0) remaining -= first;
+
+  // Jei jau pirmas gabalas neirasytas, likusiu 2 MB parsisiuntimas nieko
+  // nepakeis - tik minute laukimo ir tiek pat bandymu isskirti klasteri
+  // pilnoje korteleje. Cikle toks `break` yra, cia jo truko.
+  if (writeFail) {
+    out.close();
+    http.end();
+    SD.remove(partPath.c_str());
+    sendApiError(507, "sd write failed - card full?");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
 
   // A real grow-only bar: the TMB header just told us the exact payload size
   // (expectedBytes), which beats both Content-Length and the old time-driven
@@ -2726,7 +3532,7 @@ void handleApiBootAnimInstall() {
     if (avail) {
       int n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
       if (n <= 0) break;
-      out.write(buf, n);
+      if (out.write(buf, n) != (size_t)n) { writeFail = true; break; }
       total += n;
       if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
       if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
@@ -2742,11 +3548,16 @@ void handleApiBootAnimInstall() {
   out.close();
   http.end();
 
-  if (tooBig) {
-    SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
-    sendApiError(413, "animation too large");
-    netMessage("Boot animation", "file too large");
-    delay(1200); screen1();
+  if (tooBig || writeFail) {
+    SD.remove(partPath.c_str());          // don't leave a giant partial file eating the card
+    if (writeFail) {
+      sendApiError(507, "sd write failed - card full?");
+      netMessage("Boot animation", "SD write failed");
+    } else {
+      sendApiError(413, "animation too large");
+      netMessage("Boot animation", "file too large");
+    }
+    delay(1200); restoreIdleScreen();
     return;
   }
 
@@ -2756,14 +3567,46 @@ void handleApiBootAnimInstall() {
   // that stops halfway through playback. Reported from the field on a slow link
   // - a 1.4 MB animation arrived as 538 KB and still looked installed.
   if (total != expectedBytes) {
-    SD.remove(savePath.c_str());
+    SD.remove(partPath.c_str());   // savePath neliestas: senoji to vardo animacija lieka
     String err = "download incomplete - " + String((unsigned long)total) +
                  " of " + String((unsigned long)expectedBytes) + " bytes";
     sendApiError(502, err.c_str());
     netMessage("Boot animation", "download incomplete");
-    delay(1200); screen1();
+    delay(1200); restoreIdleScreen();
     return;
   }
+
+  // Pilnas failas - tik dabar uzimam vieta. Iki sios eilutes senoji to vardo
+  // animacija tebera sveika, tad bet kuris auksciau esantis "return" palieka
+  // printeri lygiai tokia bukle, kokia buvo pries diegima.
+  //
+  // Sena pirma PASITRAUKIA I SALI, o istrinama tik tada, kai naujoji jau savo
+  // vietoje. Tiesmukas remove+rename butu ta pati skyle, kuria cia ir taisom,
+  // tik siauresne: nepavykus pervadinti zmogus liktu ir be senosios, ir be
+  // naujosios. Tas pats rastas kaip commitTempModel() Import.ino - ten jis
+  // saugo modeli, cia animacija.
+  String backupPath = savePath + ".old";
+  SD.remove(backupPath.c_str());
+  bool hadOld = SD.exists(savePath.c_str());
+  if (hadOld && !SD.rename(savePath.c_str(), backupPath.c_str())) {
+    SD.remove(partPath.c_str());
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (!SD.rename(partPath.c_str(), savePath.c_str())) {
+    SD.remove(partPath.c_str());
+    // `rename` nauja iraso su O_CREAT|O_EXCL (FatFile.cpp:945): jei jis nuluzo
+    // JAU sukures iraso, savePath egzistuoja, ir atstatymas atsimustu i ta pati
+    // O_EXCL - zmogus liktu tik su .old, kurio niekas nerodo.
+    if (hadOld) { SD.remove(savePath.c_str()); SD.rename(backupPath.c_str(), savePath.c_str()); }
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (hadOld) SD.remove(backupPath.c_str());
 
   // Install only downloads: the active choice stays whatever it was, picking
   // is an explicit act (dashboard pick + Save config, or the printer menu).
@@ -2773,12 +3616,12 @@ void handleApiBootAnimInstall() {
   sendApiOk("\"bytes\":" + String((unsigned long)total) + ",\"name\":\"" + jsonEscape(slug) + "\"");
   netMessage("Boot animation:", bootAnimDisplay(slug).c_str());
   delay(1200);
-  screen1();
+  restoreIdleScreen();
 }
 
 // GET /api/boot-anim - list installed animations + which one is active.
 void handleApiBootAnimList() {
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String names[24];
   int n = listBootAnims(names, 24);
@@ -2800,12 +3643,611 @@ void handleApiBootAnimList() {
   server.send(200, "application/json", out);
 }
 
+// GET/POST /api/files/model/slices - the sampled 36-slice silhouette set the
+// dashboard needs for its 3D view, cached next to the model. Re-fetching the
+// 36 layer PNGs costs ~37 s (measured 08-12); this file is 21 KB of packed bits
+// and loads in well under a second, which is what makes 3D the default view
+// instead of a flat thumbnail.
+static String slicesUpName, slicesUpPath;
+static File slicesUp;
+static bool slicesUpBad = false;
+static uint32_t slicesUpLen = 0;
+
+void handleApiModelSlicesGet() {
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = safeModelName(server.arg("name"));
+  if (name.length() == 0) { sendApiError(400, "bad model name"); return; }
+  // ?hi=1 - detalus kesas (160x120 x72). Laikomas atskirai, tad perjungus
+  // varnele abu vaizdai lieka paruosti.
+  String sfn = server.arg("hi") == "1" ? "/slicesHi.tmv" : "/slices.tmv";
+  File f = SD.open(("/" + name + sfn).c_str());
+  if (!f) { sendApiError(404, "no cached slices"); return; }
+  // Be revalidacijos tas pats modelio vardas su nauju turiniu 24 h rodytu
+  // SENOJO modelio forma - narsykle net nepaklaustu (auditas 08-12).
+  server.sendHeader("Cache-Control", "no-cache");
+  server.setContentLength(f.size());
+  server.send(200, "application/octet-stream", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
+void handleApiModelSlicesUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    slicesUpName = safeModelName(server.arg("name"));
+    // safeModelName() niekada negrazina tuscio (fallback "Model"), tad tuscio
+    // patikra buvo mirusi - reikia tikros, kaip gretimuose keliuose.
+    slicesUpBad = printerBusy() || !sdCardReady() ||
+                  !webDashboardRuntimeEnabled() || !validPrintableModel(slicesUpName) ||
+                  !requestFromOwnUi();   // #95
+    slicesUpLen = 0;
+    if (slicesUpBad) return;
+    if (!sdPathExists("/" + slicesUpName)) { slicesUpBad = true; return; }
+    slicesUpPath = "/" + slicesUpName +
+                   (server.arg("hi") == "1" ? "/slicesHi.tmv" : "/slices.tmv");
+    SD.remove(slicesUpPath.c_str());
+    slicesUp = SD.open(slicesUpPath.c_str(), FILE_WRITE);
+    if (!slicesUp || slicesUp.size() != 0) slicesUpBad = true;
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (slicesUpBad || !slicesUp) return;
+    // "TMV2" magic in the first chunk - anything else is not ours.
+    if (slicesUpLen == 0 && up.currentSize >= 4 &&
+        !(up.buf[0] == 'T' && up.buf[1] == 'M' && up.buf[2] == 'V' && up.buf[3] == '2')) {
+      slicesUpBad = true; return;
+    }
+    slicesUpLen += up.currentSize;
+    if (slicesUpLen > 250000u) { slicesUpBad = true; return; }   // 21 KB / 173 KB detalus
+    if (slicesUp.write(up.buf, up.currentSize) != up.currentSize) slicesUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    bool opened = (bool)slicesUp;
+    // Magic tikrinamas tik kai pirmas gabalas >= 4 B, tad uz ji trumpesnis
+    // siuntinys prasprusdavo ir SD likdavo siuksle. Antraste yra 16 B.
+    if (slicesUpLen < 16u) slicesUpBad = true;
+    if (slicesUp) slicesUp.close();
+    if (opened && (slicesUpBad || up.status == UPLOAD_FILE_ABORTED))
+      SD.remove(slicesUpPath.c_str());
+  }
+}
+
+void handleApiModelSlicesUploadDone() {
+  bool bad = slicesUpBad, seen = slicesUpLen > 0;
+  uint32_t got = slicesUpLen;   // atsakymas rode 0, nes skaitiklis nunulinamas cia
+  slicesUpBad = false; slicesUpLen = 0;
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (bad || !seen) { sendApiError(400, "slices upload rejected"); return; }
+  // Senos kartos miniatiuros jau nebeskaitomos (jas pakeite preview*s.png),
+  // tad turint pjuvius jos tik uzima SD vieta.
+  if (slicesUpName.length()) {
+    SD.remove(("/" + slicesUpName + "/preview05.png").c_str());
+    SD.remove(("/" + slicesUpName + "/preview1.png").c_str());
+  }
+  sendApiOk("\"bytes\":" + String(got));
+}
+
+// GET /lib/three.js - the browser's 3D library, cached on the SD card (V idea
+// 08-11). Stored ALREADY gzipped (/lib/three.js.gz, ~170 KB) and served with
+// Content-Encoding: gzip, so the ESP only streams bytes - it never compresses
+// and never fetches over TLS. Missing file answers 404 and the dashboard
+// quietly falls back to the CDN, then to its own renderer.
+// v1: senieji kesai buvo irasyti BE turinio patikros, tad jais nebepasitikim -
+// naujas vardas juos tiesiog ignoruoja (auditas 08-12).
+#define THREE_SD_PATH "/lib/three-v1.js.gz"
+#define THREE_SD_LEGACY "/lib/three.js.gz"
+// Musu pacio publikuoto /lib/three-0.160.0.min.js.gz SHA-256. Keiciasi TIK
+// keliant three.js versija (tada perskaiciuoti ir atnaujinti cia).
+static const uint8_t THREE_GZ_SHA[32] = {
+  0x6b, 0x52, 0x03, 0x07, 0x6c, 0xd9, 0x81, 0x01,
+  0xdb, 0x50, 0xe0, 0xa1, 0x99, 0xea, 0xbf, 0x48,
+  0xcd, 0x86, 0x34, 0xd2, 0x46, 0x43, 0x35, 0x1c,
+  0xd4, 0x89, 0x87, 0xea, 0xb8, 0xa2, 0xd9, 0x2e
+};
+void handleLibThree() {
+  if (rejectIfBusy()) return;                 // SD belongs to the print
+  if (!sdCardReady()) { server.send(503, "text/plain", "sd unavailable"); return; }
+  File f = SD.open(THREE_SD_PATH);
+  if (!f) { server.send(404, "text/plain", "not cached"); return; }
+  server.sendHeader("Content-Encoding", "gzip");
+  server.sendHeader("Cache-Control", "max-age=604800, immutable");
+  server.setContentLength(f.size());
+  server.send(200, "application/javascript", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  // Uzsivere peer'as: WiFiClient::write kartoja 10 x 1 s, o 170 KB = 340
+  // gabalu - be sios patikros UI uzsaltu minutems (auditas 08-12).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
+// POST /api/lib/three - store the gzipped library the browser already fetched.
+// Upload-style handler: the body is written straight to SD in chunks, so a
+// 170 KB file costs no heap.
+#define THREE_SD_MAX 250000u   // gz ~170 KB; virsijantis siuntinys - siuksle
+static File threeUp;
+static bool threeUpBad = false;
+static uint32_t threeUpLen = 0;
+static bool threeUpSeen = false;   // ar sioje uzklausoje ISVIS buvo failas
+static mbedtls_sha256_context threeUpSha;
+static bool threeUpShaOn = false;
+void handleLibThreeUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    // Web control gate kaip visuose rasymo keliuose: be jo bet kuris LAN
+    // irenginys irasytu JS moduli, kuri pultas paskui import'ina savo
+    // origin'e - tai butu nuolatine skripto injekcija (auditas 08-12).
+    threeUpBad = printerBusy() || !sdCardReady() || !webDashboardRuntimeEnabled() ||
+                 !requestFromOwnUi();   // #95: kunas i SD rasomas PRIES uzbaigimo funkcija
+    threeUpLen = 0;
+    threeUpSeen = true;
+    if (threeUpBad) return;
+    if (!SD.exists("/lib")) SD.mkdir("/lib");
+    SD.remove(THREE_SD_PATH);
+    threeUp = SD.open(THREE_SD_PATH, FILE_WRITE);
+    if (!threeUp || threeUp.size() != 0) { threeUpBad = true; }  // FILE_WRITE = append
+    if (!threeUpBad) {
+      mbedtls_sha256_init(&threeUpSha);
+      mbedtls_sha256_starts_ret(&threeUpSha, 0);
+      threeUpShaOn = true;
+    }
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (threeUpBad || !threeUp) return;
+    // gzip magic pirmame gabale: is anksto atmetam ne ta turini, kad
+    // narsykle nebandytu import'inti siuksles is SD.
+    if (threeUpLen == 0 && up.currentSize >= 2 &&
+        !(up.buf[0] == 0x1f && up.buf[1] == 0x8b)) { threeUpBad = true; return; }
+    threeUpLen += up.currentSize;
+    if (threeUpLen > THREE_SD_MAX) { threeUpBad = true; return; }
+    if (threeUpShaOn) mbedtls_sha256_update_ret(&threeUpSha, up.buf, up.currentSize);
+    if (threeUp.write(up.buf, up.currentSize) != up.currentSize) threeUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    // Trinam TIK jei failas tikrai buvo atidarytas. Anksciau SD.remove
+    // vykdavo ir atmetus siuntini spausdinant - FAT rasymas ant bendros SPI
+    // vidury spaudinio (auditas 08-12).
+    bool opened = (bool)threeUp;
+    // Turinio patikra: priimam TIK musu pacio paskelbta faila. Be sito bet
+    // kuris LAN irenginys ideda savo JS, kuri pultas vykdo savo origin'e, ir
+    // tai islieka po firmware atnaujinimo (auditas 08-12).
+    if (threeUpShaOn) {
+      uint8_t got[32];
+      mbedtls_sha256_finish_ret(&threeUpSha, got);
+      mbedtls_sha256_free(&threeUpSha);
+      threeUpShaOn = false;
+      if (up.status == UPLOAD_FILE_END && memcmp(got, THREE_GZ_SHA, 32) != 0) threeUpBad = true;
+    }
+    if (threeUp) threeUp.close();
+    if (opened && (threeUpBad || up.status == UPLOAD_FILE_ABORTED)) SD.remove(THREE_SD_PATH);
+    // Patikrinta kopija vietoje - senoji, nepatikrinta, nebereikalinga.
+    else if (opened && SD.exists(THREE_SD_LEGACY)) SD.remove(THREE_SD_LEGACY);
+  }
+}
+void handleLibThreeUploadDone() {
+  // Savi gate'ai: POST be multipart kuno upload callback'o IsVIS nekvieicia,
+  // tad be siu patikru neautentifikuota uzklausa pasiektu SD spausdinant
+  // (auditas 08-12).
+  bool bad = threeUpBad, seen = threeUpSeen;
+  threeUpBad = false; threeUpSeen = false;   // busena nepersineSa i kita uzklausa
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (bad) { sendApiError(400, "upload rejected - checksum or size mismatch"); return; }
+  // POST be multipart failo upload callback’o nekvieicia. Anksciau toks
+  // kelias grazindavo 200 su esamo failo dydziu - melavo, kad kazka ikele,
+  // ir be reikalo lietesi prie SD.
+  if (!seen) { sendApiError(400, "no file in request"); return; }
+  File f = SD.open(THREE_SD_PATH);
+  size_t sz = f ? f.size() : 0;
+  if (f) f.close();
+  // A truncated upload would be worse than none: the page would load a broken
+  // module from SD and never reach the CDN. Anything implausibly small goes.
+  if (sz < 50000) { SD.remove(THREE_SD_PATH); sendApiError(400, "upload too small"); return; }
+  sendApiOk("\"bytes\":" + String((uint32_t)sz));
+}
+
+// ---- Slicer module on the SD card (0.17 SL-mod, 08-22) ---------------------
+// Same idea as three.js above: the browser fetches the module from our gh-pages
+// once and hands it to the printer, and from then on the slicer works with no
+// internet at all. One thing had to differ. three.js is pinned to a SHA-256
+// compiled into the firmware - fine for a library we bump once a year, but for
+// the slicer it would mean a firmware release AND a reflash for every module
+// version, which is exactly why the SD copy was never wired up.
+//
+// So the printer fetches the expected sums ITSELF, over HTTPS, from the same
+// host it already trusts for self-update, and holds them in RAM for the upload
+// that follows. The 3.6 MB payload still travels browser -> printer over the
+// LAN, where it is fast; only ~400 bytes of manifest cross the internet from
+// here. A LAN device can still POST bytes, but they will not match a sum that
+// came from our host, so they never stay on the card.
+//
+// The files are stored ALREADY gzipped (published that way - the browser cannot
+// compress them reproducibly, and without reproducible bytes no sum ever
+// matches; that was learned with three.js on 08-12) and served with
+// Content-Encoding: gzip under their plain names, because the module resolves
+// its own satellites by relative name.
+#define SLICER_SET_FILES  5   // publikuojamas rinkinys: 4 .js + 1 .wasm
+#define SLICER_MAX_FILES  6
+#define SLICER_FILE_MAX   4500000u   // sla-web wasm is ~3.4 MB raw, less gzipped
+#define SLICER_MANIFEST_MAX 1024     // 5 lines of "<64 hex>  <name>"
+
+struct SlicerSum { char name[48]; uint8_t sha[32]; bool onCard; };
+static SlicerSum slicerSums[SLICER_MAX_FILES];
+static uint8_t   slicerSumCount = 0;
+static String    slicerSumVer;       // which version the sums in RAM belong to
+static uint32_t  slicerSumAt = 0;    // kada tos sumos parsiustos (kesui)
+
+// Only the shapes we publish. Anything else never becomes a path.
+static bool slicerNameOk(const String &n) {
+  if (n.length() < 8 || n.length() > 46) return false;
+  if (!(n.startsWith("slicer-") || n.startsWith("sla-web-"))) return false;
+  if (!n.endsWith(".gz")) return false;
+  for (size_t i = 0; i < n.length(); i++) {
+    char c = n[i];
+    bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_';
+    if (!ok) return false;
+  }
+  return n.indexOf("..") < 0;
+}
+
+// "3.1.1" and nothing else - the URL is built here, never taken from the
+// request, exactly like otaInstallVersion().
+static bool slicerVerOk(const String &v) {
+  if (v.length() < 3 || v.length() > 15) return false;
+  for (size_t i = 0; i < v.length(); i++)
+    if (!((v[i] >= '0' && v[i] <= '9') || v[i] == '.')) return false;
+  return v.indexOf("..") < 0;
+}
+
+static int slicerSumIndex(const String &name) {
+  for (uint8_t i = 0; i < slicerSumCount; i++)
+    if (name.equals(slicerSums[i].name)) return i;
+  return -1;
+}
+
+static bool slicerHexByte(const String &s, size_t at, uint8_t &out) {
+  uint8_t v = 0;
+  for (int k = 0; k < 2; k++) {
+    char c = s[at + k];
+    v <<= 4;
+    if (c >= '0' && c <= '9') v |= (uint8_t)(c - '0');
+    else if (c >= 'a' && c <= 'f') v |= (uint8_t)(c - 'a' + 10);
+    else if (c >= 'A' && c <= 'F') v |= (uint8_t)(c - 'A' + 10);
+    else return false;
+  }
+  out = v;
+  return true;
+}
+
+// Every slicer file on the card that the new manifest does not name. Without
+// this the card would collect another 3.6 MB per released version.
+static void slicerPruneOld() {
+  File dir = SD.open("/lib");
+  if (!dir) return;
+  // Two passes: collecting the names first keeps us from removing entries while
+  // the directory is still being walked.
+  // 20, ne 12: viena versija = 5 failai, tad su 12 kortele, kurioje uzsileziojo
+  // trys senos versijos, per viena praejima neissivalytu (auditas 08-22).
+  String doomed[20];
+  uint8_t n = 0;
+  while (n < 20) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    char nm[101];
+    nm[0] = 0;
+    e.getName(nm, sizeof(nm));
+    bool isDir = e.isDirectory();
+    e.close();
+    String name(nm);
+    if (isDir || !slicerNameOk(name)) continue;
+    if (slicerSumIndex(name) < 0) doomed[n++] = name;
+  }
+  dir.close();
+  for (uint8_t i = 0; i < n; i++) SD.remove(("/lib/" + doomed[i]).c_str());
+}
+
+// GET /api/lib/slicer - which version the card actually holds. Read off the
+// filenames, so it answers with no internet and with no manifest in RAM: this
+// is what the dashboard shows as "Installed", and what tells it whether the
+// module will come up at all when GitHub is unreachable.
+void handleApiLibSlicerStatus() {
+  // BUSY PIRMA, SD tik paskui. sdCardReady() nera nekaltas skaitymas: nepavykus
+  // SD.open("/") jis daro pilna SD.begin() ant bendros VSPI, o si vieta
+  // pasiekiama vidury spaudinio - uztenka atsidaryti Settings > Update, ir
+  // pulto slmRefresh() sita kvies (auditas 08-22, blokuojantis radinys).
+  if (printerBusy()) { sendApiError(409, "printer is busy"); return; }
+  if (!sdCardReady()) { sendApiOk("\"version\":\"\",\"files\":0"); return; }
+  File dir = SD.open("/lib");
+  if (!dir) { sendApiOk("\"version\":\"\",\"files\":0"); return; }
+  String ver = "";
+  uint8_t files = 0;
+  while (true) {
+    File e = dir.openNextFile();
+    if (!e) break;
+    char nm[101];
+    nm[0] = 0;
+    e.getName(nm, sizeof(nm));
+    bool isDir = e.isDirectory();
+    e.close();
+    String name(nm);
+    if (isDir || !(name.startsWith("slicer-") || name.startsWith("sla-web-"))) continue;
+    files++;
+    // The wasm carries the version the whole set is pinned to; the loaders are
+    // named after it, so one file is enough to name the set.
+    if (name.startsWith("sla-web-") && name.endsWith(".wasm.gz") &&
+        slicerNameOk(name))
+      ver = name.substring(8, name.length() - 8);
+  }
+  dir.close();
+  // A HALF-copied set must not read as installed. An interrupted upload used to
+  // leave the wasm on the card and nothing else, and the dashboard would then
+  // say "3.1.1 on the printer" for a slicer that cannot start without internet
+  // (auditas 08-22). The published set is five files; fewer means not installed.
+  if (files < SLICER_SET_FILES) ver = "";
+  sendApiOk("\"version\":\"" + ver + "\",\"files\":" + String(files) +
+            ",\"complete\":" + String(files >= SLICER_SET_FILES ? "true" : "false"));
+}
+
+// Atsakymas pultui: ka rinkinys turi ir ko kortelej dar nera. Bendras kesuotam
+// ir sviezei parsiustam manifestui, kad abu keliai atsakytu vienodai.
+static void slicerAnswerFiles(const String &ver) {
+  String out = "\"version\":\"" + ver + "\",\"files\":[";
+  for (uint8_t i = 0; i < slicerSumCount; i++) {
+    if (i) out += ",";
+    out += "{\"name\":\"";
+    out += slicerSums[i].name;
+    out += "\",\"onCard\":";
+    out += slicerSums[i].onCard ? "true" : "false";
+    out += "}";
+  }
+  out += "]";
+  sendApiOk(out);
+}
+
+// POST /api/lib/slicer/check  (ver=X.Y.Z)
+// Pulls lib/slicer-X.Y.Z.sha256 off gh-pages and remembers the sums, then tells
+// the dashboard which of the files the card already holds - so a printer that
+// is already up to date uploads nothing at all.
+void handleApiLibSlicerCheck() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;                 // TLS handshake blocks the loop
+  if (!slicerModuleOn) { sendApiError(409, "slicer module is off"); return; }
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (WiFi.status() != WL_CONNECTED) { sendApiError(503, "no internet"); return; }
+  String ver = server.arg("ver");
+  if (!slicerVerOk(ver)) { sendApiError(400, "bad version"); return; }
+
+  // Ta pati versija per minute - antra karto neiname. Blokuojantis TLS cia
+  // uztrunka iki ~10 s, o si kelia paleidzia AUTOMATIKA, ne zmogus, tad
+  // kartojimosi tikimybe didesne nei OTA (auditas 08-22). otaCheckLatest
+  // kesuoja del lygiai tos pacios priezasties.
+  if (slicerSumCount && slicerSumVer == ver && slicerSumAt &&
+      millis() - slicerSumAt < 60000UL) {
+    slicerAnswerFiles(ver);
+    return;
+  }
+  // Sertifikatas TIKRINAMAS - vieninteliame kelyje visame firmware. Priezastis
+  // paprasta: cia sprendziama, kokie JS ir wasm baitai gali atgulti i kortele ir
+  // paskui suktis pulto vardu. Su setInsecure() pakakdavo pastoti kelia tinkle
+  // ir atiduoti savo manifesta kartu su savo failais - sumos sutaptu, nes jos
+  // paties uzpuoliko (saugumo perziura 08-22). Patikrinus manifesta, uzteks:
+  // 3,6 MB priimami tik tada, kai sutampa su per patikrinta jungti gauta suma.
+  //
+  // Sertifikatu galiojimas remiasi laikrodziu, o jis cia ateina is SNTP fone.
+  // Nesulaukus sinchronizacijos verifikacija kristu su beprasmiu pranesimu, tad
+  // pasakom tiesiai: dar per anksti, pabandyk po minutes.
+  if (time(nullptr) < 1700000000L) {
+    sendApiError(503, "the printer's clock is not synced yet - try again in a minute");
+    return;
+  }
+  String url = OTA_VERSION_URL;
+  url = url.substring(0, url.lastIndexOf('/') + 1) + "lib/slicer-" + ver + ".sha256";
+  WiFiClientSecure client;
+  client.setCACert(SLICER_CA_PEM);            // zr. slicer_ca.h - du patikrinti anchor'ai
+  HTTPClient https;
+  if (!https.begin(client, url)) { sendApiError(502, "manifest unreachable"); return; }
+  // ABU timeout'ai, kaip otaCheckLatest: be setConnectTimeout lieka HTTPClient
+  // numatytieji 5 s prisijungimui VIRS musu 6 s, t. y. iki ~11 s uzblokuoto
+  // loop'o - ekranas ir mygtukai tuo metu negyvi (auditas 08-22).
+  https.setConnectTimeout(4000);
+  https.setTimeout(6000);
+  int code = https.GET();
+  // Nepavykusi TLS verifikacija HTTPClient viduje virsta neigiamu kodu, ne 404 -
+  // atskiriam, kad zmogus matytu skirtuma tarp „nera tokios versijos" ir
+  // „negaliu patikrinti, su kuo kalbu".
+  if (code < 0) { https.end(); sendApiError(502, "could not verify GitHub - refusing to trust this connection"); return; }
+  if (code != 200) { https.end(); sendApiError(502, "manifest not found"); return; }
+  int len = https.getSize();
+  if (len > (int)SLICER_MANIFEST_MAX) { https.end(); sendApiError(502, "manifest too large"); return; }
+  // Riba turi veikti SKAITANT, ne po. Chunked atsakymui getSize() grazina -1,
+  // tad ankstesne patikra praeidavo, o getString() butu traukes neribota kuna i
+  // heap'a - su setInsecure() tinkle stovintis kas nors atiduotu kelis MB ir
+  // ESP32 be PSRAM tiesiog nusibaigtu (auditas 08-22).
+  String body;
+  {
+    WiFiClient *st = https.getStreamPtr();
+    uint8_t buf[129];
+    uint32_t got = 0, t0 = millis();
+    while (st && https.connected() && got < SLICER_MANIFEST_MAX &&
+           millis() - t0 < 6000) {
+      size_t avail = st->available();
+      if (!avail) {
+        if (len >= 0 && got >= (uint32_t)len) break;
+        delay(1);
+        continue;
+      }
+      int rd = st->read(buf, avail > 128 ? 128 : avail);
+      if (rd <= 0) break;
+      buf[rd] = 0;                    // manifestas yra ASCII: NUL'iu jame nera
+      got += rd;
+      body += (const char *)buf;
+      if (len >= 0 && got >= (uint32_t)len) break;
+    }
+  }
+  https.end();
+  if (!body.length() || body.length() > SLICER_MANIFEST_MAX) { sendApiError(502, "bad manifest"); return; }
+
+  slicerSumCount = 0;
+  slicerSumVer = "";
+  int at = 0;
+  while (at < (int)body.length() && slicerSumCount < SLICER_MAX_FILES) {
+    int nl = body.indexOf('\n', at);
+    String line = (nl < 0) ? body.substring(at) : body.substring(at, nl);
+    at = (nl < 0) ? (int)body.length() : nl + 1;
+    line.trim();
+    if (line.length() < 67) continue;
+    String name = line.substring(64);
+    name.trim();
+    if (!slicerNameOk(name)) continue;
+    SlicerSum &e = slicerSums[slicerSumCount];
+    bool ok = true;
+    for (int i = 0; i < 32 && ok; i++) ok = slicerHexByte(line, i * 2, e.sha[i]);
+    if (!ok) continue;
+    strncpy(e.name, name.c_str(), sizeof(e.name) - 1);
+    e.name[sizeof(e.name) - 1] = 0;
+    e.onCard = SD.exists(("/lib/" + name).c_str());
+    slicerSumCount++;
+  }
+  if (!slicerSumCount) { sendApiError(502, "manifest empty"); return; }
+  slicerSumVer = ver;
+  slicerSumAt = millis();
+  if (!SD.exists("/lib")) SD.mkdir("/lib");
+  // Senos versijos NEBETRINAMOS cia. Iki 08-22 taip ir buvo, ir tai reiske: kas
+  // paprase naujesnes - iskart neteko veikiancios senos, o jei 3,6 MB kelione
+  // nutruko (skirtukas, WiFi, pradetas spaudinys), kortelej nelikdavo NE VIENOS
+  // versijos ir sliceris be interneto mirdavo. Dabar valymas vyksta tik tada, kai
+  // naujas rinkinys jau pilnas - zr. handleApiLibSlicerUploadDone.
+  slicerAnswerFiles(ver);
+}
+
+// POST /api/lib/slicer - one file of the set the check above authorised. The
+// body goes straight to SD in chunks, so a 3.4 MB payload costs no heap.
+static File     slicerUp;
+static bool     slicerUpBad = false;
+static bool     slicerUpSeen = false;
+static uint32_t slicerUpLen = 0;
+static int      slicerUpIdx = -1;
+static String   slicerUpPath;
+static mbedtls_sha256_context slicerUpSha;
+static bool     slicerUpShaOn = false;
+void handleApiLibSlicerUploadData() {
+  HTTPUpload &up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    // Same gate as the three.js path: without it any LAN device could drop a JS
+    // module that the dashboard then imports on its own origin (audit 08-12).
+    slicerUpBad = printerBusy() || !sdCardReady() || !slicerModuleOn ||
+                  !webDashboardRuntimeEnabled() || !requestFromOwnUi();
+    slicerUpLen = 0;
+    slicerUpSeen = true;
+    // Gynybiskai: zemiau yra du ankstyvi return'ai PRIES mbedtls_sha256_init,
+    // tad zyme neturi ateiti is praeitos uzklausos (auditas 08-22).
+    slicerUpShaOn = false;
+    slicerUpIdx = slicerUpBad ? -1 : slicerSumIndex(up.filename);
+    // No sum in RAM for this name means no check() ran, or it named something
+    // else - either way there is nothing to verify these bytes against.
+    if (slicerUpIdx < 0) { slicerUpBad = true; return; }
+    slicerUpPath = "/lib/" + String(slicerSums[slicerUpIdx].name);
+    if (!SD.exists("/lib")) SD.mkdir("/lib");
+    SD.remove(slicerUpPath.c_str());
+    slicerUp = SD.open(slicerUpPath.c_str(), FILE_WRITE);
+    if (!slicerUp || slicerUp.size() != 0) { slicerUpBad = true; return; }  // FILE_WRITE = append
+    mbedtls_sha256_init(&slicerUpSha);
+    mbedtls_sha256_starts_ret(&slicerUpSha, 0);
+    slicerUpShaOn = true;
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (slicerUpBad || !slicerUp) return;
+    // gzip magic in the first chunk: wrong content is rejected before it costs
+    // three megabytes of SD writes.
+    if (slicerUpLen == 0 && up.currentSize >= 2 &&
+        !(up.buf[0] == 0x1f && up.buf[1] == 0x8b)) { slicerUpBad = true; return; }
+    slicerUpLen += up.currentSize;
+    if (slicerUpLen > SLICER_FILE_MAX) { slicerUpBad = true; return; }
+    if (slicerUpShaOn) mbedtls_sha256_update_ret(&slicerUpSha, up.buf, up.currentSize);
+    if (slicerUp.write(up.buf, up.currentSize) != up.currentSize) slicerUpBad = true;
+  } else if (up.status == UPLOAD_FILE_END || up.status == UPLOAD_FILE_ABORTED) {
+    bool opened = (bool)slicerUp;
+    if (slicerUpShaOn) {
+      uint8_t got[32];
+      mbedtls_sha256_finish_ret(&slicerUpSha, got);
+      mbedtls_sha256_free(&slicerUpSha);
+      slicerUpShaOn = false;
+      if (up.status != UPLOAD_FILE_END || slicerUpIdx < 0 ||
+          memcmp(got, slicerSums[slicerUpIdx].sha, 32) != 0) slicerUpBad = true;
+    }
+    if (slicerUp) slicerUp.close();
+    // Remove only what we actually opened: a rejected upload mid-print must not
+    // touch the shared SPI bus at all (audit 08-12).
+    if (opened && (slicerUpBad || up.status == UPLOAD_FILE_ABORTED))
+      SD.remove(slicerUpPath.c_str());
+    else if (opened && slicerUpIdx >= 0) slicerSums[slicerUpIdx].onCard = true;
+    // Nutrukus siuntimui WebServer atsako pats ir uzbaigimo funkcijos NEKVIECIA,
+    // tad zymes liktu gulejusios iki kitos uzklausos, ir bekune POST butu gavusi
+    // „upload rejected" vietoj „no file in request" (auditas 08-22).
+    if (up.status == UPLOAD_FILE_ABORTED) { slicerUpSeen = false; slicerUpBad = false; }
+  }
+}
+void handleApiLibSlicerUploadDone() {
+  // Own gates: a POST with no multipart body never calls the upload callback at
+  // all, so without these an unauthenticated request would reach SD mid-print
+  // (audit 08-12).
+  bool bad = slicerUpBad, seen = slicerUpSeen;
+  uint32_t len = slicerUpLen;
+  slicerUpBad = false; slicerUpSeen = false; slicerUpIdx = -1;
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  if (!seen) { sendApiError(400, "no file in request"); return; }
+  if (bad) { sendApiError(400, "upload rejected - unknown file or checksum mismatch"); return; }
+  // Rinkinys pilnas - dabar ir tik dabar senos versijos gali keliauti lauk.
+  bool all = slicerSumCount > 0;
+  for (uint8_t i = 0; i < slicerSumCount && all; i++) all = slicerSums[i].onCard;
+  if (all) slicerPruneOld();
+  sendApiOk("\"bytes\":" + String(len) + ",\"version\":\"" + slicerSumVer +
+            "\",\"complete\":" + String(all ? "true" : "false"));
+}
+
+// GET /lib/<name> - the slicer module out of the card. Stored gzipped, served
+// under the plain name because the module asks for its satellites by relative
+// name (new URL('./', import.meta.url)). A missing file answers 404 and the
+// dashboard quietly falls back to gh-pages, exactly as it does today.
+void handleLibSlicerFile() {
+  if (rejectIfBusy()) return;                 // SD belongs to the print
+  if (!sdCardReady()) { server.send(503, "text/plain", "sd unavailable"); return; }
+  String name = server.pathArg(0);
+  int q = name.indexOf('?');
+  if (q >= 0) name = name.substring(0, q);
+  if (!slicerNameOk(name + ".gz")) { server.send(404, "text/plain", "not cached"); return; }
+  File f = SD.open(("/lib/" + name + ".gz").c_str());
+  if (!f) { server.send(404, "text/plain", "not cached"); return; }
+  server.sendHeader("Content-Encoding", "gzip");
+  server.sendHeader("Cache-Control", "max-age=604800, immutable");
+  server.setContentLength(f.size());
+  // WebAssembly.instantiateStreaming refuses anything that is not this type.
+  server.send(200, name.endsWith(".wasm") ? "application/wasm" : "application/javascript", "");
+  uint8_t buf[512];
+  int n;
+  WiFiClient client = server.client();
+  // Closed peer: WiFiClient::write retries 10 x 1 s, and 3.4 MB is ~7000
+  // chunks - without this check the UI would freeze for hours (audit 08-12).
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
 // GET /api/boot-anim/file?name=<slug> - stream an installed TMB1 animation for
 // browser preview. Read-only, but still blocked while printing because SD is busy.
 void handleApiBootAnimFile() {
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
-  String name = sanitizeAnimName(server.arg("name"));
+  String name = sanitizeSlug(server.arg("name"));
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
 
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
@@ -2825,10 +4267,10 @@ void handleApiBootAnimFile() {
 // POST /api/boot-anim/select  body: name=<slug|empty>  ("" = built-in Default)
 void handleApiBootAnimSelect() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy()) { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   String name = server.arg("name");
   name.trim();
-  if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeAnimName(name);
+  if (name.length() > 0 && !bootAnimShuffleSelected(name)) name = sanitizeSlug(name);
   if (bootAnimShuffleSelected(name)) {
     String names[2];
     if (listBootAnims(names, 2) < 2) { sendApiError(409, "shuffle needs at least two animations"); return; }
@@ -2842,15 +4284,20 @@ void handleApiBootAnimSelect() {
 // POST /api/boot-anim/delete  body: name=<slug>
 void handleApiBootAnimDelete() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
-  name = sanitizeAnimName(name);
+  name = sanitizeSlug(name);
   if (name.length() == 0 || !bootAnimExists(name)) { sendApiError(404, "animation not found"); return; }
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   SD.remove(path.c_str());
   SD.remove(bootAnimMetadataPath(name).c_str());
+  // Diegimas raso i <slug>.tmb.part ir sena atideda i <slug>.tmb.old; dinges
+  // maitinimas viduryje palieka juos guleti. Saraso jie negadina (imami tik
+  // .tmb), bet uzima vieta, tad trynimas issiveza ir juos.
+  SD.remove((path + ".part").c_str());
+  SD.remove((path + ".old").c_str());
   String names[2];
   if (bootAnimName == name || (bootAnimShuffleSelected(bootAnimName) && listBootAnims(names, 2) < 2)) {
     bootAnimName = "";
@@ -2866,7 +4313,7 @@ void handleApiBootAnimDelete() {
 // otherwise time the browser call out while the loop is busy drawing.
 void handleApiBootAnimPreview() {
   if (rejectIfWebControlOff()) return;
-  if (printerBusy())  { sendApiError(409, "printer busy"); return; }
+  if (rejectIfBusy()) return;
   if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
   String name = server.arg("name");
   name.trim();
@@ -2874,13 +4321,337 @@ void handleApiBootAnimPreview() {
   sendApiOk("");
   uiWakeScreen();               // display may be blanked by the UI timeout
   playTmbByName(name);
+  restoreIdleScreen();
+}
+
+// ---- UI restore + resin profiles (0.17 0-16) ------------------------------
+// A print waiting to be resumed after a power cut is not "busy" yet, but its
+// second half must come out with the same exposure as its first. Changing the
+// recipe in that window would silently split one model into two settings.
+// Tinklo darbas baigesi ir reikia atstatyti ekrana. Jei nebaigtas spaudinys dar
+// laukia atsakymo, grazinam KLAUSIMA, o ne pagrindini meniu: kitaip klausimas
+// dingtu is ekrano, veliavele liktu pakelta, ir visi nustatymu bei spausdinimo
+// keliai atsakinetu „laukia spaudinys", kai atsakyti nebebutu kur (auditas 08-16).
+void restoreIdleScreen() {
+  // Tesimas jau pradedamas - siuo ciklu ekranas priklauso jam, nepiesiam nieko:
+  // kitaip klausimas grizu ant jo, o paspaudimas butu nutildytas (audit 08-16).
+  if (resumeStartPrint) return;
+  // Ta pati salyga, kaip rejectIfResumePending: veliavele ARBA klausimas ekrane.
+  // Aukscio atsisakymo saka grazina 427 jau nuleidusi veliavele - ir tas klausimas
+  // taip pat neturi buti uzpiestas, nes tik jame liko „pakelti plokste".
+  if (resumeBootPending || screen == 427) { screenResumePrompt(); return; }
   screen1();
+}
+
+bool rejectIfResumePending() {
+  // screen 427 as well as the flag: a resume prompt reached through the SD
+  // settings-restore path (426 -> finishRestorePromptBoot -> screenResumePrompt)
+  // stands on screen without the boot flag ever being set.
+  if (!resumeBootPending && screen != 427) return false;
+  sendApiError(409, "a print is waiting to be resumed - finish or cancel it first");
+  return true;
+}
+
+// Same shape as the boot-animation endpoints above: the printer keeps a folder
+// of named profiles, one is active, and the dashboard stages a pick before
+// applying it. Every route is behind rejectIfBusy() - swapping exposure values
+// mid-print would change the running job.
+
+// GET /api/resin-profile - the picker: built-ins, then the card, plus which one
+// is active. One file read per profile (resinProfileInfo), and no sdCardReady()
+// gate on purpose: without a card the built-ins are still perfectly usable,
+// and an empty picker would look like a broken feature.
+void handleApiResinProfileList() {
+  if (rejectIfBusy()) return;
+  String names[RESIN_MAX_PROFILES];
+  int n = listResinProfiles(names, RESIN_MAX_PROFILES);
+  String out = "{\"ok\":true,\"selected\":\"" + jsonEscape(resinProfileName) + "\",\"profiles\":[";
+  /* Rezervas turi buti VIRS savo paties ribos, kaip /api/files kelyje (zemiau
+     reserve(15360) prie 14000 ribos). Buvo 4096 prie 9500 ribos, o vienas
+     profilis uzima ~430 B: nuo ~10 profiliu (leidziama 16) String pradetu augti
+     po 16 B ir vienam atsakymui tektu keli simtai realloc'u su pakeltu WiFi
+     steku - tyliai fragmentuota kruva vietoj vieno kartinio rezervo.
+     Rado abu auditai, 08-17. */
+  out.reserve(9728);
+  bool first = true;   // NOT the loop index: a skipped unreadable file would
+                       // otherwise leave a stray comma and break the whole list
+  for (int i = 0; i < n; i++) {
+    ResinProfileInfo info;
+    if (!resinProfileInfo(names[i], info)) continue;
+    if (out.length() > 9500) break;   // before the comma: a break after one
+                                      // would leave invalid JSON
+    if (!first) out += ",";
+    first = false;
+    const ResinProfileValues &v = info.v;
+    out += "{\"name\":\"" + jsonEscape(names[i]) + "\"";
+    out += ",\"display\":\"" + jsonEscape(info.display) + "\"";
+    out += ",\"layerHeight\":" + String(v.layerHeight, 2);
+    out += ",\"builtin\":" + String(info.builtin ? "true" : "false");
+    out += ",\"edited\":" + String(info.edited ? "true" : "false");
+    // Separate from "edited": the badge means the numbers differ, this means
+    // there is a file to delete. An overlay holding the factory values is not
+    // an edit, but Reset still has to be able to remove it (audit 08-16).
+    out += ",\"overlay\":" + String(info.hasFile ? "true" : "false");
+    out += ",\"baseExposure\":" + String(v.baseExposure);
+    out += ",\"regularExposure\":" + String(v.regularDs / 10.0f, 1);
+    out += ",\"baseLayers\":" + String(v.baseLayers);
+    out += ",\"transitionLayers\":" + String(v.transitionLayers);
+    out += ",\"slowLiftDistance\":" + String(v.slowLiftDist);
+    out += ",\"fastLiftDistance\":" + String(v.fastLiftDist);
+    out += ",\"slowLiftFeedrate\":" + String(v.slowLiftFeed);
+    out += ",\"fastLiftFeedrate\":" + String(v.fastLiftFeed);
+    out += ",\"dropBackFeedrate\":" + String(v.dropBackFeed);
+    out += ",\"density\":" + String(v.density, 3);
+    out += ",\"calFactor\":" + String(v.calFactor, 3);
+    out += ",\"calFixedMl\":" + String(v.fixedMl, 2);
+    out += ",\"calSamples\":" + String((v.calRawA > 0 ? 1 : 0) + (v.calRawB > 0 ? 1 : 0));
+    if (info.meta.testedBy.length())
+      out += ",\"testedBy\":\"" + jsonEscape(info.meta.testedBy) + "\"";
+    if (info.meta.testedOn.length())
+      out += ",\"testedOn\":\"" + jsonEscape(info.meta.testedOn) + "\"";
+    if (info.meta.buyUrl.length())
+      out += ",\"buyUrl\":\"" + jsonEscape(info.meta.buyUrl) + "\"";
+    out += "}";
+  }
+  out += "]}";
+  server.send(200, "application/json", out);
+}
+
+// POST /api/resin-profile/select  body: name=<slug>
+void handleApiResinProfileSelect() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (!resinProfileExists(name)) { sendApiError(404, "profile not found"); return; }
+  if (!applyResinProfile(name)) { sendApiError(500, "could not read the profile"); return; }
+  sdRev++;   // per-model times come from this profile - every list is now stale
+             // (savePrintSettings bumps it too; a double step is harmless - the
+             //  dashboard only compares the number with the one it last saw)
+  tinymakerConnectScheduleBackup();   // as every other settings path does
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/save  body: name=<slug>&display=<label>[&mode=new]
+// Writes the CURRENT settings into that profile. For a built-in this is the
+// overlay that shadows the flash values; for anything else it is a plain save.
+// mode=new is "Save current as...": it refuses to land on a name that already
+// exists, so a new profile can never silently overwrite Fast or somebody's own.
+void handleApiResinProfileSave() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (name.length() == 0) { sendApiError(400, "name required"); return; }
+  // Reserved for the firmware's own scratch files, which the picker does not
+  // list: saving one would make an active profile nobody can see (seventh audit).
+  if (name.startsWith("__")) { sendApiError(400, "that name is reserved"); return; }
+  if (server.arg("mode") == "new" &&
+      (resinBuiltinIndex(name) >= 0 || resinProfileFileExists(name))) {
+    sendApiError(409, "a profile with that name already exists");
+    return;
+  }
+  String display = formString("display", "", 40);
+  bool ok;
+  if (server.hasArg("base_exposure")) {
+    // Values came with the request - this is the dashboard installing a library
+    // profile it fetched itself. Clamped exactly like a hand-typed config, and
+    // NOT applied: installing a profile should not change what is set right now.
+    ResinProfileValues v;
+    resinProfileFromCurrent(v);      // anything not sent keeps a sane value
+    v.baseExposure = formLong("base_exposure", v.baseExposure, 5, 60);
+    if (server.hasArg("regular_exposure")) {
+      float rs = server.arg("regular_exposure").toFloat();
+      if (rs > 0) v.regularDs = constrain((long)lroundf(rs * 10.0f), 10L, 300L);
+    }
+    v.baseLayers = formLong("base_layers", v.baseLayers, 1, 8);
+    v.transitionLayers = formLong("transition_layers", v.transitionLayers, 0, 10);
+    v.slowLiftDist = formLong("slow_lift_distance", v.slowLiftDist, 1, 3);
+    v.fastLiftDist = formLong("fast_lift_distance", v.fastLiftDist, 1, 3);
+    v.slowLiftFeed = formLong("slow_lift_feedrate", v.slowLiftFeed, 20, 50);
+    v.fastLiftFeed = formLong("fast_lift_feedrate", v.fastLiftFeed, 20, 50);
+    v.dropBackFeed = formLong("drop_back_feedrate", v.dropBackFeed, 20, 50);
+    if (server.hasArg("density")) {
+      float d = server.arg("density").toFloat();
+      if (d >= 0.8f && d <= 2.0f) v.density = d;
+    }
+    if (server.hasArg("cal_factor")) {
+      float c = server.arg("cal_factor").toFloat();
+      v.calFactor = (c >= RESIN_CAL_MIN && c <= RESIN_CAL_MAX) ? c : 1.0f;
+    }
+    if (server.hasArg("cal_fixed_ml")) {
+      float fx = server.arg("cal_fixed_ml").toFloat();
+      v.fixedMl = (fx >= 0.0f && fx <= RESIN_FIXED_MAX) ? fx : 0.0f;
+    }
+    // A library profile brings no weighing of its own - and inheriting ours
+    // would tie somebody else's numbers to our samples.
+    v.calRawA = v.calGramsA = v.calRawB = v.calGramsB = -1;
+    if (server.hasArg("layer_height")) {
+      float lh = server.arg("layer_height").toFloat();
+      if (lh > 0) v.layerHeight = lh < 0.075f ? 0.05f : 0.10f;
+    }
+    ResinProfileMeta meta;
+    meta.testedBy = formString("tested_by", "", 40);
+    meta.testedOn = formString("tested_on", "", 20);
+    // Only our own catalogue may supply a link: anything else would let a page
+    // the user visits plant an arbitrary URL into the printer's profile list.
+    // Ta pati patikra kaip skaitant faila is korteles - viena vieta, kad abu
+    // keliai nebegaletu issiskirti (saugumo auditas 08-17).
+    String buy = formString("buy_url", "", 120);
+    if (resinBuyUrlAllowed(buy)) meta.buyUrl = buy;
+    ok = writeResinProfileValues(name, display, v, meta);
+  } else {
+    ok = writeResinProfile(name, display);
+    if (ok) { resinProfileName = name; saveDeviceConfig(); }
+  }
+  if (!ok) { sendApiError(500, "could not write the profile"); return; }
+  /* Reiksmiu saka SAMONINGAI netaiko - diegiant bibliotekos profili dabartiniai
+     nustatymai keistis neturi. Bet jei rasoma ant AKTYVAUS profilio, tai jau ne
+     diegimas: profilis IR yra dabartiniai nustatymai. Be sito printeris rodytu
+     profili X (o resinProfileRev++ dar ir atnaujintu LCD uzrasa), o suktusi
+     senais skaiciais - lygiai tas pats vardo ir reiksmiu prasilenkimas, kuri
+     visa si sesija ir taiso. Resume sarga auksciau jau praeita, tad aukscio
+     pakeitimas cia saugus (auditas 08-17). */
+  if (server.hasArg("base_exposure") && name == resinProfileName)
+    applyResinProfile(name);
+  sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // every settings path does this
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/delete  body: name=<slug>
+// A built-in cannot be removed - deleting it drops the overlay and restores the
+// factory values, which is what the dashboard shows as "Reset to factory".
+void handleApiResinProfileDelete() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String name = sanitizeSlug(server.arg("name"), "");
+  if (!resinProfileFileExists(name)) { sendApiError(404, "profile not found"); return; }
+  if (!deleteResinProfile(name)) { sendApiError(500, "could not delete the profile"); return; }
+  sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // deleting the active one reloads settings
+  sendApiOk("\"selected\":\"" + jsonEscape(resinProfileName) + "\"");
+}
+
+// POST /api/resin-profile/rename  body: name=<slug>&to=<slug>[&display=<label>]
+//
+// The name a human reads lives INSIDE the file ("name") and wins over the file
+// name, so a plain SD.rename() renamed nothing anyone could see (V 08-17). This
+// writes the label too, through a temporary file: writeResinProfileValues()
+// starts by deleting the file it is about to write, so no path here may write
+// straight over the only copy - a card hiccup would take the profile, and its
+// weighed calibration, with it (third and fourth audit, 08-17).
+void handleApiResinProfileRename() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;
+  if (rejectIfResumePending()) return;
+  if (!sdCardReady()) { sendApiError(503, "sd card unavailable"); return; }
+  String from = sanitizeSlug(server.arg("name"), "");
+  String to = sanitizeSlug(server.arg("to"), "");
+  if (!resinProfileFileExists(from)) { sendApiError(404, "profile not found"); return; }
+  if (resinBuiltinIndex(from) >= 0) { sendApiError(409, "a built-in profile cannot be renamed"); return; }
+  if (to.length() == 0) { sendApiError(400, "new name required"); return; }
+  // to == from is NOT an error: the slug drops capitals and punctuation, so
+  // "sunlu tough" -> "SUNLU Tough Resin!" is the same slug and a different name.
+  // Rejecting it refused the commonest rename there is (third audit, 08-17).
+  if (to != from && (resinBuiltinIndex(to) >= 0 || resinProfileFileExists(to))) {
+    sendApiError(409, "a profile with that name already exists");
+    return;
+  }
+  ResinProfileInfo info;
+  if (!resinProfileInfo(from, info)) { sendApiError(500, "could not read the profile"); return; }
+  // No label from the caller: keep the one the file already carries. Falling
+  // back to the slug would quietly flatten "SUNLU Toughness Resin" for anyone
+  // following the documented name=&to= form.
+  String label = formString("display", "", 40);
+  if (label.length() == 0) label = info.display;
+  // Through a temporary file, because writeResinProfileValues() deletes the file
+  // it is about to write: renaming in place (to == from - a label-only change,
+  // which is the commonest kind) would otherwise have the same hole this whole
+  // rewrite was meant to close, and the 500 would be a lie (fourth audit, 08-17).
+  // A leftover __rn_tmp after a card failure is visible and holds the data;
+  // nothing is ever deleted before the new copy exists.
+  const char *TMP = "__rn_tmp";
+  // Names starting with __ are the firmware's own scratch space and are not
+  // listed as profiles, so one must never become a destination: it would exist
+  // on the card and show up nowhere (seventh audit, 08-17). `from` is refused
+  // for a different reason - the swap would write over the file it is reading.
+  if (to.startsWith("__")) { sendApiError(409, "that name is reserved"); return; }
+  if (from.startsWith("__")) { sendApiError(409, "that profile cannot be renamed"); return; }
+  SD.remove(resinProfilePath(TMP).c_str());   // stale one from an earlier failure
+  if (!writeResinProfileValues(TMP, label, info.v, info.meta)) {
+    sendApiError(500, "could not write the renamed profile");
+    return;   // the original is untouched
+  }
+  SD.remove(resinProfilePath(to).c_str());    // to == from: the old copy goes here
+  if (!SD.rename(resinProfilePath(TMP).c_str(), resinProfilePath(to).c_str())) {
+    // The data is safe, but it is sitting under a name nothing lists - so move it
+    // somewhere the user can actually see and re-save it (seventh audit, 08-17).
+    if (SD.rename(resinProfilePath(TMP).c_str(), resinProfilePath("rn-recovered").c_str()))
+      sendApiError(500, "could not rename - the profile is saved as rn-recovered");
+    else
+      sendApiError(500, "could not rename - the profile is on the card as __rn_tmp");
+    return;
+  }
+  bool oldLeft = false;
+  if (to != from && !SD.remove(resinProfilePath(from).c_str())) {
+    DBGLN("rename: old profile file left behind");   // a copy, not a loss
+    oldLeft = true;   // the dashboard says so rather than leaving two silently
+  }
+  if (resinProfileName == from) { resinProfileName = to; saveDeviceConfig(); }
+  sdRev++;  // 0-28
+  tinymakerConnectScheduleBackup();   // the stored profile name may have changed
+  sendApiOk("\"name\":\"" + jsonEscape(to) + "\"" + (oldLeft ? ",\"oldLeft\":true" : ""));
 }
 
 // PWA icon bytes live in PwaIcon.ino, which the Arduino builder concatenates
 // AFTER this file - forward-declare them for the /pwa-icon-192.png route.
 extern const uint8_t PWA_ICON_192[];
 extern const size_t PWA_ICON_192_LEN;
+
+// ---- Why the last WiFi attempt failed -------------------------------------
+// Until now every failure looked the same from the outside: the bar ran out and
+// the screen said "WiFi: offline mode". A wrong password, a router out of reach
+// and a router that simply will not have the ESP32 all ended on that one line,
+// so remote support was guesswork (GitHub #118: a printer that joined a repeater
+// but never the user's own router - neither he nor we could tell why).
+//
+// The chip does say why: a failed attempt ends in a STA_DISCONNECTED event
+// carrying an esp_wifi reason code. Keep the last one and show it.
+//
+// Deliberately NOT exposed over HTTP: when this matters the printer is offline,
+// so there is no API to ask. The screen is the only place it can be read.
+volatile uint8_t wifiLastReason = 0;   // written from the WiFi event task
+
+// Short label + the raw code. Kept to 20 characters so it fits the 160 px line
+// at FreeSans8pt ("Reset WiFi settings?" is the width reference). The number
+// stays even when the label is clear - a code is what makes a support answer
+// possible when the user is on the other side of an issue thread.
+String wifiReasonText() {
+  uint8_t r = wifiLastReason;
+  if (!r) return String("");
+  const char *w;
+  switch (r) {
+    case WIFI_REASON_NO_AP_FOUND:            w = "AP not found";  break;
+    case WIFI_REASON_AUTH_FAIL:              w = "Bad password";  break;
+    case WIFI_REASON_AUTH_EXPIRE:            w = "Auth expired";  break;
+    case WIFI_REASON_ASSOC_FAIL:             w = "Assoc refused"; break;
+    // A wrong password does NOT come back as AUTH_FAIL on this chip - the
+    // 4-way handshake simply never completes, so the honest esp_wifi answer is
+    // a timeout (measured on hardware 08-29: a deliberately wrong key gave
+    // 204, not 202). "Auth timeout" is true and useless; nobody reads it as
+    // "check your password", which is the one thing it almost always means.
+    // The question mark keeps it honest - 204 can also be a signal too weak to
+    // finish the handshake.
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:      w = "Wrong pass?";   break;
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: w = "Wrong pass?";   break;
+    default:                                 w = "WiFi error";
+  }
+  return String(w) + " (" + String(r) + ")";
+}
 
 void network_setup() {
   // Idempotent (0-33): the boot now brings the network up BEFORE the resume
@@ -2915,6 +4686,41 @@ void network_setup() {
   }
 
   WiFiManager wm;
+
+  // Listen before the first attempt - the reason code only exists if someone is
+  // subscribed when that attempt fails. Covers both branches below: our own
+  // 15 s connect AND the config portal, where WiFiManager does the connecting.
+  // Once per boot: System -> Update clears networkStarted and re-runs this
+  // function, and onEvent() appends rather than replaces.
+  //
+  // KEEP THIS A LAMBDA. A named handler would be the tidier read, but its
+  // parameters are WiFi.h types, and PlatformIO auto-generates a prototype for
+  // every named function, hoisting it above the first definition in the
+  // concatenated .ino - which sits OUTSIDE the #if ENABLE_NETWORK guard, while
+  // #include <WiFi.h> sits inside it. The ENABLE_NETWORK 0 build would then
+  // stop compiling on a type it has never heard of. Anonymous functions get no
+  // prototype (audit, 08-29).
+  static bool reasonHooked = false;
+  if (!reasonHooked) {
+    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+      if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+        wifiLastReason = 0;                // connected: the old reason is history
+        return;
+      }
+      if (event != ARDUINO_EVENT_WIFI_STA_DISCONNECTED) return;
+      uint8_t r = info.wifi_sta_disconnected.reason;
+      // ASSOC_LEAVE (8) is us leaving, not a failure. The watchdog in
+      // network_loop() nudges WiFi.reconnect() every 15 s while offline, and
+      // that is esp_wifi_disconnect() + esp_wifi_connect() - so an unfiltered 8
+      // would overwrite the real reason within seconds and the screen would
+      // read "WiFi error (8)" nearly every time. WiFiManager and
+      // wifiEraseCredentials() disconnect the same way before a fresh attempt.
+      if (r == WIFI_REASON_ASSOC_LEAVE) return;
+      wifiLastReason = r;
+      DBG("WiFi disconnected, reason %u\n", (unsigned)r);
+    });
+    reasonHooked = true;
+  }
 
   // esp_wifi must be initialized before reading its config
   WiFi.mode(WIFI_STA);
@@ -2996,10 +4802,27 @@ void network_setup() {
     wm.stopConfigPortal();
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    netMessage("WiFi: offline mode", "");
-    delay(1200);
-    return;
+  // Boot-time connect failed (router still coming up after a power cut, AP out
+  // of range for a moment). This is NOT a dead end: the watchdog in
+  // network_loop() keeps nudging WiFi.reconnect() every 15 s and the link
+  // usually comes back on its own.
+  //
+  // So we must NOT return here. Everything below - the reconnect flags, the
+  // HTTP routes and server.begin() - has to be in place BEFORE that happens,
+  // or the printer rejoins the network as a mute node: badge green, WiFi up,
+  // and every request refused because the server was never started. That is
+  // exactly what bit feedback #24 (Simon, 0.16.2): two printers back on WiFi,
+  // both unreachable from PrusaSlicer, and re-plugging only repeated the same
+  // 15 s miss. The one escape hatch was System -> Update, which clears
+  // networkStarted and re-runs this function.
+  //
+  // Only mDNS is deferred: MDNS.begin() needs an interface with an address.
+  // The watchdog already re-announces it the moment the link returns.
+  bool bootOnline = (WiFi.status() == WL_CONNECTED);
+  if (!bootOnline) {
+    String why = wifiReasonText();     // #118: say WHY, not just that it failed
+    netMessage("WiFi: offline mode", why.c_str());
+    delay(why.length() ? 2500 : 1200); // a code needs longer than a blank line
   }
 
   // Modem sleep (the default) delays the first request after an idle spell by
@@ -3016,7 +4839,11 @@ void network_setup() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
-  MDNS.begin("tinymaker"); // http://tinymaker.local
+  if (bootOnline) {
+    MDNS.begin("tinymaker");   // http://tinymaker.local
+    mdnsAnnounced = true;
+  }                            // offline boot: the network_loop watchdog
+                               // announces it the moment the link returns
 
   // OctoPrint-style API for PrusaSlicer "Send to printer".
   // NOTE: SL1-derived profiles make PrusaSlicer use its SL1Host client,
@@ -3045,6 +4872,7 @@ void network_setup() {
   server.on("/api/files/model/preview", HTTP_GET, handleApiFileModelPreview);
   server.on("/api/files/model/preview", HTTP_POST, finishPreviewUpload, handlePreviewUploadData);
   server.on("/api/files/layer", HTTP_GET, handleApiFileLayer);
+  server.on("/api/live/slices", HTTP_GET, handleApiLiveSlices);   // P-live 3D stack
   server.on("/api/files/delete", HTTP_POST, handleApiFileDelete);
   server.on("/api/config", HTTP_GET, handleApiConfigGet);
   server.on("/api/config", HTTP_POST, handleApiConfigSave);
@@ -3067,6 +4895,8 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/vat/weight", HTTP_POST, handleApiVatWeight);   // 0.17 0-16
+  server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);
   server.on("/api/update/install", HTTP_POST, handleApiUpdateInstall);
   server.on("/api/print/pause", HTTP_POST, handleApiPrintPause);
@@ -3078,10 +4908,26 @@ void network_setup() {
   server.on("/api/resume/discard", HTTP_POST, []() { handleApiResume('D'); });
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
+  server.on("/lib/three.js", HTTP_GET, handleLibThree);
+  server.on("/api/files/model/slices", HTTP_GET, handleApiModelSlicesGet);
+  server.on("/api/files/model/slices", HTTP_POST, handleApiModelSlicesUploadDone,
+            handleApiModelSlicesUploadData);
+  server.on("/api/lib/three", HTTP_POST, handleLibThreeUploadDone, handleLibThreeUploadData);
+  // 0.17 SL-mod: slicerio rinkinys kortelej. `/lib/three.js` registruotas AUKSCIAU -
+  // WebServer eina per handlerius eiles tvarka, tad jis pasiima savo kelia pirmas.
+  server.on(UriBraces("/lib/{}"), HTTP_GET, handleLibSlicerFile);
+  server.on("/api/lib/slicer", HTTP_GET, handleApiLibSlicerStatus);
+  server.on("/api/lib/slicer/check", HTTP_POST, handleApiLibSlicerCheck);
+  server.on("/api/lib/slicer", HTTP_POST, handleApiLibSlicerUploadDone, handleApiLibSlicerUploadData);
   server.on("/api/boot-anim/select", HTTP_POST, handleApiBootAnimSelect);
   server.on("/api/boot-anim/delete", HTTP_POST, handleApiBootAnimDelete);
   server.on("/api/boot-anim/preview", HTTP_POST, handleApiBootAnimPreview);
   server.on("/api/boot-anim/install", HTTP_POST, handleApiBootAnimInstall);
+  server.on("/api/resin-profile", HTTP_GET, handleApiResinProfileList);          // 0.17 0-16
+  server.on("/api/resin-profile/select", HTTP_POST, handleApiResinProfileSelect);
+  server.on("/api/resin-profile/save", HTTP_POST, handleApiResinProfileSave);
+  server.on("/api/resin-profile/delete", HTTP_POST, handleApiResinProfileDelete);
+  server.on("/api/resin-profile/rename", HTTP_POST, handleApiResinProfileRename);
   server.on("/api/files/local", HTTP_POST, finishUpload, handleUploadData);
 
   // Plain endpoint for curl / UVtools testing:
@@ -3097,8 +4943,9 @@ void network_setup() {
 
   // Needed for the dashboard's ETag revalidation (WebServer only stores
   // request headers that were registered up front).
-  static const char *collectKeys[] = {"If-None-Match"};
-  server.collectHeaders(collectKeys, 1);
+  // Origin/Host + X-TinyMaker - #95 CSRF patikra (zr. requestFromOwnUi).
+  static const char *collectKeys[] = {"If-None-Match", "X-TinyMaker", "Origin", "Host"};
+  server.collectHeaders(collectKeys, 4);
 
   server.begin();
 
@@ -3114,7 +4961,7 @@ void network_setup() {
   ArduinoOTA.onError([](ota_error_t e) {
     netMessage("OTA FAILED", "");
     delay(1200);
-    screen1();
+    restoreIdleScreen();
   });
   ArduinoOTA.begin();
 
@@ -3123,20 +4970,34 @@ void network_setup() {
   // this succeeding - it seeds on-device time for future features.
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
-  if (saved) {
-    // Routine boot: the bars just turn green - the separate "WiFi connected"
-    // screen (and its 1.5 s of delays) is gone, the main screen's badge
-    // carries the state from here.
-    netWifiBarsPhase(4, true);
-    delay(400);
-  } else {
-    // First-time setup via the portal: the portal page promises the printer
-    // "shows its address", and this is the one moment the user needs it.
-    String ip = "IP: " + WiFi.localIP().toString();
-    netMessage("WiFi connected", ip.c_str());
-    delay(1800);
+  // Only when the link is actually up: green bars or an IP would otherwise be
+  // a lie told right after the "WiFi: offline mode" notice (the bars would go
+  // green with no connection, the portal branch would print "IP: 0.0.0.0").
+  if (bootOnline) {
+    if (saved) {
+      // Routine boot: the bars just turn green - the separate "WiFi connected"
+      // screen (and its 1.5 s of delays) is gone, the main screen's badge
+      // carries the state from here.
+      netWifiBarsPhase(4, true);
+      delay(400);
+    } else {
+      // First-time setup via the portal: the portal page promises the printer
+      // "shows its address", and this is the one moment the user needs it.
+      String ip = "IP: " + WiFi.localIP().toString();
+      netMessage("WiFi connected", ip.c_str());
+      delay(1800);
+    }
   }
   statsPingMaybe();
+  crashPingMaybe();
+  // 0.17: a power loss interrupted a print -> one push so a user who is away
+  // knows to resume (screen prompt + dashboard Resume already exist locally).
+  // Blocking send, but we are at the idle boot resume prompt - safe, like the
+  // other notifications at their idle exit points.
+  if (powerRestoreNotifyPending) {
+    powerRestoreNotifyPending = false;                 // once per boot
+    if (WiFi.status() == WL_CONNECTED) tgNotifyPowerRestored();
+  }
   otaBootCheckMaybePrompt();
   if (screen == 424) return;
 }
@@ -3179,6 +5040,7 @@ void sdJobRun() {
   if (sdJobKind.length() == 0 || sdJobRunning) return;
   uiWakeScreen();   // web-started work must be visible on the printer
   sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: a fresh job starts with no count yet
   if (sdJobKind == "delete") {
     String path = "/" + sdJobName;
     // Same screen the printer-menu delete shows - without it the LCD looked
@@ -3196,6 +5058,10 @@ void sdJobRun() {
     if (ok) {
       sdRev++;  // 0-28: every dashboard refreshes its list and names the model
       netMessage("Model ready:", result.finalName.c_str());
+      if (slicedIsFlat(result.summary.slicedLayerHeightMm)) {
+        delay(1500);
+        netMessage("Not sliced at 0.05mm!", "Prints may be flat");
+      }
     } else {
       DBGLN("SD job import FAILED");
       netMessage("Import FAILED", sdJobName.c_str());
@@ -3204,7 +5070,8 @@ void sdJobRun() {
   }
   sdJobRunning = false;
   sdJobKind = ""; sdJobName = ""; sdJobZipPath = "";
-  screen1();   // the progress screen overwrote whatever was shown
+  sdJobDone = sdJobTotal = 0;   // SD-prog: stale numbers would outlive the job
+  restoreIdleScreen();   // the progress screen overwrote whatever was shown
 }
 
 void network_loop() {
@@ -3243,7 +5110,10 @@ void network_loop() {
   // WiFi task. Dormant during a print (network_loop isn't reached then); the
   // background auto-reconnect covers that window.
   static unsigned long wifiWatchTs = 0;
-  static bool wifiWasDown = false;
+  // Seeded from the boot result: a printer that booted offline still owes an
+  // mDNS announcement, even if the link returns before this watchdog's first
+  // tick (otherwise tinymaker.local would stay dead until the next drop).
+  static bool wifiWasDown = !mdnsAnnounced;
   if (millis() - wifiWatchTs > 15000) {
     wifiWatchTs = millis();
     if (WiFi.status() != WL_CONNECTED) {
@@ -3251,8 +5121,9 @@ void network_loop() {
       WiFi.reconnect();
     } else if (wifiWasDown) {
       wifiWasDown = false;
-      MDNS.end();
-      MDNS.begin("tinymaker");
+      if (mdnsAnnounced) MDNS.end();   // nothing to tear down after an
+      MDNS.begin("tinymaker");         // offline boot - it was never begun
+      mdnsAnnounced = true;
     }
   }
 }
@@ -3291,6 +5162,13 @@ void wifiInfoValues() {
     gfx2->print(WiFi.localIP());
   } else {
     gfx2->print("Not connected");
+    // The boot message is gone in seconds; this screen is where the user can
+    // come back and read the reason - and quote it in a support thread.
+    String why = wifiReasonText();
+    if (why.length()) {
+      gfx2->setCursor(5, 55);
+      gfx2->print(why);
+    }
   }
 }
 

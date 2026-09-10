@@ -8,6 +8,8 @@
  */
 
 #include <unzipLIB.h>      // bitbank2 (include is unconditional on purpose)
+#include <new>              // std::nothrow - the core builds with -fno-exceptions,
+                           // so a plain `new` would abort instead of returning null
 
 // Separate File handle for the unzipper - do NOT reuse the global
 // 'myfile' from PNG.ino (it belongs to the PNGdec callbacks).
@@ -117,7 +119,7 @@ bool modelSummaryFromSourceLayers(int sourceLayers, ModelSummary &summary) {
   long movementLayers = summary.printLayers - 1;
   if (movementLayers < 0) movementLayers = 0;
   summary.estimatedSecs = (Base_Layer * Base_Exposure) +
-                          (exposureLayers * Regular_Exposure) +
+                          (exposureLayers * Regular_Exposure / 10) +   // 0.17 0-3: ds -> s
                           (uint32_t)(motor_updown_time * movementLayers);
   return true;
 }
@@ -137,12 +139,31 @@ int countImportModelSourceLayers(const String &name) {
   return count;
 }
 
+// Read a numeric INI value ("key = value") from a null-terminated text buffer.
+// Returns 0 if the key is absent. Matches the key only as a whole token (start
+// of buffer or after whitespace/newline, then optional spaces, then '='), so
+// "layerHeight" is not matched inside a longer key. Modeled on backupNum().
+float iniReadNumber(const char *text, const char *key) {
+  size_t keyLen = strlen(key);
+  const char *p = text;
+  while ((p = strstr(p, key)) != NULL) {
+    bool startOk = (p == text) || p[-1] == '\n' || p[-1] == '\r' ||
+                   p[-1] == ' ' || p[-1] == '\t';
+    const char *q = p + keyLen;
+    while (*q == ' ' || *q == '\t') q++;
+    if (startOk && *q == '=') return (float)atof(q + 1);  // atof skips spaces, stops at newline
+    p += keyLen;  // not a whole-token match; keep searching
+  }
+  return 0.0f;
+}
+
 bool scanZipModel(const char *zipPath, ModelSummary &summary) {
   char entry[256];
-  UNZIP *zip = new UNZIP();
+  UNZIP *zip = new (std::nothrow) UNZIP();
   if (!zip) return false;
 
   int minN = 0x7FFFFFFF, total = 0;
+  float slicedLH = 0.0f;
   if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
     delete zip;
     return false;
@@ -154,6 +175,32 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
     if (n >= 0) {
       total++;
       if (n < minN) minN = n;
+    } else if (slicedLH == 0.0f) {
+      // The SL1/ZIP config.ini carries the sliced layerHeight. Read it once,
+      // bounded, into a stack buffer (config.ini is small); parse one key.
+      String en = String(entry);
+      en.toLowerCase();
+      if (en.endsWith("config.ini") && zip->openCurrentFile() == UNZ_OK) {
+        // The whole file, in windows - not just its first kilobyte. A
+        // PrusaSlicer profile has outgrown 1 KB and layerHeight now sits past
+        // that mark: the old single read never reached it and left 0, so the
+        // model arrived with no layer height and the dashboard fell back to its
+        // default 0.1 mm - the bust came out half as tall as it is (V 08-20).
+        // The overlap carries a key landing on a window boundary into the next.
+        char cfg[513];
+        const int OVER = 48;
+        int keep = 0, rc;
+        while ((rc = zip->readCurrentFile((uint8_t *)cfg + keep,
+                                          (int)sizeof(cfg) - 1 - keep)) > 0) {
+          int have = keep + rc;
+          cfg[have] = '\0';
+          float v = iniReadNumber(cfg, "layerHeight");
+          if (v > 0.0f) { slicedLH = v; break; }
+          keep = have > OVER ? OVER : have;
+          memmove(cfg, cfg + have - keep, keep);
+        }
+        zip->closeCurrentFile();
+      }
     }
   } while (zip->gotoNextFile() == UNZ_OK);
   zip->closeZIP();
@@ -161,6 +208,7 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
 
   if (!modelSummaryFromSourceLayers(total, summary)) return false;
   summary.sizeBytes = sdFileSize(String(zipPath));
+  summary.slicedLayerHeightMm = slicedLH;
   return true;
 }
 
@@ -225,6 +273,27 @@ bool writeModelMetadataFile(const String &destDir, const String &name,
   f.print(",\n");
   f.print("  \"archive_size_bytes\": ");
   f.print(summary.sizeBytes);
+  // What the model actually occupies on the card, as opposed to the archive it
+  // arrived in. Absent for models imported before 0.17.
+  if (summary.folderBytes > 0) {
+    f.print(",\n  \"folder_bytes\": ");
+    f.print(summary.folderBytes);
+  }
+  if (summary.slicedLayerHeightMm > 0) {
+    f.print(",\n  \"sliced_layer_height_mm\": ");
+    f.print(String(summary.slicedLayerHeightMm, 3));
+  }
+  // Arrival order (dashboard sorts on this) and, when the clock is real, the
+  // wall time. Absent on models imported before 0.17 and on the metadata this
+  // file writes for an OLD model - a backfill must not look like an arrival.
+  if (options.importSeq > 0) {
+    f.print(",\n  \"import_seq\": ");
+    f.print(options.importSeq);
+  }
+  if (options.createdEpoch > 0) {
+    f.print(",\n  \"created_epoch\": ");
+    f.print(options.createdEpoch);
+  }
   if (options.resinKnown) {
     f.print(",\n  \"resin_ml\": ");
     f.print(String(options.resinMl, 2));
@@ -325,7 +394,10 @@ bool replaceJsonStringField(String &json, const char *key, const String &value) 
   return true;
 }
 
-bool readJsonNumberField(const String &json, const char *key, double &value) {
+// Reads the number as written, zero and negative included. readJsonNumberField()
+// below is the model.json flavour, where 0 means "no value" - resin profiles need
+// the plain reader, because 0.00 is a legitimate plate-film offset (0.17 0-16).
+bool readJsonNumberAny(const String &json, const char *key, double &value) {
   String needle = "\"";
   needle += key;
   needle += "\":";
@@ -341,7 +413,11 @@ bool readJsonNumberField(const String &json, const char *key, double &value) {
   }
   if (valEnd <= valStart) return false;
   value = json.substring(valStart, valEnd).toDouble();
-  return value > 0;
+  return true;
+}
+
+bool readJsonNumberField(const String &json, const char *key, double &value) {
+  return readJsonNumberAny(json, key, value) && value > 0;
 }
 
 bool readJsonStringField(const String &json, const char *key, String &value) {
@@ -395,6 +471,72 @@ bool writeModelMetadataJson(const String &name, const String &json) {
   return true;
 }
 
+// ===================================================================================
+// Import order: the number that puts the newest model on top of the dashboard list
+// ===================================================================================
+//
+// A counter, not a timestamp. The FAT date is useless (no dateTimeCallback is
+// registered, so SdFat stamps 2000-01-01 on everything), and a clock is worse
+// than useless here: a printer that never sees the internet never syncs NTP, and
+// a date that is always zero would quietly turn "newest first" back into A-Z for
+// the one person who cannot tell why (V, 08-19). The counter needs neither.
+//
+// Lives in its own NVS key, written only on import (a handful of writes a day),
+// like saveVatRemaining() and unlike the settings blob.
+
+// The card can outlive the counter: a full USB reflash wipes NVS while the models
+// stay. Starting from 1 again would file every new model UNDER the old ones, so
+// the first import after a wipe reads the numbers already on the card. One pass,
+// once, inside an import that is already unpacking thousands of layers.
+uint32_t scanMaxImportSeqOnCard() {
+  uint32_t maxSeq = 0;
+  File dir = SD.open("/");
+  if (!dir) return 0;
+  File entry;
+  int looked = 0;
+  while ((entry = dir.openNextFile())) {
+    if (++looked > 256) { entry.close(); break; }   // bounded: every entry counts
+    bool isDir = entry.isDirectory();
+    char rawName[101];
+    bool named = entry.getName(rawName, sizeof(rawName));
+    entry.close();
+    if (!named || !isDir || rawName[0] == '.') continue;
+    // The dashboard is polled every 2 s and this walk opens up to a hundred small
+    // files - without this the status line freezes mid-import for no visible
+    // reason. Same call the unpack loop already makes - including its guard:
+    // sdJobService() lives inside Network.ino's #if, so an unguarded call here
+    // fails to link the ENABLE_NETWORK 0 build.
+    #if ENABLE_NETWORK
+    sdJobService();
+    #endif
+    String json;
+    if (!readModelMetadataJson(String(rawName), json)) continue;
+    double v = 0;
+    if (readJsonNumberField(json, "import_seq", v) && v > 0 && v < 4294967295.0) {
+      uint32_t s = (uint32_t)v;
+      if (s > maxSeq) maxSeq = s;
+    }
+  }
+  dir.close();
+  return maxSeq;
+}
+
+uint32_t nextImportSeq() {
+  sysPrefs.begin("tinymaker", true);
+  uint32_t seq = sysPrefs.getULong("impSeq", 0);
+  sysPrefs.end();
+  /* Skenuojama su UZDARYTA NVS rankena: pases metu (iki 128 model.json) jokia
+     kita vieta negaletu jos atsidaryti - `begin()` antram kvietimui grazina
+     `false` ir tyliai atiduoda gamyklines reiksmes, o svetimas `end()` uzdarytu
+     musiskę. Siandien ten niekas neisiterpia, bet lango palikti nera uz ka. */
+  if (seq == 0) seq = scanMaxImportSeqOnCard();   // fresh NVS, card may not be fresh
+  seq++;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putULong("impSeq", seq);
+  sysPrefs.end();
+  return seq;
+}
+
 bool getModelMetadataSourceLayers(const String &name, int &layers) {
   String json;
   if (!readModelMetadataJson(name, json)) return false;
@@ -418,10 +560,46 @@ void backfillModelMetadataLayers(const String &name, int sourceLayers) {
   writeModelMetadataFile("/" + name, name, summary, createOptions);
 }
 
+// Add up one model folder. O(layers) for a SINGLE model, which is fine on
+// demand - doing it for every row of the file list is what made that list slow.
+// Used to fill in models imported before folder_bytes existed.
+uint32_t sdFolderBytes(const String &name) {
+  File dir = SD.open(("/" + name).c_str());
+  if (!dir) return 0;
+  uint32_t total = 0;
+  File e;
+  while ((e = dir.openNextFile())) {
+    if (!e.isDirectory()) total += (uint32_t)e.size();
+    e.close();
+  }
+  dir.close();
+  return total;
+}
+
+bool setModelMetadataFolderBytes(const String &name, uint32_t bytes) {
+  String json;
+  if (!readModelMetadataJson(name, json)) return false;
+  if (!replaceJsonNumberField(json, "folder_bytes", String(bytes))) return false;
+  return writeModelMetadataJson(name, json);
+}
+
 bool getModelMetadataResin(const String &name, double &resinMl) {
   String json;
   if (!readModelMetadataJson(name, json)) return false;
   return readJsonNumberField(json, "resin_ml", resinMl);
+}
+
+bool getModelMetadataSlicedLayerHeight(const String &name, double &mm) {
+  String json;
+  if (!readModelMetadataJson(name, json)) return false;
+  return readJsonNumberField(json, "sliced_layer_height_mm", mm);
+}
+
+// "Flat print" risk: the firmware assumes source PNGs are 0.05 mm pitch, so any
+// other sliced layer height comes out wrong (usually flat). 0 = unknown (no
+// config.ini / old model) -> not flagged.
+bool slicedIsFlat(float mm) {
+  return mm > 0.0f && (mm < 0.049f || mm > 0.051f);
 }
 
 bool getModelMetadataConnectPublicId(const String &name, String &publicId) {
@@ -504,7 +682,7 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
   // UNZIP object is ~40 KB -> allocate on heap only while unpacking.
   // Never make it global/static (overflows WROOM DRAM at link time).
-  UNZIP *zip = new UNZIP();
+  UNZIP *zip = new (std::nothrow) UNZIP();
   uint8_t *buf = (uint8_t *)malloc(BUFSZ);
   if (!zip || !buf) {
     if (zip) delete zip;
@@ -533,6 +711,10 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
   // Painted once; the loop below only grows the bar and rewrites the counter.
   netProgressStart("Unpacking layers", "");
+  // SD-prog: total known up front, so the first status poll of this job cannot
+  // answer with the previous one's numbers (the loop services polls before it
+  // updates the count).
+  sdJobDone = 0; sdJobTotal = summary.sourceLayers;
 
   if (zip->openZIP(zipPath, zipOpen, zipClose, zipRead, zipSeek) != UNZ_OK) {
     delete zip; free(buf);
@@ -551,13 +733,16 @@ bool unpackModelToEmptyDir(const char *zipPath, const char *destDir, ModelSummar
 
     if (zip->openCurrentFile() != UNZ_OK) { out.close(); ok = false; break; }
     int rc;
-    while ((rc = zip->readCurrentFile(buf, BUFSZ)) > 0)
+    while ((rc = zip->readCurrentFile(buf, BUFSZ)) > 0) {
       out.write(buf, rc);
+      summary.folderBytes += (uint32_t)rc;   // free: these bytes are in hand
+    }
     zip->closeCurrentFile();
     out.close();
     if (rc < 0) { ok = false; break; }
 
     done++;
+    sdJobDone = done;   // SD-prog: the same count the screen shows, to /api/status
     if (done % 20 == 0 || done == summary.sourceLayers)
       netProgressCount(done, summary.sourceLayers);
     #if ENABLE_NETWORK
@@ -609,7 +794,14 @@ bool importZipModel(const char *zipPath, const String &requestedName,
     return false;
   }
 
-  if (!writeModelMetadataFile(tempDir, finalName, summary, options)) {
+  // Stamped here rather than by each caller: every road into the card - dashboard
+  // upload, slicer save, PrusaSlicer "Send to printer", import from the card -
+  // ends in this one function, so one line covers them all.
+  ModelImportOptions stamped = options;
+  stamped.importSeq = nextImportSeq();
+  stamped.createdEpoch = telemetryEpochNow();   // 0 when NTP never synced
+
+  if (!writeModelMetadataFile(tempDir, finalName, summary, stamped)) {
     deleteModelFolder(tempDir.c_str(), false);
     error = "metadata write failed";
     return false;
@@ -650,15 +842,21 @@ void importSelectedArchive() {
   // the unpack loop answers status polls (1-33) - loop() context, so it's safe.
   #if ENABLE_NETWORK
   sdJobKind = "import"; sdJobName = name; sdJobRunning = true;
+  sdJobDone = sdJobTotal = 0;   // SD-prog: never show the previous job's count
   #endif
   bool ok = importZipModel(src.c_str(), name, options, result, error);
   #if ENABLE_NETWORK
   sdJobRunning = false; sdJobKind = ""; sdJobName = "";
+  sdJobDone = sdJobTotal = 0;
   if (ok) sdRev++;   // 0-28: dashboards refresh their SD list
   #endif
   if (ok) {
     SD.remove(src.c_str());
     netMessage("Model ready:", result.finalName.c_str());
+    if (slicedIsFlat(result.summary.slicedLayerHeightMm)) {
+      delay(1500);
+      netMessage("Not sliced at 0.05mm!", "Prints may be flat");
+    }
   } else {
     netMessage("Import FAILED", foldersel.c_str());
   }

@@ -13,11 +13,17 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DASH = os.path.join(HERE, "..", "..", "web", "dashboard.html")
+PROJ = os.path.join(HERE, "..", "..")
 SHIM = os.path.join(HERE, "demo_shim.js")
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "demo.html")
 
-html = io.open(DASH, encoding="utf-8", errors="replace").read()
+# Since 0.17 the slicer's pieces live in web/parts/ and the page carries
+# #include markers - assemble the same way the build does, or the demo would
+# ship a dashboard with the slicer card missing.
+sys.path.insert(0, os.path.join(HERE, ".."))
+from assemble_dashboard import assemble   # noqa: E402
+
+html = assemble(PROJ)
 
 # The dashboard is now version-agnostic (fwVersion/data-build start empty and
 # fill from /api/status). The demo's mock status must report a real version:

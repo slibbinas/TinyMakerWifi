@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="lt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0-16 geležies testai</title>
+<style>
+:root{color-scheme:light;
+ --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
+ --accent:#f07a1a;--ok:#1f9d4d;--bad:#d7454f;--tile:#eef0f3}
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:var(--bg);color:var(--text);
+ font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:19px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.bar{position:sticky;top:0;background:var(--bg);padding:10px 0 12px;border-bottom:1px solid var(--line);
+ margin-bottom:14px;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.count{font-weight:700}
+button{background:var(--tile);color:var(--text);border:1px solid var(--line);border-radius:8px;
+ padding:8px 13px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.grp{margin:0 0 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.grp>h2{margin:0;padding:11px 14px;font-size:14px;background:var(--tile);
+ border-bottom:1px solid var(--line);letter-spacing:.2px}
+.t{display:grid;grid-template-columns:22px auto 1fr;gap:10px;padding:11px 14px;
+ border-bottom:1px solid var(--line);align-items:start}
+.t:last-child{border-bottom:0}
+.t.ok{background:rgba(31,157,77,.10)}
+.t.bad{background:rgba(215,69,79,.10)}
+.n{color:var(--muted);font-size:12px;padding-top:2px}
+.q b{display:block;margin-bottom:2px}
+.q span{color:var(--muted);font-size:13px}
+.act{display:flex;gap:6px;padding-top:1px}
+.act button{padding:5px 10px;font-size:12px;min-width:34px}
+.act button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.warn{border-left:3px solid var(--accent)}
+/* Telefone trys stulpeliai teksta suspaudzia i ~120 px juostele, o pastabu
+   laukelis isvis nebetelpa. Todel siaurame ekrane mygtukai lieka kaireje, bet
+   savo eiluteje, o tekstas gauna visa ploti (V testuoja telefonu). */
+@media(max-width:560px){
+ .t{grid-template-columns:22px 1fr;gap:8px 10px}
+ .t .act{grid-column:2}
+ .t .q{grid-column:1/-1}
+}
+.q input.nt{display:block;width:100%;margin-top:7px;background:var(--bg);color:var(--text);
+ border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:13px/1.4 inherit}
+.q input.nt:focus{outline:none;border-color:var(--accent)}
+.q input.nt::placeholder{color:var(--muted);opacity:.7}
+.note{padding:10px 14px;color:var(--muted);font-size:12.5px;background:rgba(240,122,26,.10)}
+textarea{width:100%;height:150px;margin-top:12px;background:var(--card);color:var(--text);
+ border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 monospace}
+</style></head><body>
+
+<h1>0.17 · dervų profiliai - geležies testai</h1>
+<div class="sub">Build <b id="bld">?</b>. Biblioteka gyva gh-pages. Pradėk nuo grupių <b>0</b>, <b>0b</b>, <b>0c</b> - tai printerio ekranai ir 08-17 audito radiniai, kurių iš naršyklės patikrinti neįmanoma. Žymėk ✓ arba ✗; apačioje - ataskaita kopijavimui.
+<br><span style="color:var(--muted)">Prieš pradėdamas patikrink, kad printerio Settings → About rodo tą patį build'ą.</span></div>
+
+<div style="margin:8px 0 14px;font-size:13px;color:var(--muted)">Šalia:
+<a href="index.html">← ūkis</a> · <a href="busenos.html">būsenų žemėlapis</a> ·
+<a href="scenarijai.html">scenarijai</a> · <b>geležies testai</b></div>
+
+<div class="bar">
+  <span class="count" id="cnt">0 / 0</span>
+  <button onclick="setAll('ok')">Visi ✓</button>
+  <button onclick="setAll('')">Išvalyti</button>
+  <button onclick="copyReport()">Kopijuoti ataskaitą</button>
+</div>
+
+<div id="list"></div>
+<textarea id="out" placeholder="Ataskaita atsiras paspaudus „Kopijuoti""></textarea>
+
+<script>
+/* Build'as VIENOJE vietoje. Anksciau jis buvo irasytas dviese - antrasteje
+   „8201857", ataskaitoje „cc99f0f" - ir abu pasene bei nesutapo tarpusavyje,
+   tad nukopijuota ataskaita meluodavo, kuris build tikrintas (08-17). */
+const BUILD='974f6be';
+const G=[
+ ["0 · PIRMA: nauji printerio ekranai (iš naršyklės netikrinami)",[
+  ["Settings → „Back to Default“ → paspausk OK ir PALAIKYK ~2 s.","Klausimas lieka ekrane: nepraslysta ir nesikartoja. Atleidus - Back grąžina be pakeitimų."],
+  ["Perskaityk tą klausimą iki galo.","Trys pilnos eilutės: „Reset settings? / Resin profile and / weighings. Reboots.“ Sakinys nenutrūkęs, netrūksta žodžio, nė viena eilutė neišeina už rėmelio. (08-16 buvo likę „Resin profile and go.“)"],
+  ["Pakartok ir patvirtink „Reset“.","Gamykliniai skaičiai, derva „Slow resin (factory)“, kalibracija tuščia, pulte skaičiai persiskaičiuoja. Printeris <b>persikrauna</b>."],
+  ["Po atstatymo pasirink Fast ir pažiūrėk reikšmes.","18 / 8,0 / 4 - gamyklinės. Jei rodo tavo senas redaguotas reikšmes, fast.json overlay liko nenuimtas (08-17 pataisa)."],
+  ["Po atstatymo Settings → Resin calibration.","Tuščio vato svoris grįžęs į gamyklinį 56,56 g, ne tavo pasvertas."],
+  ["Print meniu pasirink aplanką be sluoksnių (tuščią).","„No layers found in this model - the card may be at fault“, Back grąžina į sąrašą."],
+ ]],
+ ["0b · 08-17 auditas: derva nepasirinkta (NAUJA, iš naršyklės netikrinama)",[
+  ["Pulte ištrink AKTYVŲ savo profilį. Prie printerio atidaryk modelį ir spausk Start.","Ekranas „Resin not set / Pick a resin before printing.“ su mygtukais Back ir Slow. <b>Spaudinys NEPRASIDEDA</b>: plokštė nejuda, homing neprasideda."],
+  ["Tame ekrane spausk Back.","Grįžta į modelio peržiūrą. Niekas nepasileidžia, derva lieka nepasirinkta."],
+  ["Spausk Start dar kartą, tada dešinį mygtuką „Slow“.","Užsideda „Slow resin (factory)“ ir grįžta į peržiūrą su persiskaičiuotais sluoksniais. <b>Spaudinys vis dar neprasideda</b> - Start reikia paspausti atskirai."],
+  ["Dabar spausk Start.","Spausdina teisingą sluoksnių skaičių pagal Slow (0,10 mm)."],
+  ["⚠️ SVARBIAUSIAS. Ištrink aktyvų profilį, išjunk maitinimą, įjunk. Advanced → Resin.","Rodo „Not set - blocked“. <b>NE</b> „Slow resin (factory)“. Anksčiau vardas tyliai virsdavo Slow, o mašina suko ištrinto profilio skaičiais."],
+  ["Toje pačioje būsenoje Advanced → Resin → Resin profile, vienas OK.","Užsideda „Fast resin“ - iš aklavietės išeinama vienu paspaudimu."],
+  ["Ta pati būsena, bet žiūrėk į pultą.","Dervos eilutė: „Not set - printing is blocked“. Start mygtukai (ir sąraše, ir modelio kortelėje) neaktyvūs."],
+  ["Atidaryk pultą DVIEJUOSE įrenginiuose. Viename ištrink aktyvų profilį.","Antrame per ~2 s Start irgi užsirakina pats, be perkrovimo."],
+  ["Atkurk atsarginę kopiją, padarytą TOJE būsenoje (be dervos).","Po atkūrimo vėl „Not set - blocked“, o ne tyliai užsidėjęs Slow."],
+  ["Ištrauk SD kortelę su pasirinkta derva.","Vardas LIEKA, rodo „(missing)“, spausdinti vis tiek leidžia - reikšmės EEPROM'e tos pačios. Tai ne ta pati būsena kaip „not set“."],
+ ]],
+ ["0c · 08-17 auditas: kiti radiniai (prie printerio)",[
+  ["Įdiek bibliotekos „Anycubic Water-Washable Clear“ ir prie printerio atidaryk Advanced → Resin.","Ilgas vardas <b>apkirptas</b> ir telpa į vieną eilutę. Jei užlipa ant gretimo įrašo - ✗ (buvo 229 px prie 150 px eilutės)."],
+  ["Į kortelę įdėk sugadintą /resin/xxx.json (pvz. tuščią failą). Advanced → Resin → Resin profile, spausk kelis kartus.","Ciklas <b>nesustoja</b>: peršoka sugadintą ir eina toliau. Anksčiau mygtukas mirdavo visam laikui, be jokio pranešimo."],
+  ["Perjunk dervą PRIE PRINTERIO, palauk ~pusę minutės (jei Connect įjungtas).","Debesų kopija atsinaujina taip pat, kaip perjungus pulte. Anksčiau šitas kelias kopijos nepaleisdavo."],
+ ]],
+ ["A · Pirmas paleidimas",[
+  ["Ištrauk SD kortelę, perkrauk printerį. Pulte atidaryk dervos eilutę.","Fast ir Slow sąraše yra, pasirenkami. Kortelės nereikia."],
+  ["Įdėk kortelę atgal, perkrauk.","Pagrindiniame lange dervos eilutė rodo aktyvų profilį su aukščiu."],
+ ]],
+ ["B · Perjungimas iš pagrindinio lango",[
+  ["Perjunk į kitą dervą, kai laukai nekeisti.","Persijungia tyliai: JOKIO snackbaro. Eilutė rodo naują dervą, laukai - naujas reikšmes."],
+  ["Settings → pakeisk Base exposure, negrįžk. Pagrindiniame lange perjunk dervą.","Klausia: Save first / Switch anyway / Cancel."],
+  ["Pasirink „Save first“.","Įrašo TĄ reikšmę, kurią matei ekrane (ne senąją). Patikrink grįžęs į profilį."],
+  ["Pakartok ir pasirink „Cancel“.","Niekas nepasikeitė - lieka ta pati derva ir tos pačios reikšmės."],
+ ]],
+ ["C · Sluoksnio aukštis - rizikingiausia",[
+  ["Settings → Resin: pakeisk aukštį į 0,10, Save as… „test-010“.","Naujas profilis sąraše su „· 0.10 mm“."],
+  ["Perjunk tarp „test-010“ ir Fast.","Layer height laukas persijungia 0,10 ↔ 0,05 kartu su ekspozicija."],
+  ["⚠️ Atidaryk modelį (peržiūra su Start), TADA perjunk į kitą aukštį.","Peržiūra persiskaičiuoja: sluoksnių skaičius ir laikas pasikeičia. NELIEKA senų."],
+  ["Po to paspausk Start (dry run!).","Spausdina teisingą sluoksnių skaičių, ne pusę modelio."],
+ ]],
+ ["D · Redagavimas",[
+  ["Pakeisk bet kurį Resin kortelės lauką.","Atsiranda nuoroda „Discard changes“."],
+  ["Paspausk „Discard changes“.","Laukai grįžta į profilio reikšmes, nuoroda dingsta."],
+  ["Pakeisk ir paspausk Save.","Įrašo ir į printerį, ir į profilį. Perkrovus reikšmė išlieka."],
+  ["Save as… su vardu „mano derva“.","Mūsų dialogas (ne naršyklės „localhost says“). Sukuria „mano-derva“."],
+  ["Pasirink savo profilį → Rename…","Pervadina. Įsiūtam profiliui mygtuko nėra."],
+  ["Redaguok Fast ir išsaugok → atsiranda „Reset to factory“.","Paspaudus grįžta 18 / 8,0 / 4."],
+  ["Modale ištrink savo profilį (✕).","Klausia patvirtinimo; ištrynus grįžta į Slow."],
+ ]],
+ ["E · Printerio ekranas",[
+  ["Advanced → Resin → Profile: spausk kelis kartus.","Ciklas eina per Fast, Slow ir kortelės profilius, reikšmės keičiasi."],
+  ["Perjungęs ekrane, pažiūrėk į pultą.","Pultas rodo tą patį profilį (gali reikėti sekundės)."],
+ ]],
+ ["F · Naujienos sąraše",[
+  ["Pažiūrėk SD sąrašą.","Prie modelių: laikas ir dydis (pvz. „about 2h 46m · 19 MB“)."],
+  ["Seniems modeliams dydžio nėra - atidaryk vieną.","Atidarius ir grįžus, tas modelis jau rodo dydį."],
+  ["Perjunk dervą su kitu aukščiu ir pažiūrėk sąrašą.","Laikai pasikeitė VISIEMS modeliams. Dydžiai - ne."],
+ ]],
+ ["G · Svėrimas ir kalibracija",[
+  ["Settings → Resin calibration: įvesk pasverto vato gramus.","Peržiūra rodo ml dar prieš spaudžiant Set."],
+  ["Paspausk Set.","Likutis pagrindiniame lange pasikeitė į tą patį skaičių."],
+  ["Patikrink, ar tankis rodo aktyvios dervos.","Perjungus dervą tankis pasikeičia kartu."],
+ ]],
+ ["H · Apsaugos",[
+  ["Pradėk dry run. Bandyk perjungti dervą.","Neleidžia (mygtukas neaktyvus arba klaida)."],
+  ["Spausdinant atidaryk Settings → Resin.","Laukai pilki, Save neveikia."],
+  ["Biblioteka: pagrindinio lango sąraše jos NĖRA, Settings - yra.","Pagrindiniame tik tavo dervos; Settings apačioje „Tested resin library“."],
+ ]],
+ ["I · Biblioteka (nauja - gyvai iš gh-pages)",[
+  ["Pagrindinio lango dervų sąraše pažiūrėk apačią.","Eilutė „N tested resins available“. Katalogo ir Install ten NĖRA."],
+  ["Paspausk tą eilutę.","Nuveda į Settings ir atidaro pasirinkimą su „Tested resin library“."],
+  ["Settings pasirinkime pažiūrėk biblioteką.","Trys: SUNLU Toughness Resin (su ✓ tested by, 0,05 mm), Anycubic WW Clear ir Black - be ženkliuko ir <b>0,10 mm</b> (08-17: buvo 0,05 su 14 s ekspozicija, t. y. dviguba energija)."],
+  ["Paspausk Install ties SUNLU Toughness Resin.","Atsiranda kortelėje; sąraše jo nebelieka bibliotekos dalyje."],
+  ["Pasirink įdiegtą SUNLU ir pažiūrėk laukus.","18 s base, 8,0 s regular, 4 base sluoksniai, tankis 1,157."],
+  ["„Buy“ mygtuko NEIEŠKOK - jo neturi būti niekur.","Nei bibliotekos eilutėse, nei įdiegtuose profiliuose. Taip ir turi būti: firmware priima tik mūsų domenų nuorodas, o manifeste kol kas gamintojų. Vieta laukia realių adresų. Jei „Buy“ vis dėlto matosi - ✗."],
+  ["Išjunk telefono/kompiuterio internetą, atidaryk Settings pasirinkimą.","Rašo, kad bibliotekos nepavyko pasiekti, ir siūlo „refresh“ - ne tyli tuštuma."],
+  ["Įjunk internetą, spausk „refresh“.","Sąrašas grįžta be puslapio perkrovimo."],
+ ]],
+ ["J · Atsarginė kopija",[
+  ["Settings → Backup → parsisiųsk, tada atkurk.","Aktyvaus profilio vardas ir vato svoris grįžta."],
+ ]],
+ ["K · Peržiūra ir dervos perjungimas (pataisyta 08-16 vakare)",[
+  ["Įjunk detalų vaizdą. Prie Slow (0,10) atidaryk scull.","Modelis pilnas: nieko neperpjauta per pusę, centras vietoje."],
+  ["Perjunk į Fast (0,05) ir atidaryk scull dar kartą.","Vaizdas TIKSLIAI toks pat, kaip prie 0,10. Piešimas nuo dervos nebepriklauso."],
+  ["Tas pats su dragonHead ir ScreamingEvil.","Abu vienodi prie abiejų aukščių."],
+  ["Perjunk dervą pagrindiniame lange, žiūrėk į kortelę.","Jokio snackbaro. Layers/Time/Resin persiskaičiuoja patys: scull 0,05 → 480 ir ~2h 16m, 0,10 → 240 ir ~1h 32m."],
+  ["Kraunant peržiūrą („Building the 3D view N/240“) paspausk kito modelio eilutę.","Senas krovimas nutrūksta, prasideda naujas. Sustingusio skaičiaus nelieka."],
+  ["Kraunant peržiūrą ištrink kitą modelį (kortelę užima SD darbas).","Peržiūra arba pabaigia, arba rašo „Preview stopped … click to load again“. Amžinai sustingęs skaičius = ✗."],
+  ["Paspausk ant sustojusio vaizdo.","Krovimas prasideda iš naujo."],
+  ["dragonHead (turi tik 0,10 kartos paveikslėlį): perjunk į 0,05 ir atidaryk.","Paveikslėlis NEDINGSTA ir nereikia laukti perpiešimo."],
+  ["⚠️ DRY RUN. Prie printerio paspausk Start, kol kabo „VAT refilled?“, telefone perjunk dervą į kitą aukštį, tada patvirtink Start.","Spausdina TEISINGĄ skaičių pagal naują dervą (0,05 → 480, 0,10 → 240), ne senąjį."],
+  ["⚠️ DRY RUN prie 0,10 su jau paruoštu 3D.","Kortelė 3D neperkrauna iš naujo, vaiduoklis (neatspausdinta dalis) matomas nuo pirmo sluoksnio."],
+ ]],
+ ["L · Saugikliai (antrasis auditas, 08-16 vakare)",[
+  ["⚠️ DRY RUN. Paleisk, po kelių sluoksnių išjunk maitinimą. Įjungęs, kol ekrane kabo „Resume?“, telefone bandyk perjungti dervą, Reset to defaults ir Restore backup.","VISI trys atsisako: „a print is waiting to be resumed“. Nustatymai nepasikeičia."],
+  ["Tada prie printerio spausk Resume.","Tęsia normaliai nuo to paties sluoksnio."],
+  ["⚠️ Pakartok, bet aukštį pakeisk PRIE PRINTERIO (Advanced → Resin → Profile su kitu aukščiu), tada Resume.","Ekranas: „Layer height changed after this print - it cannot be resumed“ ir grįžta į pradžią. Plokštė NEJUDA žemyn."],
+  ["Prie printerio palaikyk OK ant modelio („Delete model?“), tuo metu telefone perjunk dervą su kitu aukščiu.","Klausimas LIEKA. Jei virsta į peržiūrą su [Start] - ✗ (pirštas jau ant OK)."],
+  ["Perjunk dervą, tada Settings pažiūrėk Undo prie ekspozicijos.","Siūlo tą reikšmę, kurią perjungimas ką tik pakeitė (ne senesnę, svetimą)."],
+  ["Perjunk dervą ir pažiūrėk Resin calibration kortelę.","Nebesiūlo kalibruoti pagal paskutinį spaudinį - jis buvo su kita derva."],
+  ["Settings → Reset to defaults.","Dervos eilutė rodo „Slow resin (factory)“, ne senąjį pavadinimą."],
+  ["Perjunk dervą, palauk ~pusę minutės (jei Connect įjungtas).","Debesų kopija atsinaujina: po restore grįžta NAUJOS dervos reikšmės."],
+ ]],
+ ["M · Trečiasis auditas (ką sugadino pačios pataisos)",[
+  ["Settings → Reset to defaults, tada pažiūrėk dervos eilutę IR Layer height lauką.","Abu sako 0,10 mm. Anksčiau eilutė rodė „Slow · 0,05“, o mašina spausdino 0,10."],
+  ["Pažiūrėk, ar prie „Slow resin (factory)“ yra ženkliukas „edited“.","Nėra, kol nieko nekeitei. Pakeitus reikšmę - atsiranda; „Reset to factory“ jį nuima."],
+  ["⚠️ DRY RUN. Nutrauk maitinimą, po įkrovos pakeisk aukštį prie printerio, spausk Resume, perskaityk pranešimą ir palauk.","Po pranešimo GRĮŽTA klausimas „Power restored“ - vadinasi gali pakelti plokštę (UP) arba atmesti. Neišmeta į meniu su plokšte vate."],
+  ["Po to iškart perkrauk printerį (be spausdinimo).","Pulte NĖRA pranešimo, kad printeris mirė spausdindamas."],
+  ["Prie klausimo „Power restored“ paspausk Back (atmesti), tada telefone keisk bet kurį nustatymą.","Keičiasi normaliai. Jei rašo „a print is waiting to be resumed“ - ✗ (užraktas užstrigo)."],
+  ["dragonHead (tik vienos kartos vaizdas): perjunk dervą ir atidaryk jį.","Vaizdas iškart, be pilno perpiešimo („Building the 3D view…“ nerodo)."],
+ ]],
+ ["N · Bendras naudojimas (iš scenarijų sąrašo)",[
+  ["B1 · PrusaSlicer „Send to printer“.","Pulte „Unpacking X“, baigus modelis sąraše su „New“, laiku ir dydžiu."],
+  ["B2 · Ištrink nereikalingą modelį iš pulto.","„Deleting X“ visuose įrenginiuose, pultas gyvas, sąrašas atsinaujina pats."],
+  ["B5 · Atnaujink firmware per Update kortelę.","Po perkrovimo puslapiai atsinaujina patys; nustatymai ir derva išlieka."],
+  ["B7 · Backup → pakeisk ką nors → Restore.","Grįžta ekspozicijos, dervos vardas, vato svoris; kalibracija nesiūlo senos dervos spaudinio."],
+  ["C1 · Išjunk WiFi ir spausdink nuo ekrano.","Viskas veikia; Advanced → Resin turi bent du įsiūtus profilius."],
+  ["D1 · ⚠️ DRY RUN. Spausdinant atsidaryk pultą telefone.","Progresas, likęs laikas, augantis 3D su vaiduokliu. Printeris nesulėtėja."],
+  ["D3 · ⚠️ DRY RUN. Pauzė iš pulto, palauk, tada Resume.","Pranešimai su laukimo trukme VISUOSE įrenginiuose; tęsia nuo to paties sluoksnio."],
+  ["D4 · Leisk likučiui nukristi žemiau ribos (arba nustatyk mažą).","Printeris sustoja pats, praneša pulte ir Telegram; papylus Resume tęsia."],
+ ]],
+];
+let S=JSON.parse(localStorage.getItem('t016')||'{}');
+let N=JSON.parse(localStorage.getItem('t016n')||'{}');   // pastabos, viena eilutei
+function render(){
+ const L=document.getElementById('list'); L.innerHTML='';
+ let n=0,done=0;
+ G.forEach(([title,items],gi)=>{
+  const d=document.createElement('div'); d.className='grp';
+  d.innerHTML='<h2>'+title+'</h2>';
+  items.forEach(([q,exp],ii)=>{
+   const id=gi+'-'+ii; n++; const st=S[id]||'';
+   if(st)done++;
+   const row=document.createElement('div');
+   row.className='t'+(st==='ok'?' ok':st==='bad'?' bad':'')+(q.indexOf('⚠️')>=0?' warn':'');
+   const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+   row.innerHTML='<div class="n">'+n+'</div>'+
+     '<div class="act"><button data-i="'+id+'" data-v="ok" class="'+(st==='ok'?'on':'')+'">✓</button>'+
+     '<button data-i="'+id+'" data-v="bad" class="'+(st==='bad'?'on':'')+'">✗</button></div>'+
+     '<div class="q"><b>'+q+'</b><span>'+exp+'</span>'+
+     '<input class="nt" data-nt="'+id+'" value="'+esc(N[id]||'')+'" placeholder="pastaba (skaičiai, kuriame įrenginyje, kas ne taip)"></div>';
+   d.appendChild(row);
+  });
+  L.appendChild(d);
+ });
+ document.getElementById('cnt').textContent=done+' / '+n;
+ L.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+   const i=b.dataset.i; S[i]=(S[i]===b.dataset.v)?'':b.dataset.v;
+   localStorage.setItem('t016',JSON.stringify(S)); render();});
+ /* Pastaba issaugoma rasant ir BE perpiesimo - kitaip po kiekvienos raides
+    dingtu ivedimo vieta. */
+ L.querySelectorAll('input.nt').forEach(inp=>inp.oninput=()=>{
+   const i=inp.dataset.nt; if(inp.value)N[i]=inp.value; else delete N[i];
+   localStorage.setItem('t016n',JSON.stringify(N));});
+}
+function setAll(v){S={};if(v){G.forEach((g,gi)=>g[1].forEach((x,ii)=>S[gi+'-'+ii]=v));}
+ else{N={};localStorage.setItem('t016n','{}');}   // „Išvalyti" nuima ir pastabas
+ localStorage.setItem('t016',JSON.stringify(S));render();}
+function copyReport(){
+ let t='0.17 dervų profiliai - geležies testai (build '+BUILD+')\n\n';
+ G.forEach(([title,items],gi)=>{t+=title+'\n';
+  items.forEach(([q],ii)=>{const id=gi+'-'+ii,s=S[id];
+   t+='  '+(s==='ok'?'[v]':s==='bad'?'[X]':'[ ]')+' '+q+'\n';
+   if(N[id])t+='      pastaba: '+N[id]+'\n';});
+  t+='\n';});
+ document.getElementById('out').value=t;
+ document.getElementById('out').select();
+ try{document.execCommand('copy');}catch(e){}
+}
+document.getElementById('bld').textContent=BUILD;
+render();
+</script>
+</body></html>

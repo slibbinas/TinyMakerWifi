@@ -1,0 +1,193 @@
+  <section id='slicerCard' class='card hidden'>
+    <!-- Varnele - IS KARTO po pavadinimo (V 08-21): ji priklauso pavadinimui.
+         Versijos piliules cia nebera (V 08-22): antrasteje ji atrode kaip busenos
+         zenklas, nors yra tik prierasas, ir sedejo salia mygtuko, kuri reikia
+         matyti pirma. Versija nusikele i korteles apacia desineje - ten, kur jos
+         ieskoma tada, kai ji tikrai reikalinga. `slicerState` isnyko kartu su
+         septyniu bakstelejimu gestu: kortele dabar rodoma tik tada, kai modulis
+         gyvas, tad „not active" nebeturi kada suveikti. -->
+    <div class='cardHead'><h2>STL slicer <button id='slicerToggle' class='button secondary'
+              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button></h2></div>
+    <div id='slicerBody' style='display:none'>
+      <div id='slicerTools' class='toolbar' style='margin-top:0'>
+        <button id='slicerAutoFit' class='button secondary' type='button' disabled
+                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+        <!-- Antras pastatymas: to paties darbo kruopstusis kelias. Atskiras mygtukas,
+             o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
+             laimejo arba prarado - pasako eilute faktu sarase. -->
+        <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
+                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-20 s on big models.'>Optimal fit</button>
+        <button id='slicerFlat' class='button secondary' type='button' disabled
+                title='Put the widest flat face down on the plate'>Lay flat</button>
+        <button id='slicerFlip' class='button secondary' type='button' disabled
+                title='Turn the model upside down'>Flip over</button>
+        <button id='slicerRotX' class='button secondary' type='button' disabled
+                title='Tilt forward a quarter turn'>Tilt 90°</button>
+        <button id='slicerRotZ' class='button secondary' type='button' disabled
+                title='Spin on the plate a quarter turn'>Rotate 90°</button>
+      </div>
+      <div id='slicerFit' style='display:none'></div>
+      <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
+      <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
+
+      <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
+           naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
+           netikrintas ant gelezies. -->
+      <!-- `nowrap`: `.calRow` pagal nutylejima laužo eilute, ir platus vardo laukas
+           nusileisdavo i savo eilute. Vardas turi prasideti tuoj po „tree" ir eiti
+           iki krasto - viena eilute, be tuscios vietos (V 08-20). -->
+      <!-- NEMATOMA LENTELE: mygtuku eilute zemiau yra dvi lygios kolonos, tad ta pati
+           lentele uzdeta ir cia - kaireje nustatymai, desineje vardas. Del to vardo
+           lauko krastai stovi tiksliai ties „Send to printer" krastais, nors jokiu
+           liniju nesimato (V 08-20: „nematoma lentele"). -->
+      <!-- Atramu tipas nusikele i parametru bloka PO mygtuku eilute (V 09-02):
+           kartu su kitais penkiais jis yra nustatymas, o ne kelio dalis. Vardas
+           liko CIA, virs mygtuku, ir issitiese per visa ploti - ji rasai
+           kiekviena karta, o parametrus lieti retai, tad kasdienis kelias
+           (vardas -> Choose -> Slice -> Send) nepailgejo. -->
+      <div class='calRow' id='slicerSupRow'
+           style='margin-top:6px;gap:8px;align-items:center'>
+        <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
+             vardas yra nustatymas, ne veiksmas (V 08-20).
+             Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
+             sustodavo vidury tuscios vietos ir nestovedavo po niekuo (V 08-20). -->
+        <!-- Jokio autocomplete: sarasas su anksciau vestais vardais nusileidzia
+             tiesiai ant „Choose STL · Slice · Send" eilutes, o zmogus tuo metu
+             ieško butent ju. Vardas cia ateina is failo, siulymo nereikia.
+             Chrome i „off" atsizvelgia tik tada, kai lauko vardas jam nieko
+             nesako - todel duotas savas (pultas laukeli ima pagal id). -->
+        <input id='slicerName' type='text' placeholder='model name' maxlength='40'
+               title='Letters, digits, - and _ . The printer screen shows about the first 14'
+               name='tm-noac-name' autocomplete='off' autocorrect='off'
+               autocapitalize='off' spellcheck='false' data-form-type='other'
+               data-lpignore='true'
+               style='width:100%;min-width:0;margin:0' disabled>
+      </div>
+
+      <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
+      <div class='calRow' style='margin-top:6px;gap:8px'>
+        <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
+          <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
+        <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
+        <!-- Netelpanciam modeliui - TOJE PACIOJE vietoje, kur ieskoma „Slice".
+             Uzrasas apacioje („too large - Fit it") sakė teisybe, bet akis tuo metu
+             ziuri i uzrakinta mygtuka ir jo nemato (V 08-19). -->
+        <button id='slicerFitNow' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'
+                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+        <!-- Tas pats lizdas, trecias pavidalas: supjausčius kitas zingsnis yra
+             issiuntimas, tad jis ir stovi ten, kur zmogus ka tik spaude. Atskiros
+             eilutes su „Save to printer" nebereikia (V 08-20). -->
+        <button id='slicerSend' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
+      </div>
+      <!-- Rezultatas ir jo atsisakymas - TIESIAI po mygtukais (V 08-20: „Discard“
+           desineje, tiksliai po „Slice“). 09-03: nukelus parametrus zemyn, si eilute
+           liko po jais ir „Discard“ atsidure prie „Reset to defaults“ - ne po tuo,
+           ko atsisakoma. Grazinta. Tuscia ji suskleidziama (zr. slicer.css). -->
+      <div class='calRow' id='slicerResRow'>
+        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
+             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
+             lieka kaireje - ji ir taip skaitoma is kaires. -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
+        <a href='#' id='slicerDiscardLink'
+           style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
+      </div>
+      <!--
+        SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
+        Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
+        raftas: jo numatytoji skaiciuojama is `RAFT_MM` taip, kad iseitu 0,30 mm
+        FIZINIO pado. Nuo 09-06 tai 3 sluoksniai (buvo 6) - V atspausdino kupona
+        tikra derva ir pamatavo, kad padas iseina ~0,15 mm storesnis uz nominala,
+        o storesni uz 0,30 mm nusiima tik su jega.
+        Mygtukai: 2 · 3 · 6. Vienetas isimtas 09-06, nes ties juo raftas prie
+        detales NEPRIKIMBA - padas ir modelis lieka atskiri kunai (18 demeliu po
+        2-4 px), o prie dvieju useliai suauga i viena. Sesetas paliktas kaip
+        atsarga dideliam spaudiniui, kuris gali nusilupti nuo plokstes - to
+        atvejo kuponas netikrino.
+        Raftas rodomas SLUOKSNIAIS, ne milimetrais, ir tam yra dvi priezastys:
+        atspausdintas padas storesnis uz nominala, o spausdinant 0,1 mm printeris
+        is triju sluoksniu apsviecia du. Milimetrai butu tikslus tik viename
+        rezime, sluoksniai teisingi visuose.
+      -->
+      <div id='slicerParams'>
+        <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-supports'>
+            <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
+            <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-strength'>Strength</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-strength'>
+            <label><input type='radio' name='slicerSupDens' value='0.7'><span>light</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1' checked><span>normal</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1.4'><span>strong</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-placement'>Placement</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-placement'>
+            <label><input type='radio' name='slicerPlace' value='auto' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerPlace' value='pad'><span>pad</span></label>
+            <label><input type='radio' name='slicerPlace' value='lift'><span>lifted</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-tip'>Tip</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-tip'>
+            <label><input type='radio' name='slicerTip' value='0' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerTip' value='0.4'><span>0.4</span></label>
+            <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
+          </div>
+        </div>
+        <!-- Vienetas - ANTRASTEJE, ir tai SLUOKSNIAI, ne milimetrai (V 09-03).
+             Milimetrai cia buvo ir buvo nuimti: „0,30 mm“ teisinga tik prie 0,05
+             profilio, o pultas moduliui sluoksnio aukscio nepaduoda (zr.
+             `SLICER_LH` komentara slicer.js) - tad prie 0,1 tas skaicius meluotu.
+             Sluoksniu skaicius teisingas visada.
+             Numatytoji cia NEZYMIMA - ja stato JS. -->
+        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft layers</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
+            <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
+            <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
+            <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-smoothing'>Smoothing</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-smoothing'>
+            <label><input type='radio' name='slicerSmooth' value='on' checked><span>on</span></label>
+            <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
+          </div>
+        </div>
+        <!-- „Reset“ - sava eilute per abi kolonas. Prilipdytas prie „Smoothing“
+             jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
+        <div class='spReset'><a href='#' id='slicerParamsReset'
+             title='Back to the values the slicer ships with'>Reset to defaults</a></div>
+      </div>
+
+      <!-- Pats siuntimo mygtukas lieka, tik nematomas: visa jo logika (vardai,
+           perrasymas, eiga) sukasi cia, o „Send to printer" ji tik paspaudzia. -->
+      <button id='slicerSave' type='button' style='display:none' disabled>Save to printer</button>
+      <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
+           tad jos neatrode kaip vienas sarasas (V 08-12). -->
+      <div id='slicerFacts'>
+      <div id='slicerDims'></div>
+      <div id='slicerInfo'>No file loaded yet.</div>
+      <div>Layers are 0.05 mm, as for every model.</div>
+      <div id='slicerSupports'>Supports and a raft are added where the part hangs.</div>
+      <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
+           Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
+           prarado, ir galeti grizti (V 08-20). -->
+      <div id='slicerPlaceNote'></div>
+      <div id='slicerIslands'></div>
+      </div>
+      <!-- Versijos cia NEBERA (V 09-08). Korteleje ji tik ilgino bloka, o slicerio
+           kortele ir taip auga zemyn labiau uz kaireje esancia perziura.
+           Isimti saugu: `slicer.js` raso per `if(e)`, o Update skiltis versija gauna
+           atskirai, per `slicerLoadedVer`.
+           ⚠️ Settings -> Update rodo NE ta pacia reiksme: ten `slmInstalled` sako, kas
+           guli ant korteles (`/api/lib/slicer`), o uzsikrovusio modulio versija
+           parodoma tik `slmReload` eiluteje ir tik tada, kai abi zinomos IR skiriasi.
+           Vadinasi, kai modulis paimtas is tinklo (korteleje jo nera) arba kai
+           spausdinama, veikiancio modulio versijos nesimato niekur. Tai zinoma skola,
+           ne apsirikimas (printerio sesijos vartai 09-08). -->
+    </div>
+  </section>

@@ -75,10 +75,53 @@ bool telegramSendMessage(const String &text, String &error) {
 // WhatsApp - one at a time, picked in Settings). Failures are swallowed:
 // a print must never stall because a chat message could not be delivered.
 void telegramNotify(const String &text) {
+  // Route by "can actually send", not just the enable flag: a half-configured
+  // channel bails before any TLS and must not cost the preview cache below.
+  // (Settings allows one channel at a time, so ready-routing == flag-routing
+  // in practice.)
+  bool tgReady = tgEnabled && tgToken.length() > 0 && tgChat.length() > 0;
+  bool waReady = waEnabled && waPhone.length() > 0 && waApiKey.length() > 0;
+  bool dcReady = dcEnabled && dcWebhook.length() > 0;
+  if (!tgReady && !waReady && !dcReady) return;
+  // Mid-print the model-preview RAM snapshot (~66-74 KB) fragments the heap:
+  // maxAllocHeap drops ~110 KB -> ~48 KB and every TLS send fails with
+  // "connection refused" (mbedTLS can't get its buffers; measured on hardware
+  // 08-08 - this also silently killed the old low-resin pause notification).
+  // Free it around any notify: all three channels are HTTPS. The print-end
+  // path already ran freePreviewCache() before its notify - this generalizes
+  // that to the mid-print sends (low-resin warn/stop). No-op when empty.
+  bool hadPreview = previewCacheBuf != nullptr;
+  freePreviewCache();
   String error;
-  if (tgEnabled) telegramSendMessage(text, error);
-  else if (waEnabled) whatsappSendMessage(text, error);
-  else if (dcEnabled) discordSendMessage(text, error);
+  bool sent = false;
+  if (tgReady) sent = telegramSendMessage(text, error);
+  else if (waReady) sent = whatsappSendMessage(text, error);
+  else if (dcReady) sent = discordSendMessage(text, error);
+  // #88: remember the outcome. The failure stays swallowed - a print must not
+  // stall over a chat message - but it stops being invisible: the dashboard can
+  // now say "failed: connection refused" instead of looking perfectly healthy
+  // while nothing arrives. One place for all three channels, on purpose.
+  notifyLastTried = true;
+  notifyLastOk = sent;
+  notifyLastAtMs = millis();
+  if (sent) notifyLastReason[0] = 0;
+  else {
+    strncpy(notifyLastReason, error.c_str(), sizeof(notifyLastReason) - 1);
+    notifyLastReason[sizeof(notifyLastReason) - 1] = 0;
+  }
+  // Re-load the thumbnail from SD once the send is done (V 08-08): the TLS
+  // connection is closed so the heap is back, and this runs in the print
+  // loop itself (single thread - no SD contention with layer reads; a
+  // one-shot read smaller than one layer PNG). Skipped on the cancel path
+  // (tgNotifyCanceled fires ~20 lines before the print-exit free - a
+  // re-capture there would be wasted SD work) and once the print is done.
+  // Slack 16 -> 12 KB (auditas 08-14): gyvas siluetu buferis paaugo 7,8 KB (80x60), tad
+  // su senu reikalavimu miniatiura po zinutes daug dazniau nebegriztu ir dingtu visam
+  // likusiam spaudiniui. 12 KB vis dar didesnis uz didziausia likusia mid-print
+  // alokacija (~12 KB statuso JSON String). Best-effort - didziausi renderiai (~70 KB)
+  // vis tiek gali netilpti; tada miniatiura 409'ina iki spaudinio pabaigos.
+  if (hadPreview && printerBusy() && !print_canceled && !homing_canceled)
+    capturePreviewCache(12 * 1024, false);
 }
 
 void tgNotifyFinished() {
@@ -91,16 +134,53 @@ void tgNotifyFinished() {
   telegramNotify(msg);
 }
 
+// Progress context (V 08-08): every mid/end-of-print message carries
+// "layer x/y" + elapsed time so the phone alone tells where the print stands.
 void tgNotifyLowResin() {
-  telegramNotify("Low resin - printer paused. Refill the VAT to resume.");
+  uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
+  String msg = "Low resin - printer paused at layer " + String(current_layer) +
+               "/" + String(layer_counter);
+  if (secs) msg += " (" + formatDuration(secs) + " in)";
+  msg += ". Refill the VAT to resume.";
+  telegramNotify(msg);
+}
+
+// 0.17 #40: one-shot heads-up sent BEFORE the low-resin stop, from the print
+// loop at the idle between-layers gap, so a refill is not a surprise.
+// Progress as "layer x/y" (V 08-08 - the runway reads at a glance); the
+// minutes-to-stop estimate is appended only when a rate exists (fires
+// before layer 5 -> too early to know one; "(~0 layers, ~0 min)" was noise).
+void tgNotifyLowResinSoon(float ml, int minsToStop) {
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  String msg = "Low resin soon - ~" + String(ml, 1) + " ml left (layer " +
+               String(current_layer) + "/" + String(layer_counter);
+  if (minsToStop > 0) msg += ", ~" + String(minsToStop) + " min to stop";
+  msg += "). Refill when you can.";
+  telegramNotify(msg);
 }
 
 void tgNotifyCanceled() {
   if (!tgEnabled && !waEnabled && !dcEnabled) return;
   uint32_t secs = printStartMs ? (millis() - printStartMs) / 1000UL : 0;
   String msg = "Print canceled";
+  // current_layer 0 = canceled during homing, before any layer - skip x/y.
+  if (current_layer > 0 && layer_counter > 0)
+    msg += " at layer " + String(current_layer) + "/" + String(layer_counter);
   if (secs) msg += " after " + formatDuration(secs);
   msg += ".";
+  telegramNotify(msg);
+}
+
+// 0.17: power came back and a print was interrupted mid-run. Sent once per boot
+// from network_setup() after WiFi is up (resumeLayer/Total/Folder were filled by
+// resumeLoad() at boot). Lets a user who is away know to resume (screen prompt +
+// dashboard Resume). Same opt-in channel as the other notifications.
+void tgNotifyPowerRestored() {
+  if (!tgEnabled && !waEnabled && !dcEnabled) return;
+  String msg = "Power restored - print interrupted at layer " +
+               String(resumeLayer) + "/" + String(resumeTotal);
+  if (resumeFolder[0]) msg += " (" + String(resumeFolder) + ")";
+  msg += ". Resume from the dashboard or the printer.";
   telegramNotify(msg);
 }
 
@@ -117,6 +197,18 @@ String tinymakerTelegramConfigJson() {
   out += "\",\"tgChat\":\"";
   out += jsonEscape(tgChat);
   out += "\"";
+  // #88: delivery of the LAST message, whichever channel sent it. Absent until
+  // something has actually been sent, so a fresh printer shows no line at all
+  // rather than a scary "not delivered".
+  if (notifyLastTried) {
+    out += ",\"notifyLastOk\":";
+    out += notifyLastOk ? "true" : "false";
+    out += ",\"notifyLastAgo\":";
+    out += String((millis() - notifyLastAtMs) / 1000UL);
+    out += ",\"notifyLastReason\":\"";
+    out += jsonEscape(String(notifyLastReason));
+    out += "\"";
+  }
   return out;
 }
 

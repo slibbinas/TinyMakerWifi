@@ -1,12 +1,12 @@
 /**
  * @file TinyMaker-Firmware-v1-0-2.ino
- * @author Tinymaker Team (Original), Viktoras Šidlauskas (Modified)
+ * @author Tinymaker Team (Original), Viktoras Sidlauskas (Modified)
  * @version 1.0.2-vs-wifi-0.1
  * @date 2027-07-26
  * @brief Main firmware for Tinymaker MSLA 3D Printer.
  *
  * board ESP32-WROOM-32E-N4
- * Modifications by Viktoras Šidlauskas slibbinas@gmail.com
+ * Modifications by Viktoras Sidlauskas slibbinas@gmail.com
  *
  * This file handles the entire print process, UI interaction, motor control, and UV exposure logic. 
  *
@@ -64,8 +64,93 @@
 // files compiled before it (Interface.ino, TinyMaker.ino)
 extern double resinUsedMl;
 extern double resinEstimateMl;
+
+// --- Resin volume math (R-cal 0.17): ONE definition for the whole build ---
+// One masking-LCD pixel area: 40.8 x 30.6 mm / (320 x 240) = 0.01626 mm^2 (from
+// the PrusaSlicer TinyMaker profile). Volume = whitePixels * PX_AREA_MM2 *
+// layerHeight (mm) -> mm^3; /1000 -> ml.
+// This lived in PNG.ino, which is concatenated AFTER Network.ino - so
+// estimateModelResin() carried a duplicated bare 0.01626 literal. Declared here
+// (TinyMaker.ino is prepended first) every estimate site shares one formula,
+// which is also the single place the R-cal factor hooks into.
+#define PX_AREA_MM2 0.01626
+// Resin profiles (ResinProfile.ino) - declared here because Interface.ino and
+// Network.ino come before it in the .ino concatenation order.
+#define RESIN_MAX_PROFILES 16
+// A profile is the whole print recipe: everything that decides how the print
+// comes out. What stays outside describes the MACHINE and changes nothing about
+// the result - VAT size and empty weight, the low-resin warning levels, "ask
+// about refill", the pause inspection lift and the screen sleep.
+//
+// Layer height is IN (V 08-16). Exposure without it is an incomplete recipe -
+// 0.05 mm needs less light than 0.10 mm - so two profiles for one resin is the
+// normal case, exactly like a slicer's "material x layer height" rows. It also
+// makes the flat-print mismatch LESS likely, not more: today the printer's
+// height and the slicer profile are matched by hand in two separate places,
+// which is how that bug happened at all. LH-chk still checks the file itself.
+struct ResinProfileValues {
+  float layerHeight;   // mm - only 0.05 or 0.10 exist on this machine
+  long baseExposure;   // whole seconds (EEPROM addr 2)
+  long regularDs;      // deciseconds (0.17 0-3)
+  uint8_t baseLayers;
+  uint8_t transitionLayers;
+  uint8_t slowLiftDist, fastLiftDist;      // mm
+  int slowLiftFeed, fastLiftFeed, dropBackFeed;   // mm/min
+  float density;       // g/ml
+  float calFactor;     // R-cal slope
+  float fixedMl;       // R-cal per-print offset (ml)
+  // The weighed samples travel WITH the resin. They are grams measured against
+  // one particular resin, so leaving them on the machine would let the next
+  // weighing fit a line through two different resins - and would make the
+  // dashboard call a never-weighed resin "calibrated". -1 = no sample.
+  float calRawA, calGramsA, calRawB, calGramsB;
+};
+// Provenance travels WITH the profile, not just in the gh-pages catalogue: once
+// installed, a profile still has to be able to say who tested it and where to
+// buy it, otherwise the badge disappears exactly when the resin starts being
+// used (V 08-16). Empty = unknown, which is the normal case for a profile the
+// user saved themselves.
+struct ResinProfileMeta {
+  String testedBy;     // who printed with it - "" for a self-made profile
+  String testedOn;     // when, free text ("2026-08")
+  String buyUrl;       // affiliate/redirect link, shown only when present
+};
+// One read of the profile file answers everything the list needs.
+struct ResinProfileInfo {
+  ResinProfileValues v;
+  ResinProfileMeta meta;
+  String display;
+  bool builtin;
+  bool edited;         // a built-in whose numbers differ from the flash ones
+  bool hasFile;        // an overlay file exists on the card (may equal factory)
+};
+void resinProfileFromCurrent(ResinProfileValues &v);
+bool resinProfileValues(const String &name, ResinProfileValues &v);
+bool resinProfileInfo(const String &name, ResinProfileInfo &info);
+String resinProfilePath(const String &name);
+int listResinProfiles(String out[], int maxN);
+bool resinProfileExists(const String &name);
+bool applyResinProfile(const String &name);
+void publishStopEstimate(int fromPhase);   // Motor.ino - stabdymo laukimo ivertis
+bool writeResinProfile(const String &name, const String &display);
+bool writeResinProfileValues(const String &name, const String &display,
+                             const ResinProfileValues &vals, const ResinProfileMeta &meta);
+bool deleteResinProfile(const String &name);
+String nextResinProfile(const String &current);
+String sanitizeSlug(const String &in, const char *fallback = "downloaded");
+int resinBuiltinIndex(const String &name);
+bool resinProfileFileExists(const String &name);
+
+inline double pxToMlRaw(unsigned long px, float layerH) {
+  return (double)px * PX_AREA_MM2 * layerH / 1000.0;   // RAW - no calibration
+}
 bool estimateResin();               // returns true if user chose Start
 bool startFromResin = false;        // set when Start pressed on resin screen
+// The layer height in force when the staged model counted its layers. A resin
+// profile carries its own height, so a switch from the browser between staging
+// and Start would otherwise print with the old count - half the model at
+// 0.10 -> 0.05, or past the last slice the other way (V asked, 08-16).
+float stagedLayerHeight = -1;
 bool webStartPrint = false;         // set by the web SD manager after preview validation
 bool webResumePrint = false;        // set by the web dashboard while paused
 
@@ -83,6 +168,12 @@ String sdJobName = "";              // model the job works on (shown in /api/sta
 String sdJobZipPath = "";           // import: uploaded archive waiting to be unpacked
 ModelImportOptions sdJobImportOptions;  // import: options captured from the upload request
 bool sdJobRunning = false;          // true while the job body executes (enables servicing)
+// SD-prog: how far the job is. The printer's own screen has shown this all
+// along ("Unpacking layers 120/240", the delete bar); the numbers simply never
+// reached /api/status, so every dashboard sat on a mute "Importing model" for
+// the whole minute. Defined here, not in Network.ino, because Folder.ino writes
+// them and precedes Network.ino in the .ino concatenation.
+int sdJobDone = 0, sdJobTotal = 0;  // 0/0 = no count available for this job
 // 0-28: SD content revision - bumped after any unpack/delete/import so every
 // dashboard reloads its SD list. Defined here (not Network.ino) because
 // Folder.ino bumps it too and precedes Network.ino in the .ino concatenation.
@@ -93,7 +184,11 @@ uint32_t sdRev = 0;
 // print-start code in this (first) file can see them.
 bool resumeStartPrint = false;      // boot resume prompt accepted -> start path
 bool resumeBootPending = false;     // suppresses the boot-update prompt
+bool powerRestoreNotifyPending = false; // 0.17: send one "power restored" push once WiFi is up this boot
 bool networkStarted = false;        // network_setup ran (it is idempotent via this)
+bool mdnsAnnounced = false;         // MDNS.begin() succeeded; false after an
+                                    // offline boot, so the network_loop
+                                    // watchdog knows it still owes the announce
 // 0-33: the dashboard's answer to the boot resume prompt - set by the
 // /api/resume/* handlers, consumed in loop() while screen 427 is up.
 // 'R' resume, 'L' lift plate + discard, 'D' discard. Deferred to loop()
@@ -107,6 +202,12 @@ double resumeResinMl = 0;           // resinUsedMl at the checkpoint
 uint32_t resumeElapsedSecs = 0;     // print time elapsed at the checkpoint
 uint32_t resumeUvLedSecs = 0;       // uvLedSessionMs (as secs) at the checkpoint
 char resumeFolder[101] = "";        // model folder of the interrupted print
+// Layer height of the interrupted print, in hundredths of a mm. resumeLoad()
+// checks it at boot, and the recovery move is computed from the height in force
+// when Resume is finally pressed - so it is checked again there. Every route
+// that could move the height in between now answers 409 while the prompt
+// stands; this is the belt behind those braces (audit 08-16).
+int resumeLayerHeightCm = -1;
 
 // Print-list selection kind: false = model folder (OK prints), true =
 // .sl1/.zip archive in the SD root (OK imports/converts it). Maintained by
@@ -117,21 +218,97 @@ bool selIsArchive = false;
 // vatRemainingMl counts down from "VAT refilled" by each layer's cured-volume
 // estimate. -1 = never set; lazily seeded to Vat_Capacity_Ml (see vatRemaining()).
 float vatRemainingMl = -1;
-bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
-uint8_t lowResinThresholdMl = 2;    // warning threshold (ml, 1..3); also pre-start check
+/* On by default since 0.17 (V 2026-09-10). It used to be opt-in, back when the stop
+   level was a matter of taste. It is not one any more: below the level the vat floor
+   goes dry, and no part of any shape can print. Leaving the choice in front of people
+   only offered them "let the printer carry on into an empty vat" - and a fresh printer
+   took that option by itself, since the box started out unticked. */
+bool lowResinPauseEnabled = true;   // pause between layers when estimate runs low
+/* The vat is 42x52 mm inside, so 1 mm of resin is 2.18 ml. Poured resin stops covering
+   the whole floor at 3.98 ml, i.e. 1.8 mm (weighed 2026-09-10: 61.17 g against 56.56 g
+   empty). Resin also clings to the walls, so the middle can open a dry patch above that
+   level. Hence 3 ml is the floor of the range and 4 ml the default - V's own millilitre
+   of margin over the measurement.
+   Until 0.17 the range was 1..3, so its highest setting was 1.4 mm: BELOW the level
+   where printing is still possible. The setting could not be made to work in any of its
+   positions, and a print stopped forming layers without ever tripping it. */
+uint8_t lowResinThresholdMl = 4;    // 0.17 #40: STOP level (ml, 3..8) - pause/stop trigger; also pre-start check
+uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 5..8) - warns (keeps printing), independent of the stop checkbox
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
+bool pauseLiftForResin = false;     // 0.17: the pause lift under way is a resin pause - the LCD band says "Resin low..."
+bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per print (re-armed on refill)
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
 bool askRefillEnabled = true;       // ask "VAT refilled?" before every print
+bool previewFlip = false;           // dashboard 3D preview upside down (a viewing
+                                    // preference - lives in printer config so it
+                                    // holds across every browser/phone)
 bool refillAsked = false;           // the ask was answered for this start attempt
 float resinNeedForModelMl = -1;     // fresh full-model estimate for the selected
                                     // model (-1 = none); set by the resin screen,
                                     // cleared when a new preview opens
 
+// --- R-cal (0.17): white-pixel -> ml correction measured against a scale ---
+// The geometric estimate ignores what really leaves the vat: resin clinging to
+// the plate, dripping off during the lift, cured supports, over-cure bloom. One
+// weighed print fixes all of it at once: factor = measured_ml / raw_estimate_ml.
+// Applied at every display/accumulation point (model.json keeps the RAW value,
+// so re-calibrating updates already-scanned models too).
+// Two physically different errors, so two numbers (V 08-09):
+//   used_ml = raw_geometric_ml * resinCalFactor + resinFixedMl
+// * resinCalFactor scales with the model - it corrects the GEOMETRY estimate
+//   (pixel area, layer height, over-cure bloom).
+// * resinFixedMl is per-print and size-independent - the film that coats the
+//   plate and drips off when it comes out. Multiplying it by the geometry
+//   correction would be meaningless, hence + and not *.
+// One weighed print cannot separate a slope from an offset, so calibration
+// keeps TWO samples of clearly different size and solves the line through them.
+#define RESIN_DENSITY_DEF 1.1f      // SUNLU spec 1.06-1.16; measurable, see below
+#define RESIN_CAL_MIN 0.5f
+#define RESIN_CAL_MAX 2.0f
+#define RESIN_FIXED_MAX 10.0f       // ml of plate film - more than this is a typo
+float resinCalFactor = 1.0f;        // NVS "resinCal"  - slope, 1.0 = uncalibrated
+float resinFixedMl   = 0.0f;        // NVS "resinFixed" - per-print offset (ml)
+float resinDensity   = RESIN_DENSITY_DEF;  // NVS "resinDens" - g/ml, weigh a
+                                    // known syringe volume to make grams exact
+// Calibration samples: A = the smaller print, B = the larger one (-1 = empty).
+// calMeas* hold the GRAMS the scale showed - not ml. Grams are what was actually
+// measured; ml is derived. Storing ml froze each sample to the density in force at
+// entry, so editing the density between the two prints silently mixed bases (V
+// found this 08-09). With grams, a density change simply re-fits both points.
+float calRawA = -1, calMeasA = -1, calRawB = -1, calMeasB = -1;
+float calNewRaw = -1, calNewMeas = -1;   // RAM: the sample entered most recently
+float lastPrintRawMl = -1;          // NVS "lastPrintMl": RAW ml of the last print
+                                    // (-1 = none yet) - the calibration reference
+double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the factor
+
+// 0.17 0-16: the resin profile in force. Only the slug is stored - the values
+// themselves live in the ordinary settings, because applying a profile just
+// copies them there (see ResinProfile.ino). "" = none picked yet.
+// 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
+// setting, not a web lookup - it has to work with no internet, and switching it
+// must not need a firmware release or a git push. No UI writes it; the slicer
+// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
+bool slicerModuleOn = false;
+
+String resinProfileName = "";
+// Bumped whenever a profile is applied, written or deleted, so the LCD menu
+// knows when its cached label went stale (0.17 0-16).
+uint32_t resinProfileRev = 0;
+// Weight of the empty vat (g). One moulded part, one tool, no custom vats -
+// so this is a constant of the machine, not something to ask the user for
+// (V 08-16). Density is the number that actually varies, and that one lives in
+// the resin profile. Weighing the vat then gives the remaining ml exactly,
+// instead of trusting the marker.
+#define VAT_EMPTY_G_DEF 56.56f   // measured on the reference printer, 08-09
+#define VAT_EMPTY_G_MAX 500.0f
+float vatEmptyG = VAT_EMPTY_G_DEF;
+
 // Factory settings reset - shared by setup() (bad/blank EEPROM) and the
 // Settings -> "Back to Default" menu (Interface.ino).
 void resetSettingsToDefault();
 void cleanupManagedSdTemps();
+
 
 // Total print time, persisted in NVS (survives firmware re-flash, unlike the
 // EEPROM settings area). Written rarely - only at print end/cancel - to spare
@@ -150,6 +327,18 @@ unsigned long printStartMs = 0;     // millis() when the current print started
 unsigned long phaseStartMs = 0;
 unsigned long phaseTotalMs = 0;
 unsigned long prevLiftMs = 0, prevDropMs = 0;
+// 0.17 (V 08-18): stabdymas ir pauze zmogui nera vienas laukimas, o du - pirma
+// baigiamas tai, kas jau vyksta, paskui juda plokste. Kiekvienas etapas turi savo
+// saziininga trukme, tad pultui reikia zinoti, KURIS is ju bega: pranesimas lieka
+// tas pats, persirašo tik tekstas, o juostele pradedama is naujo tik NAUJAM etapui.
+// "" = eiline sluoksnio faze (Curing/Lifting/Dropping). Kitos reiksmes:
+//   stopTail   - dabaigiamas judesys, kuris vyko stabdymo akimirka
+//   stopLift   - galutinis plokstes pakelimas po stabdymo
+//   homingBack - homing'as nutrauktas, plokste grizta i nuli
+//   pauseWork  - pauze laukia sluoksnio pabaigos
+//   pauseLift  - pauzes pakelimas apziurai (pauseLiftMm)
+//   resume     - grizimas zemyn tesiant
+const char *phaseWaitStage = "";
 uint16_t uiTimeoutSecs = 60;        // 0 = never blank the UI screen (default 60 s so the
                                     // screen saver works out of the box - 0-23)
 bool uvLedEnabled = true;           // false = dry-run motion/display only
@@ -157,6 +346,15 @@ bool wifiEnabled = true;
 bool webDashboardEnabled = true;
 bool bootUpdateCheckEnabled = true;
 bool resumeEnabled = true;          // 0-34: false = never checkpoint / never offer power-loss resume
+bool resumePrecise = false;         // 0.17 1-38b: false = Balanced cadence, true = Precise (finer resume, more SD writes)
+long resumeLiveSteps = 0;           // 0.17: physical relabel height loaded from a checkpoint (== base for legacy records)
+long resumeCycleBaseSteps = 0;      // 0.17: exact pre-lift base of the current layer cycle (drift-free target reference)
+int pauseLiftMm = 20;               // 0.17 #82: Pause plate-lift height for inspection (mm, 20-40; runtime-clamped to headroom)
+// Granular-checkpoint cadence during the ~9s lift/drop motion (0.17 1-38b).
+// Defined here (the first-concatenated TU) so Motor.ino - concatenated before
+// Resume.ino - can see them.
+#define RESUME_CKPT_MS_BALANCED 800
+#define RESUME_CKPT_MS_PRECISE  400
 String bootAnimName = "";      // "" = built-in splash; else a basename in /bootanim/
 bool wifiTemporarilyEnabled = false;
 bool webDashboardTemporarilyEnabled = false;
@@ -184,8 +382,21 @@ String waPhone = "";                // phone with country code
 String waApiKey = "";               // CallMeBot key (secret - never echoed to browser)
 bool dcEnabled = false;             // Discord notifications via a channel webhook
 String dcWebhook = "";              // webhook URL (secret - never echoed to browser)
+// 0.17 #88: was the last chat message actually delivered? The send result was
+// computed and thrown away, which is why the #40 heap bug could kill mid-print
+// notifications for weeks while an idle "Send test" kept working. A fixed char
+// buffer, not a String: this is written from the print loop, and a growing
+// allocation there is the very failure this field exists to expose.
+bool notifyLastOk = false;          // false until the first send attempt
+bool notifyLastTried = false;       // nothing sent yet = nothing to show
+char notifyLastReason[48] = "";     // failure text, empty when delivered
+// Raw millis, not seconds: the age is computed as (millis() - stamp) / 1000, so
+// the subtraction happens in the type that wraps cleanly. Dividing first would
+// wrap the counter every ~49.7 days and print an absurd age until the next send.
+uint32_t notifyLastAtMs = 0;        // millis() of that attempt
 bool statsPingEnabled = true;       // anonymous install ping (MAC hash + version + print hours)
-uint8_t prevRegularExposure = 0;    // last replaced Regular exposure (0 = none) - dashboard Undo
+uint16_t prevRegularExposure = 0;   // last replaced Regular exposure in DECISECONDS (0 = none) - dashboard Undo
+uint8_t  prevBaseExposure = 0;      // last replaced Base exposure in SECONDS (0 = none) - dashboard Undo
 unsigned long lastUiActivityMs = 0;
 bool uiBlanked = false;
 uint8_t uiSaverPos = 0;               // 0-21 idle screen saver: which of the 5 spots
@@ -228,8 +439,12 @@ void loadDeviceConfig() {
   webDashboardEnabled = sysPrefs.getBool("webDash", true);
   bootUpdateCheckEnabled = sysPrefs.getBool("bootUpdChk", true);
   resumeEnabled = sysPrefs.getBool("resumeEn", true);
+  resumePrecise = sysPrefs.getBool("resumePrec", false);
+  pauseLiftMm = sysPrefs.getUChar("pauseLift", 20);   // 0.17 #82
+  if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
-  prevRegularExposure = sysPrefs.getUChar("prevRegExp", 0);
+  prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
+  prevBaseExposure = sysPrefs.getUChar("prevBaseS", 0);       // sveikos sekundes
   bootAnimName = sysPrefs.getString("bootAnimName", "");
   mqttEnabled = sysPrefs.getBool("mqttEnabled", false);
   mqttHost = sysPrefs.getString("mqttHost", "");
@@ -260,11 +475,60 @@ void loadDeviceConfig() {
   if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
   else if (waEnabled) dcEnabled = false;
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
-  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
-  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
-  if (lowResinThresholdMl < 1 || lowResinThresholdMl > 3)
-    lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
+  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", true);
+  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 4);
+  /* The clamp doubles as the upgrade path, and needs no marker to do it: 1 and 2 are
+     the only values an older build could hold below the new floor, so lifting anything
+     out of range to the default lands them on 4. A one-shot marker WOULD have been
+     possible - the read-write window further down writes calUnit exactly that way -
+     it is simply not needed here. */
+  if (lowResinThresholdMl < 3 || lowResinThresholdMl > 8)
+    lowResinThresholdMl = 4;  // range was 1..3 until 0.17
+  lowResinWarnMl = sysPrefs.getUChar("lowResinWarn", 5);   // 0.17 #40: WARN level
+  /* Clamped per end, not to the default: someone who had picked 10, 12 or 15 on the old
+     ladder means "warn me early", so they land on the new ceiling, not on its floor. */
+  if (lowResinWarnMl < 5) lowResinWarnMl = 5;
+  else if (lowResinWarnMl > 8) lowResinWarnMl = 8;
+  // R-cal: a corrupt/absurd factor would silently distort every resin number -
+  // clamp on load, exactly like the low-resin ranges above.
+  resinCalFactor = sysPrefs.getFloat("resinCal", 1.0f);
+  if (!(resinCalFactor >= RESIN_CAL_MIN && resinCalFactor <= RESIN_CAL_MAX))
+    resinCalFactor = 1.0f;          // also catches NaN
+  resinFixedMl = sysPrefs.getFloat("resinFixed", 0.0f);
+  if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
+  resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
+  if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
+  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  /* Rakto NERA (svarus NVS) -> „slow", ir tai tiesa: EEPROM tada tikrai laiko
+     gamyklinius skaicius, o „slow" butent jie ir yra.
+     Raktas YRA, bet tuscias -> paliekam tuscia. Anksciau cia stovejo prievarta
+     i „slow" reiksmiu NEPRITAIKIUS, tad istrynus aktyvu profili po perkrovimo
+     masina sakydavo „Slow resin (factory)", o suktusi istrinto profilio
+     skaiciais. Tuscia busena buvo bent sazininga; ta - ne. Dabar tuscias vardas
+     ka nors reiskia: spausdinti neleidziama, kol derva nepasirinkta (V, 08-17). */
+  resinProfileName = sysPrefs.getString("resinProf", "slow");   // 0.17 0-16
+  vatEmptyG = sysPrefs.getFloat("vatEmptyG", VAT_EMPTY_G_DEF);
+  if (!(vatEmptyG > 0.0f && vatEmptyG <= VAT_EMPTY_G_MAX)) vatEmptyG = VAT_EMPTY_G_DEF;
+  calRawA  = sysPrefs.getFloat("calRawA", -1);  calMeasA = sysPrefs.getFloat("calMeasA", -1);
+  calRawB  = sysPrefs.getFloat("calRawB", -1);  calMeasB = sysPrefs.getFloat("calMeasB", -1);
+  // A NaN here would print as a bare nan in /api/config and break the whole JSON.
+  if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
+  if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+  // One-time migration: samples used to be stored in ml. Converting is exact -
+  // those ml were produced by dividing the very same grams by this same density.
+  if (sysPrefs.getUChar("calUnit", 0) != 1) {
+    if (calMeasA > 0) calMeasA *= resinDensity;
+    if (calMeasB > 0) calMeasB *= resinDensity;
+    sysPrefs.end();
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putFloat("calMeasA", calMeasA);
+    sysPrefs.putFloat("calMeasB", calMeasB);
+    sysPrefs.putUChar("calUnit", 1);   // 1 = grams
+  }
+  lastPrintRawMl = sysPrefs.getFloat("lastPrintMl", -1);
+  if (!(lastPrintRawMl > 0)) lastPrintRawMl = -1;   // NaN/garbage -> "no print yet"
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
+  previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
 }
 
@@ -276,6 +540,8 @@ void saveDeviceConfig() {
   sysPrefs.putBool("webDash", webDashboardEnabled);
   sysPrefs.putBool("bootUpdChk", bootUpdateCheckEnabled);
   sysPrefs.putBool("resumeEn", resumeEnabled);
+  sysPrefs.putBool("resumePrec", resumePrecise);
+  sysPrefs.putUChar("pauseLift", (uint8_t)pauseLiftMm);   // 0.17 #82
   sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
@@ -303,7 +569,18 @@ void saveDeviceConfig() {
   sysPrefs.putString("dcWebhook", dcWebhook);
   sysPrefs.putBool("lowResinOn", lowResinPauseEnabled);
   sysPrefs.putUChar("lowResinMl", lowResinThresholdMl);
+  sysPrefs.putUChar("lowResinWarn", lowResinWarnMl);   // 0.17 #40
+  sysPrefs.putFloat("resinCal", resinCalFactor);       // R-cal 0.17
+  sysPrefs.putFloat("resinFixed", resinFixedMl);
+  sysPrefs.putFloat("resinDens", resinDensity);
+  sysPrefs.putBool("slicerOn", slicerModuleOn);        // 0.17 SL-mod
+  sysPrefs.putString("resinProf", resinProfileName);   // 0.17 0-16
+  sysPrefs.putFloat("vatEmptyG", vatEmptyG);
+  sysPrefs.putFloat("calRawA", calRawA);   sysPrefs.putFloat("calMeasA", calMeasA);
+  sysPrefs.putFloat("calRawB", calRawB);   sysPrefs.putFloat("calMeasB", calMeasB);
+  sysPrefs.putUChar("calUnit", 1);         // calMeas* = grams
   sysPrefs.putBool("askRefill", askRefillEnabled);
+  sysPrefs.putBool("prevFlip", previewFlip);
   sysPrefs.end();
 }
 
@@ -312,7 +589,148 @@ void saveDeviceConfig() {
 void saveVatRemaining() {
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putFloat("vatRemMl", vatRemainingMl);
+  // R-cal: the raw twin rides along on the same periodic checkpoint, so a
+  // resume restores it directly instead of dividing by whatever factor is in
+  // force now (which may differ from the one used before the power cut).
+  // Only while printing: this helper is also called from "VAT refilled" and
+  // backup restore, and a refill pressed BEFORE resuming would zero the
+  // waiting checkpoint (auditor find, 08-11).
+  if (printerBusy()) sysPrefs.putFloat("printRawMl", (float)resinUsedRawMl);
   sysPrefs.end();
+}
+
+// R-cal: remember what the printer THOUGHT this print used, uncalibrated. The
+// user weighs the vat before/after and posts the grams; the factor is then
+// simply measured_ml / lastPrintRawMl - no compounding with the current factor.
+// Written at the single print exit (finish, cancel and homing-abort all pass
+// there); a canceled print is still valid calibration data, since the scale and
+// the estimate describe the same partial print.
+void saveLastPrintRaw() {
+  if (!(resinUsedRawMl > 0.0)) return;      // nothing printed - keep the old one
+  if (!uvLedEnabled) return;                // dry run cures nothing: the scale
+                                            // would see ~0 g and poison the fit
+  lastPrintRawMl = (float)resinUsedRawMl;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
+  sysPrefs.end();
+}
+
+extern long Vat_Capacity_Ml;   // defined below with the EEPROM settings block
+
+// R-cal: fit used_ml = raw * factor + fixed through the two stored samples.
+// Needs them far enough apart, otherwise the slope is noise amplified by a tiny
+// denominator - then we keep the single-point meaning (offset stays, slope from
+// the newer sample). Returns true when a real two-point fit was applied.
+bool resinFitCalibration() {
+  bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
+  // Grams -> ml HERE, with the density in force right now: that is what makes a
+  // later density correction re-fit both samples instead of mixing two bases.
+  const float mA = calMeasA / resinDensity, mB = calMeasB / resinDensity;
+  if (haveA && haveB) {
+    // The two rows belong to the user - they may type the bigger print into row 1.
+    // Order a LOCAL copy for the maths instead of swapping the stored slots, which
+    // would make the rows jump around under whoever is editing them.
+    float rLo = calRawA, mLo = mA, rHi = calRawB, mHi = mB;
+    if (rLo > rHi) {
+      float t = rLo; rLo = rHi; rHi = t;
+      t = mLo; mLo = mHi; mHi = t;
+    }
+    float dr = rHi - rLo;
+    if (dr >= 0.5f && dr >= 0.25f * rHi) {              // clearly different sizes
+      float k = (mHi - mLo) / dr;
+      float f = mLo - k * rLo;
+      if (f < 0) f = 0;                                  // negative film is nonsense
+      // An offset near the vat size would trip the low-resin stop before layer 1.
+      float fMax = RESIN_FIXED_MAX;
+      if (Vat_Capacity_Ml > 0 && Vat_Capacity_Ml / 4.0f < fMax) fMax = Vat_Capacity_Ml / 4.0f;
+      if (k >= RESIN_CAL_MIN && k <= RESIN_CAL_MAX && f <= fMax) {
+        resinCalFactor = k;
+        resinFixedMl = f;
+        return true;
+      }
+    }
+  }
+  // Single usable sample (or the pair was unusable): solve the slope alone and
+  // leave the offset as it is - the user can add a second, different-sized print.
+  float r = calNewRaw > 0 ? calNewRaw  : (haveB ? calRawB : calRawA);    // newest wins
+  float m = (calNewRaw > 0 ? calNewMeas : (haveB ? calMeasB : calMeasA)) / resinDensity;
+  if (r > 0 && m > 0) {
+    float k = (m - resinFixedMl) / r;
+    if (k >= RESIN_CAL_MIN && k <= RESIN_CAL_MAX) resinCalFactor = k;
+  }
+  return false;
+}
+
+// Store one weighed print. Of the three possible pairs (old A+B, A+new, new+B)
+// keep the one whose raw values are FURTHEST apart - separation is what makes a
+// two-point fit possible at all. (Refreshing "the nearest slot" instead would let
+// a run of medium-sized prints quietly collapse the pair back to one point.)
+void resinAddSample(float rawMl, float measMl) {
+  if (!(rawMl > 0 && measMl > 0)) return;
+  calNewRaw = rawMl; calNewMeas = measMl;      // newest, for the 1-sample fallback
+  bool haveA = calRawA > 0 && calMeasA > 0, haveB = calRawB > 0 && calMeasB > 0;
+  if (!haveA)      { calRawA = rawMl; calMeasA = measMl; }
+  // Same-size re-measure must REPLACE slot A, not fill B with a twin: the
+  // dashboard retries a slow POST once, and a double click does the same, so
+  // an identical sample would otherwise occupy both slots (seen 2026-08-09).
+  else if (fabsf(rawMl - calRawA) <= 0.10f * calRawA && !haveB)
+                   { calRawA = rawMl; calMeasA = measMl; }
+  else if (!haveB) { calRawB = rawMl; calMeasB = measMl; }
+  else if (fabsf(rawMl - calRawA) <= 0.10f * calRawA) { calRawA = rawMl; calMeasA = measMl; }
+  else if (fabsf(rawMl - calRawB) <= 0.10f * calRawB) { calRawB = rawMl; calMeasB = measMl; }
+  else {
+    // Neither slot is being re-measured, so keep whichever pair is WIDEST. A
+    // middling print that would narrow the pair is ignored on purpose: the spread
+    // is what makes a two-point fit possible, and a run of medium-sized prints
+    // must not quietly collapse it back to one point (verified by simulation).
+    float sAB = calRawB - calRawA;             // A < B is maintained at the end
+    float sAn = fabsf(rawMl - calRawA);
+    float sNb = fabsf(calRawB - rawMl);
+    if (sAn > sAB && sAn >= sNb)  { calRawB = rawMl; calMeasB = measMl; }   // beyond B
+    else if (sNb > sAB)           { calRawA = rawMl; calMeasA = measMl; }   // below A
+    // else: inside the existing span - dropped, the pair stays as wide as it was
+  }
+  // Order the pair only once BOTH slots hold a real sample: with an empty slot
+  // (-1) the comparison would swap the first sample into the empty one.
+  if (calRawA > 0 && calRawB > 0 && calRawA > calRawB) {
+    float tr = calRawA, tm = calMeasA;
+    calRawA = calRawB; calMeasA = calMeasB; calRawB = tr; calMeasB = tm;
+  }
+}
+
+// Write ONE slot directly (1 = A, 2 = B). Unlike resinAddSample() this decides
+// nothing: the row the user typed into is the row that changes. grams <= 0 clears
+// the slot. Returns false only for a bad slot number.
+bool resinSetSample(int slot, float rawMl, float grams) {
+  float *r = (slot == 1) ? &calRawA  : (slot == 2) ? &calRawB  : nullptr;
+  float *m = (slot == 1) ? &calMeasA : (slot == 2) ? &calMeasB : nullptr;
+  if (!r) return false;
+  if (!(rawMl > 0 && grams > 0)) {
+    *r = *m = -1;
+    // calNew* may have pointed AT this sample; leaving it would let a deleted
+    // measurement keep driving the single-point fallback below.
+    calNewRaw = calNewMeas = -1;
+  } else {
+    *r = rawMl; *m = grams;
+    calNewRaw = rawMl; calNewMeas = grams;   // newest, for the 1-sample fallback
+  }
+  resinFitCalibration();
+  // Nothing left to fit from: the fallback would silently keep the old factor.
+  if (!(calRawA > 0) && !(calRawB > 0)) { resinCalFactor = 1.0f; resinFixedMl = 0.0f; }
+  return true;
+}
+
+// Density changed -> both samples mean different ml now. Re-fit at once, so the
+// correction always matches the density currently shown.
+void resinRefitAfterDensityChange() {
+  if (calRawA > 0 || calRawB > 0) resinFitCalibration();
+}
+
+void resinClearCalibration() {
+  resinCalFactor = 1.0f;
+  resinFixedMl = 0.0f;
+  calRawA = calMeasA = calRawB = calMeasB = -1;
+  calNewRaw = calNewMeas = -1;
 }
 
 // ---- Reset-reason telemetry (0-30) -----------------------------------------
@@ -400,6 +818,8 @@ void screen422();   // "install from file" screen (Interface.ino, #if-guarded)
 void tgNotifyFinished();   // Telegram hooks (TinyMakerTelegram.ino, #if-guarded)
 void tgNotifyLowResin();
 void tgNotifyCanceled();
+void tgNotifyPowerRestored();   // 0.17: power-loss interrupted a print
+void tgNotifyLowResinSoon(float ml, int minsToStop);   // 0.17 #40: pre-warn before low-resin stop
 void screenBootUpdatePrompt();
 void screenBootUpdateDisablePrompt();
 #endif
@@ -473,6 +893,34 @@ byte estimated_minutes;
 float motor_updown_time;       // Time taken for one up and down cycle
 float motor_updown_time_total; // Total time spent on motor movements
 
+// P-live shared state (0.17): the live-3D silhouette stack. Defined here (the
+// first-concatenated file) so Network.ino can serve it from /api/live/slices and
+// PNG.ino - both concatenated after this one - can fill it. See PNG.ino for the
+// capture logic and the LIVE_* geometry.
+/* 80x60, NE 64x48 (V 08-14): tai tas pats tinklelis, kuri turi narsykles kesas, tad
+   pries-uzpildymas is slices.tmv tampa paprastu kopijavimu, o telefonas mato lygiai ta
+   pati, ka ir kompiuteris. Prie 64x48 sumazinimas uzpildydavo ~19 % daugiau ploto -
+   tarpai tarp detales ir jos atramu suaugdavo (ismatuota 08-14 is tikru pjuviu).
+   Kaina: buferis 13.8 -> 21.6 KB (imamas spaudinio pradzioje) ir HTTP siuntinys
+   19 -> 29 KB (atiduodamas tik po homing'o, kai motoras stovi). */
+#define LIVE_GW 80
+#define LIVE_GH 60
+#define LIVE_MAX_SLICES 36
+#define LIVE_SLICE_BYTES ((LIVE_GW * LIVE_GH + 7) / 8)   // 600 bytes, 1 bit/px
+uint8_t *liveBuf = NULL;   // LIVE_SLICE_BYTES * liveN, calloc'd per print (NULL = off)
+int liveN = 0;             // sampled slices for this print (<= 36)
+int liveCaptured = 0;      // slots filled so far (grows as the print proceeds)
+// Slots ABOVE liveCaptured hold the model's own silhouettes, pre-loaded from the
+// cached slice file at print start (SD is still free there). That is what lets a
+// browser opened mid-print draw the un-printed part as a ghost: the live capture
+// alone only ever knows layers already exposed. No extra RAM - same buffer.
+bool livePrefilled = false;
+// Pilnas stekas atiduodamas tik ISEJUS is homing'o: 36 pjuviai = ~29 KB chunked, o
+// homing'o cikle HTTP aptarnaujamas tarp zingsniu - toks siuntinys silpname WiFi
+// blokuoja `client.write` 1-3 s ir tiek laiko nekvieciamas `stepper.run()` (auditas
+// 08-14). Iki tol endpoint'as elgiasi kaip anksciau: atiduoda tik uzfiksuotus.
+bool liveReady = false;
+
 // UI Navigation Variables
 int setting_item;              // Current selected item in settings menu
 bool setting_item_updown = 1;  // Direction indicator for settings (1=up, 0=down)
@@ -483,6 +931,7 @@ bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
 bool homing_canceled = false; // Flag: Homing process canceled
+bool zHomed = false;          // Z reference valid: homing reached the endstop since boot
 bool print_paused = false;    // Flag: Print is currently paused
 bool print_canceled = false;  // Flag: Print process canceled
 
@@ -505,7 +954,25 @@ float vatRemaining() {
 void vatMarkRefilled() {
   vatRemainingMl = (float)Vat_Capacity_Ml;
   lowResinNotified = false;
+  lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn after a refill
   saveVatRemaining();
+}
+
+// 0.17 0-16: set the remaining resin from a weighing instead of the mark. The
+// mark answers "full or not"; the scale answers "how much", which is what the
+// low-resin logic and the per-model estimate actually work with. Needs the empty
+// vat's weight (a machine property) and the resin's density (from the profile).
+// Returns false when either is missing or the number makes no sense.
+bool vatSetFromWeight(float grams) {
+  if (vatEmptyG <= 0 || resinDensity <= 0) return false;
+  float ml = (grams - vatEmptyG) / resinDensity;
+  if (ml < 0) ml = 0;
+  if (ml > (float)Vat_Capacity_Ml) ml = (float)Vat_Capacity_Ml;
+  vatRemainingMl = ml;
+  lowResinNotified = false;
+  lowResinPreWarned = false;   // a re-measure re-arms the warning, like a refill
+  saveVatRemaining();
+  return true;
 }
 
 // System State
@@ -516,8 +983,8 @@ int current_state = 0; // Current printing state
 
 // Print Parameters (Loaded from EEPROM) 
 float Layer_Height ;        // Layer thickness (mm)
-long Base_Exposure ;        // Exposure time for base layers (s)
-long Regular_Exposure ;     // Exposure time for normal layers (s)
+long Base_Exposure ;        // Exposure time for base layers (whole seconds)
+long Regular_Exposure ;     // Exposure for normal layers, in DECISECONDS (0.17 0-3; e.g. 140 = 14.0 s)
 byte Base_Layer ;           // Number of base layers
 byte Transition_Layer ;     // Number of transition layers
 byte Slow_Lift_Distance ;   // Distance for slow lift (mm)
@@ -547,10 +1014,31 @@ String FileName;          // Current file name
 File myfile;
 PNG png; // PNG decoder instance
 
+// 0.17 0-3: EEPROM schema version lives in addr 0 (previously unused). v2 stores
+// Regular exposure as 2-byte DECISECONDS at addr 12-13; addr 3 still holds the
+// rounded whole-second value so a downgrade to <= 0.16 reads a sane number.
+#define SETTINGS_SCHEMA_VER 2
+#define EE_ADDR_SCHEMA 0
+#define EE_ADDR_REG_DS 12
+
+static uint16_t eepromReadU16(int addr) {
+  return (uint16_t)EEPROM.read(addr) | ((uint16_t)EEPROM.read(addr + 1) << 8);
+}
+static void eepromWriteU16(int addr, uint16_t v) {
+  EEPROM.write(addr, (uint8_t)(v & 0xFF));
+  EEPROM.write(addr + 1, (uint8_t)(v >> 8));
+}
+
 void savePrintSettings() {
+  // Per-modelio sluoksniai ir laikai skaiciuojami is Layer_Height, tad bet kuris
+  // sio bloko irasymas gali padaryti atidarytu pultu sarasus pasenusius - nesvarbu,
+  // ar spausta pulte, ar prie printerio (auditas 08-16).
+  sdRev++;
+  EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, Layer_Height * 100);
   EEPROM.write(2, Base_Exposure);
-  EEPROM.write(3, Regular_Exposure);
+  EEPROM.write(3, (uint8_t)lroundf(Regular_Exposure / 10.0f));   // downgrade-safe whole seconds
+  eepromWriteU16(EE_ADDR_REG_DS, (uint16_t)Regular_Exposure);    // canonical: deciseconds
   EEPROM.write(4, Base_Layer);
   EEPROM.write(5, Transition_Layer);
   EEPROM.write(6, Slow_Lift_Distance);
@@ -567,10 +1055,20 @@ void savePrintSettings() {
 // the old value is remembered so the dashboard can offer a one-click Undo.
 // Undo goes through the same path, so undo-of-undo swaps back.
 void rememberPrevRegularExposure(long oldVal) {
-  if (oldVal <= 0 || oldVal > 30 || oldVal == Regular_Exposure) return;
-  prevRegularExposure = (uint8_t)oldVal;
+  if (oldVal <= 0 || oldVal > 300 || oldVal == Regular_Exposure) return;   // deciseconds now
+  prevRegularExposure = (uint16_t)oldVal;
   sysPrefs.begin("tinymaker", false);
-  sysPrefs.putUChar("prevRegExp", prevRegularExposure);
+  sysPrefs.putUShort("prevRegDs", prevRegularExposure);
+  sysPrefs.end();
+}
+
+// Tas pats Base'ui: derinant butent ji dazniausiai persukama, o be atsarginio
+// kelio tenka atsiminti sena reiksme galvoje (V 08-12).
+void rememberPrevBaseExposure(long oldVal) {
+  if (oldVal < 5 || oldVal > 60 || oldVal == Base_Exposure) return;   // sveikos sekundes
+  prevBaseExposure = (uint8_t)oldVal;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUChar("prevBaseS", prevBaseExposure);
   sysPrefs.end();
 }
 
@@ -595,6 +1093,7 @@ String backupEscape(const String &v) {
 
 String buildConfigBackupJson(bool includeSecrets = true) {
   String out = "{\"backupVersion\":1,\"firmware\":\"";
+  out.reserve(2560);   // ~127 appends; one caller runs with TLS allocated
 #ifdef FIRMWARE_VERSION
   out += FIRMWARE_VERSION;
 #endif
@@ -610,7 +1109,7 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += ",\"baseExposure\":";
   out += String(Base_Exposure);
   out += ",\"regularExposure\":";
-  out += String(Regular_Exposure);
+  out += String(Regular_Exposure / 10.0, 1);   // 0.17 0-3: seconds (ds/10) - human-readable + downgrade-safe
   out += ",\"baseLayers\":";
   out += String(Base_Layer);
   out += ",\"transitionLayers\":";
@@ -631,8 +1130,32 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += lowResinPauseEnabled ? "true" : "false";
   out += ",\"lowResinMl\":";
   out += String(lowResinThresholdMl);
+  out += ",\"lowResinWarnMl\":";
+  out += String(lowResinWarnMl);
+  out += ",\"resinCalFactor\":";
+  out += String(resinCalFactor, 3);   // R-cal: 3 decimals - a rounded 1 would undo it
+  out += ",\"resinFixedMl\":";
+  out += String(resinFixedMl, 2);
+  out += ",\"resinDensity\":";
+  out += String(resinDensity, 3);
+  out += ",\"resinProfile\":\"";   // 0.17 0-16: the slug; the file itself lives on the card
+  out += backupEscape(resinProfileName);
+  out += "\",\"vatEmptyG\":";
+  out += String(vatEmptyG, 2);
+  out += ",\"calRawA\":";   out += String(calRawA, 2);
+  out += ",\"calMeasA\":";  out += String(calMeasA, 2);
+  out += ",\"calRawB\":";   out += String(calRawB, 2);
+  out += ",\"calMeasB\":";  out += String(calMeasB, 2);
+  out += ",\"calUnit\":1";   // calMeas* = GRAMAI; be sios zymos senas
+                            // backup as (mililitrai) atkurtu klaidinga kalibracija
   out += ",\"askRefill\":";
   out += askRefillEnabled ? "true" : "false";
+  out += ",\"slicerOn\":";           /* 0.17 SL-mod: be sito po pilno reflash'o
+                                       jungiklis tyliai grizta i OFF, o su juo
+                                       dingsta ir slicerio kortele (auditas 08-22) */
+  out += slicerModuleOn ? "true" : "false";
+  out += ",\"previewFlip\":";
+  out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
   out += String(uiTimeoutSecs);
   out += ",\"dryRun\":";
@@ -645,6 +1168,10 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += bootUpdateCheckEnabled ? "true" : "false";
   out += ",\"resumeEnabled\":";
   out += resumeEnabled ? "true" : "false";
+  out += ",\"resumePrecise\":";
+  out += resumePrecise ? "true" : "false";
+  out += ",\"pauseLiftMm\":";
+  out += String(pauseLiftMm);
   out += ",\"bootAnim\":\"";
   out += backupEscape(bootAnimName);
   out += "\"";
@@ -721,7 +1248,15 @@ static int backupFind(const String &j, const char *key) {
   needle += key;
   needle += "\":";
   int p = j.indexOf(needle);
-  return p < 0 ? -1 : p + needle.length();
+  if (p < 0) return -1;
+  p += needle.length();
+  // Hand-edited / pretty-printed backups put a space after ':'. The reader used
+  // to land ON that space and quietly read every boolean as false - one such
+  // restore switched the printer's WiFi off (08-10). Numbers only survived
+  // because atof() skips whitespace by itself.
+  while (p < (int)j.length() &&
+         (j[p] == ' ' || j[p] == '\t' || j[p] == '\r' || j[p] == '\n')) p++;
+  return p;
 }
 
 double backupNum(const String &j, const char *key, double def) {
@@ -759,9 +1294,20 @@ static long backupClamp(double v, long lo, long hi) {
 // Apply a backup: same value clamps as the web config form (applyConfigRequest),
 // so a hand-edited or stale file can't smuggle absurd values in.
 void applyConfigBackup(const String &j) {
+  // A restore swaps the whole recipe, resin name included: the last print was
+  // made with the resin being replaced, so a weighing against it would
+  // calibrate a stranger's print (same trap as a profile switch, audit 08-16).
+  lastPrintRawMl = -1;   // persisted with the rest, at the end of this function
   Layer_Height = backupNum(j, "layerHeight", Layer_Height) < 0.075 ? 0.05 : 0.10;
-  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 10, 60);
-  Regular_Exposure = backupClamp(backupNum(j, "regularExposure", Regular_Exposure), 1, 30);
+  Base_Exposure = backupClamp(backupNum(j, "baseExposure", Base_Exposure), 5, 60);   // 0.17 0-3: base min 5 s
+  // 0.17 0-3: backup stores Regular in SECONDS (downgrade-readable); convert to
+  // deciseconds on restore, preserving 0.1 s (backupClamp->long would drop it).
+  {
+    double regSecs = backupNum(j, "regularExposure", Regular_Exposure / 10.0);
+    long regDs = lroundf((float)regSecs * 10.0f);
+    if (regDs < 10) regDs = 10; else if (regDs > 300) regDs = 300;
+    Regular_Exposure = regDs;
+  }
   Base_Layer = backupClamp(backupNum(j, "baseLayers", Base_Layer), 1, 8);
   Transition_Layer = backupClamp(backupNum(j, "transitionLayers", Transition_Layer), 0, 10);
   Slow_Lift_Distance = backupClamp(backupNum(j, "slowLiftDistance", Slow_Lift_Distance), 1, 3);
@@ -771,14 +1317,54 @@ void applyConfigBackup(const String &j) {
   Drop_Back_Feedrate = backupClamp(backupNum(j, "dropBackFeedrate", Drop_Back_Feedrate), 20, 50);
   Vat_Capacity_Ml = backupClamp(backupNum(j, "vatMl", Vat_Capacity_Ml), 10, 40);
   lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
-  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
+  /* Same range as on load: a backup taken before 0.17 carries 1..3 for the stop level
+     and up to 15 for the warning, and restoring those verbatim would hand back a stop
+     that fires only after the vat floor has gone dry. */
+  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 3, 8);
+  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 5, 8);
+  // R-cal: fractional - backupClamp() casts to long and would turn 1.35 into 1.
+  {
+    float cal = (float)backupNum(j, "resinCalFactor", resinCalFactor);
+    if (cal >= RESIN_CAL_MIN && cal <= RESIN_CAL_MAX) resinCalFactor = cal;
+    float fx = (float)backupNum(j, "resinFixedMl", resinFixedMl);
+    if (fx >= 0.0f && fx <= RESIN_FIXED_MAX) resinFixedMl = fx;
+    float dn = (float)backupNum(j, "resinDensity", resinDensity);
+    if (dn >= 0.8f && dn <= 2.0f) resinDensity = dn;
+    // 0.17 0-16: only the name comes back - the profile file lives on the card,
+    // so a restore onto a different card simply leaves the values as restored.
+    resinProfileName = sanitizeSlug(backupStr(j, "resinProfile", resinProfileName), "");
+    float ve = (float)backupNum(j, "vatEmptyG", vatEmptyG);
+    if (ve > 0.0f && ve <= VAT_EMPTY_G_MAX) vatEmptyG = ve;
+    // Samples travel with the factor - otherwise a restored printer reports
+    // "not calibrated" and the next weighing starts the pair over.
+    calRawA  = (float)backupNum(j, "calRawA", calRawA);
+    calMeasA = (float)backupNum(j, "calMeasA", calMeasA);
+    calRawB  = (float)backupNum(j, "calRawB", calRawB);
+    calMeasB = (float)backupNum(j, "calMeasB", calMeasB);
+    if (!(calRawA > 0 && calMeasA > 0)) { calRawA = calMeasA = -1; }
+    if (!(calRawB > 0 && calMeasB > 0)) { calRawB = calMeasB = -1; }
+    // Backups written before samples moved to grams carry ml and no marker -
+    // convert. But ONLY when the backup actually carried samples: a 0.16.x file
+    // has no cal keys at all, so calMeas* above kept the PRINTER'S current grams
+    // - converting those would silently multiply a good calibration by the
+    // density on every old-backup restore (found in review 08-10, before ship).
+    bool hadCal = backupFind(j, "calMeasA") >= 0 || backupFind(j, "calMeasB") >= 0;
+    if (hadCal && (int)backupNum(j, "calUnit", 0) != 1) {
+      if (calMeasA > 0) calMeasA *= resinDensity;
+      if (calMeasB > 0) calMeasB *= resinDensity;
+    }
+  }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
+  slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
+  previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
   wifiEnabled = backupBool(j, "wifiEnabled", wifiEnabled);
   webDashboardEnabled = wifiEnabled && backupBool(j, "webDashboardEnabled", webDashboardEnabled);
   bootUpdateCheckEnabled = backupBool(j, "bootUpdateCheck", bootUpdateCheckEnabled);
   resumeEnabled = backupBool(j, "resumeEnabled", resumeEnabled);
+  resumePrecise = backupBool(j, "resumePrecise", resumePrecise);
+  pauseLiftMm = backupClamp(backupNum(j, "pauseLiftMm", pauseLiftMm), 20, 40);
   bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
@@ -818,10 +1404,21 @@ void applyConfigBackup(const String &j) {
   savePrintSettings();
   saveDeviceConfig();
   saveVatRemaining();
+  // Atkurus VISA faila „ankstesne ekspozicijos reiksme" nebeturi prasmes: ji
+  // rodytu ne pries atkurima buvusia, o kazkokia senesne, atsitiktine. Tad
+  // Undo pasiulymus nuimam - jie atsiras vel pakeitus reiksme is pulto.
+  prevRegularExposure = 0;
+  prevBaseExposure = 0;
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putULong("printSecs", totalPrintSecs);
   sysPrefs.putULong("uvLedSecs", totalUvLedSecs);
+  sysPrefs.putUShort("prevRegDs", 0);
+  sysPrefs.putUChar("prevBaseS", 0);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);   // see the top of this function
   sysPrefs.end();
+  // Per-model times and layer counts are computed from Layer_Height, which this
+  // function just replaced: every open list is stale until it refetches.
+  sdRev++;
 }
 
 bool sdBackupExists() {
@@ -874,6 +1471,12 @@ void finishRestorePromptBoot() {
     screenResumePrompt();
     return;
   }
+  // Past this point no resume is waiting any more: the prompt was answered and
+  // the checkpoint is gone. The flag used to stay up until a resumed print
+  // actually started, so after a Discard it was never lowered at all - which
+  // left anything gated on it (the boot update check, and since 0-16 the resin
+  // profile routes) blocked until the next reboot.
+  resumeBootPending = false;
   // The user just answered the prompt with a button press. If that finger is
   // still down when network_setup runs, its "hold BACK at power-on = erase
   // WiFi credentials" emergency check mistakes the held Discard press for
@@ -1006,16 +1609,75 @@ bool handleUiTimeout() {
 // ===================================================================================
 // Settings
 // ===================================================================================
+// -------------------------------------------------------------------------------
+// Gamyklinis atstatymas yra daugiau nei EEPROM blokas: dervos profilio vardas
+// turi sekti skaicius, jo overlay failas - dingti, o kiekvienas atidarytas pultas
+// suzinoti, kad jo sarasai pasene. Abu keliai (printerio Settings ir
+// /api/config/defaults) eina per SITA funkcija, kad nebeissiskirtu (auditas 08-16).
+void resetEverythingToFactory() {
+  resinProfileName = "slow";
+  // Overlay turi dingti ir tinklo neturinciame build'e: ten dervu meniu irgi yra,
+  // ir „slow" grazintu sena redagavima, kai masina jau suka gamyklinius skaicius.
+  // Guard'as tik aplink sdCardReady() - jis vienintelis gyvena Network.ino viduje.
+  #if ENABLE_NETWORK
+  if (sdCardReady())
+  #endif
+    resinDropBuiltinOverlays();   // ne vien „slow": fast.json irgi (auditas 08-17)
+  lastPrintRawMl = -1;   // resinProf irasys saveDeviceConfig(), cia tik sitas
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putFloat("lastPrintMl", lastPrintRawMl);
+  sysPrefs.end();
+  resinProfileRev++;
+  sdRev++;              // sluoksnio aukstis - gamyklinis: visi sarasai pasene
+  resetSettingsToDefault();
+  resinClearCalibration();
+  resinDensity = RESIN_DENSITY_DEF;
+  // Tuscio vato svoris irgi yra SVERIMAS, o patvirtinimo ekranas zada, kad
+  // sverimai dingsta. Be sito po atstatymo likutis ml butu skaiciuojamas is
+  // seno vartotojo svorio, o ekranas sakytu kitaip (auditas 08-17).
+  vatEmptyG = VAT_EMPTY_G_DEF;
+  // Iranginio nustatymai - cia pat, kad printerio mygtukas atstatytu tiek pat, kiek
+  // pulto: klausimas "Reset settings?" zada ir siuos (auditas 08-16).
+  uiTimeoutSecs = 60;
+  uvLedEnabled = true;
+  wifiEnabled = true;
+  webDashboardEnabled = true;
+  bootUpdateCheckEnabled = true;
+  resumeEnabled = true;
+  resumePrecise = false;
+  pauseLiftMm = 20;
+  /* The three resin-level settings belong here too. They were left out while the stop
+     level was a matter of taste; it is not one any more - 3 ml is where this vat's floor
+     goes dry, measured, so the defaults below are the only values that make the feature
+     work at all. Without this, "Reset settings?" promised a factory state and handed
+     back whatever the person had, which on an upgraded printer is the old level that
+     could never fire in time. */
+  lowResinPauseEnabled = true;
+  lowResinThresholdMl = 4;
+  lowResinWarnMl = 5;
+  // „Undo" turi rodyti i tai, kas buvo pakeista, o po atstatymo tokio dalyko nera.
+  prevRegularExposure = 0;
+  prevBaseExposure = 0;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUShort("prevRegDs", 0);
+  sysPrefs.putUChar("prevBaseS", 0);
+  sysPrefs.end();
+  // saveDeviceConfig() - kvieciancio reikalas (LCD ir web kviecia po viena karta);
+  // jis irgi irasys resinProf, tad cia to nekartojam.
+}
+
 /**
  * @brief Write factory-default print settings to EEPROM and reload them into
- * the live globals. Single source of truth for the defaults, used both on a
- * blank/corrupt EEPROM at boot and by Settings -> "Back to Default".
- * Layer_Height is stored x100 (10 -> 0.10 mm).
+ * the live globals. Single source of truth for the NUMBERS; the full factory
+ * reset (profile name, overlay, calibration) lives in resetEverythingToFactory()
+ * above and calls this. Layer_Height is stored x100 (10 -> 0.10 mm).
  */
 void resetSettingsToDefault() {
+  EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
   EEPROM.write(1, 10);   // Layer_Height     -> 0.10 mm
   EEPROM.write(2, 35);   // Base_Exposure
-  EEPROM.write(3, 14);   // Regular_Exposure
+  EEPROM.write(3, 14);   // Regular_Exposure whole-second mirror (downgrade-safe)
+  eepromWriteU16(EE_ADDR_REG_DS, 140);  // Regular_Exposure = 14.0 s in deciseconds
   EEPROM.write(4, 2);    // Base_Layer
   EEPROM.write(5, 5);    // Transition_Layer
   EEPROM.write(6, 1);    // Slow_Lift_Distance
@@ -1028,7 +1690,7 @@ void resetSettingsToDefault() {
 
   Layer_Height = EEPROM.read(1) / 100.00;
   Base_Exposure = EEPROM.read(2);
-  Regular_Exposure = EEPROM.read(3);
+  Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);   // deciseconds
   Base_Layer = EEPROM.read(4);
   Transition_Layer = EEPROM.read(5);
   Slow_Lift_Distance = EEPROM.read(6);
@@ -1110,7 +1772,7 @@ void setup() {
   // Layer Height is stored multiplied by 100 to save as integer, so divide by 100.00 to restore float  
   Layer_Height = EEPROM.read(1) / 100.00;
   Base_Exposure = EEPROM.read(2);
-  Regular_Exposure = EEPROM.read(3);
+  // Regular_Exposure is loaded below (0.17 0-3 migration: deciseconds at addr 12-13).
   Base_Layer = EEPROM.read(4);
   Transition_Layer = EEPROM.read(5);
   Slow_Lift_Distance = EEPROM.read(6);
@@ -1128,6 +1790,22 @@ void setup() {
     settingsWereFactoryReset = true;   // a full reflash wiped the settings
   }
 
+  // 0.17 0-3: Regular exposure moved to 2-byte DECISECONDS (addr 12-13). A
+  // pre-0.17 install has schema (addr 0) != v2; migrate ONCE by scaling the old
+  // whole-second byte (addr 3) x10. resetSettingsToDefault() above already wrote
+  // schema=v2 + the ds value on a fresh flash, so that path takes the else here.
+  if (EEPROM.read(EE_ADDR_SCHEMA) != SETTINGS_SCHEMA_VER) {
+    uint8_t regS = EEPROM.read(3);
+    if (regS < 1 || regS > 30) regS = 14;   // sane-guard the old byte before scaling
+    Regular_Exposure = (long)regS * 10;
+    eepromWriteU16(EE_ADDR_REG_DS, (uint16_t)Regular_Exposure);
+    EEPROM.write(3, regS);                   // keep the whole-second downgrade mirror in sync
+    EEPROM.write(EE_ADDR_SCHEMA, SETTINGS_SCHEMA_VER);
+    EEPROM.commit();
+  } else {
+    Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);
+  }
+
   // Exposures are read raw, and the guard above only inspects Layer_Height, so
   // a bad byte here reached the print loop unchecked. Regular_Exposure = 0
   // makes turn_on_LED() compute 0 ms: the LED goes HIGH and LOW with no wait
@@ -1136,14 +1814,15 @@ void setup() {
   // left by a firmware with a different EEPROM layout land exactly here. These
   // are the ranges the dashboard form, the backup restore and the LCD menu
   // already agree on.
-  if (Base_Exposure < 10 || Base_Exposure > 60) {
+  if (Base_Exposure < 5 || Base_Exposure > 60) {   // 0.17 0-3: min 5 s (was 10) for fast resins
     Base_Exposure = 35;
     EEPROM.write(2, (uint8_t)Base_Exposure);
     EEPROM.commit();
   }
-  if (Regular_Exposure < 1 || Regular_Exposure > 30) {
-    Regular_Exposure = 14;
-    EEPROM.write(3, (uint8_t)Regular_Exposure);
+  if (Regular_Exposure < 10 || Regular_Exposure > 300) {   // deciseconds (1.0-30.0 s)
+    Regular_Exposure = 140;
+    eepromWriteU16(EE_ADDR_REG_DS, 140);
+    EEPROM.write(3, 14);   // keep the whole-second downgrade mirror in sync
     EEPROM.commit();
   }
 
@@ -1174,7 +1853,7 @@ void setup() {
   // interrupted print and answer it remotely; resumeBootPending suppresses
   // the boot-update prompt so nothing competes with the resume question.
   bool resumePendingBoot = resumeLoad();
-  if (resumePendingBoot) resumeBootPending = true;
+  if (resumePendingBoot) { resumeBootPending = true; powerRestoreNotifyPending = true; }  // 0.17: notify once WiFi is up
   #if ENABLE_NETWORK
   network_setup(); // SLIBBINAS WiFi + upload server (Network.ino)
   if (!resumePendingBoot && (screen == 424 || screen == 425)) return;
@@ -1221,12 +1900,16 @@ bool prepareSelectedPrintPreview() {
   layer_counter--;
 
   if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
-    screen112();
+    if (layer_counter <= 0) screenNoLayers(); else screen112();
     return false;
   }
 
-  screen111();
-  return true;
+  /* screen111Checked(), o ne screen111(): ji skaiciuoja sluoksnius DAR KARTA, ir
+     butent tas antrasis skaiciavimas uzraso stagedLayerHeight. Tikrinant tik
+     pirmaji (virsuje), kortele suklydusi tarp dvieju skaiciavimu duotu ta pacia
+     skyle, kuria sis paketas ir uzdaro: „Layers: 0" su gyvu Start, o sarga case
+     111 nepasileistu, nes aukstis nepasikeites (auditas 08-17). */
+  return screen111Checked();
 }
 
 // ===================================================================================
@@ -1284,8 +1967,14 @@ void loop() {
       counter --;
       folderDown(root);
         break;
+      /* Visur screen111Checked(), ne screen111(): KIEKVIENAS perpiesimas is naujo
+         uzraso stagedLayerHeight ir tuo nuginkluoja sarga pries Start. Invariantas
+         galioja visiems kvietimams, kitaip kitas auditas ras ta pati (08-17). */
       case 114:                 // low-resin warning -> back to preview
-      screen111();
+      screen111Checked();
+        break;
+      case 116:                 // "Resin not set" -> Back = nieko nekeiciam
+      screen111Checked();       // derva lieka nepasirinkta, Start ir toliau atsisakys
         break;
       case 115:                 // "VAT refilled?" -> Back = no, start as-is
       refillAsked = true;
@@ -1413,6 +2102,7 @@ void loop() {
         finishRestorePromptBoot();
         break;
       case 427:                 // power-loss resume prompt -> Discard
+        resumeBootPending = false;   // gate down: the prompt is gone (audit 08-16)
         resumeClear();
         finishRestorePromptBoot();
         break;
@@ -1424,6 +2114,10 @@ void loop() {
         break;
       case 431:                 // About -> System menu (About stays selected)
       screen44();
+        break;
+      case 313:                 // "Reset settings?" -> Back = nieko nedarom
+      setting_item = 11;
+      screen31DOWN();
         break;
       case 311:
       if(setting_item_updown == 1){
@@ -1447,7 +2141,7 @@ void loop() {
       case 3111:
       Layer_Height = EEPROM.read(1) / 100.00;
       Base_Exposure = EEPROM.read(2);
-      Regular_Exposure = EEPROM.read(3);
+      Regular_Exposure = eepromReadU16(EE_ADDR_REG_DS);   // 0.17 0-3: deciseconds (revert to saved)
       Base_Layer = EEPROM.read(4);
       Transition_Layer = EEPROM.read(5);
       Slow_Lift_Distance = EEPROM.read(6);
@@ -1481,7 +2175,7 @@ void loop() {
         resinNeedForModelMl = (float)resinEstimateMl;  // fresh full-model need
         startFromResin = true;  // Start pressed -> print starts in OK handler
       } else
-        screen111();            // Back pressed -> redraw preview (Height/Time)
+        screen111Checked();     // Back pressed -> redraw preview (Height/Time)
         break;
       case 114:                 // UP on low-resin warning -> "Refilled" shortcut
       vatMarkRefilled();
@@ -1490,6 +2184,7 @@ void loop() {
       screen = 111;             // unless the model needs more than a full VAT)
         break;
       case 427:                 // UP on resume prompt -> lift plate only (0-2)
+      resumeBootPending = false;   // gate down: the prompt is gone (audit 08-16)
       resumeRaisePlateAndDiscard();
       finishRestorePromptBoot();   // continue the normal boot (network etc.)
         break;
@@ -1668,6 +2363,21 @@ void loop() {
       prepareSelectedPrintPreview();
       }
         break;
+      case 116:                 // "Resin not set" -> OK = uzsidedam gamyklini Slow
+        /* Uzdedam ir GRIZTAM i peruziura, spaudinio NEPALEIDZIAM: pirstas cia
+           buvo pakeltas del dervos, ne del starto, o Start turi likti atskiras
+           samoningas paspaudimas. screen111Checked(), nes applyResinProfile()
+           vidinis perskaiciavimas cia nesuveikia (screen == 116), o be patikros
+           liktu ta pati nulio sluoksniu skyle (08-17). */
+        if (applyResinProfile("slow")) screen111Checked();
+        else screen111Checked();   // slow yra flash'e, tad praktiskai nepasiekiama
+        /* BUTINA. Be sito laikomas OK kitame cikle butu perskaitytas jau ekrane
+           111 kaip „Start", o jei ijungtas „VAT refilled?" - dar ir atsakytu i ji
+           taip. Vienas ilgesnis paspaudimas ant „Slow" paleistu spaudini, nors
+           sitas ekranas pazada priesingai. Rado auditas 08-17 - tai buvo mano
+           paties naujo ekrano skyle, ta pati klase kaip 313 ir screenDeleteConfirm. */
+        while (digitalRead(buttonOK) == LOW) delay(10);
+        break;
       case 114:                 // low-resin warning -> OK = "Start anyway"
         resinWarnAccepted = true;
         startFromResin = true;  // re-enters the start path on the next pass
@@ -1680,6 +2390,20 @@ void loop() {
         screen = 111;
         break;
       case 111: {
+        /* Ar masina apskritai zino, kokia derva vate? Tuscias vardas lieka
+           istrynus aktyvu profili arba atkurus kopija su tusciu lauku, o
+           EEPROM tuo metu tebelaiko to istrinto profilio ekspozicija. Anksciau
+           cia nebuvo jokios patikros - spausdinimas prasidedavo su vaiduokliska
+           recepture. Resume praleidziamas TYCIA: tesiamas spaudinys jau turi
+           savo receptura, o kol stovi „Resume?", dervos pasirinkti neimanoma
+           (visi /api/resin-profile/* keliai atsako 409), tad blokavimas butu
+           aklaviete (V rado 08-17). */
+        if (!resumeStartPrint && resinProfileName.length() == 0) {
+          startFromResin = false; webStartPrint = false;
+          resinWarnAccepted = false; refillAsked = false;
+          screenNoResin();
+          break;
+        }
         // "VAT refilled?" ask before every print (optional, System > Advanced).
         // The web start path asks in the browser instead (see startPrint JS).
         if (askRefillEnabled && !refillAsked && !webStartPrint && !resumeStartPrint) {
@@ -1700,6 +2424,19 @@ void loop() {
             break;
           }
         }
+        /* Paskutinis patikrinimas pries pajudant: ar sluoksniu skaicius vis dar
+           tos pacios dervos? Perjungus profili is narsykles tarp „paruosta" ir
+           „Start" (VAT klausimas, mazos dervos ispejimas) skaicius liktu senas -
+           prie 0.10 -> 0.05 butu atspausdinta tik apatine puse. Perskaiciuojam
+           tik tada, kai aukstis tikrai kitas (V klausimas, 08-16). */
+        // A card that misreads at exactly this moment would otherwise start a
+        // print of nothing: the plate goes down and the job "finishes" with no
+        // layer ever exposed. screen111Checked() daro abu dalykus kartu - jis
+        // vienintelis vieta, kur perskaiciavimas ir atsisakymas nebeissiskiria.
+        if (stagedLayerHeight > 0 && fabsf(stagedLayerHeight - Layer_Height) > 0.001f) {
+          if (!screen111Checked()) break;
+        }
+
         resinWarnAccepted = false;
         refillAsked = false;      // re-ask on the next print
         startFromResin = false;   // consume the resin-screen Start request
@@ -1711,19 +2448,34 @@ void loop() {
         print_paused = false;
         print_canceled = false;
         webResumePrint = false;
-        resinUsedMl = 0.0;        // reset cured-resin counter for this print
+        // R-cal: the plate film leaves the vat with the very first lifts, so the
+        // per-print offset is charged up front - the VAT estimate (and #40 warn/
+        // stop) then errs on the safe side instead of discovering it at the end.
+        resinUsedMl = resinFixedMl;
+        resinUsedRawMl = 0.0;     // R-cal: GEOMETRY only - the calibration input
+        // ...and clear it in NVS too: the periodic checkpoint only runs every 25
+        // layers, so a cut before that would resume onto the previous run sum.
+        // NOT on resume - the resume branch below READS this key; zeroing it
+        // here first made the checkpoint dead code (auditor find, 08-11).
+        if (!resumeStartPrint) {
+          sysPrefs.begin("tinymaker", false);
+          sysPrefs.putFloat("printRawMl", 0.0f);
+          sysPrefs.end();
+        }
         resinSampledMl = 0.0;     // nothing subtracted from the VAT yet
         lowResinNotified = vatRemaining() <= (float)lowResinThresholdMl;
                                   // already low at start (user chose to print
                                   // anyway) - do not pause on the first layer
+        lowResinPreWarned = false;   // 0.17 #40: re-arm the pre-warn for this print
         current_state = 0;
+        phaseWaitStage = "";
         current_layer = 0;
         Position_before_pause = 0;
-        Transition_Exposure = Base_Exposure;
+        Transition_Exposure = Base_Exposure * 10;   // 0.17 0-3: ramp accumulator in deciseconds
         #if ENABLE_NETWORK
         // 0-19: snapshot the model preview into RAM while the SD is still
         // free - once the print loop owns the bus, browsers get this copy.
-        capturePreviewCache();
+        capturePreviewCache(30 * 1024, true);
         #endif
         // A print started from the web reaches here with the screen possibly
         // blanked by the UI timeout - and blanked it would stay: the wake
@@ -1740,7 +2492,34 @@ void loop() {
         resumeStartPrint = false;
         resumeBootPending = false;   // boot-update check may run again later
         if (resuming) {
-          if (resumePhase == 0) { screen1(); break; }   // nothing loaded
+          if (resumePhase == 0) {           // nothing loaded
+            savePrintActiveFlag(false);
+            #if ENABLE_NETWORK
+            freePreviewCache();
+            #endif
+            screen1();
+            break;
+          }
+          /* Aukstis pasikeite tarp klausimo ir Resume? Toliau einantis judesys
+             skaiciuojamas is DABARTINIO aukscio: prie 0.10 -> 0.05 plokste butu
+             nuleista i puse tikro aukscio, t. y. i jau isspausdinta detale (FEP,
+             derva, Z). Geriau atsisakyti tesimo, nei sulauzyti. */
+          if (resumeLayerHeightCm > 0 &&
+              resumeLayerHeightCm != (int)lroundf(Layer_Height * 100)) {
+            // Nothing started, so nothing may stay armed: the print-active flag
+            // was set a few lines up and would report a crash on the next boot.
+            savePrintActiveFlag(false);
+            #if ENABLE_NETWORK
+            freePreviewCache();   // the browser's snapshot, for a print that is not happening
+            #endif
+            // Back to the prompt, NOT to the menu: the plate still stands in the
+            // vat, and the prompt is the only place with "lift the plate" and
+            // "discard" - the two things left to do. (Changing the height back is
+            // not one of them: every settings route is closed while it stands.)
+            screenResumeHeightChanged();
+            screenResumePrompt();
+            break;
+          }
           strlcpy(foldersel_long, resumeFolder, sizeof(foldersel_long));
           foldersel = String(resumeFolder);
           layer_counter = resumeTotal;
@@ -1750,12 +2529,28 @@ void loop() {
           } else {
             current_layer = resumeLayer;
             resinUsedMl = resumeResinMl;
+            // R-cal: the raw twin is checkpointed in NVS next to vatRemainingMl,
+            // so it survives the cut without depending on the factor in force now.
+            sysPrefs.begin("tinymaker", true);
+            resinUsedRawMl = sysPrefs.getFloat("printRawMl", 0.0f);
+            sysPrefs.end();
+            if (!(resinUsedRawMl > 0.0)) resinUsedRawMl = 0.0;
             resinSampledMl = resumeResinMl; // NVS vat bookkeeping continues
             printStartMs = millis() - resumeElapsedSecs * 1000UL;
             uvLedSessionMs = resumeUvLedSecs * 1000UL;
             Transition_Exposure = resumeTransitionExposureSeed(resumeLayer);
           }
         }
+        #if ENABLE_NETWORK
+        // P-live stack BEFORE homing (V 08-14). Homing "can take minutes" (see the
+        // loop below), and until this ran a browser that joins in that window had
+        // nothing to draw but the flat preview PNG - so the phone showed a picture
+        // while the desktop already drew the 3D. Both values it needs are final
+        // here: layer_counter and, on resume, current_layer (set just above). SD is
+        // still free, same as capturePreviewCache. Freed at the single print exit,
+        // including the homing-abort path.
+        if (!print_canceled) liveBegin(layer_counter);
+        #endif
         screen1111();
         gfx2->fillRect(136, 52, 6, 16, 0x8410);
         gfx2->fillRect(146, 52, 6, 16, 0x8410);        
@@ -1781,6 +2576,7 @@ void loop() {
           resumeCheckpoint('E');   // stationary at the next layer's height
         } else {
         resumeWriteStart();        // 'S': a loss during homing restarts cleanly
+        zHomed = false;            // no reference until this run reaches the endstop
         stepper.setCurrentPosition(0);
         stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
         stepper.enableOutputs();
@@ -1882,6 +2678,7 @@ void loop() {
         if (homing_canceled != true){
           stepper.disableOutputs();
           stepper.setCurrentPosition(0);
+          zHomed = true;           // endstop reached: API heights mean something again
           digitalWrite(FAN, HIGH);
           if (screen != 11111){
             gfx2->fillRect(136, 52, 6, 16, YELLOW);
@@ -1891,17 +2688,28 @@ void loop() {
         }
         }
 
+        // P-live stekas paruostas dar PRIES hominga (zr. auksciau), o CIA jis atrakinamas
+        // atidavimui: homing'as baigtas. Tai NEREISKIA, kad motoras visai stovi - HTTP
+        // aptarnaujamas ir pauzes/atsaukimo liftu cikluose - bet ten zingsniai tik
+        // trukteli, o sluoksnio atplesimas HTTP visai neaptarnauja (auditas 08-14).
+        #if ENABLE_NETWORK
+        // Ne atsaukimo kelyje: po jo dar eina lift_finished_print() - kelios desimtys
+        // sekundziu motoro darbo, HTTP aptarnaujamas kas 200 ms, o liveClear() tik gale.
+        // Atrakinus cia, 29 KB siuntinys pakliutu kaip tik i ta judesi (auditas 08-14).
+        if (!homing_canceled && !print_canceled) liveReady = true;
+        #endif
+
         // -------------------------------------------------------------------------------
         // Printing Loop
         // -------------------------------------------------------------------------------
-        while(!homing_canceled && !print_canceled){            
+        while(!homing_canceled && !print_canceled){
           estimated_seconds = 0;
           estimated_hours = 0;
           estimated_minutes = 0;
           motor_updown_time_total = 0;
           if (current_layer < Base_Layer)
             estimated_seconds += (Base_Layer - current_layer) * Base_Exposure;                
-          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure;            
+          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s            
           motor_updown_time_total += (layer_counter - current_layer - 1) * motor_updown_time;            
           estimated_seconds += motor_updown_time_total;             
           estimated_hours = estimated_seconds / 3600;
@@ -1915,7 +2723,11 @@ void loop() {
           // VAT bookkeeping: subtract this layer's cured volume; checkpoint to
           // NVS every 25 layers so a power loss costs little (flash-wear-friendly)
           vatRemaining();
-          vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
+          // Sausas ratas dervos nesukietina, tad ir nurasyti nera ko: iki 09-01
+          // nurasymas ejo be salygos, ir vien testai per viena vakara „suvalge"
+          // ~5 ml is skaitiklio - o ties 2 ml isijungia „mazai dervos" stabdymas
+          // (T-115). UV skaitiklis tokia pat apsauga turejo nuo pat pradziu.
+          if (uvLedEnabled) vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
           resinSampledMl = resinUsedMl;
           if (vatRemainingMl < 0) vatRemainingMl = 0;
           if (current_layer % 25 == 0) {
@@ -1968,25 +2780,64 @@ void loop() {
             current_state = 2;
             screen1111_state();
           }
-          // Layer cured, peel begins: from here until the next 'E' the plate
-          // is somewhere in [pos, pos + lift] - resume assumes the low end.
-          if (!print_canceled) resumeCheckpoint('M');
+          // Layer cured, peel begins. 0.17 1-38b: capture the exact cycle base
+          // (this layer's pre-lift height) once; lift_print()/lower_print() then
+          // write granular 'M' checkpoints during the ~9s motion (first one on
+          // entry, replacing the old single pre-lift 'M'). `pos` = this base
+          // everywhere in the cycle (drift-free target); `live` tracks the real
+          // height so a mid-motion loss recovers sub-mm instead of to the low end.
+          if (!print_canceled) resumeCycleBaseSteps = stepper.currentPosition();
           // The service window moved from after the move to before it: a
           // pending status poll now answers "Lifting" with the countdown
           // ahead of it, not after the phase already ended. The measured
           // duration includes the window - so does next layer's, so the
           // prediction stays honest.
-          phaseStartMs = millis();
-          phaseTotalMs = prevLiftMs;
+          // Laukimo ivertis (stabdymas/pauze) yra ATSKIRAS skaicius: jei sluoksnio
+          // faze ji perrasytu, pulto juostele viduryje nusiristu atgal ir zmogus
+          // matytu antra pranesima (V 08-18).
+          if (current_state != 4 && current_state != 5) {
+            phaseStartMs = millis();
+            phaseTotalMs = prevLiftMs;
+            phaseWaitStage = "";
+          }
+          // Matuojam nuo SAVO zymes, ne nuo phaseStartMs: pastarasis dabar gali
+          // priklausyti laukimo ivertiui, ir kito sluoksnio prognoze butu sarmata.
+          unsigned long liftT0 = millis();
           #if ENABLE_NETWORK
           network_service_window(160);
           #endif
           lift_print();
-          prevLiftMs = millis() - phaseStartMs;
+          prevLiftMs = millis() - liftT0;
           delay(50);
           
           if(current_layer == layer_counter)
             break;
+
+          #if ENABLE_NETWORK
+          // 0.17 #40 (V 08-08): low-resin WARNING level. Fire once when the vat
+          // drops to lowResinWarnMl, still ABOVE the stop level. Independent of
+          // the stop checkbox - the warning is always useful; the stop is separate.
+          // ml-based (not time): the vat is small (~15 ml) and per-layer use tiny,
+          // so a time trigger never fired for small models. Message carries a
+          // rough runway (~layers to stop, ~min) as context. Safe: motor idle here.
+          if (!lowResinPreWarned && !lowResinNotified && !print_paused && !print_canceled &&
+              vatRemainingMl <= (float)lowResinWarnMl && vatRemainingMl > (float)lowResinThresholdMl) {
+            lowResinPreWarned = true;
+            int preMinsLeft = 0;   // 0 = too early for a rate; the message omits it
+            // R-cal: resinUsedMl carries the one-off plate-film offset - only the
+            // per-layer part may be divided by the layer count.
+            double preLayerMl = resinUsedMl - (double)resinFixedMl;
+            if (current_layer >= 5 && preLayerMl > 0.0) {
+              double preRate = preLayerMl / current_layer;                // ml per layer so far
+              if (preRate > 0.0) {
+                int preLayersLeft = (int)((vatRemainingMl - (float)lowResinThresholdMl) / preRate);  // layers to stop
+                float preLayerSecs = printStartMs ? ((millis() - printStartMs) / 1000.0f) / current_layer : 0.0f;
+                preMinsLeft = (int)(preLayersLeft * preLayerSecs / 60.0f);
+              }
+            }
+            tgNotifyLowResinSoon(vatRemainingMl, preMinsLeft);
+          }
+          #endif
             
           // Low resin: pause between layers (reuses the normal pause flow).
           // Fires once per threshold crossing; "VAT refilled" re-arms it.
@@ -2011,10 +2862,21 @@ void loop() {
             Position_before_pause = stepper.currentPosition();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
-            if (Position_before_pause + (20 * steps_mm) <= max_height * steps_mm)
-              stepper.move(20 * steps_mm);
-            else
-              stepper.moveTo(max_height * steps_mm);
+            /* Three cases, not two. The plain lift fits, or it is trimmed to the
+               ceiling - and, if the plate somehow ALREADY stands at or above the
+               ceiling, nothing moves at all. That third branch matters more here
+               than in the manual jog: a bare moveTo(ceiling) from above would
+               drive the plate DOWNWARDS, into the part, in the middle of a print
+               (audit 09-05, same shape as manual_lift). */
+            {
+              const long ceilingSteps = (long)(max_height * steps_mm);
+              const long wanted = Position_before_pause + (long)(pauseLiftMm * steps_mm);
+              if (wanted <= ceilingSteps)
+                stepper.move(pauseLiftMm * steps_mm);
+              else if (Position_before_pause < ceilingSteps)
+                stepper.moveTo(ceilingSteps);
+              // else: already as high as it may go - the pause simply happens here.
+            }
             #if ENABLE_NETWORK
             // Phase countdown for the dashboard ("Pausing - ~Ns"): publish the
             // lift's estimated duration; polls are answered during the move
@@ -2023,7 +2885,13 @@ void loop() {
             phaseStartMs = millis();
             phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                            (Fast_Lift_Feedrate * steps_mm));
+            phaseWaitStage = "pauseLift";   // antras pauzes etapas: kyla plokste
             #endif
+            /* Draw the lift's state NOW. Nothing did before: the band kept whatever was
+               there, and after a dimmed screen screen1111() redrew the card with an empty
+               band for the whole lift (V 2026-09-10, photo). */
+            pauseLiftForResin = lowResinPauseNow;
+            screen1111_state();
             {
               // Answer HTTP every 200ms DURING the lift (the homing-return
               // pattern) - one pre-move window was not enough, a 2s poll loop
@@ -2043,12 +2911,16 @@ void loop() {
             delay(10); 
 
             current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+            pauseLiftForResin = false;   // the lift is over; the parked state has its own text
+            phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
             bool lowResinNotifyPending = lowResinPauseNow;
             lowResinPauseNow = false;
             saveVatRemaining();   // checkpoint at the pause point
             resumeCheckpoint('P');  // parked position is exact
             screen1111_state();
             gfx2->fillRect(136, 12, 16, 16, RED);
+            gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
+            gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
             gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
             screen1111DOWN();
             #if ENABLE_NETWORK
@@ -2101,13 +2973,20 @@ void loop() {
               }
               if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
               screen1111();
+              const int wasPhase = current_state;   // pauze (6) arba „pripilk dervos" (10)
               current_state = 4;
               screen1111_state();
               screen1111UP();
               print_canceled = true;
+              publishStopEstimate(wasPhase);
               print_paused = false;
               }  
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
+              /* On the printer the confirm box IS the refill acknowledgement: during a
+                 resin pause it asks "VAT filled full?", and the paused screen has no other
+                 way to say it (the menu loop is not running, UP/DOWN are dead). A web resume
+                 never reaches here with the latch set - requestPrintResume() refuses it. */
+              if (!webResumePrint && current_state == 10 && lowResinNotified) vatMarkRefilled();
               webResumePrint = false;
               screen1111();
               current_state = 7;
@@ -2126,6 +3005,7 @@ void loop() {
               phaseStartMs = millis();
               phaseTotalMs = (unsigned long)(labs(stepper.distanceToGo()) * 60000.0 /
                              (Fast_Lift_Feedrate * steps_mm));
+              phaseWaitStage = "resume";
               #endif
               {
                 // Same as the pause lift: answer HTTP every 200ms during the
@@ -2159,22 +3039,34 @@ void loop() {
           if (!print_canceled){
             current_state = 3;
             screen1111_state();
+            // Sargos cia NEREIKIA (ir jos buvimas melavo): `current_state` ka tik
+            // priskirtas 3 eilute aukciau, o pauze, paspausta leidziantis, savo
+            // ivertį paskelbia veliau - pauzes blokas guli TARP pakelimo ir sio.
             phaseStartMs = millis();
             phaseTotalMs = prevDropMs;
+            phaseWaitStage = "";
+            unsigned long dropT0 = millis();
             #if ENABLE_NETWORK
             network_service_window(160);
             #endif
             lower_print();
-            prevDropMs = millis() - phaseStartMs;
+            prevDropMs = millis() - dropT0;
             resumeCheckpoint('E');  // settled at the next layer's height
           }
         }
         #if ENABLE_NETWORK
-        // Canceled: tell the phone NOW - the decision is final and the run
-        // time is known, while the lift below takes tens of seconds. Finished
-        // stays after the lift: that message means "come peel the print".
+        /* Pranesimas telefonui siunciamas PO pakelimo (zemiau, ten pat, kur
+           „Finished"). Iki 09-01 jis buvo cia, kad zinia ateitu anksciau, bet
+           kaina pasirode per didele: blokuojantis TLS laiko visa `loop()` 2-4 s,
+           o tuo metu printeris neatsakineja net i busenos uzklausas - pultas po
+           Stop rodydavo bevardi sakini ir „Printer not answering" (ismatuota
+           2026-09-01: isjungus pranesimus tarpas be atsakymo krito nuo 7,8 s iki
+           2,8 s, T-116). Zinia telefone veluoja tiek, kiek trunka pakelimas;
+           prie pulto stovintis zmogus uz tai gauna gyva sasaja. */
+        // Kabliukas: sarga lieka tam, kad grazinus ankstyva pranesima kur nors
+        // auksciau uztektu cia parasyti `cancelNotified = true`. Siandien niekas
+        // jos neuzdeda, tad zemiau esanti salyga visada tiesa (auditas 09-01).
         bool cancelNotified = false;
-        if (print_canceled || homing_canceled) { tgNotifyCanceled(); cancelNotified = true; }
         #endif
         if (!homing_canceled){
           if (!print_canceled){
@@ -2193,12 +3085,19 @@ void loop() {
         digitalWrite(FAN, LOW);
         uiDimmedPrint = false;       // 0-22: never leave the saver armed past the print
         lastUiActivityMs = millis();
+        // Vidine busena nusivalo CIA, o ne tik kito spaudinio pradzioje: iki siol
+        // po stabdymo `current_state` likdavo 4, tad busena sakydavo „stopping":true
+        // net stovint Idle - isamatuota 08-18. Pultas is to lipdo laukimo pranesima.
+        current_state = 0;
+        phaseWaitStage = "";
         savePrintTime();   // single exit point: finish, cancel and homing-abort
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
+        saveLastPrintRaw();          // R-cal: this print is the calibration reference
         resumeClear();     // the checkpoint only outlives an unfinished print
         #if ENABLE_NETWORK
         freePreviewCache();          // 0-19: the RAM preview lives only for the print
+        liveClear();                 // P-live: free the per-print silhouette stack
         #endif
         #if ENABLE_NETWORK
         // A homing abort/error arrives here with print_canceled still false -
@@ -2365,6 +3264,31 @@ void loop() {
         break;
       case 442:                 // WiFi prompt -> Reboot: apply the toggle now
         applyWifiToggleAndReboot();
+        break;
+      case 313:                 // "Reset settings?" -> Reset (OK)
+        resetEverythingToFactory();
+        saveDeviceConfig();     // kvieciancio reikalas (zr. funkcijos komentara)
+        /* Debesu kopija cia NEplanuojama samoningai: planas gyvena RAM'e su 3 s
+           delsa (tinymakerConnectScheduleBackup), o mes po 1,2 s perkraunam - jis
+           nespetu isvykti. Nustatymai jau NVS, o debesu kopija atsinaujins per
+           pirma kita pakeitima. Web kelias planuoja, nes ten perkrovimo nera.
+           Perkraunam. Atstatymas grazina ir WiFi bei pulto jungiklius, o jie
+           isijungia tik per paleidima: be perkrovimo ekranas sakytu „ijungta",
+           o radijas liktu isjunges - butent tokia nesutaptis atsirado, kai sis
+           mygtukas gavo irenginio nustatymus (mano paties analize 08-16).
+           Web kelio tai neliecia: ten perkrovimas nutrauktu atsakyma, o su
+           isjungtu WiFi i pulta apskritai nepatektum. */
+        gfx2->fillScreen(BLACK);
+        uiFrame(ORANGE);
+        gfx2->setFont(&FreeSans8pt7b);
+        gfx2->setTextColor(WHITE);
+        gfx2->setTextSize(1);
+        gfx2->setCursor(8, 21);
+        gfx2->print("Settings reset.");
+        gfx2->setCursor(8, 43);
+        gfx2->print("Restarting...");
+        delay(1200);
+        ESP.restart();
         break;
       case 311:
       if(setting_item_updown == 1){

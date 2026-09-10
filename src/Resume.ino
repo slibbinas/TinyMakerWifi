@@ -12,11 +12,18 @@
 //      written after every lower_print(). A loss during the long exposure
 //      lands here - the interrupted layer is re-exposed in full (slight
 //      over-cure of one layer, no geometry error).
-//   M  peel lift/lower in motion - pos is the height BEFORE the lift, the
-//      plate is physically somewhere in [pos, pos + lift]. Resume assumes the
-//      LOWEST height so a position error can only open a gap upward, never
-//      drive the print into the FEP.
+//   M  peel lift/lower in motion. `pos` is the exact cycle BASE (the layer's
+//      pre-lift height) - the recovery target is always pos+layerSteps, so it
+//      cannot drift. `live` (0.17 1-38b) is the plate's real height, written
+//      granularly during the move; resume relabels the physical plate as `live`
+//      then targets pos+layerSteps. The callers keep live <= true physical
+//      (actual while rising, down-biased while descending), so a position error
+//      can only open a gap UPWARD, never drive the print into the FEP.
 //   P  paused, plate parked at pos (exact).
+//
+// `live` defaults to `pos` for every legacy/stationary record (S/E/P and the
+// pre-0.17 M sites), so their behaviour is unchanged; only the in-motion granular
+// M records carry a distinct live.
 //
 // The record is fixed-width (padded numbers, folder last) so the in-place
 // rewrite covers the previous one exactly - no truncation needed, one sector.
@@ -27,10 +34,15 @@
 
 static const char *RESUME_PATH = "/tinymaker-resume.txt";
 
-// Write a checkpoint with an explicit position (steps from the print's home).
-void resumeCheckpointAt(char phase, long posSteps) {
+// Write one checkpoint record. `pos` is the exact cycle-BASE height used to
+// recompute the recovery target (drift-free); `live` is the plate's actual
+// height at write time, used ONLY to relabel the physical position on resume
+// (resumeRecoverPosition). Legacy callers pass live==pos, so their behaviour is
+// byte-identical to pre-0.17. Fixed-width, single-sector in-place rewrite:
+// folder stays last, so the record length is constant within one print.
+static void resumeWriteRecord(char phase, long posSteps, long liveSteps) {
   if (!resumeEnabled) return;   // 0-34: power-loss resume turned off -> never write a checkpoint
-  char buf[240];
+  char buf[256];
   uint32_t elapsedSecs = (millis() - printStartMs) / 1000UL;
   snprintf(buf, sizeof(buf),
            "TMR1\n"
@@ -39,13 +51,14 @@ void resumeCheckpointAt(char phase, long posSteps) {
            "total=%05d\n"
            "lh=%03d\n"
            "pos=%+011ld\n"
+           "live=%+011ld\n"
            "resin=%011.3f\n"
            "elapsed=%010lu\n"
            "uvled=%010lu\n"
            "folder=%s\n",
            phase, current_layer, layer_counter,
            (int)lroundf(Layer_Height * 100),
-           posSteps, resinUsedMl,
+           posSteps, liveSteps, resinUsedMl,
            (unsigned long)elapsedSecs,
            (unsigned long)(uvLedSessionMs / 1000UL),
            foldersel_long);
@@ -54,6 +67,22 @@ void resumeCheckpointAt(char phase, long posSteps) {
   f.seekSet(0);          // FILE_WRITE opens at end - rewrite from the start
   f.print(buf);
   f.close();
+}
+
+// Legacy checkpoint: exact stationary position (live == pos, so recovery
+// relabels to the very value it targets - the pre-0.17 behaviour).
+void resumeCheckpointAt(char phase, long posSteps) {
+  resumeWriteRecord(phase, posSteps, posSteps);
+}
+
+// Granular in-motion checkpoint (0.17 1-38b): `pos` = the exact cycle base
+// (drift-free target reference), `live` = the plate's real height right now.
+// Called from lift_print()/lower_print() so a power loss mid-motion recovers to
+// sub-mm instead of the pessimistic pre-lift low. `live` must satisfy the safety
+// invariant live <= true physical height for the whole window it is active (the
+// callers guarantee this: actual while rising, down-biased while descending).
+void resumeCheckpointLive(char phase, long posSteps, long liveSteps) {
+  resumeWriteRecord(phase, posSteps, liveSteps);
 }
 
 void resumeCheckpoint(char phase) {
@@ -114,11 +143,15 @@ bool resumeLoad() {
   long total = resumeNum(j, "total", -1);
   long lh = resumeNum(j, "lh", -1);
   long pos = resumeNum(j, "pos", -1);
+  long live = resumeNum(j, "live", pos);   // 0.17: absent in pre-0.17 records -> defaults to pos
   if (total < 1 || total > MAX_LAYER_FILES) return false;
   if (layer < 0 || layer >= total) return false;
   if (ph == 'S' && layer != 0) return false;
   if (lh != lroundf(Layer_Height * 100)) return false;   // setting changed
+  resumeLayerHeightCm = (int)lh;   // re-checked again when Resume is pressed
   if (pos < 0 || pos > (long)(max_height * steps_mm)) return false;
+  if (live < 0) live = 0;                                    // relabel-only value; keep in range
+  else if (live > (long)(max_height * steps_mm)) live = pos; // implausible -> fall back to exact base
 
   int p = j.indexOf("folder=");
   if (p < 0) return false;
@@ -147,6 +180,7 @@ bool resumeLoad() {
   resumeLayer = (int)layer;
   resumeTotal = (int)total;
   resumePosSteps = pos;
+  resumeLiveSteps = live;   // 0.17: physical relabel height (== pos for legacy records)
   resumeResinMl = resumeDbl(j, "resin", 0);
   resumeElapsedSecs = (uint32_t)resumeNum(j, "elapsed", 0);
   resumeUvLedSecs = (uint32_t)resumeNum(j, "uvled", 0);
@@ -158,11 +192,12 @@ bool resumeLoad() {
 // transition layer starting from Base_Exposure - replay the decrements for
 // the layers that were already cured before the power loss.
 float resumeTransitionExposureSeed(int curedLayers) {
-  if (curedLayers <= Base_Layer) return Base_Exposure;
+  // 0.17 0-3: ramp accumulator is in DECISECONDS (Base*10 down to Regular).
+  if (curedLayers <= Base_Layer) return Base_Exposure * 10;
   int done = curedLayers - Base_Layer;
   if (done > Transition_Layer) done = Transition_Layer;
-  float c = (float)(Base_Exposure - Regular_Exposure) / (float)(Transition_Layer + 1);
-  return (float)Base_Exposure - c * done;
+  float c = (float)(Base_Exposure * 10 - Regular_Exposure) / (float)(Transition_Layer + 1);
+  return (float)(Base_Exposure * 10) - c * done;
 }
 
 /**
@@ -197,6 +232,7 @@ void resumeRaisePlateAndDiscard() {
   // resumeClear() does not touch.
   resumeClear();
 
+  zHomed = false;   // a checkpoint is an estimate, not a homing run
   stepper.setCurrentPosition(resumePosSteps);
   stepper.enableOutputs();
 
@@ -225,8 +261,11 @@ void resumeRaisePlateAndDiscard() {
  * Re-establish Z after a power loss WITHOUT homing (the print would hit the
  * vat before the endstop). Trusts the checkpointed position, peels the last
  * (possibly half-cured, FEP-stuck) layer free, and settles the plate at the
- * next layer's exposure height. For 'M' the recorded pre-lift height is the
- * safe LOW assumption - a real position above it only shifts the print up.
+ * next layer's exposure height. The plate is relabelled as `resumeLiveSteps`
+ * (the checkpointed physical height; == the exact base for legacy records, or
+ * the granular in-motion height for 0.17 M records), which is always <= the true
+ * height - so the settle can only shift the print UP, never into the FEP. The
+ * TARGET is computed from the exact base `resumePosSteps` (drift-free).
  */
 void resumeRecoverPosition() {
   long liftSteps = (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm);
@@ -239,7 +278,8 @@ void resumeRecoverPosition() {
   if (lowPos < 0) lowPos = 0;
   resumeCheckpointAt('M', lowPos);
 
-  stepper.setCurrentPosition(resumePosSteps);
+  zHomed = false;   // a checkpoint is an estimate, not a homing run
+  stepper.setCurrentPosition(resumeLiveSteps);   // relabel to the real height (<= true; legacy == pos)
   stepper.enableOutputs();
 
   long target;

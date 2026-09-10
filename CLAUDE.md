@@ -57,6 +57,39 @@ Arduino-style: all `.ino` files in `src/` are concatenated into one translation 
 
 `lib/` holds four vendor-verified libraries unpacked from the original TinyMaker3D `Firmware/Libraries/*.zip` — **do not replace with registry versions** (APIs changed): `AccelStepper` 1.64, `Arduino_GFX` 1.2.0, `PNGdec` 1.0.1, `SdFat` 1.1.2.
 
+### Pultas: `web/dashboard.html` + `web/parts/`
+
+Pultas gzip'inamas ir įdedamas į flash'ą. Nuo 0.17 **slicerio dalys gyvena
+`web/parts/`** (`slicer.css`, `slicer-view.html`, `slicer-card.html`,
+`slicer.js`, `slicer-3d-bridge.js`), o pulte jų vietoje stovi žymė
+`<!--#include parts/…-->` (CSS/JS kontekste - `/*#include …*/`).
+[scripts/assemble_dashboard.py](scripts/assemble_dashboard.py) sulipdo juos
+**build metu**; naršyklė gauna vieną failą kaip anksčiau, flash'ui kaina nulinė.
+
+**Kodėl:** prie projekto dirba dvi sesijos - viena prie printerio, kita prie
+slicerio - ir abi rašė į tą patį failą iš skirtingų šakų. Riba dabar tokia:
+printerio pusė valdo `dashboard.html` ir firmware, slicerio pusė - `web/parts/*`
+ir `web/lib/slicer*.js`. Kelios vietos, kur sliceris tikrai lenda į pulto vidų
+(3D vaizdo perdanga, `applyStatus` kabliukai), lieka pulte kaip pavieniai
+iškvietimai; jas keičia printerio pusė.
+
+**Liejimas: prie printerio eina TIK printerio sesija (V 2026-09-06).** Slicerio
+sesija daro pakeitimą, įrašo, išstumia ir perduoda - o kompiliuoja, praeina vartus
+ir lieja printerio pusė. Riba dėl **failų** lieka tokia pati, kaip aukščiau; ši
+taisyklė tik apie tai, **kas liečia geležį**.
+
+**Kodėl:** 2026-09-04 abi sesijos nuliejo per kelias sekundes viena nuo kitos, ir
+vienas build'as užgulė kitą. Tąkart pasisekė - commit'ai stovėjo vienas ant kito,
+tad turinyje buvo abu pakeitimai. Kitą kartą taip nebūtų, ir viena sesija testuotų
+ne tai, ką galvoja. Vienas printeris, viena eilė.
+
+⚠️ Tai NEPANAIKINA „liek" taisyklės: V žodis vis tiek reikalingas, ir jo negalima
+išsivesti iš konteksto. Pasikeitė tik tai, KAM tas žodis skirtas.
+
+Bet kas, kas skaito pultą (stendai, demo, testai), turi imti jį **per
+`assemble()`**, ne tiesiai iš failo - kitaip slicerio ten paprasčiausiai nebus.
+Patikra: `python scripts/assemble_dashboard.py --check <senas failas>`.
+
 Build-time switches (top of `TinyMaker.ino`):
 ```cpp
 #define ENABLE_NETWORK       1   // 0 = original network-free firmware
@@ -161,12 +194,62 @@ vietoje, ir gali iškart pasakyti „ne, pirma kitas".
 
 Galioja **visoms** šio projekto sesijoms, ne tik pagrindinei.
 
+## Testuoju pats, jei galiu
+
+Prieš siūlant vartotojui ką nors patikrinti, pirma savęs paklausti: **ar galiu tai
+padaryti pats?** Jei taip - pasiūlyti tai kaip pirmą variantą: „galiu patikrinti
+pats - ar tikrinu aš, ar nori pats?" ir palaukti atsakymo.
+
+Per naršyklės įrankius pasiekiamas visas pultas (`http://<printerio-ip>`): atidaryti
+modelį, paleisti **dry run**, perjungti temą, stabdyti spausdinimą, skaityti konsolę,
+matuoti drobės turinį, kviesti pulto funkcijas. Per `curl` - printerio API: būsena,
+modelių sąrašas, peržiūros, liejimas. Trynimas ir kiti veiksmai eina **tik per pultą** -
+printeris atmeta svetimą kilmę (CSRF sarga).
+
+Vartotojui lieka tai, ko negaliu: derva, spaudinio apžiūra, printerio **ekranas**,
+garsai, geležis rankomis.
+
+**Kuria naršykle.** Printerio pultą atidaryti per **Claude in Chrome**
+(`mcp__claude-in-chrome__*`), ne per Claude Code vidinį skydelį. Vidinis skydelis V
+ekrane dažnai būna **paslėptas**: tada jo puslapis nepiešiamas (nuotraukos juodos,
+paspaudimai prašauna) ir **užšaldomas** - pultas nustoja klausinėti printerio, o
+matavimas rodo ramybę ten, kur jos nėra. Chrome kortelę V mato, tad jis mato ir ką darai.
+
+**Mygtukus spausti per elemento nuorodą** (`find` → `ref`), ne per koordinates: nuotraukos
+mastelis nesutampa su puslapio, o sąrašai persipiešia, tad koordinatės nueina į tuščią
+vietą - tyliai, be klaidos.
+
+⚠️ Paslėptame lange pristabdomas ir piešimo ciklas (`document.hidden`). Tai atmesti PRIEŠ
+skelbiant „vaizdas neatsinaujina".
+
+**Kodėl:** 2026-08-30 naktį V rankomis atliko keliolika ratų (įkėlimai, dalijimasis,
+vaikščiojimas po rodinius, konsolės kopijavimas), o didžiąją dalį to buvo galima
+padaryti pačiam. Galioja visoms sesijoms.
+
+**Kodėl būtent Chrome:** 2026-09-02 T-119 testas užtruko pusvalandį vien dėl to, kad
+dirbau vidiniame skydelyje - V jo nematė ir klausė „kur tu ten matuoji", o paspaudimai
+nepasiekdavo mygtukų. Persijungus į Chrome testas praėjo per kelias minutes.
+
 ## Tikslinimas iš kodo
 
 Prieš teigdamas ką nors apie kodą (eilutės numerį, funkcijos elgesį,
 kintamojo reikšmę, API, elgseną prie kraštinių sąlygų), patikrink tai
 realiame faile — Read/Grep — o ne iš atminties. Tai galioja VISADA ir
 visose sesijose, ne tik čia. Jei netikrinai — pasakyk, kad tai spėjimas.
+
+**Kodo perskaitymo NEUŽTENKA, kai aiškini, KODĖL kažkas elgiasi taip, o ne kitaip.**
+Iš kodo gimusi priežasčių grandinė yra **hipotezė**, kol ji nepamatuota veikiančioje
+sistemoje. Prieš ją pateikiant kaip paaiškinimą: paleisti, išmatuoti, parodyti skaičių.
+
+Kaip matuoti (visa tai pasiekiama iš čia): `javascript_tool` gyvame pulte - kintamųjų
+reikšmės, `localStorage`, drobės turinys, funkcijų kvietimas rankomis; `console.trace`
+laikinai įdėtas į įtariamą funkciją; `read_console_messages`; `curl` į printerio API.
+**Vieno tokio matavimo užtenka ten, kur trys hipotezės iš eilės buvo klaidingos**
+(2026-08-30: „Building the 3D view" priežastis rasta per vieną `console.trace`, o prieš
+tai trys mano paaiškinimai iš kodo buvo ne tie).
+
+Jei matavimo nepadarei - sakyk „įtariu", ne „taip yra". Ir jei matavimas paneigia
+tavo paaiškinimą, pasakyk tai garsiai, o ne tyliai persuk į kitą versiją.
 
 ## Pasirinkimų pateikimas
 
@@ -182,6 +265,25 @@ keičia bendrą būseną — planą, modelio perjungimą, išorinį push/deploy/
 roadmap — pirma pasiūlyk vartotojui ką ir kodėl, palauk aiškaus OK, tada vykdyk.
 Kitos skiltys (Modelio parinkimas, Debesų sesijos) remiasi šiuo principu. Galioja
 visose sesijose.
+
+## V pats sprendžia, kada dirba
+
+NIEKADA nesiūlyti baigti, pailsėti, tęsti rytoj ar atidėti darbo. Uždrausta ne tik
+tiesioginis „eik miegoti", bet ir visa **atidėliojimo kalba**, per kurią ta pati
+taisyklė buvo apeita tris kartus:
+
+- klausimas („ar sustojam?", „gal rytoj?") - klausimas irgi yra siūlymas;
+- atidėjimas („ne dabar", „tai rytojui", „atidėsiu", „kitą kartą");
+- **savavališkas darbų skirstymas** į „šiandien" ir „rytoj", kai V to nesakė;
+- užuominos apie laiką („jau vėlu", „ilga diena", „daug nuveikta").
+
+Vietoj to: darbus siūlyti VISUS, be savo skirstymo. Jei jų keli - duoti **eilės**
+tvarką, ne **laiko**: „pirma A, nes B nuo jo priklauso" ✅, „A šiandien, B rytoj" ⛔.
+Jei kažko negalima daryti dabar dėl daikto (reikia dervos, printeris spausdina,
+reikia V rankų) - sakyti **priežastį**, ne laiką. Laiko žodžius vartoti TIK
+atkartojant V. Baigus darbą klausti „kas toliau?", ne „ar tęsiam?".
+
+Galioja visose sesijose.
 
 ## Paprasta kalba
 

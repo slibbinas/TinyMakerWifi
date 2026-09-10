@@ -18,24 +18,32 @@ static void uvOffTimerCb(void *) { digitalWrite(LED, LOW); }
 void turn_on_LED(){
   long ExposureMillis;
   if(current_layer <= Base_Layer)
-    ExposureMillis = Base_Exposure * 1000;
+    ExposureMillis = Base_Exposure * 1000;   // base layers: whole seconds -> ms
   if(current_layer > Base_Layer && current_layer <= Base_Layer + Transition_Layer){
-    int a = Base_Exposure - Regular_Exposure;
+    // 0.17 0-3: ramp in DECISECONDS from Base (x10) down to Regular (already ds).
+    // Transition_Exposure is seeded to Base_Exposure*10 at print start / resume.
+    float a = (float)(Base_Exposure * 10 - Regular_Exposure);
     int b = Transition_Layer + 1;
-    float c = (float)a / (float)b;
+    float c = a / (float)b;
     Transition_Exposure -= c;
-    ExposureMillis = Transition_Exposure * 1000; 
-  }    
+    ExposureMillis = (long)(Transition_Exposure * 100);   // deciseconds -> ms
+  }
   if(current_layer > Base_Layer + Transition_Layer)
-    ExposureMillis = Regular_Exposure * 1000;
+    ExposureMillis = Regular_Exposure * 100;   // regular layers: deciseconds -> ms
   
   startTime = millis();
   Duration = 0;
   startTime2 = millis();
   digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
   // Countdown bookkeeping - the dashboard shows "Curing · Ns" from these.
-  phaseStartMs = startTime;
-  phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+  // Laukimo ivertis (pauze/stabdymas) yra atskiras skaicius - jo NEPERRASOM.
+  // Pauze paspaudus leidziantis, iki pauzes tasko praeina dar visas sluoksnis, ir
+  // zmogus visa ta laika turi matyti VIENA mazejanti skaiciu (V 08-18).
+  if (current_state != 4 && current_state != 5) {
+    phaseStartMs = startTime;
+    phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+    phaseWaitStage = "";
+  }
   if (uvLedEnabled && ExposureMillis > 0) {
     if (!uvOffTimer) {
       esp_timer_create_args_t targs = {};
@@ -108,6 +116,7 @@ void turn_on_LED(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -115,11 +124,13 @@ void turn_on_LED(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11112){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishPauseEstimate)
       current_state = 5;
       screen1111_state();
       screen1112();
@@ -127,15 +138,24 @@ void turn_on_LED(){
       gfx2->fillTriangle(136, 52, 136, 68, 152, 60, 0x8410);
       gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
       print_paused = true;
+      publishPauseEstimate(wasPhase);   // kada sustos apziurai - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }   
   }
   if (uvOffTimer) esp_timer_stop(uvOffTimer);  // don't let it fire into the next phase
   digitalWrite(LED, LOW);
-  // A canceled exposure leaves its countdown mid-flight; zero it so the
-  // "Canceling" state doesn't briefly show the dead exposure's number
-  // before the final lift posts its own.
-  if (print_canceled) phaseTotalMs = 0;
+  // A canceled exposure leaves its countdown mid-flight. Zeroing it stopped the
+  // dead number from showing, but it also left the whole "Stopping" wait without
+  // one - and the wait is the moment a person most wants to know how long
+  // (V 08-17: "man svarbu aplamai kada sustos"). So publish OUR estimate instead:
+  // how long the plate needs to reach its parking height, which is the same
+  // arithmetic lift_finished_print() does - distance over speed - just started a
+  // little earlier. That lift recomputes it exactly when it begins, so the number
+  // only sharpens.
+  // Faze cia zinoma is anksto: si eilute pasiekiama TIK ka tik pasibaigus
+  // ekspozicijai, tad pertraukem butent ja (1). `current_state` klausti negalima -
+  // nutraukimas ji jau pasistate i 4 (auditas 09-01).
+  if (print_canceled) publishStopEstimate(1);   // zr. Motor.ino
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }

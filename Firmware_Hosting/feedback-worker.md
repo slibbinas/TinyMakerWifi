@@ -24,6 +24,34 @@ raktų (`panel:*`). HTML įkeliamas iš PC su `wrangler`, NE iš repo.
 
 Proxy į gh-pages (be KV): `/demo`, `/manual`, `/roadmap`.
 
+### `/tests/state` — testų pulto žymos serveryje (2026-08-27)
+
+Pultas lieka viešas ir be rakto veikia kaip anksčiau (žymos tik toje naršyklėje).
+Su asmeniniu raktu nuorodoje (`/tests?k=...`) žymos keliauja į serverių, tad
+telefonas prie printerio ir kompiuteris ant stalo rodo tą pačią būseną, o
+naršyklės išvalymas nebenužudo testavimo sesijos.
+
+| | |
+|---|---|
+| Raktas prieigai | KV `key:tests` (kaip `key:team`); blogas ar joks → **404** |
+| Būsena | KV `tests:state`, vienas JSON: `{"T-19":{"v":"pass","n":"...","t":<ms>}}` |
+| `GET /tests/state?k=` | grąžina būseną |
+| `POST /tests/state?k=` | prisiunčia **pilnuą to įrenginio kopiją**, grąžina sulietą būseną |
+
+**Susiliejimas pagal eilutės laiką, ne pagal atsiuntimo eilę.** Abu įrenginiai
+siunčia pilnas kopijas, tad vakar paliktas atidarytas langas kitaip nutrintų
+tai, kas ka tik pažymėta telefone. Taisyklė gyvena atskirai — `src/state.mjs`
+`mergeState()` — ir yra **unit-testuota**:
+
+```
+cd Firmware_Hosting/feedback-worker
+node --test test/state.test.mjs
+```
+
+⚠️ Windows'e `node --test test/` (katalogas) nesuveikia — `MODULE_NOT_FOUND`;
+paduok patį failą, kaip aukščiau.
+
+
 **SEO / AI-discovery route'ai** (inline turinys `src/index.js`, ne KV — apex neturi
 CNAME, tad worker juos servina pats): `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 Turinį keisti tiesiai `index.js` + `wrangler deploy`.
@@ -84,3 +112,25 @@ Worker'is Turnstile tikrina TIK jei nustatyti abu raktai — kitaip praleidžia.
   origin'as, tad CORS praktiškai net nedalyvauja.
 - Testuojant lubas atmintinai išvalyti `day:*` ir `gate:*` raktus — kitaip
   paliksi savo paties IP užrakintą parai.
+
+## `POST /slicerbug` — defektų žymės iš pulto (0.17)
+
+Pulte (su `?dev=1`) galima bakstelėti į modelį 3D peržiūroje ir pažymėti, kur
+blogai; „Send" atsiunčia žymes su milimetrais, slicerio versija, pulto ETag ir
+firmware build'u, plius 3D kadrą kaip nuotrauką.
+
+**Kodėl atskiras kelias, o ne `/feedback`:** pultas servinamas iš printerio per
+`http://tinymaker.local` (arba LAN IP), tad viešos formos CORS
+(`tinymakerwifi.com`) jį atmestų, o Turnstile widget'o puslapyje, kuris gali
+neturėti interneto, nėra iš kur gauti. Viešos formos apsaugos **nekeičiamos** —
+tai kitos durys su savo spyna.
+
+| | |
+|---|---|
+| CORS | `*` **tik šiam keliui** (`WIDE_CORS` konstanta) |
+| Turnstile | nėra |
+| Limitai | 60 s / IP (`sbgate:<ip>`) · 20 per parą (`sbday:<data>`) · plius bendros 60/parą lubos |
+| Kūnas | multipart arba JSON: `message` (≤8000), `fw`, `build`, `ua`, viena `photo` (≤2 MB, `image/*`) |
+| Įrašas | ta pati `fb:` dėžutė, `src:'slicer'`, `tag:'bug'` iš karto — inbox'e matosi su ⌖ ženkleliu, „kas naujo feedback'e" pagauna savaime |
+
+Kritimas be tinklo lieka pulte: „Copy" (iškarpinė) ir „JSON" (atsisiuntimas).

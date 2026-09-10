@@ -82,6 +82,26 @@ void netMessage(const char *line1, const char *line2) {
 }
 
 // Two text lines + bounded progress bar (WiFi connect / uploads / OTA / import)
+// Ilgas modelio vardas i 160 px eilute netilpdavo: Arduino_GFX ji tyliai perkelia
+// i kita eilute, ir vardas uzlipdavo ant progreso juosteles (V 08-14, „valentine-
+// heart-ring-model_tiles"). Trumpinam pagal TIKRA ploti, ne pagal simboliu skaiciu:
+// „iiii" ir „WWWW" uzima skirtingai, o simboliu riba arba nukirpdavo per anksti,
+// arba vis tiek netilpdavo.
+static String fitToWidth(const char *s, int16_t maxW) {
+  if (!s || !*s) return String("");
+  int16_t x1, y1; uint16_t w, h;
+  gfx2->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+  if ((int16_t)w <= maxW) return String(s);
+  String t(s);
+  while (t.length() > 1) {
+    t.remove(t.length() - 1);
+    String cand = t + "...";
+    gfx2->getTextBounds(cand.c_str(), 0, 0, &x1, &y1, &w, &h);
+    if ((int16_t)w <= maxW) return cand;
+  }
+  return String("...");
+}
+
 void netProgressStart(const char *line1, const char *line2) {
   uiWakeScreen();   // web update/upload progress must wake a blanked screen
   gfx2->fillScreen(BLACK);
@@ -89,9 +109,9 @@ void netProgressStart(const char *line1, const char *line2) {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(5, 18);
-  gfx2->print(line1);
+  gfx2->print(fitToWidth(line1, 150));   // 160 px ekranas, tekstas nuo x=5
   gfx2->setCursor(5, 38);
-  gfx2->print(line2);
+  gfx2->print(fitToWidth(line2, 150));
   gfx2->drawRoundRect(10, 48, 140, 16, 3, WHITE);
 }
 
@@ -114,7 +134,7 @@ void netProgressText(const char *line2) {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(5, 38);
-  gfx2->print(line2);
+  gfx2->print(fitToWidth(line2, 150));
 }
 
 // Bar + "done / total" counter. The dashboard tells uploaders to watch the layer
@@ -169,15 +189,18 @@ bool bootAnimShuffleSelected(const String &name) {
   return name == BOOTANIM_SHUFFLE;
 }
 
-// Keep only [a-z0-9-_], lowercase, <=40 chars; never empty (used as a filename).
-String sanitizeAnimName(const String &in) {
+// Keep only [a-z0-9-_], lowercase, <=40 chars. Used as a filename, so it must
+// never come out empty - hence the fallback. Callers that would rather reject
+// a name with nothing usable in it (the resin routes: "!!!" should be a 400,
+// not a file called "downloaded") pass an empty fallback and check the result.
+String sanitizeSlug(const String &in, const char *fallback) {
   String out;
   for (size_t i = 0; i < in.length() && out.length() < 40; i++) {
     char c = in[i];
     if (c >= 'A' && c <= 'Z') c += 32;
     if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') out += c;
   }
-  return out.length() ? out : String("downloaded");
+  return out.length() ? out : String(fallback);
 }
 
 // Fill out[] with the .tmb basenames (no extension) in /bootanim; returns count.
@@ -210,19 +233,25 @@ bool bootAnimExists(const String &name) {
   return ok;
 }
 
-// "cure-line" -> "Cure Line" for the menu value / dashboard label.
-String bootAnimDisplay(const String &name) {
-  if (name.length() == 0) return "Default";
-  if (bootAnimShuffleSelected(name)) return "Shuffle";
+// "cure-line" -> "Cure Line". Shared by the boot-animation menu and the resin
+// profile list (ResinProfile.ino), which names files the same slug way.
+String slugToTitle(const String &slug) {
   String out;
   bool up = true;
-  for (size_t i = 0; i < name.length(); i++) {
-    char c = name[i];
+  for (size_t i = 0; i < slug.length(); i++) {
+    char c = slug[i];
     if (c == '-' || c == '_') { out += ' '; up = true; }
     else if (up) { out += (char)toupper(c); up = false; }
     else out += c;
   }
   return out;
+}
+
+// "cure-line" -> "Cure Line" for the menu value / dashboard label.
+String bootAnimDisplay(const String &name) {
+  if (name.length() == 0) return "Default";
+  if (bootAnimShuffleSelected(name)) return "Shuffle";
+  return slugToTitle(name);
 }
 
 // Advanced-menu cycle order: Default ("") -> Shuffle (when useful) -> each file -> back to Default.
@@ -610,7 +639,11 @@ int advancedGroupItemCount(int g) {
     if (wifiEnabled && advancedMqttConfigured()) count++;
     return count;
   }
-  if (g == 2) return 7;  // VAT refilled, pause, warn, ask refill, power resume, exp test, dry run
+  // 0.17 0-16: the profile picker goes first. Resetting a profile to factory
+  // is NOT here: at the printer one OK would wipe a tuned exposure with no way
+  // to confirm, and the dashboard already asks before doing it (same split as
+  // boot animations - the printer picks, the dashboard manages).
+  if (g == 2) return 11;
   if (g == 3) return 2;  // idle timeout, boot animation
   return 0;
 }
@@ -626,8 +659,10 @@ int advancedGroupItem(int g, int pos) {
     return 8;                                                 // Boot update (last)
   }
   if (g == 2) {
-    const int items[7] = {3, 4, 5, 6, 13, 9, 2};  // refilled, pause, warn, ask, power resume, exp test, dry run
-    if (pos >= 1 && pos <= 7) return items[pos - 1];
+    // profile, refilled, stop chk, stop ml, warn ml, ask, power resume,
+    // resume mode, pause lift, exp test, dry run
+    const int items[11] = {17, 3, 4, 5, 16, 6, 13, 14, 15, 9, 2};
+    if (pos >= 1 && pos <= 11) return items[pos - 1];
   }
   if (g == 3) {
     if (pos == 1) return 1;   // Idle timeout
@@ -643,9 +678,9 @@ String advancedLabel(int item) {
                                           // "Screen timeout" read as if the
                                           // screen should sleep mid-print too
   if (item == 2) return "Dry run";
-  if (item == 3) return "VAT refilled";
-  if (item == 4) return "Low resin pause";
-  if (item == 5) return "Low resin warn";
+  if (item == 3) return "Set VAT full";   // says what it does to the level (V 09-10); same 80 px as the old label
+  if (item == 4) return "Low resin stop";
+  if (item == 5) return "Stop (ml)";
   if (item == 6) return "Ask refill";
   if (item == 7) return "WiFi";
   if (item == 8) return "Boot update";
@@ -654,6 +689,10 @@ String advancedLabel(int item) {
   if (item == 11) return "Web control";  // shown only via the Network group,
   if (item == 12) return "MQTT";         // which gates them on wifiEnabled
   if (item == 13) return "Power resume"; // 0-34: power-loss resume on/off
+  if (item == 14) return "Resume mode";  // 0.17 1-38b: Balanced vs Precise checkpoint cadence
+  if (item == 15) return "Pause lift";   // 0.17 #82: pause plate-lift height for inspection
+  if (item == 16) return "Warn (ml)";    // 0.17 #40: low-resin WARN level
+  if (item == 17) return "Resin profile";  // 0.17 0-16
   return "";
 }
 
@@ -669,7 +708,7 @@ String advancedValue(int item) {
   if (item == 6) return askRefillEnabled ? "On" : "Off";
   if (item == 7) return wifiEnabled ? "On" : "Off";
   if (item == 8) return bootUpdateCheckEnabled ? "On" : "Off";
-  if (item == 9) return String(expTestBarSecs(1)) + "-" + String(expTestBarSecs(8)) + "s strip";
+  if (item == 9) return String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s";   // 0.17 0-3: ds -> X.X s
   if (item == 10) {
     if (bootAnimName.length() == 0) return "Default";
     if (bootAnimShuffleSelected(bootAnimName)) return "Shuffle";
@@ -678,6 +717,35 @@ String advancedValue(int item) {
   if (item == 11) return webDashboardEnabled ? "On" : "Off";
   if (item == 12) return mqttEnabled ? "On" : "Off";
   if (item == 13) return resumeEnabled ? "On" : "Off";
+  if (item == 14) return resumePrecise ? "Precise" : "Balanced";
+  if (item == 15) return String(pauseLiftMm) + " mm";
+  if (item == 16) return String(lowResinWarnMl) + " ml";
+  if (item == 17) {
+    // Cached. Drawing the menu asks for this on every repaint, and a miss costs
+    // an SD open plus a byte-by-byte read of the profile file - enough to make
+    // the buttons feel sluggish. resinProfileRev invalidates it whenever a
+    // profile is applied, written or deleted (from the screen or the dashboard).
+    static String cachedName = "\x01";   // impossible slug - forces a first fill
+    static uint32_t cachedRev = 0;
+    static String cachedVal;
+    if (cachedName != resinProfileName || cachedRev != resinProfileRev) {
+      cachedName = resinProfileName;
+      cachedRev = resinProfileRev;
+      // „- blocked", nes nuo 08-17 tuscias vardas nera vien tuscias laukas:
+      // spausdinti neleidziama, kol derva nepasirinkta. 118 px prie 150 px.
+      if (resinProfileName.length() == 0) cachedVal = "Not set - blocked";
+      else {
+        ResinProfileInfo info;
+        if (!resinProfileInfo(resinProfileName, info))
+          cachedVal = slugToTitle(resinProfileName) + " (missing)";
+        else {
+          cachedVal = info.display;
+          if (info.edited) cachedVal += " *";   // * = edited built-in
+        }
+      }
+    }
+    return cachedVal;
+  }
   return "";
 }
 
@@ -688,7 +756,12 @@ void drawAdvancedRow(int pos, int y, bool selected) {
   gfx2->setCursor(5, y + 15);
   gfx2->print(advancedLabel(id));
   gfx2->setCursor(5, y + 33);
-  gfx2->print(advancedValue(id));
+  /* Kitos desimt reiksmiu trumpos („On", „20 mm", „5 ml"), bet dervos profilio
+     vardas ateina is failo ir nera ribojamas: musu pacius paskelbtas „Anycubic
+     Water-Washable Clear" yra ~200 px prie 160 px eilutes, o Arduino_GFX toki
+     tyliai perkelia i kita eilute ir jis uzlipa ant gretimo iraso. Ta pati yda,
+     del kurios atsirado uiFitText() (auditas 08-17). */
+  gfx2->print(uiFitText(advancedValue(id), 150));
 }
 
 void screenAdvancedOptions() {
@@ -771,8 +844,8 @@ void advancedOptionsSelect() {
   } else if (id == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
   } else if (id == 5) {
-    lowResinThresholdMl++;      // cycle 1..3 ml
-    if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
+    lowResinThresholdMl++;      // cycle 3..8 ml (3 = the measured vat floor, see TinyMaker.ino)
+    if (lowResinThresholdMl > 8) lowResinThresholdMl = 3;
   } else if (id == 6) {
     askRefillEnabled = !askRefillEnabled;
   } else if (id == 7) {
@@ -793,6 +866,43 @@ void advancedOptionsSelect() {
     mqttEnabled = !mqttEnabled;
   } else if (id == 13) {
     resumeEnabled = !resumeEnabled;
+  } else if (id == 14) {
+    resumePrecise = !resumePrecise;   // 0.17 1-38b: Balanced <-> Precise checkpoint cadence
+  } else if (id == 15) {
+    pauseLiftMm += 5;                  // 0.17 #82: cycle 20 -> 25 -> 30 -> 35 -> 40 -> 20
+    if (pauseLiftMm > 40) pauseLiftMm = 20;
+  } else if (id == 16) {
+    /* 0.17 #40: cycle warn level 5 -> 6 -> 7 -> 8 -> 5. The old ladder climbed to 15,
+       which is the whole vat: a warning that fires the moment a print starts. */
+    lowResinWarnMl++;
+    if (lowResinWarnMl < 5 || lowResinWarnMl > 8) lowResinWarnMl = 5;
+  } else if (id == 17) {
+    // 0.17 0-16: cycle every built-in in table order, then each profile on the
+    // card, then back to the first. The
+    // pick applies immediately; applyResinProfile() persists everything itself
+    // (and remembers the replaced exposures, so the dashboard Undo still works).
+    /* Vienas sugadintas /resin/*.json duoda false, o resinProfileName lieka
+       senas - tad kitas paspaudimas nextResinProfile() skaiciuotu nuo TO PATIES
+       vardo ir grazintu ta pati sugadinta faila. Mygtukas butu mires visam
+       laikui, be jokio pranesimo, o pultas toki irasa dar ir paslepia, tad
+       priezasties nesimatytu. Todel einam sarasu toliau. Iki built-in visada
+       prieinam (ju reiksmes flash'e, jos negali nenuskaityti), tad ciklas
+       visada kuo nors baigiasi (auditas 08-17). */
+    String cand = nextResinProfile(resinProfileName);
+    for (int tries = 0; tries < RESIN_MAX_PROFILES && cand.length(); tries++) {
+      if (applyResinProfile(cand)) break;
+      String next = nextResinProfile(cand);
+      if (next == cand) break;      // vienintelis sarase, ir tas pats sugadintas
+      cand = next;
+    }
+    // applyResinProfile() jau issaugojo viska pats, bet Connect kopija liko
+    // nepainformuota: si saka grizdavo PRIES bendra kvietima zemiau, tad tas
+    // pats veiksmas is pulto i debesi patekdavo, o is mygtuko - ne (audit 08-17).
+    #if ENABLE_NETWORK
+    tinymakerConnectScheduleBackup();
+    #endif
+    screenAdvancedOptions();
+    return;
   }
   saveDeviceConfig();
   #if ENABLE_NETWORK
@@ -813,7 +923,7 @@ void screenLowResinWarn(float needMl) {
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
   gfx2->print("Low resin!");
-  uiActionHint(92, 8, "Refilled");   // UP = mark full & start (top-right)
+  uiActionHint(92, 8, "Full");       // UP = mark full & start (top-right); built-in 6 px font from x=108, a longer word runs off the screen
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   if (needMl >= 0) {
@@ -842,7 +952,7 @@ void screenRefillAsk() {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
-  gfx2->print("VAT refilled?");
+  gfx2->print("VAT filled full?");   // it resets to a FULL VAT - say so (V 09-10)
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   gfx2->print("~");
@@ -1036,6 +1146,34 @@ void screenRestorePrompt(){
   gfx2->print("from SD backup?");
   uiButtons("Skip", "Restore", 0x879F);
   screen = 426;
+}
+
+/**
+ * One line telling the operator where the plate ended up. Used at both ends of
+ * the manual jog: at the top, where the move is refused because the plate is
+ * already at max_height - which is where lift_finished_print() parks it after
+ * EVERY print, so the Up button would otherwise look broken - and at the bottom,
+ * where touching the endstop resets the height to zero.
+ * The bottom says "Plate is home" in every case. Whether the zero was freshly
+ * written or the plate was already sitting there is our bookkeeping; the
+ * operator knows one word for that position, and a second sentence would ask
+ * them to learn a distinction that changes nothing they do (V 09-05, after a
+ * two-message version was written and rejected - do not bring it back).
+ * Keep any new line no longer than the ones in use: centring with getTextBounds
+ * keeps it in the middle, but nothing stops a longer line from running off both
+ * edges of the 160 px frame. Measured widths - "Plate is at the top" 119 px,
+ * "Plate is home" 94 px, against 156 px of usable frame.
+ */
+void screenPlateNote(const char *t){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  int16_t bx, by; uint16_t bw, bh;
+  gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+  gfx2->setCursor((160 - (int)bw) / 2 - bx, 45);
+  gfx2->print(t);
+  delay(1100);
 }
 
 void screenRestoreDone(bool ok){
@@ -1325,7 +1463,11 @@ void screen111(){
   } while(entry);
   layer_counter --;
 
-  // Calculate motor timing  
+  // Whose height this count belongs to - checked again at Start, in case the
+  // resin (and with it the layer height) changed while the model stood staged.
+  stagedLayerHeight = Layer_Height;
+
+  // Calculate motor timing
   get_motor_updown_time();
 
   // Calculate height
@@ -1338,7 +1480,7 @@ void screen111(){
 
   // Calculate print time
   estimated_seconds += Base_Layer * Base_Exposure;
-  estimated_seconds += (layer_counter - Base_Layer) * Regular_Exposure;
+  estimated_seconds += (layer_counter - Base_Layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
   motor_updown_time_total = motor_updown_time * (layer_counter - 1);
   estimated_seconds += motor_updown_time_total; 
   estimated_hours = estimated_seconds / 3600;
@@ -1366,10 +1508,129 @@ void screen111(){
   uiButtons("Back", "Start", 0x879F);
   screen = 111;
 }
+
+/* screen111() perskaiciuoja sluoksnius IR perraso stagedLayerHeight. Butent ta
+   reiksme lygina sarga pries Start, tad kiekvienas screen111() kvietimas ta sarga
+   nuginkluoja - o sluoksniu patikra gyveno JOS viduje. Taip 08-16 pataisa (dervos
+   perjungimas perskaiciuoja peruziura) tyliai atidare kelia nulio sluoksniu
+   spaudiniui. Todel perskaiciavimas ir atsisakymas nuo dabar keliauja kartu,
+   vienoje vietoje, o ne kartojami kiekviename kvietimo taske (auditas 08-17).
+   Grazina false, jei modelis atmestas - ekranas tada jau pakeistas. */
+bool screen111Checked() {
+  screen111();
+  if (layer_counter > 0 && layer_counter <= MAX_LAYER_FILES) return true;
+  bool tuscia = (layer_counter <= 0);
+  // Nesuvartota starto uzklausa kitame cikle vel issaudytu OK saka, ir kitas
+  // ekranas paleistu spaudini, kurio niekas neprase (auditas 08-16).
+  startFromResin = false; webStartPrint = false; resumeStartPrint = false;
+  resinWarnAccepted = false; refillAsked = false;
+  #if ENABLE_NETWORK
+  freePreviewCache();   // niekas nespausdins - nera ko laikyti nuotraukos
+  #endif
+  if (tuscia) screenNoLayers(); else screen112();
+  return false;
+}
+
+/**
+ * @brief Screen 116: no resin profile is selected, so printing is refused.
+ *
+ * Tuscias resinProfileName reiskia, kad masina NEZINO, kokia derva vate: taip
+ * lieka istrynus aktyvu profili arba atkurus kopija su tuscia lauku. Anksciau
+ * tokia busena buvo tyli - spausdinti leisdavo su istrinto profilio skaiciais.
+ * Desinys mygtukas uzdeda gamyklini „Slow", kad butu akivaizdus kelias laukan;
+ * spaudinys NEPRASIDEDA, Start reikia paspausti atskirai (V, 08-17).
+ */
+void screenNoResin(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Resin not set");
+  gfx2->setCursor(6, 34);
+  // 92 / 132 / 57 px prie 152 px ribos - ismatuota FreeSans8pt7b, ne is akies.
+  gfx2->println("Pick a resin before");
+  gfx2->setCursor(6, 52);
+  gfx2->println("printing.");
+  uiButtons("Back", "Slow", 0x879F);
+  screen = 116;
+  // Laikomas OK butu perskaitytas kaip atsakymas ir klausimas prasvystu - ta
+  // pati idioma kaip ekranuose 313 ir 115.
+  while (digitalRead(buttonOK) == LOW) delay(10);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+
+/**
+ * @brief Resume refused: the layer height is not the one this print was made
+ * with. The recovery move is derived from the height in force, so continuing
+ * would drive the plate to the wrong place - say so, and let the caller put
+ * the resume prompt back up (lift / discard are still there).
+ */
+void screenResumeHeightChanged(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Layer height is");
+  gfx2->setCursor(6, 34);
+  gfx2->println("not this print's -");
+  gfx2->setCursor(6, 52);
+  gfx2->println("cannot be resumed.");
+  delay(3500);
+  // No screen1() here: the caller puts the resume prompt back up, and drawing
+  // the main menu in between only flashed it for a frame.
+}
+
+/**
+ * @brief Gamyklinio atstatymo patvirtinimas (ekranas 313). Ivardija tai, ko
+ * neatstatysi - dervos profili ir sverimus - ir kad po to printeris persikrauna.
+ * Nustatymai, kuriu SIS mygtukas neliecia: MQTT, pranesimai, Connect poravimas,
+ * boot animacija, WiFi kredencialai.
+ */
+void screenFactoryConfirm(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("Reset settings?");
+  gfx2->setCursor(6, 34);
+  gfx2->println("Resin profile and");
+  gfx2->setCursor(6, 52);
+  // 119 px ir 144 px prie 152 px ribos (x=6, vidinis remelis iki 158) - ismatuota
+  // sriftu FreeSans8pt7b, ne is akies. 08-16 perrasant dingo zodis ir liko
+  // „Resin profile and go", o perspejimas apie perkrovima buvo prarastas.
+  gfx2->println("weighings. Reboots.");
+  uiButtons("Back", "Reset", 0x879F);
+  screen = 313;
+  // Laikomas OK kitame cikle butu perskaitytas kaip atsakymas ir klausimas
+  // prasvystu nepastebetas (o laikant toliau - kartotusi kas puse sekundes).
+  // Ta pati idioma, kaip kitose patvirtinimo vietose (audit 08-16).
+  while (digitalRead(buttonOK) == LOW) delay(10);
+}
+
+/**
+ * @brief Nera sluoksniu: kortele neatidave nei vieno .png. Atskiras nuo screen112,
+ * nes ten rasoma apie darbo zonos auksti, o cia priezastis visai kita (audit 08-16).
+ */
+void screenNoLayers(){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("No layers found");
+  gfx2->setCursor(6, 34);
+  gfx2->println("in this model - the");
+  gfx2->setCursor(6, 52);
+  gfx2->println("card may be at fault.");
+  uiButton(0, "Back", ORANGE);
+  screen = 112;   // Back veikia taip pat, kaip is aukscio ispejimo
+}
 
 /**
  * @brief Screen 112: Height Warning
@@ -1428,7 +1689,14 @@ void screen1111(){
   gfx2->fillScreen(BLACK);
   gfx2->fillRoundRect(0, 0, 120, 80, 5, ORANGE);
   gfx2->fillRoundRect(2, 2, 116, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+  /* Juosta gyvena remelio VIDUJE (V 09-04). Anksciau ji buvo piesiama ant
+     (0,0,120,20) ir nukirsdavo oranzinio remelio virsutini krasta - kortele
+     atrodydavo apkirsta. Tikram spaudiniui to nesimatydavo, nes juosta tada
+     oranzine ir susilieja su remeliu; dry run rezime ji zydra, ir luzis matomas.
+     Du kvietimai, nes `fillRoundRect` apvalina VISUS keturis kampus, o antrastei
+     apacia turi buti tiesi. */
+  gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+  gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     
   // Icons (Pause/Cancel)    
   gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1477,7 +1745,10 @@ void screen1111_state(){
     }
   }
   if (screen != 11111 && screen != 11112){
-    gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+    // Ta pati juosta, kaip screen1111 - kitaip perpiesus busena ji atrodytu
+    // kitaip nei ka tik ijungus (zr. komentara ten).
+    gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+    gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
@@ -1503,8 +1774,13 @@ void screen1111_state(){
       gfx2->print("Canceling...");
         break;
       case 5:
-      gfx2->setCursor(30, 14);
-      gfx2->print("Pausing...");
+      /* The lift into a pause. Says why when the resin ran low - the same ~18 s used to
+         show an empty band, because nothing drew this state when the lift began (V 09-10). */
+      { const char *t = pauseLiftForResin ? "Resin low..." : "Pausing...";
+        int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14);
+        gfx2->print(t); }
         break;  
       case 6:
       gfx2->setCursor(32, 14);
@@ -1515,12 +1791,24 @@ void screen1111_state(){
       gfx2->print("Resuming...");
         break;
       case 8:
-      gfx2->setCursor(32, 14);
-      gfx2->print("Finish :)");
+      // Tas pats zodis, kaip pulte (V 09-04): ekranas sakydavo „Finish :)", o
+      // pultas tuo metu rodo likusi laika - du priestaraujantys teiginiai.
+      // Vieta MATUOJAMA, ne imama is kaimyno: sriftas proporcingas (todel
+      // „Lifting..." stovi ties 37, o „Pausing..." ties 30 - abu po 10 zenklu).
+      // Ir centruojama JUOSTOJE, kuri yra 120 px (1715 eil.), ne 160 px ekrane:
+      // desinieji 40 px priklauso zenkliukams. „Raising plate" i 120 netilpo ir
+      // islisdavo uz zydro fono (V 09-04, foto) - todel trumpesnis zodis.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Raising...", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Raising...");
         break;
       case 10:                  // low-resin pause (paused variant)
-      gfx2->setCursor(26, 14);
-      gfx2->print("Refill VAT!");
+      // FULL, not "refill": leaving this pause resets the level to the whole capacity.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Fill VAT full!", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Fill VAT full!");
         break;
     }
   }
@@ -1649,16 +1937,36 @@ void screen11113(){
   gfx2->fillCircle(18, 25, 2, RED); 
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  gfx2->setCursor(27, 23);
-  gfx2->println("Are you sure to");
-  gfx2->setCursor(13, 41);
-  gfx2->println("resume the print?"); 
+  const bool resinPause = (current_state == 10);
+  if (resinPause) {
+    /* Resin pause: confirming marks the VAT full, so the words ask about a FULL fill -
+       the level resets to the whole capacity. One line, the same question the printer
+       and the dashboard ask everywhere (V 2026-09-10: no two-line sandwich). Measured
+       from the glyph table: 98 px of ink in a 142 px box. */
+    int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds("VAT filled full?", 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor((160 - (int16_t)bw) / 2, 32);
+    gfx2->println("VAT filled full?");
+  } else {
+    gfx2->setCursor(27, 23);
+    gfx2->println("Are you sure to");
+    gfx2->setCursor(13, 41);
+    gfx2->println("resume the print?");
+  }
+  /* A yes/no question gets No/Yes, like the pre-print ask (screen 115); the normal pause
+     keeps Back/Sure. BACK is still the left button and OK the right one. */
+  const char *lbL = resinPause ? "No" : "Back";
+  const char *lbR = resinPause ? "Yes" : "Sure";
   gfx2->fillRoundRect(11, 51, 67, 18, 2, ORANGE);
-  gfx2->setCursor(27, 64);
-  gfx2->println("Back");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbL, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(11 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbL);
   gfx2->fillRoundRect(82, 51, 67, 18, 2,  0x879F);
-  gfx2->setCursor(100, 64);
-  gfx2->println("Sure");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbR, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(82 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbR);
   screen = 11113;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1900,11 +2208,16 @@ void screen213(){
   screen = 213;
 
   // Homing Motion
+  zHomed = false;   // no reference until this run reaches the endstop
   stepper.setCurrentPosition(0);
   stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
   long initial_homing = 0;
   long current_position;
+  // Both aborts below leave the loop through break, and the sensor is optical: a
+  // dirty one can read HIGH right after, which used to paint "Homing OK" over the
+  // cancel screen. Harmless as pixels; not harmless once zHomed rides on it.
+  bool homingAborted = false;
   while(!digitalRead(end_stop)){
     stepper.moveTo(initial_homing);  // Set the position to move to
     initial_homing--;  // Decrease by 1 for next move if needed
@@ -1929,6 +2242,7 @@ void screen213(){
       gfx2->setCursor(100, 64);
       gfx2->println("OK :(");
       while(digitalRead(buttonOK) == HIGH);
+      homingAborted = true;
       screen21();      
       break;      
     }     
@@ -1956,6 +2270,7 @@ void screen213(){
       gfx2->setCursor(46, 43);
       gfx2->print("Canceled");
       delay(600);
+      homingAborted = true;
       screen21();
       break;
     }
@@ -1963,8 +2278,9 @@ void screen213(){
   stepper.disableOutputs();
   delay(50); 
           
-  if (digitalRead(end_stop)){
+  if (!homingAborted && digitalRead(end_stop)){
     stepper.setCurrentPosition(0);
+    zHomed = true;   // endstop reached: API heights mean something again
     gfx2->fillRoundRect(0, 0, 160, 20, 3, ORANGE); 
     gfx2->setCursor(40, 14);
     gfx2->print("Homing OK");
@@ -2385,21 +2701,18 @@ void screen23111(){
 // bar 5 = 100% = your current value. A fast resin (cures in 3 s) and a slow
 // one (25 s) both get a meaningful spread - fixed +-seconds steps did not
 // (first real strip saturated: every bar past ~8 s looked identical).
-// Whole seconds cannot hold a +-60% spread once Regular drops low: at 1 s the
-// percentages all rounded to the same value and the strip burned eight
-// identical bars that blanked at once (user finding, 0.15.0 testing). Exposure
-// is settable only in whole seconds (one EEPROM byte, 1..30), so a sub-second
-// ladder would produce bars nobody can then set. Below ~5 s the ladder
-// therefore stops being proportional and becomes a 1 s sweep - every bar stays
-// distinct and every bar maps to a value the pick can actually apply. From ~6 s
-// up the percentages already separate on their own and nothing changes here.
-int expTestBarSecs(int bar) {          // bar 1..8 -> seconds, always distinct
+// 0.17 0-3: Regular exposure is now DECISECONDS, so the ladder stays truly
+// proportional (+-60%) even at low exposure - the old "below ~5 s fall back to a
+// 1 s sweep" hack (whole-second EEPROM byte) is gone. Bars are floored at 1.0 s
+// and forced distinct by at least 0.1 s. Returns DECISECONDS (the "Secs" name is
+// kept only because it has many callers).
+int expTestBarSecs(int bar) {          // bar 1..8 -> deciseconds, always distinct
   static const uint8_t pct[8] = {40, 55, 70, 85, 100, 115, 135, 160};
   int t[8];
   for (int i = 0; i < 8; i++) {
-    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;
-    if (t[i] < 1) t[i] = 1;                          // 1 s = the settable floor
-    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;
+    t[i] = ((int)Regular_Exposure * pct[i] + 50) / 100;   // Regular is ds -> t is ds
+    if (t[i] < 10) t[i] = 10;                             // 1.0 s = the settable floor
+    if (i && t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;       // distinct by >= 0.1 s
   }
   return t[bar - 1];
 }
@@ -2418,7 +2731,7 @@ void screenExpTestIntro(){
   // string on these screens is measured to fit FreeSans8pt7b at its widest value.
   gfx2->print("Resin in vat, no plate");
   gfx2->setCursor(8, 48);
-  gfx2->print(String("Cures 8 bars: ") + expTestBarSecs(1) + "-" + expTestBarSecs(8) + "s");
+  gfx2->print(String("8 bars: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened: ds strings are wider
   uiButtons("Back", "Start", 0x879F);
   screen = 232;
 }
@@ -2455,7 +2768,7 @@ void runExpTest(){
       gfx1->fillCircle(x0 + bw / 2, by + 3 * r + k * 3 * r, r, BLACK);
   }
 
-  long maxMs = (long)expTestBarSecs(8) * 1000L;
+  long maxMs = (long)expTestBarSecs(8) * 100L;   // 0.17 0-3: bars are deciseconds -> ms
   int blanked = 0;
   bool canceled = false;
   digitalWrite(FAN, HIGH);
@@ -2464,7 +2777,7 @@ void runExpTest(){
   Duration = 0;
   while (Duration <= maxMs && !canceled){
     Duration = millis() - startTime;
-    while (blanked < 8 && Duration >= (long)expTestBarSecs(blanked + 1) * 1000L){
+    while (blanked < 8 && Duration >= (long)expTestBarSecs(blanked + 1) * 100L){   // ds -> ms
       gfx1->fillRect(blanked * slot + gap, by, bw, bh, BLACK);
       blanked++;
     }
@@ -2489,7 +2802,7 @@ void runExpTest(){
   if (!canceled){
     gfx2->setTextColor(0x879F);
     gfx2->setCursor(8, 34);
-    gfx2->print(String("Dots 1..8 = ") + expTestBarSecs(1) + ".." + expTestBarSecs(8) + "s");
+    gfx2->print(String("Dots 1-8: ") + String(expTestBarSecs(1) / 10.0, 1) + "-" + String(expTestBarSecs(8) / 10.0, 1) + "s");   // shortened
     gfx2->setCursor(8, 48);
     gfx2->print("Rinse, then pick bar");
     uiButtons("Skip", "Pick", 0x879F);
@@ -2520,12 +2833,12 @@ void screenExpTestPick(){
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 38);
   if (expTestPick <= 8) {
-    gfx2->print(String(expTestPick) + " dots -> " + expTestBarSecs(expTestPick) + "s");
+    gfx2->print(String(expTestPick) + " dots -> " + String(expTestBarSecs(expTestPick) / 10.0, 1) + "s");
     if (expTestBarSecs(expTestPick) == (int)Regular_Exposure) gfx2->print(" (now)");
   } else if (expTestPick == 9) {
-    gfx2->print(String("All fat -> ") + expTestBarSecs(1) + "s");
+    gfx2->print(String("All fat -> ") + String(expTestBarSecs(1) / 10.0, 1) + "s");
   } else {
-    gfx2->print(String("All soft -> ") + expTestBarSecs(8) + "s");
+    gfx2->print(String("All soft -> ") + String(expTestBarSecs(8) / 10.0, 1) + "s");
   }
   gfx2->setCursor(8, 52);
   gfx2->print(expTestPick <= 8 ? "UP = next" : "UP = next (retest)");
@@ -2535,9 +2848,9 @@ void screenExpTestPick(){
 }
 
 void expTestApplyPick(){
-  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));
-  if (t < 1) t = 1;
-  if (t > 30) t = 30;
+  int t = expTestBarSecs(expTestPick <= 8 ? expTestPick : (expTestPick == 9 ? 1 : 8));  // deciseconds
+  if (t < 10) t = 10;    // 0.17 0-3: ds range (1.0 s)
+  if (t > 300) t = 300;  // (30.0 s)
   long oldR = Regular_Exposure;
   Regular_Exposure = t;
   savePrintSettings();
@@ -2602,7 +2915,7 @@ void screen31UP(){
       gfx2->setCursor(5, 56);
       gfx2->println("Regular Exposure");
       gfx2->setCursor(5, 74);
-      gfx2->print(Regular_Exposure);
+      gfx2->print(Regular_Exposure / 10.0, 1);
       gfx2->print(" "); 
       gfx2->print("s");      
       gfx2->drawRoundRect(0, 41, 160, 39, 3, BLACK);
@@ -2612,7 +2925,7 @@ void screen31UP(){
       gfx2->setCursor(5, 15);
       gfx2->println("Regular Exposure"); 
       gfx2->setCursor(5, 33);
-      gfx2->print(Regular_Exposure); 
+      gfx2->print(Regular_Exposure / 10.0, 1); 
       gfx2->print(" "); 
       gfx2->print("s");  
       gfx2->setCursor(5, 56);
@@ -2810,7 +3123,7 @@ void screen31DOWN(){
       gfx2->setCursor(5, 56);
       gfx2->println("Regular Exposure");
       gfx2->setCursor(5, 74);
-      gfx2->print(Regular_Exposure);
+      gfx2->print(Regular_Exposure / 10.0, 1);
       gfx2->print(" "); 
       gfx2->print("s");       
       gfx2->drawRoundRect(0, 41, 160, 39, 3, WHITE);
@@ -2820,7 +3133,7 @@ void screen31DOWN(){
       gfx2->setCursor(5, 15);
       gfx2->println("Regular Exposure"); 
       gfx2->setCursor(5, 33);
-      gfx2->print(Regular_Exposure); 
+      gfx2->print(Regular_Exposure / 10.0, 1); 
       gfx2->print(" "); 
       gfx2->print("s"); 
       gfx2->setCursor(5, 56);
@@ -2993,12 +3306,10 @@ void screen311(){
       screen = 311;
     }
     else{
-      // "Back to Default" Selected -> Reset EEPROM to factory defaults
-      // (shared with setup(); defined in TinyMaker.ino)
-      resetSettingsToDefault();
-
-      setting_item = 11;
-      screen31DOWN(); // Refresh Screen
+      // "Back to Default" -> KLAUSIAM pirma. Sis mygtukas dabar istrina ir
+      // dervos kalibracija (pacio pasvertos gramu poros), ir profilio redagavima -
+      // dalykus, kuriu neatstatysi. Vieno paspaudimo tam per mazai (audit 08-16).
+      screenFactoryConfirm();
     }
   }
   delay(300);
@@ -3039,11 +3350,11 @@ void screen3111increase(){
       }
         break;
       case 3:
-      if(Regular_Exposure < 30){
+      if(Regular_Exposure < 300){   // 0.17 0-3: deciseconds (max 30.0 s), +1 ds = +0.1 s/press
         Regular_Exposure ++;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3140,11 +3451,11 @@ void screen3111increase(){
       }
         break; 
       case 3:
-      if(Regular_Exposure < 30){
+      if(Regular_Exposure < 300){   // 0.17 0-3: deciseconds (max 30.0 s), +1 ds = +0.1 s/press
         Regular_Exposure ++;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3256,7 +3567,7 @@ void screen3111decrease(){
       }
         break;
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
@@ -3266,11 +3577,11 @@ void screen3111decrease(){
       }
         break;
       case 3:
-      if(Regular_Exposure > 1){
+      if(Regular_Exposure > 10){   // 0.17 0-3: deciseconds (min 1.0 s), -1 ds = -0.1 s/press
         Regular_Exposure --;
         gfx2->fillRect(3, 20, 80, 17, BLACK);
         gfx2->setCursor(5, 33);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
@@ -3357,7 +3668,7 @@ void screen3111decrease(){
   if (setting_item_updown == 0) {
     switch (setting_item){
       case 2:
-      if(Base_Exposure > 10){
+      if(Base_Exposure > 5){   // 0.17 0-3: base min 5 s (fast resins)
         Base_Exposure --;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
@@ -3367,11 +3678,11 @@ void screen3111decrease(){
       }
         break;
       case 3:
-      if(Regular_Exposure > 1){
+      if(Regular_Exposure > 10){   // 0.17 0-3: deciseconds (min 1.0 s), -1 ds = -0.1 s/press
         Regular_Exposure --;
         gfx2->fillRect(3, 61, 80, 17, BLACK);
         gfx2->setCursor(5, 74);
-        gfx2->print(Regular_Exposure);
+        gfx2->print(Regular_Exposure / 10.0, 1);
         gfx2->print(" "); 
         gfx2->print("s");
       }
