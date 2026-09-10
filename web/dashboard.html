@@ -3302,7 +3302,9 @@ const renderFiles=()=>{
          pacia mato visi irenginiai. Nepavykus (`onerror`) grazinamas piestinis zenklas,
          tad tuscios vietos nebuna niekada. */
       (isModel?(ico?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">'
-                   :(icoMissing.has(it.name)?FICO_MODEL
+                   /* Not from a printing printer: every row asked, got "busy", and each ask was served
+                      from inside the print loop (V 09-10). The busy -> idle refresh brings them back. */
+                   :((icoMissing.has(it.name)||(statusData&&statusData.busy))?FICO_MODEL
                      :'<img class="fico ficoImg" draggable="false" alt="" data-ico="'+esc(it.name)+'" onerror="icoFallback(this)" src="/api/files/model/preview?name='+enc(it.name)+'&type=ico">')):FICO_ZIP)+
       '<div class="ftext"><div class="nm"><strong>'+esc(it.name)+'</strong>'+
       (isNew?'<span class="newPill">New</span>':'')+'</div>'+
@@ -3351,7 +3353,8 @@ const renderFiles=()=>{
      o ne mygtukai: trys pilki mygtukai konkuravo demesiu su Start ir Delete, nors ju
      svoris visai kitas (V 08-16). Paspaudimo laukas platus - telefonui. */
   if(pages>1){
-    const pg=(d,txt,off)=>off?'<span class="pgOff">'+txt+'</span>'
+    /* Locked while the printer is busy: the rows are locked too, and paging only sent it requests (V 09-10). */
+    const pg=(d,txt,off)=>(off||(statusData&&statusData.busy))?'<span class="pgOff">'+txt+'</span>'
                              :'<a href="#" onclick="filesNav('+d+');return false">'+txt+'</a>';
     h+='<div class="pager">'+pg(-1,'&laquo; Prev',filesPage===0)+
        '<span class="meta">'+(filesPage+1)+' / '+pages+'</span>'+
