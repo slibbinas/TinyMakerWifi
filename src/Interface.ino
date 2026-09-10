@@ -923,7 +923,7 @@ void screenLowResinWarn(float needMl) {
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
   gfx2->print("Low resin!");
-  uiActionHint(92, 8, "Refilled");   // UP = mark full & start (top-right)
+  uiActionHint(92, 8, "Full");       // UP = mark full & start (top-right); built-in 6 px font from x=108, a longer word runs off the screen
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   if (needMl >= 0) {
@@ -952,7 +952,7 @@ void screenRefillAsk() {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
-  gfx2->print("VAT refilled?");
+  gfx2->print("VAT filled full?");   // it resets to a FULL VAT - say so (V 09-10)
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   gfx2->print("~");
@@ -1799,8 +1799,11 @@ void screen1111_state(){
       gfx2->print("Raising...");
         break;
       case 10:                  // low-resin pause (paused variant)
-      gfx2->setCursor(26, 14);
-      gfx2->print("Refill VAT!");
+      // FULL, not "refill": leaving this pause resets the level to the whole capacity.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Fill VAT full!", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Fill VAT full!");
         break;
     }
   }
@@ -1929,10 +1932,23 @@ void screen11113(){
   gfx2->fillCircle(18, 25, 2, RED); 
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  gfx2->setCursor(27, 23);
-  gfx2->println("Are you sure to");
-  gfx2->setCursor(13, 41);
-  gfx2->println("resume the print?"); 
+  if (current_state == 10) {
+    /* Resin pause: confirming marks the VAT full, so the words must ask for FULL - the
+       level resets to the whole capacity, and "topped up a spoonful" would leave the
+       printer believing in 15 ml (V 2026-09-10). Centred, proportional font. */
+    int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds("Is the VAT", 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor((160 - (int16_t)bw) / 2, 23);
+    gfx2->println("Is the VAT");
+    gfx2->getTextBounds("filled full?", 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor((160 - (int16_t)bw) / 2, 41);
+    gfx2->println("filled full?");
+  } else {
+    gfx2->setCursor(27, 23);
+    gfx2->println("Are you sure to");
+    gfx2->setCursor(13, 41);
+    gfx2->println("resume the print?");
+  }
   gfx2->fillRoundRect(11, 51, 67, 18, 2, ORANGE);
   gfx2->setCursor(27, 64);
   gfx2->println("Back");

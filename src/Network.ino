@@ -2054,6 +2054,18 @@ bool requestPrintResume(String &error) {
     error = "printer is not paused";
     return false;
   }
+  /* A resin pause is left only by refilling (V 2026-09-10). Resuming without it used to
+     carry on from the old level with lowResinNotified still latched, so the print had no
+     low-resin protection left at all - and deciding "1.5 ml will do" means trusting the
+     very estimate that had just been off by half. Refilling costs nothing; guessing costs
+     the print. The latch is cleared by vatMarkRefilled(). (vatSetFromWeight() would clear
+     it too, but the weight route refuses a busy printer, pause included - so during a
+     print the only way out is a full refill.) The LCD confirm path marks the refill itself (see
+     the OK-on-11113 branch), because the paused screen has no other way to say it. */
+  if (current_state == 10 && lowResinNotified) {
+    error = "only Stop available, please refill";
+    return false;
+  }
 
   current_state = 7;
   screen1111_state();
@@ -2724,6 +2736,10 @@ void handleApiStatus() {
   out += (busy && !print_paused && current_state >= 1 && current_state <= 3) ? "true" : "false";
   out += ",\"canResume\":";
   out += (current_state == 6 || current_state == 10) ? "true" : "false";
+  // Its own field, not a false canResume: that would hide Resume AND lock the
+  // "VAT refilled" button (busy && !canResume) - the one button this state needs.
+  out += ",\"refillPending\":";
+  out += (current_state == 10 && lowResinNotified) ? "true" : "false";
   out += ",\"canStop\":";
   out += (busy && current_state != 4 && current_state != 8) ? "true" : "false";
   out += ",\"state\":\"";

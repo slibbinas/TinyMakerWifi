@@ -2973,6 +2973,11 @@ void loop() {
               print_paused = false;
               }  
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
+              /* On the printer the confirm box IS the refill acknowledgement: during a
+                 resin pause it asks "VAT filled full?", and the paused screen has no other
+                 way to say it (the menu loop is not running, UP/DOWN are dead). A web resume
+                 never reaches here with the latch set - requestPrintResume() refuses it. */
+              if (!webResumePrint && current_state == 10 && lowResinNotified) vatMarkRefilled();
               webResumePrint = false;
               screen1111();
               current_state = 7;

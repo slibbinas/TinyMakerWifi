@@ -473,11 +473,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>Level tracking &amp; refills</h3>
   <ul>
     <li><b>“Resin left (est.)”</b> is shown on the dashboard (and as a Home Assistant sensor with a low-resin alert).</li>
-    <li><b>After refilling</b>, tell the printer: <b>System → Advanced → Resin → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard. The estimate restarts from a full VAT.</li>
-    <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT refilled?”</i> question so the estimate stays honest. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
+    <li><b>After a full refill</b>, tell the printer: <b>System → Advanced → Resin → VAT refilled</b>, or the <b>VAT refilled</b> button on the dashboard - it works while printing too. The estimate restarts from a <b>full</b> VAT: it does not measure what you poured, so fill it to the top. Pouring less leaves the printer believing it has more resin than it does.</li>
+    <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT filled full?”</i> question so the estimate stays honest - answer yes only after a full refill, because yes resets the level to a full VAT. Tidy users who press <i>VAT refilled</i> themselves can turn it off.</li>
     <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
     <li><b>A heads-up before the stop</b> (<i>Warn (ml)</i>, 5&ndash;8&nbsp;ml, default 5): while printing, the level crossing this mark says so on the screen and, if notifications are set up, on your phone - with the layer it is on, so you can decide whether to top up now or let it run.</li>
-    <li><b>Low resin stop</b> (default On): mid-print, when the level reaches <i>Stop (ml)</i> (3&ndash;8&nbsp;ml, default 4), the printer finishes the layer, lifts and pauses with <b>“Refill VAT!”</b> - top up, press VAT refilled or resume.</li>
+    <li><b>Low resin stop</b> (default On): mid-print, when the level reaches <i>Stop (ml)</i> (3&ndash;8&nbsp;ml, default 4), the printer finishes the layer, lifts and pauses with <b>“Fill VAT full!”</b>. Do a full refill, then press <b>VAT refilled</b> and resume - Resume stays locked until the refill is marked, and only Stop works meanwhile. On the printer itself, confirming <i>“Is the VAT filled full?”</i> marks it and resumes.</li>
     <li><b>Why the stop cannot be set lower than 3&nbsp;ml.</b> The VAT is 42&nbsp;&times;&nbsp;52&nbsp;mm inside, so one millimetre of resin is about 2.2&nbsp;ml, and a full 15&nbsp;ml VAT is under 7&nbsp;mm deep. Poured resin stops covering the whole floor at about 4&nbsp;ml, and it clings to the walls, so the middle can open a dry patch even a little above that. Below that level nothing prints, whatever the shape - so about 4&nbsp;ml of every filling is there to be stood in, not printed with. On a 15&nbsp;ml VAT that leaves roughly 11&nbsp;ml to work with, which is worth knowing before starting a model the slicer says needs 20.</li>
   </ul>
   <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. For a real number instead of a running total, weigh the vat - see <a href="#resin-profiles">Grams instead of guesswork</a> above. Refills you don’t confirm won’t be counted.</div>
@@ -606,11 +606,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
     <tr><td>Resin profile</td><td>Steps through the four built-in profiles and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
-    <tr><td>VAT refilled</td><td>Press after refilling — restarts the level estimate from a full VAT.</td></tr>
+    <tr><td>VAT refilled</td><td>Press after a <b>full</b> refill — restarts the level estimate from a full VAT. It does not measure what you poured.</td></tr>
     <tr><td>Low resin stop</td><td>On = mid-print, when the estimate reaches <i>Stop (ml)</i>, the printer finishes the layer, lifts and pauses for a refill. On by default: below the stop level the VAT floor goes dry, and carrying on prints nothing.</td></tr>
     <tr><td>Stop (ml)</td><td>The level that stops the print: 3 &rarr; 4 &rarr; 5 &rarr; 6 &rarr; 7 &rarr; 8&nbsp;ml (OK cycles), default 4. Three is the measured floor of this VAT, not a preference - see <a href="#resin">how much is left</a>.</td></tr>
     <tr><td>Warn (ml)</td><td>The earlier heads-up, before the stop - on the screen and on your phone: 5 &rarr; 6 &rarr; 7 &rarr; 8&nbsp;ml (OK cycles), default 5. Keep it above the stop level, or it has nothing left to warn about.</td></tr>
-    <tr><td>Ask refill</td><td>On = every print starts with a “VAT refilled?” question.</td></tr>
+    <tr><td>Ask refill</td><td>On = every print starts with a “VAT filled full?” question - yes resets the level to a full VAT.</td></tr>
     <tr><td>Power resume</td><td>On = the printer checkpoints as it prints and offers to resume after a power cut. Off = it never checkpoints and always starts fresh, like the stock firmware.</td></tr>
     <tr><td>Resume mode</td><td><b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement, <b>Precise</b> every 400&nbsp;ms: a resume closer to where the power went, at the cost of more writes to the card.</td></tr>
     <tr><td>Pause lift</td><td>How high the plate rises when you pause to look at the print: 20&ndash;40&nbsp;mm in 5&nbsp;mm steps (OK cycles). A dry run uses the same height instead of going to the top.</td></tr>
@@ -849,7 +849,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design. If parts come out <b>flat or the wrong height</b>, open PrusaSlicer’s <b>Print settings</b> and confirm the <b>layer height actually reads 0.05&nbsp;mm</b> — a PrusaSlicer update or picking the wrong preset can silently reset it, and the printer can’t tell from the file, so it just prints wrong without a warning.</p>
 
   <h3>“Resin left” looks wrong</h3>
-  <p>It’s an estimate that only counts confirmed refills. Press <b>VAT refilled</b> after topping up, and keep <b>Ask refill</b> on so it stays honest.</p>
+  <p>It’s an estimate that only counts confirmed refills. Press <b>VAT refilled</b> after a full refill, and keep <b>Ask refill</b> on so it stays honest.</p>
 
   <h3>What do I do after a print? (washing &amp; curing)</h3>
   <p>Parts come off the plate <b>wet and only partly cured</b>. Rinse them in <b>isopropyl alcohol</b> (IPA) — two baths help: a dirty one first, a clean one second — then let them dry. Only then <b>UV-cure</b> them (sunlight or a curing station) until hard. A <b>matte, chalky surface</b> is usually over-curing or too much sun — cure in shorter bursts and check often. Always wear gloves; uncured resin is a skin irritant.</p>
