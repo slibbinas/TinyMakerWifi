@@ -215,6 +215,18 @@ unless noted. Community contributors are tagged inline.
 - **Old models in the SD list kept a blank icon after a print** until the page was
   reloaded: a row whose icon request met the busy printer marked itself "no icon"
   for the life of the page. The marks are cleared when the print ends.
+- **The SD list during a print is quiet and says why it may be empty.** A browser that
+  never saved the list (a phone opened mid-print) showed nothing under the lock line; it
+  now adds that this browser has not saved the SD list yet and the card cannot be read
+  while printing. While the printer is busy, Prev and Next are greyed out like the rows,
+  and every row shows the drawn mark: the rows used to ask the printer for their icons
+  and paging repeated that, all served from inside the print loop, and rows with an icon
+  saved in the browser made the locked list look random. The icons return when the print
+  ends.
+- **The SD card no longer hangs one row below the left column when a print starts.** The
+  preview card is briefly taller at the start; the list was fitted to that and stayed too
+  long for about 11 s after the card shrank back. The list now refits whenever any card in
+  the left column changes size.
 - **Touching the endstop is a homing, and the pause lift no longer dives.**
   Reaching the endstop now zeroes the height counter and the screen says
   **Plate is home**. Before this, a pause lift requested at or above the ceiling
