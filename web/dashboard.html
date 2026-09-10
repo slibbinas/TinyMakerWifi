@@ -3138,7 +3138,10 @@ addEventListener('resize',()=>setTimeout(sdFitRows,60));
 try{
   let sdFitLaukia=0;
   const sdRO=new ResizeObserver(()=>{clearTimeout(sdFitLaukia);sdFitLaukia=setTimeout(sdFitRows,80);});
-  [$('homeLeft'),$('sdSection')].forEach(e=>{if(e)sdRO.observe(e);});
+  /* Each left card too, not only the column: at print start the preview card is 43 px taller
+     for ~0.6 s, the list was fitted to that, and when the card shrank back the SD card stayed
+     one row too long for 11 s (recorded 2026-09-11). Recompute when any left card changes. */
+  [$('homeLeft'),$('sdSection'),...($('homeLeft')?$('homeLeft').children:[])].forEach(e=>{if(e)sdRO.observe(e);});
 }catch(e){}
 /* Modelis - sluoksniai (tas pats motyvas, kaip zenkle), archyvas - dar neatidaryta deze.
    Piesiama vietoje, be nieko is printerio. */
@@ -3301,7 +3304,7 @@ const renderFiles=()=>{
       /* Nera narsykleje - bandom is kortelės: ten ji guli prie paties modelio, tad ta
          pacia mato visi irenginiai. Nepavykus (`onerror`) grazinamas piestinis zenklas,
          tad tuscios vietos nebuna niekada. */
-      (isModel?(ico?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">'
+      (isModel?((ico&&!(statusData&&statusData.busy))?'<img class="fico ficoImg" draggable="false" src="'+esc(ico)+'" alt="">'
                    /* Not from a printing printer: every row asked, got "busy", and each ask was served
                       from inside the print loop (V 09-10). The busy -> idle refresh brings them back. */
                    :((icoMissing.has(it.name)||(statusData&&statusData.busy))?FICO_MODEL
