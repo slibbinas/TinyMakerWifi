@@ -242,9 +242,9 @@ short at every step, and each group row shows its own state at a glance (`WiFi O
 |---|---|
 | Resin profile | Steps through the installed profiles and applies the one shown - the whole recipe for that resin |
 | VAT refilled | Press after refilling - restarts the level estimate from a full VAT |
-| Low resin stop | On = mid-print, at *Stop (ml)*, the printer finishes the layer, lifts and pauses for a refill |
-| Stop (ml) | The level that stops the print: 1-3 ml (OK cycles) |
-| Warn (ml) | The earlier heads-up, on the screen and on your phone: 3 - 5 - 8 - 10 - 12 - 15 ml |
+| Low resin stop | On = mid-print, at *Stop (ml)*, the printer finishes the layer, lifts and pauses for a refill. On by default: below the stop level the VAT floor goes dry |
+| Stop (ml) | The level that stops the print: 3 - 4 - 5 - 6 - 7 - 8 ml (OK cycles), default 4. Three is this VAT's measured floor, not a preference |
+| Warn (ml) | The earlier heads-up, on the screen and on your phone: 5 - 6 - 7 - 8 ml, default 5. Keep it above the stop level |
 | Ask refill | On = every print starts with a "VAT refilled?" question (Yes resets the estimate to a full VAT) |
 | Power resume | On = the printer checkpoints as it prints and offers to resume after a power cut |
 | Resume mode | **Balanced** checkpoints every 800 ms of plate movement, **Precise** every 400 ms |
@@ -280,7 +280,8 @@ The printer has no resin sensor — instead it **keeps count**: every printed la
 * **Ask refill** (default On): every print begins with a *"VAT refilled?"* question — on the printer (OK = yes / Back = no) and in the browser — so the estimate stays honest even if you forget the button. Tidy users can turn it off (System → Advanced or dashboard Settings); the low-resin warning screen then still offers **UP = Refilled** as a shortcut.
 * **While printing** the dashboard shows resin like layers: `used / ~total ml` (total = the fresh estimate when you ran one, otherwise a running average) plus *Resin left (est.)* in the VAT.
 * **Before a print starts**, if the level is at/below the warning threshold (or a fresh ml estimate says the model needs more than what's left), the printer shows **"Low resin!"** with the numbers — Start anyway or Back. Starting from the browser asks the same in a dialog.
-* **Low resin pause** (optional, default Off): mid-print, when the level drops to the threshold, the printer finishes the layer, lifts and pauses showing **"Refill VAT!"** — refill, press VAT refilled (dashboard) or just resume. The threshold (`Low resin warn`, 1–3 ml, default 2) is set on the printer (System → Advanced) or in the dashboard's Settings tab.
+* **Low resin pause** (default On): mid-print, when the level drops to the threshold, the printer finishes the layer, lifts and pauses showing **"Refill VAT!"** — refill, press VAT refilled (dashboard) or just resume. The threshold (`Stop (ml)`, 3–8 ml, default 4) is set on the printer (System → Advanced) or in the dashboard's Settings tab.
+* **Roughly 4 ml of every filling cannot be printed with.** The VAT is 42 × 52 mm inside, so a millimetre of resin is about 2.2 ml and a full 15 ml VAT is under 7 mm deep. Poured resin stops covering the whole floor at about 4 ml, and it clings to the walls, so the middle can open a dry patch a little above that. That is why the stop level cannot be set below 3 ml, and why a 15 ml VAT gives about 11 ml of printing per filling.
 
 > ⚠️ It is an **estimate**, not a measurement — it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "VAT refilled" won't be counted.
 

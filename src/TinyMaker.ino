@@ -1645,6 +1645,15 @@ void resetEverythingToFactory() {
   resumeEnabled = true;
   resumePrecise = false;
   pauseLiftMm = 20;
+  /* The three resin-level settings belong here too. They were left out while the stop
+     level was a matter of taste; it is not one any more - 3 ml is where this vat's floor
+     goes dry, measured, so the defaults below are the only values that make the feature
+     work at all. Without this, "Reset settings?" promised a factory state and handed
+     back whatever the person had, which on an upgraded printer is the old level that
+     could never fire in time. */
+  lowResinPauseEnabled = true;
+  lowResinThresholdMl = 4;
+  lowResinWarnMl = 5;
   // „Undo" turi rodyti i tai, kas buvo pakeista, o po atstatymo tokio dalyko nera.
   prevRegularExposure = 0;
   prevBaseExposure = 0;

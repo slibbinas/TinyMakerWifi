@@ -34,7 +34,7 @@ var STATUS={ok:true,firmwareVersion:'0.15.4',firmwareBuild:'demo',busy:false,pau
 var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposure:14,
   prevRegularExposure:0,baseLayers:2,transitionLayers:5,slowLiftDistance:1,
   fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,dropBackFeedrate:50,
-  vatMl:15,lowResinPause:true,lowResinMl:2,askRefill:true,uiTimeoutSecs:300,
+  vatMl:15,lowResinPause:true,lowResinMl:4,askRefill:true,uiTimeoutSecs:300,
   dryRun:false,uvLedEnabled:true,wifiEnabled:true,webDashboardEnabled:true,
   bootUpdateCheck:true,statsPing:true,mqttEnabled:false,mqttConfigured:false,
   mqttHost:'',mqttPort:1883,mqttUser:'',mqttPasswordSet:false,mqttTopic:'TinyMaker',
