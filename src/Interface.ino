@@ -844,8 +844,8 @@ void advancedOptionsSelect() {
   } else if (id == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
   } else if (id == 5) {
-    lowResinThresholdMl++;      // cycle 1..3 ml
-    if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
+    lowResinThresholdMl++;      // cycle 3..8 ml (3 = the measured vat floor, see TinyMaker.ino)
+    if (lowResinThresholdMl > 8) lowResinThresholdMl = 3;
   } else if (id == 6) {
     askRefillEnabled = !askRefillEnabled;
   } else if (id == 7) {
@@ -872,13 +872,10 @@ void advancedOptionsSelect() {
     pauseLiftMm += 5;                  // 0.17 #82: cycle 20 -> 25 -> 30 -> 35 -> 40 -> 20
     if (pauseLiftMm > 40) pauseLiftMm = 20;
   } else if (id == 16) {
-    // 0.17 #40: cycle warn level 3 -> 5 -> 8 -> 10 -> 12 -> 15 -> 3
-    if (lowResinWarnMl < 5) lowResinWarnMl = 5;
-    else if (lowResinWarnMl < 8) lowResinWarnMl = 8;
-    else if (lowResinWarnMl < 10) lowResinWarnMl = 10;
-    else if (lowResinWarnMl < 12) lowResinWarnMl = 12;
-    else if (lowResinWarnMl < 15) lowResinWarnMl = 15;
-    else lowResinWarnMl = 3;
+    /* 0.17 #40: cycle warn level 5 -> 6 -> 7 -> 8 -> 5. The old ladder climbed to 15,
+       which is the whole vat: a warning that fires the moment a print starts. */
+    lowResinWarnMl++;
+    if (lowResinWarnMl < 5 || lowResinWarnMl > 8) lowResinWarnMl = 5;
   } else if (id == 17) {
     // 0.17 0-16: cycle every built-in in table order, then each profile on the
     // card, then back to the first. The

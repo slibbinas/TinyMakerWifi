@@ -696,8 +696,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
   <h2>Printer</h2>
   <div class='configGrid grid4'>
     <label><span>VAT size (ml)<a href='#' class='qHelp' data-help='resin'>?</a></span><input name='vat_ml' id='cfgVatMl' type='number' min='10' max='40' step='1'></label>
-    <label><span>Low resin warn (ml)</span><input name='low_resin_warn' id='cfgLowResinWarn' type='number' min='3' max='15' step='1'></label>
-    <label><span>Low resin stop (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='1' max='3' step='1'></label>
+    <label><span>Low resin warn (ml)</span><input name='low_resin_warn' id='cfgLowResinWarn' type='number' min='5' max='8' step='1'></label>
+    <!-- 3 ml is the measured vat floor, not a preference: 42x52 mm inside means 1 mm of
+         resin is 2.18 ml, and below 1.8 mm the poured resin no longer covers the whole
+         floor. Stopping lower than that stops after printing has already failed. The
+         default is 4, a millilitre above the measurement. -->
+    <label><span>Low resin stop (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='3' max='8' step='1'></label>
     <label><span>Pause lift height (mm)</span><input name='pause_lift' id='cfgPauseLift' type='number' min='20' max='40' step='5'></label>
     <label><span>Idle screen timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin stop (mid-print)</span></label>

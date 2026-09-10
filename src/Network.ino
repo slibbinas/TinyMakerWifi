@@ -1727,8 +1727,8 @@ void applyConfigRequest() {
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
   lowResinPauseEnabled = formCheck("low_resin_pause", lowResinPauseEnabled);
-  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
-  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
+  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 3, 8);
+  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 5, 8);    // 0.17 #40: WARN level
   // R-cal: density is a measured property (weigh a known syringe volume), so it
   // is a plain setting - not part of the print-weighing calibration.
   if (server.hasArg("resin_density")) {

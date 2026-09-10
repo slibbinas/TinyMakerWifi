@@ -218,9 +218,22 @@ bool selIsArchive = false;
 // vatRemainingMl counts down from "VAT refilled" by each layer's cured-volume
 // estimate. -1 = never set; lazily seeded to Vat_Capacity_Ml (see vatRemaining()).
 float vatRemainingMl = -1;
-bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
-uint8_t lowResinThresholdMl = 2;    // 0.17 #40: STOP level (ml, 1..3) - pause/stop trigger; also pre-start check
-uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 3..15) - warns (keeps printing), independent of the stop checkbox
+/* On by default since 0.17 (V 2026-09-10). It used to be opt-in, back when the stop
+   level was a matter of taste. It is not one any more: below the level the vat floor
+   goes dry, and no part of any shape can print. Leaving the choice in front of people
+   only offered them "let the printer carry on into an empty vat" - and a fresh printer
+   took that option by itself, since the box started out unticked. */
+bool lowResinPauseEnabled = true;   // pause between layers when estimate runs low
+/* The vat is 42x52 mm inside, so 1 mm of resin is 2.18 ml. Poured resin stops covering
+   the whole floor at 3.98 ml, i.e. 1.8 mm (weighed 2026-09-10: 61.17 g against 56.56 g
+   empty). Resin also clings to the walls, so the middle can open a dry patch above that
+   level. Hence 3 ml is the floor of the range and 4 ml the default - V's own millilitre
+   of margin over the measurement.
+   Until 0.17 the range was 1..3, so its highest setting was 1.4 mm: BELOW the level
+   where printing is still possible. The setting could not be made to work in any of its
+   positions, and a print stopped forming layers without ever tripping it. */
+uint8_t lowResinThresholdMl = 4;    // 0.17 #40: STOP level (ml, 3..8) - pause/stop trigger; also pre-start check
+uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 5..8) - warns (keeps printing), independent of the stop checkbox
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
 bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per print (re-armed on refill)
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
@@ -461,12 +474,20 @@ void loadDeviceConfig() {
   if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
   else if (waEnabled) dcEnabled = false;
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
-  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
-  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
-  if (lowResinThresholdMl < 1 || lowResinThresholdMl > 3)
-    lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
+  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", true);
+  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 4);
+  /* The clamp doubles as the upgrade path, and needs no marker to do it: 1 and 2 are
+     the only values an older build could hold below the new floor, so lifting anything
+     out of range to the default lands them on 4. A one-shot marker WOULD have been
+     possible - the read-write window further down writes calUnit exactly that way -
+     it is simply not needed here. */
+  if (lowResinThresholdMl < 3 || lowResinThresholdMl > 8)
+    lowResinThresholdMl = 4;  // range was 1..3 until 0.17
   lowResinWarnMl = sysPrefs.getUChar("lowResinWarn", 5);   // 0.17 #40: WARN level
-  if (lowResinWarnMl < 3 || lowResinWarnMl > 15) lowResinWarnMl = 5;
+  /* Clamped per end, not to the default: someone who had picked 10, 12 or 15 on the old
+     ladder means "warn me early", so they land on the new ceiling, not on its floor. */
+  if (lowResinWarnMl < 5) lowResinWarnMl = 5;
+  else if (lowResinWarnMl > 8) lowResinWarnMl = 8;
   // R-cal: a corrupt/absurd factor would silently distort every resin number -
   // clamp on load, exactly like the low-resin ranges above.
   resinCalFactor = sysPrefs.getFloat("resinCal", 1.0f);
@@ -1295,8 +1316,11 @@ void applyConfigBackup(const String &j) {
   Drop_Back_Feedrate = backupClamp(backupNum(j, "dropBackFeedrate", Drop_Back_Feedrate), 20, 50);
   Vat_Capacity_Ml = backupClamp(backupNum(j, "vatMl", Vat_Capacity_Ml), 10, 40);
   lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
-  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
-  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 3, 15);
+  /* Same range as on load: a backup taken before 0.17 carries 1..3 for the stop level
+     and up to 15 for the warning, and restoring those verbatim would hand back a stop
+     that fires only after the vat floor has gone dry. */
+  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 3, 8);
+  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 5, 8);
   // R-cal: fractional - backupClamp() casts to long and would turn 1.35 into 1.
   {
     float cal = (float)backupNum(j, "resinCalFactor", resinCalFactor);
