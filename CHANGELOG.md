@@ -142,6 +142,29 @@ unless noted. Community contributors are tagged inline.
   first boot; a restored backup and **Back to Default** land on the same values.
   Worth knowing when planning a print: roughly 4 ml of every filling is there to be
   stood in, not printed with, so a 15 ml VAT gives about 11 ml of printing.
+- **A resin pause is left by a full refill, not by pressing Resume.** When the printer
+  stopped for low resin, Resume simply carried on: the level was not reset, nothing
+  asked about it, and the low-resin stop stayed disarmed for the rest of the print.
+  Now the dashboard's Resume stays grey and the printer answers
+  "only Stop available, please refill" until the VAT is marked full; the orange
+  **Set VAT full** button is the way on. On the printer's own screen the resume box
+  asks **VAT filled full?** and Yes marks the refill before resuming, so a printer
+  used without the dashboard is not left with Stop as the only way out. There is
+  deliberately no "carry on without refilling": that means trusting the estimate,
+  and refilling costs nothing - unused resin goes back into the bottle. A new
+  `refillPending` field in `/api/status` says when this is the case.
+- **One refill question everywhere, and a button named for what it does.** The same
+  question was worded four ways; it is now **VAT filled full?** with No and Yes, on
+  the dashboard and on the printer, before a print and in the resin pause. "VAT
+  refilled" became **Set VAT full** on the dashboard and in the Advanced menu - it
+  sets the level to a full VAT and measures nothing, so the word *full* has to be
+  there. It also works while printing now, behind its confirm. While the plate lifts
+  into a pause, the printer's title band says **Resin low...** or **Pausing...**
+  instead of staying blank for the whole lift.
+- **TinyStatus has a home in the README.** The Wear OS watch app lives in its own
+  repository ([slibbinas/TinyStatus](https://github.com/slibbinas/TinyStatus)); the
+  README says what it shows, what firmware it needs and what its polling costs the
+  printer, and `docs/api.md` lists it under "Known consumers".
 - **Everyday dashboard work**: the newest model on top of the SD list (it is a work
   queue, not an archive); Start and Delete appearing under the mouse on a desktop, so
   a row can be printed without paying for a preview; one SD footer line instead of
@@ -186,6 +209,12 @@ unless noted. Community contributors are tagged inline.
   off the card, but F5 during a print still brings the progress view straight back.
 
 ### Fixed
+- **After a resin stop the printer's screen showed pause and resume at once** - the
+  yellow pause bars and the green play triangle on top of each other. The bars are
+  now wiped before the triangle is drawn.
+- **Old models in the SD list kept a blank icon after a print** until the page was
+  reloaded: a row whose icon request met the busy printer marked itself "no icon"
+  for the life of the page. The marks are cleared when the print ends.
 - **Touching the endstop is a homing, and the pause lift no longer dives.**
   Reaching the endstop now zeroes the height counter and the screen says
   **Plate is home**. Before this, a pause lift requested at or above the ceiling
