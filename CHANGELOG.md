@@ -128,6 +128,20 @@ unless noted. Community contributors are tagged inline.
 - **Two-step low-resin handling** (GitHub #40): a heads-up before the stop, on the
   phone and in the dashboard, and paused or cancelled messages that carry the layer
   and the time elapsed instead of a bare word.
+- **The low-resin stop can now be set to a level that works, and it is on by
+  default.** The VAT is 42 x 52 mm inside, so a millimetre of resin is about 2.2 ml
+  and a full 15 ml VAT is under 7 mm deep. Poured resin stops covering the whole
+  floor at about 4 ml, and it clings to the walls, so the middle can open a dry
+  patch a little above that. Below that level nothing prints, whatever the shape.
+  The stop level used to be locked to 1-3 ml, so its highest setting was 1.4 mm -
+  under the floor: the setting could not be made to work in any of its positions,
+  and a print stopped forming layers without ever tripping it. It is now **3-8 ml,
+  default 4**, the warning is **5-8 ml, default 5**, and the mid-print pause is
+  **on** rather than opt-in, because carrying on below the floor prints nothing.
+  Levels of 1 or 2 ml carried over from an earlier version are lifted to 4 on the
+  first boot; a restored backup and **Back to Default** land on the same values.
+  Worth knowing when planning a print: roughly 4 ml of every filling is there to be
+  stood in, not printed with, so a 15 ml VAT gives about 11 ml of printing.
 - **Everyday dashboard work**: the newest model on top of the SD list (it is a work
   queue, not an archive); Start and Delete appearing under the mouse on a desktop, so
   a row can be printed without paying for a preview; one SD footer line instead of
