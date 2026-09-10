@@ -43,6 +43,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Power-loss resume** — a checkpoint on the SD card lets the printer pick a print back up after an outage instead of starting over, or safely lift the plate off a stuck print (up only, never into the vat). Answer the prompt at the printer **or from the dashboard on your phone** — a first for a resin printer in this class *(checkpoint engine contributed by [@Tann2019](https://github.com/Tann2019))*
 * **MQTT / Home Assistant** — optional integration with auto-discovery: print state, layers, resin used, **resin left + low-resin alert**, run/remaining time as HA sensors
 * **Telegram, WhatsApp or Discord notifications** — the printer messages you when a print **finishes** (with time and resin used), **pauses for low resin**, or is **canceled**. Pick one channel: a Telegram bot, WhatsApp through the free CallMeBot gateway, or a Discord channel webhook — each with inline **?** setup help and a *Send test* button. *(Telegram is tested daily; WhatsApp and Discord ship untested — they ride on your own CallMeBot key or channel webhook, so the only test that proves anything is yours. Reports welcome, working or not.)*
+* **TinyStatus watch app** - a separate Wear OS app, [TinyStatus](https://github.com/slibbinas/TinyStatus), puts time left, the layer, resin left and a progress ring on your wrist and watch face, and buzzes when a print ends or the resin runs low. It only reads - see [On your wrist: TinyStatus](#on-your-wrist-tinystatus)
 * **Anonymous usage ping** (optional) — once per firmware version the printer sends a one-way hash of its MAC address, the firmware version and the lifetime print hours, so we know how many printers are out there. Nothing else is sent, ever — switch it off under Settings → Network → *Anonymous usage ping*
 * **Firmware updates over WiFi** — self-update from the printer (System → Update) or from the dashboard's **Settings → Update** pane (install latest, pick **any version** from a list, or upload a file). PlatformIO OTA for developers. Flashing is blocked while printing.
 * Everything is switchable: WiFi and Web control can be turned off right on the printer (System → Advanced), and build switches still let developers compile the original, network-free firmware from the same code base
@@ -286,6 +287,8 @@ The printer has no resin sensor — instead it **keeps count**: every printed la
 > ⚠️ It is an **estimate**, not a measurement — it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "Set VAT full" won't be counted.
 
 ## On your wrist: TinyStatus
+
+<p align="center"><a href="https://github.com/slibbinas/TinyStatus"><img src="https://raw.githubusercontent.com/slibbinas/TinyStatus/main/docs/img/tinystatus.gif" width="240" alt="TinyStatus on a Wear OS watch showing the printer's status"></a></p>
 
 **[TinyStatus](https://github.com/slibbinas/TinyStatus)** is a Wear OS app that shows what
 this printer is doing without reaching for a phone: time left, which layer, how much resin
