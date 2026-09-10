@@ -20,7 +20,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Direct upload from PrusaSlicer** ("Send to printer" button) — the printer emulates the Prusa SL1 network protocol
 * Automatic unpacking of uploaded `.sl1` / `.zip` files into the layer format the stock firmware expects (works with both PrusaSlicer and UVtools numbering)
 * New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), **Advanced** settings, firmware Update, About
-* **Advanced menu on the printer** — screen timeout, dry run, the resin-tracking controls (VAT refilled, low-resin pause, warn threshold, ask-refill) and **WiFi / Web control on-off switches**, all without a computer *(contributed by [@Briadark](https://github.com/Briadark))*
+* **Advanced menu on the printer** — screen timeout, dry run, the resin-tracking controls (Set VAT full, low-resin pause, warn threshold, ask-refill) and **WiFi / Web control on-off switches**, all without a computer *(contributed by [@Briadark](https://github.com/Briadark))*
 * WiFi status indicator (green/grey dot) on the main menu
 * **Model deletion from the printer** — long-press OK on a model in the Print menu
 * **Import from SD card** — copy an `.sl1`/`.zip` onto the card and it shows up in the Print menu (in blue); press OK to convert it into a printable model. Works without any network, the archive is removed after a successful import
@@ -241,7 +241,7 @@ short at every step, and each group row shows its own state at a glance (`WiFi O
 | Item | What it does |
 |---|---|
 | Resin profile | Steps through the installed profiles and applies the one shown - the whole recipe for that resin |
-| VAT refilled | Press after a **full** refill - restarts the level estimate from a full VAT; it does not measure what you poured |
+| Set VAT full | Press after a **full** refill - restarts the level estimate from a full VAT; it does not measure what you poured |
 | Low resin stop | On = mid-print, at *Stop (ml)*, the printer finishes the layer, lifts and pauses for a refill. On by default: below the stop level the VAT floor goes dry |
 | Stop (ml) | The level that stops the print: 3 - 4 - 5 - 6 - 7 - 8 ml (OK cycles), default 4. Three is this VAT's measured floor, not a preference |
 | Warn (ml) | The earlier heads-up, on the screen and on your phone: 5 - 6 - 7 - 8 ml, default 5. Keep it above the stop level |
@@ -262,7 +262,7 @@ short at every step, and each group row shows its own state at a glance (`WiFi O
 How the network switches behave:
 
 * **WiFi Off** makes the printer fully offline, like the original firmware. Toggling WiFi asks *"Reboot now?"* — OK reboots and applies it immediately, Back applies it on the next power-up. Everything network-related disappears from the menus until WiFi is back on — **turning it back on is done right here (System → Advanced → WiFi)**, no reflash or reset needed.
-* **Web control Off** makes the dashboard **view-only**: anyone on the network can still open it and watch the print (status, layers, resin left, SD contents, model details), but every action — print stop/pause, SD delete/upload, resin estimate, settings, VAT refilled, firmware updates — is disabled with a clear banner. PrusaSlicer/UVtools "Send to printer" and MQTT/Home Assistant keep working. Turning it back on is done on the printer (System → Advanced), since the settings form is among the things it locks.
+* **Web control Off** makes the dashboard **view-only**: anyone on the network can still open it and watch the print (status, layers, resin left, SD contents, model details), but every action — print stop/pause, SD delete/upload, resin estimate, settings, Set VAT full, firmware updates — is disabled with a clear banner. PrusaSlicer/UVtools "Send to printer" and MQTT/Home Assistant keep working. Turning it back on is done on the printer (System → Advanced), since the settings form is among the things it locks.
 * If WiFi is off and you open **System → Update**, the printer offers to enable WiFi temporarily just for the update.
 * WiFi and Web control are also in the dashboard's Settings tab (with a confirmation — unchecking Web control locks you out of settings until it is re-enabled on the printer, and turning WiFi off from the browser reboots the printer).
 
@@ -276,14 +276,14 @@ Both switches default to **On**, and stay On after upgrading from an older versi
 The printer has no resin sensor — instead it **keeps count**: every printed layer's cured volume (the same white-pixel estimate used for the ml counter) is subtracted from the VAT level. The estimate survives reboots and firmware updates.
 
 * **"Resin left (est.)"** is shown on the dashboard; in Home Assistant it appears as a *Resin left* sensor plus a *Resin low* alert you can automate notifications on.
-* **After a full refill**, tell the printer: **System → Advanced → VAT refilled** on the printer, or the **VAT refilled** button on the dashboard - it works while printing too. The estimate restarts from a **full** VAT (your VAT size setting): it does not measure what you poured, so fill it to the top. Pouring less leaves the printer believing it has more resin than it does.
+* **After a full refill**, tell the printer: **System → Advanced → Set VAT full** on the printer, or the **Set VAT full** button on the dashboard - it works while printing too. The estimate restarts from a **full** VAT (your VAT size setting): it does not measure what you poured, so fill it to the top. Pouring less leaves the printer believing it has more resin than it does.
 * **Ask refill** (default On): every print begins with a *"VAT filled full?"* question — on the printer (OK = yes / Back = no) and in the browser — so the estimate stays honest even if you forget the button. Tidy users can turn it off (System → Advanced or dashboard Settings); the low-resin warning screen then still offers **UP = Full** as a shortcut.
 * **While printing** the dashboard shows resin like layers: `used / ~total ml` (total = the fresh estimate when you ran one, otherwise a running average) plus *Resin left (est.)* in the VAT.
 * **Before a print starts**, if the level is at/below the warning threshold (or a fresh ml estimate says the model needs more than what's left), the printer shows **"Low resin!"** with the numbers — Start anyway or Back. Starting from the browser asks the same in a dialog.
-* **Low resin pause** (default On): mid-print, when the level drops to the threshold, the printer finishes the layer, lifts and pauses showing **"Fill VAT full!"** — do a full refill, press VAT refilled, then resume. Resume stays locked until the refill is marked, and only Stop works meanwhile; on the printer itself, confirming *"Is the VAT filled full?"* marks it and resumes. The threshold (`Stop (ml)`, 3–8 ml, default 4) is set on the printer (System → Advanced) or in the dashboard's Settings tab.
+* **Low resin pause** (default On): mid-print, when the level drops to the threshold, the printer finishes the layer, lifts and pauses showing **"Fill VAT full!"** — do a full refill, press Set VAT full, then resume. Resume stays locked until the refill is marked, and only Stop works meanwhile; on the printer itself, confirming *"VAT filled full?"* marks it and resumes. The threshold (`Stop (ml)`, 3–8 ml, default 4) is set on the printer (System → Advanced) or in the dashboard's Settings tab.
 * **Roughly 4 ml of every filling cannot be printed with.** The VAT is 42 × 52 mm inside, so a millimetre of resin is about 2.2 ml and a full 15 ml VAT is under 7 mm deep. Poured resin stops covering the whole floor at about 4 ml, and it clings to the walls, so the middle can open a dry patch a little above that. That is why the stop level cannot be set below 3 ml, and why a 15 ml VAT gives about 11 ml of printing per filling.
 
-> ⚠️ It is an **estimate**, not a measurement — it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "VAT refilled" won't be counted.
+> ⚠️ It is an **estimate**, not a measurement — it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "Set VAT full" won't be counted.
 
 ## On your wrist: TinyStatus
 

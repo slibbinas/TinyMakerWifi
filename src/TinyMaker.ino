@@ -235,6 +235,7 @@ bool lowResinPauseEnabled = true;   // pause between layers when estimate runs l
 uint8_t lowResinThresholdMl = 4;    // 0.17 #40: STOP level (ml, 3..8) - pause/stop trigger; also pre-start check
 uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 5..8) - warns (keeps printing), independent of the stop checkbox
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
+bool pauseLiftForResin = false;     // 0.17: the pause lift under way is a resin pause - the LCD band says "Resin low..."
 bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per print (re-armed on refill)
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
@@ -2886,6 +2887,11 @@ void loop() {
                            (Fast_Lift_Feedrate * steps_mm));
             phaseWaitStage = "pauseLift";   // antras pauzes etapas: kyla plokste
             #endif
+            /* Draw the lift's state NOW. Nothing did before: the band kept whatever was
+               there, and after a dimmed screen screen1111() redrew the card with an empty
+               band for the whole lift (V 2026-09-10, photo). */
+            pauseLiftForResin = lowResinPauseNow;
+            screen1111_state();
             {
               // Answer HTTP every 200ms DURING the lift (the homing-return
               // pattern) - one pre-move window was not enough, a 2s poll loop
@@ -2905,6 +2911,7 @@ void loop() {
             delay(10); 
 
             current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+            pauseLiftForResin = false;   // the lift is over; the parked state has its own text
             phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
             bool lowResinNotifyPending = lowResinPauseNow;
             lowResinPauseNow = false;

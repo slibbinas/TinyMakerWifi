@@ -271,7 +271,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
       </button>
     </div>
     <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'>
-      <button id='vatRefillButton' class='button secondary' type='button' style='width:auto;flex:1 1 160px'>VAT refilled</button>
+      <button id='vatRefillButton' class='button secondary' type='button' style='width:auto;flex:1 1 160px'>Set VAT full</button>
       <button id='dryRunToggle' class='button secondary' type='button'
         title='Run the motions without curing: the UV LEDs stay off'
         style='width:auto;flex:1 1 160px'>Dry run: off</button>
@@ -2536,8 +2536,8 @@ const applyStatus=s=>{
     /* Web control off: the dashboard cannot mark the refill, so point at the printer screen
        instead of at a button that would not respond (audit 09-10). */
     if(s.stateCode===10&&applyStatus._sc!==10)msg(s.webControl===false
-      ?'Resin ran low - do a full refill, then confirm "Is the VAT filled full?" on the printer screen.'
-      :'Resin ran low - do a full refill of the VAT, press VAT refilled, then Resume.',true);
+      ?'Resin ran low - do a full refill, then confirm "VAT filled full?" on the printer screen.'
+      :'Resin ran low - do a full refill of the VAT, press Set VAT full, then Resume.',true);
     applyStatus._sc=s.stateCode;
     /* Prie signalo - zodis, ka tas skaicius reiskia: -47 dBm niekam nieko nesako, o
        „excellent" pasako iskart (V 08-13). Ribos iprastos WiFi praktikai. */
@@ -2850,7 +2850,7 @@ const applyStatus=s=>{
     /* Resin pause: Resume stays locked until the VAT is marked refilled (V 09-10). The
        printer refuses it too; locking here shows WHY instead of a request that bounces. */
     resume.disabled=!s.canResume||!wc||!!s.refillPending;
-    resume.title=s.refillPending?'Only Stop is available until a full refill - fill the VAT to the top and press VAT refilled.':'';
+    resume.title=s.refillPending?'Only Stop is available until a full refill - fill the VAT to the top and press Set VAT full.':'';
     $('stopButton').textContent=s.stopping?'Stopping...':'Stop';
     $('stopButton').disabled=!s.canStop||!wc;
     applyPendingPrintUi();
@@ -5696,7 +5696,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
     msg('No resin selected - pick a resin before printing.',true);return;}
   clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
-    if(await uiConfirm('Full VAT refill?\nOK = yes (the level resets to a full VAT), Cancel = no.')){
+    if(await uiConfirm('VAT filled full?',{cancel:'No',ok:'Yes'})){
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
     }
   }
@@ -6809,7 +6809,7 @@ $('dryRunToggle').addEventListener('click',async()=>{
     loadConfig();refreshStatus();
   }catch(e){msg(e.message,true);}
 });
-$('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('Full refill done? The resin level resets to a full VAT.'))return;try{const r=await api('/api/vat/refilled',{method:'POST'});refreshStatus();}catch(e){msg(e.message,true);}});
+$('vatRefillButton').addEventListener('click',async()=>{if(!await uiConfirm('VAT filled full?',{cancel:'No',ok:'Yes'}))return;try{const r=await api('/api/vat/refilled',{method:'POST'});refreshStatus();}catch(e){msg(e.message,true);}});
 $('cfgWifiEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgWebDashboardEnabled').addEventListener('change',confirmNetworkToggle);
 $('cfgMqttEnabled').addEventListener('change',updateMqttFields);
@@ -6827,7 +6827,7 @@ $('cfgTgTokenShow').addEventListener('click',()=>{const i=$('cfgTgToken');i.type
 const HELP={
  tg:"<b>Telegram setup</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>In Telegram, message <b>@BotFather</b>, send <b>/newbot</b>, follow the prompts and paste the token it gives into <b>Bot token</b>.</li><li>Open your new bot and press <b>Start</b> (or send it any message) - a bot cannot message you until you do.</li><li>Get your Chat ID: open a chat with <b>@userinfobot</b> - a <i>separate</i> bot, search for it by name in Telegram - and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li><li>Press <b>Save config</b>, then <b>Send test message</b> - if it arrives, you are done.</li></ol>",
  layer:"<b>Layer height</b><p>Unlike FDM, the printed layer height is decided by THIS setting, not by the sliced file. Files are always a stack of 0.05 mm images: at 0.05 the printer uses every image, at 0.10 it takes every other one. Always slice with the 0.05 mm profile.</p>",
- resin:"<b>Resin tracking</b><p>The printer has no resin sensor - it counts down an estimate from a full VAT (this size). Press <b>VAT refilled</b> after a full refill, and keep <b>Ask refill</b> on so the estimate stays honest. It warns before a print that will not fit and can pause mid-print when low.</p>",
+ resin:"<b>Resin tracking</b><p>The printer has no resin sensor - it counts down an estimate from a full VAT (this size). Press <b>Set VAT full</b> after a full refill, and keep <b>Ask refill</b> on so the estimate stays honest. It warns before a print that will not fit and can pause mid-print when low.</p>",
  web:"<b>Web control</b><p>Off = this dashboard turns view-only: anyone can watch, but print control, uploads, settings and firmware updates are disabled. Turn it back on at the printer (System &gt; Advanced). Slicer upload and MQTT keep working.</p>",
  backup:"<b>Backup &amp; restore</b><p>One file holds every setting plus the lifetime counters. <b>Backup to SD</b> before a full USB reflash - the printer offers to restore it on first boot. The file contains your MQTT password and tokens, so treat it like a secret.</p>",
  wa:"<b>WhatsApp setup (CallMeBot)</b><ol style='margin:10px 0 0;padding-left:20px;line-height:1.6'><li>Open <b>callmebot.com</b> &gt; <i>WhatsApp text messages</i> and add the bot's current phone number to your contacts.</li><li>Send it the message <b>I allow callmebot to send me messages</b> from your WhatsApp.</li><li>It replies with your personal <b>API key</b> - enter it here with your phone number (with country code).</li><li><b>Save config</b>, then <b>Send test message</b>.</li></ol><p class='hint'>Messages travel through the free CallMeBot gateway (a third-party service) - unlike Telegram, which the printer talks to directly.</p>",

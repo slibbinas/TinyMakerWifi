@@ -678,7 +678,7 @@ String advancedLabel(int item) {
                                           // "Screen timeout" read as if the
                                           // screen should sleep mid-print too
   if (item == 2) return "Dry run";
-  if (item == 3) return "VAT refilled";
+  if (item == 3) return "Set VAT full";   // says what it does to the level (V 09-10); same 80 px as the old label
   if (item == 4) return "Low resin stop";
   if (item == 5) return "Stop (ml)";
   if (item == 6) return "Ask refill";
@@ -1774,8 +1774,13 @@ void screen1111_state(){
       gfx2->print("Canceling...");
         break;
       case 5:
-      gfx2->setCursor(30, 14);
-      gfx2->print("Pausing...");
+      /* The lift into a pause. Says why when the resin ran low - the same ~18 s used to
+         show an empty band, because nothing drew this state when the lift began (V 09-10). */
+      { const char *t = pauseLiftForResin ? "Resin low..." : "Pausing...";
+        int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14);
+        gfx2->print(t); }
         break;  
       case 6:
       gfx2->setCursor(32, 14);
@@ -1932,29 +1937,36 @@ void screen11113(){
   gfx2->fillCircle(18, 25, 2, RED); 
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  if (current_state == 10) {
-    /* Resin pause: confirming marks the VAT full, so the words must ask for FULL - the
-       level resets to the whole capacity, and "topped up a spoonful" would leave the
-       printer believing in 15 ml (V 2026-09-10). Centred, proportional font. */
+  const bool resinPause = (current_state == 10);
+  if (resinPause) {
+    /* Resin pause: confirming marks the VAT full, so the words ask about a FULL fill -
+       the level resets to the whole capacity. One line, the same question the printer
+       and the dashboard ask everywhere (V 2026-09-10: no two-line sandwich). Measured
+       from the glyph table: 98 px of ink in a 142 px box. */
     int16_t bx, by; uint16_t bw, bh;
-    gfx2->getTextBounds("Is the VAT", 0, 0, &bx, &by, &bw, &bh);
-    gfx2->setCursor((160 - (int16_t)bw) / 2, 23);
-    gfx2->println("Is the VAT");
-    gfx2->getTextBounds("filled full?", 0, 0, &bx, &by, &bw, &bh);
-    gfx2->setCursor((160 - (int16_t)bw) / 2, 41);
-    gfx2->println("filled full?");
+    gfx2->getTextBounds("VAT filled full?", 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor((160 - (int16_t)bw) / 2, 32);
+    gfx2->println("VAT filled full?");
   } else {
     gfx2->setCursor(27, 23);
     gfx2->println("Are you sure to");
     gfx2->setCursor(13, 41);
     gfx2->println("resume the print?");
   }
+  /* A yes/no question gets No/Yes, like the pre-print ask (screen 115); the normal pause
+     keeps Back/Sure. BACK is still the left button and OK the right one. */
+  const char *lbL = resinPause ? "No" : "Back";
+  const char *lbR = resinPause ? "Yes" : "Sure";
   gfx2->fillRoundRect(11, 51, 67, 18, 2, ORANGE);
-  gfx2->setCursor(27, 64);
-  gfx2->println("Back");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbL, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(11 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbL);
   gfx2->fillRoundRect(82, 51, 67, 18, 2,  0x879F);
-  gfx2->setCursor(100, 64);
-  gfx2->println("Sure");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbR, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(82 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbR);
   screen = 11113;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
