@@ -300,9 +300,11 @@ It sends no commands, so it cannot start, pause or cancel anything.
   (`tinystatus-<version>.apk`). Not on Google Play, so it is **sideloaded** - the release
   notes walk through it from a phone (no computer needed) or over `adb`.
 * **You need:** a Wear OS 4+ watch, the watch and the printer on the same Wi-Fi, and
-  firmware **0.16.2 or newer**. Three things arrive with **0.17.0**: telling a cancelled
-  print apart from a finished one, resin *left in the VAT* rather than resin used in the
-  watch-face complication, and the low-resin warning level.
+  firmware **0.16.2 or newer** - that is what it has been tested against. Two fields
+  arrive with **0.17.0**, and without them the app gets less precise rather than
+  breaking: telling a cancelled print apart from a finished one falls back to the state
+  code alone, and the low-resin warning uses the default 5 ml instead of the level you
+  picked.
 * **Several printers:** up to four by IP, swipe sideways to switch.
 * **What it costs the printer:** `GET /api/status` every 5 s while the app is open, and
   nothing at all when it is closed - unless background watching is on, and then every

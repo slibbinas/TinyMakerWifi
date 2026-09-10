@@ -255,25 +255,37 @@ things known to depend on it, so consumers are recorded here.
 [github.com/slibbinas/TinyStatus](https://github.com/slibbinas/TinyStatus) - read-only,
 no writes. Confirmed against firmware 0.16.2 and 0.17.0.
 
-From `/api/status`, 22 fields: `ok`, `busy`, `paused`, `stopping`, `stateCode`, `state`,
+From `/api/status`, 21 fields: `ok`, `busy`, `paused`, `stopping`, `stateCode`, `state`,
 `waitStage`, `model`, `currentLayer`, `totalLayers`, `layerText`, `remainingSecs`,
 `remainingTime`, `runSecs`, `runTime`, `resinUsedMl`, `resinText`, `vatRemainingMl`,
-`vatText`, `vatGrams`, `vatLow`, `ip`.
+`vatText`, `vatLow`, `ip`.
 
 From `/api/config`, 2 fields, read about once a day: `lowResinWarnMl`, `lowResinMl`.
 
-Three of those are worth knowing about before touching anything:
+### The dependency that is not a field name
 
-* **`ok` is used as an integrity marker.** A `200` that arrives without it is treated as a
-  truncated response and thrown away. So `ok` is not decoration - dropping it would make
+**`busy` falling from `true` to `false` is what "the print finished" means.** There is no
+explicit end-of-print event, so a client's whole state machine hangs off that one
+transition. If the timing of `busy` ever changed - staying `true` for a few seconds after
+the last layer, say - every consumer would break, and **not one field name would have
+changed**. The versioning policy above covers names; this is behaviour, and it is the
+stronger promise of the two.
+
+Adding a real end-of-print event would delete that guessing layer on every client at once.
+Worth doing before there are many of them.
+
+Then, in order of how much they carry:
+
+* **`ok` is an integrity marker.** A `200` that arrives without it is treated as a
+  truncated response and thrown away, so `ok` is not decoration - dropping it would make
   every reply look broken.
-* **`stateCode` 4 and 10, plus `waitStage` `stopTail`/`stopLift`, are how a cancelled print
-  is told apart from a finished one.** The API has no explicit "print finished" event: the
-  end is inferred from `busy` falling between two polls. If such an event is ever added,
-  that whole guessing layer disappears on the client side - which is a good reason to add
-  one.
-* **`vatGrams` carries what is left in the VAT**, not what has been used. It feeds a
-  watch-face complication, so its meaning is load-bearing, not just its name.
+* **`stateCode` 4 and 10, plus `waitStage` `stopTail`/`stopLift`, tell a cancelled print
+  apart from a finished one.** `waitStage` is the precision, not the mechanism: without it
+  a client still recognises a cancel from `stopping` and `stateCode`, but a cancel that
+  slipped past state 4 between two polls gets reported as stopped rather than cancelled.
+* **`lowResinWarnMl` is read to warn at the level the person actually picked.** Missing, a
+  client falls back to 5 ml - which was the firmware default until 0.17, and is now one of
+  a range.
 
 Polling load, for sizing: every 5 s while the app is open; nothing while closed, unless
 background watching is on, and then every 30 s to 10 min **only while a print runs**,
