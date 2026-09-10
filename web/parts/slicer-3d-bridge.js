@@ -6,7 +6,9 @@
   let supMesh=null;
   /* Mygtukai, kurie turi prasme TIK supjaustytiems duomenims. Sliceryje jie
      slepiami (nera ko pjauti, nera voksleliu), o gl3dShow juos grazina. */
-  const SLICER_HIDE=['gl3dCage','gl3dDet','gl3dClip','gl3dRaw'];
+  /* `gl3dCage` cia NEBERA: narvas sliceryje pagal nutylejima isjungtas, bet
+     mygtukas turi likti - kitaip jo niekaip neijungsi (V 08-19). */
+  const SLICER_HIDE=['gl3dDet','gl3dClip','gl3dRaw'];
 
   // Modelio tinklelis is slicerio (Float32Array pozicijos). home===false: tas pats
   // modelis, tik pakeistas - kameros neliesti.
@@ -36,8 +38,10 @@
          priartinimo padai nepasirodydavo - modelio nebuvo kaip pasukti (V 08-17).
          Kiekvienam savas display: zoom yra flex, pagalba block, padai grid. */
       const rodyk=id=>{const e=$(id);if(e)e.style.display=
-        id==='gl3dZoom'?'flex':(id==='gl3dHelp'?'block':'grid');};
-      rodyk('gl3dHelp');rodyk('gl3dPad');rodyk('gl3dRot');rodyk('gl3dZoom');
+        (id==='gl3dZoom'||id==='gl3dZoomCorner')?'flex':(id==='gl3dHelp'?'block':'grid');};
+      rodyk('gl3dHelp');rodyk('gl3dPad');rodyk('gl3dRot');rodyk('gl3dZoom');rodyk('gl3dZoomCorner');
+      /* ...bet plokscias vaizdas turi savo taisykles, ir jos - paskutines. */
+      if(window.slicerViewChrome)window.slicerViewChrome();
       /* Priartinimo grupeje pas MUS gyvena ir narvas, pjuvis, vokseliai bei
          detalus vaizdas - experimental2 ju ten neturejo. Visi keturi turi prasme
          tik SUPJAUSTYTIEMS duomenims: sliceryje dar nera ka pjauti nei rodyti
@@ -45,6 +49,14 @@
          (panasi ikona, kitas dalykas). Be to su sesiais mygtukais grupe
          persidengia su irankiu juosta (V 08-17). Paliekam tik priartinima. */
       SLICER_HIDE.forEach(id=>{const e=$(id);if(e)e.style.display='none';});
+      /* Pjuvio juosta priklauso ANKSTESNIAM modeliui: mygtuka sliceryje slepiam,
+         o juosta likdavo gulėti skersai viso vaizdo (V 08-19). Ji rodoma per
+         `on` klase, tad uztenka jos nuimti - inline `display` uzrakintu juosta
+         visam laikui. Pati pjuvi irgi isjungiam: kito modelio aukstis su siuo
+         neturi nieko bendro. */
+      {const bar=$('gl3dClipBar'); if(bar)bar.classList.remove('on');
+       const cb=$('gl3dClip'); if(cb)cb.classList.remove('on');
+       if(typeof window.gl3dClip==='function')window.gl3dClip(null);}
       // Lango didinimas: sliceryje jis lygiai toks pat naudingas, kaip perziuroje.
       if(typeof setStageGrowUI==='function')setStageGrowUI(true);
       clipTaikyk();                        // medziaga nauja - pjuvis is naujo
@@ -55,6 +67,18 @@
 
   /* Atramos - ATSKIRA medziaga ir spalva, ne to paties tinklelio dalis: V 08-16
      pastebejo, kad be to nesimato, kur baigiasi detale ir prasideda atrama. */
+  /* Kur dabar pjaunama. `null` = nepjaunama. Ta pati plokstumos objekta duoda
+     pultas (jos `constant` keiciasi velkant slankikli), tad cia laikom nuoroda. */
+  let supPlanes=null;
+  window.gl3dSupClip=pl=>{
+    supPlanes=pl?[pl]:null;
+    if(supMesh){
+      supMesh.material.clippingPlanes=supPlanes;
+      supMesh.material.needsUpdate=true;
+      if(scene&&cam&&ren)ren.render(scene,cam);
+    }
+    return true;
+  };
   window.gl3dSupports=positions=>{
     if(!ren)return false;
     if(supMesh){scene.remove(supMesh);supMesh.geometry.dispose();
@@ -65,9 +89,12 @@
     geo.computeVertexNormals();
     supMesh=new T.Mesh(geo,new T.MeshStandardMaterial({color:0x8fa8c8,roughness:.75,
       metalness:.05,side:T.DoubleSide}));
-    // Tas pats pjuvis kaip modeliui - kitaip slankiklis pjautu tik detale.
-    if(mesh&&mesh.material&&mesh.material.clippingPlanes)
-      supMesh.material.clippingPlanes=mesh.material.clippingPlanes;
+    /* Tas pats pjuvis kaip modeliui - kitaip slankiklis pjautu tik detale.
+       Anksciau plokstuma cia buvo NUSIRASOMA nuo modelio ir tik kurimo metu:
+       jei atramos atsirasdavo iki pirmo pjovimo (o su WASM jos ateina veliau,
+       atskiru atsakymu), jos likdavo neapkirptos visam laikui. Dabar ja laiko
+       tiltas, o pultas tik praneša, kai ji keiciasi. */
+    supMesh.material.clippingPlanes=supPlanes;
     scene.add(supMesh);
     if(scene&&cam)ren.render(scene,cam);
     return true;

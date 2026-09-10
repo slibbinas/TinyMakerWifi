@@ -1,0 +1,60 @@
+diff --git a/web/dashboard.html b/web/dashboard.html
+index e6467f3..e239d84 100644
+--- a/web/dashboard.html
++++ b/web/dashboard.html
+@@ -255,6 +255,17 @@
+     <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
+     <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
+ 
++    <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
++         naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
++         netikrintas ant gelezies. -->
++    <div class='calRow' id='slicerSupRow' style='margin-top:6px;gap:8px;align-items:center'>
++      <span style='color:var(--muted);font-size:.9rem'>Supports</span>
++      <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
++        <input type='radio' name='slicerSupType' value='regular' checked> regular</label>
++      <label style='margin:0;display:inline-flex;align-items:center;gap:4px;cursor:pointer'>
++        <input type='radio' name='slicerSupType' value='tree'> tree</label>
++    </div>
++
+     <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
+     <div class='calRow' style='margin-top:6px;gap:8px'>
+       <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
+@@ -3232,9 +3243,12 @@ $('slicerToggle').addEventListener('click',async()=>{
+      kontrolines sumos, tad kiekvienas pakeitimas reikstu perflasinima. */
+   /* Versija abiejuose keliuose: be jos narsykle laiko sena kopija ir
+      naujos funkcijos tiesiog neranda (taip ir nutiko, V 08-12). */
+-  const SV='0.9.0';
+-  slicerMod=await loadModule('slicer',SV,
+-      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer.js?v='+SV);
++  /* 3.0.0 - tikras PrusaSlicer variklis (libslic3r), sukompiliuotas i
++     WebAssembly ir sukamas atskiroje gijoje. Adapteris turi ta pacia API, kaip
++     senasis modulis, tad pultui keitesi tik sitas adresas. */
++  const SV='3.0.0';
++  slicerMod=await loadModule('slicer-wasm',SV,
++      'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm.js?v='+SV);
+   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
+                                   :'The slicer module could not be loaded.');
+ });
+@@ -3541,7 +3555,9 @@ $('slicerGo').addEventListener('click',async()=>{
+     /* Du praejimai, viena juosta: pirma ieskoma, kur daiktas kabo (pirmas
+        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
+        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
+-    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked},
++    const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
++    const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
++      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,'')},
+       (done,total,phase)=>{
+         const f=phase==='scan'?done/total*0.3
+                :phase==='draw'?0.3+done/total*0.7
+@@ -3589,6 +3605,10 @@ $('slicerGo').addEventListener('click',async()=>{
+ });
+ 
+ $('slicerAA').addEventListener('change',()=>slicerInvalidate());
++/* Perjungus atramu tipa, ankstesnis rezultatas nebegalioja - kitaip „Save"
++   issaugotu tai, ko ekrane jau nebera. */
++document.querySelectorAll('input[name=slicerSupType]').forEach(r=>
++  r.addEventListener('change',()=>slicerInvalidate()));
+ /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
+    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
+ /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne

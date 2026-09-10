@@ -678,7 +678,7 @@ String advancedLabel(int item) {
                                           // "Screen timeout" read as if the
                                           // screen should sleep mid-print too
   if (item == 2) return "Dry run";
-  if (item == 3) return "VAT refilled";
+  if (item == 3) return "Set VAT full";   // says what it does to the level (V 09-10); same 80 px as the old label
   if (item == 4) return "Low resin stop";
   if (item == 5) return "Stop (ml)";
   if (item == 6) return "Ask refill";
@@ -844,8 +844,8 @@ void advancedOptionsSelect() {
   } else if (id == 4) {
     lowResinPauseEnabled = !lowResinPauseEnabled;
   } else if (id == 5) {
-    lowResinThresholdMl++;      // cycle 1..3 ml
-    if (lowResinThresholdMl > 3) lowResinThresholdMl = 1;
+    lowResinThresholdMl++;      // cycle 3..8 ml (3 = the measured vat floor, see TinyMaker.ino)
+    if (lowResinThresholdMl > 8) lowResinThresholdMl = 3;
   } else if (id == 6) {
     askRefillEnabled = !askRefillEnabled;
   } else if (id == 7) {
@@ -872,15 +872,13 @@ void advancedOptionsSelect() {
     pauseLiftMm += 5;                  // 0.17 #82: cycle 20 -> 25 -> 30 -> 35 -> 40 -> 20
     if (pauseLiftMm > 40) pauseLiftMm = 20;
   } else if (id == 16) {
-    // 0.17 #40: cycle warn level 3 -> 5 -> 8 -> 10 -> 12 -> 15 -> 3
-    if (lowResinWarnMl < 5) lowResinWarnMl = 5;
-    else if (lowResinWarnMl < 8) lowResinWarnMl = 8;
-    else if (lowResinWarnMl < 10) lowResinWarnMl = 10;
-    else if (lowResinWarnMl < 12) lowResinWarnMl = 12;
-    else if (lowResinWarnMl < 15) lowResinWarnMl = 15;
-    else lowResinWarnMl = 3;
+    /* 0.17 #40: cycle warn level 5 -> 6 -> 7 -> 8 -> 5. The old ladder climbed to 15,
+       which is the whole vat: a warning that fires the moment a print starts. */
+    lowResinWarnMl++;
+    if (lowResinWarnMl < 5 || lowResinWarnMl > 8) lowResinWarnMl = 5;
   } else if (id == 17) {
-    // 0.17 0-16: cycle Fast -> Slow -> each profile on the card -> Fast. The
+    // 0.17 0-16: cycle every built-in in table order, then each profile on the
+    // card, then back to the first. The
     // pick applies immediately; applyResinProfile() persists everything itself
     // (and remembers the replaced exposures, so the dashboard Undo still works).
     /* Vienas sugadintas /resin/*.json duoda false, o resinProfileName lieka
@@ -925,7 +923,7 @@ void screenLowResinWarn(float needMl) {
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
   gfx2->print("Low resin!");
-  uiActionHint(92, 8, "Refilled");   // UP = mark full & start (top-right)
+  uiActionHint(92, 8, "Full");       // UP = mark full & start (top-right); built-in 6 px font from x=108, a longer word runs off the screen
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   if (needMl >= 0) {
@@ -954,7 +952,7 @@ void screenRefillAsk() {
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
   gfx2->setCursor(8, 21);
-  gfx2->print("VAT refilled?");
+  gfx2->print("VAT filled full?");   // it resets to a FULL VAT - say so (V 09-10)
   gfx2->setTextColor(0x879F);
   gfx2->setCursor(8, 43);
   gfx2->print("~");
@@ -1148,6 +1146,34 @@ void screenRestorePrompt(){
   gfx2->print("from SD backup?");
   uiButtons("Skip", "Restore", 0x879F);
   screen = 426;
+}
+
+/**
+ * One line telling the operator where the plate ended up. Used at both ends of
+ * the manual jog: at the top, where the move is refused because the plate is
+ * already at max_height - which is where lift_finished_print() parks it after
+ * EVERY print, so the Up button would otherwise look broken - and at the bottom,
+ * where touching the endstop resets the height to zero.
+ * The bottom says "Plate is home" in every case. Whether the zero was freshly
+ * written or the plate was already sitting there is our bookkeeping; the
+ * operator knows one word for that position, and a second sentence would ask
+ * them to learn a distinction that changes nothing they do (V 09-05, after a
+ * two-message version was written and rejected - do not bring it back).
+ * Keep any new line no longer than the ones in use: centring with getTextBounds
+ * keeps it in the middle, but nothing stops a longer line from running off both
+ * edges of the 160 px frame. Measured widths - "Plate is at the top" 119 px,
+ * "Plate is home" 94 px, against 156 px of usable frame.
+ */
+void screenPlateNote(const char *t){
+  uiFrame(ORANGE);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  int16_t bx, by; uint16_t bw, bh;
+  gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+  gfx2->setCursor((160 - (int)bw) / 2 - bx, 45);
+  gfx2->print(t);
+  delay(1100);
 }
 
 void screenRestoreDone(bool ok){
@@ -1663,7 +1689,14 @@ void screen1111(){
   gfx2->fillScreen(BLACK);
   gfx2->fillRoundRect(0, 0, 120, 80, 5, ORANGE);
   gfx2->fillRoundRect(2, 2, 116, 76, 3, BLACK);
-  gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+  /* Juosta gyvena remelio VIDUJE (V 09-04). Anksciau ji buvo piesiama ant
+     (0,0,120,20) ir nukirsdavo oranzinio remelio virsutini krasta - kortele
+     atrodydavo apkirsta. Tikram spaudiniui to nesimatydavo, nes juosta tada
+     oranzine ir susilieja su remeliu; dry run rezime ji zydra, ir luzis matomas.
+     Du kvietimai, nes `fillRoundRect` apvalina VISUS keturis kampus, o antrastei
+     apacia turi buti tiesi. */
+  gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+  gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     
   // Icons (Pause/Cancel)    
   gfx2->fillRect(136, 12, 16, 16, RED);
@@ -1712,7 +1745,10 @@ void screen1111_state(){
     }
   }
   if (screen != 11111 && screen != 11112){
-    gfx2->fillRoundRect(0, 0, 120, 20, 3, printTitleBarColor());
+    // Ta pati juosta, kaip screen1111 - kitaip perpiesus busena ji atrodytu
+    // kitaip nei ka tik ijungus (zr. komentara ten).
+    gfx2->fillRoundRect(2, 2, 116, 18, 3, printTitleBarColor());
+    gfx2->fillRect(2, 10, 116, 10, printTitleBarColor());
     gfx2->setFont(&FreeSans8pt7b);
     gfx2->setTextColor(WHITE);
     gfx2->setTextSize(1);
@@ -1738,8 +1774,13 @@ void screen1111_state(){
       gfx2->print("Canceling...");
         break;
       case 5:
-      gfx2->setCursor(30, 14);
-      gfx2->print("Pausing...");
+      /* The lift into a pause. Says why when the resin ran low - the same ~18 s used to
+         show an empty band, because nothing drew this state when the lift began (V 09-10). */
+      { const char *t = pauseLiftForResin ? "Resin low..." : "Pausing...";
+        int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds(t, 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14);
+        gfx2->print(t); }
         break;  
       case 6:
       gfx2->setCursor(32, 14);
@@ -1750,12 +1791,24 @@ void screen1111_state(){
       gfx2->print("Resuming...");
         break;
       case 8:
-      gfx2->setCursor(32, 14);
-      gfx2->print("Finish :)");
+      // Tas pats zodis, kaip pulte (V 09-04): ekranas sakydavo „Finish :)", o
+      // pultas tuo metu rodo likusi laika - du priestaraujantys teiginiai.
+      // Vieta MATUOJAMA, ne imama is kaimyno: sriftas proporcingas (todel
+      // „Lifting..." stovi ties 37, o „Pausing..." ties 30 - abu po 10 zenklu).
+      // Ir centruojama JUOSTOJE, kuri yra 120 px (1715 eil.), ne 160 px ekrane:
+      // desinieji 40 px priklauso zenkliukams. „Raising plate" i 120 netilpo ir
+      // islisdavo uz zydro fono (V 09-04, foto) - todel trumpesnis zodis.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Raising...", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Raising...");
         break;
       case 10:                  // low-resin pause (paused variant)
-      gfx2->setCursor(26, 14);
-      gfx2->print("Refill VAT!");
+      // FULL, not "refill": leaving this pause resets the level to the whole capacity.
+      { int16_t bx, by; uint16_t bw, bh;
+        gfx2->getTextBounds("Fill VAT full!", 0, 0, &bx, &by, &bw, &bh);
+        gfx2->setCursor((120 - (int16_t)bw) / 2, 14); }
+      gfx2->print("Fill VAT full!");
         break;
     }
   }
@@ -1884,16 +1937,36 @@ void screen11113(){
   gfx2->fillCircle(18, 25, 2, RED); 
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  gfx2->setCursor(27, 23);
-  gfx2->println("Are you sure to");
-  gfx2->setCursor(13, 41);
-  gfx2->println("resume the print?"); 
+  const bool resinPause = (current_state == 10);
+  if (resinPause) {
+    /* Resin pause: confirming marks the VAT full, so the words ask about a FULL fill -
+       the level resets to the whole capacity. One line, the same question the printer
+       and the dashboard ask everywhere (V 2026-09-10: no two-line sandwich). Measured
+       from the glyph table: 98 px of ink in a 142 px box. */
+    int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds("VAT filled full?", 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor((160 - (int16_t)bw) / 2, 32);
+    gfx2->println("VAT filled full?");
+  } else {
+    gfx2->setCursor(27, 23);
+    gfx2->println("Are you sure to");
+    gfx2->setCursor(13, 41);
+    gfx2->println("resume the print?");
+  }
+  /* A yes/no question gets No/Yes, like the pre-print ask (screen 115); the normal pause
+     keeps Back/Sure. BACK is still the left button and OK the right one. */
+  const char *lbL = resinPause ? "No" : "Back";
+  const char *lbR = resinPause ? "Yes" : "Sure";
   gfx2->fillRoundRect(11, 51, 67, 18, 2, ORANGE);
-  gfx2->setCursor(27, 64);
-  gfx2->println("Back");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbL, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(11 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbL);
   gfx2->fillRoundRect(82, 51, 67, 18, 2,  0x879F);
-  gfx2->setCursor(100, 64);
-  gfx2->println("Sure");
+  { int16_t bx, by; uint16_t bw, bh;
+    gfx2->getTextBounds(lbR, 0, 0, &bx, &by, &bw, &bh);
+    gfx2->setCursor(82 + (67 - (int16_t)bw) / 2, 64); }
+  gfx2->println(lbR);
   screen = 11113;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2135,11 +2208,16 @@ void screen213(){
   screen = 213;
 
   // Homing Motion
+  zHomed = false;   // no reference until this run reaches the endstop
   stepper.setCurrentPosition(0);
   stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
   stepper.enableOutputs();
   long initial_homing = 0;
   long current_position;
+  // Both aborts below leave the loop through break, and the sensor is optical: a
+  // dirty one can read HIGH right after, which used to paint "Homing OK" over the
+  // cancel screen. Harmless as pixels; not harmless once zHomed rides on it.
+  bool homingAborted = false;
   while(!digitalRead(end_stop)){
     stepper.moveTo(initial_homing);  // Set the position to move to
     initial_homing--;  // Decrease by 1 for next move if needed
@@ -2164,6 +2242,7 @@ void screen213(){
       gfx2->setCursor(100, 64);
       gfx2->println("OK :(");
       while(digitalRead(buttonOK) == HIGH);
+      homingAborted = true;
       screen21();      
       break;      
     }     
@@ -2191,6 +2270,7 @@ void screen213(){
       gfx2->setCursor(46, 43);
       gfx2->print("Canceled");
       delay(600);
+      homingAborted = true;
       screen21();
       break;
     }
@@ -2198,8 +2278,9 @@ void screen213(){
   stepper.disableOutputs();
   delay(50); 
           
-  if (digitalRead(end_stop)){
+  if (!homingAborted && digitalRead(end_stop)){
     stepper.setCurrentPosition(0);
+    zHomed = true;   // endstop reached: API heights mean something again
     gfx2->fillRoundRect(0, 0, 160, 20, 3, ORANGE); 
     gfx2->setCursor(40, 14);
     gfx2->print("Homing OK");

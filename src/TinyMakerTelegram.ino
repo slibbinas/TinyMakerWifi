@@ -93,9 +93,22 @@ void telegramNotify(const String &text) {
   bool hadPreview = previewCacheBuf != nullptr;
   freePreviewCache();
   String error;
-  if (tgReady) telegramSendMessage(text, error);
-  else if (waReady) whatsappSendMessage(text, error);
-  else if (dcReady) discordSendMessage(text, error);
+  bool sent = false;
+  if (tgReady) sent = telegramSendMessage(text, error);
+  else if (waReady) sent = whatsappSendMessage(text, error);
+  else if (dcReady) sent = discordSendMessage(text, error);
+  // #88: remember the outcome. The failure stays swallowed - a print must not
+  // stall over a chat message - but it stops being invisible: the dashboard can
+  // now say "failed: connection refused" instead of looking perfectly healthy
+  // while nothing arrives. One place for all three channels, on purpose.
+  notifyLastTried = true;
+  notifyLastOk = sent;
+  notifyLastAtMs = millis();
+  if (sent) notifyLastReason[0] = 0;
+  else {
+    strncpy(notifyLastReason, error.c_str(), sizeof(notifyLastReason) - 1);
+    notifyLastReason[sizeof(notifyLastReason) - 1] = 0;
+  }
   // Re-load the thumbnail from SD once the send is done (V 08-08): the TLS
   // connection is closed so the heap is back, and this runs in the print
   // loop itself (single thread - no SD contention with layer reads; a
@@ -184,6 +197,18 @@ String tinymakerTelegramConfigJson() {
   out += "\",\"tgChat\":\"";
   out += jsonEscape(tgChat);
   out += "\"";
+  // #88: delivery of the LAST message, whichever channel sent it. Absent until
+  // something has actually been sent, so a fresh printer shows no line at all
+  // rather than a scary "not delivered".
+  if (notifyLastTried) {
+    out += ",\"notifyLastOk\":";
+    out += notifyLastOk ? "true" : "false";
+    out += ",\"notifyLastAgo\":";
+    out += String((millis() - notifyLastAtMs) / 1000UL);
+    out += ",\"notifyLastReason\":\"";
+    out += jsonEscape(String(notifyLastReason));
+    out += "\"";
+  }
   return out;
 }
 

@@ -1,5 +1,5 @@
 {
-  "name": "Anycubic Water-Washable Clear",
+  "name": "Anycubic Water-Washable",
   "layer_height": 0.10,
   "base_exposure": 35,
   "regular_exposure": 14.0,
@@ -13,5 +13,5 @@
   "density": 1.1,
   "cal_factor": 1.0,
   "cal_fixed_ml": 0.0,
-  "buy_url": "https://www.anycubic.com/"
+  "buy_url": "https://tinymakerwifi.com/r/anycubic-ww"
 }

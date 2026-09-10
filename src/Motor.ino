@@ -16,6 +16,30 @@ void manual_lift(){
     stepper.move(10 * steps_mm);
       break;    
   }
+  /* Jog ceiling (0.17). Past the mechanical top the ULN2003 silently drops steps
+     while the counter keeps counting, so the plate ends up lower than the number
+     says and nothing on screen admits it.
+     Clamping is only correct when the zero is REAL: without homing, zero is
+     wherever the carriage happened to stand when the printer booted, and a limit
+     measured from it would mean anything - worst case it would refuse to lift a
+     plate that is actually sitting at the bottom. Unhomed therefore keeps the old
+     behaviour (it moves), and the height already reads "not homed" there.
+     The second guard is for a plate that is somehow ALREADY above the ceiling:
+     a bare moveTo(ceiling) would drive it DOWN, so an Up press would move the
+     plate the wrong way. Target the current position instead - the jog simply
+     does nothing rather than surprising anyone. */
+  bool atTop = false;
+  if (zHomed) {
+    const long ceilingSteps = (long)(max_height * steps_mm);
+    if (stepper.targetPosition() > ceilingSteps) {
+      const long here = stepper.currentPosition();
+      stepper.moveTo(here > ceilingSteps ? here : ceilingSteps);
+      // Clamped to nothing: say so. Right after a print the plate IS at the
+      // ceiling, so this is the normal case, not an edge one - and a jog that
+      // silently does nothing reads as a broken button (audit 09-05).
+      atTop = (stepper.distanceToGo() == 0);
+    }
+  }
   byte cancel = 0;
   while (cancel == 0 && stepper.distanceToGo()!= 0){
     stepper.run(); 
@@ -23,7 +47,10 @@ void manual_lift(){
       cancel = 1;       
   }
   stepper.disableOutputs();  
-  if (cancel == 1){
+  if (atTop) screenPlateNote("Plate is at the top");
+  // The move screen is repainted for BOTH exits that leave something on screen:
+  // a cancel (the Back press) and the at-top notice above.
+  if (cancel == 1 || atTop){
     switch (screen){
       case 2211:
       screen221();
@@ -68,8 +95,47 @@ void manual_down(){
     if (digitalRead(buttonBack) == LOW)
       cancel = 1;       
   }
-  stepper.disableOutputs();  
-  if (cancel == 1){
+  stepper.disableOutputs();
+  delay(50);   // the sensor settles before it is trusted - see the note below
+  /* Reaching the endstop is a reference, so take the zero here too. Without it a
+     counter that had drifted upwards stayed drifted, and since the jog ceiling
+     landed (0.17) that finally has a price: the ceiling would be measured from a
+     stale zero and stop the plate short of the real top, with nothing on screen
+     to explain why.
+     `distanceToGo() != 0` is the test that matters: it means the jog did NOT
+     finish the distance it was asked for, and with `cancel` already excluded the
+     only thing that can cut it short is the endstop. A jog that ran its full
+     10 mm in mid-air therefore cannot write a zero even if the pin - optical,
+     and with no pull (TinyMaker.ino, pinMode(end_stop, INPUT)) - reads HIGH by
+     accident at that moment. The plate standing on the endstop before the press
+     passes too, and rightly: it IS home, and the pin is read with the motor at
+     rest, which is the cleanest reading there is.
+     THE delay(50) IS LOAD-BEARING. Read the pin the instant the loop drops out
+     and it can still say LOW: the flag sits exactly on the optical edge and the
+     reading is marginal until the motor has stopped. Measured 2026-09-05 - the
+     first build without it took no zero at all on a jog the endstop had clearly
+     cut short (counter left at -53 steps). The homing screen has carried the
+     same delay all along (Interface.ino ~2246); copying the working path was the
+     fix, and inventing a shorter one was the mistake.
+     zHomed is set here as well: the trigger point is a POSITION, not a moment,
+     and this approach reads the pin every step (~0.8-2 ms across the 20-50 mm/min range) in the same direction
+     as homing, so it lands on the same edge. The approach SPEED differs - homing
+     creeps a step at a time while a jog runs at full maxSpeed - so this was
+     measured on the hardware rather than argued from the code: jogged down the
+     full 68 mm onto the endstop, the counter read 15 steps, i.e. 0.010 mm out
+     (2026-09-05, before this fix, so nothing was resetting it). A fifth of one
+     0.05 mm layer, at the far end of a 68 mm travel - the zero is good. */
+  const bool home = (cancel == 0 && stepper.distanceToGo() != 0 && digitalRead(end_stop));
+  if (home) {
+    stepper.setCurrentPosition(0);
+    zHomed = true;
+  }
+  /* One word, and the same one the machine uses everywhere else: home. Whether
+     the zero was freshly written or the plate was already sitting there is our
+     bookkeeping, not the operator's - two different sentences here would only
+     ask them to learn a distinction that changes nothing they do (V 09-05). */
+  if (home) screenPlateNote("Plate is home");
+  if (cancel == 1 || home){
     switch (screen){
       case 2211:
       screen221();
@@ -181,6 +247,7 @@ void lift_print(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -188,7 +255,7 @@ void lift_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
-      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -292,6 +359,7 @@ void lower_print(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -299,7 +367,7 @@ void lower_print(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
-      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -344,7 +412,10 @@ void lower_print(){
    Likusi einamosios fazes dalis (ekspozicija ar judesys) plius pakelimo trukme is
    atstumo ir greicio. Galutinis pakelimas veliau persiskaiciuoja tiksliai, tad
    ivertis tik pagereja. */
-void publishStopEstimate() {
+void publishStopEstimate(int fromPhase) {
+  /* `fromPhase` - kas vyko PASPAUDIMO metu (1 kuria, 2 kelia, 3 leidzia; 6 - stovim
+     pauzeje). Perduodam argumentu del tos pacios priezasties, kaip ir
+     publishPauseEstimate: visi kvieteajai pries tai jau pasistato „stabdom" (4). */
   // Homing'as baigiasi BE galutinio pakelimo (TinyMaker: lift_finished_print
   // kvieciamas tik tada, kai homing'as nebuvo nutrauktas), tad zadeti sekundziu
   // ten negalima - V 08-18 stabdant pries spaudinio pradzia snackas rode ~23 s,
@@ -370,6 +441,18 @@ void publishStopEstimate() {
   phaseStartMs = millis();
   phaseTotalMs = (dtg > 0 && sps > 1.0f)
                ? (unsigned long)((float)dtg / sps * 1000.0f) : 0;
+  /* Nutraukta ekspozicija variklio nejudina (`distanceToGo == 0`), tad iki 09-01
+     cia likdavo nulis - ir zmogus po Stop matydavo bevardi sakini „Stopping the
+     current operation" apie 5 s. Bet laukti YRA ko: sluoksnio atplesimo pakelimas
+     (`lift_print`) ivyksta ir po nutraukimo, o jo trukme mes zinom is praeito
+     sluoksnio. Ismatuota: 7 ratai, pirmas etapas 7,4-9 s (T-116).
+     TIK is ekspozicijos: sustabdzius PAUZEJE plokste jau pakelta, atplesimo
+     nebebus, ir pazadas butu i tuscia (auditas 09-01). Pirmame spaudinyje po
+     ijungimo `prevLiftMs` dar nulis - tada imam puse lenteles ciklo (kilimas +
+     leidimasis), kad ir ten sakinys turetu skaiciu. */
+  if (phaseTotalMs == 0 && fromPhase == 1)
+    phaseTotalMs = prevLiftMs ? prevLiftMs
+                              : (unsigned long)(motor_updown_time * 500.0f);
   phaseWaitStage = "stopTail";
 }
 

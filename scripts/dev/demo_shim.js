@@ -34,7 +34,7 @@ var STATUS={ok:true,firmwareVersion:'0.15.4',firmwareBuild:'demo',busy:false,pau
 var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposure:14,
   prevRegularExposure:0,baseLayers:2,transitionLayers:5,slowLiftDistance:1,
   fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,dropBackFeedrate:50,
-  vatMl:15,lowResinPause:true,lowResinMl:2,askRefill:true,uiTimeoutSecs:300,
+  vatMl:15,lowResinPause:true,lowResinMl:4,askRefill:true,uiTimeoutSecs:300,
   dryRun:false,uvLedEnabled:true,wifiEnabled:true,webDashboardEnabled:true,
   bootUpdateCheck:true,statsPing:true,mqttEnabled:false,mqttConfigured:false,
   mqttHost:'',mqttPort:1883,mqttUser:'',mqttPasswordSet:false,mqttTopic:'TinyMaker',
@@ -64,17 +64,25 @@ var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'malfunction',display:'Malfunction',sizeBytes:1433612},
   {name:'resin-drip',display:'Resin Drip',sizeBytes:588812}]};
 
-// 0.17 0-16: the two built-in profiles plus one saved by "the user", so the
+// 0.17 0-16: the built-in profiles plus one saved by "the user", so the
 // demo shows all three row shapes (built-in, edited built-in, own profile).
 var RESIN={ok:true,selected:'fast',profiles:[
-  // Abu isiuti profiliai - svarus (edited:false, overlay:false), kaip po pirmo
-  // paleidimo; redaguoto profilio pavyzdys demo nebereikalingas (08-16).
-  {name:'fast',display:'Fast resin',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+  // Visi keturi isiuti profiliai - svarus (edited:false, overlay:false), kaip po
+  // pirmo paleidimo; redaguoto profilio pavyzdys demo nebereikalingas (08-16).
+  {name:'fast',display:'Fast fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
    baseExposure:18,regularExposure:8.0,baseLayers:4,transitionLayers:5,
    slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
-   dropBackFeedrate:50,density:1.157,calFactor:1.092,calFixedMl:0.39,calSamples:0},
-  {name:'slow',display:'Slow resin (factory)',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+   dropBackFeedrate:50,density:1.157,calFactor:1.010,calFixedMl:0.63,calSamples:0},
+  {name:'fast-draft',display:'Fast draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
+   baseExposure:18,regularExposure:8.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.157,calFactor:1.010,calFixedMl:0.63,calSamples:0},
+  {name:'slow',display:'Slow draft',builtin:true,edited:false,overlay:false,layerHeight:0.10,
    baseExposure:35,regularExposure:14.0,baseLayers:2,transitionLayers:5,
+   slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
+   dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
+  {name:'slow-fine',display:'Slow fine',builtin:true,edited:false,overlay:false,layerHeight:0.05,
+   baseExposure:35,regularExposure:14.0,baseLayers:4,transitionLayers:5,
    slowLiftDistance:1,fastLiftDistance:2,slowLiftFeedrate:40,fastLiftFeedrate:50,
    dropBackFeedrate:50,density:1.100,calFactor:1.0,calFixedMl:0.0,calSamples:0},
   {name:'anycubic-ww-clear',display:'Anycubic WW Clear',builtin:false,edited:false,overlay:true,layerHeight:0.10,testedBy:'TinyMakerWiFi',testedOn:'2026-08',
@@ -113,9 +121,22 @@ function startSim(name,dry){
   return true;}
 function simElapsed(){if(!sim)return 0;
   var end=sim.pausedAt||Date.now();return (end-sim.startMs-sim.pausedTotal)/1000;}
+/* Trynimo darbas eilėje (zr. /api/files/delete). Trys tarpsniai, kaip pas tikra
+   printeri: skaiciuojam dalis, paskui „done==total" su vaikstancia juostele (jis
+   dar trina sena kopija), paskui darbas dingsta ir pultas taria pabaigos zodi. */
+var del=null;
+var DEL_COUNT_MS=4000, DEL_TAIL_MS=1500;
+function delStatus(s){
+  if(!del)return;
+  var el=Date.now()-del.startMs;
+  if(el>DEL_COUNT_MS+DEL_TAIL_MS){delete MODELS[del.name];del=null;return;}
+  s.sdJob='delete';s.sdJobName=del.name;s.sdJobTotal=del.total;
+  s.sdJobDone=Math.min(del.total,Math.floor(del.total*el/DEL_COUNT_MS));
+  s.sdText='Busy';}
 function currentStatus(){
   var s=Object.assign({},STATUS);
   s.uptimeSecs=Math.round(performance.now()/1000)+33;
+  delStatus(s);
   s.vatRemainingMl=Math.max(0,15-(sim&&!sim.dry?Math.min(simElapsed()/(sim.total*sim.secsPerLayer),1)*sim.ml:0));
   s.vatText=s.vatRemainingMl.toFixed(1)+' ml';
   if(!sim)return s;
@@ -225,7 +246,15 @@ function route(path,opt){
     var meta=modelMeta(q(path,'name'));
     return meta?jresp(meta):jresp({ok:false,error:'model not found'},404);}
   if(path.indexOf('/api/files/delete')===0){
-    var dn=q(path,'name');delete MODELS[dn];return jresp({ok:true});}
+    /* Tikras printeris didelio modelio istrinti is karto negali: jis atsako
+       „priimta, 40 daliu" ir trina is savo laisvo ciklo, o pultas eiga mato per
+       busena (sdJob). Anksciau stendas atsakydavo „istrinta" akimirksniu, tad
+       butent tas kelias - su skaiciais ir su pabaigos zodziu - stende buvo
+       neistestuojamas (V 08-28, S-7). */
+    var dn=q(path,'name');
+    if(!MODELS[dn])return jresp({ok:false,error:'model not found'},404);
+    del={name:dn,total:40,startMs:Date.now()};
+    return jresp({ok:true,queued:del.total});}
   if(path.indexOf('/api/files')===0)return jresp(filesPayload());
   if(path.indexOf('/api/print/start')===0){
     var pn=q(path,'name');

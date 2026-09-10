@@ -181,15 +181,25 @@ bool scanZipModel(const char *zipPath, ModelSummary &summary) {
       String en = String(entry);
       en.toLowerCase();
       if (en.endsWith("config.ini") && zip->openCurrentFile() == UNZ_OK) {
-        char cfg[1024];
-        int off = 0, rc;
-        while (off < (int)sizeof(cfg) - 1 &&
-               (rc = zip->readCurrentFile((uint8_t *)cfg + off,
-                                          sizeof(cfg) - 1 - off)) > 0)
-          off += rc;
+        // The whole file, in windows - not just its first kilobyte. A
+        // PrusaSlicer profile has outgrown 1 KB and layerHeight now sits past
+        // that mark: the old single read never reached it and left 0, so the
+        // model arrived with no layer height and the dashboard fell back to its
+        // default 0.1 mm - the bust came out half as tall as it is (V 08-20).
+        // The overlap carries a key landing on a window boundary into the next.
+        char cfg[513];
+        const int OVER = 48;
+        int keep = 0, rc;
+        while ((rc = zip->readCurrentFile((uint8_t *)cfg + keep,
+                                          (int)sizeof(cfg) - 1 - keep)) > 0) {
+          int have = keep + rc;
+          cfg[have] = '\0';
+          float v = iniReadNumber(cfg, "layerHeight");
+          if (v > 0.0f) { slicedLH = v; break; }
+          keep = have > OVER ? OVER : have;
+          memmove(cfg, cfg + have - keep, keep);
+        }
         zip->closeCurrentFile();
-        cfg[off] = '\0';
-        slicedLH = iniReadNumber(cfg, "layerHeight");
       }
     }
   } while (zip->gotoNextFile() == UNZ_OK);
@@ -272,6 +282,17 @@ bool writeModelMetadataFile(const String &destDir, const String &name,
   if (summary.slicedLayerHeightMm > 0) {
     f.print(",\n  \"sliced_layer_height_mm\": ");
     f.print(String(summary.slicedLayerHeightMm, 3));
+  }
+  // Arrival order (dashboard sorts on this) and, when the clock is real, the
+  // wall time. Absent on models imported before 0.17 and on the metadata this
+  // file writes for an OLD model - a backfill must not look like an arrival.
+  if (options.importSeq > 0) {
+    f.print(",\n  \"import_seq\": ");
+    f.print(options.importSeq);
+  }
+  if (options.createdEpoch > 0) {
+    f.print(",\n  \"created_epoch\": ");
+    f.print(options.createdEpoch);
   }
   if (options.resinKnown) {
     f.print(",\n  \"resin_ml\": ");
@@ -448,6 +469,72 @@ bool writeModelMetadataJson(const String &name, const String &json) {
   out.print(json);
   out.close();
   return true;
+}
+
+// ===================================================================================
+// Import order: the number that puts the newest model on top of the dashboard list
+// ===================================================================================
+//
+// A counter, not a timestamp. The FAT date is useless (no dateTimeCallback is
+// registered, so SdFat stamps 2000-01-01 on everything), and a clock is worse
+// than useless here: a printer that never sees the internet never syncs NTP, and
+// a date that is always zero would quietly turn "newest first" back into A-Z for
+// the one person who cannot tell why (V, 08-19). The counter needs neither.
+//
+// Lives in its own NVS key, written only on import (a handful of writes a day),
+// like saveVatRemaining() and unlike the settings blob.
+
+// The card can outlive the counter: a full USB reflash wipes NVS while the models
+// stay. Starting from 1 again would file every new model UNDER the old ones, so
+// the first import after a wipe reads the numbers already on the card. One pass,
+// once, inside an import that is already unpacking thousands of layers.
+uint32_t scanMaxImportSeqOnCard() {
+  uint32_t maxSeq = 0;
+  File dir = SD.open("/");
+  if (!dir) return 0;
+  File entry;
+  int looked = 0;
+  while ((entry = dir.openNextFile())) {
+    if (++looked > 256) { entry.close(); break; }   // bounded: every entry counts
+    bool isDir = entry.isDirectory();
+    char rawName[101];
+    bool named = entry.getName(rawName, sizeof(rawName));
+    entry.close();
+    if (!named || !isDir || rawName[0] == '.') continue;
+    // The dashboard is polled every 2 s and this walk opens up to a hundred small
+    // files - without this the status line freezes mid-import for no visible
+    // reason. Same call the unpack loop already makes - including its guard:
+    // sdJobService() lives inside Network.ino's #if, so an unguarded call here
+    // fails to link the ENABLE_NETWORK 0 build.
+    #if ENABLE_NETWORK
+    sdJobService();
+    #endif
+    String json;
+    if (!readModelMetadataJson(String(rawName), json)) continue;
+    double v = 0;
+    if (readJsonNumberField(json, "import_seq", v) && v > 0 && v < 4294967295.0) {
+      uint32_t s = (uint32_t)v;
+      if (s > maxSeq) maxSeq = s;
+    }
+  }
+  dir.close();
+  return maxSeq;
+}
+
+uint32_t nextImportSeq() {
+  sysPrefs.begin("tinymaker", true);
+  uint32_t seq = sysPrefs.getULong("impSeq", 0);
+  sysPrefs.end();
+  /* Skenuojama su UZDARYTA NVS rankena: pases metu (iki 128 model.json) jokia
+     kita vieta negaletu jos atsidaryti - `begin()` antram kvietimui grazina
+     `false` ir tyliai atiduoda gamyklines reiksmes, o svetimas `end()` uzdarytu
+     musiskę. Siandien ten niekas neisiterpia, bet lango palikti nera uz ka. */
+  if (seq == 0) seq = scanMaxImportSeqOnCard();   // fresh NVS, card may not be fresh
+  seq++;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putULong("impSeq", seq);
+  sysPrefs.end();
+  return seq;
 }
 
 bool getModelMetadataSourceLayers(const String &name, int &layers) {
@@ -707,7 +794,14 @@ bool importZipModel(const char *zipPath, const String &requestedName,
     return false;
   }
 
-  if (!writeModelMetadataFile(tempDir, finalName, summary, options)) {
+  // Stamped here rather than by each caller: every road into the card - dashboard
+  // upload, slicer save, PrusaSlicer "Send to printer", import from the card -
+  // ends in this one function, so one line covers them all.
+  ModelImportOptions stamped = options;
+  stamped.importSeq = nextImportSeq();
+  stamped.createdEpoch = telemetryEpochNow();   // 0 when NTP never synced
+
+  if (!writeModelMetadataFile(tempDir, finalName, summary, stamped)) {
     deleteModelFolder(tempDir.c_str(), false);
     error = "metadata write failed";
     return false;

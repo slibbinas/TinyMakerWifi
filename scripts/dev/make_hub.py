@@ -10,11 +10,21 @@ Rezultatas - scripts/dev/index.html, tad `http://localhost:8899/` atidaro pultą
 Archyvuoti = perkelti failą į scripts/dev/archyvas/ (jis lieka pasiekiamas, tik
 atskiroje, suskleistoje sekcijoje).
 """
-import io, os, re, time, html
+import io, os, re, time, html, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ARCH = os.path.join(HERE, "archyvas")
 OUT = os.path.join(HERE, "index.html")
+
+# Asmeniniai raktai gyvena SALIA, o ne cia: sis failas commit'inamas i vieša
+# repo, o scripts/dev/local-links.json yra .gitignore. Nera failo - pultas
+# rodo paprasta nuoroda ir pasako, kur raktas guli.
+def local_links():
+    try:
+        return json.load(io.open(os.path.join(HERE, "local-links.json"),
+                                 encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 # Ką kiekvienas failas yra. Nėra sąraše = pultas jį parodys kaip „be aprašymo",
 # ir tai pats savaime signalas: arba aprašyk, arba archyvuok.
@@ -25,6 +35,8 @@ CATALOG = {
         "Kur printeris gali būti, kaip pereina ir kas kurioje būsenoje uždrausta.", "testai"),
     "scenarijai.html": ("Naudojimo scenarijai",
         "Kaip žmogus iš tikrųjų naudoja pultą: prielaidos, tikslas, žingsniai, rezultatas.", "testai"),
+    "resin-publish.html": ("Dervų bibliotekos tvarkymas",
+        "Naujas profilis, taisymas, kopija, laikinas sustabdymas - be rankinio JSON.", "irankiai"),
     "demo.html": ("Pulto demo",
         "Visas dashboard be printerio (suklastoti duomenys). Generuoja build_demo.py.", "stendai"),
     "voxel-preview-lab.html": ("3D peržiūros stendas",
@@ -38,9 +50,31 @@ KITUR = [
     ("3D pultas su žymėmis", "http://localhost:8080/3d/pultas.html",
      "Mūsų ir Prusos pjūviai greta; pažymėjus sritį gaunamos mm koordinatės.",
      "python pultas3d.py"),
+    ("Slicerio stendas", "http://localhost:8897/lab/lab.html",
+     "Tikras pultas su netikru printeriu ir jau įkeltu modeliu - slicerio pataisoms.",
+     "python -m http.server 8897  (iš C:/PIO-build)"),
     ("Printerio pultas", "http://tinymaker.local/",
      "Tikras printeris: būsena, modeliai, dervos, nustatymai.", None),
 ]
+
+def kitur_all():
+    """KITUR + testų pultas su asmeniniu raktu, jei raktas yra vietiniame faile.
+
+    Su raktu žymos saugomos serveryje, tad telefonas prie printerio ir kompiuteris
+    ant stalo rodo tą patį; be rakto pultas veikia, bet žymos lieka toje naršyklėje.
+    """
+    k = local_links().get("tests_key", "")
+    if k:
+        url = "https://tinymakerwifi.com/tests?k=" + k
+        desc = ("0.17 testų pultas su TAVO raktu: žymos saugomos serveryje ir "
+                "keliauja tarp telefono ir kompiuterio. Nedalink šios nuorodos - "
+                "kas turi raktą, tas gali žymes keisti.")
+    else:
+        url = "https://tinymakerwifi.com/tests"
+        desc = ("0.17 testų pultas be rakto: veikia, bet žymos lieka tik šioje "
+                "naršyklėje. Raktas guli memory key-links; įdėk jį į "
+                "scripts/dev/local-links.json kaip {\"tests_key\": \"...\"}.")
+    return KITUR + [("Testų pultas (www)", url, desc, None)]
 
 AGE_FRESH, AGE_OLD = 7, 30      # dienos
 
@@ -99,6 +133,10 @@ PLANAI = [
      "Visas darbu planas: busenos, sprintai, idejos. Kopija atnaujinama kas paleidima."),
     ("team-roadmap.html", "Komandos roadmap",
      "Ka mato Brianas ir Tanneris: be vidines virtuves. Kopija is memory."),
+    ("disko-zemelapis.html", "Disko zemelapis",
+     "Kur diske guli printeris, sliceris ir curing: keliai, worktree'ai, build."),
+    ("pultas-0-17.html", "0.17 testu pultas",
+     "105 punktai is registro, sugrupuoti pagal tai, ko reikia rankoje. Generuoja _mk_panel.py."),
 ]
 
 def copy_plans():
@@ -129,8 +167,8 @@ def main():
     live = rows(HERE)
     planai = copy_plans()
     arch = rows(ARCH)
-    groups = [("Testai ir scenarijai", "testai"), ("Planai", "planai"),
-              ("Stendai ir prototipai", "stendai")]
+    groups = [("Testai ir scenarijai", "testai"), ("Įrankiai", "irankiai"),
+              ("Planai", "planai"), ("Stendai ir prototipai", "stendai")]
     body = []
     for label, key in groups:
         items = [r for r in (live + planai) if r["group"] == key]
@@ -144,9 +182,10 @@ def main():
   <div class="cp">{d}</div>
   <div class="cm">{cmd}</div>
 </a>""".format(u=html.escape(u), n=html.escape(n), d=html.escape(d),
-               tag="kitas portas" if "localhost" in u else "printeris",
+               tag=("kitas portas" if "localhost" in u else
+                    "www" if u.startswith("https://") else "printeris"),
                cmd=("paleisti: <code>%s</code>" % html.escape(c)) if c else "visada įjungtas")
-        for n, u, d, c in KITUR)
+        for n, u, d, c in kitur_all())
     body.append("<h2>Kitur</h2>\n<div class=\"grid\">%s</div>" % kitur)
 
     if arch:

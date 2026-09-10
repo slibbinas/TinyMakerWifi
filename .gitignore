@@ -39,3 +39,4 @@ scripts/dev/model-slices/
 scripts/__pycache__/
 scripts/dev/local/
 scripts/dev/index.html
+scripts/dev/local-links.json

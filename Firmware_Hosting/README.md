@@ -58,6 +58,24 @@ credential helper automatically.
 - `firmware-X.Y.Z.bin` — one archived copy per release; the dashboard's
   version picker installs these directly.
 - `versions.txt` — the picker's manifest: one `X.Y.Z` per line, newest first.
+
+### Slicer module (0.17 SL-mod)
+
+The slicer has its own ladder next to the firmware one, because it is published
+far more often and installing it reboots nothing:
+
+- `slicer-version.txt` - the newest slicer module version, one line.
+- `slicer-versions.txt` - the picker's manifest: one `X.Y.Z` per line, newest first.
+- `lib/slicer-X.Y.Z.sha256` - one line per file, `<64 hex>  <name>`. This is what
+  the printer fetches to decide which bytes it will accept onto its card.
+- `lib/*.gz` - the five files of the set, **already gzipped**: `slicer-wasm-X.Y.Z.js.gz`,
+  `slicer-core-X.Y.Z.js.gz`, `slicer-wasm-worker-X.Y.Z.js.gz`, `sla-web-X.Y.Z.js.gz`
+  and `sla-web-X.Y.Z.wasm.gz` (~3.6 MB in total).
+
+The `.gz` copies must be published by us, not produced in the browser: browser
+compression is not byte-reproducible, so no checksum would ever match (learned
+with three.js on 08-12). The sums in `slicer-X.Y.Z.sha256` are the sums of the
+**gzipped** files, which is exactly what travels over the wire.
   The browser fetches it straight from GitHub Pages (CORS is open).
 
 The version check compares `MAJOR.MINOR.PATCH`, so "Install" only lights up when
