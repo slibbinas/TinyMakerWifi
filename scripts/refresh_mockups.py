@@ -213,22 +213,22 @@ def extend_printer_screens():
     d.text((lx + 26, ly + 218), "5 ml", font=_seg(30), fill=CYAN)
 
     # --- tile 2: low-resin warning (red frame, Refilled hint, Back/Start)
-    lx, ly = tile(cols[1], "Low resin warning (UP = Refilled)")
+    lx, ly = tile(cols[1], "Low resin warning (UP = Full)")
     d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
                         outline=RED, width=6)
     d.text((lx + 28, ly + 30), "Low resin!", font=_seg(38, True), fill=(238, 238, 238))
     d.rounded_rectangle((lx + 340, ly + 26, lx + 380, ly + 66), 8, fill=CYAN)
     d.polygon([(lx + 350, ly + 54), (lx + 360, ly + 36), (lx + 370, ly + 54)], fill=(5, 5, 5))
-    d.text((lx + 390, ly + 34), "Refilled", font=_seg(24), fill=CAPTION)
-    d.text((lx + 28, ly + 110), "~1.8 ml left in VAT", font=_seg(32), fill=CYAN)
+    d.text((lx + 390, ly + 34), "Full", font=_seg(24), fill=CAPTION)
+    d.text((lx + 28, ly + 110), "~4.6 ml left in VAT", font=_seg(32), fill=CYAN)
     btn(lx + 22, ly + 190, 240, "Back", ORANGE_, (255, 255, 255))
     btn(lx + 296, ly + 190, 240, "Start", CYAN, (10, 10, 10))
 
     # --- tile 3: ask-refill before print (orange frame, No/Yes)
-    lx, ly = tile(cols[2], 'Ask before print: "VAT refilled?"')
+    lx, ly = tile(cols[2], 'Ask before print: "VAT filled full?"')
     d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
                         outline=ORANGE_, width=6)
-    d.text((lx + 28, ly + 30), "VAT refilled?", font=_seg(38, True), fill=(238, 238, 238))
+    d.text((lx + 28, ly + 30), "VAT filled full?", font=_seg(38, True), fill=(238, 238, 238))
     d.text((lx + 28, ly + 110), "~14.4 ml left now", font=_seg(32), fill=CYAN)
     btn(lx + 22, ly + 190, 240, "No", ORANGE_, (255, 255, 255))
     btn(lx + 296, ly + 190, 240, "Yes", CYAN, (10, 10, 10))
@@ -370,7 +370,7 @@ def extend_printer_screens():
 
 def draw_dashboard(latest):
     """Full redraw of web-dashboard.png: status grid (incl. resin used/total
-    and Resin left), VAT refilled, print controls, SD manager with filter +
+    and Resin left), Set VAT full, print controls, SD manager with filter +
     pagination - kept in sync with the real dashboard UI."""
     WHITE = (238, 238, 238)
     GRAY = (170, 170, 170)
@@ -416,7 +416,7 @@ def draw_dashboard(latest):
         h = 10 + b * 8
         d.rectangle((700 + b * 16, 525 - h, 710 + b * 16, 525), fill=(60, 200, 90))
     d.rounded_rectangle((140, 900, 978, 962), 12, fill=BTN2)
-    _center(d, (140, 900, 978, 962), "VAT refilled", _seg(23, True), WHITE)
+    _center(d, (140, 900, 978, 962), "Set VAT full", _seg(23, True), WHITE)
 
     # print controls card
     d.rounded_rectangle((110, 1040, 1008, 1190), 14, fill=CARD)
