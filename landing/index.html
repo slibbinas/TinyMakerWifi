@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TinyMakerWifi — WiFi firmware for TinyMaker resin printer</title>
-<meta name="description" content="Adds WiFi, PrusaSlicer upload, a web dashboard, OTA updates and phone alerts to the palm-sized TinyMaker resin printer.">
+<title>TinyMakerWifi — WiFi firmware for the TinyMaker resin 3D printer</title>
+<meta name="description" content="Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker MSLA resin printer.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TinyMakerWifi">
-<meta property="og:title" content="TinyMakerWifi — WiFi firmware for TinyMaker resin printer">
-<meta property="og:description" content="Adds WiFi, PrusaSlicer upload, a web dashboard, OTA updates and phone alerts to the palm-sized TinyMaker resin printer.">
+<meta property="og:title" content="TinyMakerWifi — WiFi firmware for the TinyMaker resin 3D printer">
+<meta property="og:description" content="Open-source firmware that adds WiFi, wireless model upload from PrusaSlicer, a web dashboard, OTA self-updates, resin tracking and phone notifications to the palm-sized TinyMaker.">
 <meta property="og:url" content="https://tinymakerwifi.com/">
-<meta property="og:image" content="https://tinymakerwifi.com/og-card.png?v=0162">
+<meta property="og:image" content="https://tinymakerwifi.com/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="TinyMakerWifi — WiFi firmware for the palm-sized TinyMaker resin printer">
+<meta property="og:image:alt" content="TinyMakerWifi — logo and the web dashboard during a print">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <script>(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);if((p||localStorage.getItem('tmTheme'))==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script>
@@ -52,7 +52,7 @@ h2{color:var(--accent);font-size:24px;margin:0 0 18px}
 .steps{counter-reset:s;display:grid;gap:12px}
 .step{display:flex;gap:14px;align-items:flex-start}
 .step::before{counter-increment:s;content:counter(s);flex:0 0 30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
-footer{padding:30px 0 44px;border-top:1px solid var(--line);color:var(--muted2);font-size:13px;text-align:center}
+footer{padding:30px 0 44px;border-top:1px solid var(--line);color:var(--muted2);font-size:13px;text-align:center;text-wrap:balance}
 footer a{color:var(--muted2);text-decoration:underline}
 .pill{display:inline-block;border:1px solid var(--line2);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted);margin-left:8px;vertical-align:middle}
 #themeBtn{position:fixed;top:14px;right:16px;font-size:18px;color:var(--muted);z-index:5}#themeBtn:hover{color:var(--text);text-decoration:none}
@@ -150,7 +150,7 @@ footer a{color:var(--muted2);text-decoration:underline}
   </script>
   <div class="shots">
     <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/printer-hand.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer"><figcaption>The printer — palm-sized, open source</figcaption></figure>
-    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/dashboard-print-0-17.png" alt="The web dashboard during a print: live status, print controls and a real-time 3D render of the print"><figcaption>The dashboard mid-print — live 3D progress, controls, SD manager</figcaption></figure>
+    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/dashboard-print-0-17-2.png" alt="The web dashboard during a print: live status, print controls and a real-time 3D render of the print"><figcaption>The dashboard mid-print — live 3D progress, controls, SD manager</figcaption></figure>
   </div>
 </div>
 
@@ -159,9 +159,12 @@ footer a{color:var(--muted2);text-decoration:underline}
   <div class="grid">
     <div class="card"><b>WiFi in two minutes</b><p>First boot opens a setup hotspot — pick your network from your phone, done. No credentials in code, switchable off any time.</p></div>
     <div class="card"><b>Send to printer from PrusaSlicer</b><p>The printer speaks the Prusa SL1 protocol: slice, press <i>Send to printer</i>, print. UVtools and plain SD import work too.</p></div>
+    <div class="card"><b>Slice in the browser</b><p>No slicer installed? The dashboard slices STL files itself — supports, raft, 3D preview — and works offline once the module is on the card.</p></div>
     <div class="card"><b>Web dashboard</b><p>Live print status with pause/stop and a real-time 3D render of the print, SD manager, settings, backups — in any browser, light or dark.</p></div>
     <div class="card"><b>Updates over WiFi</b><p>The printer checks for new firmware and installs it itself — from its own screen or the dashboard. Dual-partition safe.</p></div>
-    <div class="card"><b>Resin tracking</b><p>Estimates how much resin a model needs and how much is left in the VAT, warns before a print that won't fit, can pause for a refill.</p></div>
+    <div class="card"><b>Named resin profiles</b><p>One resin, one recipe: exposures, layer height, lift settings, density. Switching resin is one press instead of ten fields; more install from a library.</p></div>
+    <div class="card"><b>The vat, tracked</b><p>The printer estimates what is left in the vat, warns before a print that will not fit, and can pause mid-print for a refill.</p></div>
+    <div class="card"><b>Power-loss resume</b><p>A checkpoint on the SD card picks a print back up after an outage — answer the prompt at the machine or from your phone.</p></div>
     <div class="card"><b>Phone notifications</b><p>A Telegram message when a print finishes, pauses for resin or is canceled — WhatsApp and Discord too (less tested). Home Assistant via MQTT with auto-discovery.</p></div>
     <div class="card"><b>Exposure calibration</b><p>Cures an 8-bar test strip straight from the printer — each bar a different exposure, no slicer or SD file needed. Read off the best bar and dial in your exposure, no guesswork.</p></div>
     <div class="card"><b>Boot animations</b><p>Pick the animation your printer plays at power-on, install new ones from the community with one click.</p></div>
@@ -195,8 +198,8 @@ footer a{color:var(--muted2);text-decoration:underline}
 
 <footer><div class="wrap">
   TinyMakerWifi is created and maintained by Viktoras Šidlauskas (<a href="https://github.com/slibbinas">@slibbinas</a>), with contributions from
-  <a href="https://github.com/Briadark">Brian Karmelk</a>, <a href="https://github.com/Tann2019">Tanner Steorts</a> and the TinyMaker community. · <a href="https://tinymakerwifi.com/roadmap/">Roadmap</a><br>
-  Firmware MIT-licensed · TinyMaker hardware CC BY-NC-SA 4.0 · Not affiliated with TinyMaker3D — but they like what we do 🙂
+  <a href="https://github.com/Briadark">Brian Karmelk</a>, <a href="https://github.com/Tann2019">Tanner Steorts</a> and the TinyMaker community. · <a href="https://tinymakerwifi.com/roadmap/">Roadmap</a>
+  · Firmware MIT-licensed · in-browser slicing by <a href="https://github.com/prusa3d/PrusaSlicer">PrusaSlicer</a>'s libslic3r (<a href="https://github.com/prusa3d/PrusaSlicer/blob/version_2.9.6/LICENSE">AGPL-3.0</a>) · TinyMaker hardware CC BY-NC-SA 4.0 · Not affiliated with TinyMaker3D — but they like what we do 🙂
 </div></footer>
 
 </body>
