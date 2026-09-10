@@ -5696,7 +5696,7 @@ const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||e
     msg('No resin selected - pick a resin before printing.',true);return;}
   clearNew(name);if(!force&&!await uiConfirm('Start this print?'))return;
   if(!force&&statusData&&statusData.askRefill){
-    if(await uiConfirm('Full refill since the last print?\nOK = yes (the level resets to a full VAT), Cancel = no.')){
+    if(await uiConfirm('Full VAT refill?\nOK = yes (the level resets to a full VAT), Cancel = no.')){
       try{await api('/api/vat/refilled',{method:'POST'});}catch(e){}
     }
   }
