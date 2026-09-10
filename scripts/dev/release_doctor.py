@@ -175,6 +175,29 @@ def main():
         fail("experimental", "atsilikęs %d commit'ais — sync main→experimental" %
              len(out.splitlines()))
 
+    print("  WEB FLASHER")
+    # /releases/latest yra tas adresas, is kurio web flasher'is duoda binara PIRMA karta
+    # atejusiam zmogui. GitHub „Latest" nera pririsimas prie vX.Y.Z: ja pasiima naujausia
+    # ne-prerelease laida, jei kas nors aiskiai nepazymejo kitaip (mes zymim per
+    # release.py --promote, make_latest=true). 2026-09-10 i sia repozitorija buvo
+    # paskelbtos laikrodzio programeles laidos su prerelease=false - tada „Latest" butu
+    # nuslydusi i .apk, ir naujokas, atejes diegti firmware, butu gaves ne ta faila.
+    # Laidos jau perkeltos i slibbinas/TinyStatus, bet taisykle lieka: sita tikrina
+    # skriptas, ne atmintis.
+    rc, out = gh("api", "repos/slibbinas/TinyMakerWifi/releases/latest",
+                 "--jq", ".tag_name + \" \" + ([.assets[].name] | join(\",\"))")
+    if rc == 127:
+        warn("releases/latest", "gh CLI neprieinamas - patikrink rankomis")
+    elif not out:
+        warn("releases/latest", "nepavyko perskaityti")
+    else:
+        tag = out.split(" ")[0]
+        if "firmware.bin" in out:
+            ok("releases/latest", "%s neša firmware.bin" % tag)
+        else:
+            fail("releases/latest", "%s NETURI firmware.bin - web flasher'is duotų ne tą "
+                                    "failą (turinys: %s)" % (tag, out))
+
     print("  ISSUE'AI")
     rc, out = gh("issue", "list", "--state", "open", "--search", "[%s]" % v,
                  "--json", "number,title", "-q",

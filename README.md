@@ -285,6 +285,35 @@ The printer has no resin sensor — instead it **keeps count**: every printed la
 
 > ⚠️ It is an **estimate**, not a measurement — it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "VAT refilled" won't be counted.
 
+## On your wrist: TinyStatus
+
+**[TinyStatus](https://github.com/slibbinas/TinyStatus)** is a Wear OS app that shows what
+this printer is doing without reaching for a phone: time left, which layer, how much resin
+is still in the VAT, and a progress ring. It can watch a print in the background and buzz
+your wrist when the print ends or the resin runs low, and it can put those numbers on your
+**watch face** as complications.
+
+It is **not firmware** - it installs on the watch, not on the printer, and it only reads.
+It sends no commands, so it cannot start, pause or cancel anything.
+
+* **Download:** [latest release](https://github.com/slibbinas/TinyStatus/releases/latest)
+  (`tinystatus-<version>.apk`). Not on Google Play, so it is **sideloaded** - the release
+  notes walk through it from a phone (no computer needed) or over `adb`.
+* **You need:** a Wear OS 4+ watch, the watch and the printer on the same Wi-Fi, and
+  firmware **0.16.2 or newer**. Three things arrive with **0.17.0**: telling a cancelled
+  print apart from a finished one, resin *left in the VAT* rather than resin used in the
+  watch-face complication, and the low-resin warning level.
+* **Several printers:** up to four by IP, swipe sideways to switch.
+* **What it costs the printer:** `GET /api/status` every 5 s while the app is open, and
+  nothing at all when it is closed - unless background watching is on, and then every
+  30 s to 10 min (your choice) **only while a print is running**, stopping by itself
+  20 minutes after it ends. `/api/config` is read once a day. No writes.
+
+It lives in its own repository with its own releases, because it is an Android project and
+this one is PlatformIO. If you are building something else against the printer, the API it
+uses is documented in [docs/api.md](docs/api.md) - and the fields it reads are listed there
+as a known consumer, so they will not be renamed out from under it.
+
 ## Wireless Firmware Updates
 
 > 🔒 Firmware flashing is **blocked while the printer is printing**, and the web paths require **Web control** to be on. (Model upload from PrusaSlicer is separate — it works any time.)

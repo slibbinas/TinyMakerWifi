@@ -244,6 +244,41 @@ from the built-in ones) and `overlay` (a file exists on the card). They are not
 the same thing: an overlay holding the factory values is not an edit, but it is
 still there to delete.
 
+## Known consumers
+
+Fields are only ever **added** to `/api/status`, never removed or renamed (see
+[Versioning policy](#versioning-policy)). That promise is only as good as the list of
+things known to depend on it, so consumers are recorded here.
+
+### TinyStatus (Wear OS watch app)
+
+[github.com/slibbinas/TinyStatus](https://github.com/slibbinas/TinyStatus) - read-only,
+no writes. Confirmed against firmware 0.16.2 and 0.17.0.
+
+From `/api/status`, 22 fields: `ok`, `busy`, `paused`, `stopping`, `stateCode`, `state`,
+`waitStage`, `model`, `currentLayer`, `totalLayers`, `layerText`, `remainingSecs`,
+`remainingTime`, `runSecs`, `runTime`, `resinUsedMl`, `resinText`, `vatRemainingMl`,
+`vatText`, `vatGrams`, `vatLow`, `ip`.
+
+From `/api/config`, 2 fields, read about once a day: `lowResinWarnMl`, `lowResinMl`.
+
+Three of those are worth knowing about before touching anything:
+
+* **`ok` is used as an integrity marker.** A `200` that arrives without it is treated as a
+  truncated response and thrown away. So `ok` is not decoration - dropping it would make
+  every reply look broken.
+* **`stateCode` 4 and 10, plus `waitStage` `stopTail`/`stopLift`, are how a cancelled print
+  is told apart from a finished one.** The API has no explicit "print finished" event: the
+  end is inferred from `busy` falling between two polls. If such an event is ever added,
+  that whole guessing layer disappears on the client side - which is a good reason to add
+  one.
+* **`vatGrams` carries what is left in the VAT**, not what has been used. It feeds a
+  watch-face complication, so its meaning is load-bearing, not just its name.
+
+Polling load, for sizing: every 5 s while the app is open; nothing while closed, unless
+background watching is on, and then every 30 s to 10 min **only while a print runs**,
+stopping on its own 20 minutes after the print ends.
+
 ## Static
 
 `/` (gzip dashboard), `/manifest.json`, `/pwa-icon-192.png` (PWA bits).
