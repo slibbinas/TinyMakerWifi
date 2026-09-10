@@ -3258,6 +3258,14 @@ const renderFiles=()=>{
   // The busy case is already stated once, above the list (see loadConfig).
   let h='';
   if(!slice.length&&!busy)h+='<div class="hint">'+(q?'No models match the filter.':'No printable model folders or SL1/ZIP archives found.')+'</div>';
+  /* Opened mid-print on a device with no saved list: showed nothing at all (V 09-10, phone).
+     Only for a PRINTER that is busy and a browser that never saved a list - not uiBusy(),
+     which is also our own upload or slicing, and not an empty filesItems, which is also an
+     empty card (audit 09-10). */
+  if(!filesItems.length&&statusData&&statusData.busy){   // cheap checks first: renderFiles runs on every keystroke in the filter
+    let saved=true; try{saved=localStorage.getItem(FILES_LS)!==null;}catch(e){}
+    if(!saved)h+='<div class="hint">This browser has not saved the SD list yet, and the card cannot be read while printing.</div>';
+  }
   slice.forEach(it=>{
     // Models are the unmarked default - "Model folder" under every row said
     // nothing six times over (user finding). Only archives keep a subtitle,
