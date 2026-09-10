@@ -1,6 +1,6 @@
-# TinyMakerWiFi LAN API (DRAFT v0 — 0-11)
+# TinyMakerWiFi LAN API (DRAFT v0 - 0-11)
 
-> Status: **draft for review** — generated from the endpoint registrations in
+> Status: **draft for review** - generated from the endpoint registrations in
 > `src/Network.ino`; the contract rides `FIRMWARE_VERSION` (see Versioning policy
 > below), so this doc is not pinned to a single release. Promised in
 > [Issue #12](https://github.com/slibbinas/TinyMakerWifi/issues/12) as the
@@ -9,7 +9,7 @@
 ## Transport & conventions
 
 - Base URL: `http://tinymaker.local` (mDNS) or the printer's IP. Plain HTTP,
-  LAN only — the printer never listens on the internet.
+  LAN only - the printer never listens on the internet.
 - JSON responses carry `"ok":true`; the dashboard treats a 200 **without** it
   as a truncated body. Errors answer `{"error":"..."}` with an HTTP code.
 - **Busy gate**: while printing, every SD-touching endpoint answers
@@ -22,7 +22,7 @@
   or whenever the printer sits on its Update screen (`otaWebAllowed()`); the
   dev espota path additionally requires the Update screen to be open.
 - **CSRF gate (#95)**: on every endpoint behind the Web control gate, a
-  non-GET request must also prove it comes from the printer's own page —
+  non-GET request must also prove it comes from the printer's own page -
   either a browser `Origin` header matching `Host`, or the `X-TinyMaker: 1`
   header for scripts and tools (`curl -H "X-TinyMaker: 1" …`). A request with
   a foreign `Origin` is refused even with the header. GETs are open as before,
@@ -40,7 +40,7 @@ JSON fields.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/version` | GET | OctoPrint-compatible identity — lets PrusaSlicer's "Send to printer" test pass |
+| `/api/version` | GET | OctoPrint-compatible identity - lets PrusaSlicer's "Send to printer" test pass |
 | `/api/status` | GET | The heartbeat: everything the dashboard shows, one poll |
 
 Key `/api/status` fields (additive; ignore unknowns):
@@ -48,7 +48,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | Field | Meaning |
 |---|---|
 | `firmwareVersion`, `firmwareBuild`, `buildDate` | SemVer, git rev, compile moment |
-| `dashEtag` | content hash of the dashboard page this firmware serves (0.17). The firmware version does not identify the page — a web-only change ships a new dashboard under an unchanged version — so a bug report needs both |
+| `dashEtag` | content hash of the dashboard page this firmware serves (0.17). The firmware version does not identify the page - a web-only change ships a new dashboard under an unchanged version - so a bug report needs both |
 | `busy`, `paused`, `pausing`, `resuming`, `stopping` | print lifecycle booleans |
 | `state`, `stateCode` | human text + numeric state |
 | `canPause`, `canResume`, `canStop` | which controls are valid right now |
@@ -57,7 +57,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `waitStage` | which *wait* the countdown belongs to, `""` for an ordinary layer phase (0.17). A stop or a pause is two waits, not one: `stopTail` (finishing the move that was in flight) then `stopLift` (the final platform lift), or `pauseWork` (finishing the layer) then `pauseLift`; plus `homingBack` (stop during homing) and `resume`. Clients that show a countdown should restart it when this value changes, and keep one message whose text follows the stage |
 | `receiving`, `receivingName` | someone is uploading a model right now (0.17). While bytes arrive the printer mostly cannot answer at all, so a second device could not tell a transfer from a dead printer and flickered its "not answering" line on and off. `receiving` goes false ~5 s after the last chunk, which also covers a connection that died mid-transfer. It locks nothing - `busy` keeps its meaning, and the unpack that follows sets that itself |
 | `layerHeight`, `dryRun` | active settings snapshot |
-| `resinSet` | `false` when no resin profile is selected — `/api/print/start` refuses with 409 until one is picked, so a client should disable its Start controls. Lives here rather than in `/api/config` on purpose: this is polled, so a second open dashboard learns about a deleted profile within one poll (0-16) |
+| `resinSet` | `false` when no resin profile is selected - `/api/print/start` refuses with 409 until one is picked, so a client should disable its Start controls. Lives here rather than in `/api/config` on purpose: this is polled, so a second open dashboard learns about a deleted profile within one poll (0-16) |
 | `wifiRssi`, `wifiText`, `ip` | connectivity |
 | `sdReady`, `sdText` | SD card state (`Locked` while printing) |
 | `lifetimePrintSecs/Time`, `uvLedSecs/Time` | lifetime counters |
@@ -72,7 +72,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `slicerOn` | the browser slicer module is switched on (SL-mod, 0.17). Also in `/api/config`; polled here so a second dashboard notices the switch within one poll |
 | `liveN`, `liveCaptured` | the live 3D stack (P-live, 0.17): how many silhouette slots the running print has, and how many are captured so far - both `0` when idle. A client with no local slices fetches `/api/live/slices?since=<captured>` whenever `liveCaptured` grows |
 | `resumePending` | `null`, or an object naming the interrupted `model` while the boot resume prompt is on the printer's screen (0-33) - the only window in which `/api/resume/*` is accepted |
-| `sdRev` | SD content revision — bumps on any out-of-band SD change (upload/delete/boot-anim); a client reloads its file list when this changes (0-28) |
+| `sdRev` | SD content revision - bumps on any out-of-band SD change (upload/delete/boot-anim); a client reloads its file list when this changes (0-28) |
 | `freeHeap`, `minFreeHeap`, `maxAllocHeap`, `uptimeSecs` | runtime diagnostics (heap + uptime) |
 
 ## Models & SD
@@ -88,7 +88,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `/api/files/layer` | GET | a single layer PNG (browser-side slicing/preview). `source=1` (what the dashboard always sends) makes `i` the file number; without it `i` is a PRINT layer and 0.10 mm maps it to every other file |
 | `/api/files/delete` | POST | delete an SD item; `name=` |
 | `/upload` | POST | multipart model upload (`.sl1`/`.zip`); fields: `file`, `action=replace|rename` on a 409 name conflict, `source`, optional Connect credits fields |
-| `/api/files/local` | POST | the same upload path with the OctoPrint shape — PrusaSlicer "Send to printer" |
+| `/api/files/local` | POST | the same upload path with the OctoPrint shape - PrusaSlicer "Send to printer" |
 
 Upload answers only after the on-printer unpack finishes (minutes for big
 models); a name conflict returns `409` with a `conflict` body and the client
@@ -98,7 +98,7 @@ retries with `action`.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/print/start` | POST | start a model (`name=`); a low-resin state answers `{"warning":"low_resin",...}` first — confirm and retry with `force=1`. Refuses with `409 {"error":"no resin selected - pick a resin before printing"}` when no resin profile is set (see `resinSet` below): without one the printer does not know which exposure to use |
+| `/api/print/start` | POST | start a model (`name=`); a low-resin state answers `{"warning":"low_resin",...}` first - confirm and retry with `force=1`. Refuses with `409 {"error":"no resin selected - pick a resin before printing"}` when no resin profile is set (see `resinSet` below): without one the printer does not know which exposure to use |
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags). All three answer with `etaMs` (milliseconds left in the wait that was just started, 0 = unknown) and `stage` (the same vocabulary as `waitStage`), so a client can start counting before the next status poll. `etaMs` is a *remainder*, so pressing Stop twice does not rewind it |
 | `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |
@@ -118,16 +118,16 @@ separate a slope from an offset, so `/api/resin/calibrate` keeps up to two sampl
 different size and solves the line through them (`twoPoint:true`). With one sample only the
 slope is fitted and the offset is left as it is.
 
-`model.json` caches the **raw** geometric estimate, never the calibrated one — re-calibrating
+`model.json` caches the **raw** geometric estimate, never the calibrated one - re-calibrating
 therefore refreshes already-scanned models without re-decoding a single PNG.
 
 `/api/config` exposes `resinCalFactor`, `resinFixedMl`, `resinDensity`, `lastPrintRawMl`
 (-1 = no finished print yet), `calTwoPoint` (whether a real two-point fit is in force) and
-`calSamples[] = [{slot, raw, grams, ml}]` — samples are stored in **grams** (what the scale
+`calSamples[] = [{slot, raw, grams, ml}]` - samples are stored in **grams** (what the scale
 showed); `ml` is derived with the current density, so changing the density re-fits both.
 Backups carry `calUnit:1` to mark the grams era; older files restore safely.
 
-`/api/status` additionally reports `endstop` (the raw optical Z sensor reading) — added for
+`/api/status` additionally reports `endstop` (the raw optical Z sensor reading) - added for
 homing diagnostics.
 
 It also reports where the plate is: `zSteps` (raw step counter), `zMm` (height above the
@@ -150,10 +150,10 @@ Nothing here detects lost steps - the motor has no feedback.
 | `/api/config` | GET/POST | full settings read / form-encoded save |
 | `/api/config/defaults` | POST | factory print/web settings, and with them the resin: the active profile returns to `slow`, its overlay is deleted from the card and the resin calibration is cleared. The printer's own "Back to Default" does the same and then reboots (the device flags only take effect at boot) |
 | `/api/config/mqtt/defaults`, `/api/config/connect/defaults` | POST | reset one integration |
-| `/api/config/backup` | GET | JSON backup download (includes secrets — handle with care) |
+| `/api/config/backup` | GET | JSON backup download (includes secrets - handle with care) |
 | `/api/config/backup/sd` | POST | write the backup to the SD card |
 | `/api/config/restore`, `/api/config/restore/sd` | POST | restore from an uploaded JSON / from the SD copy |
-| `/api/config/dry-run` | POST | `enabled=0|1` — the banner's quick toggle |
+| `/api/config/dry-run` | POST | `enabled=0|1` - the banner's quick toggle |
 
 Dry run is a **mode, not a setting**: it is switched only by `/api/config/dry-run`.
 A `POST /api/config` therefore leaves it alone unless the body actually carries a
@@ -219,13 +219,13 @@ print.
 |---|---|---|
 | `/api/telegram/test`, `/api/whatsapp/test`, `/api/discord/test` | POST | send a test notification with the saved credentials |
 | `/api/connect/test`, `/register`, `/recovery-code`, `/backup` (GET/POST), `/restore` | POST/GET | TinyMaker Connect pairing + settings backup |
-| `/api/boot-anim` (+ `/file`, `/select`, `/delete`, `/preview`, `/install`) | GET/POST | boot-animation management; `/install` pulls a `.tmb` only from allowlisted hosts (gh-pages library, configured Connect server) — other sources go onto the SD card by hand |
-| `/api/resin-profile` | GET | resin profiles (0-16): the four built-in ones (`fast`, `fast-draft`, `slow`, `slow-fine` - two resins at both layer heights) plus `/resin/*.json` on the card, with `selected`. Works without an SD card — the built-ins live in flash |
-| `/api/resin-profile/select` | POST | `name=<slug>` — copies the profile into the live settings (exposure, layers, all four lift settings, density, R-cal) and saves them |
-| `/api/resin-profile/save` | POST | `name=<slug>&display=<label>[&mode=new]` — writes the CURRENT settings into that profile. With `base_exposure=…` and friends it writes those values instead, which is how the dashboard installs a library profile it fetched itself. `mode=new` refuses an existing name (409) |
-| `/api/resin-profile/delete` | POST | `name=<slug>` — deletes the file; for a built-in this drops the overlay and restores the factory values |
-| `/api/resin-profile/rename` | POST | `name=<slug>&to=<slug>[&display=<label>]` — SD-card profiles only (409 for a built-in). The name a human reads lives inside the file, so `display` is what actually changes on screen (up to 40 characters; longer is cut); without it the stored label is kept. `to` may equal `name` (a label-only change: the slug drops capitals and punctuation). The rewrite goes through a temporary file, so no failure can leave the card without a copy of the profile |
-| `/api/vat/weight` | POST | `grams=<full vat on the scale>` — sets the remaining resin from a weighing, using the empty-vat weight (`vatEmptyG`) and the profile's density |
+| `/api/boot-anim` (+ `/file`, `/select`, `/delete`, `/preview`, `/install`) | GET/POST | boot-animation management; `/install` pulls a `.tmb` only from allowlisted hosts (gh-pages library, configured Connect server) - other sources go onto the SD card by hand |
+| `/api/resin-profile` | GET | resin profiles (0-16): the four built-in ones (`fast`, `fast-draft`, `slow`, `slow-fine` - two resins at both layer heights) plus `/resin/*.json` on the card, with `selected`. Works without an SD card - the built-ins live in flash |
+| `/api/resin-profile/select` | POST | `name=<slug>` - copies the profile into the live settings (exposure, layers, all four lift settings, density, R-cal) and saves them |
+| `/api/resin-profile/save` | POST | `name=<slug>&display=<label>[&mode=new]` - writes the CURRENT settings into that profile. With `base_exposure=…` and friends it writes those values instead, which is how the dashboard installs a library profile it fetched itself. `mode=new` refuses an existing name (409) |
+| `/api/resin-profile/delete` | POST | `name=<slug>` - deletes the file; for a built-in this drops the overlay and restores the factory values |
+| `/api/resin-profile/rename` | POST | `name=<slug>&to=<slug>[&display=<label>]` - SD-card profiles only (409 for a built-in). The name a human reads lives inside the file, so `display` is what actually changes on screen (up to 40 characters; longer is cut); without it the stored label is kept. `to` may equal `name` (a label-only change: the slug drops capitals and punctuation). The rewrite goes through a temporary file, so no failure can leave the card without a copy of the profile |
+| `/api/vat/weight` | POST | `grams=<full vat on the scale>` - sets the remaining resin from a weighing, using the empty-vat weight (`vatEmptyG`) and the profile's density |
 
 All four mutating resin routes are idle-only (`rejectIfBusy`) and also refuse
 while a power-loss resume is pending (409): the second half of an interrupted
@@ -300,7 +300,7 @@ stopping on its own 20 minutes after the print ends.
 
 ## Response examples
 
-### `GET /api/files` (idle only — 409 `printer busy` while printing or during an SD job)
+### `GET /api/files` (idle only - 409 `printer busy` while printing or during an SD job)
 
 ```json
 {
@@ -323,19 +323,19 @@ stopping on its own 20 minutes after the print ends.
 
 Byte counts are JSON **strings** (they can exceed 32-bit). `type` is
 `model` (unpacked folder) or `archive` (an `.sl1`/`.zip` still in the SD
-root — OK on the printer imports it). Model folders report `sizeBytes`
-`"0"` — walking every layer file made the list O(models × layers) slow;
+root - OK on the printer imports it). Model folders report `sizeBytes`
+`"0"` - walking every layer file made the list O(models × layers) slow;
 archives keep their cheap single-file size. `connectPublicId` appears only
 on models imported from TinyMaker Connect. At most 64 items are listed;
 `hiddenCount` is everything skipped (unmanaged root entries + overflow).
 
-`importSeq` (0.17) is the arrival order — a counter the printer bumps on every
+`importSeq` (0.17) is the arrival order - a counter the printer bumps on every
 import, which the dashboard sorts on so the newest model is on top. A counter
 and not a date on purpose: a printer with no internet never syncs NTP, and the
 SD card's own FAT timestamps are all 2000-01-01 (the firmware registers no
 date-time callback), so any date-based order would silently collapse back to
 A-Z for exactly the people who could not tell why. Absent on models imported
-before 0.17 and on archives — sort those last. A wall-clock stamp is written
+before 0.17 and on archives - sort those last. A wall-clock stamp is written
 alongside it into `model.json` (`created_epoch`) when the clock is real, but it
 is display material, never the sort key.
 
@@ -355,7 +355,7 @@ is display material, never the sort key.
 May block a few seconds while the (5-minute-cached) GitHub Pages version
 check runs; mid-print it returns the cached state immediately. `state` is
 the check's progress/outcome code; `allowed` mirrors the web-flash gate
-(idle + Web control on, or the printer's Update screen) — when it is
+(idle + Web control on, or the printer's Update screen) - when it is
 `false`, `POST /api/update/install` will answer 403.
 
 ---

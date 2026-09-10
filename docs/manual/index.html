@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TinyMakerWifi — User Manual</title>
+<title>TinyMakerWifi - User Manual</title>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TinyMakerWifi">
-<meta property="og:title" content="TinyMakerWifi — User Manual">
+<meta property="og:title" content="TinyMakerWifi - User Manual">
 <meta property="og:description" content="Set up and use TinyMakerWifi: WiFi, wireless PrusaSlicer upload, the web dashboard, OTA updates and troubleshooting for the TinyMaker resin printer.">
 <meta property="og:url" content="https://tinymakerwifi.com/manual/">
 <meta property="og:image" content="https://tinymakerwifi.com/og-card.png?v=0170">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="TinyMakerWifi — WiFi firmware for the palm-sized TinyMaker resin printer">
+<meta property="og:image:alt" content="TinyMakerWifi - WiFi firmware for the palm-sized TinyMaker resin printer">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/><circle cx='47' cy='46' r='16' fill='%231667c9'/><text x='47' y='53' font-family='Arial' font-size='20' font-weight='bold' fill='white' text-anchor='middle'>M</text></svg>">
 <style>
@@ -196,27 +196,27 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
 <section>
   <h2 class="sec" id="intro"><span class="num">1</span>What this firmware adds</h2>
-  <p>TinyMakerWifi is a modified firmware for the open-source <a href="https://tinymaker3d.com/"><b>TinyMaker</b></a> MSLA (resin) 3D printer. It keeps everything the original firmware does and adds a wireless layer on top — so you can send models straight from your slicer and update the printer without ever touching the SD card or a USB cable.</p>
+  <p>TinyMakerWifi is a modified firmware for the open-source <a href="https://tinymaker3d.com/"><b>TinyMaker</b></a> MSLA (resin) 3D printer. It keeps everything the original firmware does and adds a wireless layer on top - so you can send models straight from your slicer and update the printer without ever touching the SD card or a USB cable.</p>
   <ul>
-    <li><b>WiFi</b>, set up from your phone on first boot — no credentials in code.</li>
+    <li><b>WiFi</b>, set up from your phone on first boot - no credentials in code.</li>
     <li><b>Direct upload from PrusaSlicer</b> with the “Send to printer” button.</li>
-    <li><b>Import <code>.sl1</code>/<code>.zip</code> from the SD card</b> — no network needed.</li>
-    <li><b>A web dashboard</b> — print status, controls, SD manager and a 3D preview in any
+    <li><b>Import <code>.sl1</code>/<code>.zip</code> from the SD card</b> - no network needed.</li>
+    <li><b>A web dashboard</b> - print status, controls, SD manager and a 3D preview in any
         browser, on the computer or on the phone.</li>
-    <li><b>A slicer in the browser</b> — drop in an <b>STL</b> and the dashboard slices it itself:
+    <li><b>A slicer in the browser</b> - drop in an <b>STL</b> and the dashboard slices it itself:
         orientation, supports, raft, a 3D and a layer-by-layer preview, then straight onto the SD card.
         No desktop slicer needed, and a phone is enough.</li>
-    <li><b>Named resin profiles</b> — the whole recipe for one resin (both exposures, base and
+    <li><b>Named resin profiles</b> - the whole recipe for one resin (both exposures, base and
         transition layers, all four lifts, the density and its weighing calibration) under one name,
         switched in a single press. Four are built into the firmware - two resins at both layer heights; more can be installed from a
         published library.</li>
-    <li><b>A real 3D preview, and live print progress</b> — the model turns in the browser before you
+    <li><b>A real 3D preview, and live print progress</b> - the model turns in the browser before you
         start, and while it prints the shape fills in layer by layer, on any device that opens the
         dashboard.</li>
-    <li><b>Over-the-air firmware updates</b> — the printer updates itself over WiFi.</li>
-    <li><b>Resin estimation &amp; level tracking</b> — how much resin a model needs, and how much is left in the VAT.</li>
+    <li><b>Over-the-air firmware updates</b> - the printer updates itself over WiFi.</li>
+    <li><b>Resin estimation &amp; level tracking</b> - how much resin a model needs, and how much is left in the VAT.</li>
     <li><b>Home Assistant / MQTT</b> integration (optional).</li>
-    <li><b>Telegram, WhatsApp or Discord notifications</b> — print finished / canceled / low-resin pause, straight to your phone.</li>
+    <li><b>Telegram, WhatsApp or Discord notifications</b> - print finished / canceled / low-resin pause, straight to your phone.</li>
   </ul>
   <p>Everything wireless can be switched off right on the printer (<b>System → Advanced</b>), so you can always fall back to plain, offline SD-card printing.</p>
   <div class="note">💡 <b>Already have a printer running this firmware?</b> Jump to <a href="#wifi">Connecting to WiFi</a>. If you are installing it for the first time, start at <a href="#install">Installing the firmware</a>.</div>
@@ -228,14 +228,14 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Power on.</b> On first boot the printer opens a <code>TinyMaker-Setup</code> WiFi hotspot.</li>
     <li><b>Join it from your phone</b> and pick your home WiFi in the little page that pops up. The printer reboots and connects (~5&nbsp;s).</li>
     <li><b>Find the printer’s address</b> under <b>System → WiFi Info</b> (or use <code>tinymaker.local</code>).</li>
-    <li><b>Get a model onto the printer</b> — three ways, pick one:
+    <li><b>Get a model onto the printer</b> - three ways, pick one:
       <ul>
-        <li><b>From PrusaSlicer</b> — slice, then “Send to printer”.</li>
-        <li><b>From the dashboard</b> — drop an <b>STL</b> into the browser slicer, let it slice, and it
+        <li><b>From PrusaSlicer</b> - slice, then “Send to printer”.</li>
+        <li><b>From the dashboard</b> - drop an <b>STL</b> into the browser slicer, let it slice, and it
             lands on the card ready to print.</li>
-        <li><b>By hand</b> — copy an <code>.sl1</code>/<code>.zip</code> onto the SD card.</li>
+        <li><b>By hand</b> - copy an <code>.sl1</code>/<code>.zip</code> onto the SD card.</li>
       </ul></li>
-    <li><b>Print.</b> Pick the model in the <b>Print</b> menu and press OK — or start it from the web dashboard.</li>
+    <li><b>Print.</b> Pick the model in the <b>Print</b> menu and press OK - or start it from the web dashboard.</li>
   </ol>
 </section>
 
@@ -243,14 +243,14 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h2 class="sec" id="install"><span class="num">3</span>Installing the firmware (first time)</h2>
   <p>This one-time step is done over USB. <b>After it, every future update is wireless</b> (see <a href="#update">Updating the firmware</a>). If your printer already runs TinyMakerWifi, skip this section.</p>
 
-  <h3>Method 1 — the web flasher (recommended)</h3>
-  <p><a href="https://connect.tinymakerwifi.com/flash.php"><b>connect.tinymakerwifi.com/flash.php</b></a> flashes the latest release straight from your browser — nothing to download or install:</p>
-  <div class="note">🌐 <b>Use Chrome or Edge.</b> Web (USB) flashing needs the Web&nbsp;Serial API — Firefox and Safari don’t support it.</div>
+  <h3>Method 1 - the web flasher (recommended)</h3>
+  <p><a href="https://connect.tinymakerwifi.com/flash.php"><b>connect.tinymakerwifi.com/flash.php</b></a> flashes the latest release straight from your browser - nothing to download or install:</p>
+  <div class="note">🌐 <b>Use Chrome or Edge.</b> Web (USB) flashing needs the Web&nbsp;Serial API - Firefox and Safari don’t support it.</div>
   <ol class="steps">
     <li>Connect the printer to your computer via USB.</li>
     <li>Open the web flasher in <b>Chrome or Edge</b> (they support Web Serial; Firefox and Safari don’t).</li>
     <li>Click <b>Connect</b> and pick the printer’s serial port. Unsure which one it is? Unplug and replug the USB cable and watch which entry appears.</li>
-    <li>Flash — the tool fetches the latest release by itself. Power-cycle the printer when it finishes.</li>
+    <li>Flash - the tool fetches the latest release by itself. Power-cycle the printer when it finishes.</li>
   </ol>
   <div class="note">🔌 <b>Windows doesn’t see the printer?</b> Install the CH340 USB driver (<code>CH341SER.EXE</code>, in the repo’s <code>Driver</code> folder), then try again.</div>
 
@@ -265,11 +265,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </ol>
   <div class="note">💬 Still stuck after all five? Open an <a href="https://github.com/slibbinas/TinyMakerWifi/issues">issue</a> with the flasher log and the baud rate you used.</div>
 
-  <h3>Method 2 — already running TinyMakerWifi?</h3>
-  <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Settings → Update</b> — see <a href="#update">Updating the firmware</a>.</p>
+  <h3>Method 2 - already running TinyMakerWifi?</h3>
+  <p>Then you don’t need USB at all: update over WiFi from <b>System → Update</b> on the printer, or from the dashboard’s <b>Settings → Update</b> - see <a href="#update">Updating the firmware</a>.</p>
 
-  <h3>Method 3 — manual flashing (fallback)</h3>
-  <p>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page. Releases contain two files — they are <b>not</b> interchangeable:</p>
+  <h3>Method 3 - manual flashing (fallback)</h3>
+  <p>Download the latest <code>firmware-full.bin</code> from the project’s <b>Releases</b> page. Releases contain two files - they are <b>not</b> interchangeable:</p>
   <div class="table-scroll">
   <table>
     <tr><th>File</th><th>Used for</th><th>How</th></tr>
@@ -277,39 +277,39 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <tr><td><code>firmware.bin</code></td><td>Wireless updates <b>only</b>, later</td><td>browser, <code>http://tinymaker.local/update</code></td></tr>
   </table>
   </div>
-  <div class="warn">⚠️ For the USB flash you need <b><code>firmware-full.bin</code></b>. Flashing <code>firmware.bin</code> over USB leaves the printer unable to boot — it has no bootloader or partition table.</div>
+  <div class="warn">⚠️ For the USB flash you need <b><code>firmware-full.bin</code></b>. Flashing <code>firmware.bin</code> over USB leaves the printer unable to boot - it has no bootloader or partition table.</div>
   <ol class="steps">
     <li>Open <a href="https://esptool.spacehuhn.com/">esptool.spacehuhn.com</a> (a generic ESP flasher) in Chrome or Edge, plug in the printer via USB and click <b>Connect</b>.</li>
     <li>Remove any pre-filled rows, click <b>ADD</b>, choose <code>firmware-full.bin</code>, and set its address to <code>0</code>.</li>
     <li>Click <b>Program</b>, wait for it to finish, then power-cycle the printer.</li>
   </ol>
-  <div class="note">💡 The official Espressif Flash Download Tool is an alternative, and developers can flash a local build with esptool/PlatformIO — see the project README for the exact settings (SPI 40&nbsp;MHz / DIO / 4&nbsp;MB, file at <code>0x0</code>).</div>
-  <p>The first boot after flashing takes a few extra seconds and starts the <code>TinyMaker-Setup</code> hotspot. Printer settings (exposure, layer height…) return to factory defaults — <b>unless a settings backup is on the SD card</b>: the printer then offers to restore everything on first boot (see <a href="#update">Backup &amp; restore</a>).</p>
+  <div class="note">💡 The official Espressif Flash Download Tool is an alternative, and developers can flash a local build with esptool/PlatformIO - see the project README for the exact settings (SPI 40&nbsp;MHz / DIO / 4&nbsp;MB, file at <code>0x0</code>).</div>
+  <p>The first boot after flashing takes a few extra seconds and starts the <code>TinyMaker-Setup</code> hotspot. Printer settings (exposure, layer height…) return to factory defaults - <b>unless a settings backup is on the SD card</b>: the printer then offers to restore everything on first boot (see <a href="#update">Backup &amp; restore</a>).</p>
 </section>
 
 <section>
   <h2 class="sec" id="wifi"><span class="num">4</span>Connecting to WiFi</h2>
   <ol class="steps">
     <li>Power on the printer. On first boot it starts a <code>TinyMaker-Setup</code> access point.</li>
-    <li>Connect to it with your phone — a setup page opens automatically (or browse to <code>http://192.168.4.1</code>).</li>
+    <li>Connect to it with your phone - a setup page opens automatically (or browse to <code>http://192.168.4.1</code>).</li>
     <li>Choose your home WiFi network and enter the password.</li>
     <li>The printer connects and briefly shows its IP address. Credentials are stored, so later boots connect on their own in about 5&nbsp;seconds.</li>
   </ol>
   <img class="shot phone" src="images/wifi-setup-phone.png" alt="The TinyMaker-Setup captive portal as seen on a phone">
-  <p>On every later boot the printer shows <b>animated signal bars</b> while connecting — they turn <b>green</b> when it’s on the network, and the printer goes straight to the main menu (the IP address is only shown after the first-time portal setup). Need the address later? WiFi status, signal strength and IP are always under <b>System → WiFi Info</b>.</p>
-  <p>If the saved network can’t be reached, the printer simply boots offline after 15&nbsp;s — printing from the SD card works as always.</p>
+  <p>On every later boot the printer shows <b>animated signal bars</b> while connecting - they turn <b>green</b> when it’s on the network, and the printer goes straight to the main menu (the IP address is only shown after the first-time portal setup). Need the address later? WiFi status, signal strength and IP are always under <b>System → WiFi Info</b>.</p>
+  <p>If the saved network can’t be reached, the printer simply boots offline after 15&nbsp;s - printing from the SD card works as always.</p>
 
   <h3>Resetting WiFi</h3>
   <p>To move the printer to another network, erase the stored credentials:</p>
   <ul>
     <li><b>From the menu:</b> System → WiFi Info → press <kbd>OK</kbd> → confirm. The printer reboots into the <code>TinyMaker-Setup</code> portal.</li>
-    <li><b>Emergency reset:</b> hold the <kbd>BACK</kbd> button while powering the printer on — use this if it keeps trying an old network and you can’t reach the menu.</li>
+    <li><b>Emergency reset:</b> hold the <kbd>BACK</kbd> button while powering the printer on - use this if it keeps trying an old network and you can’t reach the menu.</li>
   </ul>
 </section>
 
 <section>
   <h2 class="sec" id="screens"><span class="num">5</span>The printer screens</h2>
-  <p>The small status display drives the whole on-printer interface — WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
+  <p>The small status display drives the whole on-printer interface - WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
   <img class="shot" style="max-width:728px" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer screens: boot, WiFi setup, printing, the Advanced groups, unpacking an upload, the Statistics counters, the plate notes at both ends of the travel and the resin-not-set screen">
   <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles, grouped into Network / Resin / Display), <b>Statistics</b> (lifetime counters and the last boot/crash record), <b>Update</b> (firmware) and <b>About</b> (version and build info). The full item-by-item reference is in <a href="#advanced">System menu reference</a>.</p>
 </section>
@@ -319,9 +319,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The printer emulates the Prusa SL1 network protocol, so PrusaSlicer’s “Send to printer” works out of the box.</p>
   <ol class="steps">
     <li><a href="https://github.com/slibbinas/TinyMakerWifi/raw/main/PrusaSlicer/TinyMaker.ini">Download the TinyMaker printer profile</a> (<code>TinyMaker.ini</code>), then import it via <b>File → Import → Import Config</b>.</li>
-    <li><b>Save all three presets.</b> Click the floppy-disk icon next to <i>Print settings</i>, <i>Material</i> and <i>Printer</i> and accept the names. Imported presets are temporary until saved — skip this and PrusaSlicer forgets the printer every time you close it, and you start over.</li>
+    <li><b>Save all three presets.</b> Click the floppy-disk icon next to <i>Print settings</i>, <i>Material</i> and <i>Printer</i> and accept the names. Imported presets are temporary until saved - skip this and PrusaSlicer forgets the printer every time you close it, and you start over.</li>
     <li>Add a <b>physical printer</b>: click the cog next to the printer profile → <b>Add physical printer</b>. Set <b>Hostname</b> to <code>tinymaker.local</code> (or the IP from System → WiFi Info); the API key can be any text.</li>
-    <li>Click <b>Test</b> — it should report success (the printer must be on and on WiFi).</li>
+    <li>Click <b>Test</b> - it should report success (the printer must be on and on WiFi).</li>
     <li>Slice, then press <b>Send to printer</b>. The printer shows <i>Receiving → Unpacking → Model ready</i>, and the model appears in the <b>Print</b> menu.</li>
   </ol>
   <div class="row">
@@ -329,24 +329,24 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <img class="shot" style="max-width:520px" src="images/prusaslicer-send-to-printer.png" alt="PrusaSlicer: the Send to printer button">
   </div>
   <div class="warn">⚠️ <b>Always slice with the 0.05&nbsp;mm profile.</b> Maximum model size: 1200 layers = 60&nbsp;mm.<br>
-  Unlike an FDM slicer, the layer height here is set <b>on the printer</b> (Settings → Layer height), not in the file — the file is just a stack of 0.05&nbsp;mm images, and at the 0.10&nbsp;mm setting the firmware exposes every other one. Slice at anything else and the part comes out the wrong height: at 0.3&nbsp;mm it would be six times too short.</div>
-  <div class="note">♻️ <b>Imported the profile a while ago? Import it again.</b> The profile has changed since the early versions — the current one sets the screen the way the printer really uses it (<code>display_orientation = landscape</code>, 320×240&nbsp;px over 40.8×30.6&nbsp;mm). An old profile still slices and still uploads, but the layers come out turned, so the print is cropped at the edges and nothing on screen warns you.</div>
+  Unlike an FDM slicer, the layer height here is set <b>on the printer</b> (Settings → Layer height), not in the file - the file is just a stack of 0.05&nbsp;mm images, and at the 0.10&nbsp;mm setting the firmware exposes every other one. Slice at anything else and the part comes out the wrong height: at 0.3&nbsp;mm it would be six times too short.</div>
+  <div class="note">♻️ <b>Imported the profile a while ago? Import it again.</b> The profile has changed since the early versions - the current one sets the screen the way the printer really uses it (<code>display_orientation = landscape</code>, 320×240&nbsp;px over 40.8×30.6&nbsp;mm). An old profile still slices and still uploads, but the layers come out turned, so the print is cropped at the edges and nothing on screen warns you.</div>
 
-  <div class="note">💡 <b>Layer height works differently than on an FDM printer.</b> The printed layer height is decided by the <b>printer’s own setting</b> (<b>Layer Height</b>, in the printer’s Settings menu or the dashboard’s Settings tab) — not by the sliced file. The file is just a stack of 0.05&nbsp;mm images: at the 0.05&nbsp;mm setting the printer uses every image, at 0.10&nbsp;mm it takes every other one. That’s why you always slice at 0.05&nbsp;mm — the printer setting then chooses the real layer height, and a file sliced at 0.10&nbsp;mm would print half-height.</div>
+  <div class="note">💡 <b>Layer height works differently than on an FDM printer.</b> The printed layer height is decided by the <b>printer’s own setting</b> (<b>Layer Height</b>, in the printer’s Settings menu or the dashboard’s Settings tab) - not by the sliced file. The file is just a stack of 0.05&nbsp;mm images: at the 0.05&nbsp;mm setting the printer uses every image, at 0.10&nbsp;mm it takes every other one. That’s why you always slice at 0.05&nbsp;mm - the printer setting then chooses the real layer height, and a file sliced at 0.10&nbsp;mm would print half-height.</div>
 </section>
 
 <section>
   <h2 class="sec" id="slicer"><span class="num">7</span>The built-in slicer (slice in the browser)</h2>
-  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard — no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and an <b>STL slicer</b> card appears on the dashboard - press <b>Open</b> to unfold it.</p>
+  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard - no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and an <b>STL slicer</b> card appears on the dashboard - press <b>Open</b> to unfold it.</p>
   <ol class="steps">
     <li><b>Choose STL</b> and pick a model file.</li>
     <li><b>Stand it the right way up.</b> <b>Fast fit</b> drops it flat; <b>Optimal fit</b> searches for
       the rotation that needs the fewest supports, the way PrusaSlicer does, and then tells you what it
       won or lost against the fast one. <b>Lay flat</b>, <b>Flip over</b>, <b>Tilt 90&deg;</b> and
       <b>Rotate 90&deg;</b> are there when you would rather decide yourself.</li>
-    <li>Watch it slice — supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
-    <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> — each layer exactly as the masking LCD will shine it.</li>
-    <li>Press <b>Send to printer</b> — the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
+    <li>Watch it slice - supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
+    <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> - each layer exactly as the masking LCD will shine it.</li>
+    <li>Press <b>Send to printer</b> - the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
   </ol>
   <p><b>Six settings sit under those buttons</b>, and <b>Reset to defaults</b> puts them all back: <b>Supports</b>
   (regular or tree), <b>Strength</b> (light, normal, strong), <b>Placement</b>, <b>Tip</b>,
@@ -364,10 +364,10 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   is a part <b>lifted off the plate</b> - there the layers grow too.</div>
   <img class="shot" style="max-width:378px" src="images/browser-slicer.png" alt="A model sliced in the browser: the preview shows the part in orange standing on its raft with 180 support pillars in blue, and the slicer card reports the time, the layers, the resin and the supports it added">
   <div class="note">⚖️ The slicing itself is done by <b>PrusaSlicer’s libslic3r</b>, the same engine the
-  desktop PrusaSlicer uses, compiled to run in your browser. It is used unmodified, under the AGPL-3.0 —
+  desktop PrusaSlicer uses, compiled to run in your browser. It is used unmodified, under the AGPL-3.0 -
   see <a href="#credits">Credits</a>.</div>
-  <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware — see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>; a slicer update never reflashes the printer.</p>
-  <div class="note">💡 PrusaSlicer remains the fully-featured path — manual support placement, hollowing, fine-grained control over every parameter. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
+  <p>The slicer itself is a <b>module the printer keeps on its SD card</b>: fetched once from our GitHub Pages, verified byte-for-byte against checksums the printer fetches over certificate-checked HTTPS, and served locally from then on. It survives firmware updates and <b>works with no internet</b> once cached. Its version is managed separately from the firmware - see the <b>Slicer module</b> card in Settings → <a href="#update">Update</a>; a slicer update never reflashes the printer.</p>
+  <div class="note">💡 PrusaSlicer remains the fully-featured path - manual support placement, hollowing, fine-grained control over every parameter. The browser slicer is the zero-install path: an STL becomes a print in a couple of clicks, right where the printer already is.</div>
 </section>
 
 <section>
@@ -384,13 +384,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>In the <b>Print</b> menu:</p>
   <ul>
     <li><b>Start a print:</b> select a model and give <kbd>OK</kbd> a short press. The preview shows Layers / Height / Time; press <kbd>Up</kbd> there to estimate resin (see below), or <kbd>OK</kbd> to start.</li>
-    <li><b>Delete a model:</b> press and <b>hold</b> <kbd>OK</kbd> for ~1.5&nbsp;s. A <i>Delete model?</i> confirmation appears — release, then <kbd>OK</kbd> = delete, <kbd>Back</kbd> = keep. Large models take a moment (hundreds of layer files).</li>
+    <li><b>Delete a model:</b> press and <b>hold</b> <kbd>OK</kbd> for ~1.5&nbsp;s. A <i>Delete model?</i> confirmation appears - release, then <kbd>OK</kbd> = delete, <kbd>Back</kbd> = keep. Large models take a moment (hundreds of layer files).</li>
   </ul>
 </section>
 
 <section>
   <h2 class="sec" id="resin"><span class="num">10</span>Resin profiles, estimate &amp; refills</h2>
-  <p>The printer has no resin sensor — instead it <b>keeps count</b>. Every printed layer’s cured volume is subtracted from the VAT level, and the estimate survives reboots and firmware updates.</p>
+  <p>The printer has no resin sensor - instead it <b>keeps count</b>. Every printed layer’s cured volume is subtracted from the VAT level, and the estimate survives reboots and firmware updates.</p>
 
   <h3 id="resin-profiles">Resin profiles</h3>
   <p>A <b>profile</b> is the whole print recipe for one resin: layer height, base and regular
@@ -468,86 +468,86 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   </ul>
 
   <h3>Estimate before printing</h3>
-  <p>On a model’s print preview, press <kbd>Up</kbd> to estimate the resin it needs. It is shown in ml <i>and</i> in vat fills — e.g. <code>12.4 ml = 0.8 VAT</code>. Your VAT size is adjustable (10–40&nbsp;ml, default 15) in Settings. Live ml is shown while printing.</p>
+  <p>On a model’s print preview, press <kbd>Up</kbd> to estimate the resin it needs. It is shown in ml <i>and</i> in vat fills - e.g. <code>12.4 ml = 0.8 VAT</code>. Your VAT size is adjustable (10–40&nbsp;ml, default 15) in Settings. Live ml is shown while printing.</p>
 
   <h3>Level tracking &amp; refills</h3>
   <ul>
     <li><b>“Resin left (est.)”</b> is shown on the dashboard (and as a Home Assistant sensor with a low-resin alert).</li>
     <li><b>After a full refill</b>, tell the printer: <b>System → Advanced → Resin → Set VAT full</b>, or the <b>Set VAT full</b> button on the dashboard - it works while printing too. The estimate restarts from a <b>full</b> VAT: it does not measure what you poured, so fill it to the top. Pouring less leaves the printer believing it has more resin than it does.</li>
     <li><b>Ask refill</b> (default On): every print begins with a <i>“VAT filled full?”</i> question so the estimate stays honest - answer yes only after a full refill, because yes resets the level to a full VAT. Tidy users who press <i>Set VAT full</i> themselves can turn it off.</li>
-    <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers — start anyway or go back.</li>
+    <li><b>Before a print</b>, if the level is low (or a fresh estimate says the model needs more than what’s left), the printer shows <b>“Low resin!”</b> with the numbers - start anyway or go back.</li>
     <li><b>A heads-up before the stop</b> (<i>Warn (ml)</i>, 5&ndash;8&nbsp;ml, default 5): while printing, the level crossing this mark says so on the screen and, if notifications are set up, on your phone - with the layer it is on, so you can decide whether to top up now or let it run.</li>
     <li><b>Low resin stop</b> (default On): mid-print, when the level reaches <i>Stop (ml)</i> (3&ndash;8&nbsp;ml, default 4), the printer finishes the layer, lifts and pauses with <b>“Fill VAT full!”</b>. Do a full refill, then press <b>Set VAT full</b> and resume - Resume stays locked until the refill is marked, and only Stop works meanwhile. On the printer itself, confirming <i>“VAT filled full?”</i> marks it and resumes.</li>
     <li><b>Why the stop cannot be set lower than 3&nbsp;ml.</b> The VAT is 42&nbsp;&times;&nbsp;52&nbsp;mm inside, so one millimetre of resin is about 2.2&nbsp;ml, and a full 15&nbsp;ml VAT is under 7&nbsp;mm deep. Poured resin stops covering the whole floor at about 4&nbsp;ml, and it clings to the walls, so the middle can open a dry patch even a little above that. Below that level nothing prints, whatever the shape - so about 4&nbsp;ml of every filling is there to be stood in, not printed with. On a 15&nbsp;ml VAT that leaves roughly 11&nbsp;ml to work with, which is worth knowing before starting a model the slicer says needs 20.</li>
   </ul>
-  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> — it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. For a real number instead of a running total, weigh the vat - see <a href="#resin-profiles">Grams instead of guesswork</a> above. Refills you don’t confirm won’t be counted.</div>
+  <div class="warn">⚠️ It’s an <b>estimate, not a measurement</b> - it can’t account for resin sticking to models or drips. Treat it as a planning aid and glance at the real VAT now and then. For a real number instead of a running total, weigh the vat - see <a href="#resin-profiles">Grams instead of guesswork</a> above. Refills you don’t confirm won’t be counted.</div>
 </section>
 
 <section>
   <h2 class="sec" id="dashboard"><span class="num">11</span>The web dashboard</h2>
-  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates — in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
-  <div class="note">🧪 No printer at hand? <a href="https://tinymakerwifi.com/demo/">Try the dashboard live</a> — the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
-  <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form — what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
+  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates - in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
+  <div class="note">🧪 No printer at hand? <a href="https://tinymakerwifi.com/demo/">Try the dashboard live</a> - the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
+  <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form - what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
   <img class="shot" style="max-width:406px" src="images/dashboard-idle.png" alt="The dashboard in a narrow window: one column, with the status card, the print preview and the SD manager stacked">
   <h3>While a print runs</h3>
-  <p>The state line counts the current step down — <b>Curing · 9s</b>, <b>Lifting · 4s</b> — and after <b>Stop</b> or a finished print it counts the ride to the top the same way, so that wait finally has a number. Next to it a small dot says whether the printer answered just now (green) or is mid-move (amber, <i>syncing</i>).</p>
+  <p>The state line counts the current step down - <b>Curing · 9s</b>, <b>Lifting · 4s</b> - and after <b>Stop</b> or a finished print it counts the ride to the top the same way, so that wait finally has a number. Next to it a small dot says whether the printer answered just now (green) or is mid-move (amber, <i>syncing</i>).</p>
   <img class="shot" style="max-width:406px" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
-  <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card — so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> The SD card is locked for the same reason — uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
+  <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card - so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> The SD card is locked for the same reason - uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
   <p>On a larger screen it spreads into two columns:</p>
   <img class="shot" style="max-width:728px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
-  <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) — the printer ticks steps off by itself where it can.</p>
-  <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear — the printer serves plain HTTP on your LAN — but the shortcut works the same.)</p>
+  <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) - the printer ticks steps off by itself where it can.</p>
+  <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear - the printer serves plain HTTP on your LAN - but the shortcut works the same.)</p>
 
   <h3>If the power drops mid-print</h3>
   <p>The printer writes a tiny checkpoint to the SD card as it goes, so a power cut is recoverable. When it boots back up it shows <b>Power restored</b> with the model name and the layer it reached, and three choices:</p>
   <ul>
-    <li><b>Resume</b> — the plate goes back down (no homing, which would drive the part into the vat) and the print continues from where it stopped.</li>
-    <li><b>Lift plate</b> (the up-arrow) — if you don't want to continue but the plate is pressed down on a stuck print, this clears the checkpoint first, then peels the part free and raises the plate.</li>
-    <li><b>Discard</b> — forget the interrupted print and boot normally.</li>
+    <li><b>Resume</b> - the plate goes back down (no homing, which would drive the part into the vat) and the print continues from where it stopped.</li>
+    <li><b>Lift plate</b> (the up-arrow) - if you don't want to continue but the plate is pressed down on a stuck print, this clears the checkpoint first, then peels the part free and raises the plate.</li>
+    <li><b>Discard</b> - forget the interrupted print and boot normally.</li>
   </ul>
-  <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer only knows the pre-lift height, so the resumed layers can sit slightly high — usually a faint seam, occasionally a separation at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film. <em>A future firmware update is planned to tighten this — checkpointing the plate's position more finely during the brief lift/drop, so even a mid-move outage recovers to within a fraction of a millimetre.</em></p>
-  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back — so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved — the plate lowers back into the resin on trust.</p>
-  <p><b>Power the printer from its mains adapter, not a USB power bank.</b> A weak or portable supply can sag the moment the plate lifts — the stepper's current draw briefly dips the voltage — and on a marginal supply that dip can even reset the printer part-way through the recovery. If a resume keeps rebooting back to the same prompt, that voltage dip is the usual cause: switch to the supplied adapter and try again.</p>
+  <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer only knows the pre-lift height, so the resumed layers can sit slightly high - usually a faint seam, occasionally a separation at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film. <em>A future firmware update is planned to tighten this - checkpointing the plate's position more finely during the brief lift/drop, so even a mid-move outage recovers to within a fraction of a millimetre.</em></p>
+  <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back - so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved - the plate lowers back into the resin on trust.</p>
+  <p><b>Power the printer from its mains adapter, not a USB power bank.</b> A weak or portable supply can sag the moment the plate lifts - the stepper's current draw briefly dips the voltage - and on a marginal supply that dip can even reset the printer part-way through the recovery. If a resume keeps rebooting back to the same prompt, that voltage dip is the usual cause: switch to the supplied adapter and try again.</p>
   <p><b>Two settings decide how this behaves</b>, both under System → Advanced → Resin (and in the
-  dashboard’s Settings → Print). <b>Power resume</b> turns the whole thing on or off — off means the
+  dashboard’s Settings → Print). <b>Power resume</b> turns the whole thing on or off - off means the
   printer never checkpoints and always starts fresh, like the stock firmware. <b>Resume mode</b> chooses
   how finely it remembers: <b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement,
-  <b>Precise</b> every 400&nbsp;ms — a resume closer to where the power went, at the cost of more writes
+  <b>Precise</b> every 400&nbsp;ms - a resume closer to where the power went, at the cost of more writes
   to the card.</p>
   <p style="color:var(--muted);font-size:.9rem">Power-loss checkpoint engine contributed by <a href="https://github.com/Tann2019">Tanner Steorts</a>.</p>
 
   <h3>The SD manager &amp; the Model preview card</h3>
   <p>Uploads are safe: a model unpacks into a temporary folder and replaces the old one only after unpacking succeeds, and uploading a name that already exists asks <b>Replace / Rename / Cancel</b> (a PrusaSlicer re-upload simply replaces, as you’d expect while iterating).</p>
   <img class="shot" style="max-width:355px" src="images/sd-and-preview.png" alt="The model preview card with a rendered model, its raft and its view controls, and below it the SD manager: a selected model with Start and Delete, the other models, the page arrows and the card-space bar">
-  <p>The card leads with the model list — the part you use every day. <b>Upload…</b> sits in its corner: one click opens the file picker and the file starts uploading the moment you choose it. Storage sits at the bottom as a thin bar, out of the way until it matters (it turns amber past 85%). Uploading a model that doesn't fit is refused before anything is sent, so the bar is information, not a thing to watch.</p>
-  <p>Every model row <b>is</b> the preview button: click it and the browser rebuilds the shape from the sliced layers and renders it into the <b>Model preview</b> card, with a live percentage while it loads, then a compact info line — layers · height · print time · resin — and a <b>Share model</b> button (when TinyMaker Connect is registered). The selected row is highlighted, so a card full of models never leaves you guessing which one is on screen. <b>Start</b> and <b>Delete</b> appear on the row itself — under the mouse on a computer, on a tap on the phone — and Start goes straight to the <i>Start this print?</i> question without waiting for the preview.</p>
-  <p>The card itself is always on the dashboard, like the SD manager: before anything is previewed it shows a hint, and the last previewed model is remembered — a page reload brings it straight back from the saved preview (no re-render, nothing to redo).</p>
-  <p>The preview is a real, smoothly-shaded 3D model rendered on the graphics card (three.js — fetched once, then kept on the printer's SD card, so it works with no internet and survives firmware updates). Around it:</p>
+  <p>The card leads with the model list - the part you use every day. <b>Upload…</b> sits in its corner: one click opens the file picker and the file starts uploading the moment you choose it. Storage sits at the bottom as a thin bar, out of the way until it matters (it turns amber past 85%). Uploading a model that doesn't fit is refused before anything is sent, so the bar is information, not a thing to watch.</p>
+  <p>Every model row <b>is</b> the preview button: click it and the browser rebuilds the shape from the sliced layers and renders it into the <b>Model preview</b> card, with a live percentage while it loads, then a compact info line - layers · height · print time · resin - and a <b>Share model</b> button (when TinyMaker Connect is registered). The selected row is highlighted, so a card full of models never leaves you guessing which one is on screen. <b>Start</b> and <b>Delete</b> appear on the row itself - under the mouse on a computer, on a tap on the phone - and Start goes straight to the <i>Start this print?</i> question without waiting for the preview.</p>
+  <p>The card itself is always on the dashboard, like the SD manager: before anything is previewed it shows a hint, and the last previewed model is remembered - a page reload brings it straight back from the saved preview (no re-render, nothing to redo).</p>
+  <p>The preview is a real, smoothly-shaded 3D model rendered on the graphics card (three.js - fetched once, then kept on the printer's SD card, so it works with no internet and survives firmware updates). Around it:</p>
   <ul>
-    <li><b>Rotate / zoom / pan</b> with the mouse or fingers, an <b>expand</b> button for a bigger window, and a <b>clip slider</b> that cuts the model at any height so you can look inside — the cut shows the true voxel steps of the sliced layers.</li>
-    <li><b>Two view buttons:</b> the 3D one toggles supports on/off, the 2D one switches between the flat layer view and the <b>UV view</b> — the layer exactly as the masking LCD will shine it.</li>
-    <li><b>Smooth</b> rounds off the voxel steps for a prettier picture. It is <b>off by default</b>, because the same smoothing thins out anything flat and thin — the raft disappears altogether — and the preview's job is to show what will really be on the plate.</li>
-    <li><b>Full print resolution, always</b> — there is no quality switch to find. The first time a model is opened the browser decodes every layer (roughly a minute per model); the result is cached next to the model on the SD card, so from then on it is instant. <b>Prepare 3D for all models</b> (Settings → Display) runs that once for everything already on the card.</li>
+    <li><b>Rotate / zoom / pan</b> with the mouse or fingers, an <b>expand</b> button for a bigger window, and a <b>clip slider</b> that cuts the model at any height so you can look inside - the cut shows the true voxel steps of the sliced layers.</li>
+    <li><b>Two view buttons:</b> the 3D one toggles supports on/off, the 2D one switches between the flat layer view and the <b>UV view</b> - the layer exactly as the masking LCD will shine it.</li>
+    <li><b>Smooth</b> rounds off the voxel steps for a prettier picture. It is <b>off by default</b>, because the same smoothing thins out anything flat and thin - the raft disappears altogether - and the preview's job is to show what will really be on the plate.</li>
+    <li><b>Full print resolution, always</b> - there is no quality switch to find. The first time a model is opened the browser decodes every layer (roughly a minute per model); the result is cached next to the model on the SD card, so from then on it is instant. <b>Prepare 3D for all models</b> (Settings → Display) runs that once for everything already on the card.</li>
   </ul>
-  <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> — it decodes every layer, so expect roughly a minute per 100 layers.</p>
+  <p><b>Resin on the info line:</b> when the exact amount is known it is shown outright; otherwise a quick <code>~X&nbsp;ml (quick)</code> estimate appears with the preview, free of charge. Clicking the <code>~</code> value runs the <b>exact scan on the printer</b> - it decodes every layer, so expect roughly a minute per 100 layers.</p>
   <p>Start a print (from the row’s <b>Start</b> or on the printer) and the same card takes over automatically as a <b>live progress render</b>: the printed part fills in with color, the rest stays a ghost outline. It costs the printer nothing (the browser renders from a few prefetched layers).</p>
   <p><b>The card&rsquo;s title is a link.</b> It names the model on screen, and clicking it
-  takes the model list to the page that model sits on &mdash; useful once you have more models
+  takes the model list to the page that model sits on - useful once you have more models
   than fit on one page, and during a print, when the title reads <i>Printing 42% &middot;
   Tooth</i> and you want that model in the list in front of you. Titles that name a state
-  rather than a model &mdash; <i>Model preview</i>, <i>Slicer preview</i> &mdash; are plain
+  rather than a model - <i>Model preview</i>, <i>Slicer preview</i> - are plain
   text. The window itself is grown with the button in the card&rsquo;s corner, and <kbd>Esc</kbd>
   brings it back.</p>
-  <p><b>Any device, at any point in the print.</b> You do not have to have opened the preview beforehand, and it does not have to be the same browser or the same phone — open the dashboard an hour into a print, on a device that has never seen the model, and the growing shape is there. The printer keeps a small stack of layer silhouettes in memory as it prints and hands them to whoever asks, so nothing is read from the SD card mid-print. (Opening the preview first still gives the fuller picture: the complete model as a ghost, rather than only what has been printed so far.)</p>
+  <p><b>Any device, at any point in the print.</b> You do not have to have opened the preview beforehand, and it does not have to be the same browser or the same phone - open the dashboard an hour into a print, on a device that has never seen the model, and the growing shape is there. The printer keeps a small stack of layer silhouettes in memory as it prints and hands them to whoever asks, so nothing is read from the SD card mid-print. (Opening the preview first still gives the fuller picture: the complete model as a ghost, rather than only what has been printed so far.)</p>
 
   <h3>Marking a defect</h3>
   <p>When the browser slicer is switched on, the preview grows one more control in its
-  top-left corner: a <b>defect marker</b>. It exists for one job — telling us <i>where</i>
+  top-left corner: a <b>defect marker</b>. It exists for one job - telling us <i>where</i>
   something went wrong, instead of describing it in words a week later.</p>
   
   <p>Press it and the view stops rotating: a red frame around the picture and a crosshair
-  say you are marking, not looking. <b>Drag a box over the bad spot</b> — a support that
-  grew into the part, a hole that closed, a raft that peeled — and add one line of text.
+  say you are marking, not looking. <b>Drag a box over the bad spot</b> - a support that
+  grew into the part, a hole that closed, a raft that peeled - and add one line of text.
   A <b>Defect markers</b> panel appears under the preview card with every mark you made,
   each keeping <b>the picture of that spot</b> and the camera it was seen from, so the same
   view can be recreated later.</p>
@@ -558,22 +558,22 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p><b>What travels with it, so nobody has to ask.</b> The slicer version and where its
   module came from, the firmware version and build, the dashboard&rsquo;s own checksum, the
   model&rsquo;s name, layer count and scale, and for every mark the layer number written with
-  its step (<code>~L152 @0.10 mm</code>) — because the preview counts in printer layers and
+  its step (<code>~L152 @0.10 mm</code>) - because the preview counts in printer layers and
   the slicer in the ones it sliced, and the same spot is 152 in one and 302 in the other.
   Each mark also remembers whether it was made <b>before slicing</b> or <b>on the sliced
   result</b>, so one report can carry both “here is what I asked for” and “here is what came
   out”.</p>
 
   <h3>The Settings tab</h3>
-  <p>Settings is split into sections, switched by underline tabs — <b>Print / Network / Notifications / Display / Backup / Update / About</b> — shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
+  <p>Settings is split into sections, switched by underline tabs - <b>Print / Network / Notifications / Display / Backup / Update / About</b> - shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
   <ul>
-    <li><b>Print</b> — layer height, exposures, lifts, VAT size, resin profiles and the resin-tracking options.</li>
-    <li><b>Network</b> — the WiFi / Web control / boot-update-check switches, the <b>Slicer</b> switch, the <a href="#faq-ping">anonymous usage ping</a>, MQTT, and <b>TinyMaker Connect</b> — including the <b>Auto backup settings to Connect</b> checkbox (it asks to confirm when toggled).</li>
-    <li><b>Notifications</b> — one choice of Telegram, WhatsApp or Discord (see <a href="#mqtt">notifications</a>).</li>
-    <li><b>Display</b> — <a href="#bootanim">Boot animations</a> and the <b>3D previews</b> card with <i>Prepare 3D for all models</i>.</li>
-    <li><b>Backup</b> — just the actions: download / backup to SD / restore (see <a href="#update">Backup &amp; restore</a>).</li>
-    <li><b>Update</b> — firmware install latest / version picker / file upload, and the <b>Slicer module</b> card (see <a href="#update">Updating the firmware</a>).</li>
-    <li><b>About</b> — versions, credits and links.</li>
+    <li><b>Print</b> - layer height, exposures, lifts, VAT size, resin profiles and the resin-tracking options.</li>
+    <li><b>Network</b> - the WiFi / Web control / boot-update-check switches, the <b>Slicer</b> switch, the <a href="#faq-ping">anonymous usage ping</a>, MQTT, and <b>TinyMaker Connect</b> - including the <b>Auto backup settings to Connect</b> checkbox (it asks to confirm when toggled).</li>
+    <li><b>Notifications</b> - one choice of Telegram, WhatsApp or Discord (see <a href="#mqtt">notifications</a>).</li>
+    <li><b>Display</b> - <a href="#bootanim">Boot animations</a> and the <b>3D previews</b> card with <i>Prepare 3D for all models</i>.</li>
+    <li><b>Backup</b> - just the actions: download / backup to SD / restore (see <a href="#update">Backup &amp; restore</a>).</li>
+    <li><b>Update</b> - firmware install latest / version picker / file upload, and the <b>Slicer module</b> card (see <a href="#update">Updating the firmware</a>).</li>
+    <li><b>About</b> - versions, credits and links.</li>
   </ul>
   <p>The <b>Connect</b> tab (shown once TinyMaker Connect is registered) is loaded from the Connect server and uses the same underline sub-tabs; its registration status is shown at the bottom.</p>
 </section>
@@ -585,7 +585,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <table>
     <tr><th>System item</th><th>What it does</th></tr>
     <tr><td>WiFi Info</td><td>Connected network, signal strength and the printer’s IP. <kbd>OK</kbd> here offers a <b>WiFi reset</b> (reboots into the setup portal).</td></tr>
-    <tr><td>Advanced</td><td>Device toggles, grouped into <b>Network / Resin / Display</b> — the tables below.</td></tr>
+    <tr><td>Advanced</td><td>Device toggles, grouped into <b>Network / Resin / Display</b> - the tables below.</td></tr>
     <tr><td>Statistics</td><td>Lifetime print hours, UV LED on-time, this boot’s reason and the last interrupted print (if any) with its layer.</td></tr>
     <tr><td>Update</td><td>Installed vs latest firmware; installs a new version over WiFi. See <a href="#update">Updating the firmware</a>.</td></tr>
     <tr><td>About</td><td>Firmware version, build date and the project link.</td></tr>
@@ -595,8 +595,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="table-scroll">
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
-    <tr><td><b>WiFi</b></td><td><b>On/Off — the whole network</b> (web, PrusaSlicer upload, MQTT, self-update). Confirming reboots to apply; Cancel changes nothing.</td></tr>
-    <tr><td>Web control</td><td>On/Off — browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
+    <tr><td><b>WiFi</b></td><td><b>On/Off - the whole network</b> (web, PrusaSlicer upload, MQTT, self-update). Confirming reboots to apply; Cancel changes nothing.</td></tr>
+    <tr><td>Web control</td><td>On/Off - browser <b>actions</b>. Off = the dashboard turns view-only; slicer upload and MQTT keep working.</td></tr>
     <tr><td>MQTT</td><td>On/Off (shown once MQTT is configured in the dashboard).</td></tr>
     <tr><td>Boot update</td><td>On = the printer checks for new firmware right after WiFi connects at boot and offers <i>Install / Later</i> on the screen.</td></tr>
   </table>
@@ -606,7 +606,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
     <tr><td>Resin profile</td><td>Steps through the four built-in profiles and every profile on the card, applying the one shown. Reads <b>&ldquo;Not set - blocked&rdquo;</b> when none is chosen (printing is refused until one is), and a <b>*</b> after the name means that built-in has been edited. See <a href="#resin-profiles">Resin profiles</a>.</td></tr>
-    <tr><td>Set VAT full</td><td>Press after a <b>full</b> refill — restarts the level estimate from a full VAT. It does not measure what you poured.</td></tr>
+    <tr><td>Set VAT full</td><td>Press after a <b>full</b> refill - restarts the level estimate from a full VAT. It does not measure what you poured.</td></tr>
     <tr><td>Low resin stop</td><td>On = mid-print, when the estimate reaches <i>Stop (ml)</i>, the printer finishes the layer, lifts and pauses for a refill. On by default: below the stop level the VAT floor goes dry, and carrying on prints nothing.</td></tr>
     <tr><td>Stop (ml)</td><td>The level that stops the print: 3 &rarr; 4 &rarr; 5 &rarr; 6 &rarr; 7 &rarr; 8&nbsp;ml (OK cycles), default 4. Three is the measured floor of this VAT, not a preference - see <a href="#resin">how much is left</a>.</td></tr>
     <tr><td>Warn (ml)</td><td>The earlier heads-up, before the stop - on the screen and on your phone: 5 &rarr; 6 &rarr; 7 &rarr; 8&nbsp;ml (OK cycles), default 5. Keep it above the stop level, or it has nothing left to warn about.</td></tr>
@@ -614,8 +614,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <tr><td>Power resume</td><td>On = the printer checkpoints as it prints and offers to resume after a power cut. Off = it never checkpoints and always starts fresh, like the stock firmware.</td></tr>
     <tr><td>Resume mode</td><td><b>Balanced</b> writes a checkpoint every 800&nbsp;ms of plate movement, <b>Precise</b> every 400&nbsp;ms: a resume closer to where the power went, at the cost of more writes to the card.</td></tr>
     <tr><td>Pause lift</td><td>How high the plate rises when you pause to look at the print: 20&ndash;40&nbsp;mm in 5&nbsp;mm steps (OK cycles). A dry run uses the same height instead of going to the top.</td></tr>
-    <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer — each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
-    <tr><td>Dry run</td><td>Test prints without UV — motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test.</td></tr>
+    <tr><td>Exposure test</td><td>Cures an 8-bar calibration strip straight from the printer - each bar gets a different exposure time around your Regular setting. Pick the crispest bar and set its time in Settings. Resin in the vat, no build plate.</td></tr>
+    <tr><td>Dry run</td><td>Test prints without UV - motion and display only. Great for checking mechanics or a new model without wasting resin. Note: while Dry run is on, the UV LED stays off <i>everywhere</i>, including the exposure test.</td></tr>
   </table>
   </div>
 
@@ -624,19 +624,19 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <table>
     <tr><th>Item</th><th>What it does</th></tr>
     <tr><td>Idle timeout</td><td>After this much inactivity the idle screen dims into a screen saver (“TinyMaker” + IP drifting around). 30&nbsp;s…10&nbsp;min, Off = never; fresh installs default to 60&nbsp;s.</td></tr>
-    <tr><td>Boot animation</td><td>Which animation plays at power-on — OK cycles <i>Default</i>, <i>Shuffle</i> (with two or more installed) and every animation on the SD card (see <a href="#bootanim">Boot animations</a> below).</td></tr>
+    <tr><td>Boot animation</td><td>Which animation plays at power-on - OK cycles <i>Default</i>, <i>Shuffle</i> (with two or more installed) and every animation on the SD card (see <a href="#bootanim">Boot animations</a> below).</td></tr>
   </table>
   </div>
   <ul>
-    <li><b>WiFi Off</b> makes the printer fully offline, like the original firmware. Toggling it asks <i>“Reboot now?”</i>. Turn it back on right here — no reflash or reset needed.</li>
+    <li><b>WiFi Off</b> makes the printer fully offline, like the original firmware. Toggling it asks <i>“Reboot now?”</i>. Turn it back on right here - no reflash or reset needed.</li>
     <li><b>Web control Off</b> makes the dashboard <b>view-only</b>: people can watch the print, but every action is disabled. Turn it back on on the printer (the settings form is one of the things it locks).</li>
     <li>If WiFi is off and you open <b>System → Update</b>, the printer offers to enable WiFi temporarily just for the update.</li>
   </ul>
-  <p>Both switches default to <b>On</b> and stay On after upgrading from an older version — nothing changes until you change it.</p>
+  <p>Both switches default to <b>On</b> and stay On after upgrading from an older version - nothing changes until you change it.</p>
 
   <h3>Exposure calibration test</h3>
-  <p>Exposure time is the single most important resin parameter — and every resin (even every color) cures differently. The test finds <i>your</i> resin’s time in one go: the printer cures an <b>8-bar strip</b> straight from its masking LCD, each bar with a different exposure. No slicer, no SD file.</p>
-  <p>The bar times are <b>proportional to your current <i>Regular exposure</i> (R)</b> — from 40 % to 160 % of it, so the spread is meaningful for fast and slow resins alike. Bar 5 (100 %) is always your current setting:</p>
+  <p>Exposure time is the single most important resin parameter - and every resin (even every color) cures differently. The test finds <i>your</i> resin’s time in one go: the printer cures an <b>8-bar strip</b> straight from its masking LCD, each bar with a different exposure. No slicer, no SD file.</p>
+  <p>The bar times are <b>proportional to your current <i>Regular exposure</i> (R)</b> - from 40 % to 160 % of it, so the spread is meaningful for fast and slow resins alike. Bar 5 (100 %) is always your current setting:</p>
   <div class="table-scroll">
   <table>
     <tr><th>Bar (dots)</th><td>1</td><td>2</td><td>3</td><td>4</td><td><b>5</b></td><td>6</td><td>7</td><td>8</td></tr>
@@ -644,11 +644,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <tr><th>R = 14 s</th><td>6</td><td>8</td><td>10</td><td>12</td><td><b>14</b></td><td>16</td><td>19</td><td>22</td></tr>
   </table>
   </div>
-  <div class="note">⚙️ <b>Regular exposure moves in tenths of a second</b> (0.1&nbsp;s steps, 1–30&nbsp;s) — on the printer each press changes it by 0.1&nbsp;s, and in the dashboard you can type the value straight in. <b>Base exposure stays in whole seconds</b> (5–60&nbsp;s): it is about the first layers gripping the plate, where a tenth of a second changes nothing. Use the tenths for fine-tuning once the test has put you in the right area — not for finding that area in the first place.</div>
-  <p><b>The ladder follows your setting automatically.</b> To test shorter (or longer) times, just change <i>Regular exposure</i> in one place — dashboard → Settings → <i>Regular exposure</i> → Save, or the printer’s Settings menu — and the test range recalculates itself; the Advanced menu row shows the current range (e.g. “2-16s strip”). After the test, set the winning bar’s time as your final value.</p>
-  <div class="note">💡 <b>Count the dots, not the sides.</b> Each bar carries its number as holes near one end — 1 dot = bar 1 (shortest) … 8 dots = bar 8 (longest). The strip stays identifiable no matter how it is flipped or mirrored (the vat view often is!), and the dots double as a fine-detail check: on a well-exposed bar the holes come out round and open.</div>
+  <div class="note">⚙️ <b>Regular exposure moves in tenths of a second</b> (0.1&nbsp;s steps, 1–30&nbsp;s) - on the printer each press changes it by 0.1&nbsp;s, and in the dashboard you can type the value straight in. <b>Base exposure stays in whole seconds</b> (5–60&nbsp;s): it is about the first layers gripping the plate, where a tenth of a second changes nothing. Use the tenths for fine-tuning once the test has put you in the right area - not for finding that area in the first place.</div>
+  <p><b>The ladder follows your setting automatically.</b> To test shorter (or longer) times, just change <i>Regular exposure</i> in one place - dashboard → Settings → <i>Regular exposure</i> → Save, or the printer’s Settings menu - and the test range recalculates itself; the Advanced menu row shows the current range (e.g. “2-16s strip”). After the test, set the winning bar’s time as your final value.</p>
+  <div class="note">💡 <b>Count the dots, not the sides.</b> Each bar carries its number as holes near one end - 1 dot = bar 1 (shortest) … 8 dots = bar 8 (longest). The strip stays identifiable no matter how it is flipped or mirrored (the vat view often is!), and the dots double as a fine-detail check: on a well-exposed bar the holes come out round and open.</div>
   <ol class="steps">
-    <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> — the strip cures directly on the vat film. Make sure Dry run is off.</li>
+    <li><b>Prepare:</b> resin in the vat (stir it first!), <b>build plate removed</b> - the strip cures directly on the vat film. Make sure Dry run is off.</li>
     <li><b>Run:</b> System → Advanced → Resin → <b>Exposure test</b> → Start. A progress bar runs for the longest bar’s time (~half a minute); Back cancels.</li>
     <li><b>Peel &amp; rinse:</b> gloves on, lift the strip off the film with a soft plastic scraper, rinse in IPA, dry.</li>
     <li><b>Judge the bars</b> against the light:
@@ -656,45 +656,45 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
         <li><i>Under-exposed</i> (short end): thin, rubbery, fuzzy edges, breaks or partly stuck to the film.</li>
         <li><i>Just right:</i> sturdy, <b>sharp clean edges</b>, even thickness.</li>
         <li><i>Over-exposed</i> (long end): fatter than its neighbours, bloated edges, a thin parasitic film around it (light bleed).</li>
-        <li><i>All bars nearly identical?</i> Your resin cures faster than the shortest step — lower <i>Regular exposure</i> (e.g. to 8 s) and run the test again. Note: a fresh, unwashed strip always feels rubbery; judge after an IPA rinse, and flexible resins (ABS-like) stay bendy by design.</li>
+        <li><i>All bars nearly identical?</i> Your resin cures faster than the shortest step - lower <i>Regular exposure</i> (e.g. to 8 s) and run the test again. Note: a fresh, unwashed strip always feels rubbery; judge after an IPA rinse, and flexible resins (ABS-like) stay bendy by design.</li>
       </ul>
     </li>
-    <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Identify bars by their dots (1 dot = shortest) and read the time from the table above. Keep <b>Base exposure</b> at roughly 2.5× the new Regular — it’s about first-layer adhesion, not detail.</li>
+    <li><b>Set it:</b> pick the <b>lowest time that still cures sharp and sturdy</b> (best detail; if torn between two, take the longer one) and enter it as <b>Regular exposure</b> in Settings. Identify bars by their dots (1 dot = shortest) and read the time from the table above. Keep <b>Base exposure</b> at roughly 2.5× the new Regular - it’s about first-layer adhesion, not detail.</li>
   </ol>
   <figure style="margin:16px 0 6px">
     <img class="shot" style="max-width:520px" src="images/exposure-test-strip.jpg" alt="A real exposure test strip cured in the vat: eight bars with dot markers, holes crisp on the long-exposure side and sealing over toward the short side">
-    <figcaption>A real test strip in the vat — count the dots: bar N carries N holes, so flipping or mirroring never confuses it. On the long-exposure side the holes cured round and open; toward the short side the bars turn translucent and the holes seal over. Pick the lowest bar whose holes are still open and edges sharp.</figcaption>
+    <figcaption>A real test strip in the vat - count the dots: bar N carries N holes, so flipping or mirroring never confuses it. On the long-exposure side the holes cured round and open; toward the short side the bars turn translucent and the holes seal over. Pick the lowest bar whose holes are still open and edges sharp.</figcaption>
   </figure>
-  <div class="note">💡 Cold resin cures slower — run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
+  <div class="note">💡 Cold resin cures slower - run the test at the temperature you actually print at. Check the vat for leftovers afterwards; a <i>Clean Resin Vat</i> cycle picks up anything you missed.</div>
 
   <h3 id="jacobs">Advanced: your resin’s working curve (Jacobs)</h3>
-  <p>The test strip holds more data than “which bar looks best”. Cure depth grows with the <b>logarithm</b> of exposure time — that’s why doubling the time doesn’t double the thickness, and why you judge bars by <b>edges and holes</b>, not by how thick they feel. If you want numbers:</p>
+  <p>The test strip holds more data than “which bar looks best”. Cure depth grows with the <b>logarithm</b> of exposure time - that’s why doubling the time doesn’t double the thickness, and why you judge bars by <b>edges and holes</b>, not by how thick they feel. If you want numbers:</p>
   <ol class="steps">
     <li><b>Measure</b> the thickness of at least 3–4 bars with calipers (skip broken ones).</li>
-    <li><b>Plot</b> thickness against <code>ln(seconds)</code> (any spreadsheet; use the bar times from the table above). The points form a straight line — that’s the resin’s <i>working curve</i>.</li>
+    <li><b>Plot</b> thickness against <code>ln(seconds)</code> (any spreadsheet; use the bar times from the table above). The points form a straight line - that’s the resin’s <i>working curve</i>.</li>
     <li>The <b>slope</b> is D<sub>p</sub> (how deep light penetrates); where the line crosses zero thickness is E<sub>c</sub> (the minimum exposure that cures anything). Together: <code>depth = D<sub>p</sub> · ln(t / E<sub>c</sub>)</code>.</li>
-    <li><b>Read your time:</b> for reliable layer bonding you want the cure depth around <b>2× your layer height</b> (0.1 mm for 0.05 mm layers) — find where the line reaches that thickness and use that time as <i>Regular exposure</i>.</li>
+    <li><b>Read your time:</b> for reliable layer bonding you want the cure depth around <b>2× your layer height</b> (0.1 mm for 0.05 mm layers) - find where the line reaches that thickness and use that time as <i>Regular exposure</i>.</li>
   </ol>
-  <div class="note">💡 This is the same method resin manufacturers use to publish D<sub>p</sub>/E<sub>c</sub> — with a caliper and a strip you can characterize any unknown resin in one test.</div>
+  <div class="note">💡 This is the same method resin manufacturers use to publish D<sub>p</sub>/E<sub>c</sub> - with a caliper and a strip you can characterize any unknown resin in one test.</div>
 
   <h3 id="bootanim">Boot animations</h3>
-  <p>The printer can play a short animation on its screen at power-on — and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
+  <p>The printer can play a short animation on its screen at power-on - and you can swap it. Installed animations live on the SD card and are picked in two places:</p>
   <ul>
-    <li><b>On the printer:</b> System → Advanced → Display → <b>Boot animation</b> — <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
-    <li><b>In the dashboard:</b> Settings → the <b>Display</b> tab (it holds the boot animations and the 3D-preview options). Picking a row only <b>stages</b> the choice — press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
+    <li><b>On the printer:</b> System → Advanced → Display → <b>Boot animation</b> - <kbd>OK</kbd> cycles <i>Default</i> (the built-in logo), <i>Shuffle</i> and every installed animation.</li>
+    <li><b>In the dashboard:</b> Settings → the <b>Display</b> tab (it holds the boot animations and the 3D-preview options). Picking a row only <b>stages</b> the choice - press <b>Save config</b> to apply it. <b>Show</b> plays any installed animation on the printer’s screen right away (only while the printer is idle), and <b>Delete</b> removes its file from the SD card.</li>
   </ul>
   <img class="shot" style="max-width:378px" src="images/boot-animations.png" alt="Settings, Display tab: boot animations with Show and Delete, the staged selection, and Prepare 3D for all models">
   <p><b>Shuffle</b> (offered once two or more animations are installed) plays a random installed animation on every boot.</p>
   <p>Getting new animations onto the printer:</p>
   <ul>
-    <li><b>Default library:</b> below the installed list, the <b>Display</b> tab shows a small library hosted on the project’s GitHub Pages — press <b>Install</b> and the printer pulls the file onto the SD card. Installing does <b>not</b> select it — pick it and Save config when you’re ready.</li>
+    <li><b>Default library:</b> below the installed list, the <b>Display</b> tab shows a small library hosted on the project’s GitHub Pages - press <b>Install</b> and the printer pulls the file onto the SD card. Installing does <b>not</b> select it - pick it and Save config when you’re ready.</li>
     <li><b>From the community site:</b> browse the animation library in the Connect tab and install from there (WiFi and Web control must be on).</li>
     <li><b>By hand:</b> copy a <code>.tmb</code> animation file into the <code>/bootanim</code> folder on the SD card.</li>
   </ul>
-  <div class="note">💡 <b>Keep animations short — 2–4 seconds is the sweet spot.</b> The firmware hard-caps playback at 250 frames or 10 seconds (whichever comes first), and pressing <kbd>Back</kbd> skips the animation immediately.</div>
+  <div class="note">💡 <b>Keep animations short - 2–4 seconds is the sweet spot.</b> The firmware hard-caps playback at 250 frames or 10 seconds (whichever comes first), and pressing <kbd>Back</kbd> skips the animation immediately.</div>
   <h3>3D previews</h3>
-  <p>The second card on the same <b>Display</b> tab has nothing to do with animations. A model can only be turned in 3D once its layers have been decoded, and that happens by itself the first time you open it — roughly a minute — after which the result is stored next to the model on the SD card and never has to be done again.</p>
-  <p><b>Prepare 3D for all models</b> does the whole card in one go, so no model keeps you waiting later. It is quicker per model — about half a minute — because it prepares the lighter version that the list and the phone use; opening a model still fills in the full-resolution one. It runs only while the printer is idle and <b>stops by itself if a print starts</b>. Old flat thumbnails are replaced as it goes, which is the other reason to run it once after an update: the pictures in the model list are redrawn to match what the dashboard draws today.</p>
+  <p>The second card on the same <b>Display</b> tab has nothing to do with animations. A model can only be turned in 3D once its layers have been decoded, and that happens by itself the first time you open it - roughly a minute - after which the result is stored next to the model on the SD card and never has to be done again.</p>
+  <p><b>Prepare 3D for all models</b> does the whole card in one go, so no model keeps you waiting later. It is quicker per model - about half a minute - because it prepares the lighter version that the list and the phone use; opening a model still fills in the full-resolution one. It runs only while the printer is idle and <b>stops by itself if a print starts</b>. Old flat thumbnails are replaced as it goes, which is the other reason to run it once after an update: the pictures in the model list are redrawn to match what the dashboard draws today.</p>
   <p><i>Boot animations were contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>; Shuffle by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</i></p>
 
 <section>
@@ -704,9 +704,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <div class="warn">⚠️ <b>Know which way each one moves.</b> <i>Level Build Plate</i> drives the plate <b>down</b>, towards the screen. <i>Move Build Plate</i> goes wherever you tell it. Picking the wrong one with a part still on the plate is the one mistake here that can damage the FEP film or the LCD.</div>
 
   <h3 id="maint-level">Level Build Plate</h3>
-  <p>Homes the plate <b>downwards</b> until it sits flat on the screen, which is how the plate is squared up and its zero is set. The printer says so before it moves — a red screen reading <i>“Plate must be EMPTY. Homing goes DOWN.”</i></p>
+  <p>Homes the plate <b>downwards</b> until it sits flat on the screen, which is how the plate is squared up and its zero is set. The printer says so before it moves - a red screen reading <i>“Plate must be EMPTY. Homing goes DOWN.”</i></p>
   <ul>
-    <li><b>Take the printed part off the plate first</b>, and take the vat out (or make sure levelling is what you actually want) — the plate is going to travel all the way down.</li>
+    <li><b>Take the printed part off the plate first</b>, and take the vat out (or make sure levelling is what you actually want) - the plate is going to travel all the way down.</li>
     <li>Use it when prints stop sticking evenly, after you have removed or refitted the plate, or after transport.</li>
   </ul>
   <div class="warn">⚠️ <b>Never use Level Build Plate to rescue a print.</b> After a power cut, with a half-finished part still hanging on the plate, the instinct is to reach for the levelling item to get the plate up and out of the way. It goes <b>down</b> instead, and presses the part into the film. To raise the plate use <a href="#maint-move">Move Build Plate</a>, or the <b>Lift plate only</b> button on the <i>Power restored</i> screen (see <a href="#resin">Power-loss recovery</a>). <em>Found the hard way by a user, 2026.</em></div>
@@ -716,29 +716,29 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <ul>
     <li><b>Raising the plate after a power cut</b> so you can look at the part or take it off.</li>
     <li>Getting the plate clear before pulling the vat out.</li>
-    <li>Closing in on a position gently — 10&nbsp;mm to travel, 1&nbsp;mm to approach, 0.1&nbsp;mm for the last bit.</li>
+    <li>Closing in on a position gently - 10&nbsp;mm to travel, 1&nbsp;mm to approach, 0.1&nbsp;mm for the last bit.</li>
   </ul>
   <p><b>Both ends of the travel stop themselves, and say so.</b> Going up, the plate stops at the
-  top of its travel and the screen reads <b>Plate is at the top</b> — press Up again and nothing
+  top of its travel and the screen reads <b>Plate is at the top</b> - press Up again and nothing
   happens, which is the answer, not a fault. That is also where the plate stands right after every
   print, because the finishing lift parks it there. Going down, the moment the plate reaches the
   endstop the printer takes that as its <b>zero</b> and shows <b>Plate is home</b>: the height it
   reports is trustworthy again, exactly as after a homing run.</p>
-  <div class="note">💡 The ceiling applies only once the printer has homed — by a print, or by
+  <div class="note">💡 The ceiling applies only once the printer has homed - by a print, or by
   driving the plate down onto the endstop as above. Before that it has no idea where the bottom is,
   so it cannot know where the top is either, and it lets you move freely rather than guess. You can
   see which state it is in on the dashboard: <b>Plate height</b> reads <i>not homed</i> until there
   is a reference.</div>
 
   <h3 id="maint-clean">Clean Resin Vat</h3>
-  <p>Lights the <b>whole screen</b> for a set time, so everything left in the vat cures into one thin sheet you can lift out in one piece — instead of chasing hardened crumbs around with a spatula. Run it when you change resin, when a print has failed and left something behind, or before putting the printer away.</p>
+  <p>Lights the <b>whole screen</b> for a set time, so everything left in the vat cures into one thin sheet you can lift out in one piece - instead of chasing hardened crumbs around with a spatula. Run it when you change resin, when a print has failed and left something behind, or before putting the printer away.</p>
   <ol class="steps">
     <li><b>Take the build plate out</b> and leave the vat in place with the resin still in it.</li>
-    <li><b>Maintenance → Clean Resin Vat.</b> Set the exposure with the arrows — <b>30 to 60 seconds</b> — and start. Longer means a thicker, sturdier sheet; thin resin needs the longer end.</li>
+    <li><b>Maintenance → Clean Resin Vat.</b> Set the exposure with the arrows - <b>30 to 60 seconds</b> - and start. Longer means a thicker, sturdier sheet; thin resin needs the longer end.</li>
     <li>Wait for it to finish, then <b>lift the sheet by a corner</b> and peel it out slowly. <b>Gently flexing the vat</b> pops it loose if it clings.</li>
     <li>Wipe what is left with IPA and a soft paper towel, and check the film against the light: it should be clear, with nothing cured stuck to it.</li>
   </ol>
-  <div class="warn">⚠️ <b>Nothing hard in the vat, ever.</b> No blades, no metal spatulas, no scraping — the clear FEP film on the bottom scratches, and a scratched film prints marks into everything after it. If a sheet will not come loose, run another cleaning cycle rather than forcing it.</div>
+  <div class="warn">⚠️ <b>Nothing hard in the vat, ever.</b> No blades, no metal spatulas, no scraping - the clear FEP film on the bottom scratches, and a scratched film prints marks into everything after it. If a sheet will not come loose, run another cleaning cycle rather than forcing it.</div>
   <div class="note">💡 <b>Dry run makes this do nothing.</b> While <i>Dry run</i> is on, the UV LED stays off <b>everywhere</b>, this cycle included: the screen lights up, the timer runs, and no resin cures. Turn it off first (System → Advanced → Resin → Dry run) if the sheet never forms. Cleaning exposures do count towards the LED’s recorded hours, exactly like printing.</div>
   <div class="note">🧤 <b>Gloves on for all of this.</b> Uncured resin irritates skin, and a cured sheet still has liquid resin under it. Dispose of the sheet with your cured waste, not down a drain.</div>
 </section>
@@ -747,35 +747,35 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h2 class="sec" id="update"><span class="num">14</span>Updating the firmware and the slicer</h2>
   <div class="note">🔒 Firmware flashing is <b>blocked while printing</b>, and the web paths need <b>Web control</b> on. (PrusaSlicer upload is separate and works any time.)</div>
   <p><b>Two things update here, and they are separate.</b> The <b>firmware</b> is the printer itself
-  — installing one reboots it. The <b>browser slicer</b> is a module kept on the SD card: it carries its
+  - installing one reboots it. The <b>browser slicer</b> is a module kept on the SD card: it carries its
   own version and its own install button, and updating it never reboots the printer or interrupts a
   print. Both live in the same pane.</p>
   <p>Three ways to update the firmware:</p>
   <ul>
-    <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up — press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
-    <li><b>From the dashboard — Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
-    <li><b>For developers:</b> PlatformIO OTA via the <code>tinymaker-ota</code> environment (open System → Update on the printer first — that path keeps the strict gate).</li>
+    <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up - press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
+    <li><b>From the dashboard - Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
+    <li><b>For developers:</b> PlatformIO OTA via the <code>tinymaker-ota</code> environment (open System → Update on the printer first - that path keeps the strict gate).</li>
   </ul>
   <img class="shot" style="max-width:378px" src="images/firmware-update-page.png" alt="The dashboard Settings > Update pane: installed vs the stable channel, version picker, file upload and the Slicer module card">
-  <p>Two comforts while updating: the printer also <b>checks by itself</b> — shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available — Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back — no guessing whether it finished.</p>
+  <p>Two comforts while updating: the printer also <b>checks by itself</b> - shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available - Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back - no guessing whether it finished.</p>
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
-  <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware — a slicer update never reflashes the printer.</p>
+  <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware - a slicer update never reflashes the printer.</p>
 
   <p><b>While a print runs the card is locked</b>, and the printer will not read it
-  mid-layer &mdash; so the module card does not claim anything about what is installed: it says
+  mid-layer - so the module card does not claim anything about what is installed: it says
   the card cannot be read now, and copying resumes when the print ends. The same is true of the
   backup check in the <b>Backup</b> tab.</p>
 
   <h3>Backup &amp; restore</h3>
-  <p>Everything you have configured — print settings, device toggles, MQTT, even the lifetime print and UV LED counters — fits in one backup file. In the dashboard’s Settings → <b>Backup</b> tab:</p>
+  <p>Everything you have configured - print settings, device toggles, MQTT, even the lifetime print and UV LED counters - fits in one backup file. In the dashboard’s Settings → <b>Backup</b> tab:</p>
   <ul>
-    <li><b>Download backup</b> — saves <code>tinymaker-backup.json</code> to your computer.</li>
-    <li><b>Backup to SD</b> — stores the file on the printer’s SD card. <b>Do this before a full USB reflash:</b> the reflash wipes all settings, but on the first boot the printer finds the backup on the SD card and asks <i>“Restore settings from SD backup?”</i> — one press and everything is back. Settings shows <b>when</b> the SD backup was made, so you can tell at a glance whether it’s fresh.</li>
-    <li><b>Restore from SD</b> — applies the backup stored on the SD card at any time (the button is enabled only when one is present; while a print runs the card is locked, so the panel says it cannot check rather than claiming there is none).</li>
-    <li><b>Restore from file</b> — applies an uploaded backup at any time.</li>
+    <li><b>Download backup</b> - saves <code>tinymaker-backup.json</code> to your computer.</li>
+    <li><b>Backup to SD</b> - stores the file on the printer’s SD card. <b>Do this before a full USB reflash:</b> the reflash wipes all settings, but on the first boot the printer finds the backup on the SD card and asks <i>“Restore settings from SD backup?”</i> - one press and everything is back. Settings shows <b>when</b> the SD backup was made, so you can tell at a glance whether it’s fresh.</li>
+    <li><b>Restore from SD</b> - applies the backup stored on the SD card at any time (the button is enabled only when one is present; while a print runs the card is locked, so the panel says it cannot check rather than claiming there is none).</li>
+    <li><b>Restore from file</b> - applies an uploaded backup at any time.</li>
   </ul>
-  <p><b>Auto backup to TinyMaker Connect</b> (optional, for registered Connect users): a checkbox under Settings → <b>Network</b> → <i>TinyMaker Connect</i> keeps a backup on the Connect server after settings changes and after prints; the Backup tab then offers <b>Download from Connect</b> and <b>Restore from Connect</b>. Connect backups do <b>not</b> include the stored MQTT, notification or Connect secrets. When you register, save the <b>recovery code</b> (Retrieve / Copy buttons in the Connect section) — it restores your Connect profile if you ever reset the printer without a backup.</p>
-  <div class="note">💡 WiFi credentials are managed separately (by the WiFi setup portal) and are <b>not</b> in the backup — after a full USB reflash you reconnect to WiFi once, everything else restores. The backup includes your MQTT password, so treat the file accordingly.</div>
+  <p><b>Auto backup to TinyMaker Connect</b> (optional, for registered Connect users): a checkbox under Settings → <b>Network</b> → <i>TinyMaker Connect</i> keeps a backup on the Connect server after settings changes and after prints; the Backup tab then offers <b>Download from Connect</b> and <b>Restore from Connect</b>. Connect backups do <b>not</b> include the stored MQTT, notification or Connect secrets. When you register, save the <b>recovery code</b> (Retrieve / Copy buttons in the Connect section) - it restores your Connect profile if you ever reset the printer without a backup.</p>
+  <div class="note">💡 WiFi credentials are managed separately (by the WiFi setup portal) and are <b>not</b> in the backup - after a full USB reflash you reconnect to WiFi once, everything else restores. The backup includes your MQTT password, so treat the file accordingly.</div>
   <img class="shot" style="max-width:406px" src="images/settings-backup.png" alt="The Settings tab with the Backup &amp; restore buttons: Download backup, Backup to SD, Restore from file">
 </section>
 
@@ -784,11 +784,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Optional ways for the printer to reach you, all configured in the dashboard’s <b>Settings</b> tab (MQTT in the <i>Network</i> section, the messaging channels in <i>Notifications</i>).</p>
 
   <h3>Home Assistant (MQTT)</h3>
-  <p>Configure an MQTT broker and the printer publishes itself to Home Assistant with auto-discovery: print state, current layer, resin used, <b>resin left</b> + a <b>low-resin alert</b>, and run/remaining time — all as HA sensors you can put on dashboards or automate notifications on.</p>
+  <p>Configure an MQTT broker and the printer publishes itself to Home Assistant with auto-discovery: print state, current layer, resin used, <b>resin left</b> + a <b>low-resin alert</b>, and run/remaining time - all as HA sensors you can put on dashboards or automate notifications on.</p>
 
-  <h3>Phone notifications — pick a channel</h3>
-  <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice — <b>Off / Telegram / WhatsApp / Discord</b> — each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
-  <div class="note">Telegram is the one used daily here. <b>WhatsApp and Discord ship untested</b> — they run on your own CallMeBot key or channel webhook, so testing them with our setup would prove nothing about yours. If you try one, <a href="https://tinymakerwifi.com/feedback/">tell us how it went</a> — working or not, both are useful.</div>
+  <h3>Phone notifications - pick a channel</h3>
+  <p>No Home Assistant? The printer can message you directly when a print <b>finishes</b> (with the print time and resin used), <b>pauses for a low-resin refill</b>, or is <b>canceled</b>. In Settings → <b>Notifications</b> there is one choice - <b>Off / Telegram / WhatsApp / Discord</b> - each channel with its own <b>?</b> setup help and a <b>Send test message</b> button.</p>
+  <div class="note">Telegram is the one used daily here. <b>WhatsApp and Discord ship untested</b> - they run on your own CallMeBot key or channel webhook, so testing them with our setup would prove nothing about yours. If you try one, <a href="https://tinymakerwifi.com/feedback/">tell us how it went</a> - working or not, both are useful.</div>
   <p><b>Did the last message actually arrive?</b> Under the channel picker the dashboard shows the
   result of the printer&rsquo;s last <i>automatic</i> message - <i>&ldquo;Last automatic message:
   delivered 5 min ago&rdquo;</i>, or <b>NOT delivered</b> with the reason. It says <i>automatic</i>
@@ -798,46 +798,46 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   automatic message to report on.</p>
 
   <h3 id="telegram">Telegram</h3>
-  <p>Setup takes two minutes — the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
+  <p>Setup takes two minutes - the same steps are shown inline in the dashboard (the <b>?</b> help next to the Telegram choice):</p>
   <ol class="steps">
     <li><b>Create a bot:</b> in Telegram, message <a href="https://t.me/BotFather"><b>@BotFather</b></a>, send <code>/newbot</code>, follow the prompts, and paste the token into <b>Bot token</b> (Settings → <i>Notifications</i> → <b>Telegram</b>).</li>
-    <li><b>Open your new bot and press Start</b> (or send it any message) — a bot can’t message you until you do.</li>
-    <li><b>Get your Chat ID:</b> open a chat with <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> — a <i>separate</i> bot, search “userinfobot” in Telegram — and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li>
-    <li><b>Save config</b>, then press <b>“Send test message”</b> — it should arrive within a few seconds.</li>
+    <li><b>Open your new bot and press Start</b> (or send it any message) - a bot can’t message you until you do.</li>
+    <li><b>Get your Chat ID:</b> open a chat with <a href="https://t.me/userinfobot"><b>@userinfobot</b></a> - a <i>separate</i> bot, search “userinfobot” in Telegram - and press <b>Start</b>; it replies with your numeric <b>Id</b>, which is your <b>Chat ID</b>. (For a group, add <b>@RawDataBot</b> to the group and use the negative id it prints.)</li>
+    <li><b>Save config</b>, then press <b>“Send test message”</b> - it should arrive within a few seconds.</li>
   </ol>
-  <div class="note">🔒 The bot token is a secret — the dashboard never shows it back, only its last four characters (<i>ends in XXXX</i>), and it is included in your settings backup, so treat the backup file accordingly. The printer talks directly to Telegram over HTTPS; nothing goes through third-party servers.</div>
+  <div class="note">🔒 The bot token is a secret - the dashboard never shows it back, only its last four characters (<i>ends in XXXX</i>), and it is included in your settings backup, so treat the backup file accordingly. The printer talks directly to Telegram over HTTPS; nothing goes through third-party servers.</div>
 
   <h3 id="whatsapp">WhatsApp (via CallMeBot)</h3>
-  <p>WhatsApp messages go through the free <b>CallMeBot</b> gateway — a one-time activation from your phone:</p>
+  <p>WhatsApp messages go through the free <b>CallMeBot</b> gateway - a one-time activation from your phone:</p>
   <ol class="steps">
     <li>Open <b>callmebot.com</b> → <i>WhatsApp text messages</i> and add the bot’s current phone number to your contacts.</li>
     <li>Send it the message <b>“I allow callmebot to send me messages”</b> from your WhatsApp.</li>
-    <li>It replies with your personal <b>API key</b> — enter it in Settings → <i>Notifications</i> → <b>WhatsApp</b>, together with your phone number (with country code).</li>
+    <li>It replies with your personal <b>API key</b> - enter it in Settings → <i>Notifications</i> → <b>WhatsApp</b>, together with your phone number (with country code).</li>
     <li><b>Save config</b>, then <b>Send test message</b>.</li>
   </ol>
-  <div class="note">💡 Unlike Telegram, WhatsApp messages travel through the CallMeBot gateway (a third-party service) — that is what makes a bot-free WhatsApp setup possible.</div>
+  <div class="note">💡 Unlike Telegram, WhatsApp messages travel through the CallMeBot gateway (a third-party service) - that is what makes a bot-free WhatsApp setup possible.</div>
 
   <h3 id="discord">Discord (webhook)</h3>
-  <p>Discord needs no bot at all — just a channel webhook:</p>
+  <p>Discord needs no bot at all - just a channel webhook:</p>
   <ol class="steps">
     <li>In your Discord server open <b>Server Settings → Integrations → Webhooks</b>.</li>
-    <li><b>New Webhook</b> — pick the channel the printer should post to, then <b>Copy Webhook URL</b>.</li>
+    <li><b>New Webhook</b> - pick the channel the printer should post to, then <b>Copy Webhook URL</b>.</li>
     <li>Paste the URL in Settings → <i>Notifications</i> → <b>Discord</b>, <b>Save config</b>, then <b>Send test message</b>.</li>
   </ol>
-  <div class="note">🔒 The webhook URL is a secret — anyone holding it can post to that channel. The printer talks to Discord directly.</div>
+  <div class="note">🔒 The webhook URL is a secret - anyone holding it can post to that channel. The printer talks to Discord directly.</div>
 </section>
 
 <section>
   <h2 class="sec" id="faq"><span class="num">16</span>Troubleshooting &amp; FAQ</h2>
 
   <h3>The printer won’t connect to WiFi</h3>
-  <p>After 15&nbsp;s it boots offline — SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
+  <p>After 15&nbsp;s it boots offline - SD printing still works. To retry, reset WiFi (System → WiFi Info → OK, or hold <kbd>Back</kbd> while powering on) and set it up again.</p>
 
   <h3>Where do I find the printer’s IP address?</h3>
-  <p><b>System → WiFi Info</b> on the printer — it always shows the connected network, signal strength and IP. (The boot screen only shows the IP after the first-time portal setup; on routine boots the signal bars just turn green.) On most networks <code>tinymaker.local</code> works instead of the IP.</p>
+  <p><b>System → WiFi Info</b> on the printer - it always shows the connected network, signal strength and IP. (The boot screen only shows the IP after the first-time portal setup; on routine boots the signal bars just turn green.) On most networks <code>tinymaker.local</code> works instead of the IP.</p>
 
   <h3>What SD cards work?</h3>
-  <p>Format the card as <b>FAT32</b> and keep it <b>32&nbsp;GB or smaller</b> — exFAT and NTFS aren’t read, and cards larger than 32&nbsp;GB can’t be FAT32 without reformatting. A class-10 card is plenty. Copy <code>.sl1</code>/<code>.zip</code> archives into the card’s <b>root</b> (not a sub-folder).</p>
+  <p>Format the card as <b>FAT32</b> and keep it <b>32&nbsp;GB or smaller</b> - exFAT and NTFS aren’t read, and cards larger than 32&nbsp;GB can’t be FAT32 without reformatting. A class-10 card is plenty. Copy <code>.sl1</code>/<code>.zip</code> archives into the card’s <b>root</b> (not a sub-folder).</p>
 
   <h3>PrusaSlicer “Test” fails</h3>
   <p>Check the printer is on and shows a green dot / an IP under System → WiFi Info. Use that IP if <code>tinymaker.local</code> doesn’t resolve on your network. The API key value doesn’t matter.</p>
@@ -846,16 +846,16 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p><b>Web control</b> is off. Turn it back on on the printer: System → Advanced → Web control. (Slicer upload and MQTT are unaffected by this switch.)</p>
 
   <h3>My print looks half-height, flat or squashed</h3>
-  <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design. If parts come out <b>flat or the wrong height</b>, open PrusaSlicer’s <b>Print settings</b> and confirm the <b>layer height actually reads 0.05&nbsp;mm</b> — a PrusaSlicer update or picking the wrong preset can silently reset it, and the printer can’t tell from the file, so it just prints wrong without a warning.</p>
+  <p>Slice with the <b>0.05&nbsp;mm</b> profile. At a 0.10&nbsp;mm setting the printer uses every other image by design. If parts come out <b>flat or the wrong height</b>, open PrusaSlicer’s <b>Print settings</b> and confirm the <b>layer height actually reads 0.05&nbsp;mm</b> - a PrusaSlicer update or picking the wrong preset can silently reset it, and the printer can’t tell from the file, so it just prints wrong without a warning.</p>
 
   <h3>“Resin left” looks wrong</h3>
   <p>It’s an estimate that only counts confirmed refills. Press <b>Set VAT full</b> after a full refill, and keep <b>Ask refill</b> on so it stays honest.</p>
 
   <h3>What do I do after a print? (washing &amp; curing)</h3>
-  <p>Parts come off the plate <b>wet and only partly cured</b>. Rinse them in <b>isopropyl alcohol</b> (IPA) — two baths help: a dirty one first, a clean one second — then let them dry. Only then <b>UV-cure</b> them (sunlight or a curing station) until hard. A <b>matte, chalky surface</b> is usually over-curing or too much sun — cure in shorter bursts and check often. Always wear gloves; uncured resin is a skin irritant.</p>
+  <p>Parts come off the plate <b>wet and only partly cured</b>. Rinse them in <b>isopropyl alcohol</b> (IPA) - two baths help: a dirty one first, a clean one second - then let them dry. Only then <b>UV-cure</b> them (sunlight or a curing station) until hard. A <b>matte, chalky surface</b> is usually over-curing or too much sun - cure in shorter bursts and check often. Always wear gloves; uncured resin is a skin irritant.</p>
 
   <h3>How do I clean the resin VAT?</h3>
-  <p>When changing resin or storing the printer, pour the resin back through a <b>paint filter</b> into its bottle, then wipe the VAT with IPA and a soft <b>paper towel</b> — never anything hard: the clear <b>FEP film</b> on the bottom scratches easily. Held to the light the FEP should be clear, with no cured skin or cloudiness stuck to it; gently <b>flexing</b> the VAT pops leftover cured bits loose so you can peel them off by hand, not with a scraper.</p>
+  <p>When changing resin or storing the printer, pour the resin back through a <b>paint filter</b> into its bottle, then wipe the VAT with IPA and a soft <b>paper towel</b> - never anything hard: the clear <b>FEP film</b> on the bottom scratches easily. Held to the light the FEP should be clear, with no cured skin or cloudiness stuck to it; gently <b>flexing</b> the VAT pops leftover cured bits loose so you can peel them off by hand, not with a scraper.</p>
 
   <h3>The web flasher stops with “ERROR: Timeout”</h3>
   <p>Almost always the transfer speed, not the browser: set the flasher’s <b>Baud rate</b> to <code>115200</code> and flash again. Cable, hub and driver checks are in <a href="#install-timeout">Installing the firmware</a>.</p>
@@ -867,35 +867,35 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Before flashing: dashboard → Settings → <b>Backup to SD</b>. After the reflash the printer finds the backup on the SD card and offers to restore it on first boot. Only WiFi needs to be set up again.</p>
 
   <h3 id="faq-connect">What is TinyMaker Connect, and do I need it?</h3>
-  <p><b>No, you do not need it</b> — everything in this manual works without it. Connect is an <b>optional online service</b> (built by <a href="https://github.com/Briadark">Brian Karmelk</a>) that the printer can register with. What it adds: your settings backed up off the printer, a <b>recovery code</b> to get that profile back after a factory reset, and a way to <b>share a model</b> from the preview. It is switched on in Settings → <b>Network</b> → <i>TinyMaker Connect</i>; until you register, the Connect tab is not even shown. Leaving it off costs you nothing but those extras.</p>
+  <p><b>No, you do not need it</b> - everything in this manual works without it. Connect is an <b>optional online service</b> (built by <a href="https://github.com/Briadark">Brian Karmelk</a>) that the printer can register with. What it adds: your settings backed up off the printer, a <b>recovery code</b> to get that profile back after a factory reset, and a way to <b>share a model</b> from the preview. It is switched on in Settings → <b>Network</b> → <i>TinyMaker Connect</i>; until you register, the Connect tab is not even shown. Leaving it off costs you nothing but those extras.</p>
 
   <h3 id="faq-remote">Can I reach the printer when I am not at home?</h3>
-  <p>The dashboard is <b>LAN-only and has no password</b> — anyone who can reach the address can start and stop prints. So there are two safe ways and one that is not:</p>
+  <p>The dashboard is <b>LAN-only and has no password</b> - anyone who can reach the address can start and stop prints. So there are two safe ways and one that is not:</p>
   <ul>
-    <li><b>TinyMaker Connect</b> — the printer connects <i>outwards</i> to the service, so nothing on your router has to be opened.</li>
-    <li><b>A VPN into your own network</b> (Tailscale, WireGuard, your router’s own VPN) — your phone joins the home network from anywhere and the dashboard works exactly as it does at home. Nothing of ours is involved.</li>
+    <li><b>TinyMaker Connect</b> - the printer connects <i>outwards</i> to the service, so nothing on your router has to be opened.</li>
+    <li><b>A VPN into your own network</b> (Tailscale, WireGuard, your router’s own VPN) - your phone joins the home network from anywhere and the dashboard works exactly as it does at home. Nothing of ours is involved.</li>
   </ul>
-  <div class="warn">⚠️ <b>Do not port-forward the printer to the internet</b>, and do not point a dynamic-DNS name at it. There is no login to stop anyone who finds it — and what they find is a machine that cures resin with a UV light. If you want access from outside, use one of the two ways above.</div>
+  <div class="warn">⚠️ <b>Do not port-forward the printer to the internet</b>, and do not point a dynamic-DNS name at it. There is no login to stop anyone who finds it - and what they find is a machine that cures resin with a UV light. If you want access from outside, use one of the two ways above.</div>
 
   <h3>How do I go fully offline?</h3>
   <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
 
   <h3 id="faq-ping">What does the “Anonymous usage ping” send?</h3>
-  <p>Once per firmware version — on the first boot after a flash — the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. Nothing else, ever — no models, no settings, no network details. It feeds the <i>“N printers running TinyMakerWifi”</i> counter. To opt out, untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
+  <p>Once per firmware version - on the first boot after a flash - the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. Nothing else, ever - no models, no settings, no network details. It feeds the <i>“N printers running TinyMakerWifi”</i> counter. To opt out, untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
 </section>
 
 <section>
   <h2 class="sec" id="credits">Credits</h2>
-  <p><b>TinyMakerWifi</b> — the WiFi, wireless-upload and over-the-air-update firmware described in this manual — is created and maintained by <b>Viktoras Šidlauskas</b> (<a href="https://github.com/slibbinas">@slibbinas</a>): the WiFi stack, wireless upload, OTA self-update, the 3D model preview &amp; live print progress, and the resin estimation &amp; VAT tracking.</p>
+  <p><b>TinyMakerWifi</b> - the WiFi, wireless-upload and over-the-air-update firmware described in this manual - is created and maintained by <b>Viktoras Šidlauskas</b> (<a href="https://github.com/slibbinas">@slibbinas</a>): the WiFi stack, wireless upload, OTA self-update, the 3D model preview &amp; live print progress, and the resin estimation &amp; VAT tracking.</p>
   <ul>
-    <li><b>The initial web dashboard, the Advanced menu</b> (WiFi &amp; Web-control switches), <b>the web flasher, safe model imports and TinyMaker Connect</b> (with auto-backup &amp; recovery) — contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
-    <li><b>Boot animations</b> (the on-device library, playback and one-click install) — contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>.</li>
-    <li><b>The browser slicer’s engine</b> is PrusaSlicer’s <b>libslic3r</b> 2.9.6 (© Prusa Research a.s.), compiled to WebAssembly from the <b>unmodified</b> upstream sources — tag <code>version_2.9.6</code>, commit <code>b028299</code> — and used under the <b>GNU AGPL-3.0</b>. Everything else in TinyMakerWifi stays MIT-licensed;
+    <li><b>The initial web dashboard, the Advanced menu</b> (WiFi &amp; Web-control switches), <b>the web flasher, safe model imports and TinyMaker Connect</b> (with auto-backup &amp; recovery) - contributed by <a href="https://github.com/Briadark">Brian Karmelk (@Briadark)</a>.</li>
+    <li><b>Boot animations</b> (the on-device library, playback and one-click install) - contributed by <a href="https://github.com/Tann2019">Tanner Steorts (@Tann2019)</a>.</li>
+    <li><b>The browser slicer’s engine</b> is PrusaSlicer’s <b>libslic3r</b> 2.9.6 (© Prusa Research a.s.), compiled to WebAssembly from the <b>unmodified</b> upstream sources - tag <code>version_2.9.6</code>, commit <code>b028299</code> - and used under the <b>GNU AGPL-3.0</b>. Everything else in TinyMakerWifi stays MIT-licensed;
   the two are separate programs that ship side by side.</li>
-    <li><b>Original TinyMaker firmware &amp; printer</b> — by the <a href="https://tinymaker3d.com/">TinyMaker3D Team</a>.</li>
+    <li><b>Original TinyMaker firmware &amp; printer</b> - by the <a href="https://tinymaker3d.com/">TinyMaker3D Team</a>.</li>
     <li>Additional fixes, testing and ideas from the TinyMaker community.</li>
   </ul>
-  <p>The firmware is MIT-licensed; the TinyMaker hardware is CC BY-NC-SA 4.0. If TinyMakerWifi is useful to you, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy me a coffee</a> — thank you!</p>
+  <p>The firmware is MIT-licensed; the TinyMaker hardware is CC BY-NC-SA 4.0. If TinyMakerWifi is useful to you, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy me a coffee</a> - thank you!</p>
 </section>
 
 </div>
