@@ -2879,7 +2879,9 @@ const applyStatus=s=>{
        siusdavo antra to paties saraso uzklausa, o kiekviena is ju skaito SD kataloga.
        Salyga dabar atitinka tai, ka ir sako komentaras salia: atnaujinam, kai darbas
        BAIGESI. Pradzioje atnaujinti beprasmiska - tada SD atsako 409. */
-    if(was===true&&!s.busy&&!sdJob){loadFiles();loadConfig();loadResinProfiles();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
+    /* icoMissing.clear(): a row whose icon request hit the busy printer marked itself
+       "no icon" for the life of the page, so old models stayed blank after the print (V 09-10). */
+    if(was===true&&!s.busy&&!sdJob){icoMissing.clear();loadFiles();loadConfig();loadResinProfiles();loadBootAnims();}   // during a job the SD answers 409 - refresh fires when it ends
     prevBusyPrint=busyPrint;   // paskutinis dalykas: kita apklausa is cia mato perejima
 };
 const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
