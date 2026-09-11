@@ -223,8 +223,15 @@ void resumeRaisePlateAndDiscard() {
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  gfx2->setCursor(8, 44);
-  gfx2->print("Raising plate...");
+  /* Two lines on the 160 px screen (no frame here, just fillScreen): the plate is about
+     to move on an ESTIMATED height, so the operator is told to watch it and how to stop
+     it (V 2026-09-12). Measured from FreeSans8pt7b: "Raising plate." at x=8 ends at 102,
+     "Watch it - BACK stops" is 155 px of ink - at x=8 it would run 3 px off the edge, so
+     it starts at x=2 (audit 2026-09-12). */
+  gfx2->setCursor(8, 30);
+  gfx2->print("Raising plate.");
+  gfx2->setCursor(2, 56);
+  gfx2->print("Watch it - BACK stops");
 
   // Discard the checkpoint BEFORE moving: UP = "do not resume", so a power
   // loss (or watchdog reset) mid-raise must not re-prompt a resume with an
@@ -241,20 +248,37 @@ void resumeRaisePlateAndDiscard() {
   long liftSteps = (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm);
   stepper.setMaxSpeed(Slow_Lift_Feedrate * steps_mm / 60);
   stepper.move(liftSteps);
-  while (stepper.distanceToGo() != 0) stepper.run();
+  /* BACK stops the move, the same as the manual jog (Motor.ino). Without it the
+     "watch it" on screen would be an empty word: the height under these moves is an
+     estimate, and only the operator can see the plate nearing the top (V 2026-09-12). */
+  bool stopped = false;
+  while (stepper.distanceToGo() != 0) {
+    stepper.run();
+    if (digitalRead(buttonBack) == LOW) { stopped = true; break; }
+  }
   delay(50);
 
-  // Then up to the pause-style park: +20mm over the checkpoint, clamped.
-  long maxSteps = (long)(max_height * steps_mm);
+  /* Then up to the pause-style park: +20mm over the checkpoint, clamped 6 mm BELOW
+     max_height. The checkpoint is an estimate kept low by up to the peel distance
+     (2-6 mm), and only 3 mm of Z travel exist above max_height (measured 2026-09-12),
+     so clamping to the full 68 mm could drive the plate into the top. */
+  long maxSteps = (long)((max_height - 6) * steps_mm);
   long target = resumePosSteps + (long)(20 * steps_mm);
   if (target > maxSteps) target = maxSteps;
-  if (target > stepper.currentPosition()) {
+  if (!stopped && target > stepper.currentPosition()) {
     stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
     stepper.moveTo(target);
-    while (stepper.distanceToGo() != 0) stepper.run();
+    while (stepper.distanceToGo() != 0) {
+      stepper.run();
+      if (digitalRead(buttonBack) == LOW) { stopped = true; break; }
+    }
   }
   stepper.disableOutputs();
   delay(200);
+  /* Stopped by hand: the plate stands wherever it stopped and can still be stuck to the
+     FEP, and the boot path draws the menu right after this - without a word the operator
+     would get no hint that the plate is theirs to raise (audit 2026-09-12). */
+  if (stopped) screenPlateNote("Raise the plate");
 }
 
 /**
