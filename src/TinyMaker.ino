@@ -3032,17 +3032,21 @@ void loop() {
               }
               stepper.disableOutputs();
               delay(10);
+              // Back at the post-lift height; the drop to the next layer
+              // follows - same uncertainty window as a normal peel cycle.
+              // Written even when a Stop landed during the travel: the plate IS down
+              // here now, and the pause's 'P' record would put it ~20 mm higher for a
+              // power-loss recovery - which would then drive it into the part (audit
+              // 2026-09-11). Outside the condition below on purpose.
+              resumeCheckpointAt('M', Position_before_pause -
+                  (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
               /* A web/Connect Stop can land during this travel too (it answers HTTP but
                  reads no buttons): requestPrintStop() sets state 4, clears print_paused and
                  greys the icons. Redrawing the live icons on top of that showed active
                  buttons over "Canceling..." for the whole final lift (audit 2026-09-11, the
                  same shape as the pause-lift fix above). Only a resume that still stands
-                 gets its checkpoint and live icons back. */
+                 gets its live icons back. */
               if (print_paused) {
-                // Back at the post-lift height; the drop to the next layer
-                // follows - same uncertainty window as a normal peel cycle.
-                resumeCheckpointAt('M', Position_before_pause -
-                    (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
                 gfx2->fillRect(136, 12, 16, 16, RED);
                 gfx2->fillRect(136, 52, 6, 16, YELLOW);
                 gfx2->fillRect(146, 52, 6, 16, YELLOW);
