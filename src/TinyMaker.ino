@@ -2860,6 +2860,12 @@ void loop() {
             }
             #endif
             Position_before_pause = stepper.currentPosition();
+            /* No resume across this lift (V 2026-09-12: if resuming could damage the
+               printer or the part, drop the record). During the 20-40 mm rise the card
+               still holds the lower cycle height; "Lift plate only" at the boot prompt
+               would then add 20 mm on top of the real height and could hit the top.
+               The exact 'P' record is written once the plate is parked. */
+            resumeClear();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
             /* Three cases, not two. The plain lift fits, or it is trimmed to the
@@ -2869,7 +2875,10 @@ void loop() {
                drive the plate DOWNWARDS, into the part, in the middle of a print
                (audit 09-05, same shape as manual_lift). */
             {
-              const long ceilingSteps = (long)(max_height * steps_mm);
+              /* After a power-loss resume the height is an estimate kept LOW by up to the
+                 peel distance (2-6 mm), so a pause near the top could lift the plate that
+                 far past 68 mm. Unhomed, the ceiling is 6 mm lower: 62 mm (V 2026-09-12). */
+              const long ceilingSteps = (long)((zHomed ? max_height : max_height - 6) * steps_mm);
               const long wanted = Position_before_pause + (long)(pauseLiftMm * steps_mm);
               if (wanted <= ceilingSteps)
                 stepper.move(pauseLiftMm * steps_mm);
@@ -2910,19 +2919,28 @@ void loop() {
             stepper.disableOutputs();
             delay(10); 
 
-            current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
             pauseLiftForResin = false;   // the lift is over; the parked state has its own text
-            phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
-            bool lowResinNotifyPending = lowResinPauseNow;
-            lowResinPauseNow = false;
-            saveVatRemaining();   // checkpoint at the pause point
-            resumeCheckpoint('P');  // parked position is exact
-            screen1111_state();
-            gfx2->fillRect(136, 12, 16, 16, RED);
-            gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
-            gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
-            gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
-            screen1111DOWN();
+            /* Park only if the pause still stands. The lift answers HTTP but reads no
+               buttons, so a web/Connect Stop can land mid-lift: requestPrintStop() sets state 4
+               and clears print_paused. Parking on top of it showed "Paused" with Resume live on
+               the dashboard and the pause icons on the LCD for the whole ~24 s final lift (and a
+               resin pause would still send its Telegram) - measured 2026-09-11. Checked as
+               print_paused, not print_canceled: that is the flag the loop below waits on, so a
+               parked pause can never be left without its loop. */
+            bool lowResinNotifyPending = false;
+            if (print_paused) {
+              current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+              phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
+              lowResinNotifyPending = lowResinPauseNow;
+              saveVatRemaining();   // checkpoint at the pause point
+              resumeCheckpoint('P');  // parked position is exact
+              screen1111_state();
+              gfx2->fillRect(136, 12, 16, 16, RED);
+              gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
+              gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
+              gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
+              screen1111DOWN();
+            }
             #if ENABLE_NETWORK
             // Notify only after the checkpoint is saved and the pause UI is
             // drawn: on weak WiFi the blocking send can hold the loop for
@@ -2980,7 +2998,12 @@ void loop() {
               print_canceled = true;
               publishStopEstimate(wasPhase);
               print_paused = false;
-              }  
+              // A web Resume that arrived in this same pass must not win over the Stop just
+              // confirmed here: requestPrintStop() clears it on the web path, this button
+              // path did not, so the branch below would still start the travel (audit
+              // 2026-09-11).
+              webResumePrint = false;
+              }
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
               /* On the printer the confirm box IS the refill acknowledgement: during a
                  resin pause it asks "VAT filled full?", and the paused screen has no other
@@ -2995,6 +3018,11 @@ void loop() {
               gfx2->fillRect(136, 52, 6, 16, 0x8410);
               gfx2->fillRect(146, 52, 6, 16, 0x8410);
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
+              /* No resume across this travel either: the card says 'P' at the pause height
+                 while the plate is already on its way down, so a resume after a power cut
+                 here would drive the part into the FEP and the screen below it. The 'M'
+                 record is written again once the plate is down (V 2026-09-12). */
+              resumeClear();
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);
@@ -3025,13 +3053,25 @@ void loop() {
               delay(10);
               // Back at the post-lift height; the drop to the next layer
               // follows - same uncertainty window as a normal peel cycle.
+              // Written even when a Stop landed during the travel: the plate IS down
+              // here now, and the pause's 'P' record would put it ~20 mm higher for a
+              // power-loss recovery - which would then drive it into the part (audit
+              // 2026-09-11). Outside the condition below on purpose.
               resumeCheckpointAt('M', Position_before_pause -
                   (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
-              gfx2->fillRect(136, 12, 16, 16, RED);
-              gfx2->fillRect(136, 52, 6, 16, YELLOW);
-              gfx2->fillRect(146, 52, 6, 16, YELLOW); 
-              gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
-              print_paused = false;    
+              /* A web/Connect Stop can land during this travel too (it answers HTTP but
+                 reads no buttons): requestPrintStop() sets state 4, clears print_paused and
+                 greys the icons. Redrawing the live icons on top of that showed active
+                 buttons over "Canceling..." for the whole final lift (audit 2026-09-11, the
+                 same shape as the pause-lift fix above). Only a resume that still stands
+                 gets its live icons back. */
+              if (print_paused) {
+                gfx2->fillRect(136, 12, 16, 16, RED);
+                gfx2->fillRect(136, 52, 6, 16, YELLOW);
+                gfx2->fillRect(146, 52, 6, 16, YELLOW);
+                gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
+              }
+              print_paused = false;
               }       
             }                     
           }
