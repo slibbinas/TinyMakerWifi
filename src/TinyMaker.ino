@@ -2989,7 +2989,12 @@ void loop() {
               print_canceled = true;
               publishStopEstimate(wasPhase);
               print_paused = false;
-              }  
+              // A web Resume that arrived in this same pass must not win over the Stop just
+              // confirmed here: requestPrintStop() clears it on the web path, this button
+              // path did not, so the branch below would still start the travel (audit
+              // 2026-09-11).
+              webResumePrint = false;
+              }
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
               /* On the printer the confirm box IS the refill acknowledgement: during a
                  resin pause it asks "VAT filled full?", and the paused screen has no other
@@ -3004,6 +3009,15 @@ void loop() {
               gfx2->fillRect(136, 52, 6, 16, 0x8410);
               gfx2->fillRect(146, 52, 6, 16, 0x8410);
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
+              /* The plate is about to travel ~20 mm down while the record on the card still
+                 says 'P' at the pause height. A power loss during the travel would relabel
+                 the plate as that height and drive it down into the part. Write the cycle
+                 base as 'M' first: it is at or below the plate for the whole travel, so a
+                 recovery can only err upward (a gap, not a crash) - the invariant the peel
+                 moves keep (Resume.ino). The same value is written again after the travel.
+                 (Audit 2026-09-11; the 'P' window dates from the resume feature.) */
+              resumeCheckpointAt('M', Position_before_pause -
+                  (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);
