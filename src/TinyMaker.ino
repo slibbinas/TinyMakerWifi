@@ -2910,11 +2910,18 @@ void loop() {
             stepper.disableOutputs();
             delay(10); 
 
-            current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
             pauseLiftForResin = false;   // the lift is over; the parked state has its own text
+            /* Stop pressed while the plate was rising. The lift answers HTTP but reads no
+               buttons, so this is a web/MQTT/Connect stop: requestPrintStop() has already set
+               state 4 and cleared print_paused. Parking the pause on top of it showed "Paused"
+               with Resume live on the dashboard and the pause icons on the LCD for the whole
+               ~24 s final lift (and a resin pause would still send its Telegram) - measured
+               2026-09-11. A stopped print does not park: it stays "Canceling". */
+            bool lowResinNotifyPending = false;
+            if (!print_canceled) {
+            current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
             phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
-            bool lowResinNotifyPending = lowResinPauseNow;
-            lowResinPauseNow = false;
+            lowResinNotifyPending = lowResinPauseNow;
             saveVatRemaining();   // checkpoint at the pause point
             resumeCheckpoint('P');  // parked position is exact
             screen1111_state();
@@ -2923,6 +2930,8 @@ void loop() {
             gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
             gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
             screen1111DOWN();
+            }
+            lowResinPauseNow = false;
             #if ENABLE_NETWORK
             // Notify only after the checkpoint is saved and the pause UI is
             // drawn: on weak WiFi the blocking send can hold the loop for
