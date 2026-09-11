@@ -13,7 +13,7 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased]
+## [0.17.1] - 2026-09-12 (beta)
 
 ### Fixed
 
