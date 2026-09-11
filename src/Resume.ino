@@ -223,12 +223,14 @@ void resumeRaisePlateAndDiscard() {
   gfx2->setFont(&FreeSans8pt7b);
   gfx2->setTextColor(WHITE);
   gfx2->setTextSize(1);
-  /* Two lines, both inside the 156 px frame: the plate is about to move on an
-     ESTIMATED height, so the operator is told to watch it and how to stop it
-     (V 2026-09-12). Widths against "Plate is at the top" = 119 px for 19 chars. */
+  /* Two lines on the 160 px screen (no frame here, just fillScreen): the plate is about
+     to move on an ESTIMATED height, so the operator is told to watch it and how to stop
+     it (V 2026-09-12). Measured from FreeSans8pt7b: "Raising plate." at x=8 ends at 102,
+     "Watch it - BACK stops" is 155 px of ink - at x=8 it would run 3 px off the edge, so
+     it starts at x=2 (audit 2026-09-12). */
   gfx2->setCursor(8, 30);
   gfx2->print("Raising plate.");
-  gfx2->setCursor(8, 56);
+  gfx2->setCursor(2, 56);
   gfx2->print("Watch it - BACK stops");
 
   // Discard the checkpoint BEFORE moving: UP = "do not resume", so a power
@@ -268,11 +270,15 @@ void resumeRaisePlateAndDiscard() {
     stepper.moveTo(target);
     while (stepper.distanceToGo() != 0) {
       stepper.run();
-      if (digitalRead(buttonBack) == LOW) break;
+      if (digitalRead(buttonBack) == LOW) { stopped = true; break; }
     }
   }
   stepper.disableOutputs();
   delay(200);
+  /* Stopped by hand: the plate stands wherever it stopped and can still be stuck to the
+     FEP, and the boot path draws the menu right after this - without a word the operator
+     would get no hint that the plate is theirs to raise (audit 2026-09-12). */
+  if (stopped) screenPlateNote("Raise the plate");
 }
 
 /**
