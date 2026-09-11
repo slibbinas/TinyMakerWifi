@@ -13,6 +13,18 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased]
+
+### Fixed
+
+- **A dashboard Stop pressed while the plate rose into a pause showed "Paused".** The
+  print did stop, but once the plate reached the pause height the pause was parked
+  anyway: for the ~24 s final lift the dashboard said "Paused" with **Resume** live and
+  the printer screen showed the pause icons (a resin pause would also have sent its
+  refill message to Telegram). A stopped print now stays "Canceling..." to the end.
+  Stop from the printer's own buttons was not affected - they are not read during that
+  lift.
+
 ## [0.17.0] - 2026-09-11 (beta)
 
 ### Added
