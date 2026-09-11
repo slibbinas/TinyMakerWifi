@@ -30,7 +30,11 @@ var STATUS={ok:true,firmwareVersion:'0.17.0',firmwareBuild:'demo',busy:false,pau
   model:'',currentLayer:0,totalLayers:0,layerText:'0 / 0',resinUsedMl:0,
   resinText:'0.0 ml',runSecs:0,runTime:'0m 0s',remainingSecs:0,remainingTime:'0m 0s',
   webControl:true,askRefill:true,vatRemainingMl:15.0,vatText:'15.0 ml',vatLow:false,
-  freeHeap:181080,minFreeHeap:126952,maxAllocHeap:110580,uptimeSecs:33};
+  freeHeap:181080,minFreeHeap:126952,maxAllocHeap:110580,uptimeSecs:33,
+  // 0.17 SL-mod: the slicer card only exists while the printer says the module
+  // is on. A real printer ships with it off; the demo shows it on, since the
+  // landing page promises slicing in the browser.
+  slicerOn:true};
 
 var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposure:14,
   prevRegularExposure:0,baseLayers:2,transitionLayers:5,slowLiftDistance:1,
@@ -48,16 +52,22 @@ var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposur
   tgEnabled:false,tgTokenSet:false,tgTokenTail:'',tgChat:'',
   waEnabled:false,waKeySet:false,waKeyTail:'',waPhone:'',
   dcEnabled:false,dcHookSet:false,dcHookTail:'',
-  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157};   // 0.17 0-16
+  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157,   // 0.17 0-16
+  slicerOn:true};                                          // 0.17 SL-mod
 
 // name -> [printLayers, heightMm, estSecs, resinMl, shape]
+// Every preset model shows the SAME real model: a 12 mm ball with supports and
+// raft, sliced by our WASM slicer in the browser (models/demo_model.sl1). The
+// made-up silhouettes looked like blobs, and "it is only a demo" (V 09-11), so
+// the numbers below are the ball's own: 235 layers, 11.75 mm, ~0.9 ml.
+var DEMO_SRC=235;
 var MODELS={
-  alienBust:[433,43.3,9987,14.2,'bust'],
-  dragonHead:[380,38.0,8900,11.6,'bust2'],
-  Predator:[520,52.0,11900,16.8,'spike'],
-  ScreamingEvil:[433,43.3,9987,13.1,'bust2'],
-  Tooth:[210,21.0,4900,3.9,'spike'],
-  Xenomorph3:[610,61.0,14100,18.4,'bust']};
+  alienBust:[118,11.75,2714,0.9,'demo'],
+  dragonHead:[118,11.75,2714,0.9,'demo'],
+  Predator:[118,11.75,2714,0.9,'demo'],
+  ScreamingEvil:[118,11.75,2714,0.9,'demo'],
+  Tooth:[118,11.75,2714,0.9,'demo'],
+  Xenomorph3:[118,11.75,2714,0.9,'demo']};
 
 var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'rippleboot',display:'Rippleboot',sizeBytes:768012},
@@ -94,6 +104,14 @@ var RESIN={ok:true,selected:'fast',profiles:[
 var UPDATE={ok:true,installed:'0.15.4',latest:'0.15.4',state:0,hasUpdate:false,allowed:true};
 
 var uploadedSeq=0;
+var REAL={};   // uploaded model name -> object URLs of its layer PNGs, in order
+var DEMO_URLS=null,demoLoad=null;   // the preset models' layers, fetched once
+function demoReady(){
+  if(!demoLoad)demoLoad=realFetch('models/demo_model.sl1')
+    .then(function(r){return r.ok?r.blob():null;})
+    .then(function(b){return b?zipLayers(b):null;})
+    .then(function(u){DEMO_URLS=u;},function(){});
+  return demoLoad;}
 var sim=null; // {name,total,startMs,pausedAt,pausedTotal,secsPerLayer,ml}
 
 // ------------------------------------------------------------- tiny helpers
@@ -103,7 +121,8 @@ function fmtDur(s){s=Math.max(0,Math.round(s));var h=Math.floor(s/3600),m=Math.f
 function estTime(secs){var h=Math.floor(secs/3600),m=Math.round(secs%3600/60);return h?h+'h '+(m<10?'0':'')+m+'m':m+'m';}
 function jresp(obj,code){return new Response(JSON.stringify(obj),{status:code||200,headers:{'Content-Type':'application/json'}});}
 function modelMeta(name){var m=MODELS[name];if(!m)return null;
-  return {ok:true,name:name,sourceLayers:m[0]*2,layers:m[0]*2,printLayers:m[0],
+  var src=REAL[name]?REAL[name].length:(m[4]==='demo'?DEMO_SRC:m[0]*2);   // real layer counts
+  return {ok:true,name:name,sourceLayers:src,layers:src,printLayers:m[0],
     heightMm:m[1],estimatedSecs:m[2],estimatedTime:estTime(m[2]),
     preview:false,preview05:false,preview1:false,resinEstimated:true,resinMl:m[3]};}
 function filesPayload(){
@@ -163,6 +182,9 @@ function currentStatus(){
 // -------------------------------------------------- procedural layer slices
 // White silhouette on black, like a real sliced PNG. Radius profile by shape.
 function profileR(shape,t){
+  // an upload we could not read, or the demo model before its layers arrived:
+  // draw nothing rather than a made-up shape
+  if(shape==='none'||shape==='demo')return 0;
   if(shape==='spike')return 0.85-0.65*t;
   if(shape==='bust2')return t<0.12?0.9:(t<0.55?0.45+0.25*Math.sin(t*9):(t<0.8?0.62:0.62*Math.sqrt(Math.max(0,1-((t-0.8)/0.2)*((t-0.8)/0.2)))));
   // 'bust': pedestal, neck, head
@@ -198,8 +220,15 @@ Object.defineProperty(HTMLImageElement.prototype,'src',{
     try{
       if(typeof v==='string'&&v.indexOf('/api/files/layer')===0){
         var name=q(v,'name'),i=parseInt(q(v,'i'))||1;
-        var m=MODELS[name];var total=m?m[0]:400;
-        v=sliceDataURI(name,i,total);
+        if(REAL[name]){
+          // source=1 counts the layers as sliced; without it, print layers (every second one)
+          var r=REAL[name],k=q(v,'source')?i-1:(i-1)*2;
+          v=r[Math.max(0,Math.min(r.length-1,k))];
+        }else if(DEMO_URLS&&MODELS[name]&&MODELS[name][4]==='demo'){
+          // the file may hold fewer layers than the slice had: pick the nearest one
+          var d=DEMO_URLS,ks=q(v,'source')?i-1:(i-1)*2;
+          v=d[Math.max(0,Math.min(d.length-1,Math.round(ks*(d.length-1)/(DEMO_SRC-1))))];
+        }else{var m=MODELS[name];var total=m?m[0]:400;v=sliceDataURI(name,i,total);}
       }else if(typeof v==='string'&&v.indexOf('/api/files/model/preview')===0){
         v='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='; // never used: preview flags are off
       }
@@ -213,8 +242,11 @@ window.fetch=function(path,opt){
   if(typeof path!=='string'||path.indexOf('/api/')!==0&&path.indexOf('/upload')!==0)
     return realFetch(path,opt);
   var delay=120+Math.random()*180;
+  // A preview asks for the model first and its layers right after, so the demo
+  // model's layers must be in hand before that answer goes out.
+  var wait=path.indexOf('/api/files/model')===0?demoReady():Promise.resolve();
   return new Promise(function(resolve){
-    setTimeout(function(){resolve(route(path,opt||{}));},delay);
+    wait.then(function(){setTimeout(function(){resolve(route(path,opt||{}));},delay);});
   });};
 
 function route(path,opt){
@@ -303,8 +335,50 @@ function route(path,opt){
   if(path.indexOf('/api/telegram/test')===0||path.indexOf('/api/whatsapp/test')===0||path.indexOf('/api/discord/test')===0)
     return jresp({ok:true});
   if(path.indexOf('/api/connect')===0)return jresp({ok:false,error:'Demo mode: TinyMaker Connect needs a real printer'},400);
+  // 0.17 SL-mod: no module on the "card", so the page loads it from gh-pages.
+  // The copy-to-SD that follows must fail quietly, not pretend it worked.
+  if(path.indexOf('/api/lib/slicer/check')===0||
+     (path.indexOf('/api/lib/slicer')===0&&(opt.method||'GET')!=='GET'))
+    return jresp({ok:false,error:'Demo mode: no SD card to copy the slicer to'},400);
+  if(path.indexOf('/api/lib/slicer')===0)return jresp({ok:true,complete:false,version:''});
   if(path.indexOf('/api/version')===0)return jresp({api:'0.1',server:'1.5.0',text:'Prusa SLA (TinyMaker demo)'});
   return jresp({ok:true});}
+
+// Layer PNGs out of an uploaded .zip/.sl1. The central directory is read, not
+// the local headers: a writer may leave sizes blank there. Stored entries (our
+// slicer) are copied, deflated ones (PrusaSlicer) go through
+// DecompressionStream. Resolves to object URLs in layer order, or null.
+function zipLayers(file){
+  if(!file||!file.arrayBuffer)return Promise.resolve(null);
+  return file.arrayBuffer().then(function(buf){
+    var dv=new DataView(buf),u8=new Uint8Array(buf),eocd=-1,p;
+    for(p=buf.byteLength-22;p>=Math.max(0,buf.byteLength-65557);p--)
+      if(dv.getUint32(p,true)===0x06054b50){eocd=p;break;}
+    if(eocd<0)return null;
+    var cnt=dv.getUint16(eocd+10,true),cd=dv.getUint32(eocd+16,true),
+        dec=new TextDecoder(),ents=[];
+    for(var k=0;k<cnt&&dv.getUint32(cd,true)===0x02014b50;k++){
+      var meth=dv.getUint16(cd+10,true),csz=dv.getUint32(cd+20,true),
+          nl=dv.getUint16(cd+28,true),xl=dv.getUint16(cd+30,true),cl=dv.getUint16(cd+32,true),
+          lo=dv.getUint32(cd+42,true),nm=dec.decode(u8.subarray(cd+46,cd+46+nl));
+      cd+=46+nl+xl+cl;
+      // Layers only. Our WASM slicer puts them in a folder (name/00001.png),
+      // PrusaSlicer at the root (name00000.png) next to thumbnail/*.png.
+      var num=nm.match(/^(?:[^\/]*\/)?[^\/]*?(\d+)\.png$/i);
+      if(!num||/^thumbnail/i.test(nm))continue;
+      var st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+      ents.push({n:parseInt(num[1],10),meth:meth,data:u8.subarray(st,st+csz)});
+    }
+    ents.sort(function(a,b){return a.n-b.n;});
+    return Promise.all(ents.map(function(e){
+      if(e.meth===0)return new Blob([e.data],{type:'image/png'});
+      if(e.meth!==8||typeof DecompressionStream==='undefined')throw new Error('unsupported');
+      return new Response(new Blob([e.data]).stream().pipeThrough(new DecompressionStream('deflate-raw')))
+        .arrayBuffer().then(function(b){return new Blob([b],{type:'image/png'});});
+    })).then(function(blobs){
+      return blobs.length?blobs.map(function(b){return URL.createObjectURL(b);}):null;});
+  }).catch(function(){return null;});
+}
 
 // ------------------------------------------------------- XHR mock (/upload)
 var RealXHR=window.XMLHttpRequest;
@@ -333,12 +407,24 @@ window.XMLHttpRequest=function(){
         clearInterval(iv);
         if(self.upload.onload)self.upload.onload({});
         setTimeout(function(){
+          // Keep the name that was sent, like the real printer: the slicer opens
+          // the saved model by that name (slicer.js openName), and "MyUpload"
+          // answered it with "model not found".
+          var sent=(data&&data.get&&data.get('file')&&data.get('file').name)||'';
+          sent=sent.replace(/\.(zip|sl1)$/i,'').replace(/[^A-Za-z0-9_-]/g,'');
+          var ml=parseFloat(data&&data.get&&data.get('resin_ml'))||0;
           uploadedSeq++;
-          var name='MyUpload'+(uploadedSeq>1?uploadedSeq:'');
-          MODELS[name]=[240,24.0,5600,6.5,'spike'];
-          self._status=200;
-          self._responseText=JSON.stringify({ok:true,name:name,layers:480,printLayers:240,sourceLayers:480,heightMm:24.0});
-          if(self.onload)self.onload({});
+          var name=sent||('MyUpload'+(uploadedSeq>1?uploadedSeq:''));
+          zipLayers(data&&data.get&&data.get('file')).then(function(urls){
+            // The preview shows the layers that were really sent - the model the
+            // visitor sliced or uploaded, not a made-up shape (V 09-11).
+            var src=urls?urls.length:480,pl=Math.ceil(src/2);
+            if(urls)REAL[name]=urls;else delete REAL[name];
+            MODELS[name]=[pl,+(src*0.05).toFixed(2),Math.round(pl*23),ml||6.5,'none'];
+            self._status=200;
+            self._responseText=JSON.stringify({ok:true,name:name,layers:src,printLayers:pl,sourceLayers:src,heightMm:MODELS[name][1]});
+            if(self.onload)self.onload({});
+          });
         },2000);}
     },120);};
 };
@@ -535,118 +621,118 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #printPreviewTitle.pvLink{cursor:pointer}
 #printPreviewTitle.pvLink:hover{color:var(--accent)}
 #printPreviewTitle.pvLink:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
-/* ---- Sliceris (0.17 SL-mod), perkelta is experimental2 ---------------- Atskiru bloku gale SAMONINGAI: taip matosi, kas atejo su sliceriu, ir ji galima nuimti vienu gabalu. Kelios taisykles kartoja jau esamas su tomis paciomis reiksmemis (pvz. #uploadButton) - tik prisideda slicerio selektorius; jokia esama elgsena nesikeicia. */#gl3dTools{display:none;flex-direction:row;position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:2;gap:2px}/* Siaurame ekrane juosta i viena eilute netelpa, tad LAUZOM: virsuje kiek telpa, likusieji - eilute zemiau, abi centruotos. Vietos virsuje pakanka, nes stumdymo padas nusileido i apacia (V 08-21). Riba - iki priartinimo mygtuku desineje. */@media(max-width:460px){#gl3dTools{flex-wrap:wrap;justify-content:center;max-width:calc(100% - 130px);row-gap:2px}}
-/* ILGIS ribojamas is abieju pusiu (V 08-22, du kartus). Vien tarpu nuo krastu neuztenka: su fiksuotais pikseliais mazame lange slankiklis lieka trumpas, o atidavus jam beveik visa auksti isdidintame lange jis virsta maratonu - „nereikia tokio ilgo baisiai tampyti daug“. Todel max-height:min(62%,300px): auga kartu su bloku, bet sustoja ties patogiu ilgiu, o margin:auto 0 ji centruoja likusioje juostoje. */
-/* Tarpai nuo krastu - CIA, ne zymeje: irasyti tiesiai elemente jie nugalejo bet kokia taisykle, tad plokscios perziuros isimtis (dashboard.html) neveikdavo (V 08-22). Sios reiksmes skirtos 3D vaizdui: virsuje irankiai, apacioje sukimo ir stumdymo padai. */
-#gl3dLayer{display:none;top:56px;bottom:107px;max-height:min(74%,360px);margin:auto 0}
-/* `min-height:0` - be jo `flex:1` NIEKO nesuspaudzia: flex elementas negali buti mazesnis uz savo automatini minimuma, o Chrome numatytasis `input[type=range]` ilgis yra 129 px. Todel slankiklis visada buvo 129 px, kad ir koks butu remas: kompiuteryje jis islisdavo 18 px zemiau remo (ismatuota 08-31, T-83), o siaurame lange - uzlipdavo ant stumdymo pado (270 px blokas: -5 px, 240 px: -35 px). SD pusej to nebuvo, nes ten slankikliui duotas `height:100%`. */#gl3dLayerRange{writing-mode:vertical-lr;direction:rtl;width:22px;flex:1;min-height:0;margin:0;padding:0;background:transparent;border:0;accent-color:var(--accent)}
-#slicerFacts>div{position:relative;padding-left:14px;margin-top:3px;min-height:1.3em}
-#slicerFacts>div:empty{display:none}
-#slicerFacts>div::before{content:'\2022';position:absolute;left:2px;color:var(--muted)}
-#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}
-#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}
-#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}
-#gl3dPop span{color:var(--muted)}
-#gl3dPop input[type=number]::-webkit-inner-spin-button{opacity:1;height:20px}
-#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}
-#gl3dPop input[type=checkbox]{width:auto;margin:0}
-#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
-#popDone:hover{color:var(--text)}
-#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}
-#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}
-#gl3dTools button.on .soft{opacity:1}
-#gl3dTools button.on .sharp{opacity:0}
-#gl3dDet svg,#gl3dTools svg{pointer-events:none}
-#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}
-/* order:-1 ATMESTAS pernesant. experimental2 isdestyme sliceris buvo skirtas
-   virsui, ir ta savybe ji trauke i priekį nepaisant DOM tvarkos - musu pulte
-   dėl to kortele soktelėdavo virs viso dashboard'o, o placiame ekrane atsidurdavo
-   virs busenos, nors DOM'e stovi PO 3D perziuros. Vieta cia nusako DOM, ne
-   order (V 08-17). *//* ---- Sliceris, antra CSS banga: ka praleido pirmas importas ----------- Pirmas ejimas rinko taisykles paprastu regex u ir prakiso tas, kurios guli @media viduje arba turi ilgus komentarus selektoriaus priekyje. Del to korteleje matesi mygtukai, kurie turi buti pasleti (irankiai gyvena ant vaizdo), ir dingo oranzinis vedlys (.step). V pastebejo abu. SAMONINGAI NEIMTA: @media(max-width:999px){#slicerCard{order:-1}} - ji telefone vel keltu sliceri virš SD, o sutarta tvarka yra perziura -> sliceris -> SD (V 08-17). *//* Konteinerio plotis FIKSUOTAS: anksciau ji lemdavo uzraso ilgis, o kadangi jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save - .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* ...bet „Stop" yra RAUDONAS, kaip spausdinimo (V 08-21). Bendra `.danger` taisykle cia pralaimedavo: vedlio selektorius su `#slicerCard` specifiskesnis, tad mygtukas likdavo oranzinis. Kartojam ta pati specifiskuma - ir laimim, nes stovim veliau. */#slicerCard .button.danger{background:var(--danger);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas + priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). *//* Aureole pagal TEMA, ne visada juoda (V 08-22: „skaiciai ant baltos temos isplauke"). Juodas seselis reikalingas ant tamsaus vaizdo, bet sviesioje temoje jis apglebia pilka teksta tamsia migla - is toliau tai atrodo ne kaip kontrastas, o kaip neryskus spaudas. Tekstas irgi stiprinamas iki --text: uzrasas guli ir ant juodos ploksces, ir ant korteles, tad jam reikia issilaikyti abiejuose fonuose. */
-/* Sluoksnio numeris VIRS slankiklio, o ne jo viduryje (V 09-04). Ismatuota gyvame pulte: viduryje jis stovejo uz 4 px nuo tako - rankenele jo NIEKADA neuzdengdavo, bet tempiantis pirstas uzdengia, ir kaip tik ties viduriu, kur ji ir skaitai. Stilius PAZODZIUI toks pat, kaip perziuros #gl3dClipNo pulte (V: 'kad butu identiskai'), iskaitant `var(--bg)` kontura: jis akiai nematomas (fono spalva), bet saugo teksta, jei sis atsidurtu ant modelio. Konteineris `gl3dLayer` SPECIALIAI be `gap` - perziuros #gl3dClipBar jo neturi, o su juo tarpas buvo 11 px vietoj 5. Keiciant VIENA, keisti ABU. *//* Plati (64 px) dezute, prisegta DESINIUOJU krastu per `align-self:flex-end` - be sito slankiklis slankiojo. Juosta prikabinta prie desinio krasto ir neturi savo plocio, tad ja matavo skaicius: is „5/75" i „38/75" slankiklis pasislinkdavo 2,7 px. Todel juostai duotas `width:22px`, o skaiciui - sava plati dezute. SPASTAI: vien `text-align:right` to NEPADARO - kai tekstas platesnis uz dezute, CSS pertekli visada isleidzia i DESINE, ir „897/897" islindo 19,7 px uz slankiklio bei buvo nukirstas `#gl3d` (`overflow:hidden`). Reikia, kad dezuteje LIKTU laisvos vietos - tik tada lygiavimas veikia. Ismatuota gyvai 09-04, abi puses. */#gl3dLayerNo{flex:0 0 auto;align-self:flex-end;width:64px;margin-right:2px;text-align:right;margin-bottom:5px;font-size:10px;line-height:1;color:var(--muted);white-space:nowrap;text-shadow:0 0 3px var(--bg);pointer-events:none}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo, ka daro, tad spalvos nereikia (V 08-12). *//* Vaizdo mygtukai: kiekvienas turi DU piesinius ir rodo ta, kuris atitinka jo
-   poros busena. Aktyvi pora - oranzine; 2D pora ijungus UV - violetine, nes
-   spalva cia pat rodo, kuo nusidazys vaizdas (V 08-22). */
-#gl3dV3 .s0,#gl3dV3 .s1,#gl3dV2 .f0,#gl3dV2 .f1{display:none}
-#gl3dV3.s0 .s0,#gl3dV3.s1 .s1,#gl3dV2.f0 .f0,#gl3dV2.f1 .f1{display:inline}
-#gl3dZoom #gl3dV3.act,#gl3dZoom #gl3dV2.act,#gl3dTools #gl3dV3.act,#gl3dTools #gl3dV2.act{color:var(--accent);border-color:var(--accent)}
-#gl3dZoom #gl3dV2.act.f1,#gl3dTools #gl3dV2.act.f1{color:#8b5cf6;border-color:#8b5cf6}
-#gl3dTools .soft{opacity:0}/* Forma sako, KA mygtukas daro; spalva - kad jis DABAR ijungtas. Prie 15 px formos skirtuma lengva praleisti, o oranzine visoje programoje jau reiskia aktyvu. Uzrakintas sliceryje - oranzinis, bet prigesintas (V 08-12). */#gl3dDet.on,#gl3dTools button.on{color:var(--accent);border-color:var(--accent)}/* Vienintelis jungiklis, kurio ijungta busena NE oranzine. Tai ne isimtis del grazumo: spalva cia ir yra zinia - mygtukas nusidazo lygiai tuo, kuo nusidazys vaizdas (V 08-22). *//* Violetinis IR isjungtas (V 08-22). Zenklas toks pat, kaip tikro sluoksnio mygtuko, ir tai buvo sazininga mintis - bet du vienodi kvadratai greta pasirode neatskiriami: V du kartus jo nerado, nors mygtukas buvo vietoje ir veike. Spalva cia daro du darbus is karto - sako, kad tai kitas dalykas, ir is anksto rodo, kuo vaizdas nusidazys. Isjungtas blankesnis, ijungtas sodrus. */
-   /* du ID: bendra #gl3dZoom button taisykle kitaip nurungia */
-/* Vaizdo jungiklis: TRYS piesiniai viename mygtuke, po viena kiekvienam rezimui, ir rodomas tas, kuri zmogus mato DABAR. Oranzine cia reiskia ne busena, o kad matai ATRAMAS - tai vienintelis rezimas, kuriame jos yra (V 08-20). *//* Busena matosi is paties piesinio (tankesnis tinklelis), tad spalva ta pacia zinia tik kartotu (V 08-12). *//* Uzrakintas sliceryje: prigesintas, bet ne pilkas keturkampis - bendra mygtuku taisykle cia netinka, sie mygtukai permatomi. */#gl3dZoom button:disabled,#gl3dTools button:disabled{background:rgba(20,20,22,.6);color:var(--muted);opacity:.45;cursor:default}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). Nuo 08-17 jam nereikia ir zodzio: uzdarytas mygtukas yra TA PATI seima, kaip lango didinimas virs perziuros (#stageOpen) - permatomas, plonu remeliu, su 13 px zenklu. Savybes cia israsytos, o ne prikabintos prie #stageOpen taisykles, samoningai: slicerio blokas turi likti nuimamas vienu gabalu, o selektorius, prilipdytas prie svetimos taisykles, kartu nenusiimtu (V 08-17). */#slicerToggle.narrow,#sdToggle.narrow{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#slicerToggle.narrow:hover,#sdToggle.narrow:hover{color:var(--text);border-color:var(--line2)}/* Irankiai gyvena ant vaizdo - ir telefone, ir plaziame ekrane, - tad stulpelis korteleje tik dubliuotu tuos pacius mygtukus (V 08-12). */#slicerTools{display:none}/* --- is 0.17 dashboard polish (PR #103): mygtuku paspaudimo ir „dirbama" busenos, #uploadButton, #homeLeft. #gl3dZoom kryptis NEIMTA - musu `row` yra MUSU pasirinkimas slicerio skydeliui, ne V nurodymas (0.17 sesija patikrino: V to neatpazista, istorijoje pedsako nera). --- */#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}/* Kadaise cia stovejo atramos ir vardas dviem stulpeliais. Atramos 09-02 nusikele i parametru bloka, tad liko VIENAS vaikas - o dvieju stulpeliu tinklelis ji paliko kairej pusej, nors komentaras zadejo visa ploti (pagavo printerio sesija). Vienas stulpelis. */#slicerSupRow{display:grid;grid-template-columns:1fr}@media(max-width:520px){/* Zr. dashboard.html ta pati riba: telefone slankiklis leidziamas zemiau, iki „aukstyn" mygtuko apacios - pado virsutines eilutes desinysis langelis tuscias. Keiciant VIENA, keisti ABU. */#gl3dLayer{bottom:66px}/* Riba palikta: vardo laukas ir siaurame lange lieka vienas stulpelis. */#slicerSupRow{row-gap:8px}#uploadButton,#slicerToggle{width:auto}}@media(min-width:1000px){/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo. Slicer'is keliauja pries SD (V 08-12). *//* order veikia tik lanksciame konteineryje - be sios eilutes taisykle nieko nedarydavo, ir telefone slicer'is likdavo po SD (V 08-12). */}/* Tuscias zenklelis vis tiek piesdavo remeli - salia „Slice an STL" likdavo tuscias burbuliukas (V 08-17). Ta pati idioma, kaip .fwBadge:empty. */#slicerState:empty{display:none}/* Slicerio modulio versijos piliules cia nebera - zr. slicer-card.html (V 09-08). */
-/* Spausdinant slicerio blokas uzrakintas: `label` mygtuko `disabled` neturi, tad
-   prigesinam ir atimam paspaudima (V 08-20). */
-#slicerChoose.locked{pointer-events:none;opacity:.45}
-/*
- * SL-params, C variantas (V 09-02): antraste virs SAVO segmentu juostos, blokai
- * po du. Bandyti buvo trys. A (antraste ir jungikliai vienoje eiluteje) atmestas
- * - uodegos skirtingo ilgio, o radijo taskelis telefone per mazas taikinys.
- * B (viena kolona per visa ploti) skaitosi geriausiai, bet uzima ~430 px, ir
- * „Slice“ su rezultatu nuslenka nuo akiu. C uzima ~200 px ir isslaiko didelius
- * taikinius.
- *
- * `auto-fit` cia butinas: media query ziuretu i LANGO ploti, o siauras yra
- * BLOKAS - taip 09-02 ir prasprudo luztancios eilutes. Su minmax kolonu skaicius
- * seka pacios korteles ploti, tad telefone C pats tampa B.
- */
-#slicerParams{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));
-  gap:9px 14px;margin-top:10px}
-#slicerParams .spLab{display:block;color:var(--muted);font-size:.7rem;
-  letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
-#slicerParams .spLab em{font-style:normal;color:var(--muted2);text-transform:none;
-  letter-spacing:0}
-/* Radijo mygtukas lieka - tik nematomas: taip islieka klaviatura, ekrano skaitytuvas
-   ir `input[name=...]:checked` skaitymas, o zmogus mato juosta. */
-#slicerParams .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-#slicerParams .seg label{flex:1;margin:0;position:relative;cursor:pointer;min-width:0}
-#slicerParams .seg input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
-#slicerParams .seg span{display:block;text-align:center;padding:7px 3px;font-size:.8rem;
-  color:var(--text);border-right:1px solid var(--line);white-space:nowrap}
-#slicerParams .seg label:last-child span{border-right:0}
-#slicerParams .seg input:checked+span{background:var(--accent);color:#fff;font-weight:600}
-#slicerParams .seg input:focus-visible+span{outline:2px solid var(--link);outline-offset:-2px}
-#slicerParams .spReset{grid-column:1/-1;text-align:right;margin-top:1px}
-#slicerParams .spReset a{color:var(--link);font-size:.8rem}
-/* Spausdinant kortele uzrakinama (`slicer.js` vienu ejimu per konteineri), ir
-   radijo mygtukai tikrai tampa `disabled`. Bet jie NEMATOMI - zmogus mato tik
-   juosta, tad be sitos eilutes ji atrodytu gyva ir tyliai nereaguotu (V 09-02).
-   Pati juosta lieka skaitoma: matai, kas nustatyta, tik pakeisti negali. */
-#slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
-#slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
-/*
- * ⚠️ PATAISA (09-03). Buvau parases, kad pulto naršyklėje `:has()` neveikia -
- * tai NETIESA, ir tai buvo blogas matavimas: tuo metu eilute dar turejo inline
- * `style='min-height:1.9em'`, o inline nugali BET KOKI selektoriu, taip pat ir
- * `:has()`. Matavau inline stiliu, ne selektoriu. Pertikrinta svariai:
- * `CSS.supports('selector(:has(*))')` = true, ir bandomoji taisykle suveikia.
- * Pagavo printerio sesija.
- *
- * Klase per JS vis tiek lieka, bet del kitos priezasties: pjaustymo metu
- * `slicerProg` yra TUSCIAS (eiga piesiama drobeje), tad `:empty` suskleistu
- * eilute visam pjaustymui ir pabaigoje ji staiga issitiestu. JS mato ir
- * `sliceRunning`, o CSS - ne.
- *
- * Rezultato eilute (eiga + „Discard“) tarp parametru ir faktu saraso yra TUSCIA,
- * kol niekas nesupjaustyta, bet uzima 45 px: 27 px `min-height:1.9em` plius 9+9
- * margin. Placiame lange tai matosi kaip desine kortele, ilgesne uz kaire maždaug
- * centimetru - V pastebejo is karto po liejimo (09-03), o ismatavus paaiskejo,
- * kad tai ne parametru blokas, o zemiau reservuota vieta.
- *
- * Suskleidziam TIK kol eilute tuscia. Kai pjaustymas prasideda, `#slicerProg`
- * gauna teksta, taisykle nustoja galioti, ir eilute atsiranda su savo tarpais -
- * tad zinute niekur nedingsta, o „Discard“ lieka ten, kur buvo.
- */
-/* Tarpai ir aukstis CIA, ne `style=` atribute: inline stilius nugali bet kokia
-   taisykle, tad suskleidimas nieko nedarydavo, nors klase buvo uzdeta (ismatuota
-   09-03: klase „tuscia" yra, o `min-height` vis tiek 27,36 px). */
-/* Vieta rezervuota VISADA, ir tuscia (V 09-08). Anksciau tuscia eilute
-   susiskleisdavo, o suslicinus issitiesdavo - kortele pasokteldavo 46 px
-   (28 aukscio + 2x9 tarpai, ismatuota), ir kartu su ja pasislinkdavo parametrai,
-   faktai bei visa desine kolona. Suslicinus zmogus ziuri butent i ta vieta, tad
-   sokinejantis makletas yra brangesnis uz tuscia eilute, kurios niekas nepastebi.
-   Klase `tuscia` lieka - ji tebeslepia „Discard", kol nera ka atmesti. */
-#slicerResRow{margin:9px 0;min-height:1.9em}
-#slicerResRow.tuscia #slicerDiscardLink{display:none}
+/* ---- Sliceris (0.17 SL-mod), perkelta is experimental2 ---------------- Atskiru bloku gale SAMONINGAI: taip matosi, kas atejo su sliceriu, ir ji galima nuimti vienu gabalu. Kelios taisykles kartoja jau esamas su tomis paciomis reiksmemis (pvz. #uploadButton) - tik prisideda slicerio selektorius; jokia esama elgsena nesikeicia. */#gl3dTools{display:none;flex-direction:row;position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:2;gap:2px}/* Siaurame ekrane juosta i viena eilute netelpa, tad LAUZOM: virsuje kiek telpa, likusieji - eilute zemiau, abi centruotos. Vietos virsuje pakanka, nes stumdymo padas nusileido i apacia (V 08-21). Riba - iki priartinimo mygtuku desineje. */@media(max-width:460px){#gl3dTools{flex-wrap:wrap;justify-content:center;max-width:calc(100% - 130px);row-gap:2px}}
+/* ILGIS ribojamas is abieju pusiu (V 08-22, du kartus). Vien tarpu nuo krastu neuztenka: su fiksuotais pikseliais mazame lange slankiklis lieka trumpas, o atidavus jam beveik visa auksti isdidintame lange jis virsta maratonu - „nereikia tokio ilgo baisiai tampyti daug“. Todel max-height:min(62%,300px): auga kartu su bloku, bet sustoja ties patogiu ilgiu, o margin:auto 0 ji centruoja likusioje juostoje. */
+/* Tarpai nuo krastu - CIA, ne zymeje: irasyti tiesiai elemente jie nugalejo bet kokia taisykle, tad plokscios perziuros isimtis (dashboard.html) neveikdavo (V 08-22). Sios reiksmes skirtos 3D vaizdui: virsuje irankiai, apacioje sukimo ir stumdymo padai. */
+#gl3dLayer{display:none;top:56px;bottom:107px;max-height:min(74%,360px);margin:auto 0}
+/* `min-height:0` - be jo `flex:1` NIEKO nesuspaudzia: flex elementas negali buti mazesnis uz savo automatini minimuma, o Chrome numatytasis `input[type=range]` ilgis yra 129 px. Todel slankiklis visada buvo 129 px, kad ir koks butu remas: kompiuteryje jis islisdavo 18 px zemiau remo (ismatuota 08-31, T-83), o siaurame lange - uzlipdavo ant stumdymo pado (270 px blokas: -5 px, 240 px: -35 px). SD pusej to nebuvo, nes ten slankikliui duotas `height:100%`. */#gl3dLayerRange{writing-mode:vertical-lr;direction:rtl;width:22px;flex:1;min-height:0;margin:0;padding:0;background:transparent;border:0;accent-color:var(--accent)}
+#slicerFacts>div{position:relative;padding-left:14px;margin-top:3px;min-height:1.3em}
+#slicerFacts>div:empty{display:none}
+#slicerFacts>div::before{content:'\2022';position:absolute;left:2px;color:var(--muted)}
+#slicerCard .calRow input[type=text],#slicerCard .calRow input[type=number],#slicerCard .calRow button,#slicerCard .calRow .button{min-height:40px;height:40px;margin:0;padding:8px 12px;font-size:.92rem;display:flex;align-items:center;justify-content:center}
+#gl3dPop .popRow{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--text)}
+#gl3dPop label{display:flex;align-items:center;gap:5px;margin:0;cursor:pointer}
+#gl3dPop span{color:var(--muted)}
+#gl3dPop input[type=number]::-webkit-inner-spin-button{opacity:1;height:20px}
+#gl3dPop input[type=range]{width:96px;height:20px;margin:0;padding:0;accent-color:var(--accent)}
+#gl3dPop input[type=checkbox]{width:auto;margin:0}
+#popDone{width:20px;height:20px;flex:0 0 auto;margin:0;padding:0;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+#popDone:hover{color:var(--text)}
+#gl3dPad button,#gl3dRot button,#gl3dZoom button,#gl3dTools button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#gl3dPad button:hover,#gl3dRot button:hover,#gl3dZoom button:hover,#gl3dTools button:hover{color:var(--text);border-color:var(--line2)}
+#gl3dTools button:disabled{opacity:.35;cursor:not-allowed}
+#gl3dTools button.on .soft{opacity:1}
+#gl3dTools button.on .sharp{opacity:0}
+#gl3dDet svg,#gl3dTools svg{pointer-events:none}
+#uploadButton,#slicerToggle{width:228px;padding:12px 14px;font-size:15px}
+/* order:-1 ATMESTAS pernesant. experimental2 isdestyme sliceris buvo skirtas
+   virsui, ir ta savybe ji trauke i priekį nepaisant DOM tvarkos - musu pulte
+   dėl to kortele soktelėdavo virs viso dashboard'o, o placiame ekrane atsidurdavo
+   virs busenos, nors DOM'e stovi PO 3D perziuros. Vieta cia nusako DOM, ne
+   order (V 08-17). *//* ---- Sliceris, antra CSS banga: ka praleido pirmas importas ----------- Pirmas ejimas rinko taisykles paprastu regex u ir prakiso tas, kurios guli @media viduje arba turi ilgus komentarus selektoriaus priekyje. Del to korteleje matesi mygtukai, kurie turi buti pasleti (irankiai gyvena ant vaizdo), ir dingo oranzinis vedlys (.step). V pastebejo abu. SAMONINGAI NEIMTA: @media(max-width:999px){#slicerCard{order:-1}} - ji telefone vel keltu sliceri virš SD, o sutarta tvarka yra perziura -> sliceris -> SD (V 08-17). *//* Konteinerio plotis FIKSUOTAS: anksciau ji lemdavo uzraso ilgis, o kadangi jis prisegtas prie desinio krasto, is 89/173 i 1103/1103 pasikeites uzrasas pastumdavo pati slankikli beveik ant zoom mygtuko (V 08-12). *//* Choose STL yra label.button (didelis vidinis tarpas), o Slice/Save - .calRow mygtukai (mazesnis), tad jie atrodo zemesni. Suvienodinam. */#slicerCard .toolbar .button,#slicerCard .calRow button{padding:10px 16px;font-size:.92rem;line-height:1.25;min-height:40px;display:inline-flex;align-items:center;justify-content:center}/* Vedlys: oranzinis tik einamas zingsnis. */#slicerCard .button.step{background:var(--accent);color:#fff}/* ...bet „Stop" yra RAUDONAS, kaip spausdinimo (V 08-21). Bendra `.danger` taisykle cia pralaimedavo: vedlio selektorius su `#slicerCard` specifiskesnis, tad mygtukas likdavo oranzinis. Kartojam ta pati specifiskuma - ir laimim, nes stovim veliau. */#slicerCard .button.danger{background:var(--danger);color:#fff}/* Mygtukus suvienodinau iki 40 px, o laukai liko su savo mazesniu vidiniu tarpu ir bendra margin:6px 0 12px - todel atrode nuslinke zemyn (V 08-12). *//* Mygtukai ir laukai vienoje eiluteje - to paties aukscio; label.button turi savo didesni vidini tarpa, todel jis ir issisokdavo (V 08-12). *//* Vienas sarasas: ta pati spalva, tarpai ir buletas kiekvienai eilutei. */#slicerFacts{margin-top:10px;font-size:.8rem;line-height:1.6;color:var(--muted2)}/* Nustatymu eilute stoja I IRANKIU JUOSTOS VIETA, o ne virs jos: kitaip ji atimtu dar viena vaizdo gabala ir uzdengtu modeli (V 08-12). *//* Aukstis LYGIAI kaip mygtuku (26 px), ir riba, kad eilute nepasiektu soniniu grupiu: kaireje sukimo padas ~82 px, desineje detalumas + priartinimas ~86 px. Be ribos jie sulipdavo (V 08-12). */#gl3dPop{position:absolute;left:50%;transform:translateX(-50%);top:8px;z-index:5;height:26px;align-items:center;gap:5px;background:rgba(20,20,22,.96);border:1px solid var(--line2);border-radius:6px;padding:0 6px;max-width:calc(100% - 18px);box-shadow:0 6px 18px rgba(0,0,0,.5)}/* Rodykles uzlipdavo ant skaiciu ir pasirodydavo tik uzvedus pele - tad laukas platesnis, o rodykles matomos visada (V 08-12). */#gl3dPop input[type=number]{width:62px;height:20px;margin:0;padding:0 2px 0 5px;font-size:.74rem;text-align:left}/* Be piliules: ji augo ir traukesi kartu su skaiciumi, tad pati blaskesi. Skaicius ant tamsaus fono skaitosi ir be remelio (V 08-12). *//* Aureole pagal TEMA, ne visada juoda (V 08-22: „skaiciai ant baltos temos isplauke"). Juodas seselis reikalingas ant tamsaus vaizdo, bet sviesioje temoje jis apglebia pilka teksta tamsia migla - is toliau tai atrodo ne kaip kontrastas, o kaip neryskus spaudas. Tekstas irgi stiprinamas iki --text: uzrasas guli ir ant juodos ploksces, ir ant korteles, tad jam reikia issilaikyti abiejuose fonuose. */
+/* Sluoksnio numeris VIRS slankiklio, o ne jo viduryje (V 09-04). Ismatuota gyvame pulte: viduryje jis stovejo uz 4 px nuo tako - rankenele jo NIEKADA neuzdengdavo, bet tempiantis pirstas uzdengia, ir kaip tik ties viduriu, kur ji ir skaitai. Stilius PAZODZIUI toks pat, kaip perziuros #gl3dClipNo pulte (V: 'kad butu identiskai'), iskaitant `var(--bg)` kontura: jis akiai nematomas (fono spalva), bet saugo teksta, jei sis atsidurtu ant modelio. Konteineris `gl3dLayer` SPECIALIAI be `gap` - perziuros #gl3dClipBar jo neturi, o su juo tarpas buvo 11 px vietoj 5. Keiciant VIENA, keisti ABU. *//* Plati (64 px) dezute, prisegta DESINIUOJU krastu per `align-self:flex-end` - be sito slankiklis slankiojo. Juosta prikabinta prie desinio krasto ir neturi savo plocio, tad ja matavo skaicius: is „5/75" i „38/75" slankiklis pasislinkdavo 2,7 px. Todel juostai duotas `width:22px`, o skaiciui - sava plati dezute. SPASTAI: vien `text-align:right` to NEPADARO - kai tekstas platesnis uz dezute, CSS pertekli visada isleidzia i DESINE, ir „897/897" islindo 19,7 px uz slankiklio bei buvo nukirstas `#gl3d` (`overflow:hidden`). Reikia, kad dezuteje LIKTU laisvos vietos - tik tada lygiavimas veikia. Ismatuota gyvai 09-04, abi puses. */#gl3dLayerNo{flex:0 0 auto;align-self:flex-end;width:64px;margin-right:2px;text-align:right;margin-bottom:5px;font-size:10px;line-height:1;color:var(--muted);white-space:nowrap;text-shadow:0 0 3px var(--bg);pointer-events:none}/* Ijungta busena - TA PATI, kaip detalumo mygtuko: du jungikliai salia negali kalbeti skirtingomis kalbomis (V 08-12). *//* Kampuotas kvadratas = isjungta, apvalus = ijungta. Zenklas pats parodo, ka daro, tad spalvos nereikia (V 08-12). *//* Vaizdo mygtukai: kiekvienas turi DU piesinius ir rodo ta, kuris atitinka jo
+   poros busena. Aktyvi pora - oranzine; 2D pora ijungus UV - violetine, nes
+   spalva cia pat rodo, kuo nusidazys vaizdas (V 08-22). */
+#gl3dV3 .s0,#gl3dV3 .s1,#gl3dV2 .f0,#gl3dV2 .f1{display:none}
+#gl3dV3.s0 .s0,#gl3dV3.s1 .s1,#gl3dV2.f0 .f0,#gl3dV2.f1 .f1{display:inline}
+#gl3dZoom #gl3dV3.act,#gl3dZoom #gl3dV2.act,#gl3dTools #gl3dV3.act,#gl3dTools #gl3dV2.act{color:var(--accent);border-color:var(--accent)}
+#gl3dZoom #gl3dV2.act.f1,#gl3dTools #gl3dV2.act.f1{color:#8b5cf6;border-color:#8b5cf6}
+#gl3dTools .soft{opacity:0}/* Forma sako, KA mygtukas daro; spalva - kad jis DABAR ijungtas. Prie 15 px formos skirtuma lengva praleisti, o oranzine visoje programoje jau reiskia aktyvu. Uzrakintas sliceryje - oranzinis, bet prigesintas (V 08-12). */#gl3dDet.on,#gl3dTools button.on{color:var(--accent);border-color:var(--accent)}/* Vienintelis jungiklis, kurio ijungta busena NE oranzine. Tai ne isimtis del grazumo: spalva cia ir yra zinia - mygtukas nusidazo lygiai tuo, kuo nusidazys vaizdas (V 08-22). *//* Violetinis IR isjungtas (V 08-22). Zenklas toks pat, kaip tikro sluoksnio mygtuko, ir tai buvo sazininga mintis - bet du vienodi kvadratai greta pasirode neatskiriami: V du kartus jo nerado, nors mygtukas buvo vietoje ir veike. Spalva cia daro du darbus is karto - sako, kad tai kitas dalykas, ir is anksto rodo, kuo vaizdas nusidazys. Isjungtas blankesnis, ijungtas sodrus. */
+   /* du ID: bendra #gl3dZoom button taisykle kitaip nurungia */
+/* Vaizdo jungiklis: TRYS piesiniai viename mygtuke, po viena kiekvienam rezimui, ir rodomas tas, kuri zmogus mato DABAR. Oranzine cia reiskia ne busena, o kad matai ATRAMAS - tai vienintelis rezimas, kuriame jos yra (V 08-20). *//* Busena matosi is paties piesinio (tankesnis tinklelis), tad spalva ta pacia zinia tik kartotu (V 08-12). *//* Uzrakintas sliceryje: prigesintas, bet ne pilkas keturkampis - bendra mygtuku taisykle cia netinka, sie mygtukai permatomi. */#gl3dZoom button:disabled,#gl3dTools button:disabled{background:rgba(20,20,22,.6);color:var(--muted);opacity:.45;cursor:default}/* Uzdarymas nera veiksmas, kurio ieskai - jam plocio nereikia (V 08-12). Nuo 08-17 jam nereikia ir zodzio: uzdarytas mygtukas yra TA PATI seima, kaip lango didinimas virs perziuros (#stageOpen) - permatomas, plonu remeliu, su 13 px zenklu. Savybes cia israsytos, o ne prikabintos prie #stageOpen taisykles, samoningai: slicerio blokas turi likti nuimamas vienu gabalu, o selektorius, prilipdytas prie svetimos taisykles, kartu nenusiimtu (V 08-17). */#slicerToggle.narrow,#sdToggle.narrow{width:auto;margin:0;padding:5px 7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#slicerToggle.narrow:hover,#sdToggle.narrow:hover{color:var(--text);border-color:var(--line2)}/* Irankiai gyvena ant vaizdo - ir telefone, ir plaziame ekrane, - tad stulpelis korteleje tik dubliuotu tuos pacius mygtukus (V 08-12). */#slicerTools{display:none}/* --- is 0.17 dashboard polish (PR #103): mygtuku paspaudimo ir „dirbama" busenos, #uploadButton, #homeLeft. #gl3dZoom kryptis NEIMTA - musu `row` yra MUSU pasirinkimas slicerio skydeliui, ne V nurodymas (0.17 sesija patikrino: V to neatpazista, istorijoje pedsako nera). --- */#gl3dPad button,#gl3dRot button,#gl3dZoom button{width:26px;height:26px;margin:0;padding:0;border-radius:6px;background:rgba(20,20,22,.6);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}/* Kadaise cia stovejo atramos ir vardas dviem stulpeliais. Atramos 09-02 nusikele i parametru bloka, tad liko VIENAS vaikas - o dvieju stulpeliu tinklelis ji paliko kairej pusej, nors komentaras zadejo visa ploti (pagavo printerio sesija). Vienas stulpelis. */#slicerSupRow{display:grid;grid-template-columns:1fr}@media(max-width:520px){/* Zr. dashboard.html ta pati riba: telefone slankiklis leidziamas zemiau, iki „aukstyn" mygtuko apacios - pado virsutines eilutes desinysis langelis tuscias. Keiciant VIENA, keisti ABU. */#gl3dLayer{bottom:66px}/* Riba palikta: vardo laukas ir siaurame lange lieka vienas stulpelis. */#slicerSupRow{row-gap:8px}#uploadButton,#slicerToggle{width:auto}}@media(min-width:1000px){/* Telefone vienas stulpelis, tad SD sarasas atsidurdavo TARP perziuros ir slicer'io - nuslinkus prie valdikliu paties vaizdo nebesimatydavo. Slicer'is keliauja pries SD (V 08-12). *//* order veikia tik lanksciame konteineryje - be sios eilutes taisykle nieko nedarydavo, ir telefone slicer'is likdavo po SD (V 08-12). */}/* Tuscias zenklelis vis tiek piesdavo remeli - salia „Slice an STL" likdavo tuscias burbuliukas (V 08-17). Ta pati idioma, kaip .fwBadge:empty. */#slicerState:empty{display:none}/* Slicerio modulio versijos piliules cia nebera - zr. slicer-card.html (V 09-08). */
+/* Spausdinant slicerio blokas uzrakintas: `label` mygtuko `disabled` neturi, tad
+   prigesinam ir atimam paspaudima (V 08-20). */
+#slicerChoose.locked{pointer-events:none;opacity:.45}
+/*
+ * SL-params, C variantas (V 09-02): antraste virs SAVO segmentu juostos, blokai
+ * po du. Bandyti buvo trys. A (antraste ir jungikliai vienoje eiluteje) atmestas
+ * - uodegos skirtingo ilgio, o radijo taskelis telefone per mazas taikinys.
+ * B (viena kolona per visa ploti) skaitosi geriausiai, bet uzima ~430 px, ir
+ * „Slice“ su rezultatu nuslenka nuo akiu. C uzima ~200 px ir isslaiko didelius
+ * taikinius.
+ *
+ * `auto-fit` cia butinas: media query ziuretu i LANGO ploti, o siauras yra
+ * BLOKAS - taip 09-02 ir prasprudo luztancios eilutes. Su minmax kolonu skaicius
+ * seka pacios korteles ploti, tad telefone C pats tampa B.
+ */
+#slicerParams{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));
+  gap:9px 14px;margin-top:10px}
+#slicerParams .spLab{display:block;color:var(--muted);font-size:.7rem;
+  letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+#slicerParams .spLab em{font-style:normal;color:var(--muted2);text-transform:none;
+  letter-spacing:0}
+/* Radijo mygtukas lieka - tik nematomas: taip islieka klaviatura, ekrano skaitytuvas
+   ir `input[name=...]:checked` skaitymas, o zmogus mato juosta. */
+#slicerParams .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#slicerParams .seg label{flex:1;margin:0;position:relative;cursor:pointer;min-width:0}
+#slicerParams .seg input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+#slicerParams .seg span{display:block;text-align:center;padding:7px 3px;font-size:.8rem;
+  color:var(--text);border-right:1px solid var(--line);white-space:nowrap}
+#slicerParams .seg label:last-child span{border-right:0}
+#slicerParams .seg input:checked+span{background:var(--accent);color:#fff;font-weight:600}
+#slicerParams .seg input:focus-visible+span{outline:2px solid var(--link);outline-offset:-2px}
+#slicerParams .spReset{grid-column:1/-1;text-align:right;margin-top:1px}
+#slicerParams .spReset a{color:var(--link);font-size:.8rem}
+/* Spausdinant kortele uzrakinama (`slicer.js` vienu ejimu per konteineri), ir
+   radijo mygtukai tikrai tampa `disabled`. Bet jie NEMATOMI - zmogus mato tik
+   juosta, tad be sitos eilutes ji atrodytu gyva ir tyliai nereaguotu (V 09-02).
+   Pati juosta lieka skaitoma: matai, kas nustatyta, tik pakeisti negali. */
+#slicerParams .seg input:disabled+span{opacity:.45;cursor:default}
+#slicerParams.uzrakintas .spReset a{opacity:.45;pointer-events:none}
+/*
+ * ⚠️ PATAISA (09-03). Buvau parases, kad pulto naršyklėje `:has()` neveikia -
+ * tai NETIESA, ir tai buvo blogas matavimas: tuo metu eilute dar turejo inline
+ * `style='min-height:1.9em'`, o inline nugali BET KOKI selektoriu, taip pat ir
+ * `:has()`. Matavau inline stiliu, ne selektoriu. Pertikrinta svariai:
+ * `CSS.supports('selector(:has(*))')` = true, ir bandomoji taisykle suveikia.
+ * Pagavo printerio sesija.
+ *
+ * Klase per JS vis tiek lieka, bet del kitos priezasties: pjaustymo metu
+ * `slicerProg` yra TUSCIAS (eiga piesiama drobeje), tad `:empty` suskleistu
+ * eilute visam pjaustymui ir pabaigoje ji staiga issitiestu. JS mato ir
+ * `sliceRunning`, o CSS - ne.
+ *
+ * Rezultato eilute (eiga + „Discard“) tarp parametru ir faktu saraso yra TUSCIA,
+ * kol niekas nesupjaustyta, bet uzima 45 px: 27 px `min-height:1.9em` plius 9+9
+ * margin. Placiame lange tai matosi kaip desine kortele, ilgesne uz kaire maždaug
+ * centimetru - V pastebejo is karto po liejimo (09-03), o ismatavus paaiskejo,
+ * kad tai ne parametru blokas, o zemiau reservuota vieta.
+ *
+ * Suskleidziam TIK kol eilute tuscia. Kai pjaustymas prasideda, `#slicerProg`
+ * gauna teksta, taisykle nustoja galioti, ir eilute atsiranda su savo tarpais -
+ * tad zinute niekur nedingsta, o „Discard“ lieka ten, kur buvo.
+ */
+/* Tarpai ir aukstis CIA, ne `style=` atribute: inline stilius nugali bet kokia
+   taisykle, tad suskleidimas nieko nedarydavo, nors klase buvo uzdeta (ismatuota
+   09-03: klase „tuscia" yra, o `min-height` vis tiek 27,36 px). */
+/* Vieta rezervuota VISADA, ir tuscia (V 09-08). Anksciau tuscia eilute
+   susiskleisdavo, o suslicinus issitiesdavo - kortele pasokteldavo 46 px
+   (28 aukscio + 2x9 tarpai, ismatuota), ir kartu su ja pasislinkdavo parametrai,
+   faktai bei visa desine kolona. Suslicinus zmogus ziuri butent i ta vieta, tad
+   sokinejantis makletas yra brangesnis uz tuscia eilute, kurios niekas nepastebi.
+   Klase `tuscia` lieka - ji tebeslepia „Discard", kol nera ka atmesti. */
+#slicerResRow{margin:9px 0;min-height:1.9em}
+#slicerResRow.tuscia #slicerDiscardLink{display:none}
 </style></head><body><main class='wrap'>
 <div class='head'><div><h1><span id='brandHome' role='button' tabindex='0' aria-label='Dashboard' title='Dashboard'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</span><a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
@@ -852,36 +938,36 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
           <button data-zoom='out' title='Zoom out'>&minus;</button>
           <button data-zoom='in' title='Zoom in'>+</button>
         </div>
-        <!-- Slicerio irankiai ant paties vaizdo: modelis matomas, ir sukiojant ji
-             nereikia akiu mesti i kortele (V 08-12). -->
-        <!-- Irankiu juosta gyvena VIRSUJE (V 08-20): plokste visada apacioje, tad ten po ja
-             mygtukai gula ant paties daikto, o virsuje tuscia. -->
-        <div id='gl3dTools' style='display:none'>
-          <button data-tool='fit' title='Fast fit - turn, and scale only if it does not fit. Answers at once.'>&#9906;</button>
-          <button data-tool='fitpro' title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports (10-20 s on big models)'>&#8982;</button>
-          <button data-tool='flat' title='Lay flat - widest face down'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'><path d='M8 1.6v5.2'/><path d='M5.5 4.6 8 7.1l2.5-2.5'/><path d='M8 9.2 14.4 12 8 14.8 1.6 12z'/></svg></button>
-          <button data-tool='flip' title='Flip over'>&#8645;</button>
-          <button data-tool='tilt' title='Tilt 90 - falls forward'>&#8635;</button>
-          <button data-tool='rot'  title='Rotate 90 - spins on the plate'>&#10227;</button>
-          <button data-tool='scale'  title='Scale - make the part bigger or smaller'>%</button>
-        </div>
-        <!-- Nustatymai popup'e virs juostos: reikalingi retai, tad korteleje
-             jiems nuolatines vietos neskiriam (V 08-12). -->
-        <div id='gl3dPop' style='display:none'>
-          <div id='gl3dPopScale' class='popRow'>
-            <input id='popScaleRange' type='range' min='10' max='300' value='100'>
-            <input id='popScalePct' type='number' min='10' max='300' step='1'><span>%</span>
-            <input id='popScaleMm' type='number' min='1' max='68' step='0.1'><span>mm</span>
-          </div>
-          <button id='popDone' title='Done'>&#10003;</button>
-        </div>
-        <!-- Vertikalus, kaip visuose slicer'iuose: modelis auga i virsu, tad ir
-             valdiklis eina i virsu (V 08-12). -->
-        <!-- Sluoksniu slankiklis - tarp virsutiniu juostu ir stumdymo pado apacioje-desineje
-             (nuo 08-21 padas ten). Su senu `bottom:44px` jis lisdavo po padu. -->
-        <div id='gl3dLayer' style='display:none;position:absolute;right:9px;z-index:2;flex-direction:column;align-items:center;width:22px'>
-          <span id='gl3dLayerNo'></span>
-          <input id='gl3dLayerRange' type='range' min='1' max='2' value='1'>
+        <!-- Slicerio irankiai ant paties vaizdo: modelis matomas, ir sukiojant ji
+             nereikia akiu mesti i kortele (V 08-12). -->
+        <!-- Irankiu juosta gyvena VIRSUJE (V 08-20): plokste visada apacioje, tad ten po ja
+             mygtukai gula ant paties daikto, o virsuje tuscia. -->
+        <div id='gl3dTools' style='display:none'>
+          <button data-tool='fit' title='Fast fit - turn, and scale only if it does not fit. Answers at once.'>&#9906;</button>
+          <button data-tool='fitpro' title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports (10-20 s on big models)'>&#8982;</button>
+          <button data-tool='flat' title='Lay flat - widest face down'><svg viewBox='0 0 16 16' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.15' stroke-linejoin='round' stroke-linecap='round'><path d='M8 1.6v5.2'/><path d='M5.5 4.6 8 7.1l2.5-2.5'/><path d='M8 9.2 14.4 12 8 14.8 1.6 12z'/></svg></button>
+          <button data-tool='flip' title='Flip over'>&#8645;</button>
+          <button data-tool='tilt' title='Tilt 90 - falls forward'>&#8635;</button>
+          <button data-tool='rot'  title='Rotate 90 - spins on the plate'>&#10227;</button>
+          <button data-tool='scale'  title='Scale - make the part bigger or smaller'>%</button>
+        </div>
+        <!-- Nustatymai popup'e virs juostos: reikalingi retai, tad korteleje
+             jiems nuolatines vietos neskiriam (V 08-12). -->
+        <div id='gl3dPop' style='display:none'>
+          <div id='gl3dPopScale' class='popRow'>
+            <input id='popScaleRange' type='range' min='10' max='300' value='100'>
+            <input id='popScalePct' type='number' min='10' max='300' step='1'><span>%</span>
+            <input id='popScaleMm' type='number' min='1' max='68' step='0.1'><span>mm</span>
+          </div>
+          <button id='popDone' title='Done'>&#10003;</button>
+        </div>
+        <!-- Vertikalus, kaip visuose slicer'iuose: modelis auga i virsu, tad ir
+             valdiklis eina i virsu (V 08-12). -->
+        <!-- Sluoksniu slankiklis - tarp virsutiniu juostu ir stumdymo pado apacioje-desineje
+             (nuo 08-21 padas ten). Su senu `bottom:44px` jis lisdavo po padu. -->
+        <div id='gl3dLayer' style='display:none;position:absolute;right:9px;z-index:2;flex-direction:column;align-items:center;width:22px'>
+          <span id='gl3dLayerNo'></span>
+          <input id='gl3dLayerRange' type='range' min='1' max='2' value='1'>
         </div>
       </div>
       <!-- „As printed" (apverstas modelis) issimtas 08-14: V sprendimas - vaizdas vis
@@ -922,198 +1008,198 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
        sutapti su kairio stulpelio (peržiūros) aukščiu. Telefone konteineris nieko
        nekeicia: eile lieka perziura -> sliceris -> SD manager (V 08-20). -->
   <div id='homeRight'>
-  <section id='slicerCard' class='card hidden'>
-    <!-- Varnele - IS KARTO po pavadinimo (V 08-21): ji priklauso pavadinimui.
-         Versijos piliules cia nebera (V 08-22): antrasteje ji atrode kaip busenos
-         zenklas, nors yra tik prierasas, ir sedejo salia mygtuko, kuri reikia
-         matyti pirma. Versija nusikele i korteles apacia desineje - ten, kur jos
-         ieskoma tada, kai ji tikrai reikalinga. `slicerState` isnyko kartu su
-         septyniu bakstelejimu gestu: kortele dabar rodoma tik tada, kai modulis
-         gyvas, tad „not active" nebeturi kada suveikti. -->
-    <div class='cardHead'><h2>STL slicer <button id='slicerToggle' class='button secondary'
-              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button></h2></div>
-    <div id='slicerBody' style='display:none'>
-      <div id='slicerTools' class='toolbar' style='margin-top:0'>
-        <button id='slicerAutoFit' class='button secondary' type='button' disabled
-                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
-        <!-- Antras pastatymas: to paties darbo kruopstusis kelias. Atskiras mygtukas,
-             o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
-             laimejo arba prarado - pasako eilute faktu sarase. -->
-        <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
-                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-20 s on big models.'>Optimal fit</button>
-        <button id='slicerFlat' class='button secondary' type='button' disabled
-                title='Put the widest flat face down on the plate'>Lay flat</button>
-        <button id='slicerFlip' class='button secondary' type='button' disabled
-                title='Turn the model upside down'>Flip over</button>
-        <button id='slicerRotX' class='button secondary' type='button' disabled
-                title='Tilt forward a quarter turn'>Tilt 90°</button>
-        <button id='slicerRotZ' class='button secondary' type='button' disabled
-                title='Spin on the plate a quarter turn'>Rotate 90°</button>
-      </div>
-      <div id='slicerFit' style='display:none'></div>
-      <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
-      <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
-
-      <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
-           naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
-           netikrintas ant gelezies. -->
-      <!-- `nowrap`: `.calRow` pagal nutylejima laužo eilute, ir platus vardo laukas
-           nusileisdavo i savo eilute. Vardas turi prasideti tuoj po „tree" ir eiti
-           iki krasto - viena eilute, be tuscios vietos (V 08-20). -->
-      <!-- NEMATOMA LENTELE: mygtuku eilute zemiau yra dvi lygios kolonos, tad ta pati
-           lentele uzdeta ir cia - kaireje nustatymai, desineje vardas. Del to vardo
-           lauko krastai stovi tiksliai ties „Send to printer" krastais, nors jokiu
-           liniju nesimato (V 08-20: „nematoma lentele"). -->
-      <!-- Atramu tipas nusikele i parametru bloka PO mygtuku eilute (V 09-02):
-           kartu su kitais penkiais jis yra nustatymas, o ne kelio dalis. Vardas
-           liko CIA, virs mygtuku, ir issitiese per visa ploti - ji rasai
-           kiekviena karta, o parametrus lieti retai, tad kasdienis kelias
-           (vardas -> Choose -> Slice -> Send) nepailgejo. -->
-      <div class='calRow' id='slicerSupRow'
-           style='margin-top:6px;gap:8px;align-items:center'>
-        <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
-             vardas yra nustatymas, ne veiksmas (V 08-20).
-             Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
-             sustodavo vidury tuscios vietos ir nestovedavo po niekuo (V 08-20). -->
-        <!-- Jokio autocomplete: sarasas su anksciau vestais vardais nusileidzia
-             tiesiai ant „Choose STL · Slice · Send" eilutes, o zmogus tuo metu
-             ieško butent ju. Vardas cia ateina is failo, siulymo nereikia.
-             Chrome i „off" atsizvelgia tik tada, kai lauko vardas jam nieko
-             nesako - todel duotas savas (pultas laukeli ima pagal id). -->
-        <input id='slicerName' type='text' placeholder='model name' maxlength='40'
-               title='Letters, digits, - and _ . The printer screen shows about the first 14'
-               name='tm-noac-name' autocomplete='off' autocorrect='off'
-               autocapitalize='off' spellcheck='false' data-form-type='other'
-               data-lpignore='true'
-               style='width:100%;min-width:0;margin:0' disabled>
-      </div>
-
-      <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
-      <div class='calRow' style='margin-top:6px;gap:8px'>
-        <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
-          <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
-        <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
-        <!-- Netelpanciam modeliui - TOJE PACIOJE vietoje, kur ieskoma „Slice".
-             Uzrasas apacioje („too large - Fit it") sakė teisybe, bet akis tuo metu
-             ziuri i uzrakinta mygtuka ir jo nemato (V 08-19). -->
-        <button id='slicerFitNow' class='button secondary step' type='button'
-                style='flex:1 1 0;min-width:0;display:none'
-                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
-        <!-- Tas pats lizdas, trecias pavidalas: supjausčius kitas zingsnis yra
-             issiuntimas, tad jis ir stovi ten, kur zmogus ka tik spaude. Atskiros
-             eilutes su „Save to printer" nebereikia (V 08-20). -->
-        <button id='slicerSend' class='button secondary step' type='button'
-                style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
-      </div>
-      <!-- Rezultatas ir jo atsisakymas - TIESIAI po mygtukais (V 08-20: „Discard“
-           desineje, tiksliai po „Slice“). 09-03: nukelus parametrus zemyn, si eilute
-           liko po jais ir „Discard“ atsidure prie „Reset to defaults“ - ne po tuo,
-           ko atsisakoma. Grazinta. Tuscia ji suskleidziama (zr. slicer.css). -->
-      <div class='calRow' id='slicerResRow'>
-        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
-             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
-             lieka kaireje - ji ir taip skaitoma is kaires. -->
-        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
-        <a href='#' id='slicerDiscardLink'
-           style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
-      </div>
-      <!--
-        SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
-        Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
-        raftas: jo numatytoji skaiciuojama is `RAFT_MM` taip, kad iseitu 0,30 mm
-        FIZINIO pado. Nuo 09-06 tai 3 sluoksniai (buvo 6) - V atspausdino kupona
-        tikra derva ir pamatavo, kad padas iseina ~0,15 mm storesnis uz nominala,
-        o storesni uz 0,30 mm nusiima tik su jega.
-        Mygtukai: 2 · 3 · 6. Vienetas isimtas 09-06, nes ties juo raftas prie
-        detales NEPRIKIMBA - padas ir modelis lieka atskiri kunai (18 demeliu po
-        2-4 px), o prie dvieju useliai suauga i viena. Sesetas paliktas kaip
-        atsarga dideliam spaudiniui, kuris gali nusilupti nuo plokstes - to
-        atvejo kuponas netikrino.
-        Raftas rodomas SLUOKSNIAIS, ne milimetrais, ir tam yra dvi priezastys:
-        atspausdintas padas storesnis uz nominala, o spausdinant 0,1 mm printeris
-        is triju sluoksniu apsviecia du. Milimetrai butu tikslus tik viename
-        rezime, sluoksniai teisingi visuose.
-      -->
-      <div id='slicerParams'>
-        <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-supports'>
-            <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
-            <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
-          </div>
-        </div>
-        <div class='spBlk'><span class='spLab' id='spL-strength'>Strength</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-strength'>
-            <label><input type='radio' name='slicerSupDens' value='0.7'><span>light</span></label>
-            <label><input type='radio' name='slicerSupDens' value='1' checked><span>normal</span></label>
-            <label><input type='radio' name='slicerSupDens' value='1.4'><span>strong</span></label>
-          </div>
-        </div>
-        <div class='spBlk'><span class='spLab' id='spL-placement'>Placement</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-placement'>
-            <label><input type='radio' name='slicerPlace' value='auto' checked><span>auto</span></label>
-            <label><input type='radio' name='slicerPlace' value='pad'><span>pad</span></label>
-            <label><input type='radio' name='slicerPlace' value='lift'><span>lifted</span></label>
-          </div>
-        </div>
-        <div class='spBlk'><span class='spLab' id='spL-tip'>Tip</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-tip'>
-            <label><input type='radio' name='slicerTip' value='0' checked><span>auto</span></label>
-            <label><input type='radio' name='slicerTip' value='0.4'><span>0.4</span></label>
-            <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
-          </div>
-        </div>
-        <!-- Vienetas - ANTRASTEJE, ir tai SLUOKSNIAI, ne milimetrai (V 09-03).
-             Milimetrai cia buvo ir buvo nuimti: „0,30 mm“ teisinga tik prie 0,05
-             profilio, o pultas moduliui sluoksnio aukscio nepaduoda (zr.
-             `SLICER_LH` komentara slicer.js) - tad prie 0,1 tas skaicius meluotu.
-             Sluoksniu skaicius teisingas visada.
-             Numatytoji cia NEZYMIMA - ja stato JS. -->
-        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft layers</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
-            <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
-            <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
-            <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
-          </div>
-        </div>
-        <div class='spBlk'><span class='spLab' id='spL-smoothing'>Smoothing</span>
-          <div class='seg' role='radiogroup' aria-labelledby='spL-smoothing'>
-            <label><input type='radio' name='slicerSmooth' value='on' checked><span>on</span></label>
-            <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
-          </div>
-        </div>
-        <!-- „Reset“ - sava eilute per abi kolonas. Prilipdytas prie „Smoothing“
-             jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
-        <div class='spReset'><a href='#' id='slicerParamsReset'
-             title='Back to the values the slicer ships with'>Reset to defaults</a></div>
-      </div>
-
-      <!-- Pats siuntimo mygtukas lieka, tik nematomas: visa jo logika (vardai,
-           perrasymas, eiga) sukasi cia, o „Send to printer" ji tik paspaudzia. -->
-      <button id='slicerSave' type='button' style='display:none' disabled>Save to printer</button>
-      <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
-           tad jos neatrode kaip vienas sarasas (V 08-12). -->
-      <div id='slicerFacts'>
-      <div id='slicerDims'></div>
-      <div id='slicerInfo'>No file loaded yet.</div>
-      <div>Layers are 0.05 mm, as for every model.</div>
-      <div id='slicerSupports'>Supports and a raft are added where the part hangs.</div>
-      <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
-           Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
-           prarado, ir galeti grizti (V 08-20). -->
-      <div id='slicerPlaceNote'></div>
-      <div id='slicerIslands'></div>
-      </div>
-      <!-- Versijos cia NEBERA (V 09-08). Korteleje ji tik ilgino bloka, o slicerio
-           kortele ir taip auga zemyn labiau uz kaireje esancia perziura.
-           Isimti saugu: `slicer.js` raso per `if(e)`, o Update skiltis versija gauna
-           atskirai, per `slicerLoadedVer`.
-           ⚠️ Settings -> Update rodo NE ta pacia reiksme: ten `slmInstalled` sako, kas
-           guli ant korteles (`/api/lib/slicer`), o uzsikrovusio modulio versija
-           parodoma tik `slmReload` eiluteje ir tik tada, kai abi zinomos IR skiriasi.
-           Vadinasi, kai modulis paimtas is tinklo (korteleje jo nera) arba kai
-           spausdinama, veikiancio modulio versijos nesimato niekur. Tai zinoma skola,
-           ne apsirikimas (printerio sesijos vartai 09-08). -->
-    </div>
+  <section id='slicerCard' class='card hidden'>
+    <!-- Varnele - IS KARTO po pavadinimo (V 08-21): ji priklauso pavadinimui.
+         Versijos piliules cia nebera (V 08-22): antrasteje ji atrode kaip busenos
+         zenklas, nors yra tik prierasas, ir sedejo salia mygtuko, kuri reikia
+         matyti pirma. Versija nusikele i korteles apacia desineje - ten, kur jos
+         ieskoma tada, kai ji tikrai reikalinga. `slicerState` isnyko kartu su
+         septyniu bakstelejimu gestu: kortele dabar rodoma tik tada, kai modulis
+         gyvas, tad „not active" nebeturi kada suveikti. -->
+    <div class='cardHead'><h2>STL slicer <button id='slicerToggle' class='button secondary'
+              type='button' style='margin-top:0' aria-label='Open the slicer'>Open</button></h2></div>
+    <div id='slicerBody' style='display:none'>
+      <div id='slicerTools' class='toolbar' style='margin-top:0'>
+        <button id='slicerAutoFit' class='button secondary' type='button' disabled
+                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+        <!-- Antras pastatymas: to paties darbo kruopstusis kelias. Atskiras mygtukas,
+             o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
+             laimejo arba prarado - pasako eilute faktu sarase. -->
+        <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
+                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-20 s on big models.'>Optimal fit</button>
+        <button id='slicerFlat' class='button secondary' type='button' disabled
+                title='Put the widest flat face down on the plate'>Lay flat</button>
+        <button id='slicerFlip' class='button secondary' type='button' disabled
+                title='Turn the model upside down'>Flip over</button>
+        <button id='slicerRotX' class='button secondary' type='button' disabled
+                title='Tilt forward a quarter turn'>Tilt 90°</button>
+        <button id='slicerRotZ' class='button secondary' type='button' disabled
+                title='Spin on the plate a quarter turn'>Rotate 90°</button>
+      </div>
+      <div id='slicerFit' style='display:none'></div>
+      <!-- Mastelis ir minkstinimas gyvena ant vaizdo, salia modelio. -->
+      <label style='display:none'><input type='checkbox' id='slicerAA' checked></label>
+
+      <!-- Atramu tipas. Numatytosios - iprastos: jos patikimesnes, o medzio
+           naudoja maziau dervos ir palieka maziau zymiu, bet ju raftas dar
+           netikrintas ant gelezies. -->
+      <!-- `nowrap`: `.calRow` pagal nutylejima laužo eilute, ir platus vardo laukas
+           nusileisdavo i savo eilute. Vardas turi prasideti tuoj po „tree" ir eiti
+           iki krasto - viena eilute, be tuscios vietos (V 08-20). -->
+      <!-- NEMATOMA LENTELE: mygtuku eilute zemiau yra dvi lygios kolonos, tad ta pati
+           lentele uzdeta ir cia - kaireje nustatymai, desineje vardas. Del to vardo
+           lauko krastai stovi tiksliai ties „Send to printer" krastais, nors jokiu
+           liniju nesimato (V 08-20: „nematoma lentele"). -->
+      <!-- Atramu tipas nusikele i parametru bloka PO mygtuku eilute (V 09-02):
+           kartu su kitais penkiais jis yra nustatymas, o ne kelio dalis. Vardas
+           liko CIA, virs mygtuku, ir issitiese per visa ploti - ji rasai
+           kiekviena karta, o parametrus lieti retai, tad kasdienis kelias
+           (vardas -> Choose -> Slice -> Send) nepailgejo. -->
+      <div class='calRow' id='slicerSupRow'
+           style='margin-top:6px;gap:8px;align-items:center'>
+        <!-- Vardas - cia, o ne prie mygtuko: eilute su „Save to printer" isnyko, o
+             vardas yra nustatymas, ne veiksmas (V 08-20).
+             Plotis - iki pat korteles krasto: su 16 em riba lauko kairysis krastas
+             sustodavo vidury tuscios vietos ir nestovedavo po niekuo (V 08-20). -->
+        <!-- Jokio autocomplete: sarasas su anksciau vestais vardais nusileidzia
+             tiesiai ant „Choose STL · Slice · Send" eilutes, o zmogus tuo metu
+             ieško butent ju. Vardas cia ateina is failo, siulymo nereikia.
+             Chrome i „off" atsizvelgia tik tada, kai lauko vardas jam nieko
+             nesako - todel duotas savas (pultas laukeli ima pagal id). -->
+        <input id='slicerName' type='text' placeholder='model name' maxlength='40'
+               title='Letters, digits, - and _ . The printer screen shows about the first 14'
+               name='tm-noac-name' autocomplete='off' autocorrect='off'
+               autocapitalize='off' spellcheck='false' data-form-type='other'
+               data-lpignore='true'
+               style='width:100%;min-width:0;margin:0' disabled>
+      </div>
+
+      <!-- Trys zingsniai vienodo plocio: kelias matosi is pacios eilutes. -->
+      <div class='calRow' style='margin-top:6px;gap:8px'>
+        <label id='slicerChoose' class='button secondary step' style='margin:0;cursor:pointer;flex:1 1 0;min-width:0'>Choose STL
+          <input type='file' id='slicerFile' accept='.stl' style='display:none'></label>
+        <button id='slicerGo' class='button secondary' type='button' style='flex:1 1 0;min-width:0' disabled>Slice</button>
+        <!-- Netelpanciam modeliui - TOJE PACIOJE vietoje, kur ieskoma „Slice".
+             Uzrasas apacioje („too large - Fit it") sakė teisybe, bet akis tuo metu
+             ziuri i uzrakinta mygtuka ir jo nemato (V 08-19). -->
+        <button id='slicerFitNow' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'
+                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+        <!-- Tas pats lizdas, trecias pavidalas: supjausčius kitas zingsnis yra
+             issiuntimas, tad jis ir stovi ten, kur zmogus ka tik spaude. Atskiros
+             eilutes su „Save to printer" nebereikia (V 08-20). -->
+        <button id='slicerSend' class='button secondary step' type='button'
+                style='flex:1 1 0;min-width:0;display:none'>Send to printer</button>
+      </div>
+      <!-- Rezultatas ir jo atsisakymas - TIESIAI po mygtukais (V 08-20: „Discard“
+           desineje, tiksliai po „Slice“). 09-03: nukelus parametrus zemyn, si eilute
+           liko po jais ir „Discard“ atsidure prie „Reset to defaults“ - ne po tuo,
+           ko atsisakoma. Grazinta. Tuscia ji suskleidziama (zr. slicer.css). -->
+      <div class='calRow' id='slicerResRow'>
+        <!-- „Discard" - DESINEJE, tiksliai po „Slice": is kaires krasto nesimatė,
+             ko atsisakoma (V 08-20). Rezultato eilute uzleidzia jam ta stulpeli ir
+             lieka kaireje - ji ir taip skaitoma is kaires. -->
+        <span id='slicerProg' class='hint' style='flex:1 1 auto;text-align:left'></span>
+        <a href='#' id='slicerDiscardLink'
+           style='visibility:hidden;flex:0 0 auto;color:var(--link);font-size:.85rem'>Discard</a>
+      </div>
+      <!--
+        SL-params (V 09-02). Sesi valdikliai POD mygtuku eilute, dviem kolonom.
+        Kiekvieno numatytoji reiksme yra ta, kuri variklyje buvo ikalta, TIK
+        raftas: jo numatytoji skaiciuojama is `RAFT_MM` taip, kad iseitu 0,30 mm
+        FIZINIO pado. Nuo 09-06 tai 3 sluoksniai (buvo 6) - V atspausdino kupona
+        tikra derva ir pamatavo, kad padas iseina ~0,15 mm storesnis uz nominala,
+        o storesni uz 0,30 mm nusiima tik su jega.
+        Mygtukai: 2 · 3 · 6. Vienetas isimtas 09-06, nes ties juo raftas prie
+        detales NEPRIKIMBA - padas ir modelis lieka atskiri kunai (18 demeliu po
+        2-4 px), o prie dvieju useliai suauga i viena. Sesetas paliktas kaip
+        atsarga dideliam spaudiniui, kuris gali nusilupti nuo plokstes - to
+        atvejo kuponas netikrino.
+        Raftas rodomas SLUOKSNIAIS, ne milimetrais, ir tam yra dvi priezastys:
+        atspausdintas padas storesnis uz nominala, o spausdinant 0,1 mm printeris
+        is triju sluoksniu apsviecia du. Milimetrai butu tikslus tik viename
+        rezime, sluoksniai teisingi visuose.
+      -->
+      <div id='slicerParams'>
+        <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-supports'>
+            <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
+            <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-strength'>Strength</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-strength'>
+            <label><input type='radio' name='slicerSupDens' value='0.7'><span>light</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1' checked><span>normal</span></label>
+            <label><input type='radio' name='slicerSupDens' value='1.4'><span>strong</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-placement'>Placement</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-placement'>
+            <label><input type='radio' name='slicerPlace' value='auto' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerPlace' value='pad'><span>pad</span></label>
+            <label><input type='radio' name='slicerPlace' value='lift'><span>lifted</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-tip'>Tip</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-tip'>
+            <label><input type='radio' name='slicerTip' value='0' checked><span>auto</span></label>
+            <label><input type='radio' name='slicerTip' value='0.4'><span>0.4</span></label>
+            <label><input type='radio' name='slicerTip' value='0.5'><span>0.5</span></label>
+          </div>
+        </div>
+        <!-- Vienetas - ANTRASTEJE, ir tai SLUOKSNIAI, ne milimetrai (V 09-03).
+             Milimetrai cia buvo ir buvo nuimti: „0,30 mm“ teisinga tik prie 0,05
+             profilio, o pultas moduliui sluoksnio aukscio nepaduoda (zr.
+             `SLICER_LH` komentara slicer.js) - tad prie 0,1 tas skaicius meluotu.
+             Sluoksniu skaicius teisingas visada.
+             Numatytoji cia NEZYMIMA - ja stato JS. -->
+        <div class='spBlk'><span class='spLab' id='spL-raft'>Raft layers</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
+            <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
+            <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
+            <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-smoothing'>Smoothing</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-smoothing'>
+            <label><input type='radio' name='slicerSmooth' value='on' checked><span>on</span></label>
+            <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
+          </div>
+        </div>
+        <!-- „Reset“ - sava eilute per abi kolonas. Prilipdytas prie „Smoothing“
+             jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
+        <div class='spReset'><a href='#' id='slicerParamsReset'
+             title='Back to the values the slicer ships with'>Reset to defaults</a></div>
+      </div>
+
+      <!-- Pats siuntimo mygtukas lieka, tik nematomas: visa jo logika (vardai,
+           perrasymas, eiga) sukasi cia, o „Send to printer" ji tik paspaudzia. -->
+      <button id='slicerSave' type='button' style='display:none' disabled>Save to printer</button>
+      <!-- Faktai - vienodais buletais: anksciau kiekviena eilute atrode kitaip,
+           tad jos neatrode kaip vienas sarasas (V 08-12). -->
+      <div id='slicerFacts'>
+      <div id='slicerDims'></div>
+      <div id='slicerInfo'>No file loaded yet.</div>
+      <div>Layers are 0.05 mm, as for every model.</div>
+      <div id='slicerSupports'>Supports and a raft are added where the part hangs.</div>
+      <!-- Kruopstaus pastatymo verdiktas: ar jis siam modeliui geresnis uz greitaji.
+           Be palyginimo skaicius nieko nesako - zmogus turi matyti, ka laimejo arba
+           prarado, ir galeti grizti (V 08-20). -->
+      <div id='slicerPlaceNote'></div>
+      <div id='slicerIslands'></div>
+      </div>
+      <!-- Versijos cia NEBERA (V 09-08). Korteleje ji tik ilgino bloka, o slicerio
+           kortele ir taip auga zemyn labiau uz kaireje esancia perziura.
+           Isimti saugu: `slicer.js` raso per `if(e)`, o Update skiltis versija gauna
+           atskirai, per `slicerLoadedVer`.
+           ⚠️ Settings -> Update rodo NE ta pacia reiksme: ten `slmInstalled` sako, kas
+           guli ant korteles (`/api/lib/slicer`), o uzsikrovusio modulio versija
+           parodoma tik `slmReload` eiluteje ir tik tada, kai abi zinomos IR skiriasi.
+           Vadinasi, kai modulis paimtas is tinklo (korteleje jo nera) arba kai
+           spausdinama, veikiancio modulio versijos nesimato niekur. Tai zinoma skola,
+           ne apsirikimas (printerio sesijos vartai 09-08). -->
+    </div>
   </section>
 
   <section id='sdSection' class='card'>
