@@ -29,7 +29,11 @@ var STATUS={ok:true,firmwareVersion:'0.15.4',firmwareBuild:'demo',busy:false,pau
   model:'',currentLayer:0,totalLayers:0,layerText:'0 / 0',resinUsedMl:0,
   resinText:'0.0 ml',runSecs:0,runTime:'0m 0s',remainingSecs:0,remainingTime:'0m 0s',
   webControl:true,askRefill:true,vatRemainingMl:15.0,vatText:'15.0 ml',vatLow:false,
-  freeHeap:181080,minFreeHeap:126952,maxAllocHeap:110580,uptimeSecs:33};
+  freeHeap:181080,minFreeHeap:126952,maxAllocHeap:110580,uptimeSecs:33,
+  // 0.17 SL-mod: the slicer card only exists while the printer says the module
+  // is on. A real printer ships with it off; the demo shows it on, since the
+  // landing page promises slicing in the browser.
+  slicerOn:true};
 
 var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposure:14,
   prevRegularExposure:0,baseLayers:2,transitionLayers:5,slowLiftDistance:1,
@@ -47,16 +51,22 @@ var CONFIG={ok:true,locked:false,layerHeight:0.10,baseExposure:35,regularExposur
   tgEnabled:false,tgTokenSet:false,tgTokenTail:'',tgChat:'',
   waEnabled:false,waKeySet:false,waKeyTail:'',waPhone:'',
   dcEnabled:false,dcHookSet:false,dcHookTail:'',
-  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157};   // 0.17 0-16
+  resinProfile:'fast',vatEmptyG:56.56,resinDensity:1.157,   // 0.17 0-16
+  slicerOn:true};                                          // 0.17 SL-mod
 
 // name -> [printLayers, heightMm, estSecs, resinMl, shape]
+// Every preset model shows the SAME real model: a 12 mm ball with supports and
+// raft, sliced by our WASM slicer in the browser (models/demo_model.sl1). The
+// made-up silhouettes looked like blobs, and "it is only a demo" (V 09-11), so
+// the numbers below are the ball's own: 235 layers, 11.75 mm, ~0.9 ml.
+var DEMO_SRC=235;
 var MODELS={
-  alienBust:[433,43.3,9987,14.2,'bust'],
-  dragonHead:[380,38.0,8900,11.6,'bust2'],
-  Predator:[520,52.0,11900,16.8,'spike'],
-  ScreamingEvil:[433,43.3,9987,13.1,'bust2'],
-  Tooth:[210,21.0,4900,3.9,'spike'],
-  Xenomorph3:[610,61.0,14100,18.4,'bust']};
+  alienBust:[118,11.75,2714,0.9,'demo'],
+  dragonHead:[118,11.75,2714,0.9,'demo'],
+  Predator:[118,11.75,2714,0.9,'demo'],
+  ScreamingEvil:[118,11.75,2714,0.9,'demo'],
+  Tooth:[118,11.75,2714,0.9,'demo'],
+  Xenomorph3:[118,11.75,2714,0.9,'demo']};
 
 var BOOTANIM={ok:true,selected:'rippleboot',animations:[
   {name:'rippleboot',display:'Rippleboot',sizeBytes:768012},
@@ -93,6 +103,14 @@ var RESIN={ok:true,selected:'fast',profiles:[
 var UPDATE={ok:true,installed:'0.15.4',latest:'0.15.4',state:0,hasUpdate:false,allowed:true};
 
 var uploadedSeq=0;
+var REAL={};   // uploaded model name -> object URLs of its layer PNGs, in order
+var DEMO_URLS=null,demoLoad=null;   // the preset models' layers, fetched once
+function demoReady(){
+  if(!demoLoad)demoLoad=realFetch('models/demo_model.sl1')
+    .then(function(r){return r.ok?r.blob():null;})
+    .then(function(b){return b?zipLayers(b):null;})
+    .then(function(u){DEMO_URLS=u;},function(){});
+  return demoLoad;}
 var sim=null; // {name,total,startMs,pausedAt,pausedTotal,secsPerLayer,ml}
 
 // ------------------------------------------------------------- tiny helpers
@@ -102,7 +120,8 @@ function fmtDur(s){s=Math.max(0,Math.round(s));var h=Math.floor(s/3600),m=Math.f
 function estTime(secs){var h=Math.floor(secs/3600),m=Math.round(secs%3600/60);return h?h+'h '+(m<10?'0':'')+m+'m':m+'m';}
 function jresp(obj,code){return new Response(JSON.stringify(obj),{status:code||200,headers:{'Content-Type':'application/json'}});}
 function modelMeta(name){var m=MODELS[name];if(!m)return null;
-  return {ok:true,name:name,sourceLayers:m[0]*2,layers:m[0]*2,printLayers:m[0],
+  var src=REAL[name]?REAL[name].length:(m[4]==='demo'?DEMO_SRC:m[0]*2);   // real layer counts
+  return {ok:true,name:name,sourceLayers:src,layers:src,printLayers:m[0],
     heightMm:m[1],estimatedSecs:m[2],estimatedTime:estTime(m[2]),
     preview:false,preview05:false,preview1:false,resinEstimated:true,resinMl:m[3]};}
 function filesPayload(){
@@ -162,6 +181,9 @@ function currentStatus(){
 // -------------------------------------------------- procedural layer slices
 // White silhouette on black, like a real sliced PNG. Radius profile by shape.
 function profileR(shape,t){
+  // an upload we could not read, or the demo model before its layers arrived:
+  // draw nothing rather than a made-up shape
+  if(shape==='none'||shape==='demo')return 0;
   if(shape==='spike')return 0.85-0.65*t;
   if(shape==='bust2')return t<0.12?0.9:(t<0.55?0.45+0.25*Math.sin(t*9):(t<0.8?0.62:0.62*Math.sqrt(Math.max(0,1-((t-0.8)/0.2)*((t-0.8)/0.2)))));
   // 'bust': pedestal, neck, head
@@ -197,8 +219,15 @@ Object.defineProperty(HTMLImageElement.prototype,'src',{
     try{
       if(typeof v==='string'&&v.indexOf('/api/files/layer')===0){
         var name=q(v,'name'),i=parseInt(q(v,'i'))||1;
-        var m=MODELS[name];var total=m?m[0]:400;
-        v=sliceDataURI(name,i,total);
+        if(REAL[name]){
+          // source=1 counts the layers as sliced; without it, print layers (every second one)
+          var r=REAL[name],k=q(v,'source')?i-1:(i-1)*2;
+          v=r[Math.max(0,Math.min(r.length-1,k))];
+        }else if(DEMO_URLS&&MODELS[name]&&MODELS[name][4]==='demo'){
+          // the file may hold fewer layers than the slice had: pick the nearest one
+          var d=DEMO_URLS,ks=q(v,'source')?i-1:(i-1)*2;
+          v=d[Math.max(0,Math.min(d.length-1,Math.round(ks*(d.length-1)/(DEMO_SRC-1))))];
+        }else{var m=MODELS[name];var total=m?m[0]:400;v=sliceDataURI(name,i,total);}
       }else if(typeof v==='string'&&v.indexOf('/api/files/model/preview')===0){
         v='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='; // never used: preview flags are off
       }
@@ -212,8 +241,11 @@ window.fetch=function(path,opt){
   if(typeof path!=='string'||path.indexOf('/api/')!==0&&path.indexOf('/upload')!==0)
     return realFetch(path,opt);
   var delay=120+Math.random()*180;
+  // A preview asks for the model first and its layers right after, so the demo
+  // model's layers must be in hand before that answer goes out.
+  var wait=path.indexOf('/api/files/model')===0?demoReady():Promise.resolve();
   return new Promise(function(resolve){
-    setTimeout(function(){resolve(route(path,opt||{}));},delay);
+    wait.then(function(){setTimeout(function(){resolve(route(path,opt||{}));},delay);});
   });};
 
 function route(path,opt){
@@ -302,8 +334,50 @@ function route(path,opt){
   if(path.indexOf('/api/telegram/test')===0||path.indexOf('/api/whatsapp/test')===0||path.indexOf('/api/discord/test')===0)
     return jresp({ok:true});
   if(path.indexOf('/api/connect')===0)return jresp({ok:false,error:'Demo mode: TinyMaker Connect needs a real printer'},400);
+  // 0.17 SL-mod: no module on the "card", so the page loads it from gh-pages.
+  // The copy-to-SD that follows must fail quietly, not pretend it worked.
+  if(path.indexOf('/api/lib/slicer/check')===0||
+     (path.indexOf('/api/lib/slicer')===0&&(opt.method||'GET')!=='GET'))
+    return jresp({ok:false,error:'Demo mode: no SD card to copy the slicer to'},400);
+  if(path.indexOf('/api/lib/slicer')===0)return jresp({ok:true,complete:false,version:''});
   if(path.indexOf('/api/version')===0)return jresp({api:'0.1',server:'1.5.0',text:'Prusa SLA (TinyMaker demo)'});
   return jresp({ok:true});}
+
+// Layer PNGs out of an uploaded .zip/.sl1. The central directory is read, not
+// the local headers: a writer may leave sizes blank there. Stored entries (our
+// slicer) are copied, deflated ones (PrusaSlicer) go through
+// DecompressionStream. Resolves to object URLs in layer order, or null.
+function zipLayers(file){
+  if(!file||!file.arrayBuffer)return Promise.resolve(null);
+  return file.arrayBuffer().then(function(buf){
+    var dv=new DataView(buf),u8=new Uint8Array(buf),eocd=-1,p;
+    for(p=buf.byteLength-22;p>=Math.max(0,buf.byteLength-65557);p--)
+      if(dv.getUint32(p,true)===0x06054b50){eocd=p;break;}
+    if(eocd<0)return null;
+    var cnt=dv.getUint16(eocd+10,true),cd=dv.getUint32(eocd+16,true),
+        dec=new TextDecoder(),ents=[];
+    for(var k=0;k<cnt&&dv.getUint32(cd,true)===0x02014b50;k++){
+      var meth=dv.getUint16(cd+10,true),csz=dv.getUint32(cd+20,true),
+          nl=dv.getUint16(cd+28,true),xl=dv.getUint16(cd+30,true),cl=dv.getUint16(cd+32,true),
+          lo=dv.getUint32(cd+42,true),nm=dec.decode(u8.subarray(cd+46,cd+46+nl));
+      cd+=46+nl+xl+cl;
+      // Layers only. Our WASM slicer puts them in a folder (name/00001.png),
+      // PrusaSlicer at the root (name00000.png) next to thumbnail/*.png.
+      var num=nm.match(/^(?:[^\/]*\/)?[^\/]*?(\d+)\.png$/i);
+      if(!num||/^thumbnail/i.test(nm))continue;
+      var st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+      ents.push({n:parseInt(num[1],10),meth:meth,data:u8.subarray(st,st+csz)});
+    }
+    ents.sort(function(a,b){return a.n-b.n;});
+    return Promise.all(ents.map(function(e){
+      if(e.meth===0)return new Blob([e.data],{type:'image/png'});
+      if(e.meth!==8||typeof DecompressionStream==='undefined')throw new Error('unsupported');
+      return new Response(new Blob([e.data]).stream().pipeThrough(new DecompressionStream('deflate-raw')))
+        .arrayBuffer().then(function(b){return new Blob([b],{type:'image/png'});});
+    })).then(function(blobs){
+      return blobs.length?blobs.map(function(b){return URL.createObjectURL(b);}):null;});
+  }).catch(function(){return null;});
+}
 
 // ------------------------------------------------------- XHR mock (/upload)
 var RealXHR=window.XMLHttpRequest;
@@ -332,12 +406,24 @@ window.XMLHttpRequest=function(){
         clearInterval(iv);
         if(self.upload.onload)self.upload.onload({});
         setTimeout(function(){
+          // Keep the name that was sent, like the real printer: the slicer opens
+          // the saved model by that name (slicer.js openName), and "MyUpload"
+          // answered it with "model not found".
+          var sent=(data&&data.get&&data.get('file')&&data.get('file').name)||'';
+          sent=sent.replace(/\.(zip|sl1)$/i,'').replace(/[^A-Za-z0-9_-]/g,'');
+          var ml=parseFloat(data&&data.get&&data.get('resin_ml'))||0;
           uploadedSeq++;
-          var name='MyUpload'+(uploadedSeq>1?uploadedSeq:'');
-          MODELS[name]=[240,24.0,5600,6.5,'spike'];
-          self._status=200;
-          self._responseText=JSON.stringify({ok:true,name:name,layers:480,printLayers:240,sourceLayers:480,heightMm:24.0});
-          if(self.onload)self.onload({});
+          var name=sent||('MyUpload'+(uploadedSeq>1?uploadedSeq:''));
+          zipLayers(data&&data.get&&data.get('file')).then(function(urls){
+            // The preview shows the layers that were really sent - the model the
+            // visitor sliced or uploaded, not a made-up shape (V 09-11).
+            var src=urls?urls.length:480,pl=Math.ceil(src/2);
+            if(urls)REAL[name]=urls;else delete REAL[name];
+            MODELS[name]=[pl,+(src*0.05).toFixed(2),Math.round(pl*23),ml||6.5,'none'];
+            self._status=200;
+            self._responseText=JSON.stringify({ok:true,name:name,layers:src,printLayers:pl,sourceLayers:src,heightMm:MODELS[name][1]});
+            if(self.onload)self.onload({});
+          });
         },2000);}
     },120);};
 };
