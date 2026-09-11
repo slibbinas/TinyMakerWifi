@@ -509,6 +509,16 @@ void publishPauseEstimate(int fromPhase) {
 }
 
 void lift_finished_print(){
+  /* After a power-loss resume the height is only the checkpoint's estimate: recovery
+     never homes (zHomed stays false), and the estimate is kept LOW on purpose so it
+     cannot drive the plate into the part. Lifting to the absolute max_height from a low
+     estimate drove the plate past the top of the Z travel - it hit the top and the motor
+     stalled (2026-09-12, Stop after a resumed print). The last layer's peel has already
+     run by the time we get here, so nothing needs this lift: leave the plate where it is
+     and let the user raise it (the manual jog is unclamped while unhomed). A normal print
+     homes before its first layer, so it keeps the lift. (V: power trouble outside the
+     layers is the user's to sort out - keep this simple.) */
+  if (!zHomed) return;
   /* Dry run pabaigoje (ir ji atsaukus) kelti iki pat virsaus nera ko: nieko
      neatspausdinta, nuimti nera ko, o kelias uztrunka desimtis sekundziu ir testuojant
      kartojasi be galo (V 08-13). Keliam iki „Pause lift height" - tiek, kad plokste
