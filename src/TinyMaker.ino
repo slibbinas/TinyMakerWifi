@@ -2911,27 +2911,27 @@ void loop() {
             delay(10); 
 
             pauseLiftForResin = false;   // the lift is over; the parked state has its own text
-            /* Stop pressed while the plate was rising. The lift answers HTTP but reads no
-               buttons, so this is a web/MQTT/Connect stop: requestPrintStop() has already set
-               state 4 and cleared print_paused. Parking the pause on top of it showed "Paused"
-               with Resume live on the dashboard and the pause icons on the LCD for the whole
-               ~24 s final lift (and a resin pause would still send its Telegram) - measured
-               2026-09-11. A stopped print does not park: it stays "Canceling". */
+            /* Park only if the pause still stands. The lift answers HTTP but reads no
+               buttons, so a web/Connect Stop can land mid-lift: requestPrintStop() sets state 4
+               and clears print_paused. Parking on top of it showed "Paused" with Resume live on
+               the dashboard and the pause icons on the LCD for the whole ~24 s final lift (and a
+               resin pause would still send its Telegram) - measured 2026-09-11. Checked as
+               print_paused, not print_canceled: that is the flag the loop below waits on, so a
+               parked pause can never be left without its loop. */
             bool lowResinNotifyPending = false;
-            if (!print_canceled) {
-            current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
-            phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
-            lowResinNotifyPending = lowResinPauseNow;
-            saveVatRemaining();   // checkpoint at the pause point
-            resumeCheckpoint('P');  // parked position is exact
-            screen1111_state();
-            gfx2->fillRect(136, 12, 16, 16, RED);
-            gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
-            gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
-            gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
-            screen1111DOWN();
+            if (print_paused) {
+              current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+              phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
+              lowResinNotifyPending = lowResinPauseNow;
+              saveVatRemaining();   // checkpoint at the pause point
+              resumeCheckpoint('P');  // parked position is exact
+              screen1111_state();
+              gfx2->fillRect(136, 12, 16, 16, RED);
+              gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
+              gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
+              gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
+              screen1111DOWN();
             }
-            lowResinPauseNow = false;
             #if ENABLE_NETWORK
             // Notify only after the checkpoint is saved and the pause UI is
             // drawn: on weak WiFi the blocking send can hold the loop for
