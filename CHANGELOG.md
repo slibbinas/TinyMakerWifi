@@ -24,6 +24,9 @@ unless noted. Community contributors are tagged inline.
   refill message to Telegram). A stopped print now stays "Canceling..." to the end.
   Stop from the printer's own buttons was not affected - they are not read during that
   lift.
+- **The same after Resume.** A dashboard Stop pressed while the plate travelled back
+  down stopped the print, but once the plate arrived the printer screen redrew live
+  Stop and Pause buttons next to "Canceling...". They now stay grey to the end.
 
 ## [0.17.0] - 2026-09-11 (beta)
 
