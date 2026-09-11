@@ -27,6 +27,18 @@ unless noted. Community contributors are tagged inline.
 - **The same after Resume.** A dashboard Stop pressed while the plate travelled back
   down stopped the print, but once the plate arrived the printer screen redrew live
   Stop and Pause buttons next to "Canceling...". They now stay grey to the end.
+- **After a print resumed from a power cut, the plate is no longer raised at the end.**
+  After such a resume the plate's height is only an estimate, and the lift to the top
+  could drive the plate into the top of its travel. The printer now leaves the plate
+  where it is and says "Raise the plate" - lift it with the manual lift. A pause in such
+  a print also lifts the plate no higher than 62 mm (instead of 68 mm), to leave room
+  for the small height error.
+- **A power cut during a long plate move no longer offers a risky resume.** While the
+  plate rises into a pause, travels back down after Resume, or rises at the end of a
+  print, its real height does not match the one saved for resuming, and resuming could
+  press the part into the screen or drive the plate into the top. The saved point is
+  now dropped before those moves and written again when the plate stops, so a cut
+  there simply boots normally.
 
 ## [0.17.0] - 2026-09-11 (beta)
 

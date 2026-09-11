@@ -2860,6 +2860,12 @@ void loop() {
             }
             #endif
             Position_before_pause = stepper.currentPosition();
+            /* No resume across this lift (V 2026-09-12: if resuming could damage the
+               printer or the part, drop the record). During the 20-40 mm rise the card
+               still holds the lower cycle height; "Lift plate only" at the boot prompt
+               would then add 20 mm on top of the real height and could hit the top.
+               The exact 'P' record is written once the plate is parked. */
+            resumeClear();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
             /* Three cases, not two. The plain lift fits, or it is trimmed to the
@@ -2869,7 +2875,10 @@ void loop() {
                drive the plate DOWNWARDS, into the part, in the middle of a print
                (audit 09-05, same shape as manual_lift). */
             {
-              const long ceilingSteps = (long)(max_height * steps_mm);
+              /* After a power-loss resume the height is an estimate kept LOW by up to the
+                 peel distance (2-6 mm), so a pause near the top could lift the plate that
+                 far past 68 mm. Unhomed, the ceiling is 6 mm lower: 62 mm (V 2026-09-12). */
+              const long ceilingSteps = (long)((zHomed ? max_height : max_height - 6) * steps_mm);
               const long wanted = Position_before_pause + (long)(pauseLiftMm * steps_mm);
               if (wanted <= ceilingSteps)
                 stepper.move(pauseLiftMm * steps_mm);
@@ -3009,6 +3018,11 @@ void loop() {
               gfx2->fillRect(136, 52, 6, 16, 0x8410);
               gfx2->fillRect(146, 52, 6, 16, 0x8410);
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
+              /* No resume across this travel either: the card says 'P' at the pause height
+                 while the plate is already on its way down, so a resume after a power cut
+                 here would drive the part into the FEP and the screen below it. The 'M'
+                 record is written again once the plate is down (V 2026-09-12). */
+              resumeClear();
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);

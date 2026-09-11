@@ -518,7 +518,29 @@ void lift_finished_print(){
      and let the user raise it (the manual jog is unclamped while unhomed). A normal print
      homes before its first layer, so it keeps the lift. (V: power trouble outside the
      layers is the user's to sort out - keep this simple.) */
-  if (!zHomed) return;
+  if (!zHomed) {
+    // Say so: a plate left in the vat with no word reads as a fault, and starting the
+    // next print unlifted would home it down onto the part (audit 2026-09-12).
+    // "Raise the plate" is shorter than the 119 px "Plate is at the top" - it fits.
+    screenPlateNote("Raise the plate");
+    // ~2.4 s more on screen (~3.5 s in all), still answering the dashboard every 200 ms:
+    // a bare delay here plus the Telegram send right after it would be ~6-8 s of
+    // silence - the "Printer not answering" gap measured 2026-09-01 (audit 2026-09-12).
+    {
+      unsigned long noteT0 = millis(), svc = 0;
+      while (millis() - noteT0 < 2400) {
+        #if ENABLE_NETWORK
+        if (millis() - svc >= 200) { svc = millis(); network_service_http(); }
+        #endif
+        delay(10);
+      }
+    }
+    return;
+  }
+  // No resume across the final lift: the card still holds the last layer's height while
+  // the plate rises toward the top, and "Lift plate only" after a power cut here would
+  // add 20 mm on top of the real height (V 2026-09-12). The print ends right after it.
+  resumeClear();
   /* Dry run pabaigoje (ir ji atsaukus) kelti iki pat virsaus nera ko: nieko
      neatspausdinta, nuimti nera ko, o kelias uztrunka desimtis sekundziu ir testuojant
      kartojasi be galo (V 08-13). Keliam iki „Pause lift height" - tiek, kad plokste
