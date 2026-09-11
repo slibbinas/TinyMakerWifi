@@ -33,6 +33,10 @@ unless noted. Community contributors are tagged inline.
   where it is and says "Raise the plate" - lift it with the manual lift. A pause in such
   a print also lifts the plate no higher than 62 mm (instead of 68 mm), to leave room
   for the small height error.
+- **"Lift plate only" after a power cut stops short of the top, and can be stopped.** That
+  lift runs on an estimated height, and the Z axis has only 3 mm of travel above its
+  68 mm limit (measured), so it now stops 6 mm lower. The screen says "Watch it - BACK
+  stops", and BACK does stop the move.
 - **A power cut during a long plate move no longer offers a risky resume.** While the
   plate rises into a pause, travels back down after Resume, or rises at the end of a
   print, its real height does not match the one saved for resuming, and resuming could
