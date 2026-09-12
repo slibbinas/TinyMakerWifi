@@ -13,6 +13,51 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.2] - 2026-09-13 (beta)
+
+A slicer fix-up for the 0.17 beta. The firmware itself is unchanged; everything here is
+in the dashboard's slicer card and in the slicer module it loads. It only matters if
+you switched on **Settings → STL slicer in the dashboard** - the slicer stays off by
+default until 1.0.0.
+
+This release also pairs the dashboard with slicer module 3.5.0, which is already
+published. A 0.17.1 dashboard can install that module, but it was built for an older
+one and does not know how the new module decides whether a part fits.
+
+### Changed
+
+- **Parts get more of the plate.** The slicer used to keep 3.1 mm clear on every side
+  of the whole model - the room a support foot and the pad rim need - so a part could
+  use only 68 % of the plate and was scaled down for no measured reason. The margin is
+  now 1.0 mm, measured on a printed edge coupon (the screen cures to within 0.5 mm of
+  its lit edge; the rest is the plate's sideways play). Usable area goes from 68 % to
+  89 %.
+- **The fit check happens after the supports exist.** Instead of guessing from the
+  worst case, the slicer now measures the real footprint of the part with its supports
+  and pad. Only if that really reaches past the plate is the part sliced again, smaller
+  by exactly what is needed.
+- **Heavy models are laid down faster.** For parts with 150 000 triangles or more, the
+  careful placement search is split across up to four workers (never on a device with
+  under 4 GB of memory). A 300 000 triangle bust went from about 4.8 s to 1.5 s, with
+  the same result.
+
+### Fixed
+
+- **A part scaled down to fit is now said out loud.** The card shows "Scaled down N% -
+  the supports reached past the plate.", and if the part still overhangs after that, it
+  says so and asks you to scale it down by hand. The scale slider and the height field
+  move to the new size, so the next nudge does not push the part back past the edge.
+- **The size line under the file name follows that scale-down.** It kept showing the
+  size from before, so someone printing a part that must be a real size (a ring, a
+  bracket on a shaft) read the old numbers and got a smaller part.
+- **The percent field's up arrow grows the part again.** It did nothing anywhere; the
+  down arrow worked.
+- **Discard stays on the right when the result line is long.** When a part still
+  overhangs after the scale-down, the longer message pushed the Discard button onto its
+  own line on the left. The message now wraps in its own column.
+- **A clean card asks for slicer module 3.5.0.** A card that already had a module
+  installed was not affected - the installed one is always used.
+
 ## [0.17.1] - 2026-09-12 (beta)
 
 ### Fixed
