@@ -427,7 +427,12 @@ const slicerScaleUI=b=>{
   if(pr&&!scaleDragging){pr.min=floor; pr.max=top; pr.step=step; pr.value=shown;}
   /* Skaiciu laukelis lieka platesnis uz juosta: iraseiciau bet koki procenta, o
      „netelpa" sarga pasakys, jei perlenkta - juosta tik neveda ten uz rankos. */
-  if(pp){pp.min=SCALE_MIN_PCT; pp.step=step; pp.value=shown;}
+  /* `min` turi guleti ant to paties tinklelio kaip `step`: narsykle rodykles
+     zingsni skaiciuoja NUO `min`. Su min 0,1 ir zingsniu 1 leistinos reiksmes
+     buvo 100,1 · 101,1…, tad rodykle aukstyn is 100 nesdavo i 100,1, o tas
+     apvalinamas zemyn atgal i 100 - procentu rodykle aukstyn neveikdavo niekur,
+     zemyn veikdavo (V 09-13). Rasyti ranka maziau uz min vis tiek galima. */
+  if(pp){pp.min=step<1?SCALE_MIN_PCT:1; pp.step=step; pp.value=shown;}
   if(pm)pm.value=b.size[2].toFixed(1);
 };
 /* Tempimo zyme. `pointerup` ir `change` - abu: pirmas pagauna pele/pirsta, antras
