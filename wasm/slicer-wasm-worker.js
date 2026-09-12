@@ -107,6 +107,45 @@ function pjaustymas(pos, sluoksnis, medis, pakelta, perziuros) {
   return { d: d, info: info, sl1: sl1, preview: preview, previewInfo: previewInfo };
 }
 
+/* FIT-real: TIKRAS pedsakas, kai atramos jau pastatytos.
+ *
+ * Iki siol „telpa ar ne" buvo sprendziama PRIES pjaustyma, is blogiausio atvejo:
+ * nuo kiekvienos puses atimta po 3,1 mm (atramos pedos spindulys 1,5 + pado
+ * apvadas 1,6), ir detalei likdavo 68 % ploksces. Bet tiek vietos reikia tik ten,
+ * kur atrama tikrai stovi - dazniausiai ne aplink visa siluetta.
+ *
+ * Cia matuojam, kiek vietos uzima tai, kas REALIAI pastatyta: modelis, atramos
+ * ir padas. Skaitom pacius STL baitus is variklio failu sistemos - tie patys
+ * failai, kuriuos atiduoda `geometrija()`, tik ju niekur neperduodam: didelio
+ * modelio atramos yra keliolika megabaitu, o mums reikia keturiu skaiciu.
+ *
+ * Koordinates - variklio, t. y. ploksces CENTRAS yra nulis.
+ */
+function pedsakasXY() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, rasta = false;
+  for (const kelias of ['/out_model.stl', '/out_supports.stl', '/out_pad.stl']) {
+    let b;
+    try { b = M.FS.readFile(kelias); } catch (e) { continue; }
+    if (!b || b.length < 84) continue;
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 > b.length) continue;          // sugadintas ar nepilnas STL
+    for (let t = 0; t < n; t++) {
+      const p0 = 84 + t * 50 + 12;                 // normale praleidziama
+      for (let v = 0; v < 3; v++) {
+        const x = dv.getFloat32(p0 + v * 12, true);
+        const y = dv.getFloat32(p0 + v * 12 + 4, true);
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    rasta = true;
+  }
+  return rasta ? { x0: x0, x1: x1, y0: y0, y1: y1 } : null;
+}
+
 /* Tilto `praneskEiga` kviecia butent sita. */
 self.slaProgress = function (etapas, proc) {
   self.postMessage({ tipas: 'eiga', id: dabartinisId, etapas: etapas, proc: proc });
@@ -199,7 +238,10 @@ self.onmessage = async function (ev) {
       const perduoti = r.preview ? [r.sl1.buffer, r.preview] : [r.sl1.buffer];
       self.postMessage({ tipas: 'atsakymas', id: z.id, duomenys: r.d, sl1info: r.info,
                          sl1: r.sl1.buffer, preview: r.preview, previewInfo: r.previewInfo,
-                         auto: auto },
+                         auto: auto,
+                         /* FIT-real: matuojam PO #116 automatikos, nes pakelta detale
+                            turi kitas atramas ir kitoki pedsaka. */
+                         pedsakas: pedsakasXY() },
                        perduoti);
 
     } else if (z.tipas === 'pakrypimas') {

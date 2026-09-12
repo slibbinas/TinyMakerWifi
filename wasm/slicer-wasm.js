@@ -209,6 +209,35 @@ const ETAPO_DALIS = {
   'gaminami sluoksniai': 0.80,
 };
 
+/* Atsarga nuo ploksces krasto, mm.
+ *
+ * NE dėl ekrano: 2026-09-12 atspausdintos kopeteles (`T93-remeliai`) parode, kad
+ * ekranas kietina iki pat 0,51 mm nuo svieciamo ploto krasto - visi penki remeliai
+ * iseejo. Riba diktuoja MECHANIKA: ploksce tvirtinama su laisvumu i sonus, tad
+ * detale gali atsistoti apie milimetra nuo ten, kur jos tikimasi (V matavimas).
+ *
+ * Anksciau vietoj sito buvo 3,1 mm, atimami PRIES pjaustyma nuo kiekvienos puses
+ * (atramos pedos spindulys 1,5 + pado apvadas 1,6). Ta atsarga reikalinga tik ten,
+ * kur atrama tikrai stovi, o buvo taikoma visam modeliui - ir detalei likdavo
+ * 68 % ploksces. Dabar tikras pedsakas matuojamas PO atramu (zr. zemiau). */
+const KRASTO_ATSARGA_MM = 1.0;
+
+/** Kiek reiketu sumazinti, kad pastatytas daiktas tilptu. 1 - telpa. */
+function reikiamasMastelis(pedsakas) {
+  if (!pedsakas) return 1;
+  /* Variklio nulis yra ploksces CENTRAS, o mastelis keiciamas apie ta pati nuli,
+     tad riboja didziausias nuokrypis i bet kuria puse, ne plotis. */
+  const ax = Math.max(Math.abs(pedsakas.x0), Math.abs(pedsakas.x1));
+  const ay = Math.max(Math.abs(pedsakas.y0), Math.abs(pedsakas.y1));
+  const ribaX = PLATE.x / 2 - KRASTO_ATSARGA_MM;
+  const ribaY = PLATE.y / 2 - KRASTO_ATSARGA_MM;
+  if (ax <= ribaX && ay <= ribaY) return 1;
+  const s = Math.min(ax > 0 ? ribaX / ax : 1, ay > 0 ? ribaY / ay : 1);
+  /* Apvalinam ZEMYN iki desimtosios procento: apvalinus i virsu daiktas vel
+     nebetilptu, ir antras ejimas butu veltui. */
+  return Math.max(0.05, Math.floor(s * 1000) / 1000);
+}
+
 /**
  * Suslicina jau pastatyta modeli.
  *
@@ -250,6 +279,30 @@ export async function slice(pos, opts, onProgress) {
                  galutine < 0.78 ? 'scan' : 'draw', z.etapas);
     });
 
+  /* FIT-real: ar tilpo, sprendziam CIA - kai atramos ir padas jau pastatyti, o
+     ne is anksto, is blogiausio atvejo. Jei pedsakas isleida uz ploksces,
+     perpjaunam sumazinta TIEK, kiek realiai truko, ir pasakom kodel. Antro rato
+     nebedarom (`_fitAntras`): naujas mastelis skaiciuotas is tikru ribu, o
+     begalinis mazinimas butu blogiau uz viena kartą per daug. */
+  if (!o._fitAntras) {
+    const mastelis = reikiamasMastelis(r.pedsakas);
+    if (mastelis < 1) {
+      const maz = new Float32Array(pos.length);
+      for (let i = 0; i < pos.length; i++) maz[i] = pos[i] * mastelis;
+      const antras = await slice(maz, Object.assign({}, o, { _fitAntras: true }), onProgress);
+      antras.sumazinta = {
+        mastelis: mastelis,
+        proc: Math.round((1 - mastelis) * 1000) / 10,
+        pedsakas: r.pedsakas,
+        /* Zinute pultui - viena eilute, be lango. Skaicius svarbus: is jo zmogus
+           mato, ar tai plauko storis, ar rimtas mazinimas. */
+        tekstas: 'Scaled down ' + (Math.round((1 - mastelis) * 1000) / 10).toFixed(1)
+                 + '% - the supports reached past the plate.'
+      };
+      return antras;
+    }
+  }
+
   const d = r.duomenys;
 
   /* .sl1 yra ZIP - is jo pasiimam PNG sluoksnius perziurai. Naršykle moka
@@ -289,6 +342,9 @@ export async function slice(pos, opts, onProgress) {
        plokstes. Naudotojui rodomas skaicius turi sutapti su tuo, ka gaus
        printeris (Terry: vidinis 340, faile 334). */
     layers: (r.sl1info && r.sl1info.sluoksniu) || d.sluoksniu,
+    /* Tikras pedsakas mm, ploksces centras - nulis. Pultui reikia, kad galetu
+       parodyti, kiek vietos liko, ir kad `FIT-real` butu patikrinamas is issores. */
+    pedsakas: r.pedsakas || null,
     rawMl: d.turis.viso_ml,
     supports: {
       /* #116: `tasku` yra SEJOS taskai - vietos, kurioms atramu galetu reiketi.
