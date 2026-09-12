@@ -1789,12 +1789,16 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Pervadinimo atveju TYLIM: prasytas vardas cia dar neteisingas, o blyksnis su
        netikru vardu blogiau nei sekundes tyla - tikra zinute ateina zemiau, kai
        pamatom, kuris modelis atsirado (antras auditas 08-17). */
-    if(!renamed)msg('\u201c'+done.name+'\u201d is on the printer.');
     /* Issaugojus kortele uzsidaro ir `#slicerIslands` isvalomas, o failas su
-       nupjautu krastu jau guli kortelėje. Todel tas vienas atvejis dar karta
-       pasakomas snackbaru - jis nepriklauso nuo korteles (auditas, 09-12). */
-    if(slicerOut&&slicerOut.sumazinta&&slicerOut.sumazinta.telpa===false)
-      msg(slicerOut.sumazinta.tekstas,true);
+       nupjautu krastu jau guli kortelėje - tad tas vienas atvejis pasakomas ir
+       snackbaru. VIENAS pranesimas, ne du: du `msg()` is eiles ta pacia
+       milisekunde vienas kita perrašo, ir zmogus netektu patvirtinimo, kad failas
+       apskritai nukeliavo (pulto taisykle: vienas laukimas - vienas pranesimas;
+       ketvirtas auditas, 09-12). */
+    const nupjautas=!!(done&&done.sumazinta&&done.sumazinta.telpa===false);
+    if(!renamed)
+      msg('\u201c'+done.name+'\u201d is on the printer.'
+          +(nupjautas?' \u00b7 '+done.sumazinta.tekstas:''), nupjautas);
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
@@ -1906,13 +1910,23 @@ $('slicerSave').addEventListener('click',async()=>{
                    .map(i=>i.name);
     if(added.length===1){
       openName=added[0];
-      msg('Saved as “'+openName+'” - that name was taken.');
+      /* Ir cia prikabinam ispejima: kortele jau uzdaryta, `#slicerIslands`
+         isvalytas, tad be sito paskutinis dalykas, kuri zmogus mato, butu
+         „issaugota", o apie nupjauta krasta neliktu nieko (auditas, 09-12). */
+      /* Skaiciuojam is `slicerOut`, o ne is toliau esancio `nupjautas`: ta eilute
+         gyvena kitoje funkcijoje, ir `node --check` tokios klaidos nepagautu -
+         ji issilietu tik naršykleje, kaip tik tame kelyje, kuri retai matom. */
+      const nup=!!(slicerOut&&slicerOut.sumazinta&&slicerOut.sumazinta.telpa===false);
+      msg('Saved as “'+openName+'” - that name was taken.'
+          +(nup?' · '+slicerOut.sumazinta.tekstas:''), nup);
       prog.textContent='Saved as “'+openName+'” (the name was taken).';
     }else{
       /* Neaisku, kuris naujas - geriau nieko neatidaryti, nei atidaryti ne ta. */
       openName='';
       prog.textContent='Saved under a new name - pick it from the list.';
-      msg('Saved under a new name - pick it from the list.');
+      const nup2=!!(slicerOut&&slicerOut.sumazinta&&slicerOut.sumazinta.telpa===false);
+      msg('Saved under a new name - pick it from the list.'
+          +(nup2?' · '+slicerOut.sumazinta.tekstas:''), nup2);
     }
   }
   if(!openName)return;   // zyme nuima `finally` zemiau
