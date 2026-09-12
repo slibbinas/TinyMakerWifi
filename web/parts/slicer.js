@@ -329,7 +329,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.3.0';
+  const SV='3.4.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -1338,6 +1338,16 @@ $('slicerGo').addEventListener('click',async()=>{
     if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
       slicerTr.scale*=r.sumazinta.mastelis;
       mazNote='\n'+r.sumazinta.tekstas;
+      /* Kai NET ir po sumazinimo netelpa, spaudinys bus nupjautas ties krastu -
+         tai ne smulkmena, o sugadintas failas. `#slicerProg` tokiam pranesimui
+         netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta
+         (printerio sesijos auditas, 09-12). Todel einam tuo paciu kanalu, kaip #116
+         ispejimas - `#slicerIslands` lieka tol, kol pjaustoma is naujo.
+         Rasom PO `slicerSupportFacts()`, nes ji ta eilute isvalo. */
+      if(r.sumazinta.telpa===false){
+        const isl=$('slicerIslands');
+        if(isl)isl.textContent=r.sumazinta.tekstas;
+      }
       /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
          is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. */
       if(slicerRaw&&slicerMod&&slicerMod.place&&slicerMod.bounds){
