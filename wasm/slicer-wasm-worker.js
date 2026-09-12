@@ -104,7 +104,13 @@ function pjaustymas(pos, sluoksnis, medis, pakelta, perziuros) {
     }
   } catch (e) { previewInfo = { klaida: String(e && e.message || e) }; }
 
-  return { d: d, info: info, sl1: sl1, preview: preview, previewInfo: previewInfo };
+  /* Pedsakas imamas CIA, o ne gale: `/out_*.stl` priklauso PASKUTINIAM ejimui,
+     o #116 automatika gali antra ejima atmesti ir grazinti pirmojo rezultata.
+     Tada gale isMatuotume pakeltos detales atramas, nors spausdinamas ploksScias
+     variantas - ir pilnai telpantis daiktas butu sumazintas be priezasties
+     (printerio sesijos auditas, 09-12). */
+  return { d: d, info: info, sl1: sl1, preview: preview, previewInfo: previewInfo,
+           pedsakas: pedsakasXY() };
 }
 
 /* FIT-real: TIKRAS pedsakas, kai atramos jau pastatytos.
@@ -122,28 +128,38 @@ function pjaustymas(pos, sluoksnis, medis, pakelta, perziuros) {
  * Koordinates - variklio, t. y. ploksces CENTRAS yra nulis.
  */
 function pedsakasXY() {
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, rasta = false;
-  for (const kelias of ['/out_model.stl', '/out_supports.stl', '/out_pad.stl']) {
-    let b;
-    try { b = M.FS.readFile(kelias); } catch (e) { continue; }
-    if (!b || b.length < 84) continue;
-    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const n = dv.getUint32(80, true);
-    if (84 + n * 50 > b.length) continue;          // sugadintas ar nepilnas STL
-    for (let t = 0; t < n; t++) {
-      const p0 = 84 + t * 50 + 12;                 // normale praleidziama
-      for (let v = 0; v < 3; v++) {
-        const x = dv.getFloat32(p0 + v * 12, true);
-        const y = dv.getFloat32(p0 + v * 12 + 4, true);
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
+  try {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, rasta = false;
+    for (const kelias of ['/out_model.stl', '/out_supports.stl', '/out_pad.stl']) {
+      let b;
+      try { b = M.FS.readFile(kelias); } catch (e) { continue; }
+      if (!b || b.length < 84) continue;
+      const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+      const n = dv.getUint32(80, true);
+      if (!n) continue;                            // tuscias STL - ne matavimas
+      if (84 + n * 50 > b.length) continue;        // sugadintas ar nepilnas
+      for (let t = 0; t < n; t++) {
+        const p0 = 84 + t * 50 + 12;               // normale praleidziama
+        for (let v = 0; v < 3; v++) {
+          const x = dv.getFloat32(p0 + v * 12, true);
+          const y = dv.getFloat32(p0 + v * 12 + 4, true);
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
       }
+      rasta = true;
     }
-    rasta = true;
+    /* Be `isFinite` tuscias rinkinys duotu Infinity, o is jo - mastelis 0,05:
+       modelis butu sutrauktas iki 5 % vietoj „nezinau" (auditas 09-12). */
+    if (!rasta || !isFinite(x0) || !isFinite(y0)) return null;
+    return { x0: x0, x1: x1, y0: y0, y1: y1 };
+  } catch (e) {
+    /* Pedsakas yra priedas, o ne rezultatas: klaida cia neturi nuzudyti jau
+       pagaminto .sl1. Be pedsako adapteris tiesiog nieko nemazina. */
+    return null;
   }
-  return rasta ? { x0: x0, x1: x1, y0: y0, y1: y1 } : null;
 }
 
 /* Tilto `praneskEiga` kviecia butent sita. */
@@ -239,9 +255,8 @@ self.onmessage = async function (ev) {
       self.postMessage({ tipas: 'atsakymas', id: z.id, duomenys: r.d, sl1info: r.info,
                          sl1: r.sl1.buffer, preview: r.preview, previewInfo: r.previewInfo,
                          auto: auto,
-                         /* FIT-real: matuojam PO #116 automatikos, nes pakelta detale
-                            turi kitas atramas ir kitoki pedsaka. */
-                         pedsakas: pedsakasXY() },
+                         /* FIT-real: imam TO ejimo pedsaka, kuris ir grazinamas. */
+                         pedsakas: r.pedsakas || null },
                        perduoti);
 
     } else if (z.tipas === 'pakrypimas') {
