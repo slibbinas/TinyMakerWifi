@@ -139,16 +139,17 @@ const ROT_MAX_TRI = 0;
 
 /* ROT-par: nuo kiek trikampiu verta dalyti pastatyma keliems darbininkams.
  *
- * Tiesiogiai darbininkuose (2026-09-12): 300 tukst. trikampiu biustas 7,37 ->
- * 1,66 s (4,4x), 81 tukst. bareljefas 0,42 -> 0,24 s, 1 tukst. puodelis 0,05 ->
- * 0,09 s (leciau - kopija keturiems kainuoja daugiau nei darbas).
+ * Svarus matavimas (2026-09-12, matoma Chrome kortele, masina rami, po 3 kartus,
+ * mediana), per ta pati kelia, kuri naudoja pultas:
+ *   biustas, 300 tukst. trikampiu: 4,80 s -> 1,48 s (3,2x), kampas sutampa;
+ *   bareljefas, 81 tukst.: senu keliu vos 0,23 s - dalyti nera ko.
+ * Riba 150 tukst. todel, kad zemiau jos paieska ir taip trunka mazai (sekunde ar
+ * maziau), tad keturi darbininkai sutaupytu desimtasias, o kainuotu tinklo kopijas.
  *
- * Bet per ADAPTERI, kaip naudoja pultas, vaizdas kitas: po paieskos pagrindineje
- * gijoje sukasi `fitOnPlate`, biustui 2 s, ir jo dalijimas neliecia. Tad zmogus
- * biustui pajunta ~2x (apie 10,6 -> 5,4 s), o bareljefui naudos nebera visai -
- * matuota net siek tiek leciau. Todel riba 150 tukst.: keturi darbininkai tik ten,
- * kur jie sutaupo kelias sekundes; visi kiti - senu keliu.
- * Kampas visais atvejais SUTAPO su senuoju keliu. */
+ * ⚠️ Ankstesni tos pacios dienos skaiciai (per adapteri „tik 2x", „talpinimas 2 s",
+ * 13-14 s) buvo KLAIDINGI: juos gadino PASLEPTA naršykles kortele (fone naršykle
+ * riboja procesoriu - tas pats matavimas paslėptoje kortelėje davė 10,5 s, matomoje
+ * 4,6 s) ir nepilna testo transformacija. `fitOnPlate` biustui trunka 0,16 s. */
 const ROT_PAR_NUO = 150000;
 
 let TELKINYS = null;
