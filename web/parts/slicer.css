@@ -108,5 +108,5 @@
    faktai bei visa desine kolona. Suslicinus zmogus ziuri butent i ta vieta, tad
    sokinejantis makletas yra brangesnis uz tuscia eilute, kurios niekas nepastebi.
    Klase `tuscia` lieka - ji tebeslepia „Discard", kol nera ka atmesti. */
-#slicerResRow{margin:9px 0;min-height:1.9em}
+#slicerResRow{margin:9px 0;min-height:1.9em}/* „Discard" VISADA desineje (V 09-13). Bendra `.calRow` leidzia persikelti i nauja eilute, tad ilgas rezultatas („Scaled down … and they still do …") uzimdavo visa ploti, o „Discard" nukrisdavo po juo i KAIRE (ismatuota: 395 px nuo desinio krasto). Be persikelimo tekstas lauzosi savo stulpelyje (`min-width:0`), o `baseline` laiko „Discard" pirmos jo eilutes aukstyje. */#slicerResRow{flex-wrap:nowrap;align-items:baseline}#slicerProg{min-width:0}
 #slicerResRow.tuscia #slicerDiscardLink{display:none}
