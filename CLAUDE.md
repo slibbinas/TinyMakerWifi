@@ -69,7 +69,7 @@ Pultas gzip'inamas ir įdedamas į flash'ą. Nuo 0.17 **slicerio dalys gyvena
 **Kodėl:** prie projekto dirba dvi sesijos - viena prie printerio, kita prie
 slicerio - ir abi rašė į tą patį failą iš skirtingų šakų. Riba dabar tokia:
 printerio pusė valdo `dashboard.html` ir firmware, slicerio pusė - `web/parts/*`
-ir `web/lib/slicer*.js`. Kelios vietos, kur sliceris tikrai lenda į pulto vidų
+ir `wasm/` (variklio šaltinis). Kelios vietos, kur sliceris tikrai lenda į pulto vidų
 (3D vaizdo perdanga, `applyStatus` kabliukai), lieka pulte kaip pavieniai
 iškvietimai; jas keičia printerio pusė.
 
