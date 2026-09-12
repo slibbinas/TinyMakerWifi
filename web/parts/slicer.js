@@ -1804,12 +1804,14 @@ $('slicerSave').addEventListener('click',async()=>{
        ketvirtas auditas, 09-12). */
     const nupjautas=!!(done&&done.sumazinta&&done.sumazinta.telpa===false);
     nupjZyme=nupjautas; nupjTekstas=nupjautas?done.sumazinta.tekstas:'';
-    /* Nupjauto krasto atveju pranesimas LIEKA kabeti (trecias argumentas): po jo
-       dar eina laukimas, `loadFiles` ir perziuros krovimas, tad per sesias sekundes
-       svarbiausia eilute dingtu kaip tik tada, kai zmogus ziuri i kraunama vaizda. */
+    /* Be `sticky` (V 09-12): lipnus pranesimas pulte neturi savininko, kuris ji
+       nuimtu - busenos apklausa lipniu sаmoningai neliecia, tad telefone jie kabetu
+       per visa virsu ir dar gaudytu paspaudimus. O netelpancia detale zmogus MATO
+       ekrane slicindamas, tad pranesimo pergyvenimas per kelis pulto kelius yra ne
+       apsauga, o musu pacit susikurta pareiga. */
     if(!renamed)
       msg('\u201c'+done.name+'\u201d is on the printer.'
-          +(nupjautas?' \u00b7 '+done.sumazinta.tekstas:''), nupjautas, nupjautas);
+          +(nupjautas?' \u00b7 '+done.sumazinta.tekstas:''), nupjautas);
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
@@ -1928,14 +1930,14 @@ $('slicerSave').addEventListener('click',async()=>{
          gyvena kitoje funkcijoje, ir `node --check` tokios klaidos nepagautu -
          ji issilietu tik naršykleje, kaip tik tame kelyje, kuri retai matom. */
       msg('Saved as “'+openName+'” - that name was taken.'
-          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme, nupjZyme);
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
       prog.textContent='Saved as “'+openName+'” (the name was taken).';
     }else{
       /* Neaisku, kuris naujas - geriau nieko neatidaryti, nei atidaryti ne ta. */
       openName='';
       prog.textContent='Saved under a new name - pick it from the list.';
       msg('Saved under a new name - pick it from the list.'
-          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme, nupjZyme);
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
     }
   }
   if(!openName)return;   // zyme nuima `finally` zemiau
