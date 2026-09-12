@@ -329,7 +329,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.3.0';
+  const SV='3.4.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -1328,8 +1328,48 @@ $('slicerGo').addEventListener('click',async()=>{
       return;}
     slicerOut=r; slicerOut.ml=ml;
     slicerSupportFacts(r.supports);
+    /* FIT-real (modulis nuo 3.4): tilpimas sprendziamas PO atramu, ir jei tikras
+       pedsakas islindo uz plokstes, variklis pats perpjove sumazinta. Pultui lieka
+       du dalykai. Pirma - PASAKYTI: tylus mazinimas yra tas pats, del ko zmogus
+       anksciau pykdavo („sumazino, o nepasake kodel"). Antra - PASITRAUKTI mastelis,
+       nes kitaip slankiklis rodytu 100 %, o faile gultu 96 %: valdiklis meluotu, ir
+       kitas jo bakstelejimas modeli issprogdintu atgal uz plokstes. */
+    let mazNote='';
+    if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
+      slicerTr.scale*=r.sumazinta.mastelis;
+      /* Ne `\n`: eilute gyvena `<span class='hint'>` be `white-space: pre-line`,
+         tad naujos eilutes nesimatytu ir frazes sulipty (auditas, 09-12). */
+      mazNote=' \u00b7 '+r.sumazinta.tekstas;
+      /* Pastatymo verdiktas („spausdinsis 23 % didesnis nei Fast fit") kalba apie
+         dydi, kurio faile jau nebera - variklis ka tik sumazino. Nuimam, kaip ir
+         prie kiekvieno kito transformacijos pakeitimo. */
+      slicerPlaceNote(null,null);
+      /* Kai NET ir po sumazinimo netelpa, spaudinys bus nupjautas ties krastu -
+         tai ne smulkmena, o sugadintas failas. `#slicerProg` tokiam pranesimui
+         netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta.
+         Todel einam tuo paciu kanalu, kaip #116 ispejimas - `#slicerIslands`.
+         ⚠ IR ZENKLAS, IR SPALVA kaip visu kitu to elemento pranesimu: rimciausia
+         eilute korteleje neturi atrodyti kaip eilinis paaiskinimas.
+         SVARBU: ne perrašom, o PRIKABINAM. Ten jau gali stoveti #116 ispejimas
+         („spausdintusi ore"), ir vienas pavojus neturi uzrasyti kito - zmogus
+         pamatytu viena is dvieju ir nezinotu, kad buvo du (auditas, 09-12). */
+      if(r.sumazinta.telpa===false){
+        const isl=$('slicerIslands');
+        if(isl){
+          const senas=(isl.textContent||'').trim();
+          isl.textContent=(senas?senas+' \u00b7 ':'')+'\u26a0 '+r.sumazinta.tekstas;
+          isl.style.color='#e8a020';
+        }
+      }
+      /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
+         is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. */
+      if(slicerRaw&&slicerMod&&slicerMod.place&&slicerMod.bounds){
+        slicerLastBounds=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+        slicerScaleUI(slicerLastBounds);
+      }
+    }
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
-      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml'+mazNote;
     slicerLayerN=r.layers;                          // pradzioj - visas daiktas
     show('printPreviewBarFill',false);
     {const R=$('gl3dLayerRange');
@@ -1624,6 +1664,13 @@ $('slicerSave').addEventListener('click',async()=>{
   if(!slicerOut)return;
   if(slicerBusyStop())return;
   let savedName='', renamed=false, namesWere=[], cancelled=false;
+  /* Ar issaugotas failas buvo nupjautas ties krastu, ir kuo tai paaiskinti.
+     Zyme imama PRIES valyma: `slicerOut` nunulinamas vos issaugojus, o
+     pervadinimo kelias vykdomas veliau - tad ten jis jau tuscias ir salyga
+     visada butu neteisinga. Taip ir buvo: ketvirto rato pataisa atrode teisinga,
+     bet TYLIAI atsakydavo `false`, ir zmogus butu gaves sugadinta faila be jokio
+     ispejimo (printerio sesijos auditas, penktas ratas, 09-12). */
+  let nupjZyme=false, nupjTekstas='';
   const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
   if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
   slicerOut.name=nm;
@@ -1749,7 +1796,22 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Pervadinimo atveju TYLIM: prasytas vardas cia dar neteisingas, o blyksnis su
        netikru vardu blogiau nei sekundes tyla - tikra zinute ateina zemiau, kai
        pamatom, kuris modelis atsirado (antras auditas 08-17). */
-    if(!renamed)msg('\u201c'+done.name+'\u201d is on the printer.');
+    /* Issaugojus kortele uzsidaro ir `#slicerIslands` isvalomas, o failas su
+       nupjautu krastu jau guli kortelėje - tad tas vienas atvejis pasakomas ir
+       snackbaru. VIENAS pranesimas, ne du: du `msg()` is eiles ta pacia
+       milisekunde vienas kita perrašo, ir zmogus netektu patvirtinimo, kad failas
+       apskritai nukeliavo (pulto taisykle: vienas laukimas - vienas pranesimas;
+       ketvirtas auditas, 09-12). */
+    const nupjautas=!!(done&&done.sumazinta&&done.sumazinta.telpa===false);
+    nupjZyme=nupjautas; nupjTekstas=nupjautas?done.sumazinta.tekstas:'';
+    /* Be `sticky` (V 09-12): lipnus pranesimas pulte neturi savininko, kuris ji
+       nuimtu - busenos apklausa lipniu sаmoningai neliecia, tad telefone jie kabetu
+       per visa virsu ir dar gaudytu paspaudimus. O netelpancia detale zmogus MATO
+       ekrane slicindamas, tad pranesimo pergyvenimas per kelis pulto kelius yra ne
+       apsauga, o musu pacit susikurta pareiga. */
+    if(!renamed)
+      msg('\u201c'+done.name+'\u201d is on the printer.'
+          +(nupjautas?' \u00b7 '+done.sumazinta.tekstas:''), nupjautas);
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
@@ -1861,13 +1923,21 @@ $('slicerSave').addEventListener('click',async()=>{
                    .map(i=>i.name);
     if(added.length===1){
       openName=added[0];
-      msg('Saved as “'+openName+'” - that name was taken.');
+      /* Ir cia prikabinam ispejima: kortele jau uzdaryta, `#slicerIslands`
+         isvalytas, tad be sito paskutinis dalykas, kuri zmogus mato, butu
+         „issaugota", o apie nupjauta krasta neliktu nieko (auditas, 09-12). */
+      /* Skaiciuojam is `slicerOut`, o ne is toliau esancio `nupjautas`: ta eilute
+         gyvena kitoje funkcijoje, ir `node --check` tokios klaidos nepagautu -
+         ji issilietu tik naršykleje, kaip tik tame kelyje, kuri retai matom. */
+      msg('Saved as “'+openName+'” - that name was taken.'
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
       prog.textContent='Saved as “'+openName+'” (the name was taken).';
     }else{
       /* Neaisku, kuris naujas - geriau nieko neatidaryti, nei atidaryti ne ta. */
       openName='';
       prog.textContent='Saved under a new name - pick it from the list.';
-      msg('Saved under a new name - pick it from the list.');
+      msg('Saved under a new name - pick it from the list.'
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
     }
   }
   if(!openName)return;   // zyme nuima `finally` zemiau
