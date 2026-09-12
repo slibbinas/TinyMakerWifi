@@ -287,17 +287,36 @@ export async function slice(pos, opts, onProgress) {
   if (!o._fitAntras) {
     const mastelis = reikiamasMastelis(r.pedsakas);
     if (mastelis < 1) {
+      /* Pirmo ejimo vaisiu nebereikia, o jie dideli: peržiūra ~24 MB (160 kadru
+         po du 320x240 zemelapius) plius .sl1. Be sito rekursijos metu atmintyje
+         guletu dvi perziuros, du .sl1 ir du tinkleliai - telefone kortele
+         nulustu be jokio paaiskinimo (auditas 09-12). */
+      r.preview = null;
+      r.sl1 = null;
+      if (onProgress) onProgress(0, 1000, 'scan', 'per didelis - pjaunam is naujo');
       const maz = new Float32Array(pos.length);
       for (let i = 0; i < pos.length; i++) maz[i] = pos[i] * mastelis;
       const antras = await slice(maz, Object.assign({}, o, { _fitAntras: true }), onProgress);
+      const proc = Math.round((1 - mastelis) * 1000) / 10;
+      /* Ar antras ejimas TIKRAI tilpo. Mastelis skaiciuotas taip, tarsi pedsakas
+         mazetu proporcingai, bet atramos peda (1,5 mm) ir pado apvadas (1,6 mm)
+         yra pastovus milimetrai, o sumazintam modeliui atramos sejamos is naujo -
+         tad naujas pedsakas nera s * senasis. Antro ejimo matavima jau turim
+         nemokamai; jei vis tiek islenda, sakom tai garsiai, o ne tylime
+         (printerio sesijos auditas, 09-12). */
+      const liko = reikiamasMastelis(antras.pedsakas);
       antras.sumazinta = {
         mastelis: mastelis,
-        proc: Math.round((1 - mastelis) * 1000) / 10,
+        proc: proc,
         pedsakas: r.pedsakas,
+        pedsakasPo: antras.pedsakas || null,
+        telpa: liko >= 1,
         /* Zinute pultui - viena eilute, be lango. Skaicius svarbus: is jo zmogus
            mato, ar tai plauko storis, ar rimtas mazinimas. */
-        tekstas: 'Scaled down ' + (Math.round((1 - mastelis) * 1000) / 10).toFixed(1)
-                 + '% - the supports reached past the plate.'
+        tekstas: liko >= 1
+          ? ('Scaled down ' + proc.toFixed(1) + '% - the supports reached past the plate.')
+          : ('Scaled down ' + proc.toFixed(1) + '% - the supports reached past the plate, '
+             + 'and they still do. Scale the model down by hand before printing.')
       };
       return antras;
     }
