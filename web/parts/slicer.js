@@ -1328,8 +1328,25 @@ $('slicerGo').addEventListener('click',async()=>{
       return;}
     slicerOut=r; slicerOut.ml=ml;
     slicerSupportFacts(r.supports);
+    /* FIT-real (modulis nuo 3.4): tilpimas sprendziamas PO atramu, ir jei tikras
+       pedsakas islindo uz plokstes, variklis pats perpjove sumazinta. Pultui lieka
+       du dalykai. Pirma - PASAKYTI: tylus mazinimas yra tas pats, del ko zmogus
+       anksciau pykdavo („sumazino, o nepasake kodel"). Antra - PASITRAUKTI mastelis,
+       nes kitaip slankiklis rodytu 100 %, o faile gultu 96 %: valdiklis meluotu, ir
+       kitas jo bakstelejimas modeli issprogdintu atgal uz plokstes. */
+    let mazNote='';
+    if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
+      slicerTr.scale*=r.sumazinta.mastelis;
+      mazNote='\n'+r.sumazinta.tekstas;
+      /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
+         is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. */
+      if(slicerRaw&&slicerMod&&slicerMod.place&&slicerMod.bounds){
+        slicerLastBounds=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+        slicerScaleUI(slicerLastBounds);
+      }
+    }
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
-      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml'+mazNote;
     slicerLayerN=r.layers;                          // pradzioj - visas daiktas
     show('printPreviewBarFill',false);
     {const R=$('gl3dLayerRange');
