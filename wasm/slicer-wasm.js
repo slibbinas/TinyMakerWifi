@@ -114,12 +114,40 @@ export async function autoOrientFast(pos) {
  * @param onProgress (done, total, phase) - tokia pat forma, kaip `slice()`
  * @returns { tr, size, fit } - lygiai tas pats, ka grazina `autoOrient`
  */
-export async function autoOrientPro(pos, onProgress) {
+/* Kiek trikampiu palikti PASTATYMO paieskai.
+ *
+ * Kiekvienas apgaubo kandidatas vertinamas per VISUS trikampius, tad laikas auga
+ * su tinklo dydziu, ne su daikto sudetingumu: 300 tukst. trikampiu biustas vercia
+ * laukti 9 s, o tukstancio trikampiu puodelis pastatomas akimirksniu. Variklis moka
+ * suretinti tinkla pries paieska nuo 08-20, bet adapteris ribos nepaduodavo, tad ji
+ * buvo isjungta.
+ *
+ * 50 tukst. - is matavimo (2026-09-12, stendas su tikru varikliu): biustas 9,01 ->
+ * 5,06 s, o pasirinkti kampai IDENTISKI ir ties 100, 50 ir 25 tukstanciais. Tai
+ * suprantama: pastatymas yra bendros formos klausimas, o ne detaliu - ir suslicinamas
+ * vis tiek lieka PILNAS modelis, retinamas tik vertinimui.
+ *
+ * `maxTrikampiu: 0` isjungia - reikalinga lyginant su PrusaSlicer etalonu. */
+/* ⛔ ISJUNGTA (0) - patikrinta 2026-09-12 ir NEPRAEJO. Su 50 tukst. riba
+ * bareljefas guldomas ant KITO sono (0/-90 virsta 0/0), o biusto kampai irgi
+ * pasikeicia; be to mazam modeliui pats retinimas kainuoja daugiau, nei sutaupo
+ * (bareljefas 0,52 -> 2,02 s). Pirmas matavimas trimis modeliais buvo sutapes
+ * atsitiktinai, ir jo iSvada buvo klaidinga.
+ * Parametras paliktas eksperimentams; itraukiant ji reiketu pirma irodyti, kad
+ * pastatymas nesikeicia BENT desimt skirtingu modeliu. */
+const ROT_MAX_TRI = 0;
+
+export async function autoOrientPro(pos, onProgress, o) {
   const kopija = new Float32Array(pos);            // savininkyste keliauja i gija
   let r;
   try {
     r = await paklausk(
-      { tipas: 'pakrypimas', pos: kopija.buffer, kauke: 1 },
+      { tipas: 'pakrypimas', pos: kopija.buffer, kauke: 1,
+        /* Tinklo retinimas PRIES paieska. Variklis tai moka nuo 08-20, bet
+           adapteris ribos nepadavė, tad ji visada buvo isjungta: kiekvienas
+           apgaubo kandidatas vertinamas per VISUS trikampius. Nulis = kaip buvo. */
+        maxTrikampiu: (o && o.maxTrikampiu !== undefined)
+          ? o.maxTrikampiu : ROT_MAX_TRI },
       [kopija.buffer],
       (z) => { if (onProgress) onProgress(z.proc || 0, 100, z.etapas); });
   } catch (e) {

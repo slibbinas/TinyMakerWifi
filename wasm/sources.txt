@@ -81,7 +81,13 @@ libslic3r/SLA/Pad.cpp
 libslic3r/SLA/PrinterCorrections.cpp
 libslic3r/SLA/RasterBase.cpp
 libslic3r/SLA/RasterToPolygons.cpp
-libslic3r/SLA/Rotfinder.cpp
+# libslic3r/SLA/Rotfinder.cpp - NEKOMPILIUOJAMAS atskirai (ROT-par, 2026-09-12).
+# Ji itraukia `bridge.cpp`, nes pastatymo virtuve (kandidatu sarasas
+# `get_chull_rotations`, vertinimas `find_min_score`) paslepta bevardeje
+# srityje ir is kito failo nepasiekiama. Itraukus i savo vertima galima
+# ivertinti KANDIDATU RUOZA, o tai leidzia darba padalyti keturiems
+# darbininkams. PrusaSlicer saltinis lieka NEPALIESTAS - jis kaskart
+# parsisiunciamas is naujo, tad pataisos jame neislikты.
 libslic3r/SLA/SpatIndex.cpp
 libslic3r/SLA/SupportIslands/EvaluateNeighbor.cpp
 libslic3r/SLA/SupportIslands/ExpandNeighbor.cpp

@@ -1,3 +1,19 @@
+/* ROT-par (2026-09-12): itraukiam PATI `Rotfinder.cpp`, nes kandidatu sarasas
+   (`get_chull_rotations`) ir vertinimo ciklas (`find_min_score`) paslepti jo
+   bevardeje srityje - is kito vertimo vieneto ju nepasieksi, o be ju kandidatu
+   ruozo neatpjausi. PrusaSlicer saltinis lieka nepaliestas (jis parsisiunciamas
+   is naujo), o is `sources.txt` failas isimtas, kad simboliu nebutu dvieju.
+
+   ⚠️ Stovi PIRMAS, pries visas kitas antrastes, ir tai butina: `SLA/SupportTreeTypes.hpp`
+   apibrezia `Slic3r::sla::DOWN` kaip `Vec3d`, o Rotfinder viduje `DOWN` yra `Vec3f`.
+   Itraukus veliau, jo kodas pasiimtu ne ta ir Eigen nebesutaptu tipais. */
+/* `DOWN` yra ir cia, ir `SLA/SupportTreeTypes.hpp` - skirtingais tipais toje
+   pacioje srityje, tad viename vertimo vienete jie nesugyvena. Laikinai
+   perkriksijam TIK sio itraukimo metu; uz jo ribu viskas lieka kaip buvo. */
+#define DOWN ROTFINDER_DOWN
+#include <libslic3r/SLA/Rotfinder.cpp>
+#undef DOWN
+
 /*
  * Tiltas tarp JS ir libslic3r SLA grandines.
  *
@@ -594,6 +610,128 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
  * Grazina kampus RADIANAIS apie X ir Y. Taikymo tvarka - kaip
  * `to_transform3f` (Rotfinder.cpp): pirma X, paskui Y.
  */
+/*
+ * ROT-par: tas pats pastatymo kelias, tik KANDIDATU RUOZAS.
+ *
+ * Kodel to reikia: gulinciam ant ploksces modeliui kandidatai imami is
+ * isgaubtinio apvalkalo, ir kiekvienas vertinamas per VISUS trikampius - tad
+ * 275 tukst. trikampiu ziedas su 706 kandidatais uztrunka 6,6 s, o 490 tukst.
+ * modelis - 13,7 s (klausimu sesijos matavimas 09-12). Visa tai sukasi vienoje
+ * gijoje, nors masinoje branduoliu laisva: keturi tokie darbai vienu metu
+ * baigdavo greiciau nei vienas, tad dalijimas virsta tikru greiciu (~4x).
+ *
+ * Kodel `#include` .cpp: kandidatu sarasas (`get_chull_rotations`) ir vertinimo
+ * ciklas (`find_min_score`) gyvena BEVARDEJE srityje Rotfinder.cpp viduje, tad
+ * is kito vertimo vieneto ju nepasieksi. Itraukus faila cia jie tampa musu, o
+ * pats PrusaSlicer saltinis lieka nepaliestas - jis parsisiunciamas is naujo
+ * kiekviename svieziame build'e, ir bet kokia pataisa jame dingtu.
+ * Del to failas isimtas is `sources.txt` - kitaip jo simboliai butu du kartus.
+ *
+ * Darbininkai NESIDERINA tarpusavyje: kandidatu sarasas priklauso tik nuo
+ * modelio, tad kiekvienas gauna ta pati ir pasiima savo dali (`dalis` is
+ * `daliu`). Persiuntinet nieko nereikia, o adapteris tiesiog renka geriausia
+ * is keturiu atsakymu.
+ */
+
+EMSCRIPTEN_KEEPALIVE
+const char *sla_rotfind_ruozas(const float *pos, int ntri, int dalis, int daliu,
+                               double tikslumas, int max_trikampiu)
+{
+    if (!pos || ntri <= 0) {
+        g_json = "{\"klaida\":\"tuscias tinklas\"}";
+        return g_json.c_str();
+    }
+    if (daliu <= 0) daliu = 1;
+    if (dalis < 0) dalis = 0;
+    if (dalis >= daliu) dalis = daliu - 1;
+
+    indexed_triangle_set its;
+    its.vertices.reserve(size_t(ntri) * 3);
+    its.indices.reserve(size_t(ntri));
+    for (int t = 0; t < ntri; ++t) {
+        const int o = t * 9;
+        its.vertices.push_back({pos[o + 0], pos[o + 1], pos[o + 2]});
+        its.vertices.push_back({pos[o + 3], pos[o + 4], pos[o + 5]});
+        its.vertices.push_back({pos[o + 6], pos[o + 7], pos[o + 8]});
+        its.indices.push_back({3 * t, 3 * t + 1, 3 * t + 2});
+    }
+    its_merge_vertices(its, true);
+    if (its_volume(its) < 0.f)
+        for (auto &t : its.indices) std::swap(t[1], t[2]);
+
+    if (max_trikampiu > 0 && its.indices.size() > size_t(max_trikampiu)) {
+        try {
+            its_quadric_edge_collapse(its, uint32_t(max_trikampiu));
+            its_merge_vertices(its, true);
+            if (its_volume(its) < 0.f)
+                for (auto &t : its.indices) std::swap(t[1], t[2]);
+        } catch (...) {}
+    }
+
+    Slic3r::Model model;
+    Slic3r::ModelObject *mo = model.add_object();
+    mo->add_volume(Slic3r::TriangleMesh{its});
+    mo->add_instance();
+
+    Slic3r::DynamicPrintConfig cfg;
+    cfg.set_key_value("pad_around_object", new Slic3r::ConfigOptionBool(true));
+    cfg.set_key_value("support_object_elevation", new Slic3r::ConfigOptionFloat(0.));
+
+    Slic3r::sla::RotOptimizeParams p;
+    p.accuracy(tikslumas > 0 ? float(tikslumas) : 1.f).print_config(&cfg);
+
+    Slic3r::SLAPrintObjectConfig pocfg;
+    pocfg.apply(cfg, true);
+    pocfg.apply(mo->config.get());
+
+    /* Pakeltam modeliui kandidatu saraso nera (einama optimizatoriaus tinkleliu),
+       tad dalijimas cia neturi prasmes - toks atvejis grazinamas su zyme, ir
+       adapteris tiesiog kviecia sena, nedalytа kelia. */
+    if (!Slic3r::sla::is_on_floor(pocfg)) {
+        g_json = "{\"nedalomas\":true}";
+        return g_json.c_str();
+    }
+
+    Slic3r::sla::RotfinderBoilerplate<1000> bp{*mo, p};
+    auto inputs = Slic3r::sla::get_chull_rotations(bp.mesh, bp.max_tries);
+    const size_t viso = inputs.size();
+    bp.max_tries = unsigned(viso ? viso : 1);
+
+    size_t nuo = viso * size_t(dalis) / size_t(daliu);
+    size_t iki = viso * size_t(dalis + 1) / size_t(daliu);
+    if (nuo > viso) nuo = viso;
+    if (iki > viso) iki = viso;
+
+    auto t0 = Clock::now();
+    double balas = 1e30;
+    Slic3r::sla::XYRotation geriausia{{0., 0.}};
+    if (nuo < iki) {
+        auto objfn = [&bp](const Slic3r::sla::XYRotation &rot) {
+            bp.statusfn();
+            return Slic3r::sla::get_supportedness_onfloor_score(
+                bp.mesh, Slic3r::sla::to_transform3f(rot));
+        };
+        auto r = Slic3r::sla::find_min_score<2>(objfn, inputs.begin() + nuo,
+                                                inputs.begin() + iki,
+                                                [&bp] { return bp.stopcond(); });
+        geriausia = Slic3r::sla::XYRotation{{r[0], r[1]}};
+        /* Balas perskaiciuojamas vieną kartą: `find_min_score` grazina tik kampus,
+           o adapteriui reikia, ka lyginti tarp keturiu atsakymu. Viena vertinimas
+           saraso gale nieko nekainuoja salia simtu kandidatu. */
+        balas = Slic3r::sla::get_supportedness_onfloor_score(
+            bp.mesh, Slic3r::sla::to_transform3f(geriausia));
+    }
+    const long ms = ms_since(t0);
+
+    char b[256];
+    std::snprintf(b, sizeof(b),
+        "{\"rx\":%.6f,\"ry\":%.6f,\"balas\":%.9f,\"nuo\":%zu,\"iki\":%zu,"
+        "\"viso\":%zu,\"ms\":%ld}",
+        geriausia[0], geriausia[1], balas, nuo, iki, viso, ms);
+    g_json = b;
+    return g_json.c_str();
+}
+
 EMSCRIPTEN_KEEPALIVE
 const char *sla_rotfind(const float *pos, int ntri, int kuris,
                         double tikslumas, int max_trikampiu)
