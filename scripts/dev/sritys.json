@@ -13,11 +13,11 @@
     {
       "sritis": "Printeris",
       "priesdelis": "prnt/",
-      "saka": "0.17/slicer-merge",
+      "saka": "main",
       "katalogas": "Documents/PlatformIO/Projects/TinyMakerWiFi",
       "repo": "TinyMakerWifi",
       "uz_ka": "firmware, pultas, dokumentacija, leidyba",
-      "pastaba": "0.17 integracine saka - joje VISKAS, kas ruosiama testams. Po isleidimo darbas pereis i prnt/0.18-*"
+      "pastaba": "2026-09-12: 0.17 isleista (0.17.0 ir 0.17.1 beta kanale), tad integracines sakos nebereikia - namu saka yra main. Funkciniai darbai daromi prnt/* sakose ir merginami i main; leidyba kertama TIK is main. Artimiausia laukiama laida - 0.17.2 (0.17.x linija), 0.18 neplanuojama. Sena 0.17/slicer-merge palikta gulėti: jos turinys visas main viduje, bet ant jos tebestovi V pagrindinis medis"
     },
     {
       "sritis": "Sliceris",
