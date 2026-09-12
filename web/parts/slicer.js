@@ -1337,16 +1337,29 @@ $('slicerGo').addEventListener('click',async()=>{
     let mazNote='';
     if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
       slicerTr.scale*=r.sumazinta.mastelis;
-      mazNote='\n'+r.sumazinta.tekstas;
+      /* Ne `\n`: eilute gyvena `<span class='hint'>` be `white-space: pre-line`,
+         tad naujos eilutes nesimatytu ir frazes sulipty (auditas, 09-12). */
+      mazNote=' \u00b7 '+r.sumazinta.tekstas;
+      /* Pastatymo verdiktas („spausdinsis 23 % didesnis nei Fast fit") kalba apie
+         dydi, kurio faile jau nebera - variklis ka tik sumazino. Nuimam, kaip ir
+         prie kiekvieno kito transformacijos pakeitimo. */
+      slicerPlaceNote(null,null);
       /* Kai NET ir po sumazinimo netelpa, spaudinys bus nupjautas ties krastu -
          tai ne smulkmena, o sugadintas failas. `#slicerProg` tokiam pranesimui
-         netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta
-         (printerio sesijos auditas, 09-12). Todel einam tuo paciu kanalu, kaip #116
-         ispejimas - `#slicerIslands` lieka tol, kol pjaustoma is naujo.
-         Rasom PO `slicerSupportFacts()`, nes ji ta eilute isvalo. */
+         netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta.
+         Todel einam tuo paciu kanalu, kaip #116 ispejimas - `#slicerIslands`.
+         ⚠ IR ZENKLAS, IR SPALVA kaip visu kitu to elemento pranesimu: rimciausia
+         eilute korteleje neturi atrodyti kaip eilinis paaiskinimas.
+         SVARBU: ne perrašom, o PRIKABINAM. Ten jau gali stoveti #116 ispejimas
+         („spausdintusi ore"), ir vienas pavojus neturi uzrasyti kito - zmogus
+         pamatytu viena is dvieju ir nezinotu, kad buvo du (auditas, 09-12). */
       if(r.sumazinta.telpa===false){
         const isl=$('slicerIslands');
-        if(isl)isl.textContent=r.sumazinta.tekstas;
+        if(isl){
+          const senas=(isl.textContent||'').trim();
+          isl.textContent=(senas?senas+' \u00b7 ':'')+'\u26a0 '+r.sumazinta.tekstas;
+          isl.style.color='#e8a020';
+        }
       }
       /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
          is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. */
@@ -1777,6 +1790,11 @@ $('slicerSave').addEventListener('click',async()=>{
        netikru vardu blogiau nei sekundes tyla - tikra zinute ateina zemiau, kai
        pamatom, kuris modelis atsirado (antras auditas 08-17). */
     if(!renamed)msg('\u201c'+done.name+'\u201d is on the printer.');
+    /* Issaugojus kortele uzsidaro ir `#slicerIslands` isvalomas, o failas su
+       nupjautu krastu jau guli kortelėje. Todel tas vienas atvejis dar karta
+       pasakomas snackbaru - jis nepriklauso nuo korteles (auditas, 09-12). */
+    if(slicerOut&&slicerOut.sumazinta&&slicerOut.sumazinta.telpa===false)
+      msg(slicerOut.sumazinta.tekstas,true);
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
