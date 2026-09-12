@@ -449,6 +449,14 @@ window.slicerRetryRender=()=>{
   slicerRenderPending=false;
   slicerRender();
 };
+/* Matmenu eilute po failo vardu. Atskirai nuo `slicerRender`, nes ja reikia
+   perrasyti ir po automatinio sumazinimo (FIT-real), o `slicerRender` ten kviesti
+   negalima - jis ismeta ka tik supjaustyta rezultata. */
+const slicerDimsLine=b=>{
+  $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
+    b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
+    +' mm  ·  '+(slicerRaw.length/9).toLocaleString()+' triangles';
+};
 const slicerRender=()=>{
   if(slicerPrinting()){slicerRenderPending=true;return;}
   slicerInvalidate(true);          // modeli perpiesim zemiau, su ta pacia `place()` isvestimi
@@ -496,9 +504,7 @@ const slicerRender=()=>{
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
    {const fh=$('slicerFitHere');
     if(fh)fh.addEventListener('click',()=>$('slicerAutoFit').click());}
-   $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
-     b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
-     +' mm  ·  '+n.toLocaleString()+' triangles';}
+   slicerDimsLine(b);}
   const fit=$('slicerFit');
   slicerFits=!!f.fits;
   if(f.fits){
@@ -1362,10 +1368,13 @@ $('slicerGo').addEventListener('click',async()=>{
         }
       }
       /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
-         is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. */
+         is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. Matmenu eilute
+         irgi: kitaip po failo vardu likdavo dydis PRIES sumazinima, ir zmogus,
+         kuriam dydis svarbus, spausdindavo mazesne detale, nei mato (V 09-12). */
       if(slicerRaw&&slicerMod&&slicerMod.place&&slicerMod.bounds){
         slicerLastBounds=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
         slicerScaleUI(slicerLastBounds);
+        slicerDimsLine(slicerLastBounds);
       }
     }
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
