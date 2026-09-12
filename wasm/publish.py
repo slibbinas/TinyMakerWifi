@@ -20,6 +20,7 @@ import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
 
 
 def skaityk(p):
@@ -61,9 +62,19 @@ def main():
         shutil.copyfile(src, os.path.join(lib, 'sla-web.' + galas))
 
     # --- baze -------------------------------------------------------------
-    baze = os.path.join(lib, 'slicer-core.js')
-    if os.path.isfile(baze):
-        shutil.copyfile(baze, os.path.join(lib, 'slicer-core-%s.js' % V))
+    # Baze (`web/lib/slicer.js`) yra GYVAS kodas: naršyklė ją kraunasi kartu su
+    # varikliu - iš jos ateina parseSTL, place, autoOrient, fitCheck ir plokštės
+    # matmenys. Iki 2026-09-12 ji buvo imama iš gh-pages katalogo, t. y. iš savo
+    # pačios ankstesnės publikacijos, ir repo pakeitimas naudotojų nepasiekdavo -
+    # skriptas tiesiog perrašydavo seną kopiją nauju vardu.
+    baze = os.path.join(REPO, 'web', 'lib', 'slicer.js')
+    if not os.path.isfile(baze):
+        sys.exit('publish: nerandu bazės %s - be jos modulis neveiks' % baze)
+    # Rasom per teksta su LF: darbiniame medyje Windows turi CRLF, o publikuota
+    # baze visada buvo LF - kitaip kiekvienas leidimas keistu baitus be priezasties.
+    bazes_tekstas = io.open(baze, encoding='utf-8').read()
+    for vardas in ('slicer-core.js', 'slicer-core-%s.js' % V):
+        io.open(os.path.join(lib, vardas), 'w', encoding='utf-8', newline='\n').write(bazes_tekstas)
 
     # --- adapteris: prisegam bazę ir darbininka ---------------------------
     ad = skaityk(os.path.join(HERE, 'slicer-wasm.js'))
