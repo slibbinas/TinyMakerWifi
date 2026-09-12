@@ -6,7 +6,11 @@
     "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu.",
     "Laukas 'saka' = NAMU saka, kur srities darbas galiausiai sugula. Sesija gali teisetai",
     "sedeti kitoje (laikinoje, antroje tos pacios srities, bendroje main/experimental) -",
-    "tai ne pasenimas, ir kur_esu.py tokiais atvejais tyli."
+    "tai ne pasenimas, ir kur_esu.py tokiais atvejais tyli.",
+    "Adresas zinutems (SendMessage) cia NERASOMAS samoningai: jis gimsta is darbo",
+    "katalogo vardo, per sesijos pervadinima NESIKEICIA ir mirsta kartu su langu.",
+    "Sesijos ANTRASTE (TinyMakerPrint, TinyMakerSlicer) adresu NEVEIKIA - gyva adresa",
+    "imti TIK is ListAgents pirmos eilutes. Ismatuota 2026-09-12."
   ],
   "_atnaujinta": "2026-09-12",
   "sritys": [
