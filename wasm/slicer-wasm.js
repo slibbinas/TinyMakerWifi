@@ -114,12 +114,117 @@ export async function autoOrientFast(pos) {
  * @param onProgress (done, total, phase) - tokia pat forma, kaip `slice()`
  * @returns { tr, size, fit } - lygiai tas pats, ka grazina `autoOrient`
  */
-export async function autoOrientPro(pos, onProgress) {
+/* Kiek trikampiu palikti PASTATYMO paieskai.
+ *
+ * Kiekvienas apgaubo kandidatas vertinamas per VISUS trikampius, tad laikas auga
+ * su tinklo dydziu, ne su daikto sudetingumu: 300 tukst. trikampiu biustas vercia
+ * laukti 9 s, o tukstancio trikampiu puodelis pastatomas akimirksniu. Variklis moka
+ * suretinti tinkla pries paieska nuo 08-20, bet adapteris ribos nepaduodavo, tad ji
+ * buvo isjungta.
+ *
+ * 50 tukst. - is matavimo (2026-09-12, stendas su tikru varikliu): biustas 9,01 ->
+ * 5,06 s, o pasirinkti kampai IDENTISKI ir ties 100, 50 ir 25 tukstanciais. Tai
+ * suprantama: pastatymas yra bendros formos klausimas, o ne detaliu - ir suslicinamas
+ * vis tiek lieka PILNAS modelis, retinamas tik vertinimui.
+ *
+ * `maxTrikampiu: 0` isjungia - reikalinga lyginant su PrusaSlicer etalonu. */
+/* ⛔ ISJUNGTA (0) - patikrinta 2026-09-12 ir NEPRAEJO. Su 50 tukst. riba
+ * bareljefas guldomas ant KITO sono (0/-90 virsta 0/0), o biusto kampai irgi
+ * pasikeicia; be to mazam modeliui pats retinimas kainuoja daugiau, nei sutaupo
+ * (bareljefas 0,52 -> 2,02 s). Pirmas matavimas trimis modeliais buvo sutapes
+ * atsitiktinai, ir jo iSvada buvo klaidinga.
+ * Parametras paliktas eksperimentams; itraukiant ji reiketu pirma irodyti, kad
+ * pastatymas nesikeicia BENT desimt skirtingu modeliu. */
+const ROT_MAX_TRI = 0;
+
+/* ROT-par: nuo kiek trikampiu verta dalyti pastatyma keliems darbininkams.
+ *
+ * Svarus matavimas (2026-09-12, matoma Chrome kortele, masina rami, po 3 kartus,
+ * mediana), per ta pati kelia, kuri naudoja pultas:
+ *   biustas, 300 tukst. trikampiu: 4,80 s -> 1,48 s (3,2x), kampas sutampa;
+ *   bareljefas, 81 tukst.: senu keliu vos 0,23 s - dalyti nera ko.
+ * Riba 150 tukst. todel, kad zemiau jos paieska ir taip trunka mazai (sekunde ar
+ * maziau), tad keturi darbininkai sutaupytu desimtasias, o kainuotu tinklo kopijas.
+ *
+ * ⚠️ Ankstesni tos pacios dienos skaiciai (per adapteri „tik 2x", „talpinimas 2 s",
+ * 13-14 s) buvo KLAIDINGI: juos gadino PASLEPTA naršykles kortele (fone naršykle
+ * riboja procesoriu - tas pats matavimas paslėptoje kortelėje davė 10,5 s, matomoje
+ * 4,6 s) ir nepilna testo transformacija. `fitOnPlate` biustui trunka 0,16 s. */
+const ROT_PAR_NUO = 150000;
+
+let TELKINYS = null;
+
+/* Kiek darbininku: iki keturiu (astuoni prideda mazai - klausimu sesijos
+   matavimas), bet ne daugiau nei laisvu branduoliu. Kiekvienas darbininkas
+   laiko savo variklio egzemplioriu ir tinklo kopija, tad irenginiui su mazai
+   atminties (telefonas) dalijimo NEDAROM - geriau lėčiau nei nulūžusi kortele.
+   Esamas darbininkas `W` naudojamas kaip vienas is ju: vienu varikliu maziau. */
+function telkinys() {
+  if (TELKINYS) return TELKINYS;
+  const nav = (typeof navigator !== 'undefined') ? navigator : {};
+  const branduoliai = nav.hardwareConcurrency || 2;
+  const atmintisGb = nav.deviceMemory || 8;
+  const kiek = atmintisGb < 4 ? 1 : Math.max(1, Math.min(4, branduoliai - 1));
+  TELKINYS = [darbininkas()];
+  for (let i = 1; i < kiek; i++) TELKINYS.push(naujasDarbininkas());
+  return TELKINYS;
+}
+
+/* Kandidatu ruozai lygiagreciai. Grazina {rx, ry} arba null - tada kvieciantis
+   eina senuoju keliu. Null reiskia ne klaida, o „siuo atveju nedalinam":
+   senas variklis be ruozu iejimo, pakeltas modelis (ten kandidatu saraso nera)
+   arba irenginys, kuriam telkinys iš vieno darbininko. */
+async function pastatymasDalimis(pos, onProgress) {
+  const ts = telkinys();
+  if (ts.length < 2) return null;
+  let baigta = 0;
+  const atsakymai = await Promise.all(ts.map((w, i) => {
+    const kopija = new Float32Array(pos);
+    return paklauskKa(w,
+      { tipas: 'pakrypimas_ruozas', pos: kopija.buffer, dalis: i, daliu: ts.length },
+      [kopija.buffer])
+      .then(z => {
+        baigta++;
+        if (onProgress) onProgress(Math.round(baigta / ts.length * 95), 100,
+                                   'ieskoma geriausios padeties');
+        return z.ruozas;
+      });
+  }));
+  if (atsakymai.some(a => !a || a.nepalaikoma || a.nedalomas)) return null;
+  const tikri = atsakymai.filter(a => a.nuo < a.iki);
+  if (!tikri.length) return null;
+  const geriausias = tikri.reduce((a, b) => (b.balas < a.balas ? b : a));
+  return { rx: geriausias.rx, ry: geriausias.ry };
+}
+
+export async function autoOrientPro(pos, onProgress, o) {
+  /* ROT-par: sunkus modelis - keli darbininkai. Retinimo eksperimentas eina
+     senu keliu, nes ruozu iejimas retina kitaip ir palyginimai nesutaptu. */
+  const retinam = o && o.maxTrikampiu;
+  if (!retinam && pos.length / 9 >= ROT_PAR_NUO) {
+    let k = null;
+    try { k = await pastatymasDalimis(pos, onProgress); } catch (e) { k = null; }
+    if (k) {
+      const tr = Object.assign(BAZE.makeTransform(), {
+        rxDeg: k.rx * 180 / Math.PI,
+        ryDeg: k.ry * 180 / Math.PI,
+      });
+      const best = fitOnPlate(pos, tr);
+      if (onProgress) onProgress(100, 100, 'baigta');
+      return best;
+    }
+  }
+
   const kopija = new Float32Array(pos);            // savininkyste keliauja i gija
   let r;
   try {
     r = await paklausk(
-      { tipas: 'pakrypimas', pos: kopija.buffer, kauke: 1 },
+      { tipas: 'pakrypimas', pos: kopija.buffer, kauke: 1,
+        /* Tinklo retinimas PRIES paieska. Variklis tai moka nuo 08-20, bet
+           adapteris ribos nepadavė, tad ji visada buvo isjungta: kiekvienas
+           apgaubo kandidatas vertinamas per VISUS trikampius. Nulis = kaip buvo. */
+        maxTrikampiu: (o && o.maxTrikampiu !== undefined)
+          ? o.maxTrikampiu : ROT_MAX_TRI },
       [kopija.buffer],
       (z) => { if (onProgress) onProgress(z.proc || 0, 100, z.etapas); });
   } catch (e) {
@@ -155,23 +260,26 @@ const ADRESAS = new URL('./', import.meta.url).href;
    pats, tad neprisegtas vardas ten reikstu sena narsykles kopija. */
 const BAZES_FAILAS = 'slicer-core.js';
 
-function darbininkas() {
-  if (W) return W;
-  /*
-   * ⚠️ Darbininko NEGALIMA kurti tiesiai is kito domeno: pultas sukasi ant
-   * printerio (http://tinymaker.local), o modulis guli gh-pages, ir narsykle
-   * toki `new Worker(https://...)` atmeta (SecurityError).
-   *
-   * Apeinam standartiskai: pasidarom mazyti vietini darbininka, kuris pats
-   * per `importScripts` parsisiunčia tikraji - tam kito domeno riba negalioja.
-   */
+/*
+ * ⚠️ Darbininko NEGALIMA kurti tiesiai is kito domeno: pultas sukasi ant
+ * printerio (http://tinymaker.local), o modulis guli gh-pages, ir narsykle
+ * toki `new Worker(https://...)` atmeta (SecurityError).
+ *
+ * Apeinam standartiskai: pasidarom mazyti vietini darbininka, kuris pats
+ * per `importScripts` parsisiunčia tikraji - tam kito domeno riba negalioja.
+ *
+ * Iskelta i atskira funkcija del ROT-par: pastatymo telkiniui reikia keliu
+ * tokiu pat darbininku. Visi jie atsako per ta pati `laukia` sarasa - numeriai
+ * `kitasId` unikalus visam moduliui, tad susipainioti negali.
+ */
+function naujasDarbininkas() {
   const uzkrovejas =
     'self.SLA_BAZE=' + JSON.stringify(ADRESAS) + ';' +
     'importScripts(' + JSON.stringify(ADRESAS + 'slicer-wasm-worker.js') + ');';
   const url = URL.createObjectURL(new Blob([uzkrovejas], { type: 'text/javascript' }));
-  W = new Worker(url);
+  const w = new Worker(url);
   URL.revokeObjectURL(url);
-  W.onmessage = (ev) => {
+  w.onmessage = (ev) => {
     const z = ev.data || {};
     const p = laukia.get(z.id);
     if (z.tipas === 'eiga') { if (p && p.eiga) p.eiga(z); return; }
@@ -180,15 +288,24 @@ function darbininkas() {
     if (z.tipas === 'klaida') p.blogai(new Error(z.tekstas));
     else p.gerai(z);
   };
+  return w;
+}
+
+function darbininkas() {
+  if (!W) W = naujasDarbininkas();
   return W;
 }
 
-function paklausk(zinute, perduoti, eiga) {
+function paklauskKa(w, zinute, perduoti, eiga) {
   const id = kitasId++;
   return new Promise((gerai, blogai) => {
     laukia.set(id, { gerai, blogai, eiga });
-    darbininkas().postMessage({ ...zinute, id }, perduoti || []);
+    w.postMessage({ ...zinute, id }, perduoti || []);
   });
+}
+
+function paklausk(zinute, perduoti, eiga) {
+  return paklauskKa(darbininkas(), zinute, perduoti, eiga);
 }
 
 /* ------------------------------------------------------------------ pjaustymas */
