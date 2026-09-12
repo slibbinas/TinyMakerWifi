@@ -433,16 +433,37 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
         auto zmin_v = [](double a, double b2) { return a < b2 ? a : b2; };
         double zp = 1e30, zh = 1e30, zj = 1e30, zb = 1e30, zcb = 1e30, zdb = 1e30, zped = 1e30, za = 1e30;
         for (const auto &x : t.pillars)      zp   = zmin_v(zp,  x.endpt.z());
-        for (const auto &x : t.heads)        zh   = zmin_v(zh,  x.junction_point().z() - x.width_mm - x.r_back_mm);
+        /* Galvute - atkarpa tarp `pos` (smaigalys ant modelio) ir `junction_point()`
+           (galas ties stulpu), storio `r_back_mm`. Zemiausias jos taskas - zemesnysis is
+           dvieju galu minus spindulys. Anksciau is jungties Z buvo atimamas visas
+           `width_mm`, tarsi galvute smigtu VERTIKALIAI zemyn, o ji i modeli eina istrizai:
+           biustui tai rode -2,088 mm, nors tikras atramu tinklas prasideda nuo 0,000, ir
+           neigiamas skaicius stovejo prie KIEKVIENO modelio - tikros atramos po plokste per
+           sita eilute nebepamatytum (SL-diag, 2026-09-12). */
+        auto galvApacia = [](const auto &x) {
+            return std::min(x.pos.z(), x.junction_point().z()) - x.r_back_mm;
+        };
+        for (const auto &x : t.heads)        zh   = zmin_v(zh,  galvApacia(x));
         for (const auto &x : t.junctions)    zj   = zmin_v(zj,  x.pos.z() - x.r);
         for (const auto &x : t.bridges)      zb   = zmin_v(zb,  zmin_v(x.startp.z(), x.endp.z()) - x.r);
         for (const auto &x : t.crossbridges) zcb  = zmin_v(zcb, zmin_v(x.startp.z(), x.endp.z()) - x.r);
         for (const auto &x : t.diffbridges)  zdb  = zmin_v(zdb, zmin_v(x.startp.z(), x.endp.z()) - x.r);
         for (const auto &x : t.pedestals)    zped = zmin_v(zped, x.pos.z());
-        for (const auto &x : t.anchors)      za   = zmin_v(za,  x.junction_point().z() - x.width_mm - x.r_back_mm);
-        std::printf("zemiausi         stulpai %.3f · galvutes %.3f · jungtys %.3f · tiltai %.3f\n"
-                    "                 kryzminiai %.3f · ant modelio %.3f · pedos %.3f · inkarai %.3f\n",
-                    zp, zh, zj, zb, zcb, zdb, zped, za);
+        for (const auto &x : t.anchors)      za   = zmin_v(za,  galvApacia(x));
+        /* Tuscia kategorija - bruksnys, ne 1e30. Pradine reiksme `1e30` lieka tik tada,
+           kai elementu nera, ir anksciau taip ir buvo atspausdinama: „inkarai
+           1000000000000000019884624838656", nors gretima eilute sako „inkaru 0" (SL-diag). */
+        auto sk = [](double v) {
+            static char buf[8][32]; static int k = 0;
+            char *b = buf[k++ % 8];
+            if (v >= 1e29) std::snprintf(b, 32, "-");
+            else std::snprintf(b, 32, "%.3f", v);
+            return b;
+        };
+        std::printf("zemiausi         stulpai %s · galvutes %s · jungtys %s · tiltai %s\n",
+                    sk(zp), sk(zh), sk(zj), sk(zb));
+        std::printf("                 kryzminiai %s · ant modelio %s · pedos %s · inkarai %s\n",
+                    sk(zcb), sk(zdb), sk(zped), sk(za));
         std::printf("kiekiai          stulpu %zu · galvuciu %zu · jungciu %zu · tiltu %zu · pedu %zu · inkaru %zu\n",
                     t.pillars.size(), t.heads.size(), t.junctions.size(),
                     t.bridges.size(), t.pedestals.size(), t.anchors.size());
