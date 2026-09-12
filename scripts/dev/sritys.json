@@ -8,7 +8,7 @@
     "sedeti kitoje (laikinoje, antroje tos pacios srities, bendroje main/experimental) -",
     "tai ne pasenimas, ir kur_esu.py tokiais atvejais tyli."
   ],
-  "_atnaujinta": "2026-09-02",
+  "_atnaujinta": "2026-09-12",
   "sritys": [
     {
       "sritis": "Printeris",
@@ -22,11 +22,11 @@
     {
       "sritis": "Sliceris",
       "priesdelis": "slcr/",
-      "saka": "slcr/dev",
+      "saka": "slcr/1.0-dev",
       "katalogas": "C:/PIO-build/exp2-wt",
       "repo": "TinyMakerWifi",
       "uz_ka": "narsykles pjaustykle, WASM modulis",
-      "pastaba": "iki 2026-08-23 vadinosi experimental2. Laboratorija: slcr/lab (C:/PIO-build/s3-wt)"
+      "pastaba": "2026-09-12 sakos suvienytos: dirbama nuo main atsakotoje slcr/1.0-dev. Senoji slcr/dev ir laboratorija slcr/lab archyvuotos zymese archive/slcr-dev-2026-09-11 ir archive/slcr-lab-2026-09-11; ju sakos istrintos"
     },
     {
       "sritis": "Connect Live",
