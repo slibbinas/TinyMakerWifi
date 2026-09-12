@@ -161,7 +161,13 @@ export function place(pos, tr) {
    krastu, o stulpas lieka stoveti ant nieko (V pastebejimas, 08-19).
    `fitCheck(size, 0)` - sazininga isimtis tam, kas nori spausdinti iki pat
    krastu: tada atramas i vidu traukia XY krasto taisykle (slicer2). */
-let FIT_MARGIN_MM = 3.1;
+/* 2026-09-12: buvo 3,1 mm (atramos pedos spindulys 1,5 + pado apvadas 1,6),
+   atimami PRIES pjaustyma nuo kiekvienos puses - detalei likdavo 68 % ploksces.
+   Nuo `FIT-real` tikras pedsakas matuojamas PO atramu (`slicer-wasm.js`), tad cia
+   liko tik greitas preliminarus filtras, o jo skaiciu diktuoja MECHANIKA: ploksce
+   tvirtinama su laisvumu i sonus (~1 mm, V matavimas). Kad ekranas kietina iki pat
+   0,5 mm nuo krasto, parode `T93-remeliai` spaudinys. */
+let FIT_MARGIN_MM = 1.0;
 /** Atsarga atramoms aplink modeli, mm. `0` - modelis gali uzimti visa plokste
  *  (tada atramas i vidu traukia XY krasto taisykle). Laboratorijai butinas
  *  nulis: PrusaSlicer etalonas pjausto 100 % dydzio, ir mazinant musu modeli
