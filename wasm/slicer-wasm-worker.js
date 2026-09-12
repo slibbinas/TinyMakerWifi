@@ -10,7 +10,7 @@
 const BAZE = self.SLA_BAZE || './';
 importScripts(BAZE + 'sla-web.js');
 
-let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, rotFn = null, vardas = 'spaudinys';
+let M = null, sliceMeshFn = null, sl1Fn = null, previewFn = null, rotFn = null, rotRuozasFn = null, vardas = 'spaudinys';
 let setParamsFn = null;
 let dabartinisId = 0;
 
@@ -183,6 +183,13 @@ const paruostas = createSLA({ locateFile: function (p) { return BAZE + p; } }).t
      nepaduoti, ir viskas laikesi ant C pusės sargu (SL-args). */
   rotFn = m.cwrap('sla_rotfind', 'string',
                   ['number', 'number', 'number', 'number', 'number']);
+  /* ROT-par: tas pats pastatymas, tik kandidatu ruozas (dalis is daliu). Senas
+     variklis to iejimo neturi - tada `cwrap` grazina funkcija, kuri luztu
+     kviečiama, tad tikrinam, ar simbolis apskritai yra. */
+  rotRuozasFn = m._sla_rotfind_ruozas
+    ? m.cwrap('sla_rotfind_ruozas', 'string',
+              ['number', 'number', 'number', 'number', 'number', 'number'])
+    : null;
   return m;
 });
 
@@ -277,6 +284,28 @@ self.onmessage = async function (ev) {
       const kampai = JSON.parse(atsakymas);
       if (kampai.klaida) { self.postMessage({ tipas: 'klaida', id: z.id, tekstas: kampai.klaida }); return; }
       self.postMessage({ tipas: 'atsakymas', id: z.id, kampai: kampai });
+
+    } else if (z.tipas === 'pakrypimas_ruozas') {
+      /* ROT-par: vienas is keliu darbininku ivertina savo kandidatu dali.
+         Kandidatu sarasas priklauso tik nuo modelio, tad visi darbininkai gauna ta
+         pati ir nesiderina tarpusavyje; adapteris renka maziausia `balas`. */
+      if (!rotRuozasFn) {
+        self.postMessage({ tipas: 'atsakymas', id: z.id, ruozas: { nepalaikoma: true } });
+        return;
+      }
+      const pos = new Float32Array(z.pos);
+      const ptr = M._malloc(pos.byteLength);
+      M.HEAPF32.set(pos, ptr >> 2);
+      let atsakymas;
+      try {
+        atsakymas = rotRuozasFn(ptr, pos.length / 9, z.dalis | 0, z.daliu | 0,
+                                z.tikslumas || 1.0, z.maxTrikampiu || 0);
+      } finally {
+        M._free(ptr);
+      }
+      const ruozas = JSON.parse(atsakymas);
+      if (ruozas.klaida) { self.postMessage({ tipas: 'klaida', id: z.id, tekstas: ruozas.klaida }); return; }
+      self.postMessage({ tipas: 'atsakymas', id: z.id, ruozas: ruozas });
 
     } else if (z.tipas === 'geometrija') {
       const dalys = {};
