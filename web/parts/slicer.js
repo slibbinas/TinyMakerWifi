@@ -1639,14 +1639,17 @@ function slicerMarkUI(on){
   if(!on&&typeof window.gl3dMarkOff==='function')window.gl3dMarkOff();
   slicerTopLeft();
 }
-/* Kai matomas tik vienas is dvieju virsutiniu kaireje - jis stovi pirmoje
-   vietoje; kai abu - zymeklis pirmas, pagalba antra. Kitaip likdavo tuscia vieta
-   ten, kur ka tik buvo mygtukas (V 08-20). */
+/* Du virsutiniai kaireje. „?" VISADA pirmas (V 09-15: „tada visada jis ten ir bus,
+   o dingines uz jo esantis zymejimo irankis, ir nereiks sukt galvos"); zymeklis
+   stoja uz jo. Bet plokscioje kaukeje „?" paslepiamas (`slicerViewChrome`) - tada
+   zymeklis pasislenka i pirma vieta, kad kaireje neliktu tuscios skyles (ta pati
+   V 08-20 priezastis, del kurios anksciau pirmas buvo zymeklis). */
 function slicerTopLeft(){
   const w=$('gl3dMarkWrap'), h=$('gl3dHelp');
-  if(!h)return;
-  const zymeklis=!!(w&&w.style.display&&w.style.display!=='none');
-  h.style.left=zymeklis?'44px':'10px';
+  if(h)h.style.left='10px';
+  if(!w)return;
+  const pagalba=!!(h&&h.style.display&&h.style.display!=='none');
+  w.style.left=pagalba?'44px':'10px';
 }
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
