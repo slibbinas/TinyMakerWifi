@@ -88,9 +88,7 @@ const slicerStep=()=>{
   {const tools=$('gl3dTools');
    const pro=slicerFitBy()==='supports';
    const ft=tools&&tools.querySelector("[data-tool='fit']");
-   const fp=tools&&tools.querySelector("[data-tool='fitpro']");
-   if(ft)ft.classList.toggle('step',!pro&&loaded&&!sliced&&!slicerFits);
-   if(fp)fp.classList.toggle('step',pro&&loaded&&!sliced&&!slicerFits);
+   if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
    const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
    if(fitNow){
@@ -162,7 +160,7 @@ const slicerStep=()=>{
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
   {const tools=$('gl3dTools');
-   if(tools)['fit','fitpro','flat','flip','tilt','rot','scale'].forEach(k=>{
+   if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
    /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes: formos
@@ -617,7 +615,7 @@ $('slicerFile').addEventListener('change',async e=>{
     slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
-    slicerTr=best.tr;
+    slicerTr=best.tr; slicerScalePriesMax=null;
     /* FIT BY / SIZE ikeliant (V 09-13). Ploksciai - kaip iki siol, tik su `max`
        dydis iskart pritaikomas plokstei. Pakreipimas del atramu ateina zemiau, po
        pirmo piesimo: jis asinchroninis, o modelis tuo metu jau matosi. Netelpancio
@@ -1536,12 +1534,39 @@ $('slicerAA').addEventListener('change',()=>slicerInvalidate());
    septinta jungikli istorija kartotusi (V 09-03). */
 {const pr=document.getElementById('slicerParams');
  if(pr)pr.addEventListener('change',e=>{
-   /* FIT BY ir SIZE pjaustymo nekeicia - jie sako, kaip detale pastatyti KITA karta.
-      Ismesti del ju ka tik supjaustyta rezultata butu bausme uz nieka; jau ikeltas
-      modelis irgi neperstatomas. Atnaujinam tik oranzinio mygtuko varda. */
-   if(e.target&&SLICER_NE_PJOVIMO.test(e.target.name||'')){slicerStep();return;}
+   /* FIT BY ir SIZE patys pjaustymo nekeicia, tad rezultato del ju neismetam. Bet
+      jau ikeltam modeliui jie pritaikomi ISKART (V 09-15: perjungei max, supjaustei -
+      ir nieko neistempe). Jei tai pakeicia pastatyma ar dydi, rezultata ismes pats
+      `slicerRender`, kaip ir po bet kurio kito pastatymo pakeitimo. */
+   if(e.target&&SLICER_NE_PJOVIMO.test(e.target.name||'')){
+     slicerStep(); slicerPerjungtas(e.target.name); return;
+   }
    slicerInvalidate();
  });}
+/* Dydis PRIES `max`, kad grizus i `keep` modelis grizti i savo dydi, o ne liktu
+   istemptas. Pamirstamas, kai dydi pakeicia pats zmogus ar ikeliamas kitas failas -
+   tada „savo dydis" jau kitas. */
+let slicerScalePriesMax=null;
+function slicerPerjungtas(vardas){
+  if(!slicerRaw||!slicerMod||sliceRunning)return;
+  if(vardas==='slicerFitBy'){slicerFitNumatytas();return;}
+  const pries=slicerTr.scale, max=slicerSizeMode()==='max';
+  let t;
+  if(max){
+    slicerScalePriesMax=pries;
+    t=slicerDydis(true);
+  }else{
+    if(slicerScalePriesMax!==null)slicerTr.scale=slicerScalePriesMax;
+    slicerScalePriesMax=null;
+    slicerDydis(true);                  // grazintas dydis gal netelpa - tada mazinam
+    const pct=Math.round(slicerTr.scale*1000)/10;
+    t=Math.abs(slicerTr.scale-pries)<1e-9?'':'back to '+pct+'%.';
+  }
+  slicerSizeNote(max?'Size max':'Size keep',t);
+  slicerNuimkNetelpa();
+  slicerHome=true;
+  slicerRender();
+}
 /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
 /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne
@@ -1697,8 +1722,12 @@ const popClose=()=>{
       else{p.style.display='flex';popRow(false);}
       return;
     }
-    const id={fit:'slicerAutoFit',fitpro:'slicerAutoFitPro',flat:'slicerFlat',flip:'slicerFlip',
-              tilt:'slicerRotX',rot:'slicerRotZ'}[t];
+    /* Viena „Fit" ikona (V 09-15): perjungikliai jau perstato modeli iskart, tad dvi
+       ikonos dubliavo „Fit by". Ikona lieka tam, kad po rankiniu posukiu ar mastelio
+       pastatyma butu galima grazinti vienu paspaudimu - pazymeto radijo mygtuko
+       paspaudimas nieko nedaro. */
+    if(t==='fit'){slicerFitNumatytas();return;}
+    const id={flat:'slicerFlat',flip:'slicerFlip',tilt:'slicerRotX',rot:'slicerRotZ'}[t];
     const b=id&&$(id); if(b&&!b.disabled)b.click();
   });
   const pd=document.getElementById('popDone');
@@ -1713,7 +1742,7 @@ const popScaleApply=pct=>{
   if(!slicerRaw)return;
   const v=Math.max(SCALE_MIN_PCT/100,Math.min(3,pct/100));
   /* Dydi nustate zmogus - „scaled up to 148%" nuo sios akimirkos meluotu. */
-  slicerTr.scale=v; slicerSizeNote('',''); slicerRender();
+  slicerTr.scale=v; slicerSizeNote('',''); slicerScalePriesMax=null; slicerRender();
 };
 {const pr=$('popScaleRange');
  /* Zyme uzsideda PRIES `input`, tad pirmas pat perpiesimas jau zino, kad vyksta
@@ -2239,6 +2268,7 @@ function slicerParamaiParasas(){
 
 function slicerParamaiReset(){
   const pries=slicerParamaiParasas();
+  const buvoFit=slicerFitBy(), buvoSize=slicerSizeMode();
   const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
              slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on',
              slicerFitBy:'flat',slicerSize:'keep'};
@@ -2248,4 +2278,9 @@ function slicerParamaiReset(){
   });
   if(pries!==slicerParamaiParasas())slicerInvalidate();
   slicerStep();
+  /* Radijo zymejimas is kodo `change` ivykio nesukelia - tad Reset turi pritaikyti
+     FIT BY / SIZE pats, kaip ir rankinis perjungimas. Pradzioje (`slicerRaw` dar nera)
+     `slicerPerjungtas` tiesiog nieko nedaro. */
+  if(buvoSize!==slicerSizeMode())slicerPerjungtas('slicerSize');
+  if(buvoFit!==slicerFitBy())slicerPerjungtas('slicerFitBy');
 }
