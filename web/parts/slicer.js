@@ -1625,7 +1625,32 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
                      if(!v)window.gl3dClipHeight=null;   // aukstis buvo musu, ne kito modelio
                      slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
-                     if(!v)slicerLayerUI(false);};
+                     if(!v)slicerLayerUI(false);
+                     slicerToolsFollow(v);};
+/* Formos irankiu juosta priklauso TAM, KAS VALDO PERZIURA, ne vien tam, ar sliceryje
+   yra modelis. Iki 09-15 ji buvo rodoma pastatant, o slepiama tik po issaugojimo -
+   perjungus i SD ji likdavo ant SD modelio, ir paspaudus bet kuri jos mygtuka
+   atsidarydavo slicerio vaizdas, nors atidarytas SD blokas (V 09-15, atkartojo
+   printerio sesija). Grizus i sliceri ji grazinama, jei yra modelis ir irankiai nera
+   uzrakinti (`slicerButtons(false)` - darbas ar spausdinimas). Mastelio langelis
+   gyvena ant tos pacios juostos, tad uzsidaro kartu. */
+function slicerToolsFollow(musu){
+  const t=$('gl3dTools'); if(!t)return;
+  const fit=$('slicerAutoFit');
+  if(musu){
+    if(slicerRaw&&fit&&!fit.disabled&&t.style.display==='none')t.style.display='flex';
+    return;
+  }
+  t.style.display='none';
+  /* Atviras mastelio langelis buvo paslepes kaimynes (`popRow(false)`). `popClose`
+     cia netinka - jis grazintu ir pacia juosta. Grazinam tik kampo grupe;
+     `#gl3dZoom` jau grazino `slicerBarMerge(false)`. */
+  const pp=$('gl3dPop');
+  if(pp&&pp.style.display!=='none'){
+    pp.style.display='none';
+    const zc=$('gl3dZoomCorner'); if(zc)zc.style.display='flex';
+  }
+}
 /* Sliceryje is vaizdo grupes lieka du mygtukai - narvas ir vaizdo jungiklis, - o
    del dvieju mygtuku laikyti atskira centruota eilute per daug (V 08-20). Tad
    sliceryje jie stoja i ta pacia eilute su formos irankiais, o iseinant grizta
