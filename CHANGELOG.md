@@ -13,6 +13,17 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased]
+
+### Fixed
+
+- **"Syncing with printer at the next safe network window..." no longer pops up
+  during ordinary prints.** Since 0.17.0 the dashboard gave the printer only 4 s to
+  answer a status poll. While a layer cures the printer does not answer at all, so a
+  longer layer made two polls in a row fail and the dashboard reported a problem that
+  was not there. A busy printer now gets 20 s; an idle one still gets 4 s, so an
+  upload from PrusaSlicer is still explained quickly.
+
 ## [0.17.2] - 2026-09-13 (beta)
 
 A slicer fix-up for the 0.17 beta. The firmware itself is unchanged; everything here is

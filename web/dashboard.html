@@ -2903,7 +2903,14 @@ const refreshStatus=async()=>{
        nuo pirmo iki paskutinio baito. Su 30 s limitu spedavo ivykti viena
        nepavykusi apklausa is trijų reikalingu, tad pultas tylejo visa ta laika.
        4 s: klaidos susikaupia per ~10 s ir vartotojas gauna paaiskinima. */
-    const s=await api('/api/status',null,4000);
+    /* Bet SPAUSDINANT 4 s per mazai (V 09-14: nuo 0.17 „Syncing..." snackas spaudinio
+       metu issoka daug dazniau nei 0.16.2, kur limitas buvo 30 s). Printeris tada
+       atsako tik tarpuose - tarp sluoksniu (160 ms langas) ir kelimo metu - o kol
+       dega UV, tyli; ilgesnis sluoksnis uzsitesia virs 4 s, dvi apklausos is eiles
+       nukrenta, ir snackas skelbia sutrikima, kurio nera. Todel: laisvas printeris -
+       4 s (ikelimo paaiskinimas lieka greitas), uzimtas - 20 s (V sprendimas).
+       Busena imama is paskutinio pavykusio atsakymo; atnaujinimo langas lieka 4 s. */
+    const s=await api('/api/status',null,(!updLock&&statusData&&statusData.busy)?20000:4000);
     if(reloadIfFirmwareChanged(s))return;
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
