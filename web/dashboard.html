@@ -720,6 +720,8 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
     <label class='check'><input name='web_dashboard_enabled' id='cfgWebDashboardEnabled' type='checkbox' value='1'><span>Web control (browser actions)<a href='#' class='qHelp' data-help='web'>?</a></span></label>
     <label class='check'><input name='boot_update_check' id='cfgBootUpdateCheck' type='checkbox' value='1'><span>Boot update check</span></label>
     <label class='check'><input name='stats_ping' id='cfgStatsPing' type='checkbox' value='1'><span>Anonymous usage ping (version + print hours, once per update)</span></label>
+    <!-- 09-14: be `name` - saugoma sioje narsykleje, i printerio forma (form_full) nekeliauja. -->
+    <label><span>Wait for the printer while printing (s, 0 = automatic, this browser)</span><input id='cfgPollWait' type='number' min='0' max='180' step='5'></label>
     <!-- 08-22: the slicer's only gate. It used to be a seven-tap gesture on the
          version number plus this printer-side flag; the gesture is gone, so the
          switch now lives where its owner can find it. It rides the FULL settings
@@ -1621,6 +1623,20 @@ let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlig
    teksta. 15 s: tylima per 4/8/12 patikrinimus, o tikras dingimas paskelbiamas ties ~16 s -
    viena apklausa veliau nei anksciau, bet vis dar tol, kol zmogus dar ziuri i ekrana. */
 const PRINTER_QUIET_GRACE_MS=15000;
+/* Kiek laukti /api/status atsakymo (V 09-14). Laisvas printeris atsako per ~50 ms, tad 4 s.
+   Spausdinantis tyli, kol dega UV, ir atsako tik tarp sluoksniu bei kelimo metu - todel
+   laukimas imamas is ilgiausios ekspozicijos (pagrindo sluoksniai gali tesstis minute)
+   plius 10 s atsargos, bet ne maziau 20 s. Zmogus laukimo termino nezino - jis mato tik
+   „Syncing..." snacka - tad automatika yra pagrindas, o rankinis skaicius (Settings >
+   Network) skirtas letam tinklui, pvz. per WiFi pletikli. Jis saugomas NARSYKLEJE, ne
+   printeryje: letumas priklauso nuo to, per koki tinkla ziuri sis irenginys. */
+const pollWaitUserS=()=>{try{const v=parseInt(localStorage.getItem('tmPollWaitS')||'',10);return (v>=5&&v<=180)?v:0;}catch(e){return 0;}};
+const pollTimeoutMs=()=>{
+  if(updLock||!(statusData&&statusData.busy))return 4000;
+  const u=pollWaitUserS();if(u)return u*1000;
+  const c=connectConfig,expS=c?Math.max(Number(c.baseExposure)||0,Number(c.regularExposure)||0):0;
+  return Math.max(20000,Math.round(expS*1000)+10000);
+};
 /* Slicerio valdikliai prigesinami, kai uzsikroves modulis ju nesupranta.
    Kortelės versija SAMONINGAI nusveria firmware konstanta (zr. `loadModule`), tad
    nulietas naujas pultas su sena kortele jungiklius rodo, o pjaustymas ju nemato -
@@ -2903,7 +2919,15 @@ const refreshStatus=async()=>{
        nuo pirmo iki paskutinio baito. Su 30 s limitu spedavo ivykti viena
        nepavykusi apklausa is trijų reikalingu, tad pultas tylejo visa ta laika.
        4 s: klaidos susikaupia per ~10 s ir vartotojas gauna paaiskinima. */
-    const s=await api('/api/status',null,4000);
+    /* Bet SPAUSDINANT 4 s per mazai (V 09-14: nuo 0.17 „Syncing..." snackas spaudinio
+       metu issoka daug dazniau nei 0.16.2, kur limitas buvo 30 s). Printeris tada
+       atsako tik tarpuose - tarp sluoksniu (160 ms langas) ir kelimo metu - o kol
+       dega UV, tyli; ilgesnis sluoksnis uzsitesia virs 4 s, dvi apklausos is eiles
+       nukrenta, ir snackas skelbia sutrikima, kurio nera. Todel: laisvas printeris -
+       4 s (ikelimo paaiskinimas lieka greitas), uzimtas - is ekspozicijos, ne maziau 20 s
+       (V 09-14; skaiciavimas - `pollTimeoutMs`).
+       Busena imama is paskutinio pavykusio atsakymo; atnaujinimo langas lieka 4 s. */
+    const s=await api('/api/status',null,pollTimeoutMs());
     if(reloadIfFirmwareChanged(s))return;
     if(updLock&&updSawDown)location.reload();
     if(updLock&&!updSawDown&&Date.now()-updLockAt>90000){updLock=false;$('updOverlay').classList.remove('on');msg('Update did not start - the printer never went down. Check System > Update on the printer.',true);}
@@ -2978,7 +3002,9 @@ const refreshStatus=async()=>{
        tyli iki ~20 s (ismatuota 08-19), o po jo ateina ispakavimas su savo snacku. */
     if(deleteBusy||Date.now()<sdJobQuietUntil||uploadBusy||startBusy||sdJobCur||printWaitCur||previewBusy||sliceCacheBusy||slicerLibBusy
        ||(Date.now()-lastRxAt<30000)){}
-    else if(statusData&&statusData.busy&&statusFailCount>=2)msg('Syncing with printer at the next safe network window...',true);
+    else if(statusData&&statusData.busy&&statusFailCount>=2)msg(statusFailCount>=4
+      ?'The printer answers slowly on this network. You can give it more time in Settings > Network.'
+      :'Syncing with printer at the next safe network window...',true);
     // A single missed poll is routine while the printer does SD-heavy work
     // (scans, slice streaming) - only speak up when it keeps failing. An
     // out-of-band import (PrusaSlicer upload) blocks the whole web server
@@ -6495,6 +6521,10 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
      imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
   else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;sdJobQuietUntil=Date.now()+20000;bgJob='';syncActionLocks();}});
+{const pw=$('cfgPollWait');if(pw){pw.value=String(pollWaitUserS());
+ pw.addEventListener('change',()=>{const v=Math.round(Number(pw.value)||0);const ok=v>=5&&v<=180;
+  try{if(ok)localStorage.setItem('tmPollWaitS',String(v));else localStorage.removeItem('tmPollWaitS');}catch(e){}
+  pw.value=String(ok?v:0);msg(ok?('This browser now waits '+v+' s for the printer while it prints.'):'Waiting is automatic again.');});}}
 $('configForm').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/config',{method:'POST',body:configFormData()});msg('Config saved.');loadConfig();refreshDashModelInfo();}catch(err){msg(err.message,true);}});
 $('cfgConnectAutoBackup').addEventListener('change',async()=>{
   const el=$('cfgConnectAutoBackup'),next=el.checked;
