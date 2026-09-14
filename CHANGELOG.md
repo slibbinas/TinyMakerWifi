@@ -13,21 +13,34 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased]
+## [0.17.3] - 2026-09-15 (beta)
 
-### Fixed
+An important optimization for the 0.17 beta: the dashboard no longer rushes a printer
+that is busy printing.
 
-- **"Syncing with printer at the next safe network window..." no longer pops up
-  during ordinary prints.** Since 0.17.0 the dashboard gave the printer only 4 s to
-  answer a status poll. While a layer cures the printer does not answer at all, so a
-  longer layer made two polls in a row fail and the dashboard reported a problem that
-  was not there. A busy printer now gets as long as its longest exposure plus 10 s
-  (at least 20 s); an idle one still gets 4 s, so an upload from PrusaSlicer is still
-  explained quickly.
-- **A slow network can be given more time.** If the printer keeps answering late, the
-  message now says so and points to **Settings > Network > Wait while printing**. The value is kept in that browser, because how slow it is depends on the
-  network the viewing device is on (for example behind a WiFi extender); 0 keeps it
-  automatic.
+This is a small printer with a small heart - the same loop that times the UV exposure
+and drives the Z motor also answers the network. While a layer cures it does not answer
+the network at all; it catches up between layers and during lifts. Since 0.17.0 the
+dashboard gave it only 4 seconds to answer, which was far too strict for that rhythm: a
+longer layer made two answers in a row come late, and the dashboard showed "Syncing
+with printer at the next safe network window..." during perfectly normal prints. The
+printer itself was fine the whole time.
+
+The firmware core is unchanged; this is the dashboard that ships inside it.
+
+### Changed
+
+- **The wait is now automatic and follows the print.** While printing, the dashboard
+  waits as long as the longest exposure in your settings plus 10 seconds, and never
+  less than 20 seconds, so base layers that cure for a minute are covered too. An idle
+  printer still has to answer within 4 seconds, so an upload from PrusaSlicer is still
+  explained right away.
+- **A slow network can be given more time, and the dashboard tells you where.** If the
+  printer keeps answering late anyway - for example when the phone or laptop reaches it
+  through a WiFi extender - the message now says the printer answers slowly on this
+  network and points to **Settings > Network > Wait while printing**. The value is kept
+  in that browser only, because the delay belongs to the network that device is on; 0
+  keeps it automatic.
 
 ## [0.17.2] - 2026-09-13 (beta)
 
