@@ -88,9 +88,7 @@ const slicerStep=()=>{
   {const tools=$('gl3dTools');
    const pro=slicerFitBy()==='supports';
    const ft=tools&&tools.querySelector("[data-tool='fit']");
-   const fp=tools&&tools.querySelector("[data-tool='fitpro']");
-   if(ft)ft.classList.toggle('step',!pro&&loaded&&!sliced&&!slicerFits);
-   if(fp)fp.classList.toggle('step',pro&&loaded&&!sliced&&!slicerFits);
+   if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
    const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
    if(fitNow){
@@ -162,7 +160,7 @@ const slicerStep=()=>{
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
   {const tools=$('gl3dTools');
-   if(tools)['fit','fitpro','flat','flip','tilt','rot','scale'].forEach(k=>{
+   if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
    /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes: formos
@@ -1724,8 +1722,12 @@ const popClose=()=>{
       else{p.style.display='flex';popRow(false);}
       return;
     }
-    const id={fit:'slicerAutoFit',fitpro:'slicerAutoFitPro',flat:'slicerFlat',flip:'slicerFlip',
-              tilt:'slicerRotX',rot:'slicerRotZ'}[t];
+    /* Viena „Fit" ikona (V 09-15): perjungikliai jau perstato modeli iskart, tad dvi
+       ikonos dubliavo „Fit by". Ikona lieka tam, kad po rankiniu posukiu ar mastelio
+       pastatyma butu galima grazinti vienu paspaudimu - pazymeto radijo mygtuko
+       paspaudimas nieko nedaro. */
+    if(t==='fit'){slicerFitNumatytas();return;}
+    const id={flat:'slicerFlat',flip:'slicerFlip',tilt:'slicerRotX',rot:'slicerRotZ'}[t];
     const b=id&&$(id); if(b&&!b.disabled)b.click();
   });
   const pd=document.getElementById('popDone');
