@@ -25,8 +25,7 @@ unless noted. Community contributors are tagged inline.
   (at least 20 s); an idle one still gets 4 s, so an upload from PrusaSlicer is still
   explained quickly.
 - **A slow network can be given more time.** If the printer keeps answering late, the
-  message now says so and points to **Settings > Network > Wait for the printer while
-  printing**. The value is kept in that browser, because how slow it is depends on the
+  message now says so and points to **Settings > Network > Wait while printing**. The value is kept in that browser, because how slow it is depends on the
   network the viewing device is on (for example behind a WiFi extender); 0 keeps it
   automatic.
 
