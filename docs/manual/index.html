@@ -340,14 +340,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard - no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and an <b>STL slicer</b> card appears on the dashboard - press <b>Open</b> to unfold it.</p>
   <ol class="steps">
     <li><b>Choose STL</b> and pick a model file.</li>
-    <li><b>Stand it the right way up.</b> <b>Fit flat</b> lays it on its widest side; <b>Fit for supports</b>
-      searches for the rotation that needs the fewest supports, the way PrusaSlicer does, and then tells you
-      how much bigger or smaller the part can print than with Fit flat. <b>Lay flat</b>, <b>Flip over</b>,
-      <b>Tilt 90&deg;</b> and <b>Rotate 90&deg;</b> are there when you would rather decide yourself.
-      Under the slicer settings, <b>Fit by</b> (flat or supports) chooses which of the two the slicer uses
-      on its own - when a model is loaded and on the orange Fit button when it does not fit - and
-      <b>Size</b> chooses whether it keeps your size (scaling down only when needed) or makes the part
-      as large as the plate allows, up to 300&nbsp;%.</li>
+    <li><b>Stand it the right way up.</b> Two switches under the slicer settings decide how the slicer places
+      the part: <b>Fit by</b> - <i>flat</i> lays it on its widest side, <i>supports</i> searches for the rotation that
+      needs the fewest supports, the way PrusaSlicer does, and tells you how much bigger or smaller the part can
+      print than with a flat fit; and <b>Size</b> - <i>keep</i> leaves your size (scaling down only when it does not
+      fit), <i>max</i> makes it as large as the plate allows, up to 300&nbsp;%. Changing either switch re-places the
+      part at once. <b>Lay flat</b>, <b>Flip over</b>, <b>Tilt 90&deg;</b> and <b>Rotate 90&deg;</b> are there when you
+      would rather decide yourself, and the <b>Fit</b> button on the 3D view puts it back the way the two switches say.</li>
     <li>Watch it slice - supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
     <li>Check the result in the preview: 3D with or without supports, the flat 2D layers, or the <b>UV view</b> - each layer exactly as the masking LCD will shine it.</li>
     <li>Press <b>Send to printer</b> - the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
