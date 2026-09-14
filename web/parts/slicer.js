@@ -53,6 +53,30 @@ let sliceRunning=false, sliceRun=0;
    „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
    raudona zinute, ir tai atrode kaip sugedes mygtukas). */
 let slicerFits=true;
+/* FIT BY ir SIZE (V sprendimas 2026-09-13). Jie nustato, kaip sliceris detale
+   pastato PATS, kai zmogus ikonos nespaudzia: iskart ikelus STL ir oranziniu
+   mygtuku, kai detale netelpa. Ikonos ant vaizdo nuo ju nepriklauso - kiekviena
+   daro savo buda, kad abi padetis butu galima palyginti nepjaustant (V: be ju
+   padeti pamatytum tik supjaustes).
+   `function`, ne `const`: `slicerStep` jas kviecia, o jis gali suveikti anksciau,
+   nei vykdymas pasiekia sio failo vidu. */
+/* Nustatymu bloko jungikliai, kurie PJAUSTYMO nekeicia (zr. `slicerParamaiParasas`). */
+const SLICER_NE_PJOVIMO=/^slicer(FitBy|Size)$/;
+function slicerPasirinkta(vardas,numatyta){
+  return (document.querySelector('input[name='+vardas+']:checked')||{}).value||numatyta;
+}
+function slicerFitBy(){return slicerPasirinkta('slicerFitBy','flat');}
+function slicerSizeMode(){return slicerPasirinkta('slicerSize','keep');}
+/* Pavadinimas sako REZULTATA, ne greiti (V 09-13): po ROT-par abu budai greiti,
+   o skiriasi tuo, ar detale guli plokscia, ar pakreipta del atramu. */
+function slicerFitVardas(budas){
+  return (budas||slicerFitBy())==='supports'?'Fit for supports':'Fit flat';
+}
+/* Oranzinis zingsnis ir juostos ikona seka FIT BY. */
+function slicerFitNumatytas(){
+  const b=$(slicerFitBy()==='supports'?'slicerAutoFitPro':'slicerAutoFit');
+  if(b&&!b.disabled)b.click();
+}
 const slicerStep=()=>{
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
@@ -62,10 +86,21 @@ const slicerStep=()=>{
   /* Netelpa - tai oranzinis zingsnis yra „Auto fit", ne „Slice": kelias veda
      per ji, ir juosta rodo butent ta mygtuka, kuris dabar ka nors pakeis. */
   {const tools=$('gl3dTools');
+   const pro=slicerFitBy()==='supports';
    const ft=tools&&tools.querySelector("[data-tool='fit']");
-   if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
+   const fp=tools&&tools.querySelector("[data-tool='fitpro']");
+   if(ft)ft.classList.toggle('step',!pro&&loaded&&!sliced&&!slicerFits);
+   if(fp)fp.classList.toggle('step',pro&&loaded&&!sliced&&!slicerFits);
    const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
+   if(fitNow){
+     fitNow.textContent=slicerFitVardas();
+     fitNow.title=pro?'Tilts the part so it needs the fewest supports, then scales it to fit'
+                    :'Lays it on its widest side, then scales it to fit';
+   }
+   /* Tas pats vardas ir „Too large" eilutes mygtuke - jis gimsta piesiant, tad
+      perjungus FIT BY be perpiesimo liktu senas. */
+   {const fh=$('slicerFitHere'); if(fh)fh.textContent=slicerFitVardas();}
    /* Spausdinant sliceris nieko nedaro: pjaustymas piestu i vaizda, kuris priklauso
       spaudiniui, o „Send to printer" vis tiek grizdavo su 409 - printeris tuo metu SD
       neduoda (V 08-20: „spausdinimo metu leidzia slicint, nelogiska"). Failo pasirinkima
@@ -78,7 +113,7 @@ const slicerStep=()=>{
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits||spausdina;
      go.title=spausdina?'Not while the printer is working'
-              :(netelpa?'Does not fit yet - Fast fit, or turn it by hand':'');
+              :(netelpa?'Does not fit yet - '+slicerFitVardas()+', or turn it by hand':'');
      /* Vienas lizdas, trys pavidalai: netelpa -> „Fit it", telpa -> „Slice",
         supjaustyta -> „Send to printer". Mygtukas priesais akis visada yra tas,
         kuris daro kita zingsni (V 08-20). */
@@ -482,7 +517,7 @@ const slicerRender=()=>{
         +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
         +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
-        +'Fast fit</button> or turn it by hand';col='var(--warncol)';}
+        +slicerFitVardas()+'</button> or turn it by hand';col='var(--warncol)';}
    if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
    /* Apatines ribos pjaustymas neturi, ir dabar, kai mastelis leidziasi iki 0,1 %,
       i viena sluoksni sumazinta detale supjaustoma bei issaugoma be nė zodzio
@@ -508,7 +543,7 @@ const slicerRender=()=>{
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
    {const fh=$('slicerFitHere');
-    if(fh)fh.addEventListener('click',()=>$('slicerAutoFit').click());}
+    if(fh)fh.addEventListener('click',slicerFitNumatytas);}
    slicerDimsLine(b);}
   const fit=$('slicerFit');
   slicerFits=!!f.fits;
@@ -583,6 +618,13 @@ $('slicerFile').addEventListener('change',async e=>{
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
     slicerTr=best.tr;
+    /* FIT BY / SIZE ikeliant (V 09-13). Ploksciai - kaip iki siol, tik su `max`
+       dydis iskart pritaikomas plokstei. Pakreipimas del atramu ateina zemiau, po
+       pirmo piesimo: jis asinchroninis, o modelis tuo metu jau matosi. Netelpancio
+       ikeliant nemazinam nei vienu keliu - tam lieka oranzinis mygtukas. */
+    const pakreipti=slicerFitBy()==='supports'&&!!slicerMod.autoOrientPro;
+    slicerPlaceNote(null,null);
+    if(!pakreipti)slicerSizeNote('Fit flat',slicerDydis(false));
     slicerButtons(true);
     /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
        issisaugodavo ne tuo pavadinimu (V 08-12). */
@@ -594,6 +636,7 @@ $('slicerFile').addEventListener('change',async e=>{
            Sliceriui buti grieztesniam nera pagrindo (V 08-20). */
     $('slicerGo').disabled=false;
     slicerRender();
+    if(pakreipti)slicerBusyPaint(FIT_PRO_UZRASAS,()=>slicerFitSupports(true));
   }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
 });
 
@@ -682,17 +725,69 @@ const slicerTelpa=tr=>{
 /* Kruopstaus pastatymo verdiktas viena eilute. Be jo mygtukas butu tikejimo
    klausimas, o akis apgauna: drakonas ant sparno atrodo blogai pastatytas, nors
    kaip tik toks telpa 34 % didesnis (matuota 08-20). */
-const slicerPlaceNote=(pro,fast)=>{
+/* Eilute turi dvi dalis: palyginima (tik po „Fit for supports") ir dydzio
+   pakeitima (SIZE). Laikomos atskirai, nes rankinis mastelis panaikina tik antraja -
+   palyginimas nuo mastelio nepriklauso, o „scaled up to 148%" po rankinio
+   pakeitimo jau meluotu. */
+let slicerNoteCmp='', slicerNoteWarn=false, slicerNoteSize='', slicerNoteVardas='';
+const slicerNotePaint=()=>{
   const e=$('slicerPlaceNote'); if(!e)return;
-  if(!pro||!fast){e.textContent='';return;}
-  const sant=fast.kiek?pro.kiek/fast.kiek:1, proc=Math.round((sant-1)*100);
-  const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
-  e.style.color=proc<0?'var(--warncol)':'';
-  e.textContent=Math.abs(proc)<1
-    ? 'Optimal fit: the same size as Fast fit'+auksciai+'.'
-    : (proc>0 ? 'Optimal fit: the part prints '+proc+'% bigger than with Fast fit'+auksciai+'.'
-              : 'Optimal fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
-                ' - Fast fit suits this model better.');
+  /* Vardas priekyje tik viena karta: po palyginimo („Fit for supports: ...") dydis
+     eina atskiru sakiniu, kitaip vardas kartotusi dukart vienoje eiluteje. */
+  const dydis=!slicerNoteSize?'':(slicerNoteCmp
+    ?slicerNoteSize.charAt(0).toUpperCase()+slicerNoteSize.slice(1)
+    :slicerNoteVardas+': '+slicerNoteSize);
+  e.textContent=[slicerNoteCmp,dydis].filter(Boolean).join(' ');
+  e.style.color=slicerNoteWarn?'var(--warncol)':'';
+};
+/* `(null,null)` reiskia „pastatymas pasikeite": nuimamos abi dalys. */
+const slicerPlaceNote=(pro,fast)=>{
+  slicerNoteSize=''; slicerNoteCmp=''; slicerNoteWarn=false;
+  if(pro&&fast){
+    const sant=fast.kiek?pro.kiek/fast.kiek:1, proc=Math.round((sant-1)*100);
+    const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
+    slicerNoteWarn=proc<0;
+    slicerNoteCmp=Math.abs(proc)<1
+      ? 'Fit for supports: the same size as Fit flat'+auksciai+'.'
+      : (proc>0 ? 'Fit for supports: the part can print '+proc+'% bigger than with Fit flat'+auksciai+'.'
+                : 'Fit for supports: '+(-proc)+'% smaller than with Fit flat'+auksciai+
+                  ' - Fit flat suits this model better.');
+  }
+  slicerNotePaint();
+};
+const slicerSizeNote=(vardas,t)=>{slicerNoteVardas=vardas||''; slicerNoteSize=t||''; slicerNotePaint();};
+/* SIZE (V 09-13). `keep` - dydis toks, kokį nustatė zmogus; mazinama tik tada, kai
+   netelpa, ir tik jei `mazinti` (ikeliant nemazinam - kaip iki siol, lieka oranzinis
+   mygtukas). `max` - iki didziausio telpancio pagal kontura; kad atramos gal islys uz
+   krasto, patikrins FIT-real po pjaustymo (V sprendimas: nespeti atsargos is anksto).
+   Virsus 300 %, kaip slankiklio ir laukelio. Grazina sakini be vardo arba ''. */
+const SIZE_MAX=3;
+const slicerDydis=mazinti=>{
+  const pries=slicerTr.scale, max=slicerSizeMode()==='max';
+  const f=slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size);
+  let lubos=false;
+  if(max&&f.worst>0){
+    const s=Math.floor(pries/f.worst*1000)/1000;
+    lubos=s>SIZE_MAX; slicerTr.scale=Math.min(SIZE_MAX,s);
+  }else if(!max&&!f.fits&&mazinti){
+    slicerTr.scale=pries*f.scaleToFit;
+  }
+  if(Math.abs(slicerTr.scale-pries)<1e-9)return '';
+  const pct=Math.round(slicerTr.scale*1000)/10;
+  const kryptis=slicerTr.scale>pries?'up':'down';
+  /* Didinimas toks pat garsus, kaip mazinimas (V 09-12): zmogus turi zinoti, kad
+     detale jau ne tokio dydzio, kokia buvo faile. */
+  return 'scaled '+kryptis+' to '+pct+'%'
+    +(lubos?' - 300% is the most the slicer scales.'
+      :(max?' - the largest size that fits the plate.':' so it fits the plate.'));
+};
+/* Kai modelis ka tik pradejo tilpti, nuimam skunda „does not fit": jis gyvena savo
+   6 s ir atrodytu, kad mygtukas nesuveike (V 08-19). Svetimo pranesimo neliecam. */
+const slicerNuimkNetelpa=()=>{
+  const e=$('statusMsg');
+  if(/does not fit/i.test(e.textContent||'')&&
+     slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
+    msg('',false);
 };
 /* Greitasis pastatymas nuo 3.1.1 turi SAVO gija (`autoOrientFast`) - ta pati skaiciuote,
    tik ne pulto gijoje. Del to pagaliau juda ir juostele: anksciau drakonui 7 s naršykle
@@ -701,33 +796,25 @@ const slicerPlaceNote=(pro,fast)=>{
 const slicerGreitas=async()=>(slicerMod.autoOrientFast
   ? await slicerMod.autoOrientFast(slicerRaw)
   : slicerMod.autoOrient(slicerRaw));
-$('slicerAutoFit').addEventListener('click',()=>{
-  if(!slicerRaw)return;
-  slicerBusyPaint('Turning the part to fit…',async()=>{
+/* Fit flat (buvo „Fast fit"): paguldo ant placiausios plokstumos, tada dydis pagal SIZE.
+   Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta, ir masteli
+   (V 08-17). */
+const slicerFitFlat=async()=>{
   if(slicerMod.autoOrientFast)slicerPaintIndet('Turning the part to fit…');
   const s0=slicerTr.scale;
   slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
-  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
-  const f=slicerMod.fitCheck(b.size);
-  if(!f.fits){
-    slicerTr.scale*=f.scaleToFit;
-    /* Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta,
-       ir masteli - pranesimas kartotu tai, kas jau matosi (V 08-17). */
-  }
-  /* Skundas „netelpa" gyvena savo 6 s, o Auto fit kaip tik ta priezasti pasalina:
-     modelis jau telpa, o eilute dar kabo ir atrodo, kad mygtukas nesuveike (V 08-19).
-     Nuimam TIK ta viena sakini ir tik kai tikrai tilpo - svetimo pranesimo neliecam. */
-  {const e=$('statusMsg');
-   if(/does not fit/i.test(e.textContent||'')&&
-      slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
-     msg('',false);}
-  /* Po autofito vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
-     sumazejo, tad senas zvilgsnis jam nebetinka - jis likdavo mazas lango viduryje
-     (V 08-18). Rankiniai posukiai kameros ir toliau neliecia. */
+  slicerSizeNote('Fit flat',slicerDydis(true));
+  slicerNuimkNetelpa();
+  /* Po pastatymo vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
+     pakeite dydi, tad senas zvilgsnis jam nebetinka (V 08-18). Rankiniai posukiai
+     kameros ir toliau neliecia. */
   slicerHome=true;
   slicerRender();
-  });
+};
+$('slicerAutoFit').addEventListener('click',()=>{
+  if(!slicerRaw)return;
+  slicerBusyPaint('Turning the part to fit…',slicerFitFlat);
 });
 /* Kruopstusis kelias (modulis 3.1.0): PAKRYPIMA - kuria puse guldyti - parenka
    tikras PrusaSlicer Rotfinder, sukamas variklio gijoje, o posuki ant plokstes,
@@ -741,13 +828,15 @@ $('slicerAutoFit').addEventListener('click',()=>{
    ateina pirmas skaicius, sukasi vaikstantis ruozelis - ji sustabdo pati juostele,
    vos tik gauna skaiciu. Sustabdyti paieskos negalima: variklio gija viso
    skaiciavimo metu blokuota, tad musu zinute jos nepasiektu (slicerio sesija, #108). */
-$('slicerAutoFitPro').addEventListener('click',()=>{
-  if(!slicerRaw||!slicerMod.autoOrientPro)return;
-  slicerBusyPaint('Searching for optimal fit…\nmay take long',async()=>{
+/* Uzrasas be „may take long": po ROT-par (3.5.0) sunkiausias bandytas modelis
+   kompiuteryje pastatomas per ~1,5 s. `ikelimas` - kvieciama iskart ikelus STL
+   (FIT BY: supports): tada, kaip ir plokscio kelio, netelpancio nemazinam. */
+const FIT_PRO_UZRASAS='Finding the tilt with the fewest supports…';
+const slicerFitSupports=async(ikelimas)=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
-    slicerPaintIndet('Searching for optimal fit…\nmay take long');
+    slicerPaintIndet(FIT_PRO_UZRASAS);
     const s0=slicerTr.scale;
     const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
@@ -759,9 +848,7 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
         const f=total?done/total:null;
         /* Skaicius - PRIE uzraso, kaip pjaustant („Slicing 85 %"): vien juosta
            nesako, ar liko sekunde, ar dvylika (V 08-20). */
-        slicerPaint(
-          'Searching for optimal fit…'+(f!==null?' '+Math.round(f*100)+'%':'')
-          +'\nmay take long',f);
+        slicerPaint(FIT_PRO_UZRASAS+(f!==null?' '+Math.round(f*100)+'%':''),f);
       });
       slicerTr=r.tr; pro=slicerTelpa(r.tr);
     }catch(e){
@@ -772,16 +859,14 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
     }
     slicerTr.scale=s0;
     slicerPlaceNote(pro,fast);
-    const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
-    const f=slicerMod.fitCheck(b.size);
-    if(!f.fits)slicerTr.scale*=f.scaleToFit;
-    {const e=$('statusMsg');
-     if(/does not fit/i.test(e.textContent||'')&&
-        slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
-       msg('',false);}
+    slicerSizeNote('Fit for supports',slicerDydis(!ikelimas));
+    slicerNuimkNetelpa();
     slicerHome=true;
     slicerRender();
-  });
+};
+$('slicerAutoFitPro').addEventListener('click',()=>{
+  if(!slicerRaw||!slicerMod.autoOrientPro)return;
+  slicerBusyPaint(FIT_PRO_UZRASAS,()=>slicerFitSupports(false));
 });
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return;
@@ -1450,7 +1535,13 @@ $('slicerAA').addEventListener('change',()=>slicerInvalidate());
    tik `slicerSupType`, ir penki nauji parametrai si sarga apejo - o pridejus
    septinta jungikli istorija kartotusi (V 09-03). */
 {const pr=document.getElementById('slicerParams');
- if(pr)pr.addEventListener('change',()=>slicerInvalidate());}
+ if(pr)pr.addEventListener('change',e=>{
+   /* FIT BY ir SIZE pjaustymo nekeicia - jie sako, kaip detale pastatyti KITA karta.
+      Ismesti del ju ka tik supjaustyta rezultata butu bausme uz nieka; jau ikeltas
+      modelis irgi neperstatomas. Atnaujinam tik oranzinio mygtuko varda. */
+   if(e.target&&SLICER_NE_PJOVIMO.test(e.target.name||'')){slicerStep();return;}
+   slicerInvalidate();
+ });}
 /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
 /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne
@@ -1568,7 +1659,7 @@ const slicerReset=()=>{
   $('slicerName').value=''; $('slicerName').disabled=true;
   $('slicerFile').value='';
   $('slicerDims').textContent=''; $('slicerProg').textContent='';
-  {const pn=$('slicerPlaceNote'); if(pn)pn.textContent='';}
+  slicerPlaceNote(null,null);
   $('slicerInfo').textContent='Choose an STL file to begin.';
   $('slicerDiscardLink').style.visibility='hidden';
   slicerSupportFacts(null);
@@ -1618,7 +1709,8 @@ const SCALE_MIN_PCT=0.1;
 const popScaleApply=pct=>{
   if(!slicerRaw)return;
   const v=Math.max(SCALE_MIN_PCT/100,Math.min(3,pct/100));
-  slicerTr.scale=v; slicerRender();
+  /* Dydi nustate zmogus - „scaled up to 148%" nuo sios akimirkos meluotu. */
+  slicerTr.scale=v; slicerSizeNote('',''); slicerRender();
 };
 {const pr=$('popScaleRange');
  /* Zyme uzsideda PRIES `input`, tad pirmas pat perpiesimas jau zino, kad vyksta
@@ -1987,7 +2079,7 @@ $('slicerSave').addEventListener('click',async()=>{
 });
 
 {const b=$('slicerFitNow');
- if(b)b.addEventListener('click',()=>{const a=$('slicerAutoFit'); if(a&&!a.disabled)a.click();});}
+ if(b)b.addEventListener('click',slicerFitNumatytas);}
 {const b=$('slicerSend');
  if(b)b.addEventListener('click',()=>{const sv=$('slicerSave'); if(sv&&!sv.disabled)sv.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
@@ -2133,18 +2225,24 @@ function slicerParamai(){
    tas pats spastas, kaip klausytojas ties vienu jungikliu - septintas parametras
    i parasa nepatektu, „Reset“ jo nepamatytu, ir „Send to printer“ liktu gyvas su
    failu, supjaustytu kitais nustatymais (pagavo printerio sesija 09-03). */
+/* Isimtis viena - tie, kurie pjaustymo nekeicia (FIT BY, SIZE). Jie is parašo
+   iskerpami VARDU, o ne atrenkami i sarasa, tad naujas pjaustymo parametras vis tiek
+   pateks i parasa pats. */
 function slicerParamaiParasas(){
   return [...document.querySelectorAll('#slicerParams input:checked')]
+    .filter(e=>!SLICER_NE_PJOVIMO.test(e.name))
     .map(e=>e.name+'='+e.value).join('|');
 }
 
 function slicerParamaiReset(){
   const pries=slicerParamaiParasas();
   const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
-             slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on'};
+             slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on',
+             slicerFitBy:'flat',slicerSize:'keep'};
   Object.keys(zym).forEach(n=>{
     const el=document.querySelector('input[name='+n+'][value="'+zym[n]+'"]');
     if(el)el.checked=true;
   });
   if(pries!==slicerParamaiParasas())slicerInvalidate();
+  slicerStep();
 }
