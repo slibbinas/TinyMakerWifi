@@ -54,6 +54,10 @@
  */
 #slicerParams{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));
   gap:9px 14px;margin-top:10px}
+/* Plona linija virs „Fit by / Size" (V 09-15, variantas A): virs jos - kaip
+   pjaustyti, po ja - kaip sliceris pats pastato detale. Be prieraso; dvieju bloku
+   krastai susilieja per stulpeliu tarpa ir atrodo kaip viena linija. */
+#slicerParams .spModel{border-top:1px solid var(--line);padding-top:9px;margin-top:3px}
 #slicerParams .spLab{display:block;color:var(--muted);font-size:.7rem;
   letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
 #slicerParams .spLab em{font-style:normal;color:var(--muted2);text-transform:none;
