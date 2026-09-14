@@ -11,12 +11,11 @@
     <div id='slicerBody' style='display:none'>
       <div id='slicerTools' class='toolbar' style='margin-top:0'>
         <button id='slicerAutoFit' class='button secondary' type='button' disabled
-                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
-        <!-- Antras pastatymas: to paties darbo kruopstusis kelias. Atskiras mygtukas,
-             o ne pakaitalas, nes jis skaiciuoja 10-15 s ir laimi ne visada. Kiek
+                title='Lays it on its widest side, then scales it to fit'>Fit flat</button>
+        <!-- Antras pastatymas: kitas REZULTATAS, ne letesnis tas pats (V 09-13). Kiek
              laimejo arba prarado - pasako eilute faktu sarase. -->
         <button id='slicerAutoFitPro' class='button secondary' type='button' disabled
-                title='Optimal fit - PrusaSlicer looks for the tilt that needs the fewest supports. Takes 10-20 s on big models.'>Optimal fit</button>
+                title='Tilts the part so it needs the fewest supports, then scales it to fit'>Fit for supports</button>
         <button id='slicerFlat' class='button secondary' type='button' disabled
                 title='Put the widest flat face down on the plate'>Lay flat</button>
         <button id='slicerFlip' class='button secondary' type='button' disabled
@@ -74,7 +73,7 @@
              ziuri i uzrakinta mygtuka ir jo nemato (V 08-19). -->
         <button id='slicerFitNow' class='button secondary step' type='button'
                 style='flex:1 1 0;min-width:0;display:none'
-                title='Turn it, and scale only if it does not fit - answers at once'>Fast fit</button>
+                title='Lays it on its widest side, then scales it to fit'>Fit flat</button>
         <!-- Tas pats lizdas, trecias pavidalas: supjausčius kitas zingsnis yra
              issiuntimas, tad jis ir stovi ten, kur zmogus ka tik spaude. Atskiros
              eilutes su „Save to printer" nebereikia (V 08-20). -->
@@ -157,8 +156,26 @@
             <label><input type='radio' name='slicerSmooth' value='off'><span>off</span></label>
           </div>
         </div>
+        <!-- FIT BY ir SIZE (V 2026-09-13): ne apie atramas, o apie tai, kaip sliceris
+             detale pastato PATS - iskart ikelus STL ir oranziniu mygtuku, kai netelpa.
+             Ikonos ant vaizdo nuo ju nepriklauso. Pjaustymo nekeicia, tad ju pakeitimas
+             supjaustyto rezultato neismeta (zr. `SLICER_NE_PJOVIMO` slicer.js). -->
+        <div class='spBlk'><span class='spLab' id='spL-fitby'>Fit by</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-fitby'
+               title='How the slicer lays a part down on its own: when an STL is loaded, and on the orange Fit button'>
+            <label title='Widest side down, edges square to the plate'><input type='radio' name='slicerFitBy' value='flat' checked><span>flat</span></label>
+            <label title='Tilted so it needs the fewest supports - often taller'><input type='radio' name='slicerFitBy' value='supports'><span>supports</span></label>
+          </div>
+        </div>
+        <div class='spBlk'><span class='spLab' id='spL-size'>Size</span>
+          <div class='seg' role='radiogroup' aria-labelledby='spL-size'
+               title='What size the slicer gives a part on its own'>
+            <label title='Your size - scaled down only when it does not fit'><input type='radio' name='slicerSize' value='keep' checked><span>keep</span></label>
+            <label title='The largest size that fits the plate'><input type='radio' name='slicerSize' value='max'><span>max</span></label>
+          </div>
+        </div>
         <!-- „Reset“ - sava eilute per abi kolonas. Prilipdytas prie „Smoothing“
-             jis atrode kaip tos eilutes dalis, o jis liecia visus sesis. -->
+             jis atrode kaip tos eilutes dalis, o jis liecia visus jungiklius. -->
         <div class='spReset'><a href='#' id='slicerParamsReset'
              title='Back to the values the slicer ships with'>Reset to defaults</a></div>
       </div>
