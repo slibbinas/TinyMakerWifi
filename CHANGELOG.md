@@ -21,8 +21,14 @@ unless noted. Community contributors are tagged inline.
   during ordinary prints.** Since 0.17.0 the dashboard gave the printer only 4 s to
   answer a status poll. While a layer cures the printer does not answer at all, so a
   longer layer made two polls in a row fail and the dashboard reported a problem that
-  was not there. A busy printer now gets 20 s; an idle one still gets 4 s, so an
-  upload from PrusaSlicer is still explained quickly.
+  was not there. A busy printer now gets as long as its longest exposure plus 10 s
+  (at least 20 s); an idle one still gets 4 s, so an upload from PrusaSlicer is still
+  explained quickly.
+- **A slow network can be given more time.** If the printer keeps answering late, the
+  message now says so and points to **Settings > Network > Wait for the printer while
+  printing**. The value is kept in that browser, because how slow it is depends on the
+  network the viewing device is on (for example behind a WiFi extender); 0 keeps it
+  automatic.
 
 ## [0.17.2] - 2026-09-13 (beta)
 
