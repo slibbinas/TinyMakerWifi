@@ -1626,7 +1626,12 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
                      slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
                      if(!v)slicerLayerUI(false);
-                     slicerToolsFollow(v);};
+                     slicerToolsFollow(v);
+                     /* Antraste - kartu su perziura. Iki 09-15 ja rase tik `slicerRender`,
+                        tad grizus is SD su SUPJAUSTYTU modeliu (kelias per `slicerBuildView`)
+                        virs slicerio rezultato likdavo SD modelio vardas (printerio sesija). */
+                     if(v){const pt=$('printPreviewTitle');
+                           if(pt&&pt.textContent!=='Slicer preview')pt.textContent='Slicer preview';}};
 /* Formos irankiu juosta priklauso TAM, KAS VALDO PERZIURA, ne vien tam, ar sliceryje
    yra modelis. Iki 09-15 ji buvo rodoma pastatant, o slepiama tik po issaugojimo -
    perjungus i SD ji likdavo ant SD modelio, ir paspaudus bet kuri jos mygtuka
