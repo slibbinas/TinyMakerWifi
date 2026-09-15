@@ -290,13 +290,19 @@ const previewShowFor=()=>{
   if(typeof statusData!=='undefined'&&statusData&&statusData.busy)return;
   if(slicerIsOpen()){
     slicerOwns(true);
-    if(slicerOut){slicerBuildView(false);
+    /* Grizus is SD kamera stovi ten, kur ja paliko SD modelis - didelio kupono kadre
+       slicerio plokste uzpildydavo visa langa (V 09-15). Todel slicerio modelis
+       kadruojamas is naujo: supjaustytas - per `slicerBuildView(true)` (3D vaizde
+       kadras laukia ir atramu), sluoksniu vaizduose - tiesiogiai; nesupjaustytas -
+       per `slicerHome`, kaip naujai ikeltas. */
+    if(slicerOut){slicerBuildView(true);
+      if(slicerView!==0&&window.gl3dFrameAll)gl3dFrameAll();
       /* Sluoksniu slankiklis gyvena su REZULTATU, ne su piesimu: be sios eilutes
          grizus is SD jis likdavo paslėptas, nors modelis jau vel ekrane. Kartu
          grazinam ir ta pati sluoksni - zmogus paliko ji tam tikroje vietoje. */
       slicerLayerUI(true);
       slicerShowLayer(slicerLayerN||slicerOut.layers); return;}
-    if(slicerRaw){slicerRender();return;}
+    if(slicerRaw){slicerHome=true; slicerRender();return;}
     slicerOwns(false); dashPreviewPlaceholder(); return;
   }
   slicerOwns(false);
