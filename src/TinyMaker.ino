@@ -543,12 +543,14 @@ void loadDeviceConfig() {
   // so the next boot reads the owner's value and never flips it again.
   if (slicerK9Pending) {
     /* If the marker does not stick (NVS full or unavailable), every boot would switch
-       the slicer on again and overrule the owner's "off". Say so on serial - the
-       slicer still works this boot, and nothing else depends on the marker. */
+       the slicer on again and overrule the owner's "off". Say so on serial (debug
+       builds only) - the slicer still works this boot, and nothing else depends on
+       the marker. The marker is written only after slicerOn stuck. */
     bool k9Stored = sysPrefs.begin("tinymaker", false);
     if (k9Stored) {
-      sysPrefs.putBool("slicerOn", true);
-      k9Stored = sysPrefs.putBool("slicerK9", true) > 0;
+      // Both must stick: the marker alone would keep 0.17's stored "off" for good.
+      k9Stored = sysPrefs.putBool("slicerOn", true) > 0;
+      if (k9Stored) k9Stored = sysPrefs.putBool("slicerK9", true) > 0;
       sysPrefs.end();
     }
     if (!k9Stored) DBGLN("K9: could not store the slicer switch-on marker (NVS)");
