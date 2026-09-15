@@ -435,12 +435,15 @@ void countSuccessfulPrint() {
 }
 
 // K8: the dashboard showed the thank-you once - never again, in any browser.
-void markThanksSeen() {
-  if (thanksSeen) return;
+// Returns true only for the call that actually set the mark, so when a phone and a
+// PC poll at the same moment, only one of them shows the ask.
+bool markThanksSeen() {
+  if (thanksSeen) return false;
   thanksSeen = true;
   sysPrefs.begin("tinymaker", false);
   sysPrefs.putBool("thanksSeen", true);
   sysPrefs.end();
+  return true;
 }
 
 // One-off write for LED time outside prints (Clean Resin Vat exposure).
@@ -3133,6 +3136,11 @@ void loop() {
         // jos neuzdeda, tad zemiau esanti salyga visada tiesa (auditas 09-01).
         bool cancelNotified = false;
         #endif
+        /* K8: decided HERE, before the final lift - every layer is cured by now. A Stop
+           pressed during that lift sets print_canceled, but the part has already come
+           out, and it counts (V 2026-09-15). A Stop or homing error before this point
+           still does not, and neither does a dry run. */
+        const bool k8RanToEnd = !print_canceled && !homing_canceled && uvLedEnabled;
         if (!homing_canceled){
           if (!print_canceled){
             current_state = 8;
@@ -3156,11 +3164,8 @@ void loop() {
         current_state = 0;
         phaseWaitStage = "";
         savePrintTime();   // single exit point: finish, cancel and homing-abort
-        // K8: only a print that really ran to the end counts. A Stop, a homing
-        // abort/error (print_canceled stays false there - hence homing_canceled) and
-        // a dry run (UV off, nothing cured) do not: the ask must follow prints that
-        // actually came out.
-        if (!print_canceled && !homing_canceled && uvLedEnabled) countSuccessfulPrint();
+        // K8: only a print that really came out counts - see k8RanToEnd above.
+        if (k8RanToEnd) countSuccessfulPrint();
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
         saveLastPrintRaw();          // R-cal: this print is the calibration reference

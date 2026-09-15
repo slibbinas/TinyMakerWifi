@@ -2364,8 +2364,9 @@ void handleApiPrintStart() {
 // ask again. Nothing about the payment itself is known or kept here.
 void handleApiThanksSeen() {
   if (rejectIfWebControlOff()) return;
-  markThanksSeen();
-  sendApiOk("\"thanksSeen\":true");
+  if (rejectIfBusy()) return;   // no NVS write in the middle of a lift or homing
+  const bool first = markThanksSeen();
+  sendApiOk(String("\"thanksSeen\":true,\"first\":") + (first ? "true" : "false"));
 }
 
 void handleApiVatRefilled() {

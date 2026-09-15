@@ -1264,16 +1264,24 @@ let uiConfirmRes=null;
 const uiChoice=(message,choices)=>{
   $('confirmText').textContent=message;
   const box=$('confirmButtons');box.innerHTML='';
+  /* `href` - tikra nuoroda (K8): naujas langas atsidaro is paties paspaudimo, tad
+     narsykle jo neblokuoja, kaip `window.open` po laukimo. `focus` - kuris mygtukas
+     gauna fokusa; savaime iššokančiame lange tai turi buti saugusis, kitaip netycia
+     paspaustas Enter pasirinktu uz zmogu. Daugiau nei trys - eilute lauzoma. */
+  box.style.flexWrap=choices.length>3?'wrap':'';
   choices.forEach(ch=>{
-    const b=document.createElement('button');
-    b.type='button';b.textContent=ch.label;
-    if(ch.secondary)b.className='button secondary';
+    const b=document.createElement(ch.href?'a':'button');
+    if(ch.href){b.href=ch.href;b.target='_blank';b.rel='noopener';b.style.cssText='margin-top:0;flex:1;width:auto';}
+    else b.type='button';
+    b.textContent=ch.label;
+    b.className=ch.secondary?'button secondary':(ch.href?'button':'');
     if(ch.danger)b.classList.add('delete');
+    if(ch.focus)b.dataset.focus='1';
     b.addEventListener('click',()=>uiConfirmClose(ch.value));
     box.appendChild(b);
   });
   show('confirmModal',true);
-  const focus=box.querySelector('button:not(.secondary)')||box.querySelector('button');
+  const focus=box.querySelector('[data-focus]')||box.querySelector('button:not(.secondary)')||box.querySelector('button');
   if(focus)focus.focus();
   return new Promise(r=>{uiConfirmRes=r;});
 };
@@ -1289,21 +1297,44 @@ $('confirmModal').addEventListener('click',e=>{if(e.target===$('confirmModal'))u
    telefonas ar isvalyta narsykle nebeklausia. Zyma dedama PRIES rodant: nepavykus jos
    irasyti (pvz. isjungtas web control) langas nerodomas visai, kitaip klaustu kaskart.
    Mygtukai - tik nuorodos i PayPal su suma; apie moketi pultas nieko nezino ir nesaugo. */
-let thanksAskBusy=false;
+let thanksAskBusy=false,thanksAskOff=false,thanksPending=false;
 const THANKS_URL='https://paypal.me/Sidlauskas';
+/* Laisva akimirka langui: printeris laisvas, jokio kito dialogo, lango nematomas kitas
+   darbas. Tikrinama DU kartus - pries zyma ir po jos: laukiant atsakymo zmogus gali
+   atsidaryti, pvz., trynimo patvirtinima, ir padekos langas ji pakeistu (auditas). */
+const thanksFree=s=>!(s&&s.busy)&&!updLock&&!document.hidden&&!uiConfirmRes;
+const showThanks=()=>{
+  thanksPending=false;
+  uiChoice('A few prints in - glad TinyMakerWiFi is working for you. '+
+    'It is free, and it is built in spare time. If it has saved you some time or a failed print, '+
+    'a small thank-you helps keep it going. This is the only time you will be asked.',
+    [{label:'4 EUR',value:true,href:THANKS_URL+'/4EUR'},{label:'8 EUR',value:true,href:THANKS_URL+'/8EUR'},
+     {label:'12 EUR',value:true,href:THANKS_URL+'/12EUR'},
+     {label:'Other amount',value:true,href:THANKS_URL,secondary:true},
+     {label:'No thanks',value:false,secondary:true,focus:true}]);
+};
 const maybeAskThanks=async s=>{
-  if(thanksAskBusy||!s||s.thanksSeen!==false||!(s.printsOk>=3))return;
-  if(s.busy||updLock||document.hidden||uiConfirmRes)return;
+  if(!s)return;
+  /* Zyma printeryje jau uzdeta, bet langas dar neparodytas (buvo uzimta) - rodom,
+     kai tik laisva, be antros uzklausos. */
+  if(thanksPending){if(thanksFree(s))showThanks();return;}
+  if(thanksAskOff||thanksAskBusy||s.thanksSeen!==false||!(s.printsOk>=3))return;
+  /* Isjungtas web control: printeris zymos neprimtu, ir bandytume kas apklausa. */
+  if(s.webControl===false||!thanksFree(s))return;
   thanksAskBusy=true;
   try{
-    await api('/api/thanks/seen',{method:'POST'},4000);
-    const v=await uiChoice('Your third print came out - glad TinyMakerWiFi is working for you. '+
-      'It is free, and it is built in spare time. If it has saved you some time or a failed print, '+
-      'a small thank-you helps keep it going. This is the only time you will be asked.',
-      [{label:'4 EUR',value:'4EUR'},{label:'8 EUR',value:'8EUR'},{label:'12 EUR',value:'12EUR'},
-       {label:'Other amount',value:'any',secondary:true},{label:'No thanks',value:false,secondary:true}]);
-    if(v)window.open(v==='any'?THANKS_URL:(THANKS_URL+'/'+v),'_blank','noopener');
-  }catch(e){/* nepavyko pazymeti - neklausiam, bandysim kita karta */}
+    /* Tiesiogiai per `fetch`, ne per `api()`: `api()` rasymas uzdega sukimosi zenkla
+       ant neseniai paspausto mygtuko, o si uzklausa ne zmogaus paspaudimas. */
+    const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),4000);
+    let j=null;
+    try{
+      const r=await fetch('/api/thanks/seen',{method:'POST',cache:'no-store',headers:{'X-TinyMaker':'1'},signal:ctl.signal});
+      if(r.ok)j=await r.json();
+    }finally{clearTimeout(tm);}
+    /* Nepavyko arba ne pirmas (kitas telefonas spejo pirmas) - daugiau siame lange nebandom. */
+    if(!j||!j.first){thanksAskOff=true;return;}
+    if(thanksFree(statusData))showThanks(); else thanksPending=true;
+  }catch(e){thanksAskOff=true;}
   finally{thanksAskBusy=false;}
 };
 document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();const b=document.activeElement;if(b&&b.tagName==='BUTTON')b.click();}}});
