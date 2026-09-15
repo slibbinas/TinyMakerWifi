@@ -542,10 +542,16 @@ void loadDeviceConfig() {
   // K9 one-time switch-on (see the read above): store it together with the marker,
   // so the next boot reads the owner's value and never flips it again.
   if (slicerK9Pending) {
-    sysPrefs.begin("tinymaker", false);
-    sysPrefs.putBool("slicerOn", true);
-    sysPrefs.putBool("slicerK9", true);
-    sysPrefs.end();
+    /* If the marker does not stick (NVS full or unavailable), every boot would switch
+       the slicer on again and overrule the owner's "off". Say so on serial - the
+       slicer still works this boot, and nothing else depends on the marker. */
+    bool k9Stored = sysPrefs.begin("tinymaker", false);
+    if (k9Stored) {
+      sysPrefs.putBool("slicerOn", true);
+      k9Stored = sysPrefs.putBool("slicerK9", true) > 0;
+      sysPrefs.end();
+    }
+    if (!k9Stored) DBGLN("K9: could not store the slicer switch-on marker (NVS)");
   }
 }
 
@@ -1171,6 +1177,7 @@ String buildConfigBackupJson(bool includeSecrets = true) {
                                        jungiklis tyliai grizta i OFF, o su juo
                                        dingsta ir slicerio kortele (auditas 08-22) */
   out += slicerModuleOn ? "true" : "false";
+  out += ",\"slicerK9\":true";       // K9: this slicerOn is the owner's choice (see applyConfigBackup)
   out += ",\"previewFlip\":";
   out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -1372,7 +1379,13 @@ void applyConfigBackup(const String &j) {
     }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
-  slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
+  /* K9: a 0.17 backup nearly always says "slicerOn":false - 0.17's default, stored on
+     every save, not the owner's choice. Restoring it after a full reflash would switch
+     the slicer off for good, because the one-time switch-on has already run. So the
+     value is taken only from backups that carry the K9 marker (written since 1.0.0);
+     from older ones the current value stays. Same idea as hadCal/calUnit above. */
+  if (backupFind(j, "slicerK9") >= 0)
+    slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
   previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
