@@ -171,7 +171,11 @@ const slicerStep=()=>{
    if(zoom){
      /* Pagal BUSENA, ne pagal `display`: uzdarius mastelio langeli irankiai dar
         akimirka buna paslepti, ir grupe atsistodavo ant ju (V 08-20). */
-     const yraFormos=loaded&&!sliced;
+     /* Ir tik kai perziura MUSU: nuo #157 SD pusėje formos irankiu juosta paslepiama,
+        o be sitos salygos vaizdo grupe likdavo nuleista po nebesamos eilutes - SD
+        peržiūroje virs jos stovedavo tuscia juosta (V 09-15, „irankiai nusoko per
+        eilute zemyn"). */
+     const yraFormos=loaded&&!sliced&&!!slicerOwnsPreview;
      /* Atstumas imamas is TIKRO juostos aukscio, ne is skaiciaus: siaurame ekrane ji
         lauzoma i dvi eilutes (54 px), ir su ikaltais 44 px vaizdo grupe atsistodavo ant
         antros eilutes (ismatuota telefono kadre, 08-21). */
@@ -1655,6 +1659,7 @@ function slicerToolsFollow(musu){
     pp.style.display='none';
     const zc=$('gl3dZoomCorner'); if(zc)zc.style.display='flex';
   }
+  slicerStep();          // vaizdo grupe pakyla i paslepto juostos vieta
 }
 /* Sliceryje is vaizdo grupes lieka du mygtukai - narvas ir vaizdo jungiklis, - o
    del dvieju mygtuku laikyti atskira centruota eilute per daug (V 08-20). Tad
