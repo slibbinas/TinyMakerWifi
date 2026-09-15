@@ -288,8 +288,10 @@ double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the fact
 // 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
 // setting, not a web lookup - it has to work with no internet, and switching it
 // must not need a firmware release or a git push. No UI writes it; the slicer
-// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
-bool slicerModuleOn = false;
+// module owns it (POST /api/config slicer_on=1).
+// 1.0.0 K9: on by default. 0.17 shipped it off, and loadDeviceConfig() switches
+// it on exactly once for printers upgrading from there (see "slicerK9").
+bool slicerModuleOn = true;
 
 String resinProfileName = "";
 // Bumped whenever a profile is applied, written or deleted, so the LCD menu
@@ -498,7 +500,14 @@ void loadDeviceConfig() {
   if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
   resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
-  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  slicerModuleOn = sysPrefs.getBool("slicerOn", true);    // 0.17 SL-mod, on since 1.0.0 (K9)
+  /* K9: 0.17 left the slicer off, and saveDeviceConfig() wrote that "off" on every
+     settings save (~35 callers), so on an upgraded printer the stored value is not
+     the owner's choice - it is 0.17's default. A new default alone would change
+     nothing for them. Switch it on ONCE; the marker makes sure a later "off" by
+     the owner is kept. The write happens after this read-only block closes. */
+  const bool slicerK9Pending = !sysPrefs.getBool("slicerK9", false);
+  if (slicerK9Pending) slicerModuleOn = true;
   /* Rakto NERA (svarus NVS) -> „slow", ir tai tiesa: EEPROM tada tikrai laiko
      gamyklinius skaicius, o „slow" butent jie ir yra.
      Raktas YRA, bet tuscias -> paliekam tuscia. Anksciau cia stovejo prievarta
@@ -530,6 +539,14 @@ void loadDeviceConfig() {
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
+  // K9 one-time switch-on (see the read above): store it together with the marker,
+  // so the next boot reads the owner's value and never flips it again.
+  if (slicerK9Pending) {
+    sysPrefs.begin("tinymaker", false);
+    sysPrefs.putBool("slicerOn", true);
+    sysPrefs.putBool("slicerK9", true);
+    sysPrefs.end();
+  }
 }
 
 void saveDeviceConfig() {
