@@ -288,8 +288,10 @@ double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the fact
 // 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
 // setting, not a web lookup - it has to work with no internet, and switching it
 // must not need a firmware release or a git push. No UI writes it; the slicer
-// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
-bool slicerModuleOn = false;
+// module owns it (POST /api/config slicer_on=1).
+// 1.0.0 K9: on by default. 0.17 shipped it off, and loadDeviceConfig() switches
+// it on exactly once for printers upgrading from there (see "slicerK9").
+bool slicerModuleOn = true;
 
 String resinProfileName = "";
 // Bumped whenever a profile is applied, written or deleted, so the LCD menu
@@ -498,7 +500,14 @@ void loadDeviceConfig() {
   if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
   resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
-  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  slicerModuleOn = sysPrefs.getBool("slicerOn", true);    // 0.17 SL-mod, on since 1.0.0 (K9)
+  /* K9: 0.17 left the slicer off, and saveDeviceConfig() wrote that "off" on every
+     settings save (~35 callers), so on an upgraded printer the stored value is not
+     the owner's choice - it is 0.17's default. A new default alone would change
+     nothing for them. Switch it on ONCE; the marker makes sure a later "off" by
+     the owner is kept. The write happens after this read-only block closes. */
+  const bool slicerK9Pending = !sysPrefs.getBool("slicerK9", false);
+  if (slicerK9Pending) slicerModuleOn = true;
   /* Rakto NERA (svarus NVS) -> „slow", ir tai tiesa: EEPROM tada tikrai laiko
      gamyklinius skaicius, o „slow" butent jie ir yra.
      Raktas YRA, bet tuscias -> paliekam tuscia. Anksciau cia stovejo prievarta
@@ -530,6 +539,22 @@ void loadDeviceConfig() {
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
+  // K9 one-time switch-on (see the read above): store it together with the marker,
+  // so the next boot reads the owner's value and never flips it again.
+  if (slicerK9Pending) {
+    /* If the marker does not stick (NVS full or unavailable), every boot would switch
+       the slicer on again and overrule the owner's "off". Say so on serial (debug
+       builds only) - the slicer still works this boot, and nothing else depends on
+       the marker. The marker is written only after slicerOn stuck. */
+    bool k9Stored = sysPrefs.begin("tinymaker", false);
+    if (k9Stored) {
+      // Both must stick: the marker alone would keep 0.17's stored "off" for good.
+      k9Stored = sysPrefs.putBool("slicerOn", true) > 0;
+      if (k9Stored) k9Stored = sysPrefs.putBool("slicerK9", true) > 0;
+      sysPrefs.end();
+    }
+    if (!k9Stored) DBGLN("K9: could not store the slicer switch-on marker (NVS)");
+  }
 }
 
 void saveDeviceConfig() {
@@ -1154,6 +1179,7 @@ String buildConfigBackupJson(bool includeSecrets = true) {
                                        jungiklis tyliai grizta i OFF, o su juo
                                        dingsta ir slicerio kortele (auditas 08-22) */
   out += slicerModuleOn ? "true" : "false";
+  out += ",\"slicerK9\":true";       // K9: this slicerOn is the owner's choice (see applyConfigBackup)
   out += ",\"previewFlip\":";
   out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -1355,7 +1381,13 @@ void applyConfigBackup(const String &j) {
     }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
-  slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
+  /* K9: a 0.17 backup nearly always says "slicerOn":false - 0.17's default, stored on
+     every save, not the owner's choice. Restoring it after a full reflash would switch
+     the slicer off for good, because the one-time switch-on has already run. So the
+     value is taken only from backups that carry the K9 marker (written since 1.0.0);
+     from older ones the current value stays. Same idea as hadCal/calUnit above. */
+  if (backupFind(j, "slicerK9") >= 0)
+    slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
   previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
