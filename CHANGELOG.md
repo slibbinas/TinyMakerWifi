@@ -13,6 +13,47 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.4] - 2026-09-15 (beta)
+
+A slicer card update for the 0.17 beta: you now choose how the slicer places a part on
+its own, and switching between the slicer and the SD card no longer leaves pieces of
+one on the other. The firmware core is unchanged; everything here is in the dashboard.
+It only matters if you switched on **Settings → STL slicer in the dashboard**.
+
+### Added
+
+- **Fit by and Size.** Two new switches under the slicer settings decide how a part is
+  placed. **Fit by:** *flat* lays it on its widest side, *supports* tilts it so it
+  needs the fewest supports. **Size:** *keep* leaves your size and scales down only
+  when it does not fit, *max* makes the part as large as the plate allows, up to 300 %.
+  They apply at once to the model you have loaded, to every STL you load next, and to
+  the orange button when a part does not fit; the card says how much the part was
+  scaled. **Reset to defaults** puts them back to flat and keep.
+
+### Changed
+
+- **One Fit button on the 3D view instead of two.** "Fast fit" and "Optimal fit" are
+  replaced by a single **Fit**, which places the part the way Fit by and Size say -
+  handy after turning it by hand. The orange button is named after Fit by: "Fit flat"
+  or "Fit for supports".
+- **A thin line above Fit by and Size** sets them apart from the settings that change
+  the slicing itself.
+- **The ? help button always stands first in the corner of the 3D view**, and the
+  defect marking tool sits next to it.
+
+### Fixed
+
+- **The slicer's shape tools no longer stay on the SD preview.** After loading an STL
+  and opening the SD card, the Fit, Lay flat, Flip, Tilt, Rotate and Scale buttons
+  stayed on top of the SD model, and pressing one jumped back into the slicer.
+- **The preview title comes back with the slicer.** Returning from the SD card to a
+  sliced part kept the SD model's name above the slicer's result.
+- **No empty row above the view buttons on the SD side.** They now move back up when
+  the shape tools leave.
+- **The camera frames the slicer's part again after a visit to the SD card.** It used
+  to stay where the SD model had left it, often so close that the plate filled the
+  whole view.
+
 ## [0.17.3] - 2026-09-15 (beta)
 
 An important optimization for the 0.17 beta: the dashboard no longer rushes a printer
