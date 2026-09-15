@@ -2359,6 +2359,16 @@ void handleApiPrintStart() {
   sendApiOk("\"queued\":true");
 }
 
+// POST /api/thanks/seen - 1.0.0 K8: the dashboard showed the thank-you ask. Stored on
+// the printer, not in the browser, so a second phone or a cleared browser does not
+// ask again. Nothing about the payment itself is known or kept here.
+void handleApiThanksSeen() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;   // no NVS write in the middle of a lift or homing
+  const bool first = markThanksSeen();
+  sendApiOk(String("\"thanksSeen\":true,\"first\":") + (first ? "true" : "false"));
+}
+
 void handleApiVatRefilled() {
   if (rejectIfWebControlOff()) return;
   vatMarkRefilled();
@@ -2825,6 +2835,10 @@ void handleApiStatus() {
   out += String(sdRev);
   out += ",\"lifetimePrintSecs\":";
   out += String(totalPrintSecs);
+  out += ",\"printsOk\":";           // 1.0.0 K8: finished real prints
+  out += String(printsOkCount);
+  out += ",\"thanksSeen\":";
+  out += thanksSeen ? "true" : "false";
   out += ",\"lifetimePrintTime\":\"";
   out += formatDuration(totalPrintSecs);
   out += "\",\"uvLedSecs\":";
@@ -4895,6 +4909,7 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/thanks/seen", HTTP_POST, handleApiThanksSeen);   // 1.0.0 K8
   server.on("/api/vat/weight", HTTP_POST, handleApiVatWeight);   // 0.17 0-16
   server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);

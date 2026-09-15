@@ -291,6 +291,11 @@ double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the fact
 // module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
 bool slicerModuleOn = false;
 
+// 1.0.0 K8: prints that ran to the end with UV on - not stopped, not a homing
+// error, not a dry run. The dashboard asks for a thank-you once, after the third.
+uint16_t printsOkCount = 0;
+bool thanksSeen = false;       // the ask was shown on this printer (any browser)
+
 String resinProfileName = "";
 // Bumped whenever a profile is applied, written or deleted, so the LCD menu
 // knows when its cached label went stale (0.17 0-16).
@@ -420,6 +425,27 @@ void savePrintTime() {
   sysPrefs.end();
 }
 
+// 1.0.0 K8: one more print that made it to the end. Called only from the single
+// print exit point, and only when it was a real print - see the call site.
+void countSuccessfulPrint() {
+  if (printsOkCount < 0xFFFF) printsOkCount++;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUShort("printsOk", printsOkCount);
+  sysPrefs.end();
+}
+
+// K8: the dashboard showed the thank-you once - never again, in any browser.
+// Returns true only for the call that actually set the mark, so when a phone and a
+// PC poll at the same moment, only one of them shows the ask.
+bool markThanksSeen() {
+  if (thanksSeen) return false;
+  thanksSeen = true;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putBool("thanksSeen", true);
+  sysPrefs.end();
+  return true;
+}
+
 // One-off write for LED time outside prints (Clean Resin Vat exposure).
 void saveUvLedTime() {
   sysPrefs.begin("tinymaker", false);
@@ -443,6 +469,8 @@ void loadDeviceConfig() {
   pauseLiftMm = sysPrefs.getUChar("pauseLift", 20);   // 0.17 #82
   if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
+  printsOkCount = sysPrefs.getUShort("printsOk", 0);     // 1.0.0 K8
+  thanksSeen = sysPrefs.getBool("thanksSeen", false);
   prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
   prevBaseExposure = sysPrefs.getUChar("prevBaseS", 0);       // sveikos sekundes
   bootAnimName = sysPrefs.getString("bootAnimName", "");
@@ -3108,6 +3136,11 @@ void loop() {
         // jos neuzdeda, tad zemiau esanti salyga visada tiesa (auditas 09-01).
         bool cancelNotified = false;
         #endif
+        /* K8: decided HERE, before the final lift - every layer is cured by now. A Stop
+           pressed during that lift sets print_canceled, but the part has already come
+           out, and it counts (V 2026-09-15). A Stop or homing error before this point
+           still does not, and neither does a dry run. */
+        const bool k8RanToEnd = !print_canceled && !homing_canceled && uvLedEnabled;
         if (!homing_canceled){
           if (!print_canceled){
             current_state = 8;
@@ -3131,6 +3164,8 @@ void loop() {
         current_state = 0;
         phaseWaitStage = "";
         savePrintTime();   // single exit point: finish, cancel and homing-abort
+        // K8: only a print that really came out counts - see k8RanToEnd above.
+        if (k8RanToEnd) countSuccessfulPrint();
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
         saveLastPrintRaw();          // R-cal: this print is the calibration reference
