@@ -1325,17 +1325,25 @@ const maybeAskThanks=async s=>{
   try{
     /* Tiesiogiai per `fetch`, ne per `api()`: `api()` rasymas uzdega sukimosi zenkla
        ant neseniai paspausto mygtuko, o si uzklausa ne zmogaus paspaudimas. */
-    const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),4000);
-    let j=null;
+    /* 15 s, ne 4: ka tik baigus spaudini printeri kelias sekundes gali uzlaikyti Connect
+       atsargine kopija (paleidziama 3 s po pabaigos), o butent tada pultas pirma karta
+       mato „laisvas" ir siuncia zyma (auditas). */
+    const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),15000);
+    let r=null,j=null;
     try{
-      const r=await fetch('/api/thanks/seen',{method:'POST',cache:'no-store',headers:{'X-TinyMaker':'1'},signal:ctl.signal});
+      r=await fetch('/api/thanks/seen',{method:'POST',cache:'no-store',headers:{'X-TinyMaker':'1'},signal:ctl.signal});
       if(r.ok)j=await r.json();
-    }finally{clearTimeout(tm);}
-    /* Nepavyko arba ne pirmas (kitas telefonas spejo pirmas) - daugiau siame lange nebandom. */
-    if(!j||!j.first){thanksAskOff=true;return;}
+    }catch(e){r=null;}
+    finally{clearTimeout(tm);}
+    thanksAskOff=true;   // kad ir kas nutiko - siame lange antro bandymo nebus
+    /* Atsakymas atejo: rodom tik tam, kuris zyma uzdejo pirmas. Printeris ATMETE (403
+       web control, 409 uzimtas) - zyma neirasyta, klausim kita karta atidarius pulta. */
+    if(r&&!(j&&j.first))return;
+    /* Atsakymo NEBUVO (laukimas nutruko, rysys dingo): zyma printeryje galejo buti ir
+       irasyta. Tada kitas bandymas gautu „first:false", ir prasymas dingtu visam laikui -
+       todel rodom vis tiek. Blogiausiu atveju tas pats zmogus ji pamatys dar karta. */
     if(thanksFree(statusData))showThanks(); else thanksPending=true;
-  }catch(e){thanksAskOff=true;}
-  finally{thanksAskBusy=false;}
+  }finally{thanksAskBusy=false;}
 };
 document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();const b=document.activeElement;if(b&&b.tagName==='BUTTON')b.click();}}});
 const bytesNum=v=>Number(v||0)||0;
