@@ -13,6 +13,32 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.5] - 2026-09-16 (beta)
+
+One small thing, once: after your third print that actually came out, the dashboard
+says thank you and asks - a single time, and never again - whether the firmware is
+worth a few euros to you. Everything else is unchanged.
+
+### Added
+
+- **A thank-you note after the third good print.** The printer counts prints that ran
+  to the end with the UV on; the third one brings up a small dialog in the dashboard
+  with three amounts and a link for any other amount. Each button is an ordinary link
+  to a payment page - the printer never learns whether you paid, or whether you opened
+  the link at all, and the note does not come back either way.
+
+  **Why the third and not the first:** the first print is usually a test, and later
+  ones can still fail. Three that came out mean you came back on your own. A failed
+  print does not move the counter, so nobody is asked after a bad evening. If you
+  press **No thanks**, that is the end of it - the dialog is shown once per printer.
+
+### Changed
+
+- **`/api/status` reports two more fields** (`printsOk`, `thanksSeen`), and a new
+  `POST /api/thanks/seen` marks the note as shown. Both are ordinary dashboard API
+  calls behind the usual web-control and busy guards; if you drive the printer from
+  your own scripts, nothing you already use changed.
+
 ## [0.17.4] - 2026-09-15 (beta)
 
 A slicer card update for the 0.17 beta: you now choose how the slicer places a part on
