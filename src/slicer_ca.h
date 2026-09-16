@@ -11,8 +11,8 @@
 // it: the 3.6 MB payload is only accepted if it matches a checksum that came
 // over a verified connection.
 //
-// WHAT IS IN HERE. Two anchors, both taken live and both verified with openssl
-// to validate the *.github.io leaf on their own:
+// WHAT IS IN HERE. Four anchors. The two RSA ones were taken live and both
+// verified with openssl to validate the *.github.io leaf on their own:
 //
 //   ISRG Root X1      self-signed, valid to 2035-06-04
 //                     SHA-256 96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:
@@ -21,9 +21,25 @@
 //                     SHA-256 07:26:39:D0:B1:40:D5:BF:FA:E1:6A:D9:C3:F6:CC:60:
 //                             86:04:06:21:F5:1E:E6:1A:6D:46:A8:91:5C:07:CF:76
 //
+//   ISRG Root X2      self-signed ECDSA P-384, valid to 2040-09-17
+//                     SHA-256 69:72:9B:8E:15:A8:6E:FC:17:7A:57:AF:B7:17:1D:FC:
+//                             64:AD:D2:8C:2F:CA:8C:F1:50:7E:34:45:3C:CB:14:70
+//   ISRG Root YE      ECDSA P-384, cross-signed by X2, valid to 2032-09-02
+//                     SHA-256 0F:C0:90:1C:CA:2B:AE:9E:9F:DB:B0:2D:50:D0:2F:10:
+//                             94:F7:B3:66:72:08:69:91:B9:E8:97:62:6D:C4:85:F0
+//
 // The chain served today is *.github.io <- Let's Encrypt YR1 <- ISRG Root YR,
-// and either anchor terminates it. Two are kept so that dropping the cross-sign
-// does not break us on its own.
+// and either RSA anchor terminates it. Two are kept so that dropping the
+// cross-sign does not break us on its own.
+//
+// The two ECDSA anchors (09-16) are not used today. They are here because since
+// PR #146 the FIRMWARE self-update verifies against this same list, and a
+// printer that cannot verify GitHub can no longer update itself - the fix would
+// then only reach people by file upload or USB. Let's Encrypt issues ECDSA
+// leaves too (E5-E9 under X2, YE1-YE3 under Root YE); if GitHub Pages switches,
+// these keep the update path alive. Taken from letsencrypt.org/certificates;
+// checked with openssl that E7 verifies against X2 and YE1 against Root YE.
+// Cost: about 1.8 KB of flash. mbedTLS on core 2.0.14 has ECDSA and secp384r1.
 //
 // WHEN THIS BREAKS. If GitHub Pages ever moves off Let's Encrypt, the fetch
 // starts answering "could not verify GitHub" and slicer updates stop - the copy
@@ -103,5 +119,38 @@ oUqhxPVC0aq4eG5MESaIdn8b5ZGSSeAJLMHXljEdlNza+ncfkviXk1POLnnFdvx8
 RGMuHGnzS3hFIrRTfKxrzUZ9RzQWzEG3K6fJ3r2nqSltkeytis9DIBoFY9VmVyjL
 M71DMi+y1+TRSJVClEMwvA4yL++7q9XZx5r5wBRWB4kQTKH5qyoZnDw7iiuh1lID
 yDFx8r7i9vIJU5HS3moZLkYWAOilMaV9N56A9Bgb6dNcHkvg3NoaYA==
+-----END CERTIFICATE-----
+
+-----BEGIN CERTIFICATE-----
+MIICGzCCAaGgAwIBAgIQQdKd0XLq7qeAwSxs6S+HUjAKBggqhkjOPQQDAzBPMQsw
+CQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2gg
+R3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMjAeFw0yMDA5MDQwMDAwMDBaFw00
+MDA5MTcxNjAwMDBaME8xCzAJBgNVBAYTAlVTMSkwJwYDVQQKEyBJbnRlcm5ldCBT
+ZWN1cml0eSBSZXNlYXJjaCBHcm91cDEVMBMGA1UEAxMMSVNSRyBSb290IFgyMHYw
+EAYHKoZIzj0CAQYFK4EEACIDYgAEzZvVn4CDCuwJSvMWSj5cz3es3mcFDR0HttwW
++1qLFNvicWDEukWVEYmO6gbf9yoWHKS5xcUy4APgHoIYOIvXRdgKam7mAHf7AlF9
+ItgKbppbd9/w+kHsOdx1ymgHDB/qo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0T
+AQH/BAUwAwEB/zAdBgNVHQ4EFgQUfEKWrt5LSDv6kviejM9ti6lyN5UwCgYIKoZI
+zj0EAwMDaAAwZQIwe3lORlCEwkSHRhtFcP9Ymd70/aTSVaYgLXTWNLxBo1BfASdW
+tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1
+/q4AaOeMSQ+2b1tbFfLn
+-----END CERTIFICATE-----
+
+-----BEGIN CERTIFICATE-----
+MIICpjCCAiugAwIBAgIRAIchZfw0tuX7qK3Vs3BftTowCgYIKoZIzj0EAwMwTzEL
+MAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2VhcmNo
+IEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDIwHhcNMjYwNTEzMDAwMDAwWhcN
+MzIwOTAyMjM1OTU5WjAuMQswCQYDVQQGEwJVUzENMAsGA1UEChMESVNSRzEQMA4G
+A1UEAxMHUm9vdCBZRTB2MBAGByqGSM49AgEGBSuBBAAiA2IABDwS/6vhrcVqcbBo
++wgdI3fwn9x7DNJJOY/lTOti0vkwuRN87RhEhTH17E7XyFjWsPYhIPt/wzOqxTd2
+b+4ZJNy9ID04YywF9U5zasDVyGSNErVNtz8uSGh5izW87j77GaOB6zCB6DAOBgNV
+HQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB
+/zAdBgNVHQ4EFgQUo8gmWo6hTNA1Y/ybI8g6rlbzT1YwHwYDVR0jBBgwFoAUfEKW
+rt5LSDv6kviejM9ti6lyN5UwMgYIKwYBBQUHAQEEJjAkMCIGCCsGAQUFBzAChhZo
+dHRwOi8veDIuaS5sZW5jci5vcmcvMBMGA1UdIAQMMAowCAYGZ4EMAQIBMCcGA1Ud
+HwQgMB4wHKAaoBiGFmh0dHA6Ly94Mi5jLmxlbmNyLm9yZy8wCgYIKoZIzj0EAwMD
+aQAwZgIxAMU19WCtmxVND8UHBZRoma49Z7jPs64Dma0eTu1OChVbB/2J7GV3nvYK
+Ax54uk1G9QIxAO0miLVJu8PLNiXXXkiE/gsK3CTRTF/aeo4bMX42Zw40csRU6AC2
+6hSW1/IWaas6dg==
 -----END CERTIFICATE-----
 )PEM";
