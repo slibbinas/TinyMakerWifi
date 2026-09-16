@@ -15,9 +15,30 @@ unless noted. Community contributors are tagged inline.
 
 ## [0.17.5] - 2026-09-16 (beta)
 
-One small thing, once: after your third print that actually came out, the dashboard
-says thank you and asks - a single time, and never again - whether the firmware is
-worth a few euros to you. Everything else is unchanged.
+Two things. The self-update now checks that it is really talking to GitHub before it
+flashes anything - the most important security fix since WiFi arrived, contributed by
+[@DeadlySIn777](https://github.com/DeadlySIn777). And once, after your third print that
+actually came out, the dashboard says thank you and asks - a single time, and never
+again - whether the firmware is worth a few euros to you.
+
+### Security
+
+- **The self-update checks who it is talking to** (by
+  [@DeadlySIn777](https://github.com/DeadlySIn777), #146). Until now both the version
+  check and the firmware download skipped the certificate check, so on a hostile
+  network - a café, a shared flat, a compromised router - anyone answering as GitHub
+  could hand the printer a firmware of their own, and the printer would flash it and
+  reboot into it. Both now verify GitHub's certificate, and the printer only flashes
+  files from our own release folder: a forged `version.txt` can no longer point it
+  anywhere else. If the check fails, the update stops and the printer says so -
+  **Choose & flash** in the dashboard's Update tab and USB flashing keep working.
+- **Room for GitHub to change certificates** (#166). The printer now also trusts Let's
+  Encrypt's ECDSA roots, so a change on GitHub's side cannot quietly take self-update
+  away from printers in the field.
+
+  Tested on the printer: the version check, a real install through the verified
+  connection, rejected bad version strings, the slicer module check, and free memory
+  before and after.
 
 ### Added
 
