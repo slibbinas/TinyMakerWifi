@@ -709,7 +709,16 @@ const slicerOverlayOff=()=>{
   if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
   cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
 };
+/* Ar sliceris dabar dirba ilga darba (arba baige ne seniau kaip pries `ms`). Pultas
+   pagal tai nerodo tylaus „Printer busy": ekrane tuo metu jau stovi slicerio uzrasas
+   su eiga, o printeris pirmo pastatymo metu tikrai kelias sekundes tyli (ismatuota
+   09-17 V printeryje: busenos apklausa kabojo 3-3,7 s, zinute issoko jau po darbo).
+   Todel ir `ms` uodega - apklausa, issiusta darbo metu, gali nukristi jau po jo.
+   Pjaustyma zymi pulto `slicerBusyNow`, tad jis irgi skaitomas. */
+let slicerDarbai=0, slicerDarbasBaigtas=0;
+window.slicerDirbo=ms=>slicerBusyNow||slicerDarbai>0||Date.now()-slicerDarbasBaigtas<(ms||0);
 const slicerBusyPaint=(uzrasas,darbas)=>{
+  slicerDarbai++;
   slicerPaint(uzrasas,null);
   slicerWorkUI(true);
   /* `await` cia butinas: kruopstusis pastatymas (`autoOrientPro`) sukasi variklio
@@ -733,6 +742,7 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
     if(paleista)return; paleista=true;
     try{await darbas();}
     finally{
+      slicerDarbai--; slicerDarbasBaigtas=Date.now();
       if(atrakinta&&slicerRaw&&!slicerPrinting())slicerButtons(true);
       slicerOverlayOff();slicerWorkUI(false);
     }
