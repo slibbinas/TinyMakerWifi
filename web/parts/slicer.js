@@ -385,8 +385,16 @@ const slicerLoadMod=async()=>{
       idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
       apie tai butina pasakyti (V 08-24). */
    window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
+  /* Nepavyko, o korteleje modulio nera - vadinasi, nepasieke ir interneto. Nuo 1.0.0
+     sliceris ijungtas visiems (K9), tad taip atrodys pirmas atidarymas be tinklo:
+     zmogui reikia pasakyti, kad uztenka karta prisijungti, o ne tik „neuzsikrove".
+     Jei kortelej modulis yra, bet vis tiek neuzsikrove - lieka bendras pranesimas. */
+  let kort='';
+  if(!slicerMod&&window.slicerCardVer){try{kort=await window.slicerCardVer();}catch(e){}}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
-                                  :'The slicer module could not be loaded.');
+    :(kort?'The slicer module could not be loaded.'
+          :'The slicer is not on the printer\'s card yet and the internet could not be reached. '
+          +'Open this page once with internet - the slicer copies itself to the card and works offline after that.'));
   return slicerMod;
 };
 $('slicerToggle').addEventListener('click',()=>{
