@@ -66,7 +66,6 @@ int layerIndexFromEntry(const char *entryName) {
   return base.substring(i).toInt();
 }
 
-// Make a safe SD folder name from an archive filename (no extension).
 // Card-root folders the firmware owns. A model never takes one of these names:
 // an upload called "resin.sl1" used to replace /resin and wipe every resin
 // profile with its weighed calibration ("lib" took the slicer module the same
@@ -77,6 +76,7 @@ static bool reservedRootName(const String &name) {
   return l == "lib" || l == "resin" || l == "bootanim";
 }
 
+// Make a safe SD folder name from an archive filename (no extension).
 // Folder name buffer in the stock firmware is 101 chars; keep well under.
 String safeModelName(String fn) {
   int slash = max(fn.lastIndexOf('/'), fn.lastIndexOf('\\'));
