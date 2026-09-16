@@ -3112,6 +3112,9 @@ const refreshStatus=async()=>{
          lange zinute atsirastu virsuje (CSS `top:14px`), o ties ~16 s, kai kalba garsioji
          saka, persoktu i centra - akiai tai antras pranesimas ([[snackbaru-taisykle]],
          T-26 „visi centruoti"). Kartojant centruoti nereikia: vieta jau nustatyta. */
+      /* Sliceris ka tik dirbo ir rodo savo eiga - tylos cia nevardijam (V 09-17).
+         Saka ta pati, tad garsioji „not answering" po 15 s vis tiek prabils. */
+      if(window.slicerDirbo&&slicerDirbo(8000))return;
       const t='Printer busy - waiting for it to answer.';
       const kartojam=$('statusMsg').textContent===t;
       pollWarnTxt=t;
