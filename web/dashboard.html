@@ -2043,7 +2043,7 @@ const renderResinModal=()=>{
     if(p.buyUrl){
       const buy=document.createElement('a');
       buy.href=p.buyUrl;buy.target='_blank';buy.rel='noopener noreferrer';
-      buy.textContent='Buy';buy.title='Where to buy this resin';
+      buy.textContent='Buy';buy.title='Where to buy this resin (affiliate link - no extra cost to you)';
       buy.style.cssText='flex:0 0 auto;color:var(--link);font-size:12.5px;white-space:nowrap;padding:0 4px';
       row.appendChild(buy);
     }
@@ -2074,6 +2074,15 @@ const renderResinModal=()=>{
     row.appendChild(del);
     wrap.appendChild(row);
   });
+  // K5: a Buy link earns the project a share, so say so where the link is -
+  // a hover title alone is not a disclosure. Only when a Buy link is shown.
+  if(resinRows.some(p=>p.buyUrl)){
+    const note=document.createElement('div');
+    note.className='hint';
+    note.style.cssText='margin-top:6px;font-size:11.5px';
+    note.textContent='Buy links are affiliate links: the shop pays this project a small share, at no extra cost to you.';
+    wrap.appendChild(note);
+  }
   if(!resinModalLib&&resinLib&&resinLib.length){
     const missing=resinLib.filter(e=>!resinRows.some(p=>p.name===e.name));
     if(missing.length){
