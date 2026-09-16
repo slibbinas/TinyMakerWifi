@@ -46,7 +46,10 @@ shim, n = re.subn(r"firmwareVersion:'\d+\.\d+\.\d+'",
 assert n == 1, f"expected exactly one firmwareVersion literal in the shim, patched {n}"
 marker = "<title>TinyMaker</title>"
 assert marker in html, "title marker not found"
-html = html.replace(marker, marker + "<script>\n" + shim + "\n</script>", 1)
+# The demo is reachable both as tinymakerwifi.com/demo/ and on github.io; the
+# canonical link tells search engines which one to index (Search Console 09-16).
+CANONICAL = '<link rel="canonical" href="https://tinymakerwifi.com/demo/">'
+html = html.replace(marker, marker + CANONICAL + "<script>\n" + shim + "\n</script>", 1)
 
 io.open(OUT, "w", encoding="utf-8").write(html)
 print(f"wrote {OUT}: {len(html)} bytes")
