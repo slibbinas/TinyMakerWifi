@@ -13,6 +13,102 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.5] - 2026-09-16 (beta)
+
+One small thing, once: after your third print that actually came out, the dashboard
+says thank you and asks - a single time, and never again - whether the firmware is
+worth a few euros to you. Everything else is unchanged.
+
+### Added
+
+- **A thank-you note after the third good print.** The printer counts prints that ran
+  to the end with the UV on; the third one brings up a small dialog in the dashboard
+  with three amounts and a link for any other amount. Each button is an ordinary link
+  to a payment page - the printer never learns whether you paid, or whether you opened
+  the link at all, and the note does not come back either way.
+
+  **Why the third and not the first:** the first print is usually a test, and later
+  ones can still fail. Three that came out mean you came back on your own. A failed
+  print does not move the counter, so nobody is asked after a bad evening. If you
+  press **No thanks**, that is the end of it - the dialog is shown once per printer.
+
+### Changed
+
+- **`/api/status` reports two more fields** (`printsOk`, `thanksSeen`), and a new
+  `POST /api/thanks/seen` marks the note as shown. Both are ordinary dashboard API
+  calls behind the usual web-control and busy guards; if you drive the printer from
+  your own scripts, nothing you already use changed.
+
+## [0.17.4] - 2026-09-15 (beta)
+
+A slicer card update for the 0.17 beta: you now choose how the slicer places a part on
+its own, and switching between the slicer and the SD card no longer leaves pieces of
+one on the other. The firmware core is unchanged; everything here is in the dashboard.
+It only matters if you switched on **Settings → STL slicer in the dashboard**.
+
+### Added
+
+- **Fit by and Size.** Two new switches under the slicer settings decide how a part is
+  placed. **Fit by:** *flat* lays it on its widest side, *supports* tilts it so it
+  needs the fewest supports. **Size:** *keep* leaves your size and scales down only
+  when it does not fit, *max* makes the part as large as the plate allows, up to 300 %.
+  They apply at once to the model you have loaded, to every STL you load next, and to
+  the orange button when a part does not fit; the card says how much the part was
+  scaled. **Reset to defaults** puts them back to flat and keep.
+
+### Changed
+
+- **One Fit button on the 3D view instead of two.** "Fast fit" and "Optimal fit" are
+  replaced by a single **Fit**, which places the part the way Fit by and Size say -
+  handy after turning it by hand. The orange button is named after Fit by: "Fit flat"
+  or "Fit for supports".
+- **A thin line above Fit by and Size** sets them apart from the settings that change
+  the slicing itself.
+- **The ? help button always stands first in the corner of the 3D view**, and the
+  defect marking tool sits next to it.
+
+### Fixed
+
+- **The slicer's shape tools no longer stay on the SD preview.** After loading an STL
+  and opening the SD card, the Fit, Lay flat, Flip, Tilt, Rotate and Scale buttons
+  stayed on top of the SD model, and pressing one jumped back into the slicer.
+- **The preview title comes back with the slicer.** Returning from the SD card to a
+  sliced part kept the SD model's name above the slicer's result.
+- **No empty row above the view buttons on the SD side.** They now move back up when
+  the shape tools leave.
+- **The camera frames the slicer's part again after a visit to the SD card.** It used
+  to stay where the SD model had left it, often so close that the plate filled the
+  whole view.
+
+## [0.17.3] - 2026-09-15 (beta)
+
+An important optimization for the 0.17 beta: the dashboard no longer rushes a printer
+that is busy printing.
+
+This is a small printer with a small heart - the same loop that times the UV exposure
+and drives the Z motor also answers the network. While a layer cures it does not answer
+the network at all; it catches up between layers and during lifts. Since 0.17.0 the
+dashboard gave it only 4 seconds to answer, which was far too strict for that rhythm: a
+longer layer made two answers in a row come late, and the dashboard showed "Syncing
+with printer at the next safe network window..." during perfectly normal prints. The
+printer itself was fine the whole time.
+
+The firmware core is unchanged; this is the dashboard that ships inside it.
+
+### Changed
+
+- **The wait is now automatic and follows the print.** While printing, the dashboard
+  waits as long as the longest exposure in your settings plus 10 seconds, and never
+  less than 20 seconds, so base layers that cure for a minute are covered too. An idle
+  printer still has to answer within 4 seconds, so an upload from PrusaSlicer is still
+  explained right away.
+- **A slow network can be given more time, and the dashboard tells you where.** If the
+  printer keeps answering late anyway - for example when the phone or laptop reaches it
+  through a WiFi extender - the message now says the printer answers slowly on this
+  network and points to **Settings > Network > Wait while printing**. The value is kept
+  in that browser only, because the delay belongs to the network that device is on; 0
+  keeps it automatic.
+
 ## [0.17.2] - 2026-09-13 (beta)
 
 A slicer fix-up for the 0.17 beta. The firmware itself is unchanged; everything here is
