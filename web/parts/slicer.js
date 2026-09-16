@@ -720,11 +720,22 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
      tad `requestAnimationFrame` nesuveikia NIEKADA - „Auto fit" ir „Lay flat" tokiame
      lange tyliai nieko nedarydavo (rado stendas 08-20; ta pati pamoka jau buvo
      `paintStage` pulte, V 08-14). Laikmatis paleidzia darba ir fone. */
+  /* Formos irankiai uzrakinami ir paslepiami visam darbui. Iki siol juosta likdavo
+     ekrane ir spaudziama: apvertus modeli paieskos metu grizdavo valdikliai, o baigta
+     paieska tyliai perrasydavo apvertima (ismatuota demo 09-17, taip pat ir 0.17.3).
+     Atrakinam tik tai, ka uzrakinom patys: jei irankiai jau buvo uzrakinti (pjaustymas,
+     spaudinys), ju nelieciam. */
+  const fit=$('slicerAutoFit');
+  const atrakinta=!!(fit&&!fit.disabled);
+  if(atrakinta)slicerButtons(false);
   let paleista=false;
   const eik=async()=>{
     if(paleista)return; paleista=true;
     try{await darbas();}
-    finally{slicerOverlayOff();slicerWorkUI(false);}
+    finally{
+      if(atrakinta&&slicerRaw&&!slicerPrinting())slicerButtons(true);
+      slicerOverlayOff();slicerWorkUI(false);
+    }
   };
   requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(eik,0)));
   setTimeout(eik,150);
