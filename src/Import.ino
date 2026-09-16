@@ -67,6 +67,16 @@ int layerIndexFromEntry(const char *entryName) {
 }
 
 // Make a safe SD folder name from an archive filename (no extension).
+// Card-root folders the firmware owns. A model never takes one of these names:
+// an upload called "resin.sl1" used to replace /resin and wipe every resin
+// profile with its weighed calibration ("lib" took the slicer module the same
+// way). FAT ignores case, so the comparison does too (security audit 09-17).
+static bool reservedRootName(const String &name) {
+  String l = name;
+  l.toLowerCase();
+  return l == "lib" || l == "resin" || l == "bootanim";
+}
+
 // Folder name buffer in the stock firmware is 101 chars; keep well under.
 String safeModelName(String fn) {
   int slash = max(fn.lastIndexOf('/'), fn.lastIndexOf('\\'));
@@ -79,6 +89,7 @@ String safeModelName(String fn) {
     if (isAlphaNumeric(c) || c == '-' || c == '_') out += c;
   }
   if (out.length() == 0) out = "Model";
+  if (reservedRootName(out)) out += "-model";
   return out;
 }
 
@@ -775,7 +786,22 @@ bool importZipModel(const char *zipPath, const String &requestedName,
   bool destIsDir = false;
   bool exists = sdPathExists(destDir, &destIsDir);
 
-  if (exists && !options.replace) {
+  // Replace only ever swaps out a model. Anything else under that name - a
+  // folder without 1.png, a plain file - is not ours to delete: keep it and give
+  // the new model its own name instead (security audit 09-17).
+  bool renameInstead = false;
+  if (exists && options.replace) {
+    File probe = SD.open((destDir + "/1.png").c_str());
+    bool isModel = destIsDir && probe;
+    if (probe) probe.close();
+    renameInstead = !isModel;
+  }
+
+  if (renameInstead) {
+    finalName = uniqueModelName(baseName);
+    destDir = "/" + finalName;
+    exists = false;
+  } else if (exists && !options.replace) {
     if (!options.autoRename) {
       error = "model exists";
       return false;
