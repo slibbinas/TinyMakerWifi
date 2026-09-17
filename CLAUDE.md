@@ -2,6 +2,11 @@
 
 Modified firmware for the open-source **TinyMaker** MSLA resin 3D printer (ESP32-WROOM-32E-N4, 4 MB flash, no PSRAM). Adds WiFi, OTA updates, and direct model upload from PrusaSlicer/UVtools to the original TinyMaker3D firmware. Full user-facing docs are in [README.md](README.md).
 
+> **Darbo su V taisyklės (visi projektai):** `C:\Users\SViktoras\.claude\CLAUDE.md` -
+> tonas, testų formatas, „liek", skriptai PowerShell, kalba ir kabutės, įgūdžiai.
+> Tai V kompiuterio failas; kitame checkout'e ar debesų sesijoje jo nėra, ir tada
+> galioja tik šitas failas.
+
 ## Build
 
 PlatformIO project (`platformio.ini`), not Arduino IDE. Two environments:
