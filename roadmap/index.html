@@ -97,7 +97,7 @@ TinyMaker MSLA resin printer is headed. Updated at each release.</p>
 
 <h2>Where we are</h2>
 <div class="card">
-<p><b>0.17.0 is out as a beta</b> - the release that turned the model preview into a
+<p><b>0.17 is out as a beta</b> - the release that turned the model preview into a
 real 3D view and gave every resin its own recipe. The automatic self-update is on
 <b>0.16.2</b>; the beta is one press away in the dashboard's <i>Update &rarr; version
 picker</i> (see the <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
@@ -129,7 +129,7 @@ layer it was on.</li>
 <a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md" rel="noopener">changelog</a>.</p>
 </div>
 
-<h2>Just shipped <span class="tag dev">0.17.0 beta</span></h2>
+<h2>Just shipped <span class="tag dev">0.17 beta</span></h2>
 <div class="card">
 <p>Out now on the <b>beta</b> channel (<i>Update &rarr; version picker</i>), being proven
 before the automatic self-update picks it up:</p>
@@ -163,9 +163,10 @@ says where it failed rather than "it failed".</li>
 is no longer a mystery, and a push message tells you when power came back.</li>
 <li><b>The browser slicer can live on the SD card</b>, so a printer with no internet
 still slices, and the dashboard checks for a newer module by itself.</li>
-<li><b>The browser slicer places the part for you</b> - Fast fit, Optimal fit (the
-PrusaSlicer search for the tilt that needs the fewest supports), Lay flat, Flip, Tilt and
-Rotate, then six settings for supports, strength, placement, tip, raft and smoothing. The
+<li><b>The browser slicer places the part for you</b> - one Fit button, with two switches
+for how: lay it on its widest side or search for the tilt that needs the fewest supports
+(the PrusaSlicer way), and keep your size or make it as large as the plate allows. Lay
+flat, Flip, Tilt and Rotate are there when you want to decide yourself, then six settings for supports, strength, placement, tip, raft and smoothing. The
 raft is counted in layers (2, 3 or 6; default 3), because layers are what decide whether
 the pad grips. Switched on under <i>Settings &rarr; Network</i>; it becomes the default
 with 1.0.0.</li>
@@ -180,8 +181,9 @@ under the mouse on a desktop, a wider preview window, buttons that show they wer
 pressed, and a 24-hour clock.</li>
 </ul>
 <p class="muted">Under the hood: about 60&nbsp;KB of flash reclaimed, checkpoints written
-once per layer instead of twice (kinder to the card), and writes accepted only from the
-printer's own dashboard.</p>
+once per layer instead of twice (kinder to the card), writes accepted only from the
+printer's own dashboard, and a self-update that checks it is really talking to GitHub
+before it flashes anything.</p>
 </div>
 
 <h2>Stabilizing <span class="tag now">0.17.x</span></h2>
@@ -197,11 +199,6 @@ self-update channel.</p>
 <h2>On the way</h2>
 <div class="card">
 <ul>
-<li><b>Slicing in the browser</b> - the dashboard can slice an STL itself, supports and
-raft included, with no slicer installed. It is there to switch on today and becomes the
-default once it has been proven on enough machines.</li>
-<li><b>A resin profile library</b> - published recipes for common resins that install in
-one press, so a new bottle does not start with an exposure test.</li>
 <li><b>TinyMaker Connect</b> - a community platform for sharing print-ready models
 straight to the printer.</li>
 </ul>
@@ -221,12 +218,27 @@ able to vote on priorities in the
 <a href="https://www.facebook.com/groups/1486879621729571" rel="noopener">Facebook group</a>.
 The poll sets the direction; final calls on what actually ships stay with the
 maintainer.</p>
-<p>Software feature ideas already on the table:</p>
+<p>Already planned for <b>1.1</b>:</p>
 <ul>
-<li><b>A basic / advanced firmware mode</b> - keep the dashboard simple, or go deep.</li>
-<li><b>More notification options</b> for print start / finish / errors.</li>
-<li><b>More dashboard customization</b> - extra themes and layout choices.</li>
-<li><b>Smarter print helpers</b> - settings-mismatch warnings and better estimates.</li>
+<li><b>Several remembered WiFi networks</b> - take the printer to a show, a workshop or a
+friend's place and back home without setting WiFi up again.</li>
+<li><b>An &ldquo;erase everything for a new owner&rdquo; reset</b> - the WiFi password and every
+stored key go too, before you sell or lend the printer.</li>
+<li><b>A trash bin for models</b> - deleting becomes instant, and the wrong model comes back
+with one press.</li>
+<li><b>The last print, marked in the SD list</b> - which model ran last and how it ended.</li>
+<li><b>Hidden card entries explained</b> - a damaged or oddly named model can still be found
+and removed.</li>
+<li><b>A real Stop while slicing</b> in the browser.</li>
+<li><b>Sharper thin supports</b> - the slicer stops sending grey levels too dim to cure the
+resin, a threshold measured on this printer.</li>
+<li><b>A faster 3D view</b> - drawn only when something actually changes, so turning and
+cutting the model stays quick, and closed cut faces in the slicer view.</li>
+<li><b>A theme switch that can follow your system</b> - light, dark, or the same light or dark
+your phone or computer is set to.</li>
+<li><b>Sharing resin profiles through TinyMaker Connect.</b></li>
+<li><b>A web flasher that retries slower</b> when the first attempt times out.</li>
+<li><b>More security hardening</b> of the dashboard.</li>
 </ul>
 <p class="muted">Got an idea? The vote opens with 1.0.0 - and the feedback form
 in the dashboard is open any time.</p>
