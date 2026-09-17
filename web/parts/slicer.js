@@ -1023,6 +1023,17 @@ window.addEventListener('resize',()=>{
   if(!(slicerMaskOn&&slicerView===2))return;
   slicerViewChrome();
 });
+/* Darbo metu lango pokytis grazindavo 3D irankius ant eigos uzraso: pultas savo
+   „resize" perpiesia GPU vaizda (`gl3dShow(true)`), o tas parodo visas grupes ir
+   paslepia drobe. Telefone langas keiciasi vien nuo slinkimo (adreso juosta), tad
+   irankiai islysdavo vidury pjaustymo (V 09-17, ismatuota: 0 -> 4 grupes). Pulto
+   klausytojas uzregistruotas anksciau, tad cia darbo busena atstatoma PO jo. */
+window.addEventListener('resize',()=>{
+  if(!slicerDirbo(0)||!slicerVaizdasMusu())return;
+  slicerWorkUI(true);
+  const cv=$('printPreviewCanvas');
+  if(cv&&lastPreviewMsg)paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac,true);
+});
 /* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad chrome
    po jo persistatom rankomis. */
 {const g=$('stageOpen');
