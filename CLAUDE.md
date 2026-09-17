@@ -186,6 +186,13 @@ Taisyklės sąrašui:
 - Jei punktas reikalauja **V sprendimo**, o ne darbo - pažymėk atskirai.
 - Imk iš tikros būsenos: `plan.json`, atviri GitHub issue'ai, savo srities būsenos
   failas atmintyje. Ne iš antraščių ir ne iš atminties.
+- **Tik savo srities darbai.** Į sąrašą eina tik tai, ką dirba ŠI sesija. Kitos
+  srities punktų (printerio, slicerio, Connect, curing) nesiūlyti net tada, kai
+  jie atviri ir net tada, kai atrodo, kad galėtum juos padaryti. Savo srities eilė
+  tuščia - taip ir pasakyk: „mano pusėje darbų nebėra", ir klausk V, ką imam.
+- **Neprisigalvok darbų.** Jei punkto nėra plane ar issue'uose, jo nėra. Nesugalvotas
+  darbas atrodo kaip tikras, V jį svarsto kaip tikrą, ir tik po kelių sakinių
+  paaiškėja, kad jo niekas neplanavo.
 
 **Kodėl:** V dirba su keliomis lygiagrečiomis sesijomis (printeris, sliceris,
 Connect Live, curing). Po `/clear` sesija pati žino, kur sustojo, o V - ne. Tas
