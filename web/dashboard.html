@@ -7334,8 +7334,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        gryzai i 3.2.0 - suksi 3.2.0, ir jokio „idiegta viena, sukama kita".
        Taikoma TIK sliceriui - three.js cia neliecia. */
     const pradinis={name:name,ver:ver,cdn:cdnUrl};
+    let kortTuscia=false;
     if(name.indexOf('slicer-')===0&&window.slicerCardVer){
       const kort=await window.slicerCardVer();
+      kortTuscia=!kort;
       if(kort&&kort!==ver&&name.indexOf(ver)>0){
         name=name.split(ver).join(kort);
         if(cdnUrl)cdnUrl=cdnUrl.split(ver).join(kort);
@@ -7343,8 +7345,15 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       }
     }
     const sdUrl='/lib/'+name+'.js?v='+ver;
-    let used=sdUrl, mod=await tryLoad(sdUrl,'SD');
-    if(!mod&&cdnUrl){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
+    /* Kortele sako, kad modulio NERA, - tada pirma internetas. `/lib/*` naršyklė laiko
+       savaite (`immutable`), tad is „kortelės" jis dar ilgai krautusi is savo podelio, net
+       kai kortele pakeista ar suformatuota, ir kopijavimas atgal nepasileistu niekada
+       (rado printerio sesija 09-17, modulis istrintas is SD). Be interneto podelis lieka
+       atsarga: sliceris veikia, o kopijuos kita karta. */
+    let used=cdnUrl, mod=null;
+    if(kortTuscia&&cdnUrl)mod=await tryLoad(cdnUrl,'web');
+    if(!mod){used=sdUrl;mod=await tryLoad(sdUrl,'SD');}
+    if(!mod&&cdnUrl&&!kortTuscia){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
     /* Kortelės versija neuzsikrove (senas pultas, naujas modulis, sugadintas
        rinkinys) - griztam prie tos, kuria zino firmware. Geriau sena veikianti
        nei jokia. */
