@@ -61,6 +61,7 @@ Key `/api/status` fields (additive; ignore unknowns):
 | `wifiRssi`, `wifiText`, `ip` | connectivity |
 | `sdReady`, `sdText` | SD card state (`Locked` while printing) |
 | `lifetimePrintSecs/Time`, `uvLedSecs/Time` | lifetime counters |
+| `printsOk`, `thanksSeen` | how many prints ran to the end with the UV on, and whether the one-time thank-you note has already been shown on this printer (K8, 0.17.5). A dry run, an early Stop or a failed homing does not count |
 | `bootReason`, `lastCrash{reason,layer,epoch}` | reset-reason telemetry (0-30); `lastCrash` null when none recorded |
 | `model`, `currentLayer`, `totalLayers`, `layerText` | running print identity/progress |
 | `previewCached` | the active model's preview PNG is held in RAM and fetchable mid-print (0-19) |
@@ -102,6 +103,7 @@ retries with `action`.
 | `/api/print/pause` / `resume` / `stop` | POST | lifecycle controls (guarded by `can*` flags). All three answer with `etaMs` (milliseconds left in the wait that was just started, 0 = unknown) and `stage` (the same vocabulary as `waitStage`), so a client can start counting before the next status poll. `etaMs` is a *remainder*, so pressing Stop twice does not rewind it |
 | `/api/resume/accept` / `lift` / `discard` | POST | answer the boot power-loss prompt remotely; valid only while `/api/status` reports a non-null `resumePending` (any button press at the printer consumes the prompt and these answer 409). `accept` resumes the print, `lift` raises the plate off the stuck print (up only) and discards, `discard` just clears the checkpoint. All three queue the action for the printer's main loop and return `{"ok":true,"queued":true}` |
 | `/api/vat/refilled` | POST | restart the resin estimate from a full VAT |
+| `/api/thanks/seen` | POST | mark the one-time thank-you note as shown (K8, 0.17.5). Kept on the printer, so a second device does not ask again; nothing about a payment is sent or stored. Answers `{"thanksSeen":true,"first":true\|false}` - `first` is `false` if another client got there first. Web-control and busy guards apply |
 | `/api/resin/calibrate` | POST | R-cal (0.17): teach the printer what a print really costs. `slot=1\|2&raw=<ml>&grams=<g>` writes ONE named sample (`clear=1` empties it); `grams=` alone records against the last finished print; `density=<g/ml>` alone stores a measured density and re-fits both samples; `reset=1` clears everything but the density. Idle-only (409 while printing), 400 when the numbers cannot match the estimate. Returns `{factor, fixedMl, twoPoint, ...}` |
 
 ### Resin calibration model (0.17)
