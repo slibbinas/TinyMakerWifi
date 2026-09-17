@@ -1023,6 +1023,17 @@ window.addEventListener('resize',()=>{
   if(!(slicerMaskOn&&slicerView===2))return;
   slicerViewChrome();
 });
+/* Darbo metu lango pokytis grazindavo 3D irankius ant eigos uzraso: pultas savo
+   „resize" perpiesia GPU vaizda (`gl3dShow(true)`), o tas parodo visas grupes ir
+   paslepia drobe. Telefone langas keiciasi vien nuo slinkimo (adreso juosta), tad
+   irankiai islysdavo vidury pjaustymo (V 09-17, ismatuota: 0 -> 4 grupes). Pulto
+   klausytojas uzregistruotas anksciau, tad cia darbo busena atstatoma PO jo. */
+window.addEventListener('resize',()=>{
+  if(!slicerDirbo(0)||!slicerVaizdasMusu())return;
+  slicerWorkUI(true);
+  const cv=$('printPreviewCanvas');
+  if(cv&&lastPreviewMsg)paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac,true);
+});
 /* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad chrome
    po jo persistatom rankomis. */
 {const g=$('stageOpen');
@@ -1416,10 +1427,20 @@ $('slicerGo').addEventListener('click',async()=>{
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
     const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
     const pad=slicerParamai();
+    /* Variklis gali pjauti ta pati modeli kelis kartus: kai atramoms nera vietos -
+       pakelia detale, kai atramos islenda uz ploksces - sumazina (ir tada vel gali
+       pakelti). Juosta kaskart grizta atgal, ir be paaiskinimo tai atrodo kaip
+       strigimas (V 09-17: telefone „varė kokius 4 kartus"). Ratai atpazistami is
+       variklio etapo pavadinimo; pirmas ratas nevardijamas. */
+    const RATO_PRIEZASTIS={
+      'atramoms nera vietos - keliam detale':'raising the part for supports',
+      'per didelis - pjaunam is naujo':'scaled down to fit the plate'};
+    let ratas=1, ratoPriezastis='';
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
       supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,''),
       pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai},
-      (done,total,phase)=>{
+      (done,total,phase,etapas)=>{
+        if(RATO_PRIEZASTIS[etapas]){ratas++;ratoPriezastis=RATO_PRIEZASTIS[etapas];}
         /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
            mygtuko amzinai suktis). Didelis modelis pjaustomas ilgiau, tad zyme
            gali nukristi vidury darbo - uzdedam atgal. */
@@ -1443,8 +1464,9 @@ $('slicerGo').addEventListener('click',async()=>{
         prog.textContent='';
         /* Ne piesiam tiesiogiai: atiduodam laikrodziui, kad procentas ir laikas
            visada eitu kartu ir viena neistrintu kito. */
-        paskutinis={ka:what+' '+pct+'%', dalis:f,
-                    eilute:tikri?(done+' / '+total+' layers'):''};
+        const eilute=[tikri?(done+' / '+total+' layers'):'',
+                      ratas>1?('Pass '+ratas+' - '+ratoPriezastis):''].filter(Boolean).join(' · ');
+        paskutinis={ka:what+' '+pct+'%', dalis:f, eilute:eilute};
         piesk();
       });
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
