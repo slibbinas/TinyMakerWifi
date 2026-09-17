@@ -385,8 +385,16 @@ const slicerLoadMod=async()=>{
       idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
       apie tai butina pasakyti (V 08-24). */
    window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
+  /* Nepavyko, o korteleje modulio nera - vadinasi, nepasieke ir interneto. Nuo 1.0.0
+     sliceris ijungtas visiems (K9), tad taip atrodys pirmas atidarymas be tinklo:
+     zmogui reikia pasakyti, kad uztenka karta prisijungti, o ne tik „neuzsikrove".
+     Jei kortelej modulis yra, bet vis tiek neuzsikrove - lieka bendras pranesimas. */
+  let kort='';
+  if(!slicerMod&&window.slicerCardVer){try{kort=await window.slicerCardVer();}catch(e){}}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
-                                  :'The slicer module could not be loaded.');
+    :(kort?'The slicer module could not be loaded.'
+          :'The slicer is not on the printer\'s card yet and the internet could not be reached. '
+          +'Open this page once with internet - the slicer copies itself to the card and works offline after that.'));
   return slicerMod;
 };
 $('slicerToggle').addEventListener('click',()=>{
@@ -701,7 +709,16 @@ const slicerOverlayOff=()=>{
   if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
   cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
 };
+/* Ar sliceris dabar dirba ilga darba (arba baige ne seniau kaip pries `ms`). Pultas
+   pagal tai nerodo tylaus „Printer busy": ekrane tuo metu jau stovi slicerio uzrasas
+   su eiga, o printeris pirmo pastatymo metu tikrai kelias sekundes tyli (ismatuota
+   09-17 V printeryje: busenos apklausa kabojo 3-3,7 s, zinute issoko jau po darbo).
+   Todel ir `ms` uodega - apklausa, issiusta darbo metu, gali nukristi jau po jo.
+   Pjaustyma zymi pulto `slicerBusyNow`, tad jis irgi skaitomas. */
+let slicerDarbai=0, slicerDarbasBaigtas=0;
+window.slicerDirbo=ms=>slicerBusyNow||slicerDarbai>0||Date.now()-slicerDarbasBaigtas<(ms||0);
 const slicerBusyPaint=(uzrasas,darbas)=>{
+  slicerDarbai++;
   slicerPaint(uzrasas,null);
   slicerWorkUI(true);
   /* `await` cia butinas: kruopstusis pastatymas (`autoOrientPro`) sukasi variklio
@@ -712,11 +729,23 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
      tad `requestAnimationFrame` nesuveikia NIEKADA - „Auto fit" ir „Lay flat" tokiame
      lange tyliai nieko nedarydavo (rado stendas 08-20; ta pati pamoka jau buvo
      `paintStage` pulte, V 08-14). Laikmatis paleidzia darba ir fone. */
+  /* Formos irankiai uzrakinami ir paslepiami visam darbui. Iki siol juosta likdavo
+     ekrane ir spaudziama: apvertus modeli paieskos metu grizdavo valdikliai, o baigta
+     paieska tyliai perrasydavo apvertima (ismatuota demo 09-17, taip pat ir 0.17.3).
+     Atrakinam tik tai, ka uzrakinom patys: jei irankiai jau buvo uzrakinti (pjaustymas,
+     spaudinys), ju nelieciam. */
+  const fit=$('slicerAutoFit');
+  const atrakinta=!!(fit&&!fit.disabled);
+  if(atrakinta)slicerButtons(false);
   let paleista=false;
   const eik=async()=>{
     if(paleista)return; paleista=true;
     try{await darbas();}
-    finally{slicerOverlayOff();slicerWorkUI(false);}
+    finally{
+      slicerDarbai--; slicerDarbasBaigtas=Date.now();
+      if(atrakinta&&slicerRaw&&!slicerPrinting())slicerButtons(true);
+      slicerOverlayOff();slicerWorkUI(false);
+    }
   };
   requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(eik,0)));
   setTimeout(eik,150);
@@ -993,6 +1022,17 @@ window.slicerMaskDraw=slicerMaskDraw;   // jungiklis perpiesia ta pati sluoksni
 window.addEventListener('resize',()=>{
   if(!(slicerMaskOn&&slicerView===2))return;
   slicerViewChrome();
+});
+/* Darbo metu lango pokytis grazindavo 3D irankius ant eigos uzraso: pultas savo
+   „resize" perpiesia GPU vaizda (`gl3dShow(true)`), o tas parodo visas grupes ir
+   paslepia drobe. Telefone langas keiciasi vien nuo slinkimo (adreso juosta), tad
+   irankiai islysdavo vidury pjaustymo (V 09-17, ismatuota: 0 -> 4 grupes). Pulto
+   klausytojas uzregistruotas anksciau, tad cia darbo busena atstatoma PO jo. */
+window.addEventListener('resize',()=>{
+  if(!slicerDirbo(0)||!slicerVaizdasMusu())return;
+  slicerWorkUI(true);
+  const cv=$('printPreviewCanvas');
+  if(cv&&lastPreviewMsg)paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac,true);
 });
 /* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad chrome
    po jo persistatom rankomis. */
@@ -1387,10 +1427,20 @@ $('slicerGo').addEventListener('click',async()=>{
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
     const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
     const pad=slicerParamai();
+    /* Variklis gali pjauti ta pati modeli kelis kartus: kai atramoms nera vietos -
+       pakelia detale, kai atramos islenda uz ploksces - sumazina (ir tada vel gali
+       pakelti). Juosta kaskart grizta atgal, ir be paaiskinimo tai atrodo kaip
+       strigimas (V 09-17: telefone „varė kokius 4 kartus"). Ratai atpazistami is
+       variklio etapo pavadinimo; pirmas ratas nevardijamas. */
+    const RATO_PRIEZASTIS={
+      'atramoms nera vietos - keliam detale':'raising the part for supports',
+      'per didelis - pjaunam is naujo':'scaled down to fit the plate'};
+    let ratas=1, ratoPriezastis='';
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
       supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,''),
       pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai},
-      (done,total,phase)=>{
+      (done,total,phase,etapas)=>{
+        if(RATO_PRIEZASTIS[etapas]){ratas++;ratoPriezastis=RATO_PRIEZASTIS[etapas];}
         /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
            mygtuko amzinai suktis). Didelis modelis pjaustomas ilgiau, tad zyme
            gali nukristi vidury darbo - uzdedam atgal. */
@@ -1414,8 +1464,9 @@ $('slicerGo').addEventListener('click',async()=>{
         prog.textContent='';
         /* Ne piesiam tiesiogiai: atiduodam laikrodziui, kad procentas ir laikas
            visada eitu kartu ir viena neistrintu kito. */
-        paskutinis={ka:what+' '+pct+'%', dalis:f,
-                    eilute:tikri?(done+' / '+total+' layers'):''};
+        const eilute=[tikri?(done+' / '+total+' layers'):'',
+                      ratas>1?('Pass '+ratas+' - '+ratoPriezastis):''].filter(Boolean).join(' · ');
+        paskutinis={ka:what+' '+pct+'%', dalis:f, eilute:eilute};
         piesk();
       });
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,

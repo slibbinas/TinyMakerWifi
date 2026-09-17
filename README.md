@@ -19,23 +19,22 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **WiFi setup via captive portal** - no credentials in code, configured from your phone on first boot
 * **Direct upload from PrusaSlicer** ("Send to printer" button) - the printer emulates the Prusa SL1 network protocol
 * Automatic unpacking of uploaded `.sl1` / `.zip` files into the layer format the stock firmware expects (works with both PrusaSlicer and UVtools numbering)
-* New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), **Advanced** settings, firmware Update, About
+* New **System** menu on the printer: WiFi Info (SSID, signal, IP, reset), **Advanced** settings, **Statistics**, firmware Update, About
 * **Advanced menu on the printer** - screen timeout, dry run, the resin-tracking controls (Set VAT full, low-resin pause, warn threshold, ask-refill) and **WiFi / Web control on-off switches**, all without a computer *(contributed by [@Briadark](https://github.com/Briadark))*
 * WiFi status indicator (green/grey dot) on the main menu
 * **Model deletion from the printer** - long-press OK on a model in the Print menu
 * **Import from SD card** - copy an `.sl1`/`.zip` onto the card and it shows up in the Print menu (in blue); press OK to convert it into a printable model. Works without any network, the archive is removed after a successful import
-* **Lifetime print-hours & UV LED hours counters** - the About screen shows total printing time and total LED-on time (the LED ages by lit time; dry runs don't count). Stored in NVS, survives firmware updates
+* **Lifetime print-hours & UV LED hours counters** - the System → Statistics screen shows total printing time and total LED-on time (the LED ages by lit time; dry runs don't count). Stored in NVS, survives firmware updates
 * **Settings backup & restore** - one file holds every setting and the lifetime counters: download it, keep it on the SD card, and after a full USB reflash the printer offers to restore everything on first boot. The dashboard shows the SD backup's date, has a one-click **Restore from SD**, and can optionally **auto-backup to TinyMaker Connect** *(contributed by [@Briadark](https://github.com/Briadark))*
 * **Boot update check** - shortly after WiFi connects at boot the printer checks for new firmware and offers *Install / Later* right on the screen (switchable) *(contributed by [@Briadark](https://github.com/Briadark))*
 * **Boot animations** - pick the animation the printer plays at power-on (System → Advanced, or staged in the dashboard and applied with *Save config*), preview it with **Show** right on the printer's screen, install new ones one-click from the **Default library** or the community site, or **Shuffle** a random one each boot *(base contributed by [@Tann2019](https://github.com/Tann2019))*
-* **Power-loss recovery** - the printer checkpoints its progress to a tiny file on the SD card while printing; after a power blip or outage it offers **Resume** right on the next boot and picks the print back up at the interrupted layer (no re-homing - the plate is trusted where it stopped)
 * **Exposure calibration test** - cures an 8-bar test strip straight from the printer (System → Advanced), each bar a different exposure; no slicer or SD file needed
 * **Clean Resin Vat** (Maintenance) - full-screen UV exposure cures a thin skin over the vat so debris lifts out in one piece (stock TinyMaker feature, kept and counted into LED hours)
 * **Named resin profiles** - one resin, one recipe: layer height, both exposures, base and transition layers, all four lift settings, and the resin’s density with its weighing calibration. Switching resin is one press instead of ten fields. Four profiles are **built into the firmware** - two resins at both layer heights, `Fast fine` / `Fast draft` and `Slow fine` / `Slow draft` (so the list is never empty - no SD card, no network, after a factory reset). The two `Fast` profiles ship with a weighing calibration measured on this printer - a multiplier plus about 0.6 ml of film that stays on the plate each print - while the `Slow` pair starts uncalibrated until you weigh a print. A **library of ready-made profiles** can be installed from the picker; a “✓ tested by” badge means someone actually printed with that resin on this printer. Pick the resin from the dashboard’s main view, from Settings → Print, or at the machine under System → Advanced → Resin
 * **Resin usage estimate** - press UP on the print preview to estimate the resin a model needs - shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** - the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-profiles-level--refills))
-* **Model preview in the dashboard** - click any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card as a smooth, GPU-rendered 3D model (three.js, cached on the SD card - falls back to the built-in renderer without it), with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate - click it to run the exact scan. A **Detailed** button re-renders at full print resolution (about a minute per model the first time, instant afterwards - the result is cached next to the model). The card's title names the model it is showing and is a link back to it in the SD list - including while printing, when the title reads *Printing 42% · Tooth*
-* **Slice in the browser** - the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
+* **Model preview in the dashboard** - click any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card as a smooth, GPU-rendered 3D model (three.js, cached on the SD card - falls back to the built-in renderer without it), with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate - click it to run the exact scan. The card's title names the model it is showing and is a link back to it in the SD list - including while printing, when the title reads *Printing 42% · Tooth*
+* **Slice in the browser** - switch it on once (Settings → Network → *STL slicer in the dashboard*) and the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
 * **Safe model uploads** - uploads unpack into a temporary folder and replace the old model only after unpacking succeeds; a name conflict asks *Replace / Rename / Cancel* (PrusaSlicer re-uploads just replace) *(contributed by [@Briadark](https://github.com/Briadark))*
 * **3D print progress** - while printing, the dashboard shows the same 3D view filling up in real time: the printed part in color, the rest as a ghost outline. Zero load on the printer (the browser renders from prefetched layers)
 * **WiFi reset** - from the System menu, or by holding the BACK button while powering on
@@ -160,14 +159,20 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 
 ## Slice in the browser
 
-No slicer installed, and nothing to install: the dashboard slices STL files itself. Open the
-**STL slicer** card, choose an STL, let it stand the right way up, then press **Slice**.
-Orientation is one press - **Fast fit**, or **Optimal fit**, which searches for the rotation
-that needs the fewest supports, the way PrusaSlicer does; **Lay flat**, **Flip over**,
-**Tilt 90 deg** and **Rotate 90 deg** are there when you want to decide yourself.
+No slicer installed, and nothing to install: the dashboard slices STL files itself. It is off
+until you switch it on once, under Settings → Network → *STL slicer in the dashboard*; then an
+**STL slicer** card appears. Choose an STL, let it stand the right way up, then press **Slice**.
 
-Under those buttons sit six settings, and **Reset to defaults** puts them all back: **Supports**
-(regular or tree), **Strength**, **Placement**, **Tip**, **Raft layers** and **Smoothing**.
+Two switches decide how the slicer places the part on its own. **Fit by:** *flat* lays it on
+its widest side, *supports* searches for the rotation that needs the fewest supports, the way
+PrusaSlicer does. **Size:** *keep* leaves your size and scales down only when the part does not
+fit, *max* makes it as large as the plate allows, up to 300 %. The **Fit** button on the 3D view
+puts the part back the way the two switches say; **Lay flat**, **Flip over**, **Tilt 90** and
+**Rotate 90** are there when you want to decide yourself.
+
+Below sit six more settings, and **Reset to defaults** puts them all back (Fit by and Size
+included): **Supports** (regular or tree), **Strength**, **Placement**, **Tip**, **Raft layers**
+and **Smoothing**.
 The raft is counted **in layers, not millimetres**. The file is always sliced at 0.05 mm and
 the printer decides how many of those images to expose, so the same setting means different
 millimetres at a different layer height. The default is **3 layers**; the choice is 2, 3 or 6.
@@ -208,7 +213,7 @@ On a desktop-sized screen it spreads into two columns:
 
 <img src="Images/mockups/web-dashboard.png" width="820" alt="The dashboard on a wide screen: two columns, with status and model preview on the left, the STL slicer and SD manager on the right">
 
-While a print runs, the status card counts the current phase down next to its name - *Curing · 9s* - and a small dot says whether the printer answered just now or is mid-move. That matters on this hardware: one ESP32 drives the screen, the motor, the UV LED and the web server off a single SD card, so the dashboard is served in the gaps between layer moves. A pause of a few seconds with an amber *syncing* mark is the printer working, not the page hanging.
+While a print runs, the status card counts the current phase down next to its name - *Curing · 9s* - and a small dot says whether the printer answered just now or is mid-move. That matters on this hardware: one ESP32 drives the screen, the motor, the UV LED and the web server off a single SD card, so the dashboard is served in the gaps between layer moves. A pause of a few seconds with an amber *syncing* mark is the printer working, not the page hanging. How long the dashboard waits follows the print (the longest exposure plus 10 seconds); if your phone or laptop reaches the printer through a slow link such as a WiFi extender, give it more time under **Settings → Network → Wait while printing** - the value is kept in that browser only.
 
 ### 3D preview & live print progress
 
@@ -326,9 +331,11 @@ as a known consumer, so they will not be renamed out from under it.
 Three ways to update:
 
 * **On the printer (self-update, no computer):** `System → Update` shows the **installed** version and checks GitHub for the **latest**. If a newer one is available, the `Install` button lights up - press **OK** and the printer downloads and flashes it itself over WiFi.
-* **From the dashboard - the Update tab:** shows installed vs latest with an **Install latest** button, a **version picker** (install any released version, downgrades ask for confirmation) and a **file upload** for a `firmware.bin` from [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) or a local build.
+* **From the dashboard - the Update tab:** shows installed vs latest with an **Install latest** button, a **version picker** (install any released version, downgrades ask for confirmation) and **Choose & flash…** for a `firmware.bin` file from [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) or a local build.
 * **For developers:** PlatformIO OTA - open `System → Update` on the printer (this path keeps the strict screen gate), then select the `env:tinymaker-ota` environment and Upload goes over WiFi.
-* **The browser slicer updates separately.** The same Update tab holds a **Slicer module** card - the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
+* **The browser slicer updates separately.** Once the slicer is switched on, the same Update tab holds a **Slicer module** card - the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
+
+The printer checks GitHub's certificate before it installs anything, and only takes files from this project's own release folder. If that check fails - for example on a network that intercepts HTTPS - nothing is installed: the version check fails, and an install from the dashboard says it could not verify GitHub. **Choose & flash…** and USB flashing still work.
 
 Do not power off during an update - and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 
@@ -357,6 +364,10 @@ compile-time switch exists for building a binary with no network code at all:
 ## Support this project
 
 If you find this project useful and want to support my work, you can [buy me a coffee via PayPal](https://paypal.me/Sidlauskas?locale.x=en_US&country.x=LT).
+
+The dashboard asks once, too. After the third print that ran to the end with the UV on, a small dialog says thank you and offers a few amounts - each an ordinary link to that PayPal page - or **No thanks**. It is shown once per printer and never again, whatever you press; the printer never learns whether you paid. Failed prints and dry runs do not count.
+
+The **Buy** links next to resin profiles are affiliate links: the shop pays this project a small share, at no extra cost to you. The dashboard says so next to them.
 
 ## Credits & Acknowledgements
 

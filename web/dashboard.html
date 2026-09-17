@@ -1264,16 +1264,24 @@ let uiConfirmRes=null;
 const uiChoice=(message,choices)=>{
   $('confirmText').textContent=message;
   const box=$('confirmButtons');box.innerHTML='';
+  /* `href` - tikra nuoroda (K8): naujas langas atsidaro is paties paspaudimo, tad
+     narsykle jo neblokuoja, kaip `window.open` po laukimo. `focus` - kuris mygtukas
+     gauna fokusa; savaime iššokančiame lange tai turi buti saugusis, kitaip netycia
+     paspaustas Enter pasirinktu uz zmogu. Daugiau nei trys - eilute lauzoma. */
+  box.style.flexWrap=choices.length>3?'wrap':'';
   choices.forEach(ch=>{
-    const b=document.createElement('button');
-    b.type='button';b.textContent=ch.label;
-    if(ch.secondary)b.className='button secondary';
+    const b=document.createElement(ch.href?'a':'button');
+    if(ch.href){b.href=ch.href;b.target='_blank';b.rel='noopener';b.style.cssText='margin-top:0;flex:1;width:auto';}
+    else b.type='button';
+    b.textContent=ch.label;
+    b.className=ch.secondary?'button secondary':(ch.href?'button':'');
     if(ch.danger)b.classList.add('delete');
+    if(ch.focus)b.dataset.focus='1';
     b.addEventListener('click',()=>uiConfirmClose(ch.value));
     box.appendChild(b);
   });
   show('confirmModal',true);
-  const focus=box.querySelector('button:not(.secondary)')||box.querySelector('button');
+  const focus=box.querySelector('[data-focus]')||box.querySelector('button:not(.secondary)')||box.querySelector('button');
   if(focus)focus.focus();
   return new Promise(r=>{uiConfirmRes=r;});
 };
@@ -1282,6 +1290,61 @@ const uiConfirm=(message,opts)=>{opts=opts||{};return uiChoice(message,[{label:o
 // an unrelated write later cannot light up its spinner.
 const uiConfirmClose=v=>{if(!uiConfirmRes)return;show('confirmModal',false);if(!v)busyCandidate=null;const r=uiConfirmRes;uiConfirmRes=null;r(v);};
 $('confirmModal').addEventListener('click',e=>{if(e.target===$('confirmModal'))uiConfirmClose(false);});
+/* 1.0.0 K8 (V 2026-08-26): po TRECIO pavykusio spaudinio - viena vienintele padekos
+   prasymo zinute. Trecio, ne pirmo: pirmas dazniausiai bandomasis, o trys reiskia, kad
+   zmogus grizo pats. Pavykes = printeris pats skaiciuoja (`printsOk`: iki galo, ne Stop,
+   ne dry run). Zyma „jau rodyta" guli PRINTERYJE (`thanksSeen`), ne narsykleje - antras
+   telefonas ar isvalyta narsykle nebeklausia. Zyma dedama PRIES rodant: nepavykus jos
+   irasyti (pvz. isjungtas web control) langas nerodomas visai, kitaip klaustu kaskart.
+   Mygtukai - tik nuorodos i PayPal su suma; apie moketi pultas nieko nezino ir nesaugo. */
+let thanksAskBusy=false,thanksAskOff=false,thanksPending=false;
+const THANKS_URL='https://paypal.me/Sidlauskas';
+/* Laisva akimirka langui: printeris laisvas, jokio kito dialogo, lango nematomas kitas
+   darbas. Tikrinama DU kartus - pries zyma ir po jos: laukiant atsakymo zmogus gali
+   atsidaryti, pvz., trynimo patvirtinima, ir padekos langas ji pakeistu (auditas). */
+const thanksFree=s=>!(s&&s.busy)&&!updLock&&!document.hidden&&!uiConfirmRes;
+const showThanks=()=>{
+  thanksPending=false;
+  uiChoice('A few prints in - glad TinyMakerWiFi is working for you. '+
+    'It is free, and it is built in spare time. If it has saved you some time or a failed print, '+
+    'a small thank-you helps keep it going. This is the only time you will be asked.',
+    [{label:'4 EUR',value:true,href:THANKS_URL+'/4EUR'},{label:'8 EUR',value:true,href:THANKS_URL+'/8EUR'},
+     {label:'12 EUR',value:true,href:THANKS_URL+'/12EUR'},
+     {label:'Other amount',value:true,href:THANKS_URL,secondary:true},
+     {label:'No thanks',value:false,secondary:true,focus:true}]);
+};
+const maybeAskThanks=async s=>{
+  if(!s)return;
+  /* Zyma printeryje jau uzdeta, bet langas dar neparodytas (buvo uzimta) - rodom,
+     kai tik laisva, be antros uzklausos. */
+  if(thanksPending){if(thanksFree(s))showThanks();return;}
+  if(thanksAskOff||thanksAskBusy||s.thanksSeen!==false||!(s.printsOk>=3))return;
+  /* Isjungtas web control: printeris zymos neprimtu, ir bandytume kas apklausa. */
+  if(s.webControl===false||!thanksFree(s))return;
+  thanksAskBusy=true;
+  try{
+    /* Tiesiogiai per `fetch`, ne per `api()`: `api()` rasymas uzdega sukimosi zenkla
+       ant neseniai paspausto mygtuko, o si uzklausa ne zmogaus paspaudimas. */
+    /* 15 s, ne 4: ka tik baigus spaudini printeri kelias sekundes gali uzlaikyti Connect
+       atsargine kopija (paleidziama 3 s po pabaigos), o butent tada pultas pirma karta
+       mato „laisvas" ir siuncia zyma (auditas). */
+    const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),15000);
+    let r=null,j=null;
+    try{
+      r=await fetch('/api/thanks/seen',{method:'POST',cache:'no-store',headers:{'X-TinyMaker':'1'},signal:ctl.signal});
+      if(r.ok)j=await r.json();
+    }catch(e){r=null;}
+    finally{clearTimeout(tm);}
+    thanksAskOff=true;   // kad ir kas nutiko - siame lange antro bandymo nebus
+    /* Atsakymas atejo: rodom tik tam, kuris zyma uzdejo pirmas. Printeris ATMETE (403
+       web control, 409 uzimtas) - zyma neirasyta, klausim kita karta atidarius pulta. */
+    if(r&&!(j&&j.first))return;
+    /* Atsakymo NEBUVO (laukimas nutruko, rysys dingo): zyma printeryje galejo buti ir
+       irasyta. Tada kitas bandymas gautu „first:false", ir prasymas dingtu visam laikui -
+       todel rodom vis tiek. Blogiausiu atveju tas pats zmogus ji pamatys dar karta. */
+    if(thanksFree(statusData))showThanks(); else thanksPending=true;
+  }finally{thanksAskBusy=false;}
+};
 document.addEventListener('keydown',e=>{if(uiConfirmRes){if(e.key==='Escape'){e.preventDefault();uiConfirmClose(false);}else if(e.key==='Enter'){e.preventDefault();const b=document.activeElement;if(b&&b.tagName==='BUTTON')b.click();}}});
 const bytesNum=v=>Number(v||0)||0;
 const formatBytes=v=>{
@@ -1980,7 +2043,7 @@ const renderResinModal=()=>{
     if(p.buyUrl){
       const buy=document.createElement('a');
       buy.href=p.buyUrl;buy.target='_blank';buy.rel='noopener noreferrer';
-      buy.textContent='Buy';buy.title='Where to buy this resin';
+      buy.textContent='Buy';buy.title='Where to buy this resin (affiliate link - no extra cost to you)';
       buy.style.cssText='flex:0 0 auto;color:var(--link);font-size:12.5px;white-space:nowrap;padding:0 4px';
       row.appendChild(buy);
     }
@@ -2011,6 +2074,15 @@ const renderResinModal=()=>{
     row.appendChild(del);
     wrap.appendChild(row);
   });
+  // K5: a Buy link earns the project a share, so say so where the link is -
+  // a hover title alone is not a disclosure. Only when a Buy link is shown.
+  if(resinRows.some(p=>p.buyUrl)){
+    const note=document.createElement('div');
+    note.className='hint';
+    note.style.cssText='margin-top:6px;font-size:11.5px';
+    note.textContent='Buy links are affiliate links: the shop pays this project a small share, at no extra cost to you.';
+    wrap.appendChild(note);
+  }
   if(!resinModalLib&&resinLib&&resinLib.length){
     const missing=resinLib.filter(e=>!resinRows.some(p=>p.name===e.name));
     if(missing.length){
@@ -2975,6 +3047,7 @@ const refreshStatus=async()=>{
       rxSnackTxt='';
     }
     applyStatus(s);
+    maybeAskThanks(s);   // 1.0.0 K8
     if(typeof renderGs==='function')renderGs(); // auto-tick "first print"
     paramVartai();
     if(!pendingPrintCmd&&!deleteBusy&&!printWaitCur&&!sdJobCur&&!rxSnackTxt&&(!msg._until||Date.now()>=msg._until))msg('',false);
@@ -3039,6 +3112,9 @@ const refreshStatus=async()=>{
          lange zinute atsirastu virsuje (CSS `top:14px`), o ties ~16 s, kai kalba garsioji
          saka, persoktu i centra - akiai tai antras pranesimas ([[snackbaru-taisykle]],
          T-26 „visi centruoti"). Kartojant centruoti nereikia: vieta jau nustatyta. */
+      /* Sliceris ka tik dirbo ir rodo savo eiga - tylos cia nevardijam (V 09-17).
+         Saka ta pati, tad garsioji „not answering" po 15 s vis tiek prabils. */
+      if(window.slicerDirbo&&slicerDirbo(8000))return;
       const t='Printer busy - waiting for it to answer.';
       const kartojam=$('statusMsg').textContent===t;
       pollWarnTxt=t;
@@ -7258,8 +7334,10 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
        gryzai i 3.2.0 - suksi 3.2.0, ir jokio „idiegta viena, sukama kita".
        Taikoma TIK sliceriui - three.js cia neliecia. */
     const pradinis={name:name,ver:ver,cdn:cdnUrl};
+    let kortTuscia=false;
     if(name.indexOf('slicer-')===0&&window.slicerCardVer){
       const kort=await window.slicerCardVer();
+      kortTuscia=!kort;
       if(kort&&kort!==ver&&name.indexOf(ver)>0){
         name=name.split(ver).join(kort);
         if(cdnUrl)cdnUrl=cdnUrl.split(ver).join(kort);
@@ -7267,8 +7345,15 @@ try{const fwUpd=sessionStorage.getItem('tmFwUpd');if(fwUpd){sessionStorage.remov
       }
     }
     const sdUrl='/lib/'+name+'.js?v='+ver;
-    let used=sdUrl, mod=await tryLoad(sdUrl,'SD');
-    if(!mod&&cdnUrl){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
+    /* Kortele sako, kad modulio NERA, - tada pirma internetas. `/lib/*` naršyklė laiko
+       savaite (`immutable`), tad is „kortelės" jis dar ilgai krautusi is savo podelio, net
+       kai kortele pakeista ar suformatuota, ir kopijavimas atgal nepasileistu niekada
+       (rado printerio sesija 09-17, modulis istrintas is SD). Be interneto podelis lieka
+       atsarga: sliceris veikia, o kopijuos kita karta. */
+    let used=cdnUrl, mod=null;
+    if(kortTuscia&&cdnUrl)mod=await tryLoad(cdnUrl,'web');
+    if(!mod){used=sdUrl;mod=await tryLoad(sdUrl,'SD');}
+    if(!mod&&cdnUrl&&!kortTuscia){used=cdnUrl;mod=await tryLoad(cdnUrl,'web');}
     /* Kortelės versija neuzsikrove (senas pultas, naujas modulis, sugadintas
        rinkinys) - griztam prie tos, kuria zino firmware. Geriau sena veikianti
        nei jokia. */
