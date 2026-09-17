@@ -163,7 +163,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.17.5</span>
+  <span class="badge">User Manual · v0.17.6</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -338,7 +338,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 
 <section>
   <h2 class="sec" id="slicer"><span class="num">7</span>The built-in slicer (slice in the browser)</h2>
-  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard - no PrusaSlicer, no computer-side install, works from a phone too. Switch it on once under Settings → Network → <i>STL slicer in the dashboard</i> and an <b>STL slicer</b> card appears on the dashboard - press <b>Open</b> to unfold it.</p>
+  <p>The firmware ships with <b>its own SLA slicer</b>, running right in the dashboard - no PrusaSlicer, no computer-side install, works from a phone too. Since 0.17.6 it is <b>on from the start</b>: the <b>STL slicer</b> card is already on the dashboard - press <b>Open</b> to unfold it. (If you would rather not have it, the switch is under Settings → Network → <i>STL slicer in the dashboard</i>.)</p>
   <ol class="steps">
     <li><b>Choose STL</b> and pick a model file.</li>
     <li><b>Stand it the right way up.</b> Two switches under the slicer settings decide how the slicer places
@@ -433,8 +433,8 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>The picker also lists profiles you do <i>not</i> have yet, published by this project. Press
   <b>Install</b> and the profile is written to the card. A <b>&ldquo;&#10003; tested by&rdquo;</b>
   badge means someone actually printed with that resin on this printer and wrote down what worked -
-  it saves you an exposure test. Some entries carry a <b>Buy</b> link; the price is the same,
-  the link simply goes through us.</p>
+  it saves you an exposure test. Some entries carry a <b>Buy</b> link. These are affiliate links: the shop pays this project a
+  small share and the price stays the same for you - the picker says so right under the list.</p>
   <p>Your browser fetches the profile and posts the values to the printer, so the printer itself
   never opens an outside address. Profiles you already have are not shown again - a corrected
   profile is therefore published under a new name, not silently swapped underneath you.</p>
@@ -496,7 +496,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <h3>While a print runs</h3>
   <p>The state line counts the current step down - <b>Curing · 9s</b>, <b>Lifting · 4s</b> - and after <b>Stop</b> or a finished print it counts the ride to the top the same way, so that wait finally has a number. Next to it a small dot says whether the printer answered just now (green) or is mid-move (amber, <i>syncing</i>).</p>
   <img class="shot" style="max-width:406px" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
-  <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card - so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> The SD card is locked for the same reason - uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
+  <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card - so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> How long the dashboard waits follows the print - the longest exposure plus 10 seconds. If your phone or laptop reaches the printer through a slow link such as a WiFi extender and the dashboard keeps saying the printer answers slowly, give it more time under Settings → Network → <b>Wait while printing</b> (kept in that browser only; 0 = automatic). The SD card is locked for the same reason - uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
   <p>On a larger screen it spreads into two columns:</p>
   <img class="shot" style="max-width:728px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) - the printer ticks steps off by itself where it can.</p>
@@ -509,7 +509,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Lift plate</b> (the up-arrow) - if you don't want to continue but the plate is pressed down on a stuck print, this clears the checkpoint first, then peels the part free and raises the plate.</li>
     <li><b>Discard</b> - forget the interrupted print and boot normally.</li>
   </ul>
-  <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer only knows the pre-lift height, so the resumed layers can sit slightly high - usually a faint seam, occasionally a separation at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film. <em>A future firmware update is planned to tighten this - checkpointing the plate's position more finely during the brief lift/drop, so even a mid-move outage recovers to within a fraction of a millimetre.</em></p>
+  <p>Recovery is <b>best-effort</b>, not a perfect guarantee. If the outage happens during the <b>exposure</b> (the longest part of each layer, so the most likely moment), the plate's position is known exactly and the print continues cleanly. If it happens while the plate is <b>mid-move</b> (lifting or dropping between layers), the printer knows the plate's height from its last checkpoint during that move (see <b>Resume mode</b> below), so the resumed layers usually sit within a fraction of a millimetre - at worst a faint seam at that one spot. It never risks the opposite direction (into the FEP), so the worst case is a cosmetic mark or losing that print, never a damaged screen or film.</p>
   <p>The same three buttons also appear <b>on the dashboard</b> the moment the printer comes back - so if the outage happened while you were away, you can resume (or lift, or discard) <b>from your phone</b>, as long as no one has touched the printer's buttons since it powered on. Before resuming, make sure the vat and the plate haven't been moved - the plate lowers back into the resin on trust.</p>
   <p><b>Power the printer from its mains adapter, not a USB power bank.</b> A weak or portable supply can sag the moment the plate lifts - the stepper's current draw briefly dips the voltage - and on a marginal supply that dip can even reset the printer part-way through the recovery. If a resume keeps rebooting back to the same prompt, that voltage dip is the usual cause: switch to the supplied adapter and try again.</p>
   <p><b>Two settings decide how this behaves</b>, both under System → Advanced → Resin (and in the
@@ -572,11 +572,11 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Settings is split into sections, switched by underline tabs - <b>Print / Network / Notifications / Display / Backup / Update / About</b> - shown one at a time, each with its own <b>Save config</b> button (saving from any section preserves the other sections’ values):</p>
   <ul>
     <li><b>Print</b> - layer height, exposures, lifts, VAT size, resin profiles and the resin-tracking options.</li>
-    <li><b>Network</b> - the WiFi / Web control / boot-update-check switches, the <b>Slicer</b> switch, the <a href="#faq-ping">anonymous usage ping</a>, MQTT, and <b>TinyMaker Connect</b> - including the <b>Auto backup settings to Connect</b> checkbox (it asks to confirm when toggled).</li>
+    <li><b>Network</b> - the WiFi / Web control / boot-update-check switches, the <b>Slicer</b> switch, <b>Wait while printing</b>, the <a href="#faq-ping">anonymous usage ping</a>, MQTT, and <b>TinyMaker Connect</b> - including the <b>Auto backup settings to Connect</b> checkbox (it asks to confirm when toggled).</li>
     <li><b>Notifications</b> - one choice of Telegram, WhatsApp or Discord (see <a href="#mqtt">notifications</a>).</li>
     <li><b>Display</b> - <a href="#bootanim">Boot animations</a> and the <b>3D previews</b> card with <i>Prepare 3D for all models</i>.</li>
     <li><b>Backup</b> - just the actions: download / backup to SD / restore (see <a href="#update">Backup &amp; restore</a>).</li>
-    <li><b>Update</b> - firmware install latest / version picker / file upload, and the <b>Slicer module</b> card (see <a href="#update">Updating the firmware</a>).</li>
+    <li><b>Update</b> - firmware install latest / version picker / <b>Choose &amp; flash&hellip;</b>, and the <b>Slicer module</b> card (see <a href="#update">Updating the firmware</a>).</li>
     <li><b>About</b> - versions, credits and links.</li>
   </ul>
   <p>The <b>Connect</b> tab (shown once TinyMaker Connect is registered) is loaded from the Connect server and uses the same underline sub-tabs; its registration status is shown at the bottom.</p>
@@ -757,11 +757,12 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
   <p>Three ways to update the firmware:</p>
   <ul>
     <li><b>On the printer (no computer):</b> <b>System → Update</b> shows the installed version and checks GitHub for the latest. If a newer one exists, the <b>Install</b> button lights up - press <kbd>OK</kbd> and the printer downloads and flashes it over WiFi.</li>
-    <li><b>From the dashboard - Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and a <b>file upload</b> for a <code>firmware.bin</code>.</li>
+    <li><b>From the dashboard - Settings → Update:</b> installed vs latest with an <b>Install latest</b> button, a <b>version picker</b> (install any released version; downgrades ask to confirm) and <b>Choose &amp; flash&hellip;</b> for a <code>firmware.bin</code> file.</li>
     <li><b>For developers:</b> PlatformIO OTA via the <code>tinymaker-ota</code> environment (open System → Update on the printer first - that path keeps the strict gate).</li>
   </ul>
   <img class="shot" style="max-width:378px" src="images/firmware-update-page.png" alt="The dashboard Settings > Update pane: installed vs the stable channel, version picker, file upload and the Slicer module card">
   <p>Two comforts while updating: the printer also <b>checks by itself</b> - shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available - Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back - no guessing whether it finished.</p>
+  <p><b>The printer checks who it is talking to.</b> Before it installs anything from the internet it verifies GitHub’s certificate, and it only takes files from this project’s own release folder. If that check fails - for example on a network that intercepts secure connections - nothing is installed: the version check fails, and an install from the dashboard says it <i>could not verify GitHub</i>. <b>Choose &amp; flash&hellip;</b> and USB flashing still work.</p>
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
   <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware - a slicer update never reflashes the printer.</p>
 
@@ -900,12 +901,13 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li>Additional fixes, testing and ideas from the TinyMaker community.</li>
   </ul>
   <p>The firmware is MIT-licensed; the TinyMaker hardware is CC BY-NC-SA 4.0. If TinyMakerWifi is useful to you, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy me a coffee</a> - thank you!</p>
+  <p>The dashboard asks once as well: after the third print that ran to the end with the UV on, a small dialog offers a few amounts (plain links to the same PayPal page) or <b>No thanks</b>. It appears once per printer, never again, and the printer never learns what you chose. Failed prints and dry runs do not count.</p>
 </section>
 
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.17.5 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.17.6 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>
