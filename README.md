@@ -34,7 +34,7 @@ Modified and extended firmware for the open-source **TinyMaker** MSLA resin 3D p
 * **Resin usage estimate** - press UP on the print preview to estimate the resin a model needs - shown in ml AND in vat fills (e.g. `12.4 ml = 0.8 VAT`; vat size adjustable 10–40 ml in Settings, default 15). Live ml is shown while printing
 * **Resin level tracking** - the printer keeps an estimate of how much resin is left in the VAT, warns before starting a print with too little, and can optionally pause mid-print for a refill (see [Resin level & refills](#resin-profiles-level--refills))
 * **Model preview in the dashboard** - click any SD model: the browser rebuilds the shape from the sliced layers and draws it in the **Model preview** card as a smooth, GPU-rendered 3D model (three.js, cached on the SD card - falls back to the built-in renderer without it), with a compact info line (layers, height, time, resin) and a quick `~ml` resin estimate - click it to run the exact scan. The card's title names the model it is showing and is a link back to it in the SD list - including while printing, when the title reads *Printing 42% · Tooth*
-* **Slice in the browser** - switch it on once (Settings → Network → *STL slicer in the dashboard*) and the dashboard slices STL files itself: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
+* **Slice in the browser** - the dashboard slices STL files itself, on by default: choose an STL, get supports and a raft, preview the result in 3D and 2D/UV, and send it to the SD card ready to print. The slicer module is fetched once, kept on the SD card (survives firmware updates, works offline afterwards) and every byte is verified against checksums the printer fetches over certificate-checked HTTPS
 * **Safe model uploads** - uploads unpack into a temporary folder and replace the old model only after unpacking succeeds; a name conflict asks *Replace / Rename / Cancel* (PrusaSlicer re-uploads just replace) *(contributed by [@Briadark](https://github.com/Briadark))*
 * **3D print progress** - while printing, the dashboard shows the same 3D view filling up in real time: the printed part in color, the rest as a ghost outline. Zero load on the printer (the browser renders from prefetched layers)
 * **WiFi reset** - from the System menu, or by holding the BACK button while powering on
@@ -159,9 +159,9 @@ Two ways to erase the stored credentials (e.g. when moving the printer to anothe
 
 ## Slice in the browser
 
-No slicer installed, and nothing to install: the dashboard slices STL files itself. It is off
-until you switch it on once, under Settings → Network → *STL slicer in the dashboard*; then an
-**STL slicer** card appears. Choose an STL, let it stand the right way up, then press **Slice**.
+No slicer installed, and nothing to install: the dashboard slices STL files itself, and since
+0.17.6 it is on from the start - the **STL slicer** card is right there on the dashboard. (It
+can be switched off under Settings → Network → *STL slicer in the dashboard*.) Choose an STL, let it stand the right way up, then press **Slice**.
 
 Two switches decide how the slicer places the part on its own. **Fit by:** *flat* lays it on
 its widest side, *supports* searches for the rotation that needs the fewest supports, the way
@@ -333,7 +333,7 @@ Three ways to update:
 * **On the printer (self-update, no computer):** `System → Update` shows the **installed** version and checks GitHub for the **latest**. If a newer one is available, the `Install` button lights up - press **OK** and the printer downloads and flashes it itself over WiFi.
 * **From the dashboard - the Update tab:** shows installed vs latest with an **Install latest** button, a **version picker** (install any released version, downgrades ask for confirmation) and **Choose & flash…** for a `firmware.bin` file from [Releases](https://github.com/slibbinas/TinyMakerWifi/releases) or a local build.
 * **For developers:** PlatformIO OTA - open `System → Update` on the printer (this path keeps the strict screen gate), then select the `env:tinymaker-ota` environment and Upload goes over WiFi.
-* **The browser slicer updates separately.** Once the slicer is switched on, the same Update tab holds a **Slicer module** card - the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
+* **The browser slicer updates separately.** As long as the slicer is on, the same Update tab holds a **Slicer module** card - the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
 
 The printer checks GitHub's certificate before it installs anything, and only takes files from this project's own release folder. If that check fails - for example on a network that intercepts HTTPS - nothing is installed: the version check fails, and an install from the dashboard says it could not verify GitHub. **Choose & flash…** and USB flashing still work.
 
