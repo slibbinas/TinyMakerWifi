@@ -13,6 +13,41 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.6] - 2026-09-18
+
+The browser slicer is **on by default**. Until now it shipped switched off, so only
+the people who went looking for the switch ever found it - and the whole point of
+slicing on the printer's own page is that it is there when you need it.
+
+### Changed
+
+- **The slicer is on from the start** (plan K9). A fresh printer shows the **STL
+  slicer** card straight away, with nothing to switch on first.
+
+  **Printers upgrading from 0.17 get it switched on once.** Their stored answer is
+  almost never a real choice: 0.17 defaulted to off and wrote that "off" on every
+  settings save, so a new default alone would have changed nothing for them. The
+  switch-on happens exactly once, and after it your own answer stands - switch it
+  off and it stays off, across updates. Settings backups made from now on carry
+  that distinction, so restoring one after a full reflash no longer turns the
+  slicer off for good.
+
+- **Docs follow:** the README and the manual no longer tell you to switch the
+  slicer on first, and say where to switch it off instead.
+
+### Also in this release
+
+- Slicing in the browser no longer loses the progress line when the window
+  changes size mid-job (a phone doing that on every scroll), and when the engine
+  slices the part again it says which pass it is and why (#177).
+- The printer's own folders on the SD card can no longer be replaced by a model
+  named after them (#172), and a model can no longer be imported over one (#175).
+- The dashboard does not say "Printer busy" while the slicer is showing its own
+  progress (#174); in the slicer view the shape tools step aside while a fit or a
+  lay-flat runs (#173), and the card says what to do when the slicer module is
+  not on the card and there is no internet (#171).
+- Resin **Buy** links say that they are affiliate links (#168, #169).
+
 ## [0.17.5] - 2026-09-16 (beta)
 
 Two things. The self-update now checks that it is really talking to GitHub before it
