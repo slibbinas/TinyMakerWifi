@@ -198,7 +198,7 @@ const T={
   x6:'Viskas paruošta: ⭐ parametrai ({0}) gali eiti į biblioteką ir į printerį.',x6b:'→ Į biblioteką',x6p:'Įrašyti į printerį',
   xDone:'Šis sluoksnio aukštis baigtas. Perjunk kitą aukštį viršuje dešinėje.',
   bestFrom:'iš ⭐: {0}',
-  testsTitle:'Bandymai',allSteps:'Visi žingsniai',onlyStep:'Tik šis žingsnis',none:'Dar nėra bandymų.',compare:'Palyginti',picked:'pažymėta {0}',back:'← Atgal',
+  testsTitle:'Bandymai',allSteps:'Visi žingsniai',onlyStep:'Tik šis žingsnis',none:'Šiam žingsniui bandymų dar nėra. Užpildyk formą kairėje ir spausk „Įrašyti bandymą“ - kortelė atsiras čia.',compare:'Palyginti',picked:'pažymėta {0}',back:'← Atgal',
   cmpPick:'lyginti',best:'⭐ geriausias',isBest:'⭐ Geriausias',unBest:'nuimti ⭐',editB:'✎',del:'🗑',
   cmpHint:'Geltonai - kuo bandymai skiriasi. Nuotrauka atsidaro per visą ekraną, rodyklėmis vartai.',
   libDone:'Atsidarė bibliotekos tvarkymas su užpildyta forma: pridėk parduotuvės nuorodą ir įrašyk.',
@@ -257,7 +257,7 @@ const T={
   x6:'Ready: the ⭐ parameters ({0}) can go to the library and to the printer.',x6b:'→ To library',x6p:'Save to printer',
   xDone:'This layer height is done. Switch to the other height at the top right.',
   bestFrom:'from ⭐: {0}',
-  testsTitle:'Tests',allSteps:'All steps',onlyStep:'This step only',none:'No tests yet.',compare:'Compare',picked:'{0} picked',back:'← Back',
+  testsTitle:'Tests',allSteps:'All steps',onlyStep:'This step only',none:'No tests for this step yet. Fill in the form on the left and press “Save test” - the card shows up here.',compare:'Compare',picked:'{0} picked',back:'← Back',
   cmpPick:'compare',best:'⭐ best',isBest:'⭐ Best',unBest:'unmark ⭐',editB:'✎',del:'🗑',
   cmpHint:'Yellow marks what differs. A photo opens full screen; use the arrows to browse.',
   libDone:'The library page opened with the form filled in: add the shop link and save.',
@@ -599,7 +599,7 @@ function testsCard(){
   const r=cur;
   const ts=sortTests(r,sel.all?(r.tests||[]):testsIn(r,sel.step,sel.lh));
   const bs=new Set(Object.values(r.best||{}));
-  let h='<div class="card" style="flex:1"><h3>'+esc(t('testsTitle'))+': '+esc(sel.all?t('allSteps'):L(stepOf(sel.step))+', '+lhTxt(sel.lh)+' mm')+
+  let h='<div class="card"><h3>'+esc(t('testsTitle'))+': '+esc(sel.all?t('allSteps'):L(stepOf(sel.step))+', '+lhTxt(sel.lh)+' mm')+
     '<span class="sp"></span>'+(picks.size?'<span class="k">'+esc(t('picked',picks.size))+'</span>':'')+
     (comparing?'<button id="btnBack">'+esc(t('back'))+'</button>':'<button class="pri" id="btnCompare"'+(picks.size<2?' disabled':'')+'>'+esc(t('compare'))+'</button>')+
     '<button id="btnAll">'+esc(sel.all?t('onlyStep'):t('allSteps'))+'</button></h3>';
