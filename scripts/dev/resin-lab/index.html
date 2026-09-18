@@ -239,7 +239,7 @@ const T={
   err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}',
   err_no_profile:'Printeryje nerastas pasirinktas profilis: {0}',err_bad_json:'Netinkami duomenys: {0}',err_not_found:'Nerasta: {0}',
   err_bad_slug:'Netinkamas dervos aplanko vardas: {0}',err_bad_photo:'Netinkamas nuotraukos failas: {0}',err_too_big:'Failas per didelis.',err_http:'Serveris atsakė klaida: {0}',
-  phSource:'SUNLU pavyzdys',synth:'sintetinis',synthT:'Etalonas: visi skaičiai ir nuotraukos sugalvoti - rodo, kaip atrodo pilnai ištestuota derva. Į pradžios skaičiavimą, biblioteką ir printerį neina.',synthNo:'Tai sintetinis etalonas - į biblioteką ir printerį neina.',tour:'▶ Apžvalga',tourPrev:'Atgal',tourNext:'Toliau',tourDone:'Baigti',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
+  phSource:'SUNLU pavyzdys',pubDone:'Derva jau paskelbta bibliotekoje - nauji testai nebūtini. Įrašyk juos, tik jei tikrini iš naujo.',synth:'sintetinis',synthT:'Etalonas: visi skaičiai ir nuotraukos sugalvoti - rodo, kaip atrodo pilnai ištestuota derva. Į pradžios skaičiavimą, biblioteką ir printerį neina.',synthNo:'Tai sintetinis etalonas - į biblioteką ir printerį neina.',tour:'▶ Apžvalga',tourPrev:'Atgal',tourNext:'Toliau',tourDone:'Baigti',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
   stripHelp:'Tempk pele stačiakampį aplink visas 8 juostas, tada spustelėk geriausią. Žalia - skylučių tiek, kiek turi būti, geltona - ne. Neatpažino - rink juostą mygtukais. Taisyklė: žemiausia švari juosta plius vienas žingsnis. Ar paviršius sausas, nuotrauka neparodo - žiūrėk į tikrą juostą.',
   stripFound:'Rasta juostų: {0}, reikia 8 - apvesk tiksliau arba rink mygtukais.',stripSel:'Pasirinkta #{0} · {1} % · {2} s (bandymo Regular {3} s)',stripPickHint:'Spustelėk geriausią juostą.',stripCard:'Juosta #{0} · {1} s',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
  en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
@@ -303,7 +303,7 @@ const T={
   err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}',
   err_no_profile:'The selected profile was not found on the printer: {0}',err_bad_json:'Invalid data: {0}',err_not_found:'Not found: {0}',
   err_bad_slug:'Invalid resin folder name: {0}',err_bad_photo:'Invalid photo file: {0}',err_too_big:'The file is too big.',err_http:'The server returned an error: {0}',
-  phSource:'SUNLU sample',synth:'synthetic',synthT:'Reference example: all numbers and photos are made up - it shows what a fully tested resin looks like. It does not go into the start calculation, the library or the printer.',synthNo:'This is a synthetic reference - it does not go to the library or the printer.',tour:'▶ Walk through',tourPrev:'Back',tourNext:'Next',tourDone:'Done',stripB:'🔍 Bars',stripTitle:'Strip photo',
+  phSource:'SUNLU sample',pubDone:'This resin is already published in the library - no more tests needed. Record them only if you re-check it.',synth:'synthetic',synthT:'Reference example: all numbers and photos are made up - it shows what a fully tested resin looks like. It does not go into the start calculation, the library or the printer.',synthNo:'This is a synthetic reference - it does not go to the library or the printer.',tour:'▶ Walk through',tourPrev:'Back',tourNext:'Next',tourDone:'Done',stripB:'🔍 Bars',stripTitle:'Strip photo',
   stripHelp:'Drag a rectangle around all 8 bars, then click the best one. Green - the bar has as many holes as it should, amber - it does not. Not recognised - pick the bar with the buttons. Rule: the lowest clean bar plus one step. The photo cannot show whether the surface is dry - check the real strip.',
   stripFound:'Bars found: {0}, need 8 - frame them more tightly or use the buttons.',stripSel:'Picked #{0} · {1} % · {2} s (test Regular {3} s)',stripPickHint:'Click the best bar.',stripCard:'Bar #{0} · {1} s',guideT:'Guide',themeT:'Light / dark theme'}};
 let LANG='lt';
@@ -616,6 +616,8 @@ function nextAction(first){
     extra='<button id="btnInstall">'+esc(t('x6p'))+'</button>';}
   else{txt=t('xDone');const b=bestFor(r,lh);if(b){btn=t('x6b');act='library';extra='<button id="btnInstall">'+esc(t('x6p'))+'</button>';}}
   if(r.synthetic&&(act==='library'||extra)){txt=t('synthNo');btn='';act='';extra='';}
+  // Paskelbta derva (SUNLU, gamyklinis WW) nebesiūlo testų: tušti žingsniai - istorija, ne darbas (V 2026-09-19).
+  if(isPublished(r)&&first>=2&&first<=5){txt=t('pubDone');btn='';act='';extra='';}
   return '<div class="next"><span class="t"><b>'+esc(t('next'))+':</b> '+esc(txt)+'</span>'+extra+(btn?'<button class="cta" id="btnNext" data-act="'+esc(act)+'">'+esc(btn)+'</button>':'')+'</div>';
 }
 function paramLine(p,diffKeys){
