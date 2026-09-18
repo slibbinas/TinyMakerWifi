@@ -129,6 +129,7 @@ a{color:var(--link)}
  <span class="dd" id="dataDir"></span>
  <span class="pchip" id="pchip"><span class="dot"></span><span id="pchipT"></span></span>
  <button id="btnModels" data-t="models"></button>
+ <button id="btnSettings" data-t="settings"></button>
  <button id="btnGuide" data-t="guide"></button>
  <span class="seg" id="langSeg"><button data-l="lt">LT</button><button data-l="en">EN</button></span>
  <a href="#" id="themeBtn">◐</a>
@@ -147,6 +148,9 @@ a{color:var(--link)}
 <div class="ovl" id="ask"><div class="box" style="width:min(460px,92vw)">
  <div id="askText" style="font-size:.86rem;margin:2px 0 8px"></div><input id="askInput" hidden>
  <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><button id="askNo"></button><button class="pri" id="askYes"></button></div></div></div>
+<div class="ovl" id="setdlg"><div class="box" style="width:min(820px,95vw)">
+ <h3><span data-t="setTitle"></span><span class="sp"></span><span class="k" id="sMsg"></span><button class="pri" id="sSave" data-t="save"></button><button id="sClose" data-t="close"></button></h3>
+ <div class="note" id="sHelp" style="margin-bottom:8px"></div><div id="sEnv"></div><div id="sBody"></div></div></div>
 <div class="ovl" id="guide"><div class="box">
  <h3><span data-t="guide"></span><span class="sp"></span><a id="guideOpen" target="_blank" data-t="openTab"></a><button id="gClose" data-t="close"></button></h3>
  <iframe id="guideFrame" title="guide"></iframe></div></div>
@@ -161,9 +165,9 @@ const today=()=>new Date().toISOString().slice(0,10);
 /* ---- kalba ------------------------------------------------------------------
    Visi užrašai čia; žinyno tekstai (tipai, žingsniai) - catalog.json lt/en laukuose. */
 const T={
- lt:{models:'⚙ Modelių sąranka',guide:'? Kaip dirbti',newResin:'+ Nauja derva',save:'Įrašyti',close:'Uždaryti',openTab:'atidaryti atskirai',cancel:'Atšaukti',
+ lt:{models:'▦ Modelių sąranka',settings:'⚙ Nustatymai',guide:'? Kaip dirbti',newResin:'+ Nauja derva',save:'Įrašyti',close:'Uždaryti',openTab:'atidaryti atskirai',cancel:'Atšaukti',
   loading:'Kraunama…',noResins:'Dervų dar nėra. Pradėk nuo „+ Nauja derva“.',pick:'Pasirink dervą kairėje arba pradėk naują.',
-  data:'Duomenys',printer:'Printeris',printerSet:'Printerio adresas (pvz. 192.168.1.138):',pNone:'printeris nenurodytas',pOff:'neatsako',pIdle:'laisvas',pBusy:'spausdina',
+  data:'Duomenys',printer:'Printeris',pNone:'printeris nenurodytas',pOff:'neatsako',pIdle:'laisvas',pBusy:'spausdina',
   restore:'↩ grąžinti „{0}“',tests:'band.',
   st_laukiam:'Laukiam siuntos',st_gauta:'Gauta',st_testuojama:'Testuojama',st_paskelbta:'Paskelbta bibliotekoje',st_netinka:'Netinka (nepaskelbta)',
   maker:'Gamintojas',name:'Pavadinimas',type:'Tipas',color:'Spalva',source:'Iš kur',received:'Gauta',wash:'Plovimas',status:'Būsena',reason:'Kodėl netinka (gamintojui)',
@@ -190,7 +194,7 @@ const T={
   x3b:'Atspausdink dar vieną standartinį testą su kitu Regular (±1 žingsnis) - tada bus ką palyginti.',x3bb:'Kitas bandymas',
   x3c:'Palygink {0} bandymus ir pažymėk geriausią ⭐ - jo parametrai eis toliau ir į biblioteką.',x3cb:'Palyginti',
   x4:'Atspausdink paprastą modelį su ⭐ parametrais.',x5:'Atspausdink sudėtingą modelį su ⭐ parametrais - jo nuotraukos eis į bibliotekos įrašą.',x45b:'Pradėti',
-  x45m:'Šiam tipui modelis nepriskirtas - priskirk ⚙ sąrankoje arba praleisk žingsnį.',
+  x45m:'Šiam tipui modelis nepriskirtas - priskirk „Modelių sąrankoje“ arba praleisk žingsnį.',
   x6:'Viskas paruošta: ⭐ parametrai ({0}) gali eiti į biblioteką ir į printerį.',x6b:'→ Į biblioteką',x6p:'Įrašyti į printerį',
   xDone:'Šis sluoksnio aukštis baigtas. Perjunk kitą aukštį viršuje dešinėje.',
   bestFrom:'iš ⭐: {0}',
@@ -210,10 +214,19 @@ const T={
   err_job_running:'Jau vyksta kitas darbas ({0}) - palauk.',err_no_model:'Modelio failo nėra: {0}',err_nothing_to_restore:'Nėra ką grąžinti.',
   delResin:'Ištrinti dervą',delResinQ:'Ištrinti „{0}“ su {1} bandymais ir nuotraukomis? Aplankas bus perkeltas į _deleted, ne sunaikintas.',
   delTestQ:'Ištrinti bandymą ({0}, {1})? Jo nuotraukos bus perkeltos į photos\\_deleted.',yes:'Taip, ištrinti',no:'Ne',deleted:'Ištrinta.',
+  setTitle:'Nustatymai - kur kas guli',setHelp:'Kelią nukopijuok iš Windows naršyklės: Shift + dešinys pelės mygtukas ant aplanko → „Kopijuoti kaip kelią“, ir įklijuok. Tuščias laukas = numatytasis kelias. Nustatymai saugomi faile {0}.',
+  sData:'Duomenų aplankas',sDataH:'dervų įrašai, bandymai, nuotraukos, modelių priskyrimas',sModels:'Testinių modelių aplankas',sModelsH:'STL failai; sukarpyti SL1 - poaplankyje _sliced',
+  sPrusa:'PrusaSlicer (karpymui)',sPrusaH:'prusa-slicer-console.exe',sScad:'OpenSCAD (modelių peržiūroms)',sScadH:'openscad.com; nėra - nėra peržiūrų, visa kita veikia',
+  sPrinter:'Printerio adresas',sPrinterH:'pvz. 192.168.1.138; printeryje turi būti įjungtas Web control',
+  sCopy:'Nukopijuoti esamus failus į naują vietą (senas aplankas lieka, kol jo neištrinsi pats)',sOpen:'📂 Atidaryti',sSliced:'📂 _sliced',sLocal:'📂 nustatymų failas',
+  sOk:'yra',sMissing:'nėra - bus sukurtas',sMissingFile:'failo nėra',sDefault:'numatytasis',sEnv:'Duomenų aplankas šiam paleidimui nurodytas RESIN_LAB_DATA - pakeitimas galios, kai įrankis bus paleistas įprastai.',
+  sSaved:'Nustatymai įrašyti.',sCopied:'Nukopijuota failų: {0}.',job_copy_data_dir:'Kopijuojami duomenys…',job_copy_models_dir:'Kopijuojami modeliai…',
+  err_bad_path:'Kelias turi būti pilnas, pvz. C:\\…: {0}',err_nested_path:'Naujas aplankas negali būti senojo viduje (ar atvirkščiai): {0}',err_no_file:'Tokio failo nėra: {0}',
+  err_no_folder:'Aplanko nėra: {0}',err_bad_host:'Netinkamas adresas: {0}',
   err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}'},
- en:{models:'⚙ Model setup',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
+ en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
   loading:'Loading…',noResins:'No resins yet. Start with “+ New resin”.',pick:'Pick a resin on the left or start a new one.',
-  data:'Data',printer:'Printer',printerSet:'Printer address (e.g. 192.168.1.138):',pNone:'no printer set',pOff:'not answering',pIdle:'idle',pBusy:'printing',
+  data:'Data',printer:'Printer',pNone:'no printer set',pOff:'not answering',pIdle:'idle',pBusy:'printing',
   restore:'↩ restore “{0}”',tests:'tests',
   st_laukiam:'Awaiting delivery',st_gauta:'Received',st_testuojama:'Testing',st_paskelbta:'Published in library',st_netinka:'Not suitable (not published)',
   maker:'Maker',name:'Name',type:'Type',color:'Colour',source:'Source',received:'Received',wash:'Wash',status:'Status',reason:'Why not suitable (for the maker)',
@@ -240,7 +253,7 @@ const T={
   x3b:'Print another standard test with a different Regular (±1 step) - then there is something to compare.',x3bb:'Next test',
   x3c:'Compare the {0} tests and mark the best ⭐ - its parameters go forward and into the library.',x3cb:'Compare',
   x4:'Print the simple model with the ⭐ parameters.',x5:'Print the complex model with the ⭐ parameters - its photos go into the library entry.',x45b:'Start',
-  x45m:'No model is assigned for this type - assign one in ⚙ setup or skip the step.',
+  x45m:'No model is assigned for this type - assign one in “Model setup” or skip the step.',
   x6:'Ready: the ⭐ parameters ({0}) can go to the library and to the printer.',x6b:'→ To library',x6p:'Save to printer',
   xDone:'This layer height is done. Switch to the other height at the top right.',
   bestFrom:'from ⭐: {0}',
@@ -260,6 +273,15 @@ const T={
   err_job_running:'Another job is running ({0}) - wait.',err_no_model:'Model file missing: {0}',err_nothing_to_restore:'Nothing to restore.',
   delResin:'Delete resin',delResinQ:'Delete “{0}” with its {1} tests and photos? The folder is moved to _deleted, not destroyed.',
   delTestQ:'Delete this test ({0}, {1})? Its photos move to photos\\_deleted.',yes:'Yes, delete',no:'No',deleted:'Deleted.',
+  setTitle:'Settings - where things live',setHelp:'Copy a path from Windows Explorer: Shift + right-click the folder → “Copy as path”, then paste. Empty = default path. Settings live in {0}.',
+  sData:'Data folder',sDataH:'resin records, tests, photos, model assignment',sModels:'Test model folder',sModelsH:'STL files; sliced SL1 in the _sliced subfolder',
+  sPrusa:'PrusaSlicer (slicing)',sPrusaH:'prusa-slicer-console.exe',sScad:'OpenSCAD (model previews)',sScadH:'openscad.com; without it there are no previews, everything else works',
+  sPrinter:'Printer address',sPrinterH:'e.g. 192.168.1.138; Web control must be on on the printer',
+  sCopy:'Copy the existing files to the new place (the old folder stays until you delete it yourself)',sOpen:'📂 Open',sSliced:'📂 _sliced',sLocal:'📂 settings file',
+  sOk:'exists',sMissing:'missing - will be created',sMissingFile:'file missing',sDefault:'default',sEnv:'The data folder for this run is set by RESIN_LAB_DATA - a change takes effect when the tool is started normally.',
+  sSaved:'Settings saved.',sCopied:'Files copied: {0}.',job_copy_data_dir:'Copying data…',job_copy_models_dir:'Copying models…',
+  err_bad_path:'The path must be absolute, e.g. C:\\…: {0}',err_nested_path:'The new folder cannot be inside the old one (or the other way round): {0}',err_no_file:'No such file: {0}',
+  err_no_folder:'No such folder: {0}',err_bad_host:'Invalid address: {0}',
   err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}'}};
 let LANG='lt';
 try{const l=localStorage.getItem('tmLabLang');if(l==='en'||l==='lt')LANG=l;}catch(e){}
@@ -836,10 +858,7 @@ $('pchip').addEventListener('click',async()=>{
     try{const j=await post('/api/lab/printer/restore');msg('okbox',t('restored',j.selected));}catch(e){msg('err',errText(e));}
     return refreshPrinter();
   }
-  const h=await ask(t('printerSet'),{input:CFG.printer||''});
-  if(h===null)return;
-  try{await api('/api/lab/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({printer:h.trim()})});
-    CFG.printer=h.trim();refreshPrinter();}catch(e){msg('err',errText(e));}
+  openSettings();
 });
 async function fillFromPrinter(){
   try{const j=await api('/api/lab/printer/current');paramsForm(Object.assign({},defaultParams(sel.step,sel.lh),j.values));}
@@ -942,11 +961,57 @@ async function saveModels(){
   catch(e){$('mMsg').textContent=errText(e);}
 }
 
+/* ---- nustatymai ------------------------------------------------------------
+   Keliai į duomenis, modelius ir programas. Pakeitus duomenų ar modelių aplanką,
+   esamus failus galima nukopijuoti į naują vietą - įrankis persijungia tik kopijai
+   pavykus, tad niekas nepasimeta pusiaukelėje. */
+let SETV=null;
+const SROWS=[['data_dir','sData','sDataH','dir'],['models_dir','sModels','sModelsH','dir'],
+  ['prusaslicer','sPrusa','sPrusaH','exe'],['openscad','sScad','sScadH','exe'],['printer','sPrinter','sPrinterH','host']];
+async function openSettings(){
+  try{SETV=await api('/api/lab/settings');}catch(e){msg('err',errText(e));return;}
+  $('sHelp').textContent=t('setHelp',SETV.local_file);
+  $('sEnv').innerHTML=SETV.env_data?'<div class="warn" style="margin-bottom:6px">'+esc(t('sEnv'))+'</div>':'';
+  $('sBody').innerHTML=SROWS.map(([k,lab,help,kind])=>{
+    const v=SETV[k]||{},isDef=kind!=='host'&&v.value===SETV.defaults[k];
+    const st=kind==='host'?'':'<span class="k" id="st_'+k+'">'+esc(v.exists?t('sOk'):kind==='dir'?t('sMissing'):t('sMissingFile'))+(isDef?' · '+t('sDefault'):'')+'</span>';
+    return '<div style="border-top:1px solid var(--line);padding:7px 0"><label><span>'+esc(t(lab))+' <span class="k" style="font-weight:400">- '+esc(t(help))+'</span></span></label>'+
+      '<div style="display:flex;gap:6px;align-items:center"><input id="sv_'+k+'" value="'+esc(v.value||'')+'" placeholder="'+esc(SETV.defaults[k]||'')+'" style="flex:1">'+
+      (kind==='host'?'':'<button data-open="'+k+'">'+esc(t('sOpen'))+'</button>')+(k==='models_dir'?'<button data-open="sliced">'+esc(t('sSliced'))+'</button>':'')+'</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;margin-top:3px">'+st+
+      (kind==='dir'?'<label id="cp_'+k+'" hidden style="display:flex;gap:4px;align-items:center;font-weight:400"><input type="checkbox" id="sc_'+k+'" checked style="width:auto">'+esc(t('sCopy'))+'</label>':'')+'</div></div>';
+  }).join('')+'<div style="border-top:1px solid var(--line);padding-top:7px"><button data-open="local">'+esc(t('sLocal'))+'</button></div>';
+  ['data_dir','models_dir'].forEach(k=>{const i=$('sv_'+k);i.addEventListener('input',()=>{
+    const changed=(i.value.trim()||SETV.defaults[k])!==SETV[k].value;$('cp_'+k).hidden=!changed;});});
+  $('sBody').querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',async()=>{
+    try{await post('/api/lab/open',{what:b.dataset.open});}catch(e){$('sMsg').textContent=errText(e);}}));
+  $('sMsg').textContent='';$('setdlg').classList.add('on');
+}
+async function saveSettings(){
+  const req={};SROWS.forEach(([k])=>{req[k]=$('sv_'+k).value.trim();});
+  ['data_dir','models_dir'].forEach(k=>{req['copy_'+k]=!$('cp_'+k).hidden&&$('sc_'+k).checked;});
+  const btn=$('sSave');btn.disabled=true;$('sMsg').textContent='…';
+  try{
+    let res=await api('/api/lab/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)});
+    if(res.job)res=await waitJob(st=>{if(st){const [k,n]=st.split(' ');$('sMsg').textContent=t('job_'+k)+(n?' '+n:'');}});
+    const n=Object.values(res.copied||{}).reduce((a,b)=>a+b,0);
+    $('setdlg').classList.remove('on');
+    CFG=await api('/api/lab/config');$('dataDir').textContent=t('data')+': '+CFG.data_dir;$('dataDir').title=CFG.data_dir+'\n'+CFG.models_dir;
+    all={};cur=null;try{await reloadModels();}catch(e){}
+    await loadList();render();refreshPrinter();
+    msg('okbox',t('sSaved')+(n?' '+t('sCopied',n):''));
+  }catch(e){$('sMsg').textContent=errText(e);}
+  btn.disabled=false;
+}
+
 /* ---- vadovas --------------------------------------------------------------- */
 function openGuide(){const u='vadovas.html?lang='+LANG;$('guideFrame').src=u;$('guideOpen').href=u;$('guide').classList.add('on');}
 
 $('btnNew').addEventListener('click',newResin);
 $('btnModels').addEventListener('click',openModels);
+$('btnSettings').addEventListener('click',openSettings);
+$('sClose').addEventListener('click',()=>$('setdlg').classList.remove('on'));
+$('sSave').addEventListener('click',saveSettings);
 $('mClose').addEventListener('click',()=>$('mdlg').classList.remove('on'));
 $('mSave').addEventListener('click',saveModels);
 $('btnGuide').addEventListener('click',openGuide);
