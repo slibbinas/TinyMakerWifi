@@ -478,7 +478,7 @@ function resinCard(){
   if(!r._edit){
     const s=suggest(r);
     return '<div class="card"><h3 style="flex-wrap:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+esc(r.maker+' '+r.name)+'">'+esc(r.maker+' '+r.name)+'</span>'+
-      '<span class="chip" style="flex:none">'+esc(L(typeOf(r)))+'</span>'+
+      '<span class="chip" style="flex:none" title="'+esc(L(typeOf(r)))+'">'+esc(LF(typeOf(r),'short')||L(typeOf(r)))+'</span>'+
       (r.notes?'<span class="chip" style="cursor:help;flex:none" title="'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
       '<span class="sp"></span>'+(isPublished(r)?'<button class="danger" disabled title="'+esc(t('delResinPub'))+'">'+esc(t('delResin'))+'</button>':
         '<button class="danger" id="btnDelResin">'+esc(t('delResin'))+'</button>')+'<button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
