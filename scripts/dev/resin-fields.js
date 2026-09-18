@@ -19,7 +19,8 @@ const F=[
  {k:'cal_factor',       t:'Kalibr. koeficientas',u:'', min:0.5,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
  {k:'cal_fixed_ml',     t:'Pastovus priedas',u:'ml',   min:0,  max:10, step:0.01, dec:2,mode:'skip',dmin:1}
 ];
-/* Gamyklinis „slow" - naujos dervos startas (RESIN_BUILTIN, ResinProfile.ino). */
+/* Gamyklinis „fast" (SUNLU, pamatuotas printeryje) - naujos dervos startas
+   (RESIN_BUILTIN, ResinProfile.ino:99-102). */
 const BASE={layer_height:0.05,base_exposure:18,regular_exposure:8.0,base_layers:4,
  transition_layers:5,slow_lift_distance:1,fast_lift_distance:2,slow_lift_feedrate:40,
  fast_lift_feedrate:50,drop_back_feedrate:50,density:1.1,cal_factor:1.0,cal_fixed_ml:0.0};

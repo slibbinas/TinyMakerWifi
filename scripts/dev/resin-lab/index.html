@@ -173,7 +173,7 @@ const T={
   maker:'Gamintojas',name:'Pavadinimas',type:'Tipas',color:'Spalva',source:'Iš kur',received:'Gauta',wash:'Plovimas',status:'Būsena',reason:'Kodėl netinka (gamintojui)',
   spec:'Gamintojo spec lapas (RGB tikslesnis - TinyMaker ekranas spalvotas)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bazinė, s',monoB:'Mono bazinė, s',bl:'Baz. sl.',density:'Tankis',notes:'Pastabos',
   edit:'Keisti',create:'Sukurti',folder:'Aplankas Drive',needName:'Reikia gamintojo ir pavadinimo.',saved:'Įrašyta.',failed:'Nepavyko: {0}',
-  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',whyShort:'iš ko',viscous:'Tąsi derva: kaprizingi pirmi sluoksniai - pirma lėtink kėlimą, ne ilgink ekspoziciją.',
+  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',whyFloor:'ne mažiau nei Mono {0} s × {1} (spalvotas ekranas)',whyBase:'Base = didesnis iš Regular × {0} ir spec lapo bazinės {1} s',guess:'spėta',guessT:'Gamintojo skaičių nerasta - spec lapo laukuose tipinės reikšmės',guessBox:'Skaičiai spėti (gamintojo nerasta)',whyShort:'iš ko',viscous:'Tąsi derva: kaprizingi pirmi sluoksniai - pirma lėtink kėlimą, ne ilgink ekspoziciją.',
   newTest:'Naujas bandymas',editTest:'Keičiamas bandymas',step:'Žingsnis',layer:'Sluoksnis',date:'Data',rating:'Įvertinimas',
   r1:'★ nepavyko',r2:'★★ prastai',r3:'★★★ vidutiniškai',r4:'★★★★ gerai',r5:'★★★★★ puikiai',
   params:'Parametrai, kaip buvo printeryje',cond:'Sąlygos ir matavimai',room:'Kambarys, °C',resinT:'Derva, °C',cure:'Kietinimas, min',ml:'Sunaudota, ml',mins:'Trukmė, min',grams:'Svoris, g',
@@ -232,7 +232,7 @@ const T={
   maker:'Maker',name:'Name',type:'Type',color:'Colour',source:'Source',received:'Received',wash:'Wash',status:'Status',reason:'Why not suitable (for the maker)',
   spec:'Maker’s datasheet (RGB is closer - the TinyMaker screen is colour)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bottom, s',monoB:'Mono bottom, s',bl:'Bottom layers',density:'Density',notes:'Notes',
   edit:'Edit',create:'Create',folder:'Drive folder',needName:'Maker and name are required.',saved:'Saved.',failed:'Failed: {0}',
-  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',whyShort:'why',viscous:'Viscous resin: fussy first layers - slow the lift before adding exposure.',
+  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',whyFloor:'at least Mono {0} s × {1} (colour screen)',whyBase:'Base = larger of Regular × {0} and the datasheet bottom {1} s',guess:'guessed',guessT:'No maker numbers found - the datasheet fields hold typical values',guessBox:'Numbers are a guess (no maker data)',whyShort:'why',viscous:'Viscous resin: fussy first layers - slow the lift before adding exposure.',
   newTest:'New test',editTest:'Editing test',step:'Step',layer:'Layer',date:'Date',rating:'Rating',
   r1:'★ failed',r2:'★★ poor',r3:'★★★ fair',r4:'★★★★ good',r5:'★★★★★ excellent',
   params:'Parameters as set on the printer',cond:'Conditions and measurements',room:'Room, °C',resinT:'Resin, °C',cure:'Cure, min',ml:'Used, ml',mins:'Time, min',grams:'Weight, g',
@@ -352,15 +352,27 @@ function factor(col,skip){
   return {k:ks.length%2?ks[(ks.length-1)/2]:(ks[ks.length/2-1]+ks[ks.length/2])/2,who:who};
 }
 function suggest(r){
-  const ds=r.datasheet||{};
+  const ds=r.datasheet||{},sd=CAT.seeds;
   for(const col of ['rgb_normal','mono_normal']){
     const m=mid(ds[col]);if(!m)continue;
     const f=factor(col,r.slug);if(!f)continue;
     const fR=F.find(x=>x.k==='regular_exposure'),fB=F.find(x=>x.k==='base_exposure');
     const clamp=(v,fl)=>Math.min(fl.max,Math.max(fl.min,v));
-    const reg=clamp(Math.round(m*f.k*2)/2,fR);
-    const out={regular_exposure:reg,base_exposure:clamp(Math.round(reg*CAT.seeds.base_ratio),fB),
-      why:(col==='rgb_normal'?'RGB':'Mono')+' '+num(m.toFixed(2))+' s × '+num(f.k.toFixed(2))+' ('+f.who.join(', ')+'); Base = Regular × '+num(CAT.seeds.base_ratio)};
+    const why=[(col==='rgb_normal'?'RGB':'Mono')+' '+num(m.toFixed(2))+' s × '+num(f.k.toFixed(2))+' ('+f.who.join(', ')+')'];
+    /* Apatinė riba (V 2026-09-18): vienos SUNLU dervos santykis spalvotam ekranui
+       per mažas - Anycubic WW gaudavo 6,5 s, o gamyklinis profilis 14 s, ir juosta
+       (40-160 %) jo nepasiekdavo. Su riba WW juosta siekia ~14 s. */
+    let v=m*f.k;
+    const mm=mid(ds.mono_normal);
+    if(mm&&sd.mono_floor&&mm*sd.mono_floor>v){v=mm*sd.mono_floor;why.push(t('whyFloor',num(mm.toFixed(2)),num(sd.mono_floor)));}
+    const reg=clamp(Math.round(v*2)/2,fR);
+    /* Bazinė - ne trumpesnė už gamintojo bazinės vidurį, be daugiklio: padauginta
+       ji visoms dervoms atsiremtų į firmware ribą 60 s. */
+    let base=Math.round(reg*sd.base_ratio);
+    const bm=mid(ds[col==='rgb_normal'?'rgb_bottom':'mono_bottom']);
+    if(bm&&Math.round(bm)>base){base=Math.round(bm);why.push(t('whyBase',num(sd.base_ratio),num(bm.toFixed(1))));}
+    else why.push('Base = Regular × '+num(sd.base_ratio));
+    const out={regular_exposure:reg,base_exposure:clamp(base,fB),why:why.join('; ')};
     const d=parseFloat(String(ds.density||'').replace(',','.'));
     if(isFinite(d)&&d>=0.8&&d<=2)out.density=d;
     return out;
@@ -479,7 +491,8 @@ function resinCard(){
     const s=suggest(r);
     return '<div class="card"><h3 style="flex-wrap:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+esc(r.maker+' '+r.name)+'">'+esc(r.maker+' '+r.name)+'</span>'+
       '<span class="chip" style="flex:none" title="'+esc(L(typeOf(r)))+'">'+esc(LF(typeOf(r),'short')||L(typeOf(r)))+'</span>'+
-      (r.notes?'<span class="chip" style="cursor:help;flex:none" title="'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
+      (ds.guess?'<span class="chip" style="cursor:help;flex:none" title="'+esc(t('guessT'))+'">'+esc(t('guess'))+'</span>':'')+
+      (r.notes?'<span class="chip" style="cursor:help;flex:none" title=""'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
       '<span class="sp"></span>'+(isPublished(r)?'<button class="danger" disabled title="'+esc(t('delResinPub'))+'">'+esc(t('delResin'))+'</button>':
         '<button class="danger" id="btnDelResin">'+esc(t('delResin'))+'</button>')+'<button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
       '<div class="sumline"><span>'+esc(t('status'))+' <b>'+esc(t('st_'+r.status))+'</b></span>'+(r.color?'<span>'+esc(t('color'))+' <b>'+esc(r.color)+'</b></span>':'')+
@@ -500,6 +513,7 @@ function resinCard(){
     '<div class="sec">'+esc(t('spec'))+'</div><div class="g g6">'+
     inp('dsRgb',t('rgb'),ds.rgb_normal,'4-12')+inp('dsMono',t('mono'),ds.mono_normal,'1.5-4')+inp('dsRgbB',t('rgbB'),ds.rgb_bottom,'20-80')+
     inp('dsMonoB',t('monoB'),ds.mono_bottom,'10-60')+inp('dsBl',t('bl'),ds.bottom_layers,'3-5')+inp('dsDen',t('density'),ds.density,'1.10')+'</div>'+
+    '<label style="display:flex;gap:4px;align-items:center;margin-top:5px"><input type="checkbox" id="dsGuess" style="width:auto"'+(ds.guess?' checked':'')+'>'+esc(t('guessBox'))+'</label>'+
     '<div class="g" style="margin-top:5px">'+inp('fNotes',t('notes'),r.notes,'')+'</div>'+
     (r._new?'<p class="note">'+esc(t('folder'))+': <b id="slugShow">'+esc(slugify(r.maker+' '+r.name)||'-')+'</b></p>':'')+'</div>';
 }
@@ -690,7 +704,7 @@ function bind(){
       r.source=$('fSource').value.trim();r.received=$('fReceived').value;r.wash=$('fWash').value.trim();r.status=$('fStatus').value;
       r.notes=$('fNotes').value;r.reason=$('fReason').value;
       r.datasheet={rgb_normal:$('dsRgb').value.trim(),mono_normal:$('dsMono').value.trim(),rgb_bottom:$('dsRgbB').value.trim(),
-        mono_bottom:$('dsMonoB').value.trim(),bottom_layers:$('dsBl').value.trim(),density:$('dsDen').value.trim()};
+        mono_bottom:$('dsMonoB').value.trim(),bottom_layers:$('dsBl').value.trim(),density:$('dsDen').value.trim(),guess:$('dsGuess').checked};
       $('fReason').parentNode.hidden=r.status!=='netinka';
       if(r._new&&$('slugShow'))$('slugShow').textContent=slugify(r.maker+' '+r.name)||'-';
     };

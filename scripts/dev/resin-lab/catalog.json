@@ -104,8 +104,9 @@
         "source": "SUNLU spec sheet (SunLu_HiTh.pdf, 2026-07-24) + published profile sunlu-tough"
       }
     ],
+    "mono_floor": 3.9,
+    "mono_floor_source": "V 2026-09-18: Regular ne mažiau nei Mono vidurys × 3,9 - spalvotas ekranas; su tuo Anycubic WW juosta pasiekia gamyklinius 14 s",
     "base_ratio": 2.25,
-    "base_ratio_min": 1.9,
     "base_ratio_source": "Sunlu Toughness 18 / 8.0; never below 1.9 (decision 2026-08-09)"
   }
 }
