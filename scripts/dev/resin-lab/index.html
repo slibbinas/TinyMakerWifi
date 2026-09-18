@@ -223,7 +223,10 @@ const T={
   sSaved:'Nustatymai įrašyti.',sCopied:'Nukopijuota failų: {0}.',job_copy_data_dir:'Kopijuojami duomenys…',job_copy_models_dir:'Kopijuojami modeliai…',
   err_bad_path:'Kelias turi būti pilnas, pvz. C:\\…: {0}',err_nested_path:'Naujas aplankas negali būti senojo viduje (ar atvirkščiai): {0}',err_no_file:'Tokio failo nėra: {0}',
   err_no_folder:'Aplanko nėra: {0}',err_bad_host:'Netinkamas adresas: {0}',
-  err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}'},
+  err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}',
+  err_no_profile:'Printeryje nerastas pasirinktas profilis: {0}',err_bad_json:'Netinkami duomenys: {0}',err_not_found:'Nerasta: {0}',
+  err_bad_slug:'Netinkamas dervos aplanko vardas: {0}',err_bad_photo:'Netinkamas nuotraukos failas: {0}',err_too_big:'Failas per didelis.',err_http:'Serveris atsakė klaida: {0}',
+  phSource:'SUNLU pavyzdys',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
  en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
   loading:'Loading…',noResins:'No resins yet. Start with “+ New resin”.',pick:'Pick a resin on the left or start a new one.',
   data:'Data',printer:'Printer',pNone:'no printer set',pOff:'not answering',pIdle:'idle',pBusy:'printing',
@@ -282,7 +285,10 @@ const T={
   sSaved:'Settings saved.',sCopied:'Files copied: {0}.',job_copy_data_dir:'Copying data…',job_copy_models_dir:'Copying models…',
   err_bad_path:'The path must be absolute, e.g. C:\\…: {0}',err_nested_path:'The new folder cannot be inside the old one (or the other way round): {0}',err_no_file:'No such file: {0}',
   err_no_folder:'No such folder: {0}',err_bad_host:'Invalid address: {0}',
-  err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}'}};
+  err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}',
+  err_no_profile:'The selected profile was not found on the printer: {0}',err_bad_json:'Invalid data: {0}',err_not_found:'Not found: {0}',
+  err_bad_slug:'Invalid resin folder name: {0}',err_bad_photo:'Invalid photo file: {0}',err_too_big:'The file is too big.',err_http:'The server returned an error: {0}',
+  phSource:'SUNLU sample',guideT:'Guide',themeT:'Light / dark theme'}};
 let LANG='lt';
 try{const l=localStorage.getItem('tmLabLang');if(l==='en'||l==='lt')LANG=l;}catch(e){}
 function t(k,...a){let s=(T[LANG]&&T[LANG][k])||T.lt[k]||k;a.forEach((v,i)=>{s=s.replace('{'+i+'}',v);});return s;}
@@ -294,6 +300,7 @@ function applyStatic(){
   document.documentElement.lang=LANG;
   document.querySelectorAll('[data-t]').forEach(e=>{e.textContent=t(e.dataset.t);});
   document.querySelectorAll('#langSeg button').forEach(b=>b.classList.toggle('on',b.dataset.l===LANG));
+  $('guideFrame').title=t('guideT');$('themeBtn').title=t('themeT');
 }
 
 /* ---- tema ---------------------------------------------------------------- */
@@ -507,12 +514,12 @@ function resinCard(){
     (r._new?'':'<button class="dim" id="btnCancelResin">'+esc(t('cancel'))+'</button>')+'<button class="pri" id="btnSave">'+esc(r._new?t('create'):t('save'))+'</button></h3>'+
     '<div class="g g4">'+inp('fMaker',t('maker'),r.maker,'SUNLU')+inp('fName',t('name'),r.name,'ABS-Like')+
     selBox('fType',t('type'),CAT.types.map(x=>[x.id,L(x)]),r.type)+inp('fColor',t('color'),r.color,'')+
-    inp('fSource',t('source'),r.source,'SUNLU sample')+inp('fReceived',t('received'),r.received,'','','date')+
+    inp('fSource',t('source'),r.source,t('phSource'))+inp('fReceived',t('received'),r.received,'','','date')+
     inp('fWash',t('wash'),r.wash,'IPA')+selBox('fStatus',t('status'),STATUS.map(s=>[s,t('st_'+s)]),r.status)+
     inp('fReason',t('reason'),r.reason,'','full')+'</div>'+
     '<div class="sec">'+esc(t('spec'))+'</div><div class="g g6">'+
-    inp('dsRgb',t('rgb'),ds.rgb_normal,'4-12')+inp('dsMono',t('mono'),ds.mono_normal,'1.5-4')+inp('dsRgbB',t('rgbB'),ds.rgb_bottom,'20-80')+
-    inp('dsMonoB',t('monoB'),ds.mono_bottom,'10-60')+inp('dsBl',t('bl'),ds.bottom_layers,'3-5')+inp('dsDen',t('density'),ds.density,'1.10')+'</div>'+
+    inp('dsRgb',t('rgb'),ds.rgb_normal,'4-12')+inp('dsMono',t('mono'),ds.mono_normal,num('1.5-4'))+inp('dsRgbB',t('rgbB'),ds.rgb_bottom,'20-80')+
+    inp('dsMonoB',t('monoB'),ds.mono_bottom,'10-60')+inp('dsBl',t('bl'),ds.bottom_layers,'3-5')+inp('dsDen',t('density'),ds.density,num('1.10'))+'</div>'+
     '<label style="display:flex;gap:4px;align-items:center;margin-top:5px"><input type="checkbox" id="dsGuess" style="width:auto"'+(ds.guess?' checked':'')+'>'+esc(t('guessBox'))+'</label>'+
     '<div class="g" style="margin-top:5px">'+inp('fNotes',t('notes'),r.notes,'')+'</div>'+
     (r._new?'<p class="note">'+esc(t('folder'))+': <b id="slugShow">'+esc(slugify(r.maker+' '+r.name)||'-')+'</b></p>':'')+'</div>';
@@ -650,7 +657,7 @@ function testsCard(){
 /* ---- formos užpildymas ---------------------------------------------------- */
 function paramsForm(vals){
   const g=$('tParams');if(!g)return;
-  g.innerHTML=F.map(f=>'<label title="'+esc(f.t)+(f.u?', '+f.u:'')+' ('+f.min+'-'+f.max+')"><span>'+esc(SHORT(f))+(f.u&&f.k!=='cal_fixed_ml'?', '+f.u:'')+
+  g.innerHTML=F.map(f=>'<label title="'+esc(LANG==='en'?f.te:f.t)+(f.u?', '+f.u:'')+' ('+f.min+'-'+f.max+')"><span>'+esc(SHORT(f))+(f.u&&f.k!=='cal_fixed_ml'?', '+f.u:'')+
     '</span><input type="number" data-k="'+f.k+'" step="'+f.step+'" min="'+f.min+'" max="'+f.max+'" value="'+(vals[f.k]!=null?vals[f.k]:'')+'"></label>').join('');
   g.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{
     const f=F.find(x=>x.k===i.dataset.k),v=parseFloat(i.value);i.classList.toggle('bad',!(isFinite(v)&&v>=f.min&&v<=f.max));}));
@@ -1051,7 +1058,10 @@ $('btnGuide').addEventListener('click',openGuide);
 $('gClose').addEventListener('click',()=>$('guide').classList.remove('on'));
 document.querySelectorAll('#langSeg button').forEach(b=>b.addEventListener('click',()=>{
   LANG=b.dataset.l;try{localStorage.setItem('tmLabLang',LANG);}catch(e){}
-  render();loadList();refreshPrinter();if($('guide').classList.contains('on'))openGuide();}));
+  render();loadList();refreshPrinter();if($('guide').classList.contains('on'))openGuide();
+  /* Atviri langai statomi vieną kartą - perstatomi nauja kalba (neįrašyti pakeitimai juose dingsta). */
+  if($('mdlg').classList.contains('on'))openModels();
+  if($('setdlg').classList.contains('on'))openSettings();}));
 
 /* ---- startas --------------------------------------------------------------- */
 (async function(){
