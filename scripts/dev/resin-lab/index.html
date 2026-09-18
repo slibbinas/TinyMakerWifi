@@ -207,7 +207,7 @@ const T={
   modelsHelp:'Tai vienkartinis darbas, ne bandymo dalis. Standartinis testas vienodas visoms dervoms, paprastas ir sudėtingas modeliai - pagal dervos tipą. Tada kiekviena to paties tipo derva spausdina tuos pačius modelius, ir rezultatus galima palyginti. Nauji STL - į aplanką, jie atsiras čia. Plokštė 40,8 × 30,6 mm, aukštis 60 mm.',
   useAs:'Naudoti kaip',u0:'— nenaudoti',uC:'Standartinis testas (visoms dervoms)',uS:'Paprastas modelis',uX:'Sudėtingas modelis',forTypes:'Kurioms dervoms',
   supports:'Atramos',sNo:'nereikia (guli ant plokštės)',sYes:'reikia',noteCheck:'Ką tikrinti šiame modelyje',
-  nofit:'Netelpa ant plokštės',nofitAny:' (tilptų tik kitaip paguldytas)',tri:'trikamp.',noModels:'Aplanke STL failų nėra.',
+  nofit:'Netelpa ant plokštės',nofitAny:' (tilptų tik kitaip paguldytas)',nofitCopy:'Pritaikyta kopija: {0}',tri:'trikamp.',noModels:'Aplanke STL failų nėra.',
   err_printer_unset:'Printerio adresas nenurodytas - spausk printerio ženkliuką viršuje.',err_printer_unreachable:'Printeris neatsako ({0}).',
   err_printer_busy:'Printeris užimtas: {0}',err_web_control_off:'Printeryje išjungtas valdymas per tinklą (System → Advanced → Web control).',
   err_printer_http:'Printeris atsakė klaida: {0}',err_slicer_missing:'Nerandu PrusaSlicer: {0}',err_slice_failed:'Karpyti nepavyko: {0}',
@@ -266,7 +266,7 @@ const T={
   modelsHelp:'A one-time setup, not part of a test. The standard test is the same for every resin; the simple and complex models follow the resin type. That way every resin of a type prints the same models and results stay comparable. New STL files go into the folder and show up here. Plate 40.8 × 30.6 mm, height 60 mm.',
   useAs:'Use as',u0:'— not used',uC:'Standard test (every resin)',uS:'Simple model',uX:'Complex model',forTypes:'For which resins',
   supports:'Supports',sNo:'not needed (lies on the plate)',sYes:'needed',noteCheck:'What to check on this model',
-  nofit:'Does not fit the plate',nofitAny:' (would fit laid differently)',tri:'tri.',noModels:'No STL files in the folder.',
+  nofit:'Does not fit the plate',nofitAny:' (would fit laid differently)',nofitCopy:'Adapted copy: {0}',tri:'tri.',noModels:'No STL files in the folder.',
   err_printer_unset:'No printer address - click the printer chip at the top.',err_printer_unreachable:'The printer does not answer ({0}).',
   err_printer_busy:'The printer is busy: {0}',err_web_control_off:'Web control is off on the printer (System → Advanced → Web control).',
   err_printer_http:'The printer returned an error: {0}',err_slicer_missing:'PrusaSlicer not found: {0}',err_slice_failed:'Slicing failed: {0}',
@@ -952,7 +952,8 @@ async function openModels(){
     const ro=roleOf(x.file),c=document.createElement('div');c.className='mc'+(x.fits===false?' nofit':'');
     c.innerHTML='<img src="/thumb/'+encodeURI(x.file)+'" alt="" loading="lazy"><div class="nm">'+esc(x.file)+'</div>'+
       '<div class="k">'+(x.broken?'!':esc((x.size||[]).map(num).join(' × '))+' mm · '+(x.tri||0).toLocaleString(LANG)+' '+t('tri'))+'</div>'+
-      (x.fits===false?'<div class="warn" style="margin:0">'+esc(t('nofit')+(x.fits_any?t('nofitAny'):''))+'</div>':
+      (x.fits===false?'<div class="warn" style="margin:0">'+esc(t('nofit')+(x.fits_any?t('nofitAny'):''))+'</div>'+
+        (copiesOf(x.file).length?'<div class="k">'+esc(t('nofitCopy',copiesOf(x.file).join(', ')))+'</div>':''):
       selBox('mr'+idx,t('useAs'),[['',t('u0')],['coupon',t('uC')],['simple',t('uS')],['complex',t('uX')]],ro.role)+
       '<div class="types" id="mt'+idx+'"'+(ro.role==='simple'||ro.role==='complex'?'':' hidden')+'><span class="k" style="width:100%">'+esc(t('forTypes'))+':</span>'+
         CAT.types.map(ty=>'<label><input type="checkbox" value="'+ty.id+'"'+(ro.types.indexOf(ty.id)>=0?' checked':'')+'>'+esc(L(ty))+'</label>').join('')+'</div>'+
@@ -963,10 +964,25 @@ async function openModels(){
   });
   $('mMsg').textContent='';$('mdlg').classList.add('on');
 }
+/* Netelpantis originalas ir jo sumažintos kopijos TinyMaker/ aplanke:
+   „Test_03.STL" → „TinyMaker/Test_03_Siraya_tm.stl", „…_kubas_tm.stl". */
+function copiesOf(file){
+  const stem=file.split('/').pop().replace(/\.stl$/i,'').toLowerCase();
+  return MODELS.filter(m=>m.file!==file&&m.fits!==false&&m.file.split('/').pop().toLowerCase().startsWith(stem)).map(m=>m.file);
+}
 async function saveModels(){
   const A={},N={},S={};
   MODELS.forEach((x,idx)=>{
-    const rs=$('mr'+idx);if(!rs)return;
+    const rs=$('mr'+idx);
+    /* Netelpantis modelis lange neturi laukų - jo ankstesni priskyrimai,
+       pastaba ir atramos perimami, kad įrašymas jų tyliai neištrintų. */
+    if(!rs){
+      Object.entries(MAP.assign||{}).forEach(([ty,roles])=>Object.entries(roles).forEach(([role,fs])=>{
+        if(fs.indexOf(x.file)>=0){A[ty]=A[ty]||{};(A[ty][role]=A[ty][role]||[]).push(x.file);}}));
+      if((MAP.notes||{})[x.file])N[x.file]=MAP.notes[x.file];
+      if((MAP.supports||{})[x.file])S[x.file]=true;
+      return;
+    }
     const role=rs.value;
     if(role==='coupon'){A['*']=A['*']||{};(A['*'].coupon=A['*'].coupon||[]).push(x.file);}
     else if(role){$('mt'+idx).querySelectorAll('input:checked').forEach(i=>{A[i.value]=A[i.value]||{};(A[i.value][role]=A[i.value][role]||[]).push(x.file);});}
