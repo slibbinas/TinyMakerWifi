@@ -1008,6 +1008,8 @@ const TOUR=[
   en:['Save test','The test appears in the list on the right. You can edit or delete it later.']},
  {q:'#colB>.card:last-child',need:'resin',setup:()=>{sel.step='vat';sel.all=false;render();},lt:['Bandymai','Juostų testo kortelėje su nuotrauka - „🔍 Juostos": apvedi juostas pele, įrankis jas sunumeruoja pagal skylutes ir parodo sekundes; geriausią spustelėji arba renkiesi #1-#8 mygtukais. Kituose žingsniuose: pažymi ☐ kelis ir „Palyginti" - skirtumai paryškinami; geriausią pažymi ⭐.'],
   en:['Tests','A strip test card with a photo has "🔍 Bars": frame the bars with the mouse, the tool numbers them by their holes and shows the seconds; click the best one or use the #1-#8 buttons. In other steps: tick ☐ several and "Compare" - differences are highlighted; mark the best one ⭐.']},
+ {q:'#stripCv',need:'resin',setup:tourStrip,lt:['Juostų atpažinimas','Įrankis pats randa 8 juostas ir sunumeruoja jas pagal skylutes (juosta N turi N skylučių), tad nesvarbu, kaip nuotrauka apversta. Virš juostos - numeris ir sekundės, apačioje - rastos / tikėtinos skylutės: žalia sutampa, geltona ne (užakusios ar lašelis). Oranžinis rėmelis - tavo pasirinkta juosta. Neatpažino - rinkis #1-#8 mygtukais. Čia rodomas etalono (sintetinės dervos) testas.'],
+  en:['Strip recognition','The tool finds the 8 bars itself and numbers them by their holes (bar N has N holes), so the photo orientation does not matter. Above each bar - number and seconds, below - found / expected holes: green matches, amber does not (closed holes or a droplet). The orange frame is the bar you picked. Not recognised - use the #1-#8 buttons. Shown here: the strip test of the reference (synthetic) resin.']},
  {q:'.flow .st:last-child',need:'resin',lt:['Į biblioteką','Kai yra ⭐ bandymas, kitas veiksmas pasiūlo „→ Į biblioteką" (atidaro bibliotekos puslapį su šios dervos parametrais) ir „Įrašyti į printerį" (įrašo profilį į printerį nuolat). Tai ir yra kelio pabaiga.'],
   en:['To library','When there is a ⭐ test, the next step offers "→ To library" (opens the library page with this resin\'s parameters) and "Save to printer" (stores the profile on the printer permanently). That is the end of the path.']}
 ];
@@ -1016,12 +1018,25 @@ function tourStart(){
   TR={i:-1,back:{slug:cur&&!cur._new?cur.slug:null,step:sel.step,all:sel.all}};
   $('tour').classList.add('on');tourGo(1);
 }
+/* Atpažinimo žingsniui: etalono (ar bet kurios dervos) juostų testas su nuotrauka,
+   langas atidaromas ir laukiama, kol nuotrauka nupiešta. Nėra tokio - žingsnis praleidžiamas. */
+async function tourStrip(){
+  const has=r=>r&&(r.tests||[]).find(x=>x.step==='vat'&&x.photos&&x.photos.length);
+  const r=all['etalonas-sintetinis']&&has(all['etalonas-sintetinis'])?all['etalonas-sintetinis']:Object.values(all).find(has);
+  if(!r)return;
+  if(cur.slug!==r.slug)await openResin(r.slug);
+  sel.step='vat';sel.all=false;render();
+  openStrip(has(cur).id);
+  for(let k=0;k<30&&!(ST&&ST.img.complete&&$('stripCv').width>300);k++)await new Promise(z=>setTimeout(z,100));
+}
+function tourCloseStrip(){if($('stripdlg').classList.contains('on')){$('stripdlg').classList.remove('on');ST=null;}}
 async function tourGo(d){
+  tourCloseStrip();
   let i=TR.i+d;
   while(i>=0&&i<TOUR.length){
     const s=TOUR[i];
     if(s.need==='resin'&&!cur&&list.length)await openResin(list[0].slug);
-    if(s.setup&&cur)s.setup();
+    if(s.setup&&cur)await s.setup();
     if(document.querySelector(s.q))break;
     i+=d;
   }
@@ -1035,13 +1050,17 @@ function tourShow(){
   Object.assign(hl.style,{left:r.left-4+'px',top:r.top-4+'px',width:r.width+8+'px',height:r.height+8+'px'});
   $('tourH').textContent=h;$('tourT').textContent=txt;$('tourN').textContent=(TR.i+1)+' / '+TOUR.length;
   $('tourPrev').disabled=TR.i===0;$('tourNext').textContent=TR.i===TOUR.length-1?t('tourDone'):t('tourNext');
-  const tw=Math.min(380,innerWidth-24),below=r.bottom+12+180<innerHeight;
+  const tw=Math.min(380,innerWidth-24),below=r.bottom+12+180<innerHeight,above=r.top-12-tip.offsetHeight>=12;
   tip.style.width=tw+'px';
+  if(!below&&!above&&(innerWidth-r.right>=tw+24||r.left>=tw+24)){   // aukštas elementas - šone, kad neuždengtų
+    tip.style.left=(innerWidth-r.right>=tw+24?r.right+12:r.left-12-tw)+'px';
+    tip.style.top=Math.max(12,Math.min(r.top,innerHeight-tip.offsetHeight-12))+'px';return;
+  }
   tip.style.left=Math.max(12,Math.min(r.left,innerWidth-tw-12))+'px';
   tip.style.top=(below?r.bottom+12:Math.max(12,r.top-12-tip.offsetHeight))+'px';
 }
 async function tourEnd(){
-  $('tour').classList.remove('on');const b=TR&&TR.back;TR=null;if(!b)return;
+  tourCloseStrip();$('tour').classList.remove('on');const b=TR&&TR.back;TR=null;if(!b)return;
   sel.step=b.step;sel.all=b.all;
   if(b.slug&&(!cur||cur.slug!==b.slug))await openResin(b.slug);else render();
 }
