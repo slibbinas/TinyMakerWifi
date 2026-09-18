@@ -212,7 +212,7 @@ const T={
   err_printer_busy:'Printeris užimtas: {0}',err_web_control_off:'Printeryje išjungtas valdymas per tinklą (System → Advanced → Web control).',
   err_printer_http:'Printeris atsakė klaida: {0}',err_slicer_missing:'Nerandu PrusaSlicer: {0}',err_slice_failed:'Karpyti nepavyko: {0}',
   err_job_running:'Jau vyksta kitas darbas ({0}) - palauk.',err_no_model:'Modelio failo nėra: {0}',err_nothing_to_restore:'Nėra ką grąžinti.',
-  delResin:'Ištrinti dervą',delResinQ:'Ištrinti „{0}“ su {1} bandymais ir nuotraukomis? Aplankas bus perkeltas į _deleted, ne sunaikintas.',
+  delResin:'🗑 Išmesti',delResinPub:'Paskelbta bibliotekoje - pirma išimk ją iš bibliotekos (bibliotekos puslapyje „Sustabdyti“ → „Išimti visam laikui“) ir pakeisk būseną.',err_published:'Derva paskelbta bibliotekoje - jos išmesti negalima: {0}',delResinQ:'Ištrinti „{0}“ su {1} bandymais ir nuotraukomis? Aplankas bus perkeltas į _deleted, ne sunaikintas.',
   delTestQ:'Ištrinti bandymą ({0}, {1})? Jo nuotraukos bus perkeltos į photos\\_deleted.',yes:'Taip, ištrinti',no:'Ne',deleted:'Ištrinta.',
   setTitle:'Nustatymai - kur kas guli',setHelp:'Kelią nukopijuok iš Windows naršyklės: Shift + dešinys pelės mygtukas ant aplanko → „Kopijuoti kaip kelią“, ir įklijuok. Tuščias laukas = numatytasis kelias. Nustatymai saugomi faile {0}.',
   sData:'Duomenų aplankas',sDataH:'dervų įrašai, bandymai, nuotraukos, modelių priskyrimas',sModels:'Testinių modelių aplankas',sModelsH:'STL failai; sukarpyti SL1 - poaplankyje _sliced',
@@ -271,7 +271,7 @@ const T={
   err_printer_busy:'The printer is busy: {0}',err_web_control_off:'Web control is off on the printer (System → Advanced → Web control).',
   err_printer_http:'The printer returned an error: {0}',err_slicer_missing:'PrusaSlicer not found: {0}',err_slice_failed:'Slicing failed: {0}',
   err_job_running:'Another job is running ({0}) - wait.',err_no_model:'Model file missing: {0}',err_nothing_to_restore:'Nothing to restore.',
-  delResin:'Delete resin',delResinQ:'Delete “{0}” with its {1} tests and photos? The folder is moved to _deleted, not destroyed.',
+  delResin:'🗑 Delete',delResinPub:'Published in the library - take it out of the library first (on the library page, pause and retire it) and change the status.',err_published:'The resin is published in the library and cannot be deleted: {0}',delResinQ:'Delete “{0}” with its {1} tests and photos? The folder is moved to _deleted, not destroyed.',
   delTestQ:'Delete this test ({0}, {1})? Its photos move to photos\\_deleted.',yes:'Yes, delete',no:'No',deleted:'Deleted.',
   setTitle:'Settings - where things live',setHelp:'Copy a path from Windows Explorer: Shift + right-click the folder → “Copy as path”, then paste. Empty = default path. Settings live in {0}.',
   sData:'Data folder',sDataH:'resin records, tests, photos, model assignment',sModels:'Test model folder',sModelsH:'STL files; sliced SL1 in the _sliced subfolder',
@@ -386,6 +386,8 @@ function sortTests(r,ts){
   return ts.slice().sort((a,b)=>(bs.has(b.id)-bs.has(a.id))||(starsOf(b)-starsOf(a))||(String(b.date).localeCompare(String(a.date))));
 }
 const typeOf=r=>CAT.types.find(x=>x.id===r.type)||CAT.types[0];
+// Paskelbtos dervos neišmetamos: jų profilis gyvena bibliotekoje (serveris tikrina tą patį).
+const isPublished=r=>r.status==='paskelbta'||Object.keys(r.library||{}).length>0;
 const stepOf=id=>CAT.steps.find(s=>s.id===id)||{};
 function assigned(type,step){
   const a=MAP.assign||{},k=step==='coupon'?'*':type;
@@ -478,7 +480,8 @@ function resinCard(){
     return '<div class="card"><h3 style="flex-wrap:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+esc(r.maker+' '+r.name)+'">'+esc(r.maker+' '+r.name)+'</span>'+
       '<span class="chip" style="flex:none">'+esc(L(typeOf(r)))+'</span>'+
       (r.notes?'<span class="chip" style="cursor:help;flex:none" title="'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
-      '<span class="sp"></span><button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
+      '<span class="sp"></span>'+(isPublished(r)?'<button class="danger" disabled title="'+esc(t('delResinPub'))+'">'+esc(t('delResin'))+'</button>':
+        '<button class="danger" id="btnDelResin">'+esc(t('delResin'))+'</button>')+'<button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
       '<div class="sumline"><span>'+esc(t('status'))+' <b>'+esc(t('st_'+r.status))+'</b></span>'+(r.color?'<span>'+esc(t('color'))+' <b>'+esc(r.color)+'</b></span>':'')+
       (r.received?'<span>'+esc(t('received'))+' <b>'+esc(r.received)+'</b></span>':'')+(ds.rgb_normal?'<span>RGB <b>'+esc(ds.rgb_normal)+' s</b></span>':'')+
       (ds.mono_normal?'<span>Mono <b>'+esc(ds.mono_normal)+' s</b></span>':'')+(ds.density?'<span>'+esc(t('density'))+' <b>'+esc(num(ds.density))+'</b></span>':'')+
@@ -488,7 +491,7 @@ function resinCard(){
       (r.status==='netinka'&&r.reason?'<div class="err">'+esc(r.reason)+'</div>':'')+'</div>';
   }
   return '<div class="card"><h3>'+esc(r._new?t('newResin').replace('+ ',''):r.maker+' '+r.name)+'<span class="sp"></span><span class="note" id="saveMsg" style="margin:0"></span>'+
-    (r._new?'':'<button class="danger" id="btnDelResin">'+esc(t('delResin'))+'</button><button class="dim" id="btnCancelResin">'+esc(t('cancel'))+'</button>')+'<button class="pri" id="btnSave">'+esc(r._new?t('create'):t('save'))+'</button></h3>'+
+    (r._new?'':'<button class="dim" id="btnCancelResin">'+esc(t('cancel'))+'</button>')+'<button class="pri" id="btnSave">'+esc(r._new?t('create'):t('save'))+'</button></h3>'+
     '<div class="g g4">'+inp('fMaker',t('maker'),r.maker,'SUNLU')+inp('fName',t('name'),r.name,'ABS-Like')+
     selBox('fType',t('type'),CAT.types.map(x=>[x.id,L(x)]),r.type)+inp('fColor',t('color'),r.color,'')+
     inp('fSource',t('source'),r.source,'SUNLU sample')+inp('fReceived',t('received'),r.received,'','','date')+
