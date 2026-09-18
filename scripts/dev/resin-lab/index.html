@@ -122,6 +122,11 @@ textarea{resize:vertical}
 #viewer .prev{left:10px}#viewer .next2{right:10px}
 #stripCv{max-width:100%;max-height:62vh;cursor:crosshair;border-radius:6px;align-self:center}
 #stBtns{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}#stBtns button.on{background:var(--accent);color:#fff}
+#tour{position:fixed;inset:0;z-index:30;display:none}#tour.on{display:block}
+#tourHl{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);outline:2px solid var(--accent);transition:all .2s;pointer-events:none}
+#tourTip{position:fixed;background:var(--card);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.35);font-size:.82rem}
+#tourTip h4{margin:0 0 4px;font-size:.9rem;display:flex;gap:8px}#tourTip h4 .sp{flex:1}
+#tourTip .acts{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
 #guide iframe{border:0;width:100%;height:78vh;border-radius:8px;background:var(--card)}
 a{color:var(--link)}
 @media(max-width:1180px){.app{grid-template-columns:200px 1fr}.col.c3{grid-column:2}}
@@ -132,6 +137,7 @@ a{color:var(--link)}
  <span class="pchip" id="pchip"><span class="dot"></span><span id="pchipT"></span></span>
  <button id="btnModels" data-t="models"></button>
  <button id="btnSettings" data-t="settings"></button>
+ <button id="btnTour" data-t="tour"></button>
  <button id="btnGuide" data-t="guide"></button>
  <span class="seg" id="langSeg"><button data-l="lt">LT</button><button data-l="en">EN</button></span>
  <a href="#" id="themeBtn">◐</a>
@@ -156,6 +162,8 @@ a{color:var(--link)}
 <div class="ovl" id="stripdlg"><div class="box">
  <h3><span data-t="stripTitle"></span><span class="sp"></span><span class="k" id="stMsg"></span><button class="pri" id="stSave" data-t="save"></button><button id="stClose" data-t="close"></button></h3>
  <div class="note" id="stHelp"></div><div id="stBtns"></div><div class="note" id="stSel" style="margin:2px 0 4px;color:var(--text)"></div><canvas id="stripCv"></canvas></div></div>
+<div id="tour"><div id="tourHl"></div><div id="tourTip"><h4><span id="tourH"></span><span class="sp"></span><span class="k" id="tourN"></span><a href="#" id="tourX" style="text-decoration:none;color:var(--muted)">✕</a></h4>
+ <div id="tourT"></div><div class="acts"><button id="tourPrev" data-t="tourPrev"></button><button class="pri" id="tourNext"></button></div></div></div>
 <div class="ovl" id="guide"><div class="box">
  <h3><span data-t="guide"></span><span class="sp"></span><a id="guideOpen" target="_blank" data-t="openTab"></a><button id="gClose" data-t="close"></button></h3>
  <iframe id="guideFrame" title="guide"></iframe></div></div>
@@ -231,7 +239,7 @@ const T={
   err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}',
   err_no_profile:'Printeryje nerastas pasirinktas profilis: {0}',err_bad_json:'Netinkami duomenys: {0}',err_not_found:'Nerasta: {0}',
   err_bad_slug:'Netinkamas dervos aplanko vardas: {0}',err_bad_photo:'Netinkamas nuotraukos failas: {0}',err_too_big:'Failas per didelis.',err_http:'Serveris atsakė klaida: {0}',
-  phSource:'SUNLU pavyzdys',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
+  phSource:'SUNLU pavyzdys',tour:'▶ Apžvalga',tourPrev:'Atgal',tourNext:'Toliau',tourDone:'Baigti',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
   stripHelp:'Tempk pele stačiakampį aplink visas 8 juostas, tada spustelėk geriausią. Žalia - skylučių tiek, kiek turi būti, geltona - ne. Neatpažino - rink juostą mygtukais. Taisyklė: žemiausia švari juosta plius vienas žingsnis. Ar paviršius sausas, nuotrauka neparodo - žiūrėk į tikrą juostą.',
   stripFound:'Rasta juostų: {0}, reikia 8 - apvesk tiksliau arba rink mygtukais.',stripSel:'Pasirinkta #{0} · {1} % · {2} s (bandymo Regular {3} s)',stripPickHint:'Spustelėk geriausią juostą.',stripCard:'Juosta #{0} · {1} s',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
  en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
@@ -295,7 +303,7 @@ const T={
   err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}',
   err_no_profile:'The selected profile was not found on the printer: {0}',err_bad_json:'Invalid data: {0}',err_not_found:'Not found: {0}',
   err_bad_slug:'Invalid resin folder name: {0}',err_bad_photo:'Invalid photo file: {0}',err_too_big:'The file is too big.',err_http:'The server returned an error: {0}',
-  phSource:'SUNLU sample',stripB:'🔍 Bars',stripTitle:'Strip photo',
+  phSource:'SUNLU sample',tour:'▶ Walk through',tourPrev:'Back',tourNext:'Next',tourDone:'Done',stripB:'🔍 Bars',stripTitle:'Strip photo',
   stripHelp:'Drag a rectangle around all 8 bars, then click the best one. Green - the bar has as many holes as it should, amber - it does not. Not recognised - pick the bar with the buttons. Rule: the lowest clean bar plus one step. The photo cannot show whether the surface is dry - check the real strip.',
   stripFound:'Bars found: {0}, need 8 - frame them more tightly or use the buttons.',stripSel:'Picked #{0} · {1} % · {2} s (test Regular {3} s)',stripPickHint:'Click the best bar.',stripCard:'Bar #{0} · {1} s',guideT:'Guide',themeT:'Light / dark theme'}};
 let LANG='lt';
@@ -508,7 +516,7 @@ function resinCard(){
     return '<div class="card"><h3 style="flex-wrap:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+esc(r.maker+' '+r.name)+'">'+esc(r.maker+' '+r.name)+'</span>'+
       '<span class="chip" style="flex:none" title="'+esc(L(typeOf(r)))+'">'+esc(LF(typeOf(r),'short')||L(typeOf(r)))+'</span>'+
       (ds.guess?'<span class="chip" style="cursor:help;flex:none" title="'+esc(t('guessT'))+'">'+esc(t('guess'))+'</span>':'')+
-      (r.notes?'<span class="chip" style="cursor:help;flex:none" title=""'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
+      (r.notes?'<span class="chip" style="cursor:help;flex:none" title="'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
       '<span class="sp"></span>'+(isPublished(r)?'<button class="danger" disabled title="'+esc(t('delResinPub'))+'">'+esc(t('delResin'))+'</button>':
         '<button class="danger" id="btnDelResin">'+esc(t('delResin'))+'</button>')+'<button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
       '<div class="sumline"><span>'+esc(t('status'))+' <b>'+esc(t('st_'+r.status))+'</b></span>'+(r.color?'<span>'+esc(t('color'))+' <b>'+esc(r.color)+'</b></span>':'')+
@@ -953,6 +961,95 @@ function drawStrip(){
     try{await persist(false);$('stMsg').textContent=t('saved');render();}catch(e){$('stMsg').textContent=errText(e);}
   });
 })();
+
+/* ---- apžvalga (walk through) ------------------------------------------------
+   Žingsnis po žingsnio paryškina įrankio dalis (V 2026-09-18). Tik rodo:
+   nieko neįrašo, printerio neliečia; pabaigoje grąžina tą dervą ir žingsnį,
+   kurie buvo atidaryti. Žingsnis, kurio elemento nėra (pvz. dar nėra dervų
+   ar bandymų), praleidžiamas. */
+const TOUR=[
+ {q:'.brand',lt:['Resin Lab','Įrankis dervoms testuoti prieš dedant jas į pulto dervų biblioteką. Kiekviena derva eina tuo pačiu keliu: įrašai dervą → juostų testas → standartinis testas → paprastas ir sudėtingas modelis → biblioteka. Apžvalga nieko nekeičia - tik rodo.'],
+  en:['Resin Lab','A tool for testing resins before they go into the dashboard resin library. Every resin follows the same path: enter the resin → exposure strip → standard test → simple and complex model → library. This walk through changes nothing - it only shows.']},
+ {q:'#dataDir',lt:['Kur guli duomenys','Dervų įrašai ir nuotraukos - tavo Google Drive aplanke. Kelią keiti per ⚙ Nustatymai.'],
+  en:['Where the data lives','Resin records and photos are in your Google Drive folder. Change the path in ⚙ Settings.']},
+ {q:'#pchip',lt:['Printeris','Printerio būsena: nenurodytas, neatsako, laisvas, spausdina. Spustelėjus atsidaro nustatymai, kur įrašai printerio IP. Jei testui buvo uždėtas laikinas profilis, spustelėjus pasiūlo grąžinti ankstesnį.'],
+  en:['Printer','Printer state: not set, not answering, idle, printing. Click it to open settings and enter the printer IP. If a temporary test profile is on the printer, clicking offers to restore the previous one.']},
+ {q:'#btnModels',lt:['Modelių sąranka','Vienkartinis darbas: kuris STL eina į kurį žingsnį ir kuriai dervų rūšiai. Netelpantis modelis pilkas, prie jo parašyta, kuri pritaikyta kopija telpa. Čia pat - pastaba „ką tikrinti" ir ar reikia atramų.'],
+  en:['Model setup','A one-time job: which STL goes to which step and which resin type. A model that does not fit is grey and names the adapted copy that fits. Here too: a "what to check" note and whether it needs supports.']},
+ {q:'#btnSettings',lt:['Nustatymai','Duomenų ir modelių aplankai, printerio adresas, PrusaSlicer kelias. Pakeitus aplanką, duomenis galima perkelti į naują vietą.'],
+  en:['Settings','Data and model folders, printer address, PrusaSlicer path. When you change a folder, the data can be moved to the new place.']},
+ {q:'#btnGuide',lt:['Vadovas, kalba, tema','„? Kaip dirbti" - pilnas aprašymas skaitymui. LT | EN perjungia kalbą, ◐ - šviesi ar tamsi tema.'],
+  en:['Guide, language, theme','"? How it works" is the full written guide. LT | EN switches the language, ◐ the light or dark theme.']},
+ {q:'#resList',lt:['Dervų sąrašas','Visos dervos su būsena: laukiam siuntos, gauta, testuojama, paskelbta bibliotekoje, netinka. Spustelėk dervą - dešinėje atsidaro jos kortelė ir bandymai.'],
+  en:['Resin list','All resins with their state: awaiting delivery, received, testing, published in the library, unsuitable. Click a resin to open its card and tests on the right.']},
+ {q:'#btnNew',lt:['Nauja derva','Gamintojas, pavadinimas, rūšis ir gamintojo spec lapo ekspozicija. Iš jos įrankis paskaičiuoja pradžią. Jei gamintojo skaičių nėra ir įvedi tipinius, pažymėk „Skaičiai spėti".'],
+  en:['New resin','Maker, name, type and the maker\'s datasheet exposure. The tool works out the start values from it. If there are no maker numbers and you enter typical ones, tick "Numbers are a guess".']},
+ {q:'#colA>.card:first-child',need:'resin',lt:['Dervos kortelė','Ženkliukai: rūšis, „spėta", ⓘ pastabos. „Pradžiai" - Regular ir Base, nuo kurių pradėti; „iš ko" parodo skaičiavimą (spalvotam ekranui ne mažiau nei mono × 3,9, Base ne trumpesnė už gamintojo). Keisti ar išmesti - dešinėje; paskelbtos dervos išmesti negalima.'],
+  en:['Resin card','Chips: type, "guessed", ⓘ notes. "Start with" gives the Regular and Base to begin from; "why" shows the calculation (for the colour screen at least mono × 3.9, Base not shorter than the maker\'s). Edit or delete on the right; a published resin cannot be deleted.']},
+ {q:'.flow',need:'resin',lt:['Eiga','Šeši žingsniai. Žalias - padarytas, oranžinis - dabartinis. Spustelėjus žingsnį, forma ir bandymų sąrašas persijungia į jį. Viršuje dešinėje - sluoksnio aukštis: 0,05 ir 0,10 mm testuojami atskirai.'],
+  en:['Workflow','Six steps. Green - done, orange - current. Click a step to switch the form and the test list to it. Top right: layer height - 0.05 and 0.10 mm are tested separately.']},
+ {q:'.next',need:'resin',lt:['Kitas veiksmas','Įrankis visada pasako, ką daryti toliau, ir mygtukas nuveda ten: užpildyti dervą, įrašyti juostų testą, spausdinti modelį, palyginti, į biblioteką.'],
+  en:['Next step','The tool always says what to do next, and the button takes you there: fill in the resin, record the strip test, print a model, compare, go to the library.']},
+ {q:'#colA>.card:nth-child(2)>h3',need:'resin',setup:()=>{sel.step='coupon';sel.all=false;render();},lt:['Naujas bandymas','Kiekvienas spaudinys - vienas bandymas: žingsnis, sluoksnis, data, įvertinimas žvaigždutėmis.'],
+  en:['New test','Every print is one test: step, layer, date, star rating.']},
+ {q:'#mStripBox',need:'resin',lt:['Modeliai šiam žingsniui','„Spausdinti printeryje" sukarpo modelį (PrusaSlicer), uždeda laikiną profilį „lab-test" su formos parametrais ir paleidžia spaudinį. Po testo profilį grąžini per printerio ženkliuką. STL - atsisiųsti, SL1 - sukarpytas failas, „Sukarpyti" - tik paruošti.'],
+  en:['Models for this step','"Print on printer" slices the model (PrusaSlicer), puts a temporary "lab-test" profile with the form\'s parameters on the printer and starts the print. After the test, restore the profile via the printer chip. STL - download, SL1 - the sliced file, "Slice" - prepare only.']},
+ {q:'#tParams',need:'resin',lt:['Parametrai','Tokie, kokie buvo printeryje. Mygtukai virš jų: „pradiniai" - iš formulės, „iš ⭐" - iš geriausio bandymo, „iš printerio" - dabartinis printerio profilis. Už ribų esanti reikšmė pažymima raudonai - printeris jos nepriimtų.'],
+  en:['Parameters','As they were on the printer. Buttons above: "start values" - from the formula, "from ⭐" - from the best test, "from printer" - the printer\'s current profile. A value out of range is marked red - the printer would not accept it.']},
+ {q:'#btnMeasure',need:'resin',lt:['Sąlygos ir matavimai','Kambario ir dervos temperatūra, plovimas, kietinimas. „Nurašyti iš printerio" paima sunaudotą dervą (ml) ir trukmę iš ką tik baigto spaudinio.'],
+  en:['Conditions','Room and resin temperature, wash, cure. "Read from printer" takes the resin used (ml) and the time from the print that just finished.']},
+ {q:'#tVerdict',need:'resin',lt:['Ką matai','Trumpai ir konkrečiai: kas išėjo, kas ne. Pvz. „kaištukai 0,3 išėjo, 0,2 ne; plyšiai iki 0,3 atviri".'],
+  en:['What you see','Short and concrete: what printed and what did not. E.g. "0.3 pins printed, 0.2 did not; slots open down to 0.3".']},
+ {q:'#drop',need:'resin',lt:['Nuotraukos','Nutempk failus, įklijuok Ctrl+V arba spausk ir pasirink. Nuotraukos saugomos prie bandymo; jas matysi lyginant ir jos eina į bibliotekos įrašą.'],
+  en:['Photos','Drop files, paste with Ctrl+V or click to choose. Photos are stored with the test; you see them when comparing and they go into the library entry.']},
+ {q:'#btnTest',need:'resin',lt:['Įrašyti bandymą','Bandymas atsiranda sąraše dešinėje. Vėliau jį galima taisyti ar išmesti.'],
+  en:['Save test','The test appears in the list on the right. You can edit or delete it later.']},
+ {q:'#colB>.card:last-child',need:'resin',setup:()=>{sel.step='vat';sel.all=false;render();},lt:['Bandymai','Juostų testo kortelėje su nuotrauka - „🔍 Juostos": apvedi juostas pele, įrankis jas sunumeruoja pagal skylutes ir parodo sekundes; geriausią spustelėji arba renkiesi #1-#8 mygtukais. Kituose žingsniuose: pažymi ☐ kelis ir „Palyginti" - skirtumai paryškinami; geriausią pažymi ⭐.'],
+  en:['Tests','A strip test card with a photo has "🔍 Bars": frame the bars with the mouse, the tool numbers them by their holes and shows the seconds; click the best one or use the #1-#8 buttons. In other steps: tick ☐ several and "Compare" - differences are highlighted; mark the best one ⭐.']},
+ {q:'.flow .st:last-child',need:'resin',lt:['Į biblioteką','Kai yra ⭐ bandymas, kitas veiksmas pasiūlo „→ Į biblioteką" (atidaro bibliotekos puslapį su šios dervos parametrais) ir „Įrašyti į printerį" (įrašo profilį į printerį nuolat). Tai ir yra kelio pabaiga.'],
+  en:['To library','When there is a ⭐ test, the next step offers "→ To library" (opens the library page with this resin\'s parameters) and "Save to printer" (stores the profile on the printer permanently). That is the end of the path.']}
+];
+let TR=null;
+function tourStart(){
+  TR={i:-1,back:{slug:cur&&!cur._new?cur.slug:null,step:sel.step,all:sel.all}};
+  $('tour').classList.add('on');tourGo(1);
+}
+async function tourGo(d){
+  let i=TR.i+d;
+  while(i>=0&&i<TOUR.length){
+    const s=TOUR[i];
+    if(s.need==='resin'&&!cur&&list.length)await openResin(list[0].slug);
+    if(s.setup&&cur)s.setup();
+    if(document.querySelector(s.q))break;
+    i+=d;
+  }
+  if(i<0||i>=TOUR.length)return tourEnd();
+  TR.i=i;tourShow();
+}
+function tourShow(){
+  const s=TOUR[TR.i],el=document.querySelector(s.q);if(!el)return;
+  el.scrollIntoView({block:'nearest'});
+  const r=el.getBoundingClientRect(),hl=$('tourHl'),tip=$('tourTip'),[h,txt]=s[LANG]||s.lt;
+  Object.assign(hl.style,{left:r.left-4+'px',top:r.top-4+'px',width:r.width+8+'px',height:r.height+8+'px'});
+  $('tourH').textContent=h;$('tourT').textContent=txt;$('tourN').textContent=(TR.i+1)+' / '+TOUR.length;
+  $('tourPrev').disabled=TR.i===0;$('tourNext').textContent=TR.i===TOUR.length-1?t('tourDone'):t('tourNext');
+  const tw=Math.min(380,innerWidth-24),below=r.bottom+12+180<innerHeight;
+  tip.style.width=tw+'px';
+  tip.style.left=Math.max(12,Math.min(r.left,innerWidth-tw-12))+'px';
+  tip.style.top=(below?r.bottom+12:Math.max(12,r.top-12-tip.offsetHeight))+'px';
+}
+async function tourEnd(){
+  $('tour').classList.remove('on');const b=TR&&TR.back;TR=null;if(!b)return;
+  sel.step=b.step;sel.all=b.all;
+  if(b.slug&&(!cur||cur.slug!==b.slug))await openResin(b.slug);else render();
+}
+$('btnTour').addEventListener('click',tourStart);
+$('tourPrev').addEventListener('click',()=>tourGo(-1));
+$('tourNext').addEventListener('click',()=>tourGo(1));
+$('tourX').addEventListener('click',e=>{e.preventDefault();tourEnd();});
+document.addEventListener('keydown',e=>{if(!TR)return;
+  if(e.key==='Escape')tourEnd();else if(e.key==='ArrowRight')tourGo(1);else if(e.key==='ArrowLeft')tourGo(-1);});
+addEventListener('resize',()=>{if(TR)tourShow();});
 
 /* ---- nuotraukų peržiūra ---------------------------------------------------- */
 let VW={items:[],i:0};
