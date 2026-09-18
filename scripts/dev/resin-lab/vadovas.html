@@ -50,7 +50,7 @@ gamintojo lapo, ir kiekviena derva testuojama tuo pačiu keliu.</div>
 <tr><td>Vidurys apačioje: bandymo forma</td><td>Testinis modelis su mygtuku <span class="ui">🖨 Spausdinti printeryje</span>, parametrai, sąlygos, įvertinimas ir nuotraukos.</td></tr>
 <tr><td>Dešinė viršuje: eiga</td><td>Šeši žingsniai kiekvienam sluoksnio aukščiui (0,05 ir 0,10 mm) ir oranžinis <b>Kitas veiksmas</b> - ką daryti dabar.</td></tr>
 <tr><td>Dešinė apačioje: bandymai</td><td>Pasirinkto žingsnio bandymų kortelės: nuotrauka, parametrai (kuo skiriasi - geltonai), žvaigždutės. Palyginimas, ⭐, keitimas, trynimas.</td></tr>
-<tr><td>Antraštė</td><td>Printerio ženkliukas (adresas ir būsena), <span class="ui">⚙ Modelių sąranka</span>, šis vadovas, LT/EN, tema.</td></tr>
+<tr><td>Antraštė</td><td>Printerio ženkliukas (adresas ir būsena), <span class="ui">▦ Modelių sąranka</span>, <span class="ui">⚙ Nustatymai</span> (keliai, printeris), šis vadovas, LT/EN, tema.</td></tr>
 </table>
 
 <h2>Eiga: šeši žingsniai</h2>
@@ -104,12 +104,12 @@ profilis įsimenamas.</li>
 išeina su testo ekspozicija. Printerio ženkliukas antraštėje rodo <span class="ui">↩ grąžinti „…“</span> - vienas
 paspaudimas grąžina profilį, kuris buvo prieš testą.<br>
 Printeryje turi būti įjungtas valdymas per tinklą (<span class="ui">System → Advanced → Web control</span>).
-Printerio adresas įrašomas paspaudus ženkliuką.</div>
+Printerio adresas įrašomas lange <span class="ui">⚙ Nustatymai</span> (jį atidaro ir paspaudimas ant printerio ženkliuko).</div>
 <p><span class="ui">iš printerio</span> užpildo parametrų laukus tuo, kas dabar nustatyta printeryje, o
 <span class="ui">⬇ STL</span> ir <span class="ui">⬇ SL1</span> duoda failus, jei nori spausdinti kitaip.</p>
 
 <h2>Modelių sąranka</h2>
-<p>Vienkartinis darbas, ne bandymo dalis. <span class="ui">⚙ Modelių sąranka</span> rodo visus STL iš aplanko
+<p>Vienkartinis darbas, ne bandymo dalis. <span class="ui">▦ Modelių sąranka</span> rodo visus STL iš aplanko
 <code>00 STLs Tests</code> su išmatuotu dydžiu ir peržiūra. Kiekvienam modeliui nurodai:</p>
 <ul>
 <li><b>Naudoti kaip:</b> standartinis testas (visoms dervoms), paprastas arba sudėtingas modelis. Pastariesiems
@@ -146,7 +146,7 @@ visą ekraną, rodyklėmis vartai.</p>
 <tr><td>Dervų įrašai ir nuotraukos</td><td><code>My Drive\3Dprinter\20 TinyMakerWifi\Dervoms\Testai\&lt;derva&gt;\</code></td></tr>
 <tr><td>Modelių priskyrimas</td><td>tame pačiame aplanke, <code>_modeliai.json</code></td></tr>
 <tr><td>Testiniai modeliai</td><td><code>My Drive\3Dprinter\00_TinyMaker\00 STLs Tests\</code>, sukarpyti - <code>_sliced\</code></td></tr>
-<tr><td>Kitas kelias ar printerio adresas</td><td><code>scripts\dev\resin-lab\local.json</code></td></tr>
+<tr><td>Kitas kelias ar printerio adresas</td><td>Lange <span class="ui">⚙ Nustatymai</span>: kiekvienas kelias su mygtuku <span class="ui">📂 Atidaryti</span>. Pakeitus duomenų ar modelių aplanką (pvz. kitas Drive aplankas), pažymėk „Nukopijuoti esamus failus“: įrankis nukopijuoja viską į naują vietą ir persijungia tik kopijai pavykus, o senas aplankas lieka, kol jo neištrinsi pats. Nustatymai saugomi <code>scripts\dev\resin-lab\local.json</code>.</td></tr>
 <tr><td>Bibliotekos failai</td><td>repo <code>Firmware_Hosting\resin\</code> ir gh-pages <code>/resin/</code></td></tr>
 </table>
 
@@ -179,7 +179,7 @@ goes through the same steps.</div>
 <tr><td>Middle bottom: test form</td><td>The test model with <span class="ui">🖨 Print on printer</span>, parameters, conditions, rating and photos.</td></tr>
 <tr><td>Right top: workflow</td><td>Six steps per layer height (0.05 and 0.10 mm) and the orange <b>Next step</b> - what to do now.</td></tr>
 <tr><td>Right bottom: tests</td><td>Cards for the selected step: photo, parameters (differences in yellow), stars. Compare, ⭐, edit, delete.</td></tr>
-<tr><td>Header</td><td>Printer chip (address and state), <span class="ui">⚙ Model setup</span>, this guide, LT/EN, theme.</td></tr>
+<tr><td>Header</td><td>Printer chip (address and state), <span class="ui">▦ Model setup</span>, <span class="ui">⚙ Settings</span> (paths, printer), this guide, LT/EN, theme.</td></tr>
 </table>
 
 <h2>The workflow: six steps</h2>
@@ -201,11 +201,11 @@ at the top right of the workflow card.</p>
 <li><b>Uploads</b> the file under a fixed name <code>Lab-&lt;model&gt;-005</code> (or <code>-010</code>). Upload plus unpacking can take a few minutes.</li>
 <li><b>Starts</b> the print. If the printer reports low resin, the tool asks first.</li>
 </ol>
-<div class="box"><b>Restore your profile after testing.</b> While <code>lab-test</code> is selected, any print uses the test exposure. The printer chip in the header shows <span class="ui">↩ restore "…"</span> - one click brings back the profile from before the test.<br>Web control must be on (<span class="ui">System → Advanced → Web control</span>). Set the printer address by clicking the chip.</div>
+<div class="box"><b>Restore your profile after testing.</b> While <code>lab-test</code> is selected, any print uses the test exposure. The printer chip in the header shows <span class="ui">↩ restore "…"</span> - one click brings back the profile from before the test.<br>Web control must be on (<span class="ui">System → Advanced → Web control</span>). Set the printer address in <span class="ui">⚙ Settings</span> (clicking the chip opens it too).</div>
 <p><span class="ui">from printer</span> fills the parameter fields with what the printer has set now; <span class="ui">⬇ STL</span> and <span class="ui">⬇ SL1</span> hand you the files if you want to print another way.</p>
 
 <h2>Model setup</h2>
-<p>A one-time job, not part of a test. <span class="ui">⚙ Model setup</span> lists every STL in <code>00 STLs Tests</code> with its measured size and a preview. For each model you set:</p>
+<p>A one-time job, not part of a test. <span class="ui">▦ Model setup</span> lists every STL in <code>00 STLs Tests</code> with its measured size and a preview. For each model you set:</p>
 <ul>
 <li><b>Use as:</b> standard test (every resin), simple or complex model; for the last two, tick the resin types. A second ABS resin then gets the same models and the results stay comparable.</li>
 <li><b>Supports:</b> "not needed" for models that lie on the plate (tests, the cube); "needed" slices with supports and a pad.</li>
@@ -233,7 +233,7 @@ at the top right of the workflow card.</p>
 <tr><td>Resin records and photos</td><td><code>My Drive\3Dprinter\20 TinyMakerWifi\Dervoms\Testai\&lt;resin&gt;\</code></td></tr>
 <tr><td>Model assignment</td><td>same folder, <code>_modeliai.json</code></td></tr>
 <tr><td>Test models</td><td><code>My Drive\3Dprinter\00_TinyMaker\00 STLs Tests\</code>, sliced ones in <code>_sliced\</code></td></tr>
-<tr><td>Another path or the printer address</td><td><code>scripts\dev\resin-lab\local.json</code></td></tr>
+<tr><td>Another path or the printer address</td><td>In <span class="ui">⚙ Settings</span>: every path has an <span class="ui">📂 Open</span> button. When you move the data or model folder (e.g. another Drive folder), tick "Copy the existing files": the tool copies everything to the new place and switches only once the copy succeeded; the old folder stays until you delete it. Settings are stored in <code>scripts\dev\resin-lab\local.json</code>.</td></tr>
 <tr><td>Library files</td><td>repo <code>Firmware_Hosting\resin\</code> and gh-pages <code>/resin/</code></td></tr>
 </table>
 
