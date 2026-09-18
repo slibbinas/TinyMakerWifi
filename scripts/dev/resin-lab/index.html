@@ -935,7 +935,7 @@ async function toLibrary(){
   try{localStorage.setItem('tmResinLabHandoff',JSON.stringify({slug:lh>0.075?base+'-010':base,p:p}));}catch(e){msg('err',errText(e));return;}
   r.library=r.library||{};r.library[Number(lh).toFixed(2)]=today();
   try{await persist(false);}catch(e){msg('err',errText(e));}
-  window.open('/resin-publish.html#lab','_blank');
+  window.open('/resin-publish.html?lang='+LANG+'#lab','_blank');
   msg('okbox',t('libDone'));render();
 }
 
