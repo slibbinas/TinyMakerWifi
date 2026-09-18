@@ -6,11 +6,12 @@
 ' imamas is PlatformIO (arba is PATH).
 '
 ' Paleidejas guli tame paciame aplanke kaip server.py: install.ps1 ji kopijuoja
-' i %USERPROFILE%\Tools\resin-lab kartu su irankiu, ir darbastalio nuoroda
-' rodo cia. Langas nerodomas - jokio juodo lango mirksejimo.
+' i %USERPROFILE%\Tools\TinyMaker kartu su irankiu, ir darbastalio nuorodos
+' rodo cia. Argumentas - kuri puslapi atidaryti (numatyta resin-lab/; dervu
+' bibliotekos nuoroda perduoda resin-publish.html). Langas nerodomas.
 
 Option Explicit
-Dim sh, fso, labDir, py, url, i
+Dim sh, fso, labDir, py, page, base, i
 
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -22,6 +23,9 @@ If Not fso.FileExists(labDir & "\server.py") Then
          "TinyMaker - dervu testai"
   WScript.Quit
 End If
+
+page = "resin-lab/"
+If WScript.Arguments.Count > 0 Then page = WScript.Arguments(0)
 
 Function Serves(u)
   Dim http
@@ -39,15 +43,15 @@ py = sh.ExpandEnvironmentStrings("%USERPROFILE%") & "\.platformio\penv\Scripts\p
 If Not fso.FileExists(py) Then py = "python"
 
 ' Serveris: jei jau veikia - naudojam ji, jei ne - keliam.
-url = "http://localhost:8897/resin-lab/"
-If Not Serves("http://localhost:8897/api/lab/config") Then
+base = "http://localhost:8893/"
+If Not Serves(base & "api/lab/config") Then
   sh.Run "cmd /c """"" & py & """ """ & labDir & "\server.py""""", 0, False
   ' Laukiam, kol serveris atsilieps, o ne fiksuota sekundziu skaiciu: saltas
   ' python startas kartais uztrunka ilgiau.
   For i = 1 To 20
-    If Serves("http://localhost:8897/api/lab/config") Then Exit For
+    If Serves(base & "api/lab/config") Then Exit For
     WScript.Sleep 400
   Next
 End If
 
-sh.Run url, 1, False
+sh.Run base & page, 1, False

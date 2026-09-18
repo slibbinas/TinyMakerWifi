@@ -10,8 +10,8 @@ Tik Python standartinė biblioteka - nieko diegti nereikia. Paleidimas:
 
     ~/.platformio/penv/Scripts/python.exe scripts/dev/resin-lab/server.py
 
-ir naršyklėje http://localhost:8897/resin-lab/ . Kasdien paleidžia darbastalio
-nuoroda į įdiegtą kopiją (%USERPROFILE%/Tools/resin-lab, žr. install.ps1) -
+ir naršyklėje http://localhost:8893/resin-lab/ . Kasdien paleidžia darbastalio
+nuoroda į įdiegtą kopiją (%USERPROFILE%/Tools/TinyMaker, žr. install.ps1) -
 įrankis neturi priklausyti nuo darbo katalogo, kuris gali būti ištrintas.
 
 Serveris klauso tik 127.0.0.1: kitas tinklo įrenginys prie duomenų neprieina.
@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEV = os.path.dirname(HERE)
 REPO = os.path.dirname(os.path.dirname(DEV))
 LOCAL = os.environ.get("RESIN_LAB_LOCAL") or os.path.join(HERE, "local.json")   # kitas failas - tik bandymams
-PORT = int(os.environ.get("RESIN_LAB_PORT", "8897"))   # kitas prievadas - tik bandymams, kai tikrasis jau veikia
+PORT = int(os.environ.get("RESIN_LAB_PORT", "8893"))   # kitas prievadas - tik bandymams, kai tikrasis jau veikia
 HOME = os.path.expanduser("~")
 DEFAULT_DATA = os.path.join(HOME, "My Drive", "3Dprinter", "30 Dervos", "Testai")
 # Testiniai modeliai gyvena V aplanke, ne repo: dalis jų svetimi (AmeraLabs Town
