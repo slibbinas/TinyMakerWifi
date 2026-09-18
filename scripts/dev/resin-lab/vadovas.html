@@ -26,7 +26,8 @@ html[lang=lt] span[data-l=lt],html[lang=en] span[data-l=en]{display:inline}
 <script>
 (function(){var q=new URLSearchParams(location.search).get('lang');var l=q||'lt';
 try{if(!q)l=localStorage.getItem('tmLabLang')||'lt';if(localStorage.getItem('tmTheme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}
-document.documentElement.lang=(l==='en'?'en':'lt');})();
+document.documentElement.lang=(l==='en'?'en':'lt');
+document.title='TinyMaker Resin Lab - '+(l==='en'?'guide':'vadovas');})();
 </script>
 <div class="w">
 

@@ -6,18 +6,18 @@
    reikšmę apkarpys iki ribos, o „skip" - kad visai jos nepriims ir liks gamyklinė.
    Abu atvejai tylūs, todėl neleidžiam jiems atsirasti. --------------------- */
 const F=[
- {k:'base_exposure',    t:'Bazinė ekspozicija',u:'s',  min:5,  max:60, step:1,    dec:0,mode:'clamp'},
- {k:'regular_exposure', t:'Įprasta ekspozicija',u:'s', min:1,  max:30, step:0.1,  dec:1,mode:'clamp'},
- {k:'base_layers',      t:'Bazinių sluoksnių',u:'',    min:1,  max:8,  step:1,    dec:0,mode:'clamp'},
- {k:'transition_layers',t:'Perėjimo sluoksnių',u:'',   min:0,  max:10, step:1,    dec:0,mode:'clamp'},
- {k:'slow_lift_distance',t:'Lėto kėlimo aukštis',u:'mm',min:1, max:3,  step:1,    dec:0,mode:'clamp'},
- {k:'fast_lift_distance',t:'Greito kėlimo aukštis',u:'mm',min:1,max:3, step:1,    dec:0,mode:'clamp'},
- {k:'slow_lift_feedrate',t:'Lėto kėlimo greitis',u:'', min:20, max:50, step:10,   dec:0,mode:'clamp'},
- {k:'fast_lift_feedrate',t:'Greito kėlimo greitis',u:'',min:20,max:50, step:10,   dec:0,mode:'clamp'},
- {k:'drop_back_feedrate',t:'Nuleidimo greitis',u:'',   min:20, max:50, step:10,   dec:0,mode:'clamp'},
- {k:'density',          t:'Tankis',u:'g/ml',           min:0.8,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
- {k:'cal_factor',       t:'Kalibr. koeficientas',u:'', min:0.5,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
- {k:'cal_fixed_ml',     t:'Pastovus priedas',u:'ml',   min:0,  max:10, step:0.01, dec:2,mode:'skip',dmin:1}
+ {k:'base_exposure',    t:'Bazinė ekspozicija',te:'Base exposure',u:'s',  min:5,  max:60, step:1,    dec:0,mode:'clamp'},
+ {k:'regular_exposure', t:'Įprasta ekspozicija',te:'Regular exposure',u:'s', min:1,  max:30, step:0.1,  dec:1,mode:'clamp'},
+ {k:'base_layers',      t:'Bazinių sluoksnių',te:'Base layers',u:'',    min:1,  max:8,  step:1,    dec:0,mode:'clamp'},
+ {k:'transition_layers',t:'Perėjimo sluoksnių',te:'Transition layers',u:'',   min:0,  max:10, step:1,    dec:0,mode:'clamp'},
+ {k:'slow_lift_distance',t:'Lėto kėlimo aukštis',te:'Slow lift height',u:'mm',min:1, max:3,  step:1,    dec:0,mode:'clamp'},
+ {k:'fast_lift_distance',t:'Greito kėlimo aukštis',te:'Fast lift height',u:'mm',min:1,max:3, step:1,    dec:0,mode:'clamp'},
+ {k:'slow_lift_feedrate',t:'Lėto kėlimo greitis',te:'Slow lift speed',u:'', min:20, max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'fast_lift_feedrate',t:'Greito kėlimo greitis',te:'Fast lift speed',u:'',min:20,max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'drop_back_feedrate',t:'Nuleidimo greitis',te:'Drop-back speed',u:'',   min:20, max:50, step:10,   dec:0,mode:'clamp'},
+ {k:'density',          t:'Tankis',te:'Density',u:'g/ml',           min:0.8,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
+ {k:'cal_factor',       t:'Kalibr. koeficientas',te:'Calibration factor',u:'', min:0.5,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
+ {k:'cal_fixed_ml',     t:'Pastovus priedas',te:'Fixed offset',u:'ml',   min:0,  max:10, step:0.01, dec:2,mode:'skip',dmin:1}
 ];
 /* Gamyklinis „fast" (SUNLU, pamatuotas printeryje) - naujos dervos startas
    (RESIN_BUILTIN, ResinProfile.ino:99-102). */
