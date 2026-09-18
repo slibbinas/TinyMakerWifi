@@ -1,0 +1,37 @@
+{
+  "_doc": "Dervų testavimo įrankio žinynas: dervų tipai, testo žingsniai ir pradinių parametrų sėklos. Keičiamas ranka; įrankis jį tik skaito.",
+  "types": [
+    {"id": "standard", "name": "Standartinė / plaunama vandeniu", "focus": "detalė ir matmenys", "wash": "pagal dervą"},
+    {"id": "abs",      "name": "ABS-like / 14K / didelės detalės", "focus": "smulki detalė, briaunos", "wash": "IPA"},
+    {"id": "tough",    "name": "Tvirta: Tough, Nylon-, PC-, PA-like", "focus": "spragtukai, vyriai, smūgis", "wash": "IPA", "viscous": true},
+    {"id": "flex",     "name": "Lanksti", "focus": "lenkimas, grįžimas į formą", "wash": "IPA", "viscous": true},
+    {"id": "cast",     "name": "Lydoma / vaškinė (juvelyrika)", "focus": "smulki detalė; lydymo netestuojam", "wash": "IPA"},
+    {"id": "hitemp",   "name": "Karščiui atspari", "focus": "ar spausdinasi; karščio netestuojam", "wash": "IPA"}
+  ],
+  "steps": [
+    {"id": "vat",     "name": "Juostų testas vonelėje",
+     "how": "Printeryje: System → Advanced → Resin → Exposure test. Be plokštės, juostos kietėja ant plėvelės (40-160 % nuo Regular). Prieš testą Regular nustatyti į siūlomą - tada kopėtėlės apima reikiamą sritį.",
+     "read": "Imk žemiausią juostą su sausu paviršiumi, aiškiomis briaunomis ir švariomis skylutėmis, plius vienas žingsnis. Kietumas nėra kriterijus. Tai tik apytikslis Regular - Base čia nematuojamas."},
+    {"id": "coupon",  "name": "Kalibracinis kuponas ant plokštės",
+     "how": "2-3 spaudiniai: rastas Regular, vienu žingsniu daugiau, dviem daugiau. Base = Regular × santykis.",
+     "read": "Prilipimas prie plokštės = Base. Smeigtukai, skylutės ir plonos sienelės = Regular. Imk trumpiausią, kur viskas išsispausdino."},
+    {"id": "simple",  "name": "Paprastas modelis pagal tipą",
+     "how": "Su kupono parametrais.",
+     "read": "Ar daiktas daro tai, kam skirtas (spragtukas spragsi, lankstas lenkiasi, detalė ryški)."},
+    {"id": "complex", "name": "Sudėtingas modelis pagal tipą",
+     "how": "Tik jei paprastas pavyko.",
+     "read": "Ar tinka rodyti: šitos nuotraukos eina į bibliotekos įrašą, FB ir gamintojui."}
+  ],
+  "layer_heights": [0.05, 0.10],
+  "seeds": {
+    "_doc": "Iš ko skaičiuojamas koeficientas „mūsų Regular / gamintojo vidurio reikšmė“, kol įrankio aplanke dar nėra ištestuotų dervų su gamintojo skaičiais. Šaltinis kiekvienai eilutei - įraše.",
+    "resins": [
+      {"name": "Sunlu Toughness", "regular": 8.0, "base": 18,
+       "rgb_normal": "4-12", "mono_normal": "1.5-4",
+       "source": "SUNLU spec lapas (SunLu_HiTh.pdf, 2026-07-24) + paskelbtas profilis sunlu-tough"}
+    ],
+    "base_ratio": 2.25,
+    "base_ratio_min": 1.9,
+    "base_ratio_source": "Sunlu Toughness 18 / 8,0; žemiau 1,9 nekrenti (sprendimas 2026-08-09)"
+  }
+}

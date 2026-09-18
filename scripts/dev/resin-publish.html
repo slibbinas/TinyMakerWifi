@@ -219,6 +219,7 @@ negalėtų išsiskirti.
 kešo, bet gh-pages savo pusėje laiko iki 10 min.</p>
 </div>
 
+<script src="resin-fields.js"></script>
 <script>
 'use strict';
 const LIB='https://slibbinas.github.io/TinyMakerWifi/resin/';
@@ -232,37 +233,9 @@ $('themeBtn').addEventListener('click',e=>{e.preventDefault();
   document.documentElement.setAttribute('data-theme',d?'light':'dark');
   try{localStorage.setItem('tmTheme',d?'light':'dark');}catch(err){}});
 
-/* ---- laukai: ribos tiksliai tokios, kokias tikrina firmware ---------------
-   ResinProfile.ino:193-230. Skirtumas svarbus: „clamp" reiškia, kad printeris
-   reikšmę apkarpys iki ribos, o „skip" - kad visai jos nepriims ir liks gamyklinė.
-   Abu atvejai tylūs, todėl neleidžiam jiems atsirasti. --------------------- */
-const F=[
- {k:'base_exposure',    t:'Bazinė ekspozicija',u:'s',  min:5,  max:60, step:1,    dec:0,mode:'clamp'},
- {k:'regular_exposure', t:'Įprasta ekspozicija',u:'s', min:1,  max:30, step:0.1,  dec:1,mode:'clamp'},
- {k:'base_layers',      t:'Bazinių sluoksnių',u:'',    min:1,  max:8,  step:1,    dec:0,mode:'clamp'},
- {k:'transition_layers',t:'Perėjimo sluoksnių',u:'',   min:0,  max:10, step:1,    dec:0,mode:'clamp'},
- {k:'slow_lift_distance',t:'Lėto kėlimo aukštis',u:'mm',min:1, max:3,  step:1,    dec:0,mode:'clamp'},
- {k:'fast_lift_distance',t:'Greito kėlimo aukštis',u:'mm',min:1,max:3, step:1,    dec:0,mode:'clamp'},
- {k:'slow_lift_feedrate',t:'Lėto kėlimo greitis',u:'', min:20, max:50, step:10,   dec:0,mode:'clamp'},
- {k:'fast_lift_feedrate',t:'Greito kėlimo greitis',u:'',min:20,max:50, step:10,   dec:0,mode:'clamp'},
- {k:'drop_back_feedrate',t:'Nuleidimo greitis',u:'',   min:20, max:50, step:10,   dec:0,mode:'clamp'},
- {k:'density',          t:'Tankis',u:'g/ml',           min:0.8,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
- {k:'cal_factor',       t:'Kalibr. koeficientas',u:'', min:0.5,max:2.0,step:0.001,dec:3,mode:'skip',dmin:1},
- {k:'cal_fixed_ml',     t:'Pastovus priedas',u:'ml',   min:0,  max:10, step:0.01, dec:2,mode:'skip',dmin:1}
-];
-/* Gamyklinis „slow" - naujos dervos startas (RESIN_BUILTIN, ResinProfile.ino). */
-const BASE={layer_height:0.05,base_exposure:18,regular_exposure:8.0,base_layers:4,
- transition_layers:5,slow_lift_distance:1,fast_lift_distance:2,slow_lift_feedrate:40,
- fast_lift_feedrate:50,drop_back_feedrate:50,density:1.1,cal_factor:1.0,cal_fixed_ml:0.0};
 const KEYS=['name','layer_height'].concat(F.map(f=>f.k)).concat(['tested_by','tested_on','buy_url']);
 
 /* ---- pagalbinės ---------------------------------------------------------- */
-/* Lietuviškas rašmuo virsta artimiausiu lotynišku, o ne dingsta: „Testinė derva"
-   turi tapti „testine-derva", ne „testin-derva". Rezultatas visada lieka toks,
-   kokį priima ir pultas, ir kortelės failų sistema. */
-const LT_MAP={'ą':'a','č':'c','ę':'e','ė':'e','į':'i','š':'s','ų':'u','ū':'u','ž':'z'};
-const slugify=s=>(s||'').toLowerCase().replace(/[ąčęėįšųūž]/g,c=>LT_MAP[c])
-  .replace(/[^a-z0-9-_]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
 const buyOk=u=>!u||u.indexOf('https://tinymakerwifi.com/')===0||u.indexOf('https://slibbinas.github.io/')===0;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function num(v,dec,dmin){
@@ -806,6 +779,19 @@ buildFields();
      visada persikrauna, o cia tik uzpildom, kol jis dar nespejo. */
   if(keep&&keep.links)links=keep.links;
   await loadLib(!!(keep&&keep.man));
+  /* Atėjus iš dervų testų (resin-lab, „→ Į biblioteką"): profilis su ištestuotomis
+     reikšmėmis atidaromas kaip nauja derva. Perdavimas vienkartinis - kitaip
+     kiekvienas puslapio perkrovimas vėl užklotų pradėtą darbą. */
+  if(location.hash==='#lab'){
+    let h=null;
+    try{h=JSON.parse(localStorage.getItem('tmResinLabHandoff')||'null');localStorage.removeItem('tmResinLabHandoff');}catch(e){}
+    if(h&&h.p){
+      draft={mode:'new',slug:h.slug,slug0:null,slugAuto:false,
+             shop:shopOf(links&&links[h.slug]),p:Object.assign({},BASE,h.p)};
+      save();
+    }
+    history.replaceState(null,'',location.pathname);
+  }
   renderForm();showOut();
 })();
 </script>
