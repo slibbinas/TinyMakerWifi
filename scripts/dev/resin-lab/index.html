@@ -40,6 +40,7 @@ header .dd{color:var(--muted);font-size:.72rem;overflow:hidden;text-overflow:ell
 .list .it{display:block;width:100%;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid transparent;background:none;margin:0 0 3px;cursor:pointer;font:inherit;color:inherit}
 .list .it:hover{border-color:var(--line)}
 .list .it.on{border-color:var(--accent);background:var(--accentbg)}
+.list .it{white-space:normal}
 .list .it b{display:block;font-size:.8rem;overflow-wrap:anywhere;line-height:1.25}
 .list .it span{font-size:.7rem;color:var(--muted)}
 button{font:inherit;font-size:.76rem;padding:3px 9px;border-radius:7px;border:1px solid var(--line);background:var(--code);color:var(--text);cursor:pointer;white-space:nowrap}
@@ -168,7 +169,7 @@ const T={
   maker:'Gamintojas',name:'Pavadinimas',type:'Tipas',color:'Spalva',source:'Iš kur',received:'Gauta',wash:'Plovimas',status:'Būsena',reason:'Kodėl netinka (gamintojui)',
   spec:'Gamintojo spec lapas (RGB tikslesnis - TinyMaker ekranas spalvotas)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bazinė, s',monoB:'Mono bazinė, s',bl:'Baz. sl.',density:'Tankis',notes:'Pastabos',
   edit:'Keisti',create:'Sukurti',folder:'Aplankas Drive',needName:'Reikia gamintojo ir pavadinimo.',saved:'Įrašyta.',failed:'Nepavyko: {0}',
-  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',viscous:'Tąsi derva: jei pirmi sluoksniai kaprizingi, pirma mažink kėlimo greitį, ne ilgink ekspoziciją.',
+  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',whyShort:'iš ko',viscous:'Tąsi derva: kaprizingi pirmi sluoksniai - pirma lėtink kėlimą, ne ilgink ekspoziciją.',
   newTest:'Naujas bandymas',editTest:'Keičiamas bandymas',step:'Žingsnis',layer:'Sluoksnis',date:'Data',rating:'Įvertinimas',
   r1:'★ nepavyko',r2:'★★ prastai',r3:'★★★ vidutiniškai',r4:'★★★★ gerai',r5:'★★★★★ puikiai',
   params:'Parametrai, kaip buvo printeryje',cond:'Sąlygos ir matavimai',room:'Kambarys, °C',resinT:'Derva, °C',cure:'Kietinimas, min',ml:'Sunaudota, ml',mins:'Trukmė, min',grams:'Svoris, g',
@@ -218,7 +219,7 @@ const T={
   maker:'Maker',name:'Name',type:'Type',color:'Colour',source:'Source',received:'Received',wash:'Wash',status:'Status',reason:'Why not suitable (for the maker)',
   spec:'Maker’s datasheet (RGB is closer - the TinyMaker screen is colour)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bottom, s',monoB:'Mono bottom, s',bl:'Bottom layers',density:'Density',notes:'Notes',
   edit:'Edit',create:'Create',folder:'Drive folder',needName:'Maker and name are required.',saved:'Saved.',failed:'Failed: {0}',
-  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',viscous:'Viscous resin: if the first layers are fussy, slow the lift down before adding exposure.',
+  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',whyShort:'why',viscous:'Viscous resin: fussy first layers - slow the lift before adding exposure.',
   newTest:'New test',editTest:'Editing test',step:'Step',layer:'Layer',date:'Date',rating:'Rating',
   r1:'★ failed',r2:'★★ poor',r3:'★★★ fair',r4:'★★★★ good',r5:'★★★★★ excellent',
   params:'Parameters as set on the printer',cond:'Conditions and measurements',room:'Room, °C',resinT:'Resin, °C',cure:'Cure, min',ml:'Used, ml',mins:'Time, min',grams:'Weight, g',
@@ -452,13 +453,16 @@ function resinCard(){
   const r=cur,ds=r.datasheet||{};
   if(!r._edit){
     const s=suggest(r);
-    return '<div class="card"><h3>'+esc(r.maker+' '+r.name)+' <span class="chip">'+esc(L(typeOf(r)))+'</span><span class="sp"></span><button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
+    return '<div class="card"><h3 style="flex-wrap:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+esc(r.maker+' '+r.name)+'">'+esc(r.maker+' '+r.name)+'</span>'+
+      '<span class="chip" style="flex:none">'+esc(L(typeOf(r)))+'</span>'+
+      (r.notes?'<span class="chip" style="cursor:help;flex:none" title="'+esc(r.notes)+'">ⓘ '+esc(t('notes').toLowerCase())+'</span>':'')+
+      '<span class="sp"></span><button id="btnEditResin">'+esc(t('edit'))+'</button></h3>'+
       '<div class="sumline"><span>'+esc(t('status'))+' <b>'+esc(t('st_'+r.status))+'</b></span>'+(r.color?'<span>'+esc(t('color'))+' <b>'+esc(r.color)+'</b></span>':'')+
       (r.received?'<span>'+esc(t('received'))+' <b>'+esc(r.received)+'</b></span>':'')+(ds.rgb_normal?'<span>RGB <b>'+esc(ds.rgb_normal)+' s</b></span>':'')+
       (ds.mono_normal?'<span>Mono <b>'+esc(ds.mono_normal)+' s</b></span>':'')+(ds.density?'<span>'+esc(t('density'))+' <b>'+esc(num(ds.density))+'</b></span>':'')+
       (r.wash?'<span>'+esc(t('wash'))+' <b>'+esc(r.wash)+'</b></span>':'')+'</div>'+
-      '<div class="note">'+esc(t('startParams'))+': '+(s?'<b style="color:var(--text)">Regular '+num(s.regular_exposure)+' s · Base '+s.base_exposure+' s</b> <span title="'+esc(s.why)+'">('+esc(t('fromRatio',s.why))+')</span>':esc(t('noStart')))+'</div>'+
-      (typeOf(r).viscous?'<div class="warn">'+esc(t('viscous'))+'</div>':'')+
+      '<div class="note">'+esc(t('startParams'))+': '+(s?'<b style="color:var(--text)">Regular '+num(s.regular_exposure)+' s · Base '+s.base_exposure+' s</b> <span class="k" style="cursor:help" title="'+esc(t('fromRatio',s.why))+'">ⓘ '+esc(t('whyShort'))+'</span>':esc(t('noStart')))+'</div>'+
+      (typeOf(r).viscous?'<div class="warn" style="padding:3px 8px;margin-top:4px">'+esc(t('viscous'))+'</div>':'')+
       (r.status==='netinka'&&r.reason?'<div class="err">'+esc(r.reason)+'</div>':'')+'</div>';
   }
   return '<div class="card"><h3>'+esc(r._new?t('newResin').replace('+ ',''):r.maker+' '+r.name)+'<span class="sp"></span><span class="note" id="saveMsg" style="margin:0"></span>'+
@@ -475,7 +479,8 @@ function resinCard(){
     (r._new?'<p class="note">'+esc(t('folder'))+': <b id="slugShow">'+esc(slugify(r.maker+' '+r.name)||'-')+'</b></p>':'')+'</div>';
 }
 function modelStrip(step){
-  if(step==='vat')return '<div class="mstrip"><div class="mi">—</div><div class="t">'+esc(t('noModelVat'))+'<br><span class="k">'+esc(LF(stepOf('vat'),'how'))+'</span></div></div>';
+  // Juostų testo instrukcija ilga - rodoma užvedus pelę ir eigos „Kitas veiksmas" eilutėje, kad forma tilptų.
+  if(step==='vat')return '<div class="mstrip" title="'+esc(LF(stepOf('vat'),'how'))+'"><div class="mi" style="height:28px">—</div><div class="t">'+esc(t('noModelVat'))+'</div></div>';
   const ms=assigned(cur.type,step);
   if(!ms.length)return '<div class="mstrip"><div class="mi">?</div><div class="t">'+esc(t('noModel'))+'</div><div class="acts"><button id="btnAssign">'+esc(t('assign'))+'</button></div></div>';
   const lh=sel.lh,lk=Number(lh)<0.075?'0.05':'0.1';
