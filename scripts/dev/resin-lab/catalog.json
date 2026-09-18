@@ -1,37 +1,168 @@
 {
-  "_doc": "Dervų testavimo įrankio žinynas: dervų tipai, testo žingsniai ir pradinių parametrų sėklos. Keičiamas ranka; įrankis jį tik skaito.",
+  "_doc": "Dervų testavimo įrankio žinynas: dervų tipai, testo žingsniai, modeliai ir pradinių parametrų sėklos. Keičiamas ranka; įrankis jį tik skaito. Modelių šaltiniai - models/*.scad, generuojami models/build.py.",
   "types": [
-    {"id": "standard", "name": "Standartinė / plaunama vandeniu", "focus": "detalė ir matmenys", "wash": "pagal dervą"},
-    {"id": "abs",      "name": "ABS-like / 14K / didelės detalės", "focus": "smulki detalė, briaunos", "wash": "IPA"},
-    {"id": "tough",    "name": "Tvirta: Tough, Nylon-, PC-, PA-like", "focus": "spragtukai, vyriai, smūgis", "wash": "IPA", "viscous": true},
-    {"id": "flex",     "name": "Lanksti", "focus": "lenkimas, grįžimas į formą", "wash": "IPA", "viscous": true},
-    {"id": "cast",     "name": "Lydoma / vaškinė (juvelyrika)", "focus": "smulki detalė; lydymo netestuojam", "wash": "IPA"},
-    {"id": "hitemp",   "name": "Karščiui atspari", "focus": "ar spausdinasi; karščio netestuojam", "wash": "IPA"}
+    {
+      "id": "standard",
+      "name": "Standartinė / plaunama vandeniu",
+      "focus": "detalė ir matmenys",
+      "wash": "pagal dervą",
+      "simple": "rook",
+      "complex": "benchy"
+    },
+    {
+      "id": "abs",
+      "name": "ABS-like / 14K / didelės detalės",
+      "focus": "smulki detalė, briaunos",
+      "wash": "IPA",
+      "simple": "rook",
+      "complex": "benchy"
+    },
+    {
+      "id": "tough",
+      "name": "Tvirta: Tough, Nylon-, PC-, PA-like",
+      "focus": "spragtukai, vyriai, smūgis",
+      "wash": "IPA",
+      "viscous": true,
+      "simple": "snap",
+      "complex": "hinge"
+    },
+    {
+      "id": "flex",
+      "name": "Lanksti",
+      "focus": "lenkimas, grįžimas į formą",
+      "wash": "IPA",
+      "viscous": true,
+      "simple": "flexband",
+      "complex": "tire"
+    },
+    {
+      "id": "cast",
+      "name": "Lydoma / vaškinė (juvelyrika)",
+      "focus": "smulki detalė; lydymo netestuojam",
+      "wash": "IPA",
+      "simple": "ring",
+      "complex": "filigree"
+    },
+    {
+      "id": "hitemp",
+      "name": "Karščiui atspari",
+      "focus": "ar spausdinasi; karščio netestuojam",
+      "wash": "IPA",
+      "simple": "rook",
+      "complex": "benchy"
+    }
   ],
   "steps": [
-    {"id": "vat",     "name": "Juostų testas vonelėje",
-     "how": "Printeryje: System → Advanced → Resin → Exposure test. Be plokštės, juostos kietėja ant plėvelės (40-160 % nuo Regular). Prieš testą Regular nustatyti į siūlomą - tada kopėtėlės apima reikiamą sritį.",
-     "read": "Imk žemiausią juostą su sausu paviršiumi, aiškiomis briaunomis ir švariomis skylutėmis, plius vienas žingsnis. Kietumas nėra kriterijus. Tai tik apytikslis Regular - Base čia nematuojamas."},
-    {"id": "coupon",  "name": "Kalibracinis kuponas ant plokštės",
-     "how": "2-3 spaudiniai: rastas Regular, vienu žingsniu daugiau, dviem daugiau. Base = Regular × santykis.",
-     "read": "Prilipimas prie plokštės = Base. Smeigtukai, skylutės ir plonos sienelės = Regular. Imk trumpiausią, kur viskas išsispausdino."},
-    {"id": "simple",  "name": "Paprastas modelis pagal tipą",
-     "how": "Su kupono parametrais.",
-     "read": "Ar daiktas daro tai, kam skirtas (spragtukas spragsi, lankstas lenkiasi, detalė ryški)."},
-    {"id": "complex", "name": "Sudėtingas modelis pagal tipą",
-     "how": "Tik jei paprastas pavyko.",
-     "read": "Ar tinka rodyti: šitos nuotraukos eina į bibliotekos įrašą, FB ir gamintojui."}
+    {
+      "id": "vat",
+      "name": "Juostų testas vonelėje",
+      "how": "Printeryje: System → Advanced → Resin → Exposure test. Be plokštės, juostos kietėja ant plėvelės (40-160 % nuo Regular). Prieš testą Regular nustatyti į siūlomą - tada kopėtėlės apima reikiamą sritį.",
+      "read": "Imk žemiausią juostą su sausu paviršiumi, aiškiomis briaunomis ir švariomis skylutėmis, plius vienas žingsnis. Kietumas nėra kriterijus. Tai tik apytikslis Regular - Base čia nematuojamas."
+    },
+    {
+      "id": "coupon",
+      "name": "Kalibracinis kuponas ant plokštės",
+      "how": "2-3 spaudiniai: rastas Regular, vienu žingsniu daugiau, dviem daugiau. Base = Regular × santykis.",
+      "read": "Prilipimas prie plokštės = Base. Smeigtukai, skylutės ir plonos sienelės = Regular. Imk trumpiausią, kur viskas išsispausdino.",
+      "model": "coupon"
+    },
+    {
+      "id": "simple",
+      "name": "Paprastas modelis pagal tipą",
+      "how": "Su kupono parametrais.",
+      "read": "Ar daiktas daro tai, kam skirtas (spragtukas spragsi, lankstas lenkiasi, detalė ryški)."
+    },
+    {
+      "id": "complex",
+      "name": "Sudėtingas modelis pagal tipą",
+      "how": "Tik jei paprastas pavyko.",
+      "read": "Ar tinka rodyti: šitos nuotraukos eina į bibliotekos įrašą, FB ir gamintojui."
+    }
   ],
-  "layer_heights": [0.05, 0.10],
+  "layer_heights": [
+    0.05,
+    0.1
+  ],
   "seeds": {
     "_doc": "Iš ko skaičiuojamas koeficientas „mūsų Regular / gamintojo vidurio reikšmė“, kol įrankio aplanke dar nėra ištestuotų dervų su gamintojo skaičiais. Šaltinis kiekvienai eilutei - įraše.",
     "resins": [
-      {"name": "Sunlu Toughness", "regular": 8.0, "base": 18,
-       "rgb_normal": "4-12", "mono_normal": "1.5-4",
-       "source": "SUNLU spec lapas (SunLu_HiTh.pdf, 2026-07-24) + paskelbtas profilis sunlu-tough"}
+      {
+        "name": "Sunlu Toughness",
+        "regular": 8.0,
+        "base": 18,
+        "rgb_normal": "4-12",
+        "mono_normal": "1.5-4",
+        "source": "SUNLU spec lapas (SunLu_HiTh.pdf, 2026-07-24) + paskelbtas profilis sunlu-tough"
+      }
     ],
     "base_ratio": 2.25,
     "base_ratio_min": 1.9,
     "base_ratio_source": "Sunlu Toughness 18 / 8,0; žemiau 1,9 nekrenti (sprendimas 2026-08-09)"
-  }
+  },
+  "models": [
+    {
+      "id": "coupon",
+      "name": "Kalibracinis kuponas",
+      "file": "coupon.stl",
+      "size": "30 × 21 × 4 mm",
+      "check": "Smeigtukai ir skylutės 0,3-1,0 mm, sienelės 0,2-1,0 mm, tarpai 0,1-0,5 mm: užrašyk ploniausią išėjusį ir siauriausią neužlipusį."
+    },
+    {
+      "id": "rook",
+      "name": "Šachmatų bokštas",
+      "file": "rook.stl",
+      "size": "16 × 16 × 22 mm",
+      "check": "Dantys aštrūs, langeliai kiaurai, lenktas profilis be ryškių laiptelių, ertmė išsiplovė."
+    },
+    {
+      "id": "snap",
+      "name": "Spragtukas (kištukas + lizdas)",
+      "file": "snap.stl",
+      "size": "30 × 18 × 5 mm",
+      "check": "Kištukas įsispaudžia į lizdą ir laikosi; kojelės nelūžta. Tarpas lizde 0,25 mm."
+    },
+    {
+      "id": "hinge",
+      "name": "Vyris, spausdinamas surinktas",
+      "file": "hinge.stl",
+      "size": "24 × 18 × 4 mm",
+      "check": "Po plovimo ir kietinimo prasisuka ranka. Tarpas 0,35 mm."
+    },
+    {
+      "id": "flexband",
+      "name": "Lanksti juostelė 0,8 / 1,2 / 1,6 mm",
+      "file": "flexband.stl",
+      "size": "34 × 6 × 2 mm",
+      "check": "Sulenkta per pusę grįžta į formą ir neįtrūksta; kuris storis dar lankstus."
+    },
+    {
+      "id": "tire",
+      "name": "Padangėlė su protektoriumi",
+      "file": "tire.stl",
+      "size": "26 × 26 × 8 mm",
+      "check": "Išsitempia ant 16 mm ratlankio (ar pirštų) ir grįžta; protektorius ryškus."
+    },
+    {
+      "id": "ring",
+      "name": "Lygus žiedas US 7",
+      "file": "ring.stl",
+      "size": "20 × 20 × 2 mm",
+      "check": "Paviršius glotnus, neįskilęs, vidus apvalus (matuok slankmačiu 17,3 mm)."
+    },
+    {
+      "id": "filigree",
+      "name": "Ažūrinis žiedas US 7",
+      "file": "filigree.stl",
+      "size": "20 × 20 × 6 mm",
+      "check": "Visos skylutės kiaurai, perėjos tarp jų (~1 mm) nenutrūkusios."
+    },
+    {
+      "id": "benchy",
+      "name": "3DBenchy 50 % mastelio",
+      "url": "https://www.3dbenchy.com/download/",
+      "size": "30 × 15,5 × 24 mm",
+      "license": "CC0 (nuo 2025-02)",
+      "check": "Pjaustyklėje sumažinti iki 50 %. Kamino anga, langai, užrašas galinėje sienelėje, lanko iškyša."
+    }
+  ]
 }

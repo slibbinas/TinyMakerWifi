@@ -3,8 +3,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TinyMaker - dervų testai</title>
 <style>
+/* Išdėstymas nešiojamo kompiuterio ekranui (~1400 × 750): trys stulpeliai per
+   visą aukštį - dervos sąrašas, derva, bandymas. Visi laukai telpa vienu
+   žvilgsniu; jei ekranas mažesnis, slenka tik stulpelis, ne visas puslapis. */
 :root{color-scheme:light;
- --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
+ --bg:#f4f5f7;--card:#fff;--line:#e1e3e8;--text:#1d1f24;--muted:#6b7280;
  --accent:#f07a1a;--code:#eef0f3;--link:#155fb0;
  --ok:#1f9d4d;--okbg:#e8f6ee;--warn:#b97a10;--warnbg:#fdf3e0;--bad:#d7454f;--badbg:#fdeaea}
 :root[data-theme=dark]{color-scheme:dark;
@@ -13,89 +16,97 @@
  --ok:#4cc46e;--okbg:#1d3326;--warn:#e0a44a;--warnbg:#33291a;--bad:#e2666e;--badbg:#3a2320}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--text);padding:22px 16px 80px;
- font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1180px;margin:0 auto}
-h1{font-size:1.35rem;margin:0 0 4px}
-h1 .dot{color:var(--accent)}
-.sub{color:var(--muted);font-size:.85rem;margin:0 0 16px;max-width:80ch}
-#themeBtn{float:right;color:var(--muted);text-decoration:none;font-size:18px}
-h2{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 10px;font-weight:700}
-h3{font-size:.95rem;margin:0 0 8px}
-.cols{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
-.cols>div{min-width:0}
-@media(max-width:860px){.cols{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
-.list .it{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:9px;border:1px solid transparent;
- background:none;margin:0 0 4px;cursor:pointer;font:inherit;color:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif;
+ display:flex;flex-direction:column}
+header{display:flex;align-items:baseline;gap:12px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--card)}
+header h1{font-size:1rem;margin:0;white-space:nowrap}
+header h1 .dot{color:var(--accent)}
+header .dd{color:var(--muted);font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+#themeBtn{color:var(--muted);text-decoration:none;font-size:16px}
+#topMsg{position:fixed;top:44px;right:16px;z-index:5;max-width:420px}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:190px minmax(430px,1fr) minmax(470px,1.15fr);gap:10px;padding:10px}
+.col{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.card>h3{font-size:.8rem;margin:0 0 6px;display:flex;gap:8px;align-items:center}
+.card>h3 .sp{flex:1}
+.sec{font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:7px 0 3px;font-weight:700}
+.list .it{display:block;width:100%;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid transparent;
+ background:none;margin:0 0 3px;cursor:pointer;font:inherit;color:inherit}
 .list .it:hover{border-color:var(--line)}
 .list .it.on{border-color:var(--accent);background:var(--code)}
-.list .it b{display:block;font-size:.88rem}
-.list .it span{font-size:.75rem;color:var(--muted)}
-button{font:inherit;font-size:.82rem;padding:5px 11px;border-radius:8px;border:1px solid var(--line);
- background:var(--code);color:var(--text);cursor:pointer}
+.list .it b{display:block;font-size:.8rem}
+.list .it span{font-size:.7rem;color:var(--muted)}
+button{font:inherit;font-size:.76rem;padding:3px 9px;border-radius:7px;border:1px solid var(--line);
+ background:var(--code);color:var(--text);cursor:pointer;white-space:nowrap}
 button:hover{border-color:var(--accent)}
 button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 button.dim{color:var(--muted)}
 button:disabled{opacity:.45;cursor:not-allowed}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px}
-label{display:block;font-size:.78rem;color:var(--muted)}
-label b{display:block;font-weight:600;color:var(--text);font-size:.82rem;margin-bottom:3px}
-input,select,textarea{width:100%;font:inherit;font-size:.86rem;padding:6px 8px;
- border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--text)}
+.g{display:grid;gap:5px 8px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.span4{grid-column:1/-1}
+label{display:block;font-size:.68rem;color:var(--muted);min-width:0}
+label>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+input,select,textarea{width:100%;font:inherit;font-size:.8rem;padding:3px 6px;
+ border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}
 input.bad{border-color:var(--bad);background:var(--badbg)}
-.note{font-size:.78rem;color:var(--muted);margin:6px 0 0}
-.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
-.err{background:var(--badbg);color:var(--bad);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
-.okbox{background:var(--okbg);color:var(--ok);border-radius:8px;padding:8px 11px;font-size:.8rem;margin:8px 0 0}
-.chip{font-size:.7rem;padding:2px 8px;border-radius:999px;background:var(--code);color:var(--muted);white-space:nowrap}
+textarea{resize:vertical}
+.note{font-size:.72rem;color:var(--muted);margin:4px 0 0}
+.warn,.err,.okbox{border-radius:7px;padding:6px 9px;font-size:.75rem;margin:5px 0 0}
+.warn{background:var(--warnbg);color:var(--warn)}
+.err{background:var(--badbg);color:var(--bad)}
+.okbox{background:var(--okbg);color:var(--ok)}
+.chip{font-size:.66rem;padding:1px 7px;border-radius:999px;background:var(--code);color:var(--muted);white-space:nowrap}
 .chip.ok{background:var(--okbg);color:var(--ok)}
 .chip.bad{background:var(--badbg);color:var(--bad)}
 .chip.part{background:var(--warnbg);color:var(--warn)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-@media(max-width:700px){.ladder{grid-template-columns:1fr 1fr}}
-.step{border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:.8rem;background:var(--bg)}
-.step b{display:block;font-size:.82rem;margin-bottom:4px}
-.step.ok{border-color:var(--ok)}
-.step.bad{border-color:var(--bad)}
-.step.part{border-color:var(--warn)}
-.test{border-top:1px solid var(--line);padding:10px 0}
-.test:first-child{border-top:0}
-.test .hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.test .pv{font-size:.78rem;color:var(--muted);margin-top:3px}
-.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.thumbs img{height:84px;border-radius:7px;border:1px solid var(--line);cursor:zoom-in}
-.drop{border:1.5px dashed var(--line);border-radius:10px;padding:12px;text-align:center;font-size:.8rem;color:var(--muted);cursor:pointer}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sug{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.sug b{font-size:.95rem}
+.lad{display:grid;grid-template-columns:44px repeat(4,minmax(0,1fr));gap:4px;align-items:stretch}
+.lad .hd{font-size:.66rem;color:var(--muted);text-align:center;align-self:end}
+.lad .lh{font-size:.72rem;font-weight:600;align-self:center}
+.cell{border:1px solid var(--line);border-radius:7px;padding:4px 5px;background:var(--bg);cursor:pointer;font-size:.68rem;
+ min-height:30px;color:var(--muted)}
+.cell:hover{border-color:var(--accent)}
+.cell.ok{border-color:var(--ok)}.cell.bad{border-color:var(--bad)}.cell.part{border-color:var(--warn)}
+.cell.sel{outline:2px solid var(--accent);outline-offset:1px}
+.mstrip{display:flex;gap:8px;align-items:center;margin-top:6px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:.72rem}
+.mstrip img,.mstrip .mi{width:64px;height:48px;object-fit:contain;background:#f7f7f7;border-radius:5px;flex:none;display:flex;align-items:center;justify-content:center}
+.mstrip .k{color:var(--muted);display:block}
+.test{border-top:1px solid var(--line);padding:6px 0}
+.test:first-child{border-top:0;padding-top:0}
+.test .h{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.test .pv{font-size:.7rem;color:var(--muted)}
+.test .v{font-size:.76rem}
+.thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.thumbs img{height:48px;border-radius:5px;border:1px solid var(--line);cursor:zoom-in}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:6px;text-align:center;font-size:.72rem;color:var(--muted);cursor:pointer;
+ display:flex;align-items:center;justify-content:center;min-height:52px}
 .drop.on{border-color:var(--accent);color:var(--accent)}
-details{margin-top:8px}summary{cursor:pointer;font-size:.8rem;color:var(--muted)}
 #zoom{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}
 #zoom img{max-width:94vw;max-height:92vh;border-radius:8px}
-.sug{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:6px}
-.sug div{background:var(--code);border-radius:8px;padding:7px 9px;font-size:.8rem}
-.sug div b{display:block;font-size:1.05rem}
+details summary{cursor:pointer;font-size:.72rem;color:var(--muted)}
 a{color:var(--link)}
+@media(max-width:1100px){.app{grid-template-columns:170px 1fr}.col.c3{grid-column:2}}
 </style>
-<div class="wrap">
-<a href="#" id="themeBtn" title="Šviesi/tamsi">◐</a>
-<h1>TinyMaker <span class="dot">·</span> dervų testai</h1>
-<p class="sub">Nuo gauto butelio iki paskelbto profilio. Kiekviena derva eina tuo pačiu keliu:
-juostų testas, kuponas ant plokštės, paprastas modelis, sudėtingas modelis - abiem sluoksnio
-aukščiams. Įrašai ir nuotraukos gula į <span id="dataDir">…</span>.</p>
+<header>
+ <h1>TinyMaker <span class="dot">·</span> dervų testai</h1>
+ <span class="dd" id="dataDir" title=""></span>
+ <a href="#" id="themeBtn" title="Šviesi/tamsi">◐</a>
+</header>
 <div id="topMsg"></div>
-
-<div class="cols">
- <div>
+<div class="app">
+ <div class="col">
   <div class="card list">
    <div id="resList" class="note">Kraunama…</div>
-   <button class="pri" id="btnNew" style="margin-top:8px">+ Nauja derva</button>
+   <button class="pri" id="btnNew" style="margin-top:6px;width:100%">+ Nauja derva</button>
   </div>
  </div>
-
- <div id="main">
-  <div class="card"><div class="note">Pasirink dervą kairėje arba pradėk naują.</div></div>
- </div>
-</div>
+ <div class="col c2" id="colA"><div class="card"><div class="note">Pasirink dervą kairėje arba pradėk naują.</div></div></div>
+ <div class="col c3" id="colB"></div>
 </div>
 <div id="zoom"><img alt=""></div>
 
@@ -106,9 +117,14 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today=()=>new Date().toISOString().slice(0,10);
 const dec=v=>esc(v).replace('.',',');
+const lhTxt=lh=>Number(lh).toFixed(2).replace('.',',');
 const STATUS=[['laukiam','Laukiam siuntos'],['gauta','Gauta'],['testuojama','Testuojama'],
   ['paskelbta','Paskelbta bibliotekoje'],['netinka','Netinka (nepaskelbta)']];
 const RESULT={ok:['Pavyko','ok'],part:['Iš dalies','part'],bad:['Nepavyko','bad']};
+/* Trumpi laukų vardai siaurai formai; pilnas vardas ir ribos - užvedus pelę. */
+const SHORT={base_exposure:'Base, s',regular_exposure:'Regular, s',base_layers:'Baz. sl.',transition_layers:'Perėj. sl.',
+  slow_lift_distance:'Lėt. kėl., mm',fast_lift_distance:'Greit. kėl., mm',slow_lift_feedrate:'Lėt. greitis',
+  fast_lift_feedrate:'Greit. greitis',drop_back_feedrate:'Nuleidimas',density:'Tankis',cal_factor:'Kal. koef.',cal_fixed_ml:'Priedas, ml'};
 
 /* ---- tema ---------------------------------------------------------------- */
 try{if(localStorage.getItem('tmTheme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}
@@ -124,7 +140,7 @@ async function api(path,opt){
   if(!r.ok)throw new Error((j&&j.error)||('HTTP '+r.status));
   return j;
 }
-let CAT=null,list=[],cur=null,all={};
+let CAT=null,list=[],cur=null,all={},sel={step:'vat',lh:0.05,filter:false};
 
 /* ---- pradiniai parametrai -------------------------------------------------
    Gamintojo skaičiai skirti mono ekranui arba RGB; TinyMaker spalvotas ekranas
@@ -141,13 +157,13 @@ function mid(range){
    pasiūlytų pats save, ir pradžia atrodytų patvirtinta, nors taip nėra. */
 function referenceSet(skip){
   const ref=[];
-  (CAT.seeds.resins||[]).forEach(s=>ref.push({name:s.name,regular:s.regular,ds:{rgb_normal:s.rgb_normal,mono_normal:s.mono_normal},src:'sėkla'}));
+  (CAT.seeds.resins||[]).forEach(s=>ref.push({name:s.name,regular:s.regular,ds:{rgb_normal:s.rgb_normal,mono_normal:s.mono_normal}}));
   Object.values(all).forEach(r=>{
     if(r.slug===skip)return;
     const t=bestTest(r);
     if(!t||!r.datasheet)return;
     if(ref.some(x=>x.name===r.maker+' '+r.name))return;
-    ref.push({name:r.maker+' '+r.name,regular:t.params.regular_exposure,ds:r.datasheet,src:'testai'});
+    ref.push({name:r.maker+' '+r.name,regular:t.params.regular_exposure,ds:r.datasheet});
   });
   return ref;
 }
@@ -157,7 +173,7 @@ function factor(col,skip){
   if(!ks.length)return null;
   ks.sort((a,b)=>a-b);
   const k=ks.length%2?ks[(ks.length-1)/2]:(ks[ks.length/2-1]+ks[ks.length/2])/2;
-  return {k:k,n:ks.length,who:who};
+  return {k:k,who:who};
 }
 function suggest(r){
   const ds=r.datasheet||{};
@@ -166,175 +182,190 @@ function suggest(r){
     const m=mid(ds[col]);if(!m)continue;
     const f=factor(col,r.slug);if(!f)continue;
     reg=m*f.k;
-    why=(col==='rgb_normal'?'RGB':'Mono')+' intervalo vidurys '+m.toFixed(2).replace('.',',')+' s × '+
-      f.k.toFixed(2).replace('.',',')+' (santykis iš: '+f.who.join(', ')+')';
+    why=(col==='rgb_normal'?'RGB':'Mono')+' vidurys '+m.toFixed(2).replace('.',',')+' s × '+
+      f.k.toFixed(2).replace('.',',')+' (santykis iš: '+f.who.join(', ')+'); Base = Regular × '+
+      String(CAT.seeds.base_ratio).replace('.',',')+' ('+CAT.seeds.base_ratio_source+')';
     break;
   }
   if(reg===null)return null;
   const clamp=(v,f)=>Math.min(f.max,Math.max(f.min,v));
   const fR=F.find(x=>x.k==='regular_exposure'),fB=F.find(x=>x.k==='base_exposure');
   reg=clamp(Math.round(reg*2)/2,fR);
-  const base=clamp(Math.round(reg*CAT.seeds.base_ratio),fB);
-  const out={regular_exposure:reg,base_exposure:base,why:why};
+  const out={regular_exposure:reg,base_exposure:clamp(Math.round(reg*CAT.seeds.base_ratio),fB),why:why};
   const d=parseFloat(String(ds.density||'').replace(',','.'));
   if(isFinite(d)&&d>=0.8&&d<=2)out.density=d;
   return out;
 }
 
 /* ---- sąrašas ------------------------------------------------------------- */
-async function loadList(sel){
+async function loadList(open){
   list=await api('/api/lab/resins');
   const b=$('resList');b.innerHTML='';
-  if(!list.length){b.textContent='Dervų dar nėra.';}
+  if(!list.length)b.textContent='Dervų dar nėra.';
   list.forEach(x=>{
     const btn=document.createElement('button');btn.className='it'+(cur&&cur.slug===x.slug?' on':'');
     const st=(STATUS.find(s=>s[0]===x.status)||['',''])[1];
     btn.innerHTML='<b>'+esc(x.broken?x.slug+' (sugadintas failas)':(x.maker+' '+x.name))+'</b><span>'+esc(st)+
-      (x.tests?' · testų: '+x.tests:'')+'</span>';
-    btn.addEventListener("click",()=>openResin(x.slug));
+      (x.tests?' · '+x.tests+' band.':'')+'</span>';
+    btn.addEventListener('click',()=>openResin(x.slug));
     b.appendChild(btn);
   });
   // Pradinio santykio skaičiavimui reikia visų dervų testų, ne tik atidarytos.
   await Promise.all(list.filter(x=>!x.broken&&!all[x.slug]).map(async x=>{
     try{all[x.slug]=await api('/api/lab/resin/'+x.slug);}catch(e){}}));
-  if(sel)openResin(sel);
+  if(open)openResin(open);
 }
 async function openResin(slug){
   try{cur=await api('/api/lab/resin/'+slug);all[slug]=cur;}
   catch(e){msg('err','Nepavyko atidaryti: '+e.message);return;}
-  document.querySelectorAll('.list .it').forEach(b=>b.classList.remove('on'));
-  const i=list.findIndex(x=>x.slug===slug);
-  if(i>=0)document.querySelectorAll('.list .it')[i].classList.add('on');
+  document.querySelectorAll('.list .it').forEach((b,i)=>b.classList.toggle('on',!!list[i]&&list[i].slug===slug));
   render();
 }
 function msg(kind,t){const d=$('topMsg');d.innerHTML=t?'<div class="'+kind+'">'+esc(t)+'</div>':'';
-  if(t)setTimeout(()=>{if(d.textContent===t)d.innerHTML='';},7000);}
+  if(t)setTimeout(()=>{if(d.textContent===t)d.innerHTML='';},6000);}
 async function persist(isNew){
   await api('/api/lab/resin/'+cur.slug,{method:'PUT',
     headers:{'Content-Type':'application/json','X-Lab-New':isNew?'1':'0'},body:JSON.stringify(cur)});
   all[cur.slug]=cur;
 }
-
-/* ---- nauja derva --------------------------------------------------------- */
 function newResin(){
   cur={slug:'',maker:'',name:'',type:'standard',color:'',source:'',received:'',wash:'',
     status:'laukiam',reason:'',notes:'',datasheet:{rgb_normal:'',mono_normal:'',rgb_bottom:'',mono_bottom:'',bottom_layers:'',density:''},
     tests:[],created:today(),_new:true};
+  document.querySelectorAll('.list .it').forEach(b=>b.classList.remove('on'));
   render();
 }
 
 /* ---- vaizdas ------------------------------------------------------------- */
-const typeName=id=>(CAT.types.find(t=>t.id===id)||{name:id}).name;
+const typeOf=r=>CAT.types.find(t=>t.id===r.type)||CAT.types[0];
 const stepName=id=>(CAT.steps.find(s=>s.id===id)||{name:id}).name;
+const stepShort=id=>stepName(id).replace(' ant plokštės','').replace(' pagal tipą','');
+const model=id=>CAT.models.find(m=>m.id===id);
+function modelFor(step,r){
+  const s=CAT.steps.find(x=>x.id===step)||{};
+  if(s.model)return model(s.model);
+  const t=typeOf(r);
+  return step==='simple'?model(t.simple):step==='complex'?model(t.complex):null;
+}
 function bestTest(r){
   // Profiliui tinka tik plokštės spaudinys: juostų testas duoda tik apytikslį Regular.
   const ok=(r.tests||[]).filter(t=>t.result==='ok'&&t.step!=='vat');
   return ok.length?ok[ok.length-1]:null;
 }
-function field(id,label,val,ph,type){
-  return '<label><b>'+label+'</b><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'"></label>';
-}
+const inp=(id,label,val,ph,cls,type)=>'<label class="'+(cls||'')+'"><span>'+label+'</span><input id="'+id+'" type="'+(type||'text')+
+  '" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'"></label>';
+const selBox=(id,label,opts,val)=>'<label><span>'+label+'</span><select id="'+id+'">'+
+  opts.map(o=>'<option value="'+o[0]+'"'+(String(o[0])===String(val)?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></label>';
+
 function render(){
-  const r=cur,m=$('main');
-  const ds=r.datasheet||{};
-  let h='<div class="card"><h3>'+(r._new?'Nauja derva':esc(r.maker+' '+r.name))+'</h3>';
-  h+='<div class="grid">'+field('fMaker','Gamintojas',r.maker,'SUNLU')+field('fName','Pavadinimas',r.name,'ABS-Like')+
-     field('fColor','Spalva',r.color,'pilka')+
-     '<label><b>Tipas</b><select id="fType">'+CAT.types.map(t=>'<option value="'+t.id+'"'+(t.id===r.type?' selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select></label>'+
-     '</div><div class="grid" style="margin-top:10px">'+
-     field('fSource','Iš kur',r.source,'SUNLU pavyzdys / pirkta')+field('fReceived','Gauta',r.received,'','date')+
-     field('fWash','Plovimas',r.wash,'IPA / vanduo')+
-     '<label><b>Būsena</b><select id="fStatus">'+STATUS.map(s=>'<option value="'+s[0]+'"'+(s[0]===r.status?' selected':'')+'>'+s[1]+'</option>').join('')+'</select></label>'+
-     '</div>';
-  h+='<div class="grid" style="margin-top:10px" id="reasonRow"'+(r.status==='netinka'?'':' hidden')+'>'+
-     '<label><b>Kodėl netinka (gamintojui)</b><input id="fReason" value="'+esc(r.reason)+'"></label></div>';
-  h+='<h2>Gamintojo skaičiai (iš spec lapo)</h2><div class="grid">'+
-     field('dsRgb','RGB ekspozicija, s',ds.rgb_normal,'4-12')+field('dsMono','Mono ekspozicija, s',ds.mono_normal,'1.5-4')+
-     field('dsRgbB','RGB bazinė, s',ds.rgb_bottom,'20-80')+field('dsMonoB','Mono bazinė, s',ds.mono_bottom,'10-60')+
-     field('dsBl','Bazinių sluoksnių',ds.bottom_layers,'3-5')+field('dsDen','Tankis, g/ml',ds.density,'1.10')+'</div>'+
-     '<p class="note">Jei spec lape yra RGB stulpelis - jis tikslesnis: TinyMaker ekranas spalvotas.</p>';
-  h+='<label style="margin-top:10px"><b>Pastabos</b><textarea id="fNotes" rows="2">'+esc(r.notes)+'</textarea></label>';
-  if(r._new)h+='<p class="note">Vardas failui: <b id="slugShow">'+esc(slugify(r.maker+' '+r.name))+'</b> (aplankas Drive)</p>';
-  h+='<div class="row" style="margin-top:12px"><button class="pri" id="btnSave">'+(r._new?'Sukurti':'Įrašyti')+'</button><span id="saveMsg" class="note"></span></div></div>';
+  const r=cur,ds=r.datasheet||{};
+  /* --- A stulpelis: derva, pradžia, eiga, modeliai --- */
+  let a='<div class="card"><h3>'+(r._new?'Nauja derva':esc(r.maker+' '+r.name))+'<span class="sp"></span>'+
+    '<span class="note" style="margin:0" id="saveMsg"></span><button class="pri" id="btnSave">'+(r._new?'Sukurti':'Įrašyti')+'</button></h3>'+
+    '<div class="g g4">'+inp('fMaker','Gamintojas',r.maker,'SUNLU')+inp('fName','Pavadinimas',r.name,'ABS-Like')+
+    selBox('fType','Tipas',CAT.types.map(t=>[t.id,t.name]),r.type)+inp('fColor','Spalva',r.color,'pilka')+
+    inp('fSource','Iš kur',r.source,'SUNLU pavyzdys')+inp('fReceived','Gauta',r.received,'','','date')+
+    inp('fWash','Plovimas',r.wash,'IPA / vanduo')+selBox('fStatus','Būsena',STATUS,r.status)+
+    inp('fReason','Kodėl netinka (gamintojui)',r.reason,'','span4')+
+    '</div><div class="sec">Gamintojo spec lapas (RGB tikslesnis - ekranas spalvotas)</div><div class="g g6">'+
+    inp('dsRgb','RGB, s',ds.rgb_normal,'4-12')+inp('dsMono','Mono, s',ds.mono_normal,'1.5-4')+
+    inp('dsRgbB','RGB baz., s',ds.rgb_bottom,'20-80')+inp('dsMonoB','Mono baz., s',ds.mono_bottom,'10-60')+
+    inp('dsBl','Baz. sl.',ds.bottom_layers,'3-5')+inp('dsDen','Tankis',ds.density,'1.10')+
+    '</div><div class="g" style="margin-top:5px">'+inp('fNotes','Pastabos',r.notes,'')+'</div>'+
+    (r._new?'<p class="note">Aplankas Drive: <b id="slugShow">'+esc(slugify(r.maker+' '+r.name)||'-')+'</b></p>':'')+'</div>';
 
   if(!r._new){
     const s=suggest(r);
-    h+='<div class="card"><h3>Pradiniai parametrai</h3>';
+    a+='<div class="card"><h3>Pradiniai parametrai</h3>';
     if(s){
-      h+='<div class="sug"><div>Regular<b>'+String(s.regular_exposure).replace('.',',')+' s</b></div>'+
-         '<div>Base<b>'+s.base_exposure+' s</b></div>'+(s.density?'<div>Tankis<b>'+String(s.density).replace('.',',')+'</b></div>':'')+'</div>'+
-         '<p class="note">'+esc(s.why)+'. Base = Regular × '+String(CAT.seeds.base_ratio).replace('.',',')+' ('+esc(CAT.seeds.base_ratio_source)+').</p>'+
-         '<p class="note">Tai tik pradžia juostų testui - ne profilis. Nustatyk printeryje Regular į šitą skaičių ir paleisk juostų testą: kopėtėlės apims 40-160 %.</p>';
-      if((CAT.types.find(t=>t.id===r.type)||{}).viscous)
-        h+='<div class="warn">Tąsi derva: jei pirmi sluoksniai kaprizingi, pirma mažink kėlimo greitį, o ne ilgink ekspoziciją.</div>';
-    }else h+='<div class="note">Įvesk gamintojo RGB arba Mono ekspoziciją aukščiau - tada pasiūlysiu pradžią.</div>';
-    h+='</div>';
+      a+='<div class="sug"><span>Regular</span><b>'+dec(s.regular_exposure)+' s</b><span>· Base</span><b>'+s.base_exposure+' s</b>'+
+        (s.density?'<span>· Tankis</span><b>'+dec(s.density)+'</b>':'')+
+        '<span class="note" style="margin:0;cursor:help" title="'+esc(s.why)+'">ⓘ iš ko</span></div>'+
+        '<p class="note">Tik juostų testo pradžia, ne profilis: nustatyk printeryje šį Regular - kopėtėlės apims 40-160 %.</p>';
+      if(typeOf(r).viscous)a+='<div class="warn">Tąsi derva: jei pirmi sluoksniai kaprizingi, pirma mažink kėlimo greitį, ne ilgink ekspoziciją.</div>';
+    }else a+='<div class="note">Įvesk gamintojo RGB arba Mono ekspoziciją - tada pasiūlysiu pradžią.</div>';
+    a+='</div>';
 
-    h+='<div class="card"><h3>Testo eiga</h3>';
+    a+='<div class="card"><h3>Testo eiga<span class="sp"></span><span class="note" style="margin:0">langelis perjungia formą ir sąrašą</span></h3><div class="lad"><span></span>'+
+      CAT.steps.map(st=>'<span class="hd">'+esc(stepShort(st.id))+'</span>').join('');
     CAT.layer_heights.forEach(lh=>{
-      h+='<div class="note" style="margin:8px 0 6px"><b>'+lh.toFixed(2).replace('.',',')+' mm</b></div><div class="ladder">';
+      a+='<span class="lh">'+lhTxt(lh)+'</span>';
       CAT.steps.forEach(st=>{
         const ts=(r.tests||[]).filter(t=>t.step===st.id&&Number(t.layer_height)===lh);
-        const last=ts[ts.length-1];
-        const cls=last?RESULT[last.result][1]:'';
-        h+='<div class="step '+cls+'"><b>'+esc(st.name)+'</b>'+(last?'<span class="chip '+cls+'">'+RESULT[last.result][0]+'</span> ':'')+
-           (ts.length?'<span class="chip">'+ts.length+' band.</span>':'<span class="note">dar nedaryta</span>')+'</div>';
+        const last=ts[ts.length-1],cls=last?RESULT[last.result][1]:'';
+        const on=sel.filter&&sel.step===st.id&&sel.lh===lh;
+        a+='<div class="cell '+cls+(on?' sel':'')+'" data-step="'+st.id+'" data-lh="'+lh+'">'+
+          (last?'<span class="chip '+cls+'">'+RESULT[last.result][0]+'</span> '+ts.length+'×':'-')+'</div>';
       });
-      h+='</div>';
     });
-    h+='<details><summary>Kaip daryti kiekvieną žingsnį</summary>'+CAT.steps.map(st=>
-      '<p class="note"><b>'+esc(st.name)+'.</b> '+esc(st.how)+' <i>Kaip vertinti:</i> '+esc(st.read)+'</p>').join('')+'</details>';
-    h+='</div>';
-
-    h+='<div class="card"><h3>Naujas bandymas</h3><div class="grid">'+
-       '<label><b>Žingsnis</b><select id="tStep">'+CAT.steps.map(s=>'<option value="'+s.id+'">'+esc(s.name)+'</option>').join('')+'</select></label>'+
-       '<label><b>Sluoksnis</b><select id="tLh">'+CAT.layer_heights.map(l=>'<option value="'+l+'">'+l.toFixed(2).replace('.',',')+' mm</option>').join('')+'</select></label>'+
-       field('tDate','Data',today(),'','date')+
-       '<label><b>Rezultatas</b><select id="tRes"><option value="ok">Pavyko</option><option value="part">Iš dalies</option><option value="bad">Nepavyko</option></select></label>'+
-       '</div><h2>Parametrai (kaip buvo printeryje)</h2><div class="grid" id="tParams"></div>'+
-       '<div class="row" style="margin-top:6px"><button class="dim" id="btnFromSug">imti pradinius</button><button class="dim" id="btnFromLast">imti iš paskutinio bandymo</button></div>'+
-       '<h2>Sąlygos</h2><div class="grid">'+field('cRoom','Kambario °C','','21','number')+field('cResin','Dervos °C','','','number')+
-       field('cWash','Plovimas',r.wash||'','IPA 2×3 min')+field('cCure','Kietinimas, min','','','number')+'</div>'+
-       '<label style="margin-top:10px"><b>Ką matai (verdiktas)</b><textarea id="tVerdict" rows="3" placeholder="Juosta 5 pirma su aiškiomis briaunomis; 3-4 lipnios."></textarea></label>'+
-       '<h2>Nuotraukos</h2><div class="drop" id="drop">Nutempk nuotraukas čia, įklijuok (Ctrl+V) arba spausk pasirinkti<input type="file" id="fileIn" accept="image/jpeg,image/png,image/webp" multiple hidden></div>'+
-       '<div class="thumbs" id="pend"></div>'+
-       '<div class="row" style="margin-top:12px"><button class="pri" id="btnTest">Įrašyti bandymą</button><span id="testMsg" class="note"></span></div></div>';
-
-    h+='<div class="card"><h3>Bandymai ('+(r.tests||[]).length+')</h3>';
-    if(!(r.tests||[]).length)h+='<div class="note">Dar nieko.</div>';
-    (r.tests||[]).slice().reverse().forEach(t=>{
-      const R=RESULT[t.result]||['?',''];
-      const p=t.params||{},c=t.conditions||{};
-      h+='<div class="test"><div class="hd"><b>'+esc(stepName(t.step))+'</b><span class="chip">'+Number(t.layer_height).toFixed(2).replace('.',',')+' mm</span>'+
-         '<span class="chip '+R[1]+'">'+R[0]+'</span><span class="note">'+esc(t.date)+'</span></div>'+
-         '<div class="pv">Regular '+dec(p.regular_exposure)+' s · Base '+esc(p.base_exposure)+' s · bazinių '+esc(p.base_layers)+
-         ' · kėlimas '+esc(p.slow_lift_feedrate)+'/'+esc(p.fast_lift_feedrate)+
-         (c.room?' · kambarys '+dec(c.room)+' °C':'')+(c.resin?' · derva '+dec(c.resin)+' °C':'')+
-         (c.wash?' · '+esc(c.wash):'')+(c.cure?' · kietinta '+esc(c.cure)+' min':'')+'</div>'+
-         (t.verdict?'<div style="font-size:.85rem;margin-top:4px">'+esc(t.verdict)+'</div>':'')+
-         '<div class="thumbs">'+(t.photos||[]).map(f=>'<img src="/data/'+r.slug+'/photos/'+encodeURIComponent(f)+'" alt="">').join('')+'</div></div>';
-    });
-    h+='</div>';
+    a+='</div><details><summary>Kaip daryti ir vertinti kiekvieną žingsnį</summary>'+CAT.steps.map(st=>
+      '<p class="note"><b>'+esc(st.name)+'.</b> '+esc(st.how)+' <i>Vertink:</i> '+esc(st.read)+'</p>').join('')+'</details></div>';
 
     const bt=bestTest(r);
-    h+='<div class="card"><h3>Į biblioteką</h3>';
-    if(bt){
-      h+='<p class="note">Profilis bus paruoštas iš paskutinio pavykusio plokštės bandymo ('+esc(stepName(bt.step))+', '+
-         Number(bt.layer_height).toFixed(2).replace('.',',')+' mm, '+esc(bt.date)+'). Atsidarys dervų bibliotekos tvarkymas su užpildyta forma - '+
-         'ten pridedi parduotuvės nuorodą ir įrašai kaip visada.</p><button class="pri" id="btnPub">→ Į biblioteką</button>';
-    }else h+='<div class="note">Atsiras, kai bus bent vienas pavykęs bandymas ant plokštės (kuponas ar modelis).</div>';
-    h+='</div>';
+    a+='<div class="card"><h3>Į biblioteką<span class="sp"></span><button class="pri" id="btnPub"'+(bt?'':' disabled')+'>→ Į biblioteką</button></h3>'+
+      '<div class="note" style="margin:0">'+(bt?'Iš paskutinio pavykusio plokštės bandymo: '+esc(stepName(bt.step))+', '+lhTxt(bt.layer_height)+' mm, '+esc(bt.date)+
+      '. Atsidarys bibliotekos tvarkymas su užpildyta forma.':'Atsiras po pirmo pavykusio bandymo ant plokštės (kuponas ar modelis).')+'</div></div>';
   }
-  m.innerHTML=h;
+  $('colA').innerHTML=a;
+
+  /* --- B stulpelis: naujas bandymas + istorija --- */
+  let b='';
+  if(!r._new){
+    b+='<div class="card"><h3>Naujas bandymas<span class="sp"></span><button class="dim" id="btnFromSug">imti pradinius</button>'+
+      '<button class="dim" id="btnFromLast">imti iš paskutinio</button></h3><div class="g g4">'+
+      selBox('tStep','Žingsnis',CAT.steps.map(s=>[s.id,stepShort(s.id)]),sel.step)+
+      selBox('tLh','Sluoksnis',CAT.layer_heights.map(l=>[l,lhTxt(l)+' mm']),sel.lh)+
+      inp('tDate','Data',today(),'','','date')+
+      selBox('tRes','Rezultatas',[['ok','Pavyko'],['part','Iš dalies'],['bad','Nepavyko']],'ok')+
+      '</div><div class="mstrip" id="mStrip"></div>'+
+      '<div class="sec">Parametrai, kaip buvo printeryje</div><div class="g g6" id="tParams"></div>'+
+      '<div class="sec">Sąlygos</div><div class="g g4">'+inp('cRoom','Kambarys, °C','','21','','number')+inp('cResin','Derva, °C','','','','number')+
+      inp('cWash','Plovimas',r.wash||'','IPA 2×3 min')+inp('cCure','Kietinimas, min','','','','number')+'</div>'+
+      '<div class="g" style="grid-template-columns:1.6fr 1fr;margin-top:6px"><label><span>Ką matai (verdiktas)</span>'+
+      '<textarea id="tVerdict" rows="3" placeholder="Juosta 5 pirma su aiškiomis briaunomis; 3-4 lipnios."></textarea></label>'+
+      '<label><span>Nuotraukos</span><div class="drop" id="drop">nutempk, Ctrl+V arba spausk<input type="file" id="fileIn" accept="image/jpeg,image/png,image/webp" multiple hidden></div></label></div>'+
+      '<div class="row" style="margin-top:6px"><div class="thumbs" id="pend" style="margin:0;flex:1"></div><span id="testMsg" class="note" style="margin:0"></span>'+
+      '<button class="pri" id="btnTest">Įrašyti bandymą</button></div></div>';
+
+    const ts=(r.tests||[]).filter(t=>!sel.filter||(t.step===sel.step&&Number(t.layer_height)===sel.lh));
+    b+='<div class="card"><h3>Bandymai '+(sel.filter?'('+esc(stepShort(sel.step))+', '+lhTxt(sel.lh)+' mm: '+ts.length+')':'('+ts.length+')')+
+      '<span class="sp"></span>'+(sel.filter?'<button class="dim" id="btnAll">rodyti visus</button>':'')+'</h3>';
+    if(!ts.length)b+='<div class="note">Dar nieko.</div>';
+    ts.slice().reverse().forEach(t=>{
+      const R=RESULT[t.result]||['?',''],p=t.params||{},c=t.conditions||{};
+      b+='<div class="test"><div class="h"><b>'+esc(stepName(t.step))+'</b><span class="chip">'+lhTxt(t.layer_height)+' mm</span>'+
+        '<span class="chip '+R[1]+'">'+R[0]+'</span><span class="note" style="margin:0">'+esc(t.date)+'</span></div>'+
+        '<div class="pv">Regular '+dec(p.regular_exposure)+' s · Base '+dec(p.base_exposure)+' s · baz. '+esc(p.base_layers)+
+        ' · kėlimas '+esc(p.slow_lift_feedrate)+'/'+esc(p.fast_lift_feedrate)+
+        (c.room?' · kamb. '+dec(c.room)+' °C':'')+(c.resin?' · derva '+dec(c.resin)+' °C':'')+
+        (c.wash?' · '+esc(c.wash):'')+(c.cure?' · kiet. '+esc(c.cure)+' min':'')+'</div>'+
+        (t.verdict?'<div class="v">'+esc(t.verdict)+'</div>':'')+
+        ((t.photos||[]).length?'<div class="thumbs">'+t.photos.map(f=>'<img src="/data/'+r.slug+'/photos/'+encodeURIComponent(f)+'" alt="">').join('')+'</div>':'')+'</div>';
+    });
+    b+='</div>';
+  }
+  $('colB').innerHTML=b;
+  $('fReason').parentNode.hidden=r.status!=='netinka';
   bind();
 }
 
+/* Pasirinkto žingsnio modelis - tiesiai formoje, kad nereikėtų jo ieškoti atskirai. */
+function modelStrip(){
+  const el=$('mStrip');if(!el)return;
+  const step=$('tStep').value,m=modelFor(step,cur);
+  if(!m){el.innerHTML='<div class="mi"></div><div><b>Be modelio</b><span class="k">'+esc((CAT.steps.find(x=>x.id===step)||{}).how||'')+'</span></div>';return;}
+  el.innerHTML=(m.file?'<img src="models/'+m.file.replace('.stl','.png')+'" alt="">':'<div class="mi k">išorinis</div>')+
+    '<div><b>'+esc(m.name)+'</b> <span class="k">'+esc(m.size)+(m.license?' · '+esc(m.license):'')+'</span> '+
+    (m.file?'<a href="models/'+m.file+'" download>STL</a>':'<a href="'+esc(m.url)+'" target="_blank" rel="noopener">parsisiųsti</a>')+
+    '<span class="k">Tikrink: '+esc(m.check)+'</span></div>';
+}
+
 /* ---- įvykiai ------------------------------------------------------------- */
-let pending=[];   // [{file, url}] - nuotraukos, dar neįrašytos
+let pending=[];   // nuotraukos, dar neįrašytos
 function paramsForm(vals){
   const g=$('tParams');if(!g)return;
-  g.innerHTML=F.map(f=>'<label><b>'+esc(f.t)+(f.u?', '+f.u:'')+'</b><input type="number" data-k="'+f.k+'" step="'+f.step+
-    '" min="'+f.min+'" max="'+f.max+'" value="'+(vals[f.k]!=null?vals[f.k]:'')+'"></label>').join('');
+  g.innerHTML=F.map(f=>'<label title="'+esc(f.t)+(f.u?', '+f.u:'')+' ('+f.min+'-'+f.max+')"><span>'+esc(SHORT[f.k]||f.t)+
+    '</span><input type="number" data-k="'+f.k+'" step="'+f.step+'" min="'+f.min+'" max="'+f.max+'" value="'+(vals[f.k]!=null?vals[f.k]:'')+'"></label>').join('');
   g.querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{
     const f=F.find(x=>x.k===i.dataset.k),v=parseFloat(i.value);
     i.classList.toggle('bad',!(isFinite(v)&&v>=f.min&&v<=f.max));}));
@@ -345,40 +376,45 @@ function startVals(){
   const s=suggest(cur);if(s)Object.assign(v,s);
   return v;
 }
+function lastFor(lh){
+  const ts=cur.tests||[],same=ts.filter(t=>Number(t.layer_height)===lh);
+  return same[same.length-1]||ts[ts.length-1]||null;
+}
 function bind(){
   const r=cur;
   const up=()=>{
     r.maker=$('fMaker').value.trim();r.name=$('fName').value.trim();r.color=$('fColor').value.trim();
     r.type=$('fType').value;r.source=$('fSource').value.trim();r.received=$('fReceived').value;
-    r.wash=$('fWash').value.trim();r.status=$('fStatus').value;r.notes=$('fNotes').value;
-    r.reason=($('fReason')||{}).value||'';
+    r.wash=$('fWash').value.trim();r.status=$('fStatus').value;r.notes=$('fNotes').value;r.reason=$('fReason').value;
     r.datasheet={rgb_normal:$('dsRgb').value.trim(),mono_normal:$('dsMono').value.trim(),rgb_bottom:$('dsRgbB').value.trim(),
       mono_bottom:$('dsMonoB').value.trim(),bottom_layers:$('dsBl').value.trim(),density:$('dsDen').value.trim()};
-    $('reasonRow').hidden=r.status!=='netinka';
+    $('fReason').parentNode.hidden=r.status!=='netinka';
     if(r._new&&$('slugShow'))$('slugShow').textContent=slugify(r.maker+' '+r.name)||'-';
   };
   ['fMaker','fName','fColor','fType','fSource','fReceived','fWash','fStatus','fNotes','fReason',
-   'dsRgb','dsMono','dsRgbB','dsMonoB','dsBl','dsDen'].forEach(id=>{const e=$(id);if(e)e.addEventListener('input',up);});
+   'dsRgb','dsMono','dsRgbB','dsMonoB','dsBl','dsDen'].forEach(id=>{$(id).addEventListener('input',up);$(id).addEventListener('change',up);});
   $('btnSave').addEventListener('click',async()=>{
     up();
     if(!r.maker||!r.name){$('saveMsg').textContent='Reikia gamintojo ir pavadinimo.';return;}
     const isNew=!!r._new;
     if(isNew){r.slug=slugify(r.maker+' '+r.name);delete r._new;}
-    try{await persist(isNew);$('saveMsg').textContent='Įrašyta.';await loadList(r.slug);}
-    catch(e){if(isNew){r._new=true;}$('saveMsg').textContent='Nepavyko: '+e.message;}
+    try{await persist(isNew);await loadList(r.slug);msg('okbox','Įrašyta.');}
+    catch(e){if(isNew)r._new=true;$('saveMsg').textContent='Nepavyko: '+e.message;}
   });
   if(r._new)return;
 
-  paramsForm(startVals());
-  $('tLh').addEventListener('change',()=>{const i=document.querySelector('#tParams input[data-k=base_layers]');
-    if(i)i.value=Number($('tLh').value)>0.075?2:4;});
+  // Forma pradeda nuo paskutinio bandymo tuo sluoksniu, o jei jo nėra - nuo pradinių.
+  const lt=lastFor(sel.lh);paramsForm(lt?lt.params:startVals());
+  document.querySelectorAll('.cell').forEach(c=>c.addEventListener('click',()=>{
+    sel={step:c.dataset.step,lh:Number(c.dataset.lh),filter:true};render();}));
+  const ab=$('btnAll');if(ab)ab.addEventListener('click',()=>{sel.filter=false;render();});
+  modelStrip();
+  $('tStep').addEventListener('change',()=>{sel.step=$('tStep').value;modelStrip();});
+  $('tLh').addEventListener('change',()=>{sel.lh=Number($('tLh').value);
+    const i=document.querySelector('#tParams input[data-k=base_layers]');if(i)i.value=sel.lh>0.075?2:4;});
   $('btnFromSug').addEventListener('click',()=>paramsForm(startVals()));
-  $('btnFromLast').addEventListener('click',()=>{
-    const lh=Number($('tLh').value);
-    const ts=(r.tests||[]).filter(t=>Number(t.layer_height)===lh);
-    const t=ts[ts.length-1]||(r.tests||[])[(r.tests||[]).length-1];
-    if(!t){$('testMsg').textContent='Bandymų dar nėra.';return;}
-    paramsForm(t.params);});
+  $('btnFromLast').addEventListener('click',()=>{const t=lastFor(Number($('tLh').value));
+    if(!t){$('testMsg').textContent='Bandymų dar nėra.';return;}paramsForm(t.params);});
 
   pending=[];
   const drop=$('drop'),fi=$('fileIn');
@@ -389,8 +425,7 @@ function bind(){
   drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('on');});
   drop.addEventListener('dragleave',()=>drop.classList.remove('on'));
   drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('on');add(e.dataTransfer.files);});
-  document.onpaste=e=>{if(!$('drop'))return;const fs=[...(e.clipboardData||{}).items||[]].filter(i=>i.kind==='file').map(i=>i.getAsFile());if(fs.length)add(fs);};
-
+  document.onpaste=e=>{if(!$('drop'))return;const fs=[...((e.clipboardData||{}).items||[])].filter(i=>i.kind==='file').map(i=>i.getAsFile());if(fs.length)add(fs);};
   $('btnTest').addEventListener('click',saveTest);
   const pb=$('btnPub');if(pb)pb.addEventListener('click',toLibrary);
 }
@@ -399,12 +434,12 @@ function showPend(){
   pending.forEach((x,i)=>{const im=document.createElement('img');im.src=x.url;im.title='Spausk, kad išmestum';
     im.addEventListener('click',()=>{pending.splice(i,1);showPend();});p.appendChild(im);});
 }
-function extOf(f){return f.type==='image/png'?'png':f.type==='image/webp'?'webp':'jpg';}
+const extOf=f=>f.type==='image/png'?'png':f.type==='image/webp'?'webp':'jpg';
 async function saveTest(){
   const r=cur,out={},bad=[];
   document.querySelectorAll('#tParams input').forEach(i=>{
     const f=F.find(x=>x.k===i.dataset.k),v=parseFloat(i.value);
-    if(!(isFinite(v)&&v>=f.min&&v<=f.max))bad.push(f.t);else out[f.k]=v;});
+    if(!(isFinite(v)&&v>=f.min&&v<=f.max))bad.push(SHORT[f.k]||f.t);else out[f.k]=v;});
   if(bad.length){$('testMsg').textContent='Už firmware ribų: '+bad.join(', ')+'.';return;}
   const btn=$('btnTest');btn.disabled=true;$('testMsg').textContent='Įrašoma…';
   const t={id:Date.now().toString(36),step:$('tStep').value,layer_height:Number($('tLh').value),date:$('tDate').value||today(),
@@ -421,7 +456,7 @@ async function saveTest(){
     r.tests=(r.tests||[]).concat([t]);
     if(r.status==='laukiam'||r.status==='gauta')r.status='testuojama';
     await persist(false);
-    pending=[];
+    pending=[];sel={step:t.step,lh:t.layer_height,filter:sel.filter};
     await loadList(r.slug);
     msg('okbox','Bandymas įrašytas'+(t.photos.length?' su '+t.photos.length+' nuotr.':'.'));
   }catch(e){
@@ -430,12 +465,11 @@ async function saveTest(){
 }
 function toLibrary(){
   const r=cur,t=bestTest(r);if(!t)return;
-  const lh=Number(t.layer_height);
-  const base=slugify(r.maker+' '+r.name);
-  const slug=lh>0.075?base+'-010':base;
+  const lh=Number(t.layer_height),base=slugify(r.maker+' '+r.name);
   const p=Object.assign({},t.params,{name:r.maker+' '+r.name,layer_height:lh,
     tested_by:'TinyMakerWiFi',tested_on:t.date.slice(0,7)});
-  try{localStorage.setItem('tmResinLabHandoff',JSON.stringify({slug:slug,p:p}));}catch(e){msg('err','Naršyklė neleido perduoti: '+e.message);return;}
+  try{localStorage.setItem('tmResinLabHandoff',JSON.stringify({slug:lh>0.075?base+'-010':base,p:p}));}
+  catch(e){msg('err','Naršyklė neleido perduoti: '+e.message);return;}
   window.open('/resin-publish.html#lab','_blank');
 }
 $('zoom').addEventListener('click',()=>{$('zoom').style.display='none';});
@@ -447,8 +481,8 @@ $('btnNew').addEventListener('click',newResin);
 (async function(){
   try{
     const c=await api('/api/lab/config');
-    $('dataDir').textContent=c.data_dir;
-    if(!c.data_ok)msg('err','Drive aplanko nerandu: '+c.data_dir+'. Patikrink, ar Google Drive sinchronizuojamas, arba nurodyk kitą kelią resin-lab/local.json.');
+    $('dataDir').textContent='Duomenys: '+c.data_dir;$('dataDir').title=c.data_dir;
+    if(!c.data_ok)msg('err','Drive aplanko nerandu: '+c.data_dir+'. Patikrink Google Drive sinchronizaciją arba nurodyk kitą kelią resin-lab/local.json.');
     CAT=await api('/api/lab/catalog');
     await loadList();
   }catch(e){$('resList').textContent='Serveris neatsako: '+e.message;}
