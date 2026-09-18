@@ -73,9 +73,21 @@ textarea{resize:vertical}
 .cell:hover{border-color:var(--accent)}
 .cell.ok{border-color:var(--ok)}.cell.bad{border-color:var(--bad)}.cell.part{border-color:var(--warn)}
 .cell.sel{outline:2px solid var(--accent);outline-offset:1px}
-.mstrip{display:flex;gap:8px;align-items:center;margin-top:6px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:.72rem}
+.mstrip{display:flex;gap:6px;margin-top:6px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:.72rem;overflow-x:auto}
+.mstrip .mm{display:flex;gap:6px;align-items:center;min-width:220px;flex:1}
 .mstrip img,.mstrip .mi{width:64px;height:48px;object-fit:contain;background:#f7f7f7;border-radius:5px;flex:none;display:flex;align-items:center;justify-content:center}
-.mstrip .k{color:var(--muted);display:block}
+.k{color:var(--muted)}
+.mstrip .k{display:block}
+#mdlg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:8;align-items:center;justify-content:center}
+#mdlg .box{background:var(--card);border-radius:12px;width:min(1100px,94vw);max-height:88vh;display:flex;flex-direction:column;padding:12px 14px}
+#mdlg .grid{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:8px}
+.mc{border:1px solid var(--line);border-radius:9px;padding:6px;font-size:.72rem;background:var(--bg)}
+.mc img{width:100%;height:120px;object-fit:contain;background:#f7f7f7;border-radius:6px}
+.mc .nm{font-weight:600;font-size:.76rem;word-break:break-all}
+.mc.nofit{opacity:.6}
+.mc .as{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.mc .as label{display:flex;gap:3px;align-items:center;font-size:.72rem;color:var(--text)}
+.mc .as input{width:auto}
 .test{border-top:1px solid var(--line);padding:6px 0}
 .test:first-child{border-top:0;padding-top:0}
 .test .h{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
@@ -95,6 +107,7 @@ a{color:var(--link)}
 <header>
  <h1>TinyMaker <span class="dot">·</span> dervų testai</h1>
  <span class="dd" id="dataDir" title=""></span>
+ <button id="btnModels">Testiniai modeliai</button>
  <a href="#" id="themeBtn" title="Šviesi/tamsi">◐</a>
 </header>
 <div id="topMsg"></div>
@@ -109,6 +122,12 @@ a{color:var(--link)}
  <div class="col c3" id="colB"></div>
 </div>
 <div id="zoom"><img alt=""></div>
+<div id="mdlg"><div class="box">
+ <h3 style="margin:0;display:flex;gap:8px;align-items:center;font-size:.9rem">Testiniai modeliai<span class="k" id="mDir" style="font-weight:400;font-size:.72rem"></span>
+  <span style="flex:1"></span><span class="k" id="mMsg"></span><button class="pri" id="mSave">Įrašyti</button><button id="mClose">Uždaryti</button></h3>
+ <div class="note" id="mHelp"></div>
+ <div class="grid" id="mGrid"></div>
+</div></div>
 
 <script src="../resin-fields.js"></script>
 <script>
@@ -141,6 +160,7 @@ async function api(path,opt){
   return j;
 }
 let CAT=null,list=[],cur=null,all={},sel={step:'vat',lh:0.05,filter:false};
+let MODELS=[],MAP={assign:{},notes:{}};
 
 /* ---- pradiniai parametrai -------------------------------------------------
    Gamintojo skaičiai skirti mono ekranui arba RGB; TinyMaker spalvotas ekranas
@@ -240,13 +260,16 @@ function newResin(){
 const typeOf=r=>CAT.types.find(t=>t.id===r.type)||CAT.types[0];
 const stepName=id=>(CAT.steps.find(s=>s.id===id)||{name:id}).name;
 const stepShort=id=>stepName(id).replace(' ant plokštės','').replace(' pagal tipą','');
-const model=id=>CAT.models.find(m=>m.id===id);
-function modelFor(step,r){
-  const s=CAT.steps.find(x=>x.id===step)||{};
-  if(s.model)return model(s.model);
-  const t=typeOf(r);
-  return step==='simple'?model(t.simple):step==='complex'?model(t.complex):null;
+/* Kuris modelis kuriam žingsniui: priskiriama dervos TIPUI, ne dervai - antra tos pačios
+   rūšies derva gauna tuos pačius modelius, ir rezultatai lieka palyginami.
+   Standartinis testas bendras visiems tipams (raktas „*"). */
+const MSTEPS=['coupon','simple','complex'];
+function assigned(type,step){
+  const a=MAP.assign||{};
+  const key=step==='coupon'?'*':type;
+  return ((a[key]||{})[step]||[]).map(f=>MODELS.find(m=>m.file===f)||{file:f,missing:true});
 }
+const fmtSize=m=>m.size?m.size.map(v=>String(v).replace('.',',')).join(' × ')+' mm':'';
 function bestTest(r){
   // Profiliui tinka tik plokštės spaudinys: juostų testas duoda tik apytikslį Regular.
   const ok=(r.tests||[]).filter(t=>t.result==='ok'&&t.step!=='vat');
@@ -349,15 +372,66 @@ function render(){
   bind();
 }
 
-/* Pasirinkto žingsnio modelis - tiesiai formoje, kad nereikėtų jo ieškoti atskirai. */
+/* Pasirinkto žingsnio modeliai - tiesiai formoje, kad nereikėtų jų ieškoti atskirai. */
 function modelStrip(){
   const el=$('mStrip');if(!el)return;
-  const step=$('tStep').value,m=modelFor(step,cur);
-  if(!m){el.innerHTML='<div class="mi"></div><div><b>Be modelio</b><span class="k">'+esc((CAT.steps.find(x=>x.id===step)||{}).how||'')+'</span></div>';return;}
-  el.innerHTML=(m.file?'<img src="models/'+m.file.replace('.stl','.png')+'" alt="">':'<div class="mi k">išorinis</div>')+
-    '<div><b>'+esc(m.name)+'</b> <span class="k">'+esc(m.size)+(m.license?' · '+esc(m.license):'')+'</span> '+
-    (m.file?'<a href="models/'+m.file+'" download>STL</a>':'<a href="'+esc(m.url)+'" target="_blank" rel="noopener">parsisiųsti</a>')+
-    '<span class="k">Tikrink: '+esc(m.check)+'</span></div>';
+  const step=$('tStep').value;
+  if(step==='vat'){el.innerHTML='<div class="mm"><div class="mi k">be modelio</div><span class="k">'+
+    esc((CAT.steps.find(x=>x.id===step)||{}).how||'')+'</span></div>';return;}
+  const ms=assigned(cur.type,step);
+  if(!ms.length){el.innerHTML='<div class="mm"><div class="mi k">-</div><span class="k">Šiam žingsniui'+
+    (step==='coupon'?'':' ir tipui „'+esc(typeOf(cur).name)+'“')+' modelis nepriskirtas. Spausk viršuje „Testiniai modeliai“.</span></div>';return;}
+  el.innerHTML=ms.map(m=>'<div class="mm">'+(m.missing?'<div class="mi k">nėra failo</div>':
+      '<img src="/thumb/'+encodeURI(m.file)+'" alt="" loading="lazy">')+
+    '<div><b>'+esc(m.file)+'</b> '+(m.missing?'':'<a href="/lib/'+encodeURI(m.file)+'">STL</a>')+
+    '<span class="k">'+esc(fmtSize(m))+(m.fits===false?' · netelpa ant plokštės':'')+'</span>'+
+    (MAP.notes&&MAP.notes[m.file]?'<span class="k">Tikrink: '+esc(MAP.notes[m.file])+'</span>':'')+'</div></div>').join('');
+}
+
+/* ---- modelių langas ------------------------------------------------------ */
+async function loadModels(){
+  const [m,map]=await Promise.all([api('/api/lab/models'),api('/api/lab/modelmap')]);
+  MODELS=m.models;MAP=Object.assign({assign:{},notes:{}},map);
+  return m;
+}
+async function openModels(){
+  let m;
+  try{m=await loadModels();}catch(e){msg('err','Modelių aplanko nepavyko perskaityti: '+e.message);return;}
+  const type=cur&&!cur._new?cur.type:null;
+  $('mDir').textContent=m.dir;
+  $('mHelp').textContent=(type?'Varnelės priskiria modelį žingsniui: standartinis testas - visoms dervoms, paprastas ir sudėtingas - tipui „'+
+    typeOf(cur).name+'“. ':'Atidaryk dervą, kad galėtum priskirti modelius jos tipui. ')+
+    'Plokštė 40,8 × 30,6 mm, aukštis 60 mm. Naujus STL dėk į aplanką - jie atsiras čia.';
+  const g=$('mGrid');g.innerHTML='';
+  if(!MODELS.length)g.innerHTML='<div class="note">Aplanke STL failų nėra.</div>';
+  MODELS.forEach(x=>{
+    const c=document.createElement('div');c.className='mc'+(x.fits===false?' nofit':'');
+    const on=(key,step)=>(((MAP.assign[key]||{})[step])||[]).indexOf(x.file)>=0;
+    c.innerHTML='<img src="/thumb/'+encodeURI(x.file)+'" alt="" loading="lazy">'+
+      '<div class="nm">'+esc(x.file)+'</div><div class="k">'+(x.broken?'failas neperskaitomas':esc(fmtSize(x))+' · '+
+      (x.tri||0).toLocaleString('lt-LT')+' trikamp.')+'</div>'+
+      (x.fits===false?'<div class="warn" style="margin:3px 0">Netelpa ant plokštės'+(x.fits_any?' (tilptų tik kitaip paguldytas)':'')+'</div>':'')+
+      (type?'<div class="as">'+MSTEPS.map(st=>{const key=st==='coupon'?'*':type;
+        return '<label><input type="checkbox" data-f="'+esc(x.file)+'" data-k="'+key+'" data-s="'+st+'"'+(on(key,st)?' checked':'')+
+          (x.fits===false?' disabled':'')+'>'+esc(stepShort(st))+'</label>';}).join('')+'</div>':'')+
+      '<input class="nt" data-f="'+esc(x.file)+'" placeholder="Ką tikrinti šiame modelyje" value="'+esc((MAP.notes||{})[x.file]||'')+'" style="margin-top:4px">';
+    g.appendChild(c);
+  });
+  $('mMsg').textContent='';
+  $('mdlg').style.display='flex';
+}
+async function saveModels(){
+  const A=JSON.parse(JSON.stringify(MAP.assign||{}));
+  document.querySelectorAll('#mGrid input[type=checkbox]').forEach(i=>{
+    const k=i.dataset.k,st=i.dataset.s,f=i.dataset.f;
+    A[k]=A[k]||{};A[k][st]=(A[k][st]||[]).filter(x=>x!==f);
+    if(i.checked)A[k][st].push(f);});
+  const N={};
+  document.querySelectorAll('#mGrid input.nt').forEach(i=>{if(i.value.trim())N[i.dataset.f]=i.value.trim();});
+  try{
+    await api('/api/lab/modelmap',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({assign:A,notes:N})});
+    MAP={assign:A,notes:N};$('mMsg').textContent='Įrašyta.';modelStrip();
+  }catch(e){$('mMsg').textContent='Nepavyko: '+e.message;}
 }
 
 /* ---- įvykiai ------------------------------------------------------------- */
@@ -476,6 +550,9 @@ $('zoom').addEventListener('click',()=>{$('zoom').style.display='none';});
 document.addEventListener('click',e=>{if(e.target.matches('.test .thumbs img')){
   $('zoom').querySelector('img').src=e.target.src;$('zoom').style.display='flex';}});
 $('btnNew').addEventListener('click',newResin);
+$('btnModels').addEventListener('click',openModels);
+$('mClose').addEventListener('click',()=>{$('mdlg').style.display='none';});
+$('mSave').addEventListener('click',saveModels);
 
 /* ---- startas ------------------------------------------------------------- */
 (async function(){
@@ -484,6 +561,8 @@ $('btnNew').addEventListener('click',newResin);
     $('dataDir').textContent='Duomenys: '+c.data_dir;$('dataDir').title=c.data_dir;
     if(!c.data_ok)msg('err','Drive aplanko nerandu: '+c.data_dir+'. Patikrink Google Drive sinchronizaciją arba nurodyk kitą kelią resin-lab/local.json.');
     CAT=await api('/api/lab/catalog');
+    try{await loadModels();}catch(e){}
+    if(!c.models_ok)msg('err','Modelių aplanko nerandu: '+c.models_dir+'. Nurodyk kitą resin-lab/local.json (models_dir).');
     await loadList();
   }catch(e){$('resList').textContent='Serveris neatsako: '+e.message;}
 })();
