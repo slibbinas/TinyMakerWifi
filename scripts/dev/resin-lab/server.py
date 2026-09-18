@@ -444,6 +444,10 @@ def resin_path(slug):
     return os.path.join(data_dir(), slug, "resin.json")
 
 
+def is_published(r):
+    return r.get("status") == "paskelbta" or bool(r.get("library"))
+
+
 def list_resins():
     out = []
     root = data_dir()
@@ -777,6 +781,10 @@ class Handler(SimpleHTTPRequestHandler):
             slug = m.group(1)
             if not SLUG.match(slug) or not os.path.isfile(resin_path(slug)):
                 raise LabError("not_found", slug, 404)
+            # Paskelbta derva turi profilį bibliotekoje: ištrynus įrašą, liktų profilis be
+            # savo testų istorijos. Pirma - išimti iš bibliotekos, tada trinti.
+            if is_published(read_json(resin_path(slug), {})):
+                raise LabError("published", slug, 409)
             dst = os.path.join(data_dir(), "_deleted", "%s-%s" % (slug, time.strftime("%Y%m%d-%H%M%S")))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             os.replace(os.path.join(data_dir(), slug), dst)
