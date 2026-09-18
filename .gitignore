@@ -46,3 +46,6 @@ __pycache__/
 
 # Test output (generated SVG previews), not source
 scripts/dev/test-out/
+
+# Resin lab: personal data path (Drive), not for the public repo
+scripts/dev/resin-lab/local.json
