@@ -23,7 +23,7 @@ Asmeniniai nustatymai - resin-lab/local.json (.gitignore):
   printer     printerio adresas, pvz. 192.168.1.138
   prusaslicer prusa-slicer-console.exe kelias
 """
-import hashlib, io, json, os, re, struct, subprocess, sys, threading, time, uuid
+import hashlib, io, json, os, re, shutil, struct, subprocess, sys, threading, time, uuid
 import urllib.error, urllib.parse, urllib.request
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, unquote
@@ -40,7 +40,7 @@ DEFAULT_DATA = os.path.join(HOME, "My Drive", "3Dprinter", "20 TinyMakerWifi", "
 DEFAULT_MODELS = os.path.join(HOME, "My Drive", "3Dprinter", "00_TinyMaker", "00 STLs Tests")
 DEFAULT_PRUSA = r"C:/Program Files/Prusa3D/PrusaSlicer/prusa-slicer-console.exe"
 PRINTER_INI = os.path.join(REPO, "PrusaSlicer", "TinyMaker.ini")
-OPENSCAD = os.environ.get("OPENSCAD", r"C:/Users/SViktoras/Tools/OpenSCAD/openscad.com")
+DEFAULT_OPENSCAD = r"C:/Users/SViktoras/Tools/OpenSCAD/openscad.com"
 PLATE = (40.8, 30.6, 60.0)        # PrusaSlicer/TinyMaker.ini: ekranas ir aukštis
 LAB_PROFILE = "lab-test"          # vienas laikinas profilis: printeris laiko daugiausia 16
 
@@ -84,7 +84,8 @@ def config():
     return {"data_dir": os.environ.get("RESIN_LAB_DATA") or c.get("data_dir") or DEFAULT_DATA,
             "models_dir": c.get("models_dir") or DEFAULT_MODELS,
             "printer": c.get("printer") or "",
-            "prusaslicer": c.get("prusaslicer") or DEFAULT_PRUSA}
+            "prusaslicer": c.get("prusaslicer") or DEFAULT_PRUSA,
+            "openscad": c.get("openscad") or os.environ.get("OPENSCAD") or DEFAULT_OPENSCAD}
 
 
 def data_dir():
@@ -225,7 +226,8 @@ def thumb_for(rel):
     """PNG peržiūra per OpenSCAD, kešuojama duomenų aplanke. Nėra OpenSCAD -
     nėra peržiūros, bet visa kita veikia."""
     f = model_file(rel)
-    if not f or not os.path.isfile(OPENSCAD):
+    openscad = config()["openscad"]
+    if not f or not os.path.isfile(openscad):
         return None
     st = os.stat(f)
     h = hashlib.sha1(("%s|%d|%d" % (rel, st.st_size, int(st.st_mtime))).encode("utf-8")).hexdigest()[:16]
@@ -241,7 +243,7 @@ def thumb_for(rel):
         with io.open(scad, "w", encoding="utf-8") as sf:
             sf.write('import("%s");\n' % f.replace("\\", "/"))
         try:
-            subprocess.run([OPENSCAD, "-o", png, "--imgsize=480,360", "--viewall", "--autocenter",
+            subprocess.run([openscad, "-o", png, "--imgsize=480,360", "--viewall", "--autocenter",
                             "--colorscheme=Tomorrow", "--camera=0,0,0,55,0,25,0", scad],
                            check=True, capture_output=True, timeout=180)
         except (subprocess.SubprocessError, OSError):
@@ -462,6 +464,110 @@ def list_resins():
     return out
 
 
+# ---- nustatymai: keliai, kopijavimas, aplanko atidarymas ----------------------
+
+DIR_KEYS = ("data_dir", "models_dir")
+EXE_KEYS = ("prusaslicer", "openscad")
+DEFAULTS = {"data_dir": DEFAULT_DATA, "models_dir": DEFAULT_MODELS, "prusaslicer": DEFAULT_PRUSA,
+            "openscad": DEFAULT_OPENSCAD, "printer": ""}
+
+
+def settings_view():
+    c = config()
+    out = {"env_data": bool(os.environ.get("RESIN_LAB_DATA")), "local_file": LOCAL, "defaults": DEFAULTS}
+    for k in DIR_KEYS:
+        out[k] = {"value": c[k], "exists": os.path.isdir(c[k])}
+    for k in EXE_KEYS:
+        out[k] = {"value": c[k], "exists": os.path.isfile(c[k])}
+    out["printer"] = {"value": c["printer"]}
+    return out
+
+
+def _norm(path):
+    return os.path.normcase(os.path.realpath(path))
+
+
+def nested(a, b):
+    """Ar vienas aplankas kito viduje (arba tas pats) - tada kopijuoti negalima."""
+    a, b = _norm(a), _norm(b)
+    return a == b or a.startswith(b + os.sep) or b.startswith(a + os.sep)
+
+
+def copy_tree(src, dst, stage, label):
+    """Kopija, ne perkėlimas: senas aplankas lieka, kol žmogus jo neištrina pats.
+    Jau esantys tie patys failai nepakeičiami, jei naujesni (tik papildoma)."""
+    n = 0
+    for d, dirs, files in os.walk(src):
+        rel = os.path.relpath(d, src)
+        tgt = os.path.join(dst, rel) if rel != "." else dst
+        os.makedirs(tgt, exist_ok=True)
+        for fn in files:
+            if fn.endswith(".tmp"):
+                continue
+            a, b = os.path.join(d, fn), os.path.join(tgt, fn)
+            if os.path.exists(b) and os.path.getmtime(b) >= os.path.getmtime(a):
+                continue
+            shutil.copy2(a, b)
+            n += 1
+            if n % 20 == 0:
+                stage("%s %d" % (label, n))
+    return n
+
+
+def _clean(v):
+    """Windows „Kopijuoti kaip kelią" įdeda kelią į kabutes - jos ne kelio dalis."""
+    return str(v or "").strip().strip('"').strip()
+
+
+def apply_settings(req, stage):
+    """Tikrina, prireikus kopijuoja duomenis ir tik tada įrašo local.json: jei kopija
+    nepavyksta, įrankis lieka dirbti su senu aplanku ir niekas nepasimeta."""
+    cur = config()
+    new = dict(local_cfg())
+    copied = {}
+    for k in DIR_KEYS:
+        v = _clean(req.get(k))
+        if not v or _norm(v) == _norm(DEFAULTS[k]):
+            v = ""
+        path = v or DEFAULTS[k]
+        if not os.path.isabs(path):
+            raise LabError("bad_path", path)
+        if _norm(path) != _norm(cur[k]) and req.get("copy_" + k) and os.path.isdir(cur[k]):
+            if nested(path, cur[k]):
+                raise LabError("nested_path", path)
+            stage("copy_" + k)
+            copied[k] = copy_tree(cur[k], path, stage, "copy_" + k)
+        os.makedirs(path, exist_ok=True)
+        new[k] = v
+    for k in EXE_KEYS:
+        v = _clean(req.get(k))
+        if v and not os.path.isfile(v):
+            raise LabError("no_file", v)
+        new[k] = "" if not v or _norm(v) == _norm(DEFAULTS[k]) else v
+    host = str(req.get("printer", "")).strip()
+    if host and not HOST.match(host):
+        raise LabError("bad_host", host)
+    new["printer"] = host
+    new = {k: v for k, v in new.items() if v}
+    write_atomic(LOCAL, (json.dumps(new, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
+    return {"ok": True, "copied": copied}
+
+
+def open_folder(what):
+    """Atidaro aplanką Windows naršyklėje. Tik žinomi keliai - ne bet koks iš užklausos."""
+    c = config()
+    path = {"data_dir": c["data_dir"], "models_dir": c["models_dir"],
+            "sliced": os.path.join(c["models_dir"], "_sliced"),
+            "prusaslicer": os.path.dirname(c["prusaslicer"]), "openscad": os.path.dirname(c["openscad"]),
+            "local": os.path.dirname(LOCAL)}.get(what)
+    if not path:
+        raise LabError("bad_json", what)
+    if not os.path.isdir(path):
+        raise LabError("no_folder", path, 404)
+    os.startfile(path)
+    return {"ok": True, "path": path}
+
+
 # ---- HTTP --------------------------------------------------------------------
 
 class Handler(SimpleHTTPRequestHandler):
@@ -552,6 +658,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"dir": models_dir(), "plate": PLATE, "models": list_models()})
         if p == "/api/lab/modelmap":
             return self.send_json(modelmap())
+        if p == "/api/lab/settings":
+            return self.send_json(settings_view())
         if p == "/api/lab/job":
             return self.send_json(dict(_job))
         if p == "/api/lab/printer":
@@ -602,14 +710,11 @@ class Handler(SimpleHTTPRequestHandler):
             write_json(modelmap_path(), obj)
             return self.send_json({"ok": True})
         if p == "/api/lab/settings":
-            obj = self.json_body()
-            c = local_cfg()
-            host = str(obj.get("printer", "")).strip()
-            if host and not HOST.match(host):
-                raise LabError("bad_host", host)
-            c["printer"] = host
-            write_atomic(LOCAL, (json.dumps(c, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
-            return self.send_json({"ok": True})
+            req = self.json_body()
+            # Kopijavimas gali užtrukti (nuotraukos Drive'e) - tada tai ilgas darbas su eiga.
+            if any(req.get("copy_" + k) for k in DIR_KEYS):
+                return self.send_json({"job": job_start("settings", lambda st: apply_settings(req, st))})
+            return self.send_json(apply_settings(req, lambda st: None))
         m = re.match(r"^/api/lab/resin/([^/]+)$", p)
         if not m or not SLUG.match(m.group(1)):
             raise LabError("bad_slug")
@@ -641,6 +746,8 @@ class Handler(SimpleHTTPRequestHandler):
                 raise LabError("bad_json", "model/params")
             printer_host()
             return self.send_json({"job": job_start("run", lambda st: run_test(req, st))})
+        if p == "/api/lab/open":
+            return self.send_json(open_folder(str(self.json_body().get("what", ""))))
         if p == "/api/lab/printer/start":
             req = self.json_body()
             return self.send_json(start_print(str(req.get("name", "")), bool(req.get("force"))))
