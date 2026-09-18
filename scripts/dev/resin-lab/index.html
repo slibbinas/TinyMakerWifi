@@ -120,6 +120,8 @@ textarea{resize:vertical}
 #viewer .cap{color:#eee;font-size:.8rem}
 #viewer .nav{position:absolute;top:50%;font-size:38px;color:#fff;cursor:pointer;user-select:none;padding:10px}
 #viewer .prev{left:10px}#viewer .next2{right:10px}
+#stripCv{max-width:100%;max-height:62vh;cursor:crosshair;border-radius:6px;align-self:center}
+#stBtns{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}#stBtns button.on{background:var(--accent);color:#fff}
 #guide iframe{border:0;width:100%;height:78vh;border-radius:8px;background:var(--card)}
 a{color:var(--link)}
 @media(max-width:1180px){.app{grid-template-columns:200px 1fr}.col.c3{grid-column:2}}
@@ -151,6 +153,9 @@ a{color:var(--link)}
 <div class="ovl" id="setdlg"><div class="box" style="width:min(820px,95vw)">
  <h3><span data-t="setTitle"></span><span class="sp"></span><span class="k" id="sMsg"></span><button class="pri" id="sSave" data-t="save"></button><button id="sClose" data-t="close"></button></h3>
  <div class="note" id="sHelp" style="margin-bottom:8px"></div><div id="sEnv"></div><div id="sBody"></div></div></div>
+<div class="ovl" id="stripdlg"><div class="box">
+ <h3><span data-t="stripTitle"></span><span class="sp"></span><span class="k" id="stMsg"></span><button class="pri" id="stSave" data-t="save"></button><button id="stClose" data-t="close"></button></h3>
+ <div class="note" id="stHelp"></div><div id="stBtns"></div><div class="note" id="stSel" style="margin:2px 0 4px;color:var(--text)"></div><canvas id="stripCv"></canvas></div></div>
 <div class="ovl" id="guide"><div class="box">
  <h3><span data-t="guide"></span><span class="sp"></span><a id="guideOpen" target="_blank" data-t="openTab"></a><button id="gClose" data-t="close"></button></h3>
  <iframe id="guideFrame" title="guide"></iframe></div></div>
@@ -226,7 +231,9 @@ const T={
   err_exists:'Tokiu vardu derva jau yra.',err_foreign_origin:'Užklausa ne iš įrankio puslapio.',err_internal:'Vidinė klaida: {0}',err_other:'Klaida: {0}',
   err_no_profile:'Printeryje nerastas pasirinktas profilis: {0}',err_bad_json:'Netinkami duomenys: {0}',err_not_found:'Nerasta: {0}',
   err_bad_slug:'Netinkamas dervos aplanko vardas: {0}',err_bad_photo:'Netinkamas nuotraukos failas: {0}',err_too_big:'Failas per didelis.',err_http:'Serveris atsakė klaida: {0}',
-  phSource:'SUNLU pavyzdys',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
+  phSource:'SUNLU pavyzdys',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
+  stripHelp:'Tempk pele stačiakampį aplink visas 8 juostas, tada spustelėk geriausią. Žalia - skylučių tiek, kiek turi būti, geltona - ne. Neatpažino - rink juostą mygtukais. Taisyklė: žemiausia švari juosta plius vienas žingsnis. Ar paviršius sausas, nuotrauka neparodo - žiūrėk į tikrą juostą.',
+  stripFound:'Rasta juostų: {0}, reikia 8 - apvesk tiksliau arba rink mygtukais.',stripSel:'Pasirinkta #{0} · {1} % · {2} s (bandymo Regular {3} s)',stripPickHint:'Spustelėk geriausią juostą.',stripCard:'Juosta #{0} · {1} s',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
  en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
   loading:'Loading…',noResins:'No resins yet. Start with “+ New resin”.',pick:'Pick a resin on the left or start a new one.',
   data:'Data',printer:'Printer',pNone:'no printer set',pOff:'not answering',pIdle:'idle',pBusy:'printing',
@@ -288,7 +295,9 @@ const T={
   err_exists:'A resin with this name already exists.',err_foreign_origin:'Request not from the tool page.',err_internal:'Internal error: {0}',err_other:'Error: {0}',
   err_no_profile:'The selected profile was not found on the printer: {0}',err_bad_json:'Invalid data: {0}',err_not_found:'Not found: {0}',
   err_bad_slug:'Invalid resin folder name: {0}',err_bad_photo:'Invalid photo file: {0}',err_too_big:'The file is too big.',err_http:'The server returned an error: {0}',
-  phSource:'SUNLU sample',guideT:'Guide',themeT:'Light / dark theme'}};
+  phSource:'SUNLU sample',stripB:'🔍 Bars',stripTitle:'Strip photo',
+  stripHelp:'Drag a rectangle around all 8 bars, then click the best one. Green - the bar has as many holes as it should, amber - it does not. Not recognised - pick the bar with the buttons. Rule: the lowest clean bar plus one step. The photo cannot show whether the surface is dry - check the real strip.',
+  stripFound:'Bars found: {0}, need 8 - frame them more tightly or use the buttons.',stripSel:'Picked #{0} · {1} % · {2} s (test Regular {3} s)',stripPickHint:'Click the best bar.',stripCard:'Bar #{0} · {1} s',guideT:'Guide',themeT:'Light / dark theme'}};
 let LANG='lt';
 try{const l=localStorage.getItem('tmLabLang');if(l==='en'||l==='lt')LANG=l;}catch(e){}
 function t(k,...a){let s=(T[LANG]&&T[LANG][k])||T.lt[k]||k;a.forEach((v,i)=>{s=s.replace('{'+i+'}',v);});return s;}
@@ -646,8 +655,9 @@ function testsCard(){
       (isB?'<span class="badge">'+esc(t('isBest'))+'</span>':'')+(x.photos&&x.photos.length>1?'<span class="more">+'+(x.photos.length-1)+'</span>':'')+'</div>'+
       '<div class="bd"><div>'+paramLine(x.params||{},dk)+'</div><div><span class="stars">'+starTxt(starsOf(x))+'</span></div>'+
       '<div class="k">'+esc(x.date)+(sel.all?' · '+esc(L(stepOf(x.step)))+' '+lhTxt(x.layer_height):'')+(c.room?' · '+esc(num(c.room))+' °C':'')+'</div>'+
+      (x.strip?'<div class="k"><b>'+esc(t('stripCard',x.strip.bar,num(x.strip.secs)))+'</b></div>':'')+
       '<div class="v">'+esc(x.verdict||'')+'</div>'+
-      '<div class="acts2"><button data-pick="'+x.id+'">'+(picks.has(x.id)?'☑':'☐')+' '+esc(t('cmpPick'))+'</button>'+
+      '<div class="acts2">'+(x.step==='vat'&&x.photos&&x.photos.length?'<button data-strip="'+x.id+'">'+esc(t('stripB'))+'</button>':'')+'<button data-pick="'+x.id+'">'+(picks.has(x.id)?'☑':'☐')+' '+esc(t('cmpPick'))+'</button>'+
       (x.step==='vat'?'':'<button data-best="'+x.id+'">'+esc(isB?t('unBest'):t('best'))+'</button>')+
       '<button data-edit="'+x.id+'" title="'+esc(t('edit'))+'">'+t('editB')+'</button><button class="danger" data-del="'+x.id+'">'+t('del')+'</button></div></div></div>';
   }).join('')+'</div><div class="note">'+esc(t('cmpHint'))+'</div></div>';
@@ -754,6 +764,7 @@ function bind(){
     const x=r.tests.find(y=>y.id===b.dataset.del);
     if(x&&await ask(t('delTestQ',L(stepOf(x.step))+', '+lhTxt(x.layer_height)+' mm',x.date),{yes:t('yes'),no:t('no')}))deleteTest(x.id);}));
   document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>openViewer(b.dataset.view)));
+  document.querySelectorAll('[data-strip]').forEach(b=>b.addEventListener('click',()=>openStrip(b.dataset.strip)));
   // forma
   if(!$('tParams'))return;
   const ed=editing?(r.tests||[]).find(x=>x.id===editing):null;
@@ -834,6 +845,114 @@ async function toggleBest(id){
   if(r.best[k]===id)delete r.best[k];else r.best[k]=id;
   try{await persist(false);render();}catch(e){msg('err',errText(e));}
 }
+
+/* ---- juostų nuotrauka -------------------------------------------------------
+   Pagalba, ne sprendimas (V 2026-09-18): įrankis randa juostas ir patikrina
+   skylutes, o geriausią juostą parenka žmogus - spustelėjęs nuotraukoje arba
+   mygtuku, jei atpažinimas nepavyko. Įrašomas pasirinkimas ir matavimai: iš jų
+   vėliau bus galima spręsti, ar siūlymas gali būti automatinis.
+   Juosta N turi N skylučių (runExpTest, Interface.ino), tad numeris nustatomas
+   pagal skylutes ir nuotraukos kryptis nesvarbi. */
+const STRIP_PCT=[40,55,70,85,100,115,135,160];
+function stripSecs(reg){            // expTestBarSecs (Interface.ino): decisekundės, ≥1,0 s, skirtingos
+  const ds=Math.round(reg*10),o=[];
+  STRIP_PCT.forEach((p,i)=>{let v=Math.floor((ds*p+50)/100);if(v<10)v=10;if(i&&v<=o[i-1])v=o[i-1]+1;o.push(v);});
+  return o.map(v=>v/10);
+}
+function stripDetect(img,roi){
+  const sc=Math.min(1,800/roi.w),W=Math.max(1,Math.round(roi.w*sc)),H=Math.max(1,Math.round(roi.h*sc));
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  c.getContext('2d').drawImage(img,roi.x,roi.y,roi.w,roi.h,0,0,W,H);
+  const d=c.getContext('2d').getImageData(0,0,W,H).data,N=W*H,g=new Uint8Array(N),hist=new Array(256).fill(0);
+  for(let i=0;i<N;i++){const v=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;g[i]=v;hist[v]++;}
+  let sum=0,sB=0,wB=0,best=0,th=128;for(let i=0;i<256;i++)sum+=i*hist[i];
+  for(let i=0;i<256;i++){wB+=hist[i];if(!wB||wB===N)continue;sB+=i*hist[i];      // Otsu slenkstis
+    const mB=sB/wB,mF=(sum-sB)/(N-wB),b=wB*(N-wB)*(mB-mF)*(mB-mF);if(b>best){best=b;th=i;}}
+  let m=new Uint8Array(N);for(let i=0;i<N;i++)m[i]=g[i]>th?1:0;
+  const morph=(a,er)=>{const o=new Uint8Array(N);for(let y=0;y<H;y++)for(let x=0;x<W;x++){let v=er?1:0;
+    for(const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const X=x+dx,Y=y+dy,q=X<0||Y<0||X>=W||Y>=H?0:a[Y*W+X];
+      if(er&&!q)v=0;if(!er&&q)v=1;}o[y*W+x]=v;}return o;};   // kryžius: kvadratas nutrindavo ploną kraštą prie skylutės
+  m=morph(morph(morph(morph(m,1),1),0),0);   // atidarymas: nuima lašelių blizgesį ir triukšmą
+  const lab=new Int32Array(N),comps=[],st=[];
+  for(let i=0;i<N;i++){if(!m[i]||lab[i])continue;const id=comps.length+1,cp={id,n:0,x0:W,y0:H,x1:0,y1:0,s:0};lab[i]=id;st.push(i);
+    while(st.length){const p=st.pop(),x=p%W,y=p/W|0;cp.n++;cp.s+=g[p];
+      if(x<cp.x0)cp.x0=x;if(x>cp.x1)cp.x1=x;if(y<cp.y0)cp.y0=y;if(y>cp.y1)cp.y1=y;
+      if(x>0&&m[p-1]&&!lab[p-1]){lab[p-1]=id;st.push(p-1);}if(x<W-1&&m[p+1]&&!lab[p+1]){lab[p+1]=id;st.push(p+1);}
+      if(y>0&&m[p-W]&&!lab[p-W]){lab[p-W]=id;st.push(p-W);}if(y<H-1&&m[p+W]&&!lab[p+W]){lab[p+W]=id;st.push(p+W);}}
+    comps.push(cp);}
+  const mx=Math.max(0,...comps.map(c=>c.n));
+  const bars=comps.filter(c=>c.n>=0.3*mx).sort((a,b)=>a.x0-b.x0);
+  bars.forEach(b=>{   // skylutės: juostos stačiakampio vidus, iki kurio nepatenkama nuo krašto
+    const bw=b.x1-b.x0+1,bh=b.y1-b.y0+1,A=bw*bh,out=new Uint8Array(A),q=[];
+    const isBar=k=>lab[((k/bw|0)+b.y0)*W+k%bw+b.x0]===b.id;
+    const seed=k=>{if(!out[k]&&!isBar(k)){out[k]=1;q.push(k);}};
+    for(let x=0;x<bw;x++){seed(x);seed((bh-1)*bw+x);}for(let y=0;y<bh;y++){seed(y*bw);seed(y*bw+bw-1);}
+    const nb=k=>{const x=k%bw,y=k/bw|0,o=[];if(x>0)o.push(k-1);if(x<bw-1)o.push(k+1);if(y>0)o.push(k-bw);if(y<bh-1)o.push(k+bw);return o;};
+    while(q.length)nb(q.pop()).forEach(seed);
+    const seen=new Uint8Array(A),min=Math.max(8,0.002*b.n);let holes=0;
+    for(let k=0;k<A;k++){if(out[k]||seen[k]||isBar(k))continue;let a=0;const s2=[k];seen[k]=1;
+      while(s2.length){a++;nb(s2.pop()).forEach(j=>{if(!seen[j]&&!out[j]&&!isBar(j)){seen[j]=1;s2.push(j);}});}
+      if(a>=min)holes++;}
+    b.holes=holes;b.bright=Math.round(b.s/b.n);b.box=[roi.x+b.x0/sc,roi.y+b.y0/sc,bw/sc,bh/sc];
+  });
+  if(bars.length===8){  // kryptis: pusėje su daugiau skylučių - ilgesnės ekspozicijos juostos
+    const l=bars.slice(0,4).reduce((a,b)=>a+b.holes,0),r=bars.slice(4).reduce((a,b)=>a+b.holes,0);
+    bars.forEach((b,i)=>{b.bar=l>r?8-i:i+1;});
+  }
+  return bars;
+}
+let ST=null;
+function openStrip(id){
+  const x=cur.tests.find(y=>y.id===id);if(!x||!x.photos||!x.photos.length)return;
+  const img=new Image(),sr=x.strip&&x.strip.roi;
+  ST={x,img,roi:sr?{x:sr[0],y:sr[1],w:sr[2],h:sr[3]}:null,bars:[],pick:x.strip?x.strip.bar:0,drag:null,start:null};
+  $('stHelp').textContent=t('stripHelp');$('stMsg').textContent='';
+  const secs=stripSecs((x.params||{}).regular_exposure||0);
+  $('stBtns').innerHTML=secs.map((v,i)=>'<button data-bar="'+(i+1)+'">#'+(i+1)+' · '+esc(num(v))+' s</button>').join('');
+  $('stBtns').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ST.pick=+b.dataset.bar;drawStrip();}));
+  img.onload=()=>{const cv=$('stripCv');cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+    if(ST.roi)ST.bars=stripDetect(img,ST.roi);drawStrip();};
+  img.src='/data/'+cur.slug+'/photos/'+encodeURIComponent(x.photos[0]);
+  $('stripdlg').classList.add('on');
+}
+function drawStrip(){
+  const cv=$('stripCv'),c=cv.getContext('2d'),S=ST,lw=Math.max(2,cv.width/400),fs=Math.max(14,cv.width/55);
+  c.drawImage(S.img,0,0);c.lineWidth=lw;c.font='bold '+fs+'px sans-serif';
+  const r=S.drag||S.roi,ok8=S.bars.length===8,reg=(S.x.params||{}).regular_exposure||0,secs=stripSecs(reg);
+  if(r){c.setLineDash([lw*4,lw*3]);c.strokeStyle='#fff';c.strokeRect(r.x,r.y,r.w,r.h);c.setLineDash([]);}
+  if(!S.drag&&ok8)S.bars.forEach(b=>{
+    const [x,y,w,h]=b.box,good=b.holes===b.bar,on=b.bar===S.pick;
+    c.strokeStyle=on?'#f07a1a':good?'#2fb35a':'#e0a44a';c.lineWidth=on?lw*2.5:lw;c.strokeRect(x-lw,y-lw,w+2*lw,h+2*lw);
+    c.fillStyle='rgba(0,0,0,.6)';c.fillRect(x-lw,y-fs*2.4,Math.max(w,fs*3.2),fs*2.2);
+    c.fillStyle='#fff';c.fillText('#'+b.bar,x,y-fs*1.35);c.font=(fs*.8|0)+'px sans-serif';
+    c.fillText(num(secs[b.bar-1])+' s',x,y-fs*.35);c.font='bold '+fs+'px sans-serif';
+    c.fillStyle=good?'#2fb35a':'#e0a44a';c.fillText(b.holes+'/'+b.bar,x,y+h+fs*1.1);
+  });
+  $('stBtns').querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.bar===S.pick));
+  $('stSel').textContent=S.pick?t('stripSel',S.pick,STRIP_PCT[S.pick-1],num(secs[S.pick-1]),num(reg)):
+    r&&!S.drag&&!ok8?t('stripFound',S.bars.length):r&&!S.drag?t('stripPickHint'):'';
+  $('stSave').disabled=!S.pick;
+}
+(function(){
+  const cv=$('stripCv'),pt=e=>{const b=cv.getBoundingClientRect();return {x:(e.clientX-b.left)*cv.width/b.width,y:(e.clientY-b.top)*cv.height/b.height};};
+  cv.addEventListener('mousedown',e=>{if(!ST)return;ST.start=pt(e);ST.moved=false;});
+  cv.addEventListener('mousemove',e=>{if(!ST||!ST.start||!e.buttons)return;const p=pt(e),s=ST.start;
+    if(!ST.moved&&Math.abs(p.x-s.x)+Math.abs(p.y-s.y)<cv.width/100)return;ST.moved=true;
+    ST.drag={x:Math.min(s.x,p.x),y:Math.min(s.y,p.y),w:Math.abs(p.x-s.x),h:Math.abs(p.y-s.y)};drawStrip();});
+  window.addEventListener('mouseup',e=>{if(!ST||!ST.start)return;const p=pt(e);ST.start=null;
+    if(ST.moved&&ST.drag){ST.roi=ST.drag;ST.drag=null;ST.bars=stripDetect(ST.img,ST.roi);drawStrip();return;}
+    if(e.target!==cv||ST.bars.length!==8)return;
+    const b=ST.bars.find(b=>p.x>=b.box[0]&&p.x<=b.box[0]+b.box[2]&&p.y>=b.box[1]&&p.y<=b.box[1]+b.box[3]);
+    if(b){ST.pick=b.bar;drawStrip();}});
+  $('stClose').addEventListener('click',()=>{$('stripdlg').classList.remove('on');ST=null;});
+  $('stSave').addEventListener('click',async()=>{
+    const S=ST,secs=stripSecs((S.x.params||{}).regular_exposure||0),ok8=S.bars.length===8;
+    S.x.strip={bar:S.pick,secs:secs[S.pick-1],photo:S.x.photos[0],by:ok8?'photo':'button',
+      roi:S.roi?[S.roi.x,S.roi.y,S.roi.w,S.roi.h].map(Math.round):null,
+      bars:ok8?S.bars.map(b=>({bar:b.bar,holes:b.holes,bright:b.bright})):[]};
+    try{await persist(false);$('stMsg').textContent=t('saved');render();}catch(e){$('stMsg').textContent=errText(e);}
+  });
+})();
 
 /* ---- nuotraukų peržiūra ---------------------------------------------------- */
 let VW={items:[],i:0};
