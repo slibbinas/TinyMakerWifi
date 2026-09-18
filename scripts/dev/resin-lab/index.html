@@ -1072,7 +1072,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Escape')$('viewer').classList.remove('on');});
 
 /* Savas klausimo langas: naršyklės prompt/confirm atrodo kaip svetimas puslapis
-   („localhost:8897 says"), o įrankis turi atrodyti kaip vienas produktas. */
+   („localhost says"), o įrankis turi atrodyti kaip vienas produktas. */
 function ask(text,{input=null,yes=t('save'),no=t('cancel')}={}){
   return new Promise(res=>{
     $('askText').textContent=text;$('askYes').textContent=yes;$('askNo').textContent=no;
