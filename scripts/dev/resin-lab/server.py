@@ -11,14 +11,15 @@ Tik Python standartinė biblioteka - nieko diegti nereikia. Paleidimas:
     ~/.platformio/penv/Scripts/python.exe scripts/dev/resin-lab/server.py
 
 ir naršyklėje http://localhost:8897/resin-lab/ . Kasdien paleidžia darbastalio
-nuoroda (memory kataloge resin-lab.vbs).
+nuoroda į įdiegtą kopiją (%USERPROFILE%/Tools/resin-lab, žr. install.ps1) -
+įrankis neturi priklausyti nuo darbo katalogo, kuris gali būti ištrintas.
 
 Serveris klauso tik 127.0.0.1: kitas tinklo įrenginys prie duomenų neprieina.
 Statinius failus jis dalija iš scripts/dev, tad tame pačiame adrese gyvena ir
 resin-publish.html - abu puslapiai mato tą pačią naršyklės atmintį.
 
 Asmeniniai nustatymai - resin-lab/local.json (.gitignore):
-  data_dir    dervų įrašai ir nuotraukos          (numatyta: Drive .../Dervoms/Testai)
+  data_dir    dervų įrašai ir nuotraukos          (numatyta: Drive .../30 Dervos/Testai)
   models_dir  testiniai STL                       (numatyta: Drive .../00 STLs Tests)
   printer     printerio adresas, pvz. 192.168.1.138
   prusaslicer prusa-slicer-console.exe kelias
@@ -34,7 +35,7 @@ REPO = os.path.dirname(os.path.dirname(DEV))
 LOCAL = os.environ.get("RESIN_LAB_LOCAL") or os.path.join(HERE, "local.json")   # kitas failas - tik bandymams
 PORT = int(os.environ.get("RESIN_LAB_PORT", "8897"))   # kitas prievadas - tik bandymams, kai tikrasis jau veikia
 HOME = os.path.expanduser("~")
-DEFAULT_DATA = os.path.join(HOME, "My Drive", "3Dprinter", "20 TinyMakerWifi", "Dervoms", "Testai")
+DEFAULT_DATA = os.path.join(HOME, "My Drive", "3Dprinter", "30 Dervos", "Testai")
 # Testiniai modeliai gyvena V aplanke, ne repo: dalis jų svetimi (AmeraLabs Town
 # ir kt.), o viešoje repo jų platinti negalim.
 DEFAULT_MODELS = os.path.join(HOME, "My Drive", "3Dprinter", "00_TinyMaker", "00 STLs Tests")
