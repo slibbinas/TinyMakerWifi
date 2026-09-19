@@ -4968,6 +4968,9 @@ const modelPreview=async()=>{
 // Dashboard preview: clicking an SD row renders straight into the
 // always-visible Model preview card (Print progress 3D while printing).
 let dashPreviewName='',slicesPrefetching=false;
+/* Tuscio slicerio isimintas SD modelis (zr. `dashPreviewPlaceholder`). Pamirstamas, kai
+   modelis vel rodomas, kai pasirenkamas kitas, arba kai jis istrinamas. */
+let sdIsimintas='';
 /* Kurio modelio vaizdas SIUO METU kraunamas. Tol, kol kraunasi, pazymetoje eiluteje
    sukasi suktukas vietoj Start - telefone 3D dazniausiai lieka zemiau ekrano krasto,
    tad eilute pati turi pasakyti, kad kazkas vyksta (V 08-16).
@@ -4993,7 +4996,8 @@ window.pickModel=n=>{
 // Single door for the previewed-model name: the SD list marks that row, so the
 // two must never drift apart. Re-renders only on a real change - the status
 // poll writes this every 2s while printing.
-const setDashPreviewName=n=>{if(dashPreviewName===n)return;dashPreviewName=n;
+const setDashPreviewName=n=>{if(n)sdIsimintas='';   // modelis vel rodomas - isiminti nebereikia
+  if(dashPreviewName===n)return;dashPreviewName=n;
   /* Kito modelio pasirinkimas nutraukia buvusi krovima, tad ir jo zyme cia pat nukrenta -
      kitaip suktukas persoktu ant naujos eilutes (dashPreview zyme uzsideda is naujo). */
   if(previewLoadingName&&previewLoadingName!==n)previewLoadingName='';
@@ -5044,26 +5048,37 @@ const dashPreviewPlaceholder=()=>{
      busenos apklausa perpiesdavo tuscia narva ant jau nupiesto modelio, ir
      atrodydavo, kad failas neuzsikrove (V 08-20). */
   if(window.slicerOwnsPreview)return;
-  /* Tuscias sliceris rodo SAVO tuscia vaizda, bet SD pusėje nieko nenaikina: pasirinktas
-     SD modelis lieka, ir grizus i SD jis grizta - kaip ir tada, kai sliceryje yra STL.
-     Antraste keiciasi kartu su atidaryta kortele (V 2026-09-19). */
-  if(window.slicerIsOpen&&slicerIsOpen()){
-    $('printPreviewTitle').textContent='Slicer preview';
-    show('dashShareButton',false);show('prevNote',false);
-    paintPreviewProgress($('printPreviewCanvas'),'Choose an STL file to slice',null,'box');
-    showDetailToggle();
-    return;
-  }
+  /* Atidarytas TUSCIAS sliceris: SD modelis isjungiamas kaip visada (jo krovimai nutruksta
+     ir nieko nebepiesia slicerio lange), bet jo vardas ISIMENAMAS - grizus i SD modelis
+     grizta, kaip ir tada, kai sliceryje yra STL. Antraste keiciasi kartu su kortele
+     (V 2026-09-19). */
+  const sliceris=!!(window.slicerIsOpen&&slicerIsOpen());
+  if(!sliceris&&sdGrazink())return;
+  if(sliceris&&dashPreviewName)sdIsimintas=dashPreviewName;
   setDashPreviewName('');
-  $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
   previewBarShow(false);
   setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
+  $('printPreviewTitle').textContent=sliceris?'Slicer preview':'Model preview';
   /* „Pasirink modeli" reiskia „printeris laisvas ir laukia". Kol atsakymo dar nebuvo,
-     to nezinom, tad sakom tiesa: dar jungiames (V 08-14). */
+     to nezinom, tad sakom tiesa: dar jungiames (V 08-14). Uzrasas atitinka atidaryta
+     kortele: sliceryje laukiama STL failo, ne korteles eilutes (V 08-20). */
   paintPreviewProgress($('printPreviewCanvas'),
-    firstStatusSeen?'Tap a model in the SD manager':'Connecting to the printer...',null,'box');
+    sliceris?'Choose an STL file to slice'
+    :(firstStatusSeen?'Tap a model in the SD manager':'Connecting to the printer...'),null,'box');
   showDetailToggle();
+};
+const sdPamirsk=n=>{if(!n||sdIsimintas===n)sdIsimintas='';};
+/* Grazina isiminta SD modeli, jei jis dar kortelėje. Kol vyksta dalijimasis ar kitas
+   darbas, peržiūra nekraunama (zr. dashPreview) - tada paliekam isiminta, ir ji
+   uzkrauna dalijimosi pabaiga (`shareModel`). */
+const sdGrazink=()=>{
+  const n=sdIsimintas;
+  if(!n||window.slicerOwnsPreview)return false;
+  if(!filesItems.some(f=>f.name===n&&f.type==='model')){sdIsimintas='';return false;}
+  if(shareInFlight||uiBusy())return false;
+  pickModel(n);
+  return dashPreviewName===n;
 };
 // Which printer session the saved preview belongs to: the printer's own uptime
 // tells us when it came up, so a power-on or a firmware flash is recognisable
@@ -5780,6 +5795,9 @@ const shareModel=async(name,btn)=>{
   finally{
     shareInFlight=false;
     bgJob='';
+    /* Grizimas i SD dalijimosi metu modelio neuzkrove (perziura tada nekraunama) - uzkraunam
+       dabar, jei atidarytas SD, o ne sliceris. */
+    if(!dashPreviewName&&!(window.slicerIsOpen&&slicerIsOpen()))setTimeout(sdGrazink,0);
     /* Pavykus dalijimuisi teksto NEBEGRAZINAM i „Share" - ji ka tik nustate
        setShareUI („Already on Connect..."), ir uzrasas vel meluotu. */
     if(btn){btn.disabled=false;btn.classList.remove('btnBusy');
@@ -5987,7 +6005,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   /* Be tasko: zinute baigiasi VARDU, o vardai patys turi taskus („model.zip.")
      ir trumpinami daugtaskiu („ilgas_varda…."). Kitur pulte sakiniai taska turi -
      cia jis ne sakinio pabaiga zymi, o lipa prie svetimo teksto (V 08-27). */
-  msg('Deleted '+shortName(name));if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
+  msg('Deleted '+shortName(name));if(localStorage.getItem('dashPreviewModel')===name)forgetDashPreview();sdPamirsk(name);if(dashPreviewName===name)dashPreviewPlaceholder();loadFiles();refreshStatus();}catch(e){deleteBusy=false;syncActionLocks();msg(e.message,true);}};
 const printCommand=async(cmd,confirmText)=>{
   if(confirmText&&!await uiConfirm(confirmText,{danger:cmd==='stop'}))return;
   pendingPrintCmd=cmd;pendingPrintCmdAt=Date.now();applyPendingPrintUi();
@@ -6172,6 +6190,7 @@ const renderSdJob=s=>{
         sdJobQuietUntil=0;   // darbas baigtas - tyla nebereikalinga
         msg('Deleted '+shortName(sdJobLastName));
         if(localStorage.getItem('dashPreviewModel')===sdJobLastName)forgetDashPreview();
+        sdPamirsk(sdJobLastName);
         if(dashPreviewName===sdJobLastName)dashPreviewPlaceholder();
         loadFiles();
       }else if(sdJobLast==='import'){
