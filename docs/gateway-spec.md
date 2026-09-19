@@ -160,13 +160,15 @@ that is deliberately not written yet: it has to be measured on hardware first.
 ## 7. Free vs paid (product note)
 
 Suggested split: free = one printer, read-only status; paid = remote commands,
-uploads from anywhere, several printers, print history. The firmware does not
-implement tiers — the gateway simply stops issuing commands for a free device.
+several printers, print history. No tier uploads models or starts prints (§8).
+The firmware does not implement tiers: the gateway simply stops issuing
+commands for a free device.
 Keeping the split server-side means no firmware release is needed to change it.
 
 ## 8. Safety
 
-Remote start of a print (UV + motion with nobody in the room) is deliberately
-**out of v1**. The v1 command set only pauses, resumes or stops work the user
-already started. Anything that begins a job needs a separate decision, an
-explicit warning, and probably a physical confirmation at the printer.
+A print is only ever started **at the printer**, not over the gateway, in any
+version. From a distance nobody can see whether the plate is clean or the vat
+holds resin, and UV plus motion on a wrong setup ruins the vat film or the
+plate. So the gateway neither uploads models nor starts a job: its command set
+only pauses, resumes or stops work the user already started in person.
