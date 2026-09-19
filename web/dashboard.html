@@ -5076,8 +5076,9 @@ const sdGrazink=()=>{
   const n=sdIsimintas;
   if(!n||window.slicerOwnsPreview)return false;
   if(!filesItems.some(f=>f.name===n&&f.type==='model')){sdIsimintas='';return false;}
-  if(shareInFlight||uiBusy())return false;
-  pickModel(n);
+  if(shareInFlight||uiBusy()||(statusData&&statusData.webControl===false))return false;
+  /* Be slinkimo: grazinimas nera zmogaus paspaudimas - puslapis neturi pasokti (auditas). */
+  dashPreview(enc(n),{scroll:false});
   return dashPreviewName===n;
 };
 // Which printer session the saved preview belongs to: the printer's own uptime
@@ -5837,6 +5838,7 @@ const retryPendingPrintCommand=async()=>{
   }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
 const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;
+  sdIsimintas='';   // po spaudinio SD rodo spausdinta modeli, ne pries tai isiminta (auditas)
   /* Sargas pries pati klausima: mygtukas jau uzrakintas, bet iskvietimas ateina ir is
      kortelės, ir is klaviaturos - o klausti „Start this print?", kai printeris tuo metu
      ispakuoja, yra tiesiog netiesa (V 08-14). */
