@@ -82,6 +82,12 @@ function slicerBeAtramu(){return slicerPasirinkta('slicerSupType','regular')==='
    sukti sena moduli. Senas „no" nesupranta ir tyliai stato atramas, „off" paverčia
    numatytuoju raftu (auditas 09-19). Tada „no" neaktyvus - su paaiskinimu. */
 const NO_MODULIS_NUO=[3,6,2];
+/* Senas = uzsikroves, bet per senas. Neuzsikroves (dar kraunasi, nera interneto) -
+   ne senas: tada „no" neaktyvus kartu su visais kitais, ir ragint atnaujinti klaidintu
+   (printerio sesijos auditas 09-19). Tekstas matomas korteles eiluteje, ne tik `title`:
+   telefone `title` nesimato. Perkrovimas butinas - senas modulis lieka atmintyje. */
+const SUP_SENAS='Supports: no needs slicer module 3.6.2 - Settings > Update > Slicer module, then reload the page.';
+function slicerModulisSenas(){return !!window.slicerLoadedVer&&!slicerModulisMokaNo();}
 function slicerModulisMokaNo(){
   const v=String(window.slicerLoadedVer||'');
   if(!v||/^dev/.test(v))return !!v;              // dar neuzsikroves - neleidziam
@@ -124,8 +130,7 @@ const slicerStep=()=>{
      Reset, ir kiekvienas busenos pasikeitimas. */
   slicerAutoFitUzraktas();
   {const l=$('slicerSupNoLab');
-   if(l)l.title=slicerModulisMokaNo()?'No supports - the part is printed as it is'
-     :'Needs slicer module 3.6.2 or newer - Update > Slicer module > Install latest';}
+   if(l)l.title=slicerModulisSenas()?SUP_SENAS:'No supports - the part is printed as it is';}
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
   set('slicerChoose',!loaded);
@@ -437,9 +442,10 @@ const slicerLoadMod=async()=>{
       idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
       apie tai butina pasakyti (V 08-24). */
    window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';
-   /* „no" priklauso nuo sios versijos (`slicerModulisMokaNo`) - uzraktus
-      perskaiciuojam, vos tik ji zinoma. */
-   slicerStep();}
+   /* „no" priklauso nuo sios versijos (`slicerModulisMokaNo`) - uzraktus ir
+      atramu eilute perskaiciuojam, vos tik ji zinoma. */
+   slicerStep();
+   if(!(typeof slicerOut!=='undefined'&&slicerOut))slicerSupportFacts(null);}
   /* Nepavyko, o korteleje modulio nera - vadinasi, nepasieke ir interneto. Nuo 1.0.0
      sliceris ijungtas visiems (K9), tad taip atrodys pirmas atidarymas be tinklo:
      zmogui reikia pasakyti, kad uztenka karta prisijungti, o ne tik „neuzsikrove".
@@ -1144,7 +1150,8 @@ function slicerSupportFacts(s){
   const a=$('slicerSupports'), b=$('slicerIslands');
   if(!a||!b)return;
   b.textContent='';
-  if(s===null){a.textContent=slicerBeAtramu()?SUP_OFF():SUP_IDLE;return;}   // dar nepjaustyta
+  if(s===null){a.textContent=slicerBeAtramu()?SUP_OFF()
+                 :slicerModulisSenas()?SUP_SENAS:SUP_IDLE;return;}   // dar nepjaustyta
   /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
      matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
   if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
