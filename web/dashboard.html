@@ -5025,10 +5025,7 @@ const setModelInfoRows=d=>{
   showModelInfoRows(!printing);
   // Antraštę spausdinant valdo print keliai; SD darbas (import/delete) čia neskaitomas
   // spausdinimu, tad peržiūros vardas turi likti (auditas 08-13).
-  /* Drobe valdant sliceriui antraste jo („Slicer preview"): SD krovimas, pasibaiges fone,
-     jos neperraso (V 2026-09-19). Grazinus drobe SD perziurai varda atstato `previewOwnerSync`. */
-  if(!(printing&&!(statusData&&statusData.sdJob))&&!window.slicerOwnsPreview)
-    $('printPreviewTitle').textContent=d?d.name:'Model preview';
+  if(!(printing&&!(statusData&&statusData.sdJob)))$('printPreviewTitle').textContent=d?d.name:'Model preview';
   $('modelLayersValue').textContent=d?String(d.layers):'-';
   $('modelTimeValue').textContent=(d&&d.time)||'-';
   $('modelResinValue').textContent=(d&&d.resin)||'-';
@@ -5558,21 +5555,10 @@ const setStageGrowUI=canGrow=>{
      tad klase pralaimetu (senas spastas - zr. dashboard-gotchas). */
   b.style.display=canGrow?'flex':'none';
   /* `hdrAct` zymejo, kad antraste yra lango jungiklis; nuo 08-27 ji juo nebera. */
-  previewOwnerSync();
-};
-/* Sliceris kreipiasi i `setStageGrowUI` kaskart, kai perima ar atiduoda drobe (`slicerOwns`) -
-   tad cia perskaiciuojam tai, kas priklauso nuo drobes savininko: uzimtumo zyma, Share ir
-   antraste. Antraste - TIK savininkui pasikeitus: `setStageGrowUI` kviecia ir busenos
-   apklausa, o antraste spausdinant ir po spaudinio valdo kiti keliai. */
-let previewOwnerWas=null;
-const previewOwnerSync=()=>{
+  /* Sliceris cia kreipiasi kaskart, kai perima ar atiduoda drobe (`slicerOwns`) - tad cia
+     ir perskaiciuojam tai, kas priklauso nuo drobes savininko: uzimtumo zyma ir Share. */
   previewBusyPaint();
   {const sb=$('dashShareButton'); if(sb&&statusData)sb.disabled=dashShareOff();}
-  const own=!!window.slicerOwnsPreview;
-  if(previewOwnerWas===true&&!own&&dashPreviewName&&!(statusData&&statusData.busy&&!(statusData.sdJob||''))){
-    const t=$('printPreviewTitle'); if(t)t.textContent=dashPreviewName;
-  }
-  previewOwnerWas=own;
 };
 /* Antraste perduoda paspaudima TAM PACIAM mygtukui, kuris stovi jos kampe: perziuros -
    lango didinimui, SD ir slicerio - bloko atidarymui. Tikras mygtukas lieka vietoje, tad
