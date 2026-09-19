@@ -5044,6 +5044,16 @@ const dashPreviewPlaceholder=()=>{
      busenos apklausa perpiesdavo tuscia narva ant jau nupiesto modelio, ir
      atrodydavo, kad failas neuzsikrove (V 08-20). */
   if(window.slicerOwnsPreview)return;
+  /* Tuscias sliceris rodo SAVO tuscia vaizda, bet SD pusėje nieko nenaikina: pasirinktas
+     SD modelis lieka, ir grizus i SD jis grizta - kaip ir tada, kai sliceryje yra STL.
+     Antraste keiciasi kartu su atidaryta kortele (V 2026-09-19). */
+  if(window.slicerIsOpen&&slicerIsOpen()){
+    $('printPreviewTitle').textContent='Slicer preview';
+    show('dashShareButton',false);show('prevNote',false);
+    paintPreviewProgress($('printPreviewCanvas'),'Choose an STL file to slice',null,'box');
+    showDetailToggle();
+    return;
+  }
   setDashPreviewName('');
   $('printPreviewTitle').textContent='Model preview';
   $('printPreviewBarFill').style.width='0%';
@@ -5051,14 +5061,8 @@ const dashPreviewPlaceholder=()=>{
   setModelInfoRows(null);show('dashShareButton',false);show('prevNote',false);
   /* „Pasirink modeli" reiskia „printeris laisvas ir laukia". Kol atsakymo dar nebuvo,
      to nezinom, tad sakom tiesa: dar jungiames (V 08-14). */
-  /* Uzrasas turi atitikti ta, kas atidaryta: atsivertus sliceri „Tap a model in
-     the SD card list" siuntė ne ten - ten laukiama STL failo, ne korteles eilutes
-     (V 08-20). */
-  {const sliceris=!!(window.slicerIsOpen&&slicerIsOpen());
-   paintPreviewProgress($('printPreviewCanvas'),
-     sliceris?'Choose an STL file to slice'
-     :(firstStatusSeen?'Tap a model in the SD manager':'Connecting to the printer...'),
-     null,'box');}
+  paintPreviewProgress($('printPreviewCanvas'),
+    firstStatusSeen?'Tap a model in the SD manager':'Connecting to the printer...',null,'box');
   showDetailToggle();
 };
 // Which printer session the saved preview belongs to: the printer's own uptime
