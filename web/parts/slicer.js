@@ -62,11 +62,16 @@ let slicerFits=true;
    nei vykdymas pasiekia sio failo vidu. */
 /* Nustatymu bloko jungikliai, kurie PJAUSTYMO nekeicia (zr. `slicerParamaiParasas`). */
 const SLICER_NE_PJOVIMO=/^slicer(FitBy|Size)$/;
+/* SL-nosup: su „no" atramu nera, tad ju stiprumas, vieta, smaigalys ir raftas nieko
+   nebekeicia - uzrakinami visi kartu, ne po viena. Pasirinkimai lieka: grizus i
+   regular ar tree jie vel galioja. */
+const SLICER_ATRAMU_PARAM=/^slicer(SupDens|Place|Tip|Raft)$/;
 function slicerPasirinkta(vardas,numatyta){
   return (document.querySelector('input[name='+vardas+']:checked')||{}).value||numatyta;
 }
 function slicerFitBy(){return slicerPasirinkta('slicerFitBy','flat');}
 function slicerSizeMode(){return slicerPasirinkta('slicerSize','keep');}
+function slicerBeAtramu(){return slicerPasirinkta('slicerSupType','regular')==='no';}
 /* Pavadinimas sako REZULTATA, ne greiti (V 09-13): po ROT-par abu budai greiti,
    o skiriasi tuo, ar detale guli plokscia, ar pakreipta del atramu. */
 function slicerFitVardas(budas){
@@ -140,7 +145,7 @@ const slicerStep=()=>{
    {const card=$('slicerCard');
     if(card)card.querySelectorAll('input,select,textarea').forEach(e=>{
       if(e.id==='slicerName'||e.id==='slicerFile')return;   // ju busena skaiciuojama auksciau
-      e.disabled=spausdina;
+      e.disabled=spausdina||(slicerBeAtramu()&&SLICER_ATRAMU_PARAM.test(e.name));
     });
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
@@ -372,7 +377,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.5.0';
+  const SV='3.6.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -1076,18 +1081,20 @@ function slicerMaskSet(on){
 /* Vienoje eiluteje (V 09-08): ilgesnis sakinys lauzdavosi i dvi, o kortele ir taip
    auga zemyn labiau uz kaireje esancia perziura. */
 const SUP_IDLE='Supports and a raft are added where the part hangs.';
+const SUP_OFF='Supports off - the part is printed as it is, with no raft.';
 function slicerSupportFacts(s){
   const a=$('slicerSupports'), b=$('slicerIslands');
   if(!a||!b)return;
   b.textContent='';
-  if(s===null){a.textContent=SUP_IDLE;return;}              // dar nepjaustyta
+  if(s===null){a.textContent=slicerBeAtramu()?SUP_OFF:SUP_IDLE;return;}   // dar nepjaustyta
   /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
      matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
   if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
   /* #116: „atramu nereikia" galima sakyti TIK tada, kai niekas nekabo. Jei
      modulis atsiuntė ispejima, jis jau zino, kad kabo - tada si eilute neturi
      tvirtinti, kad viskas gerai. */
-  a.textContent=s.pillars
+  a.textContent=s.tipas==='no'?SUP_OFF
+    :s.pillars
     ?'Supports: '+s.pillars+(s.pillars===1?' pillar':' pillars')
       +(s.onModel?' ('+s.onModel+' standing on the part itself)':'')
       +(s.raft?' · raft on':'')
@@ -1438,7 +1445,8 @@ $('slicerGo').addEventListener('click',async()=>{
     let ratas=1, ratoPriezastis='';
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
       supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,''),
-      pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai},
+      pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai,
+      nemazinti:slicerSizeMode()==='keep'},
       (done,total,phase,etapas)=>{
         if(RATO_PRIEZASTIS[etapas]){ratas++;ratoPriezastis=RATO_PRIEZASTIS[etapas];}
         /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
@@ -1490,15 +1498,20 @@ $('slicerGo').addEventListener('click',async()=>{
        nes kitaip slankiklis rodytu 100 %, o faile gultu 96 %: valdiklis meluotu, ir
        kitas jo bakstelejimas modeli issprogdintu atgal uz plokstes. */
     let mazNote='';
-    if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
+    /* SL-keep: su Size keep modulis nemazina, o grazina `uzKrasto` - ta pati
+       pranesimo forma, tik mastelis lieka 1. Toliau abu keliai eina kartu: kortele
+       ispeja, o issaugojus - snackbaras (`done.sumazinta`). */
+    if(r.uzKrasto&&!r.sumazinta)r.sumazinta=r.uzKrasto;
+    if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<=1){
       slicerTr.scale*=r.sumazinta.mastelis;
       /* Ne `\n`: eilute gyvena `<span class='hint'>` be `white-space: pre-line`,
          tad naujos eilutes nesimatytu ir frazes sulipty (auditas, 09-12). */
       mazNote=' \u00b7 '+r.sumazinta.tekstas;
       /* Pastatymo verdiktas („spausdinsis 23 % didesnis nei Fast fit") kalba apie
          dydi, kurio faile jau nebera - variklis ka tik sumazino. Nuimam, kaip ir
-         prie kiekvieno kito transformacijos pakeitimo. */
-      slicerPlaceNote(null,null);
+         prie kiekvieno kito transformacijos pakeitimo. Su keep (`uzKrasto`) dydis
+         nepasikeite, tad verdiktas lieka teisingas. */
+      if(r.sumazinta.mastelis<1)slicerPlaceNote(null,null);
       /* Kai NET ir po sumazinimo netelpa, spaudinys bus nupjautas ties krastu -
          tai ne smulkmena, o sugadintas failas. `#slicerProg` tokiam pranesimui
          netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta.
@@ -1603,6 +1616,12 @@ $('slicerAA').addEventListener('change',()=>slicerInvalidate());
      slicerStep(); slicerPerjungtas(e.target.name); return;
    }
    slicerInvalidate();
+   /* „no" uzrakina atramu jungiklius, o tai daro `slicerStep`; ir kortelės
+      eilute „Supports..." turi pasakyti, kas bus, dar pries pjaustyma. */
+   if(e.target&&e.target.name==='slicerSupType'){
+     slicerStep();
+     if(!(typeof slicerOut!=='undefined'&&slicerOut))slicerSupportFacts(null);
+   }
  });}
 /* Dydis PRIES `max`, kad grizus i `keep` modelis grizti i savo dydi, o ne liktu
    istemptas. Pamirstamas, kai dydi pakeicia pats zmogus ar ikeliamas kitas failas -
@@ -1619,7 +1638,8 @@ function slicerPerjungtas(vardas){
   }else{
     if(slicerScalePriesMax!==null)slicerTr.scale=slicerScalePriesMax;
     slicerScalePriesMax=null;
-    slicerDydis(true);                  // grazintas dydis gal netelpa - tada mazinam
+    /* SL-keep (V 09-19): grizus i keep dydis lieka toks, koks buvo pries max, ir
+       daugiau nekeiciamas. Jei jis netelpa, pjaustyti neleis „It does not fit yet". */
     const pct=Math.round(slicerTr.scale*1000)/10;
     t=Math.abs(slicerTr.scale-pries)<1e-9?'':'back to '+pct+'%.';
   }
@@ -2295,7 +2315,9 @@ const raftoNumatytas=()=>Math.max(2,Math.round(RAFT_MM/SLICER_LH));
 
 function slicerParamai(){
   const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
-  const vieta=r('slicerPlace')||'auto';
+  /* Su „no" vietos jungiklis uzrakintas, bet jo reiksme lieka - be sito „lifted"
+     pakeltu detale 5 mm, o atramu po ja nebutu (SL-nosup). */
+  const vieta=slicerBeAtramu()?'pad':(r('slicerPlace')||'auto');
   return {
     pakelta:vieta==='lift',
     /* „auto“ palieka #116 automatika (perpjauna pakelta, jei kitaip atramu
@@ -2370,6 +2392,7 @@ function slicerParamaiReset(){
   });
   if(pries!==slicerParamaiParasas())slicerInvalidate();
   slicerStep();
+  if(!(typeof slicerOut!=='undefined'&&slicerOut))slicerSupportFacts(null);
   /* Radijo zymejimas is kodo `change` ivykio nesukelia - tad Reset turi pritaikyti
      FIT BY / SIZE pats, kaip ir rankinis perjungimas. Pradzioje (`slicerRaw` dar nera)
      `slicerPerjungtas` tiesiog nieko nedaro. */

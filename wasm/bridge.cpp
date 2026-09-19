@@ -319,7 +319,8 @@ static struct {
  * failas, kai kompiliuojama ne i WASM).
  */
 static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
-                             bool centruoti, bool verbose, bool pakelta)
+                             bool centruoti, bool verbose, bool pakelta,
+                             bool be_atramu = false)
 {
     char buf[2048];
     /* Modelis pastatomas ant plokstes taip pat, kaip tai daro PrusaSlicer,
@@ -354,7 +355,8 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     const indexed_triangle_set &its = mesh.its;
     if (verbose) {
         std::printf("trikampiu        %zu\n", its.indices.size());
-        std::printf("atramu tipas     %s\n", branching ? "tree (branching)" : "regular (default)");
+        std::printf("atramu tipas     %s\n", be_atramu ? "no (be atramu ir pado)"
+                    : branching ? "tree (branching)" : "regular (default)");
     }
 
     praneskEiga("pjaustomas modelis", 5);
@@ -385,7 +387,11 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     gen_cfg.island_configuration = sla::SampleConfigFactory::apply_density(
         sla::SampleConfigFactory::create(gen_cfg.head_diameter), gen_cfg.density_relative);
     praneskEiga("sejami atramu taskai", 55);
-    sla::LayerSupportPoints layer_pts = sla::generate_support_points(data, gen_cfg);
+    /* SL-nosup: su „no" tasku nesejam - modelis jau paruostas (plokscias arba su
+       savo atramomis is kitos programos), ir bet koks taskas butu nepageidautina
+       atrama. */
+    sla::LayerSupportPoints layer_pts = be_atramu ? sla::LayerSupportPoints{}
+                                                  : sla::generate_support_points(data, gen_cfg);
     const long t_pts = ms_since(t0);
     if (verbose) std::printf("tasku            %zu\n", layer_pts.size());
 
@@ -394,6 +400,9 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
 
     sla::SupportableMesh sm{its, pts, make_tree_cfg(branching, pakelta)};
     sm.pad_cfg = make_pad_config(pakelta, layer_h);
+    /* Tas pats jungiklis, kuri naudoja PrusaSlicer, kai atramos isjungtos
+       (`supports_enable = 0` -> `SupportTreeConfig::enabled`): medis lieka tuscias. */
+    if (be_atramu) sm.cfg.enabled = false;
 
     praneskEiga("statomos atramos", 65);
     t0 = Clock::now();
@@ -419,7 +428,9 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
      */
     praneskEiga("dedamas raftas", 92);
     t0 = Clock::now();
-    indexed_triangle_set pad = sla::create_pad(sm, tree.first, ctl);
+    /* SL-nosup (V 09-19): „jei atramu nera - nieko nera". Rafto irgi nededam. */
+    indexed_triangle_set pad = be_atramu ? indexed_triangle_set{}
+                                         : sla::create_pad(sm, tree.first, ctl);
     const long t_pad = ms_since(t0);
     if (verbose) std::printf("pado trikampiu   %zu\n", pad.indices.size());
 
@@ -537,7 +548,7 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
         "\"turis\":{\"modelis\":%.1f,\"atramos\":%.1f,\"padas\":%.1f,\"viso_ml\":%.4f},"
         "\"laikas_ms\":{\"slice\":%ld,\"prepare\":%ld,\"points\":%ld,\"tree\":%ld,"
         "\"pad\":%ld,\"viso\":%ld}}",
-        branching ? "tree" : "regular", pakelta ? 1 : 0,
+        be_atramu ? "no" : branching ? "tree" : "regular", pakelta ? 1 : 0,
         its.indices.size(), grid.size(), layer_pts.size(),
         mz0, mz1, sz0, sz1, pz0, pz1,
         tree.first.indices.size(), pad.indices.size(),
@@ -579,7 +590,8 @@ const char *sla_slice(const char *path, double layer_h, int branching, int pakel
         g_json = "{\"klaida\":\"STL neperskaitytas\"}";
         return g_json.c_str();
     }
-    return run_chain(mesh, layer_h, branching != 0, true, false, pakelta != 0);
+    return run_chain(mesh, layer_h, branching == 1, true, false, pakelta != 0,
+                     branching == 2);
 }
 
 /**
@@ -616,7 +628,8 @@ const char *sla_slice_mesh(const float *pos, int ntri, double layer_h, int branc
         for (auto &t : its.indices) std::swap(t[1], t[2]);
 
     TriangleMesh mesh{std::move(its)};
-    return run_chain(mesh, layer_h, branching != 0, false, false, pakelta != 0);
+    return run_chain(mesh, layer_h, branching == 1, false, false, pakelta != 0,
+                     branching == 2);
 }
 
 /**
@@ -1160,7 +1173,7 @@ const char *sla_preview(const char *out_path, int max_sluoksniu)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree|regular] [isvestis.sl1] [pakelta]\n"); return 2; }
+    if (argc < 2) { std::printf("naudojimas: sla.js <model.stl> [sluoksnis] [tree|regular|no] [isvestis.sl1] [pakelta]\n"); return 2; }
     const double layer_h = argc > 2 ? std::atof(argv[2]) : 0.05;
     const std::string t  = argc > 3 ? argv[3] : "regular";
     TriangleMesh mesh;
@@ -1177,7 +1190,7 @@ int main(int argc, char **argv)
                        argc > 7 ? std::atof(argv[7]) : 0.0,
                        argc > 8 ? std::atoi(argv[8]) : 0,
                        argc > 9 ? std::atoi(argv[9]) : 1);
-    run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true, pakelta);
+    run_chain(mesh, layer_h, t == "tree" || t == "branching", true, true, pakelta, t == "no");
     if (argc > 4) std::printf("sl1              %s\n", sla_export_sl1(argv[4], "spaudinys"));
     return 0;
 }

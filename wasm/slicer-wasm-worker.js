@@ -77,12 +77,13 @@ function oreLiktu(buferis, sluoksniuViso, sluoksnisMm) {
 
 /* Vienas pilnas ejimas: pjaustymas, `.sl1` ir perziuros kaukes. Isskirta i
    funkcija, nes #116 automatika ta pati kelia gali praeiti du kartus. */
+/* `medis` - atramu tipas variklio kalba: 0 regular, 1 tree, 2 be atramu (SL-nosup). */
 function pjaustymas(pos, sluoksnis, medis, pakelta, perziuros) {
   const ptr = M._malloc(pos.byteLength);
   M.HEAPF32.set(pos, ptr >> 2);
   let atsakymas;
   try {
-    atsakymas = sliceMeshFn(ptr, pos.length / 9, sluoksnis, medis ? 1 : 0, pakelta ? 1 : 0);
+    atsakymas = sliceMeshFn(ptr, pos.length / 9, sluoksnis, medis, pakelta ? 1 : 0);
   } finally {
     M._free(ptr);
   }
@@ -223,9 +224,10 @@ self.onmessage = async function (ev) {
       const perziuros = z.perziuros || 160;
 
       paduokParametrus(z.parametrai);
+      const tipas = z.beAtramu ? 2 : z.medis ? 1 : 0;
 
       /* Pirmas ejimas - taip, kaip visada: detale ant ploksces. */
-      let r = pjaustymas(pos, sluoksnis, z.medis, z.pakelta ? 1 : 0, perziuros);
+      let r = pjaustymas(pos, sluoksnis, tipas, z.pakelta ? 1 : 0, perziuros);
       if (r.klaida) { self.postMessage({ tipas: 'klaida', id: z.id, tekstas: r.klaida }); return; }
 
       /*
@@ -237,7 +239,10 @@ self.onmessage = async function (ev) {
        * plokscio ir tik ispejam - blogesnio uz bloga nesiulom.
        */
       let auto = null;
-      if (z.autoPakelti !== false && !z.pakelta && !r.d.atramu_trikampiu && r.preview) {
+      /* Su „no" automatika neveikia: zmogus pats pasake, kad atramu nereikia, o
+         pakelimas butent ir prideda atramas (SL-nosup). */
+      if (z.autoPakelti !== false && !z.pakelta && !z.beAtramu
+          && !r.d.atramu_trikampiu && r.preview) {
         const ore = oreLiktu(r.preview, (r.previewInfo || {}).sluoksniu_is_viso, sluoksnis);
         if (ore && pos.length / 9 > AUTO_PAKELTI_MAX_TRI) {
           /* Sunkus modelis: pasakom, kad kabo, bet antro ejimo nedarom. */
@@ -247,7 +252,7 @@ self.onmessage = async function (ev) {
           self.postMessage({ tipas: 'eiga', id: z.id,
                              etapas: 'atramoms nera vietos - keliam detale', proc: 60 });
           const plokscia = { ml: r.d.turis.viso_ml, sluoksniu: r.info.sluoksniu };
-          const antras = pjaustymas(pos, sluoksnis, z.medis, 1, perziuros);
+          const antras = pjaustymas(pos, sluoksnis, tipas, 1, perziuros);
           if (!antras.klaida && antras.d.atramu_trikampiu) {
             r = antras;
             auto = { pakelta: true, mm2: ore.mm2, sluoksnis: ore.sluoksnis, plokscia: plokscia,
