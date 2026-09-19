@@ -2822,6 +2822,10 @@ const applyStatus=s=>{
              nupiesta modeli", „perpiesineti nereikalinga"). `slicesFit` + `mode` sargos
              butinos: spausdinant i kesa raso gyvi sluoksniai, ir tada rodyti nera ko. */
           const kesasTinka=slicesFit(doneName)&&slicesCache.mode!=='live';
+          /* Po spaudinio rodomas spausdintas modelis arba tuscia deze - ne tas, kuri tuscias
+             sliceris isiminė pries spaudini. Cia, o ne `startPrint`: spaudinys galejo buti
+             paleistas ir is printerio ekrano (auditas 09-19). */
+          sdIsimintas='';
           /* Trumpasis kelias turi nuvilkti ir SPAUSDINIMO APDARA, ne tik parodyti
              modeli: antraste („Printing 100% - X"), pilna juostele ir i bruksnelius
              nustatytas Layers/Time/Resin eilutes uzdejo 2599-2605, ir jokia kita
@@ -5838,7 +5842,6 @@ const retryPendingPrintCommand=async()=>{
   }finally{pendingPrintInFlight=false;applyPendingPrintUi();renderPrintWait();}
 };
 const startPrint=async(nameEnc,force)=>{const name=decodeURIComponent(nameEnc||enc(selectedModel));if(!name)return;
-  sdIsimintas='';   // po spaudinio SD rodo spausdinta modeli, ne pries tai isiminta (auditas)
   /* Sargas pries pati klausima: mygtukas jau uzrakintas, bet iskvietimas ateina ir is
      kortelės, ir is klaviaturos - o klausti „Start this print?", kai printeris tuo metu
      ispakuoja, yra tiesiog netiesa (V 08-14). */
