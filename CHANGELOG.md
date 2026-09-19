@@ -13,6 +13,38 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.8] - 2026-09-19
+
+The browser slicer can now slice **without supports**, and **Size keep** keeps your size.
+Switching between the slicer and the SD card no longer loses what was on screen.
+
+### Added
+
+- **Supports: no** (slicer module 3.6.2). For a part that is already flat or comes with its
+  own supports from another program: nothing is added and the part is printed the way it
+  sits in the file, only turned on the plate to fit. The raft is off by default; pick a raft
+  size and it rings the base of the part. With a module older than 3.6.2 on the printer the
+  option stays locked and the card says where to update it (#202).
+- **Parts that start in mid-air are flagged** when slicing with no supports, so a missing
+  support is seen before the print, not after it (#202).
+
+### Changed
+
+- **Size keep keeps the size.** When only the supports reach past the plate, the slicer no
+  longer shrinks the part - it keeps your size and warns that the edge supports will be cut.
+  A part whose own outline does not fit is still scaled down (#202).
+
+### Fixed
+
+- **The SD model stays when you switch to an empty slicer and back.** Opening the slicer
+  with no STL loaded used to forget the SD model you were looking at; it now comes back
+  when you return to the SD card. The preview title follows the card: *Slicer preview*
+  over the slicer, the model's name over the SD card (#203).
+- **The slicer's view keeps its buttons while an SD preview loads in the background.**
+  Leaving an SD preview before it finished loading hid **?**, the pan and rotate keys and
+  the zoom corner on the slicer's view until the load ended, and **Share** switched on in
+  the slicer view, offering to share the SD model instead of the part on screen (#203).
+
 ## [0.17.7] - 2026-09-19
 
 A fix for the SD list on a computer screen.
