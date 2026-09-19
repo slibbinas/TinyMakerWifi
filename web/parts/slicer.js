@@ -78,6 +78,17 @@ function slicerPasirinkta(vardas,numatyta){
 function slicerFitBy(){return slicerPasirinkta('slicerFitBy','flat');}
 function slicerSizeMode(){return slicerPasirinkta('slicerSize','keep');}
 function slicerBeAtramu(){return slicerPasirinkta('slicerSupType','regular')==='no';}
+/* Kortelės modulio versija nusveria `SV` (zr. `loadModule`), tad naujas pultas gali
+   sukti sena moduli. Senas „no" nesupranta ir tyliai stato atramas, „off" paverčia
+   numatytuoju raftu (auditas 09-19). Tada „no" neaktyvus - su paaiskinimu. */
+const NO_MODULIS_NUO=[3,6,2];
+function slicerModulisMokaNo(){
+  const v=String(window.slicerLoadedVer||'');
+  if(!v||/^dev/.test(v))return !!v;              // dar neuzsikroves - neleidziam
+  const d=v.split(/[.-]/).map(Number);
+  for(let i=0;i<3;i++){if((d[i]||0)!==NO_MODULIS_NUO[i])return (d[i]||0)>NO_MODULIS_NUO[i];}
+  return true;
+}
 /* Pavadinimas sako REZULTATA, ne greiti (V 09-13): po ROT-par abu budai greiti,
    o skiriasi tuo, ar detale guli plokscia, ar pakreipta del atramu. */
 function slicerFitVardas(budas){
@@ -112,6 +123,9 @@ const slicerStep=()=>{
   /* Visi atramu tipo uzraktai - per sia viena vieta: ja kviecia ir perjungimas, ir
      Reset, ir kiekvienas busenos pasikeitimas. */
   slicerAutoFitUzraktas();
+  {const l=$('slicerSupNoLab');
+   if(l)l.title=slicerModulisMokaNo()?'No supports - the part is printed as it is'
+     :'Needs slicer module 3.6.2 or newer - Update > Slicer module > Install latest';}
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
   set('slicerChoose',!loaded);
@@ -127,7 +141,8 @@ const slicerStep=()=>{
    const netelpa=loaded&&!sliced&&!slicerFits;
    if(fitNow){
      fitNow.textContent=slicerFitVardas();
-     fitNow.title=pro?'Tilts the part so it needs the fewest supports, then scales it to fit'
+     fitNow.title=slicerBeAtramu()?'Keeps the part as it is - only turns it on the plate and sizes it'
+                 :pro?'Tilts the part so it needs the fewest supports, then scales it to fit'
                     :'Lays it on its widest side, then scales it to fit';
    }
    /* Tas pats vardas ir „Too large" eilutes mygtuke - jis gimsta piesiant, tad
@@ -175,7 +190,8 @@ const slicerStep=()=>{
     if(card)card.querySelectorAll('input,select,textarea').forEach(e=>{
       if(e.id==='slicerName'||e.id==='slicerFile')return;   // ju busena skaiciuojama auksciau
       e.disabled=spausdina||(slicerBeAtramu()&&SLICER_ATRAMU_PARAM.test(e.name))
-        ||slicerBeRaftoDraudziama(e);
+        ||slicerBeRaftoDraudziama(e)
+        ||(e.name==='slicerSupType'&&e.value==='no'&&!slicerModulisMokaNo());
     });
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
@@ -408,7 +424,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.6.1';
+  const SV='3.6.2';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -420,7 +436,10 @@ const slicerLoadMod=async()=>{
    /* Ta pati versija reikalinga ir Update skilciai (ji sedi kitame skripte):
       idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
       apie tai butina pasakyti (V 08-24). */
-   window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
+   window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';
+   /* „no" priklauso nuo sios versijos (`slicerModulisMokaNo`) - uzraktus
+      perskaiciuojam, vos tik ji zinoma. */
+   slicerStep();}
   /* Nepavyko, o korteleje modulio nera - vadinasi, nepasieke ir interneto. Nuo 1.0.0
      sliceris ijungtas visiems (K9), tad taip atrodys pirmas atidarymas be tinklo:
      zmogui reikia pasakyti, kad uztenka karta prisijungti, o ne tik „neuzsikrove".
@@ -773,7 +792,9 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
      paieska tyliai perrasydavo apvertima (ismatuota demo 09-17, taip pat ir 0.17.3).
      Atrakinam tik tai, ka uzrakinom patys: jei irankiai jau buvo uzrakinti (pjaustymas,
      spaudinys), ju nelieciam. */
-  const fit=$('slicerAutoFit');
+  /* Ar irankiai atrakinti, sako `slicerFlat`, ne `slicerAutoFit`: su „no" Fit flat
+     uzrakintas visada, ir tada darbo metu niekas nebuvo uzrakinama (auditas 09-19). */
+  const fit=$('slicerFlat');
   const atrakinta=!!(fit&&!fit.disabled);
   if(atrakinta)slicerButtons(false);
   let paleista=false;
@@ -1763,7 +1784,7 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
    gyvena ant tos pacios juostos, tad uzsidaro kartu. */
 function slicerToolsFollow(musu){
   const t=$('gl3dTools'); if(!t)return;
-  const fit=$('slicerAutoFit');
+  const fit=$('slicerFlat');          // ne slicerAutoFit - zr. `slicerBusyPaint`
   if(musu){
     if(slicerRaw&&fit&&!fit.disabled&&t.style.display==='none')t.style.display='flex';
     return;

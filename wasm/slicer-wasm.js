@@ -471,6 +471,13 @@ export async function slice(pos, opts, onProgress) {
      jokio perdavimo per zinutes), o cia tik paverciam ji zinute kortelei. */
   const a = r.auto;
   const perspejimas = !a ? null
+    : a.beAtramu
+      /* SL-nosup: zmogus atramas isjunge pats - sakom, kur tai nepavyks, bet
+         pjaustyti ir siusti netrukdom. */
+      ? ('Supports are off, but ' + a.salu + (a.salu === 1 ? ' spot starts' : ' spots start')
+         + ' in mid-air (the lowest around layer ' + a.sluoksnis + ', about '
+         + a.mm2.toFixed(1) + ' mm²) - it will not print there. Pick regular or tree, '
+         + 'or print it as it is at your own risk.')
     : a.pakelta
       ? ('This model had to be lifted 5 mm so supports would fit - about '
          + a.mm2.toFixed(1) + ' mm² of it would otherwise have printed in mid-air. '

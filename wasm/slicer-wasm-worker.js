@@ -39,6 +39,69 @@ const ORE_RIBA_PX = 20;           // maziau = trianguliacijos dulkes
    baigiasi „Aborted()". Geriau pasakyti, kad nepavyko, nei nukristi bandant. */
 const AUTO_PAKELTI_MAX_TRI = 600000;
 
+/* SL-nosup: su „no" klausimas kitas - ne „kiek kabo", o ar kas nors PRASIDEDA
+ * ore. `oreLiktu` skaiciuoja ir nuokabas, o STL su savo atramomis jų turi daug
+ * (kiekviena nuokaba ant smaigalio), tad jis sauktu ten, kur viskas gerai. Sala -
+ * sujungta sluoksnio dalis, kuri NEI VIENU pikseliu neliecia sluoksnio zemiau:
+ * modelis su savo atramomis tokiu neturi (viskas nueina iki ploksces), o modelis
+ * be atramu tose vietose tikrai nepavyks. */
+function salosOre(buferis, sluoksniuViso, sluoksnisMm) {
+  const dv = new DataView(buferis);
+  const n = dv.getUint32(0, true), w = dv.getUint32(4, true), h = dv.getUint32(8, true);
+  if (n < 2 || !w || !h) return null;
+  const baitai = new Uint8Array(buferis);
+  const kadras = w * h;
+  const mmPx = PLOKSTE_X_MM / w;
+  /* Kadrai imami ne kiekvienam sluoksniui (perziura ~160 kadru), tad pasvirusi
+     atramos galvute tarp dvieju kadru pasislenka sonu. Leidziam atsiremti tiek,
+     kiek per tarpa leidzia 45° nuokaba - kaip `oreLiktu`. */
+  const zingsnis = Math.max(1, (sluoksniuViso || n) / n);
+  const auga = Math.max(1, Math.ceil(zingsnis * (sluoksnisMm || 0.05) / mmPx));
+  const zyme = new Int32Array(kadras), eile = new Int32Array(kadras);
+  const apacia = new Uint8Array(kadras), platus = new Uint8Array(kadras);
+  let salu = 0, px = 0, pirmas = -1;
+  for (let i = 1; i < n; i++) {
+    const oPrev = 16 + (i - 1) * 2 * kadras, oSis = 16 + i * 2 * kadras;
+    const yra = q => baitai[oSis + q] || baitai[oSis + kadras + q];
+    for (let q = 0; q < kadras; q++)
+      apacia[q] = (baitai[oPrev + q] || baitai[oPrev + kadras + q]) ? 1 : 0;
+    for (let k = 0; k < auga; k++) {
+      platus.set(apacia);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        if (!platus[y * w + x]) continue;
+        if (x) apacia[y * w + x - 1] = 1;
+        if (y) apacia[(y - 1) * w + x] = 1;
+        if (x + 1 < w) apacia[y * w + x + 1] = 1;
+        if (y + 1 < h) apacia[(y + 1) * w + x] = 1;
+      }
+    }
+    const buvo = q => apacia[q];
+    zyme.fill(0);
+    for (let q0 = 0; q0 < kadras; q0++) {
+      if (zyme[q0] || !yra(q0)) continue;
+      /* Viena dalis - paieska plociu; atmintis tik du masyvai visam kadrui. */
+      let g = 0, d = 0, dydis = 0, remiasi = false;
+      eile[d++] = q0; zyme[q0] = 1;
+      while (g < d) {
+        const q = eile[g++]; dydis++;
+        if (!remiasi && buvo(q)) remiasi = true;
+        const x = q % w, y = (q - x) / w;
+        if (x > 0 && !zyme[q - 1] && yra(q - 1)) { zyme[q - 1] = 1; eile[d++] = q - 1; }
+        if (x + 1 < w && !zyme[q + 1] && yra(q + 1)) { zyme[q + 1] = 1; eile[d++] = q + 1; }
+        if (y > 0 && !zyme[q - w] && yra(q - w)) { zyme[q - w] = 1; eile[d++] = q - w; }
+        if (y + 1 < h && !zyme[q + w] && yra(q + w)) { zyme[q + w] = 1; eile[d++] = q + w; }
+      }
+      if (!remiasi && dydis > 1) {
+        salu++; px += dydis;
+        if (pirmas < 0) pirmas = i;
+      }
+    }
+  }
+  if (!salu || px <= ORE_RIBA_PX) return null;
+  return { salu, mm2: px * mmPx * mmPx,
+           sluoksnis: Math.round(pirmas * (sluoksniuViso || n) / n) };
+}
+
 function oreLiktu(buferis, sluoksniuViso, sluoksnisMm) {
   const dv = new DataView(buferis);
   const n = dv.getUint32(0, true), w = dv.getUint32(4, true), h = dv.getUint32(8, true);
@@ -131,7 +194,16 @@ function pjaustymas(pos, sluoksnis, medis, pakelta, perziuros) {
 function pedsakasXY() {
   try {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, rasta = false;
-    for (const kelias of ['/out_model.stl', '/out_supports.stl', '/out_pad.stl']) {
+    /* Padas skaiciuojamas TIK kai yra atramu. Be ju raftas yra ziedas aplink
+       pagrinda (3.6.1, `everywhere`) - jis tik nuimti, ir plokstes krastas ji gali
+       nukirpti. Iskaicius ji, plokscia detale su Size max buvo sumazinama 15,4 %
+       su zinute apie atramas, kuriu nera (bareljefas, auditas 09-19). */
+    let atramu = false;
+    try { const a = M.FS.readFile('/out_supports.stl');
+          atramu = a && a.length >= 84 && new DataView(a.buffer, a.byteOffset, a.byteLength).getUint32(80, true) > 0;
+    } catch (e) {}
+    for (const kelias of atramu ? ['/out_model.stl', '/out_supports.stl', '/out_pad.stl']
+                                : ['/out_model.stl']) {
       let b;
       try { b = M.FS.readFile(kelias); } catch (e) { continue; }
       if (!b || b.length < 84) continue;
@@ -241,7 +313,13 @@ self.onmessage = async function (ev) {
        */
       let auto = null;
       /* Su „no" automatika neveikia: zmogus pats pasake, kad atramu nereikia, o
-         pakelimas butent ir prideda atramas (SL-nosup). */
+         pakelimas butent ir prideda atramas (SL-nosup). Bet ISPEJAM, jei kas nors
+         prasideda ore - rinktis gali, nezinoti neturi (V 09-19). */
+      if (z.beAtramu && r.preview) {
+        const sala = salosOre(r.preview, (r.previewInfo || {}).sluoksniu_is_viso, sluoksnis);
+        if (sala) auto = { beAtramu: true, salu: sala.salu, mm2: sala.mm2,
+                           sluoksnis: sala.sluoksnis };
+      }
       if (z.autoPakelti !== false && !z.pakelta && !z.beAtramu
           && !r.d.atramu_trikampiu && r.preview) {
         const ore = oreLiktu(r.preview, (r.previewInfo || {}).sluoksniu_is_viso, sluoksnis);
