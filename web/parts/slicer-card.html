@@ -112,6 +112,7 @@
       <div id='slicerParams'>
         <div class='spBlk'><span class='spLab' id='spL-supports'>Supports</span>
           <div class='seg' role='radiogroup' aria-labelledby='spL-supports'>
+            <label id='slicerSupNoLab' title='No supports - the part is printed as it is'><input type='radio' name='slicerSupType' value='no'><span>no</span></label>
             <label><input type='radio' name='slicerSupType' value='regular' checked><span>regular</span></label>
             <label><input type='radio' name='slicerSupType' value='tree'><span>tree</span></label>
           </div>
@@ -145,6 +146,7 @@
              Numatytoji cia NEZYMIMA - ja stato JS. -->
         <div class='spBlk'><span class='spLab' id='spL-raft'>Raft layers</span>
           <div class='seg' role='radiogroup' aria-labelledby='spL-raft'>
+            <label title='No raft - only with Supports: no'><input type='radio' name='slicerRaft' value='0'><span>off</span></label>
             <label><input type='radio' name='slicerRaft' value='2'><span>2</span></label>
             <label><input type='radio' name='slicerRaft' value='3'><span>3</span></label>
             <label><input type='radio' name='slicerRaft' value='6'><span>6</span></label>
@@ -171,7 +173,7 @@
         <div class='spBlk spModel'><span class='spLab' id='spL-size'>Size</span>
           <div class='seg' role='radiogroup' aria-labelledby='spL-size'
                title='What size the part gets - applied at once, on every loaded STL and by the Fit button'>
-            <label title='Your size - scaled down only when it does not fit'><input type='radio' name='slicerSize' value='keep' checked><span>keep</span></label>
+            <label title='Your size - never changed by the slicer'><input type='radio' name='slicerSize' value='keep' checked><span>keep</span></label>
             <label title='The largest size that fits the plate'><input type='radio' name='slicerSize' value='max'><span>max</span></label>
           </div>
         </div>
