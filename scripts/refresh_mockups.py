@@ -179,7 +179,7 @@ def extend_printer_screens():
     p = MOCKUPS / "printer-screens.png"
     src = Image.open(p).convert("RGB")
     base = src.crop((0, 0, 2080, 1920))
-    img = Image.new("RGB", (2080, 2352), (0, 0, 0))
+    img = Image.new("RGB", (2080, 3600), (0, 0, 0))
     img.paste(base, (0, 0))
     d = ImageDraw.Draw(img)
 
@@ -202,42 +202,175 @@ def extend_printer_screens():
         _center(d, (x, y, x + w, y + 62), label, _seg(30, True), fg)
 
     # --- tile 1: System > Advanced (two visible rows, like drawAdvancedRow)
-    lx, ly = tile(cols[0], "System > Advanced - device toggles")
+    lx, ly = tile(cols[0], "Advanced > Resin - one group's rows")
     d.rounded_rectangle((lx + 8, ly + 10, lx + LW - 8, ly + 138), 10,
                         outline=(238, 238, 238), width=3)
-    d.text((lx + 26, ly + 26), "Low resin pause", font=_seg(32), fill=(238, 238, 238))
-    d.text((lx + 26, ly + 86), "Off", font=_seg(30), fill=CYAN)
-    d.text((lx + 26, ly + 160), "Low resin warn", font=_seg(32), fill=(238, 238, 238))
-    d.text((lx + 26, ly + 218), "2 ml", font=_seg(30), fill=CYAN)
+    # Vardai patikrinti pries advancedLabel() 2026-09-09: "Low resin stop" (4) ir
+    # "Warn (ml)" (16) tebera tokie patys - maketas teisingas.
+    d.text((lx + 26, ly + 26), "Low resin stop", font=_seg(32), fill=(238, 238, 238))
+    d.text((lx + 26, ly + 86), "On", font=_seg(30), fill=CYAN)
+    d.text((lx + 26, ly + 160), "Warn (ml)", font=_seg(32), fill=(238, 238, 238))
+    d.text((lx + 26, ly + 218), "5 ml", font=_seg(30), fill=CYAN)
 
     # --- tile 2: low-resin warning (red frame, Refilled hint, Back/Start)
-    lx, ly = tile(cols[1], "Low resin warning (UP = Refilled)")
+    lx, ly = tile(cols[1], "Low resin warning (UP = Full)")
     d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
                         outline=RED, width=6)
     d.text((lx + 28, ly + 30), "Low resin!", font=_seg(38, True), fill=(238, 238, 238))
     d.rounded_rectangle((lx + 340, ly + 26, lx + 380, ly + 66), 8, fill=CYAN)
     d.polygon([(lx + 350, ly + 54), (lx + 360, ly + 36), (lx + 370, ly + 54)], fill=(5, 5, 5))
-    d.text((lx + 390, ly + 34), "Refilled", font=_seg(24), fill=CAPTION)
-    d.text((lx + 28, ly + 110), "~1.8 ml left in VAT", font=_seg(32), fill=CYAN)
+    d.text((lx + 390, ly + 34), "Full", font=_seg(24), fill=CAPTION)
+    d.text((lx + 28, ly + 110), "~4.6 ml left in VAT", font=_seg(32), fill=CYAN)
     btn(lx + 22, ly + 190, 240, "Back", ORANGE_, (255, 255, 255))
     btn(lx + 296, ly + 190, 240, "Start", CYAN, (10, 10, 10))
 
     # --- tile 3: ask-refill before print (orange frame, No/Yes)
-    lx, ly = tile(cols[2], 'Ask before print: "VAT refilled?"')
+    lx, ly = tile(cols[2], 'Ask before print: "VAT filled full?"')
     d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
                         outline=ORANGE_, width=6)
-    d.text((lx + 28, ly + 30), "VAT refilled?", font=_seg(38, True), fill=(238, 238, 238))
+    d.text((lx + 28, ly + 30), "VAT filled full?", font=_seg(38, True), fill=(238, 238, 238))
     d.text((lx + 28, ly + 110), "~14.4 ml left now", font=_seg(32), fill=CYAN)
     btn(lx + 22, ly + 190, 240, "No", ORANGE_, (255, 255, 255))
     btn(lx + 296, ly + 190, 240, "Yes", CYAN, (10, 10, 10))
 
+    # ---------------- sesta eile: 0.16-0.17 ekranai ----------------------
+    # Kodel: koliaže nebuvo NE VIENO ekrano is meniu pertvarkos (0.16) ir is
+    # 0.17 - o manualas juos aprasineja. Trys, kuriuos zmogus pamato pirmus:
+    # Advanced grupes, isskleidimo juosta ir Statistika.
+    Y1 = Y0 + CH + 28
+
+    def tile6(cx, caption):
+        d.rounded_rectangle((cx, Y1, cx + CW, Y1 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y1 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y1 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    # --- tile 4: System > Advanced grupes (0.16 meniu pertvarka)
+    lx, ly = tile6(cols[0], "System > Advanced - three groups")
+    rows6 = [("Network", "WiFi On"), ("Resin", "15.0 ml left"), ("Display", "Sleep 30s")]
+    for i, (name, val) in enumerate(rows6):
+        ry = ly + 12 + i * 90
+        if i == 0:
+            d.rounded_rectangle((lx + 8, ry, lx + LW - 8, ry + 78), 10,
+                                outline=(238, 238, 238), width=3)
+        d.text((lx + 26, ry + 8), name, font=_seg(32), fill=(238, 238, 238))
+        d.text((lx + 26, ry + 44), val, font=_seg(26), fill=CYAN)
+
+    # --- tile 5: isskleidimas (netProgressStart; LCD koordinates x3.5)
+    lx, ly = tile6(cols[1], "Unpacking an uploaded model")
+    d.text((lx + 18, ly + 40), "Unpacking layers", font=_seg(34), fill=(238, 238, 238))
+    d.text((lx + 18, ly + 110), "120/240", font=_seg(30), fill=(238, 238, 238))
+    d.rounded_rectangle((lx + 35, ly + 168, lx + 525, ly + 224), 10,
+                        outline=(238, 238, 238), width=3)
+    d.rounded_rectangle((lx + 42, ly + 175, lx + 287, ly + 217), 6, fill=ORANGE_)
+
+    # --- tile 6: Statistics (0-17b) - tikri sio printerio skaiciai
+    lx, ly = tile6(cols[2], "System > Statistics - lifetime counters")
+    d.text((lx + 18, ly + 18), "Statistics", font=_seg(32, True), fill=ORANGE_)
+    d.line((lx + 18, ly + 62, lx + LW - 18, ly + 62), fill=(70, 70, 75), width=2)
+    for i, (k, v, c) in enumerate([("Printed:", "14h 36m", CYAN),
+                                   ("UV LED:", "1h 41m", CYAN),
+                                   ("Boot:", "software restart", (238, 238, 238)),
+                                   ("Crash:", "power-on", (238, 238, 238))]):
+        ry = ly + 80 + i * 48
+        d.text((lx + 18, ry), k, font=_seg(26), fill=CAPTION)
+        d.text((lx + 190, ry), v, font=_seg(26), fill=c)
+
+    # ---------------- septinta eile: Advanced meniu is arti --------------------
+    # V praše (08-27), kad Advanced meniu butu parodytas ne viena plytele, o
+    # pilna eile: zmogus, atsivertes 12 skyriu, nori pamatyti, KAIP tos grupes
+    # atrodo ekrane, o ne tik perskaityti ju sarasa.
+    Y2 = Y1 + CH + 28
+
+    def tile7(cx, caption):
+        d.rounded_rectangle((cx, Y2, cx + CW, Y2 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y2 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y2 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    def rows(lx, ly, items, sel=0):
+        for i, (name, val) in enumerate(items):
+            ry = ly + 12 + i * 90
+            if i == sel:
+                d.rounded_rectangle((lx + 8, ry, lx + LW - 8, ry + 78), 10,
+                                    outline=(238, 238, 238), width=3)
+            d.text((lx + 26, ry + 8), name, font=_seg(32), fill=(238, 238, 238))
+            d.text((lx + 26, ry + 44), val, font=_seg(26), fill=CYAN)
+
+    # --- tile 7: Network grupes vidus
+    lx, ly = tile7(cols[0], "Advanced > Network")
+    rows(lx, ly, [("WiFi", "On"), ("Web control", "On"), ("Boot update", "On")])
+
+    # --- tile 8: Display grupes vidus
+    lx, ly = tile7(cols[1], "Advanced > Display")
+    rows(lx, ly, [("Idle timeout", "60s"), ("Boot animation", "Bunny")], sel=0)
+
+    # --- tile 9: Resin profile - 0.17 punktas, kuris keicia visa recepta
+    lx, ly = tile7(cols[2], "Advanced > Resin > Resin profile")
+    rows(lx, ly, [("Resin profile", "Sunlu Tough1"),
+                  ("Exposure test", "4.4-17.6s"),
+                  ("Dry run", "Off")])
+
+    # ---------------- astunta eile: 09-05 plokstes uzrasai + 0.17 dervos sarga ------
+    # Kodel: manualas (2 ir 10 skyriai) aprasineja "Plate is at the top", "Plate is
+    # home" ir "Resin not set", o kolaze ju nebuvo - ekranai atsirado 09-05 (Z lubos
+    # ir homing'as, 10f80bf/53dd915) ir 08-17 (screenNoResin). Geometrija is
+    # Interface.ino: uiFrame = 160x80 remelis, tekstas FreeSans8pt (x3.5 masteliu
+    # ~28-30 px), screenPlateNote centruoja viena eilute ties y=45, screenNoResin
+    # deda tris eilutes ties y=16/34/52 ir Back/Slow mygtukus.
+    Y3 = Y2 + CH + 28
+
+    def tile8(cx, caption):
+        d.rounded_rectangle((cx, Y3, cx + CW, Y3 + CH), 22, fill=CARD)
+        lx, ly = cx + (CW - LW) // 2, Y3 + 24
+        d.rounded_rectangle((lx, ly, lx + LW, ly + LH), 8, fill=(5, 5, 5))
+        f = _seg(26)
+        bb = f.getbbox(caption)
+        d.text((cx + (CW - (bb[2] - bb[0])) / 2, Y3 + CH - 60), caption,
+               font=f, fill=CAPTION)
+        return lx, ly
+
+    def plate_note(cx, caption, text):
+        lx, ly = tile8(cx, caption)
+        d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
+                            outline=ORANGE_, width=6)
+        f = _seg(34)
+        bb = f.getbbox(text)
+        # y=45 LCD koordinatemis yra teksto BAZINE linija; x3.5 = 157 px nuo virsaus
+        d.text((lx + (LW - (bb[2] - bb[0])) / 2 - bb[0], ly + 157 - bb[3]), text,
+               font=f, fill=(238, 238, 238))
+
+    # --- tile 10: manual jog stops at the ceiling (Motor.ino:50)
+    plate_note(cols[0], "Manual jog at the ceiling", "Plate is at the top")
+    # --- tile 11: touching the endstop is a homing (Motor.ino:137)
+    plate_note(cols[1], "Endstop touched = homed", "Plate is home")
+
+    # --- tile 12: screen 116, screenNoResin - printing refused until a resin is picked
+    lx, ly = tile8(cols[2], "No resin picked - printing is refused")
+    d.rounded_rectangle((lx + 4, ly + 4, lx + LW - 4, ly + LH - 4), 10,
+                        outline=RED, width=6)
+    f = _seg(32)
+    for i, line in enumerate(("Resin not set", "Pick a resin before", "printing.")):
+        bb = f.getbbox(line)
+        d.text((lx + 21, ly + (16 + 18 * i) * 3.5 - bb[3]), line, font=f, fill=(238, 238, 238))
+    btn(lx + 22, ly + 210, 240, "Back", ORANGE_, (255, 255, 255))
+    btn(lx + 296, ly + 210, 240, "Slow", CYAN, (10, 10, 10))
+
     img.save(p)
-    print("  printer-screens.png extended with the toggles/resin row")
+    print("  printer-screens.png: penkta eile atnaujinta, sesta-astunta pridėtos")
 
 
 def draw_dashboard(latest):
     """Full redraw of web-dashboard.png: status grid (incl. resin used/total
-    and Resin left), VAT refilled, print controls, SD manager with filter +
+    and Resin left), Set VAT full, print controls, SD manager with filter +
     pagination - kept in sync with the real dashboard UI."""
     WHITE = (238, 238, 238)
     GRAY = (170, 170, 170)
@@ -283,7 +416,7 @@ def draw_dashboard(latest):
         h = 10 + b * 8
         d.rectangle((700 + b * 16, 525 - h, 710 + b * 16, 525), fill=(60, 200, 90))
     d.rounded_rectangle((140, 900, 978, 962), 12, fill=BTN2)
-    _center(d, (140, 900, 978, 962), "VAT refilled", _seg(23, True), WHITE)
+    _center(d, (140, 900, 978, 962), "Set VAT full", _seg(23, True), WHITE)
 
     # print controls card
     d.rounded_rectangle((110, 1040, 1008, 1190), 14, fill=CARD)
@@ -456,15 +589,23 @@ def main():
     print(f"  {p.name} ok")
     extend_printer_screens()
 
-    # --- web-dashboard.png: full redraw (kept in sync with the real UI) ---
-    p = MOCKUPS / "web-dashboard.png"
-    draw_dashboard(latest).save(p)
-    print(f"  {p.name} ok (regenerated)")
-
-    # --- firmware-update-page.png: full redraw of the Update tab ---
-    p = MOCKUPS / "firmware-update-page.png"
-    draw_update_page(installed, latest).save(p)
-    print(f"  {p.name} ok (regenerated)")
+    # --- web-dashboard.png / firmware-update-page.png: NEBEPIESIAMI ---
+    # Sie du buvo piesiami ranka, ir todel nuolat atsilikdavo nuo tikro pulto:
+    # 2026-08-27 README rode Update skirtuka su "Firmware 0.14.3" ir be slicerio
+    # kortele - funkcijos, kuri jau buvo isleista (V pagavo). Pieštas UI dreifuoja
+    # tyliai: niekas nesulužta, tik paveiksliukas pamazu tampa melu.
+    #
+    # Nuo dabar juos FOTOGRAFUOJAM nuo tikro printerio:
+    #   node scripts/dev/pulto_nuotrauka.mjs --url "http://<printerio-ip>/" \
+    #        --w 1500 --h 900 --out Images/mockups/web-dashboard.png
+    #   node scripts/dev/pulto_nuotrauka.mjs --url "http://<printerio-ip>/#settings" \
+    #        --w 1000 --h 1500 --click '#cfgNav a[data-pane="update"]' \
+    #        --out Images/mockups/firmware-update-page.png
+    # Tie patys failai dedami ir i docs/manual/images/.
+    #
+    # draw_dashboard() ir draw_update_page() PALIEKAMOS - jos dar praverstu, jei
+    # kada reiktu paveikslelio be tikro printerio (pvz. pristatymui), bet
+    # eiliniame paleidime nebekvieciamos.
 
     # --- model-preview-3d.png: full redraw of the 3D preview/progress ---
     draw_preview_mockup()

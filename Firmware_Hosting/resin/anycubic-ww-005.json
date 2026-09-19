@@ -1,9 +1,9 @@
 {
-  "name": "Anycubic Water-Washable Black",
-  "layer_height": 0.10,
+  "name": "Anycubic Water-Washable",
+  "layer_height": 0.05,
   "base_exposure": 35,
   "regular_exposure": 14.0,
-  "base_layers": 2,
+  "base_layers": 4,
   "transition_layers": 5,
   "slow_lift_distance": 1,
   "fast_lift_distance": 2,
@@ -13,5 +13,5 @@
   "density": 1.1,
   "cal_factor": 1.0,
   "cal_fixed_ml": 0.0,
-  "buy_url": "https://tinymakerwifi.com/r/anycubic-ww-black"
+  "buy_url": "https://tinymakerwifi.com/r/anycubic-ww-005"
 }

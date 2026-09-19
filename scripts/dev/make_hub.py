@@ -10,11 +10,21 @@ Rezultatas - scripts/dev/index.html, tad `http://localhost:8899/` atidaro pultą
 Archyvuoti = perkelti failą į scripts/dev/archyvas/ (jis lieka pasiekiamas, tik
 atskiroje, suskleistoje sekcijoje).
 """
-import io, os, re, time, html
+import io, os, re, time, html, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ARCH = os.path.join(HERE, "archyvas")
 OUT = os.path.join(HERE, "index.html")
+
+# Asmeniniai raktai gyvena SALIA, o ne cia: sis failas commit'inamas i vieša
+# repo, o scripts/dev/local-links.json yra .gitignore. Nera failo - pultas
+# rodo paprasta nuoroda ir pasako, kur raktas guli.
+def local_links():
+    try:
+        return json.load(io.open(os.path.join(HERE, "local-links.json"),
+                                 encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 # Ką kiekvienas failas yra. Nėra sąraše = pultas jį parodys kaip „be aprašymo",
 # ir tai pats savaime signalas: arba aprašyk, arba archyvuok.
@@ -35,17 +45,59 @@ CATALOG = {
         "Senas pulto navigacijos eskizas iš 0.15 laikų.", "stendai"),
 }
 
-# Kas gyvena kitur (kitas portas ar kitas serveris) - nuorodos su paleidimo komanda.
-KITUR = [
+# Įrankių registras (V 2026-09-19): kas kur guli, kaip paleidžiama ir ar
+# priklauso nuo Claude. Naujas įrankis - nauja eilutė čia, kitaip jo niekas
+# neras. Stulpeliai: pavadinimas, nuoroda, ką daro, kur guli, kaip paleisti,
+# nuo Claude (tekstas; pirmas žodis „Taip"/„Ne" nuspalvinamas).
+TOOLS = "%USERPROFILE%\\Tools\\TinyMaker"
+REGISTRAS = [
+    ("Resin Lab", "http://localhost:8893/resin-lab/",
+     "Dervų testai: įrašai, bandymai, spausdinimas printeryje, juostų nuotraukos, apžvalga.",
+     TOOLS + "\\scripts\\dev\\resin-lab; duomenys - My Drive\\3Dprinter\\30 Dervos\\Testai",
+     "darbalaukis „00 TinyMaker dervu testai“", "Ne"),
+    ("Dervų bibliotekos tvarkymas", "http://localhost:8893/resin-publish.html",
+     "Pulto dervų bibliotekos įrašai: naujas profilis, taisymas, revizija, sustabdymas.",
+     "tas pats Resin Lab serveris", "darbalaukis „00 TinyMaker dervos“", "Ne"),
+    ("Ūkis (šis puslapis)", "http://localhost:8899/",
+     "Įrankių registras ir vietiniai puslapiai: testai, scenarijai, stendai.",
+     TOOLS + "\\scripts\\dev", "darbalaukis „00 TinyMaker ukis“",
+     "Ne - bet planų kopijos imamos iš Claude atminties"),
+    ("Planai", None,
+     "Vidinis planas, komandos roadmap, disko žemėlapis, 0.17 testų pultas (skiltis „Planai“ žemiau).",
+     "Claude atmintis (~\\.claude\\projects\\…\\memory); ūkis rodo kopijas",
+     "per ūkį", "Taip - originalai gyvena Claude atmintyje"),
+    ("Diegimas ir atnaujinimas", "https://github.com/slibbinas/TinyMakerWiFi/blob/main/scripts/dev/resin-lab/install.ps1",
+     "Parsisiunčia Resin Lab, bibliotekos tvarkymą ir ūkį iš GitHub, perkuria nuorodas, perkrauna serverius.",
+     "repo scripts/dev/resin-lab/install.ps1",
+     "PowerShell: iwr …/install.ps1 -OutFile $env:TEMP\\rl-install.ps1; & $env:TEMP\\rl-install.ps1", "Ne"),
     ("3D pultas su žymėmis", "http://localhost:8080/3d/pultas.html",
-     "Mūsų ir Prusos pjūviai greta; pažymėjus sritį gaunamos mm koordinatės.",
-     "python pultas3d.py"),
+     "Mūsų ir Prusos pjūviai greta (slicerio sesijos įrankis).",
+     "C:\\PIO-build\\slicer-lab", "python pultas3d.py", "Ne"),
     ("Slicerio stendas", "http://localhost:8897/lab/lab.html",
-     "Tikras pultas su netikru printeriu ir jau įkeltu modeliu - slicerio pataisoms.",
-     "python -m http.server 8897  (iš C:/PIO-build)"),
+     "Tikras pultas su netikru printeriu - slicerio pataisoms (slicerio sesijos įrankis).",
+     "C:\\PIO-build\\lab", "python -m http.server 8897 (iš C:\\PIO-build)", "Ne"),
     ("Printerio pultas", "http://tinymaker.local/",
-     "Tikras printeris: būsena, modeliai, dervos, nustatymai.", None),
+     "Tikras printeris: būsena, modeliai, dervos, nustatymai.", "printerio firmware", "visada įjungtas", "Ne"),
+    ("Testų pultas (www)", "https://tinymakerwifi.com/tests",
+     "0.17 testų punktai su žymomis serveryje.", "Cloudflare", "naršyklė", "Ne"),
 ]
+
+def registras():
+    # Testų pultas su asmeniniu raktu: žymos saugomos serveryje ir keliauja tarp
+    # telefono ir kompiuterio. Raktas - scripts/dev/local-links.json (.gitignore).
+    key = local_links().get("tests_key", "")
+    rows = []
+    for name, url, what, where, how, claude in REGISTRAS:
+        if key and url == "https://tinymakerwifi.com/tests":
+            url, what = url + "?k=" + key, what + " Su tavo raktu - nuorodos nedalink."
+        n = ('<a href="%s" target="_blank" rel="noopener">%s</a>' % (html.escape(url), html.escape(name))
+             if url else html.escape(name))
+        cls = "yes" if claude.startswith("Taip") else "no"
+        rows.append("<tr><td>%s</td><td>%s</td><td><code>%s</code></td><td>%s</td><td class=\"%s\">%s</td></tr>" %
+                    (n, html.escape(what), html.escape(where), html.escape(how), cls, html.escape(claude)))
+    return ("<h2>Įrankių registras</h2>\n<div class=\"reg\"><table><thead><tr><th>Įrankis</th><th>Ką daro</th>"
+            "<th>Kur guli</th><th>Kaip paleisti</th><th>Nuo Claude</th></tr></thead><tbody>\n%s\n</tbody></table></div>"
+            % "\n".join(rows))
 
 AGE_FRESH, AGE_OLD = 7, 30      # dienos
 
@@ -140,23 +192,13 @@ def main():
     arch = rows(ARCH)
     groups = [("Testai ir scenarijai", "testai"), ("Įrankiai", "irankiai"),
               ("Planai", "planai"), ("Stendai ir prototipai", "stendai")]
-    body = []
+    body = [registras()]
     for label, key in groups:
         items = [r for r in (live + planai) if r["group"] == key]
         if not items: continue
         body.append("<h2>%s</h2>\n<div class=\"grid\">%s</div>" %
                     (label, "\n".join(card(r) for r in items)))
 
-    kitur = "\n".join(
-        """<a class="c" href="{u}" target="_blank" rel="noopener">
-  <div class="ct"><span class="cn">{n}</span><span class="pill p-ext">{tag}</span></div>
-  <div class="cp">{d}</div>
-  <div class="cm">{cmd}</div>
-</a>""".format(u=html.escape(u), n=html.escape(n), d=html.escape(d),
-               tag="kitas portas" if "localhost" in u else "printeris",
-               cmd=("paleisti: <code>%s</code>" % html.escape(c)) if c else "visada įjungtas")
-        for n, u, d, c in KITUR)
-    body.append("<h2>Kitur</h2>\n<div class=\"grid\">%s</div>" % kitur)
 
     if arch:
         body.append("""<details class="arch"><summary>Archyvas ({n})</summary>
@@ -211,10 +253,16 @@ code{{background:var(--code);padding:1px 5px;border-radius:5px;font-size:.85em}}
 .arch summary{{cursor:pointer;font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;
  color:var(--muted);font-weight:700;margin-bottom:10px}}
 .foot{{margin-top:28px;font-size:.78rem;color:var(--muted)}}
+.reg{{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}}
+.reg table{{border-collapse:collapse;width:100%;font-size:.8rem}}
+.reg th,.reg td{{text-align:left;vertical-align:top;padding:7px 10px;border-top:1px solid var(--line)}}
+.reg th{{border-top:0;color:var(--muted);font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}}
+.reg td:first-child{{font-weight:700;white-space:nowrap}}.reg a{{color:inherit}}
+.reg code{{word-break:break-all}}.reg .no{{color:var(--ok)}}.reg .yes{{color:var(--warn);font-weight:700}}
 </style>
 <div class="wrap">
 <h1>TinyMaker <span class="dot">·</span> ūkis</h1>
-<p class="sub">Viskas, kas leidžiasi iš localhost. Sugeneruota {gen} · {n} gyvi puslapiai.</p>
+<p class="sub">Įrankių registras ir viskas, kas leidžiasi iš localhost. Sugeneruota {gen} · {n} gyvi puslapiai.</p>
 {note}
 {body}
 <p class="foot">Pultas generuojamas: <code>python scripts/dev/make_hub.py</code> (serveris:

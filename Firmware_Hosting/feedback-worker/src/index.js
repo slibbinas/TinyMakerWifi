@@ -1,3 +1,5 @@
+import { mergeState } from './state.mjs';
+
 // TinyMakerWifi feedback collector - a tiny standalone Cloudflare Worker.
 //
 //   GET  /feedback[/]            -> the form page (proxied from gh-pages)
@@ -222,6 +224,53 @@ export default {
       url.pathname = '/tests';
       return Response.redirect(url.toString(), 301);
     }
+    // Test-panel marks, kept server-side. The panel itself stays public and
+    // localStorage-only for anyone who opens it; WRITING marks needs the
+    // 'key:tests' value from KV, which lives only in the tester's own link
+    // (/tests?k=...). No key -> 404, so the path stays invisible. Without this
+    // the marks lived in one browser: a phone tick was unreadable on the
+    // computer, and clearing site data threw a whole test session away.
+    //
+    // State is one JSON blob: { "T-19": {"v":"pass","n":"...","t":<ms>}, ... }.
+    // Both devices send FULL snapshots, so the merge is per row by its own
+    // timestamp - a stale snapshot from a tab left open yesterday must not
+    // undo a mark made on the phone a minute ago.
+    if (path === '/tests/state') {
+      const want = String((await env.FEEDBACK.get('key:tests')) || '').trim();
+      const got = (url.searchParams.get('k') || '').trim();
+      if (!want || got !== want) return new Response('Not found', { status: 404 });
+
+      const asJson = (obj) => new Response(JSON.stringify(obj), {
+        headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+      const readState = async () => {
+        try {
+          const v = JSON.parse((await env.FEEDBACK.get('tests:state')) || '{}');
+          return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+        } catch (e) { return {}; }
+      };
+
+      if (request.method === 'GET') return asJson(await readState());
+
+      if (request.method === 'POST') {
+        const body = await request.text();
+        if (body.length > 262144) return new Response('Too large', { status: 413 });
+        let incoming;
+        try { incoming = JSON.parse(body); } catch (e) { return new Response('Bad JSON', { status: 400 }); }
+        if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+          return new Response('Bad JSON', { status: 400 });
+        }
+        // The merge rule itself lives in state.mjs and is unit-tested there
+        // (test/state.test.mjs) - it is the part that can silently lose a
+        // testing session, so it must not be checkable only by hand.
+        const merged = mergeState(await readState(), incoming);
+        if (Object.keys(merged).length > 400) return new Response('Too many rows', { status: 413 });
+        await env.FEEDBACK.put('tests:state', JSON.stringify(merged));
+        return asJson(merged);
+      }
+      return new Response('Method not allowed', { status: 405 });
+    }
+
     if (request.method === 'GET' && path === '/tests') {
       const html = await env.FEEDBACK.get('panel:tests');
       if (!html) return new Response('No panel uploaded yet', { status: 404 });

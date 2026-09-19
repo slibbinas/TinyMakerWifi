@@ -39,6 +39,7 @@
 #include <WiFiClientSecure.h> // HTTPS to GitHub for version check + self-update
 #include <HTTPClient.h>       // fetch version.txt
 #include <uri/UriBraces.h>   // /lib/{} - slicerio failai is korteles (0.17 SL-mod)
+#include "tm_pure.h"     // grynos funkcijos - be Arduino tipu, testuojamos ant PC
 #include "slicer_ca.h"   // gh-pages saknis: manifesto TLS tikrinamas (08-22)
 #include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
@@ -420,6 +421,10 @@ void handlePreviewUploadData() {
     } else if (previewType == "1") {
       previewUploadPath = "/" + previewUploadName + "/preview1s.png";
       previewUploadOld  = "/" + previewUploadName + "/preview1.png";
+    } else if (previewType == "ico") {
+      // Saraso piktograma: 56x56 PNG, ~4 KB. Guli PRIE MODELIO, ne narsykleje - tad
+      // ta pati mato ir telefonas, ir kompiuteris, ir naujas langas (V 2026-08-30).
+      previewUploadPath = "/" + previewUploadName + "/icon.png";
     } else previewUploadPath = "/" + previewUploadName + "/preview.png";
     // Senoji miniatiura trinama TIK pavykus irasyti nauja (zr. UPLOAD_FILE_END):
     // cia vardas dar nepatikrintas (name=../X taikytusi i svetima aplanka), o
@@ -444,7 +449,9 @@ void handlePreviewUploadData() {
   }
   else if (up.status == UPLOAD_FILE_WRITE) {
     if (previewUploadRejected) return;
-    if (up.totalSize > 524288) {
+    // Piktogramai uztenka 32 KB (tikroji ~4 KB): be atskiros ribos ji galetu teisetai
+    // uzimti puse megabaito kortelėje (auditas 08-30).
+    if (up.totalSize > (previewUploadPath.endsWith("/icon.png") ? 32768u : 524288u)) {
       previewUploadRejected = true;
       if (previewUploadFile) previewUploadFile.close();
       SD.remove(previewUploadTmpPath.c_str());
@@ -577,7 +584,10 @@ void handleApiFileModelPreview() {
   // The type arg is ignored here: one snapshot is taken per print, and the
   // picture is the same model at any layer height (see openModelRender).
   // Other models (or no snapshot) fall through to the 409.
-  if (printerBusy() && previewCacheBuf && server.arg("name") == previewCacheModel) {
+  // ISSKYRUS piktograma: ji kito dydzio ir kitos paskirties, o cia gulintis didysis
+  // renderis narsykleje uzsikabintu PARAI po piktogramos adresu (auditas 08-30).
+  if (printerBusy() && previewCacheBuf && server.arg("type") != "ico" &&
+      server.arg("name") == previewCacheModel) {
     server.sendHeader("Cache-Control", "max-age=86400");
     server.setContentLength(previewCacheLen);
     server.send(200, "image/png", "");
@@ -602,6 +612,29 @@ void handleApiFileModelPreview() {
 
   String previewType = server.arg("type");
   File f;
+  // Saraso piktograma: maza (~4 KB), tad narsyklei leidziam ja laikyti - sarasas
+  // atsiverciamas daznai, o piesinys keiciasi tik pergaminus.
+  if (previewType == "ico") {
+    File fi = SD.open(("/" + name + "/icon.png").c_str());
+    if (!fi) { sendApiError(404, "icon not found"); return; }
+    server.sendHeader("Cache-Control", "max-age=600");
+    server.setContentLength(fi.size());
+    server.send(200, "image/png", "");
+    // Rankinis ciklas, o ne streamFile: pastarasis nezino apie nukeliavusi klienta, ir
+    // kiekvienas gabalas degintu po sekunde `select()` laukimo. Ta pati sarga stovi
+    // ir didziosios perziuros kelyje zemiau (auditas 08-30).
+    {
+      uint8_t buf[512];
+      int n;
+      WiFiClient client = server.client();
+      while ((n = fi.read(buf, sizeof(buf))) > 0) {
+        if (!client.connected()) break;
+        client.write(buf, n);
+      }
+    }
+    fi.close();
+    return;
+  }
   if (previewType == "05") f = SD.open(("/" + name + "/preview05s.png").c_str());
   else if (previewType == "1") f = SD.open(("/" + name + "/preview1s.png").c_str());
   // One consistent look (user decision): our voxel render everywhere; the
@@ -839,7 +872,11 @@ String printerStateText() {
       case 5: return prefix + "Pausing";
       case 6: return prefix + "Paused";
       case 7: return prefix + "Resuming";
-      case 8: return prefix + "Finished";
+      // Ne „Finished": tuo metu platforma DAR kyla, ir salia rodomas laikas iki
+      // pabaigos - „baigta" su likusiu laiku yra du priestaraujantys teiginiai
+      // vienoje eiluteje (V 09-04). „Lifting" netinka - taip vadinasi kiekvieno
+      // sluoksnio atplesimas (case 2), ir per spaudini jis mirga simtus kartu.
+      case 8: return prefix + "Raising plate";
       case 10: return prefix + "Refill resin";
       default: return uvLedEnabled ? "Printing" : "Testing";
     }
@@ -1702,8 +1739,8 @@ void applyConfigRequest() {
   Drop_Back_Feedrate = formLong("drop_back_feedrate", Drop_Back_Feedrate, 20, 50);
   Vat_Capacity_Ml = formLong("vat_ml", Vat_Capacity_Ml, 10, 40);
   lowResinPauseEnabled = formCheck("low_resin_pause", lowResinPauseEnabled);
-  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 1, 3);
-  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 3, 15);   // 0.17 #40: WARN level
+  lowResinThresholdMl = formLong("low_resin_ml", lowResinThresholdMl, 3, 8);
+  lowResinWarnMl = formLong("low_resin_warn", lowResinWarnMl, 5, 8);    // 0.17 #40: WARN level
   // R-cal: density is a measured property (weigh a known syringe volume), so it
   // is a plain setting - not part of the print-weighing calibration.
   if (server.hasArg("resin_density")) {
@@ -1729,7 +1766,21 @@ void applyConfigRequest() {
   askRefillEnabled = formCheck("ask_refill", askRefillEnabled);
   previewFlip = formCheck("preview_flip", previewFlip);
   uiTimeoutSecs = formLong("ui_timeout", uiTimeoutSecs, 0, 3600);
-  uvLedEnabled = !formCheck("dry_run", !uvLedEnabled);
+  /* Dry run yra REZIMAS, ne formos nustatymas: ji jungia atskiras
+     /api/config/dry-run (pultas apie ji nieko nesiuncia su „Save config").
+     Todel `formCheck` cia melavo: pilnoje formoje laukelio nera, tad kiekvienas
+     nustatymu issaugojimas ji tyliai isjungdavo - zmogus pasiruosia sausa
+     bandyma, pataiso WiFi nustatyma, ir kitas paleidimas jau su degancia UV
+     lempa (ismatuota du kartus is eiles, 2026-09-01, T-114). Ziurim TIK i
+     atsiusta reiksme, kad skriptas ir toliau galetu jungti abi puses. */
+  if (server.hasArg("dry_run")) {
+    String dryArg = server.arg("dry_run");
+    // Tuscia reiksme irgi „isjungta": dalis formu neuzdeta varnele siuncia
+    // butent taip (`dry_run=`), o suprasti tai kaip „ijunk" reikstu tyliai
+    // isjungti UV - ta pati beda, tik apversta (auditas 09-01).
+    uvLedEnabled = (dryArg.length() == 0 || dryArg == "0" ||
+                    dryArg == "false" || dryArg == "off");
+  }
   wifiEnabled = formCheck("wifi_enabled", wifiEnabled);
   webDashboardEnabled = wifiEnabled && formCheck("web_dashboard_enabled", webDashboardEnabled);
   bootUpdateCheckEnabled = formCheck("boot_update_check", bootUpdateCheckEnabled);
@@ -2036,6 +2087,18 @@ bool requestPrintResume(String &error) {
     error = "printer is not paused";
     return false;
   }
+  /* A resin pause is left only by refilling (V 2026-09-10). Resuming without it used to
+     carry on from the old level with lowResinNotified still latched, so the print had no
+     low-resin protection left at all - and deciding "1.5 ml will do" means trusting the
+     very estimate that had just been off by half. Refilling costs nothing; guessing costs
+     the print. The latch is cleared by vatMarkRefilled(). (vatSetFromWeight() would clear
+     it too, but the weight route refuses a busy printer, pause included - so during a
+     print the only way out is a full refill.) The LCD confirm path marks the refill itself (see
+     the OK-on-11113 branch), because the paused screen has no other way to say it. */
+  if (current_state == 10 && lowResinNotified) {
+    error = "only Stop available, please refill";
+    return false;
+  }
 
   current_state = 7;
   screen1111_state();
@@ -2067,6 +2130,7 @@ bool requestPrintStop(String &error) {
   }
 
   bool wasHoming = current_state == 0;
+  const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
   digitalWrite(LED, LOW);
   screen1111();
   current_state = 4;
@@ -2080,7 +2144,7 @@ bool requestPrintStop(String &error) {
   webResumePrint = false;
   if (wasHoming) homing_canceled = true;
   // PO `homing_canceled`: ivertis turi zinoti, ar galutinis pakelimas apskritai bus.
-  publishStopEstimate();   // „kada sustos" nuo pirmos sekundes
+  publishStopEstimate(wasPhase);   // „kada sustos" nuo pirmos sekundes
   return true;
 }
 
@@ -2326,6 +2390,16 @@ void handleApiPrintStart() {
   }
 
   sendApiOk("\"queued\":true");
+}
+
+// POST /api/thanks/seen - 1.0.0 K8: the dashboard showed the thank-you ask. Stored on
+// the printer, not in the browser, so a second phone or a cleared browser does not
+// ask again. Nothing about the payment itself is known or kept here.
+void handleApiThanksSeen() {
+  if (rejectIfWebControlOff()) return;
+  if (rejectIfBusy()) return;   // no NVS write in the middle of a lift or homing
+  const bool first = markThanksSeen();
+  sendApiOk(String("\"thanksSeen\":true,\"first\":") + (first ? "true" : "false"));
 }
 
 void handleApiVatRefilled() {
@@ -2652,7 +2726,7 @@ void handleApiStatus() {
   // lacks it as a truncated/garbled body. Status and the boot-anim list were
   // the two JSON answers built without it.
   String out = "{\"ok\":true,";
-  out.reserve(2368);   // 132 appends, polled mid-print; a failed one is silent
+  out.reserve(2368);   // 153 appends, polled mid-print; a failed one is silent
                        // Ismatuota 08-18: blogiausias realus atsakymas (100 simboliu
                        // modelio vardas) ~1,8 KB, tad su atsarga - vienas augimas
                        // reikstu realloc'a kas apklausa, o heap fragmentuojasi.
@@ -2705,6 +2779,10 @@ void handleApiStatus() {
   out += (busy && !print_paused && current_state >= 1 && current_state <= 3) ? "true" : "false";
   out += ",\"canResume\":";
   out += (current_state == 6 || current_state == 10) ? "true" : "false";
+  // Its own field, not a false canResume: that would hide Resume AND lock the
+  // "VAT refilled" button (busy && !canResume) - the one button this state needs.
+  out += ",\"refillPending\":";
+  out += (current_state == 10 && lowResinNotified) ? "true" : "false";
   out += ",\"canStop\":";
   out += (busy && current_state != 4 && current_state != 8) ? "true" : "false";
   out += ",\"state\":\"";
@@ -2790,6 +2868,10 @@ void handleApiStatus() {
   out += String(sdRev);
   out += ",\"lifetimePrintSecs\":";
   out += String(totalPrintSecs);
+  out += ",\"printsOk\":";           // 1.0.0 K8: finished real prints
+  out += String(printsOkCount);
+  out += ",\"thanksSeen\":";
+  out += thanksSeen ? "true" : "false";
   out += ",\"lifetimePrintTime\":\"";
   out += formatDuration(totalPrintSecs);
   out += "\",\"uvLedSecs\":";
@@ -2883,6 +2965,19 @@ void handleApiStatus() {
   // or whether the carriage lost steps. Readable without moving anything.
   out += ",\"endstop\":";
   out += digitalRead(end_stop) ? "true" : "false";
+  // Where the printer thinks the plate is, in steps and in mm above the HOME
+  // position (not above the LCD - the physical zero is where the plate was
+  // levelled). zKnown is false until a homing run has reached the endstop since
+  // boot: the step counter starts at 0 wherever the carriage happens to stand,
+  // so an unhomed reading would claim "at home" for a plate parked up top. A
+  // power-loss resume restores a checkpointed, deliberately down-biased count -
+  // an estimate, not a measurement - so it does not set the flag either.
+  out += ",\"zSteps\":";
+  out += String(stepper.currentPosition());
+  out += ",\"zMm\":";
+  out += String(stepper.currentPosition() / steps_mm, 2);
+  out += ",\"zKnown\":";
+  out += zHomed ? "true" : "false";
   out += ",\"uptimeSecs\":";
   out += String(millis() / 1000UL);
   out += "}";
@@ -2939,16 +3034,58 @@ int otaState = 0;
 // Tolerates a leading "v"/"V" (e.g. a version.txt copied from a git tag name) -
 // without this, "v0.8.0" would parse as 0.0.0 and silently report "Up to date".
 static int cmpSemver(const char *a, const char *b) {
-  if (*a == 'v' || *a == 'V') a++;
-  if (*b == 'v' || *b == 'V') b++;
-  int va[3] = {0, 0, 0}, vb[3] = {0, 0, 0};
-  sscanf(a, "%d.%d.%d", &va[0], &va[1], &va[2]);
-  sscanf(b, "%d.%d.%d", &vb[0], &vb[1], &vb[2]);
-  for (int i = 0; i < 3; i++) if (va[i] != vb[i]) return va[i] - vb[i];
-  return 0;
+  return tmCmpSemver(a, b);   // tm_pure.h
 }
 
 unsigned long otaCheckedAt = 0;   // millis() of the last successful check
+
+// ---- Self-update over a VERIFIED connection (security review 09-13) --------
+//
+// Both halves of the self-update ran with setInsecure(), and that was the
+// weakest link in the firmware. Not because firmware.bin is secret - it is
+// public - but because of what these bytes BECOME: whoever answered as
+// slibbinas.github.io on this network decided what code the ESP32 runs next.
+// Worse than the slicer case (08-22, see slicer_ca.h), where the payload at
+// least had to match a checksum; here it is flashed into the app partition and
+// rebooted into.
+//
+// It was two unverified hops, and the FIRST one chose the second: line 2 of
+// version.txt becomes otaBinUrl and was never checked for scheme or host, so a
+// forged version.txt alone was enough - point it at http://anything/evil.bin
+// and the printer fetched and flashed it, no certificate examined.
+//
+// Both hops now verify against the same two anchors the slicer manifest uses
+// (*.github.io - the identical host, so slicer_ca.h already covered it), and
+// otaBinUrl must live under our own release directory.
+//
+// FAIL CLOSED on purpose: if verification breaks, updates stop and the printer
+// says so. USB flashing and "install from file" still work. Failing open is how
+// you flash someone else's code.
+
+// NO CLOCK GUARD, on purpose. On Arduino-ESP32 2.0.14 mbedTLS is built without
+// MBEDTLS_HAVE_TIME_DATE (CONFIG_MBEDTLS_HAVE_TIME_DATE is unset, and
+// mbedtls/port/include/mbedtls/esp_config.h then #undef's it), so certificate
+// validity dates are never checked and verification works before SNTP has
+// synced. A guard here would defend against nothing and break real things: a
+// network that blocks NTP would lose self-update permanently, and the states it
+// produced were reported as "up to date" by the dashboard and "unknown" by the
+// LCD (maintainer review, PR #146). If a future core turns the option on, this
+// is the place - behind #ifdef MBEDTLS_HAVE_TIME_DATE, and states 0/4 plus the
+// install endpoint need handling at the same time.
+
+// The release directory on gh-pages - everything we are willing to flash lives
+// under it. Derived from OTA_VERSION_URL so there is one place to change.
+static String otaTrustedBase() {
+  String b = OTA_VERSION_URL;
+  int cut = b.lastIndexOf('/');
+  return cut >= 0 ? b.substring(0, cut + 1) : b;
+}
+
+// HTTPS, and under that directory. This is what stops a forged version.txt from
+// redirecting the flash somewhere else. tm_pure.h holds the actual rule.
+static bool otaUrlTrusted(const String &url) {
+  return tmUrlUnderBase(url.c_str(), otaTrustedBase().c_str());
+}
 
 // Fetch version.txt over HTTPS and work out whether an update is available.
 // Blocking (a few seconds); the caller should show "checking..." first.
@@ -2968,7 +3105,7 @@ void otaCheckLatest(uint16_t timeoutMs) {
   if (WiFi.status() != WL_CONNECTED) { otaState = 4; return; }
 
   WiFiClientSecure client;
-  client.setInsecure();            // home LAN: skip cert validation
+  client.setCACert(SLICER_CA_PEM);   // verified: this decides what code we run
   HTTPClient https;
   https.setConnectTimeout(timeoutMs);
   https.setTimeout(timeoutMs);
@@ -2984,7 +3121,17 @@ void otaCheckLatest(uint16_t timeoutMs) {
     } else {
       otaLatestVer = body.substring(0, nl);      otaLatestVer.trim();
       otaBinUrl    = body.substring(nl + 1);      otaBinUrl.trim();
+      // Line 2 is the only part of version.txt that steers a later flash, so it
+      // is the one part that has to be checked.
+      if (otaBinUrl.length() && !otaUrlTrusted(otaBinUrl)) {
+        DBGLN("version.txt points off our release directory - ignoring the URL");
+        otaBinUrl = "";
+      }
     }
+    // Rebuild rather than drop. release.py always writes line 2, but a truncated
+    // or tampered file should not be able to take updates away either - the
+    // canonical name next to version.txt is what we would have fetched anyway.
+    if (otaBinUrl.length() == 0) otaBinUrl = otaTrustedBase() + "firmware.bin";
 #ifdef FIRMWARE_VERSION
     int c = cmpSemver(otaLatestVer.c_str(), FIRMWARE_VERSION);
 #else
@@ -3113,9 +3260,18 @@ void crashPingMaybe() {
 // Download a firmware image over HTTPS and flash it. Shows progress on the
 // LCD; reboots on success. Shared by "Install latest" and the version picker.
 void otaFlashUrl(const String &url, const char *subtitle) {
+  // Last gate before the app partition is overwritten. Both checks answer the
+  // same question - "do we know who is sending these bytes?" - and both refuse
+  // rather than guess.
+  if (!otaUrlTrusted(url)) {
+    netMessage("Update refused", "not our release URL");
+    delay(1800);
+    restoreIdleScreen();
+    return;
+  }
   netProgressStart("Updating...", subtitle);
   WiFiClientSecure client;
-  client.setInsecure();
+  client.setCACert(SLICER_CA_PEM);   // see slicer_ca.h - same two anchors
   httpUpdate.rebootOnUpdate(true);
   httpUpdate.onProgress([](int done, int total) { netProgressBar(done, total); });
   t_httpUpdate_return ret = httpUpdate.update(client, url);
@@ -3174,12 +3330,8 @@ void handleApiUpdateInstall() {
   }
   String ver = server.arg("version");
   if (ver.length() > 0) {
-    int a, b, c;
-    char tail;
-    bool digitsOnly = true;
-    for (size_t i = 0; i < ver.length(); i++)
-      if (!isDigit(ver[i]) && ver[i] != '.') digitsOnly = false;
-    if (!digitsOnly || sscanf(ver.c_str(), "%d.%d.%d%c", &a, &b, &c, &tail) != 3) {
+    // tm_pure.h - same rule, one place
+    if (!tmVersionLooksValid(ver.c_str())) {
       sendApiError(400, "bad version");
       return;
     }
@@ -3436,16 +3588,43 @@ void handleApiBootAnimInstall() {
 
   SD.mkdir(BOOTANIM_DIR);
   String savePath = String(BOOTANIM_DIR) + "/" + slug + ".tmb";
-  SD.remove(savePath.c_str());
-  File out = SD.open(savePath.c_str(), FILE_WRITE);
+  // Siunciam i SALUTI ir i vieta perkeliam tik pilna faila. Anksciau rasyta tiesiai
+  // i savePath, o tai reiske, kad diegimas i JAU ESAMA varda pirmiausia sunaikina
+  // ta animacija, kuri ten buvo - ir jei siuntimas nutruko, zmogus liko be jos.
+  // Ismatuota 08-31 (T-2): nukirstas failas esamu vardu grazina 502, o senoji
+  // animacija dingsta is saraso. TMB1 vartai auksciau saugo nuo blogo TIPO (ne TMB
+  // failas duoda 422 ir senoji islieka), bet nukirstas failas juos praeina - jo
+  // antraste sveika, o trukumas paaiskeja tik pabaigoje. `.part` niekada nepatenka
+  // i sarasa: listBootAnims() ima tik tuos, kurie baigiasi ".tmb".
+  String partPath = savePath + ".part";
+  SD.remove(partPath.c_str());
+  File out = SD.open(partPath.c_str(), FILE_WRITE);
   if (!out) { http.end(); sendApiError(500, "sd write failed"); netMessage("Boot animation", "SD write failed"); delay(1200); restoreIdleScreen(); return; }
 
   const size_t MAX_ANIM_BYTES = 8UL * 1024 * 1024;   // reject runaway/chunked downloads
   bool tooBig = false;
+  // `total` skaiciuoja baitus, atejusius IS TINKLO. Jei kortele pilna, `write`
+  // grazina (size_t)-1, o total vis tiek sutampa su expectedBytes - ir nukirstas
+  // failas butu pervadintas i vieta, istrinant senaji. Ta pati skyle, tik pro
+  // kitas duris. FatFile::write klaida = -1 (FatFile.cpp:1529).
+  bool writeFail = false;
   size_t total = 0;
-  out.write(buf, first);
+  if (out.write(buf, first) != (size_t)first) writeFail = true;
   total += first;
   if (remaining > 0) remaining -= first;
+
+  // Jei jau pirmas gabalas neirasytas, likusiu 2 MB parsisiuntimas nieko
+  // nepakeis - tik minute laukimo ir tiek pat bandymu isskirti klasteri
+  // pilnoje korteleje. Cikle toks `break` yra, cia jo truko.
+  if (writeFail) {
+    out.close();
+    http.end();
+    SD.remove(partPath.c_str());
+    sendApiError(507, "sd write failed - card full?");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
 
   // A real grow-only bar: the TMB header just told us the exact payload size
   // (expectedBytes), which beats both Content-Length and the old time-driven
@@ -3457,7 +3636,7 @@ void handleApiBootAnimInstall() {
     if (avail) {
       int n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
       if (n <= 0) break;
-      out.write(buf, n);
+      if (out.write(buf, n) != (size_t)n) { writeFail = true; break; }
       total += n;
       if (total > MAX_ANIM_BYTES) { tooBig = true; break; }
       if (remaining > 0) { remaining -= n; if (remaining == 0) break; }
@@ -3473,10 +3652,15 @@ void handleApiBootAnimInstall() {
   out.close();
   http.end();
 
-  if (tooBig) {
-    SD.remove(savePath.c_str());          // don't leave a giant partial file eating the card
-    sendApiError(413, "animation too large");
-    netMessage("Boot animation", "file too large");
+  if (tooBig || writeFail) {
+    SD.remove(partPath.c_str());          // don't leave a giant partial file eating the card
+    if (writeFail) {
+      sendApiError(507, "sd write failed - card full?");
+      netMessage("Boot animation", "SD write failed");
+    } else {
+      sendApiError(413, "animation too large");
+      netMessage("Boot animation", "file too large");
+    }
     delay(1200); restoreIdleScreen();
     return;
   }
@@ -3487,7 +3671,7 @@ void handleApiBootAnimInstall() {
   // that stops halfway through playback. Reported from the field on a slow link
   // - a 1.4 MB animation arrived as 538 KB and still looked installed.
   if (total != expectedBytes) {
-    SD.remove(savePath.c_str());
+    SD.remove(partPath.c_str());   // savePath neliestas: senoji to vardo animacija lieka
     String err = "download incomplete - " + String((unsigned long)total) +
                  " of " + String((unsigned long)expectedBytes) + " bytes";
     sendApiError(502, err.c_str());
@@ -3495,6 +3679,38 @@ void handleApiBootAnimInstall() {
     delay(1200); restoreIdleScreen();
     return;
   }
+
+  // Pilnas failas - tik dabar uzimam vieta. Iki sios eilutes senoji to vardo
+  // animacija tebera sveika, tad bet kuris auksciau esantis "return" palieka
+  // printeri lygiai tokia bukle, kokia buvo pries diegima.
+  //
+  // Sena pirma PASITRAUKIA I SALI, o istrinama tik tada, kai naujoji jau savo
+  // vietoje. Tiesmukas remove+rename butu ta pati skyle, kuria cia ir taisom,
+  // tik siauresne: nepavykus pervadinti zmogus liktu ir be senosios, ir be
+  // naujosios. Tas pats rastas kaip commitTempModel() Import.ino - ten jis
+  // saugo modeli, cia animacija.
+  String backupPath = savePath + ".old";
+  SD.remove(backupPath.c_str());
+  bool hadOld = SD.exists(savePath.c_str());
+  if (hadOld && !SD.rename(savePath.c_str(), backupPath.c_str())) {
+    SD.remove(partPath.c_str());
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (!SD.rename(partPath.c_str(), savePath.c_str())) {
+    SD.remove(partPath.c_str());
+    // `rename` nauja iraso su O_CREAT|O_EXCL (FatFile.cpp:945): jei jis nuluzo
+    // JAU sukures iraso, savePath egzistuoja, ir atstatymas atsimustu i ta pati
+    // O_EXCL - zmogus liktu tik su .old, kurio niekas nerodo.
+    if (hadOld) { SD.remove(savePath.c_str()); SD.rename(backupPath.c_str(), savePath.c_str()); }
+    sendApiError(500, "sd write failed");
+    netMessage("Boot animation", "SD write failed");
+    delay(1200); restoreIdleScreen();
+    return;
+  }
+  if (hadOld) SD.remove(backupPath.c_str());
 
   // Install only downloads: the active choice stays whatever it was, picking
   // is an explicit act (dashboard pick + Save config, or the printer menu).
@@ -4181,6 +4397,11 @@ void handleApiBootAnimDelete() {
   String path = String(BOOTANIM_DIR) + "/" + name + ".tmb";
   SD.remove(path.c_str());
   SD.remove(bootAnimMetadataPath(name).c_str());
+  // Diegimas raso i <slug>.tmb.part ir sena atideda i <slug>.tmb.old; dinges
+  // maitinimas viduryje palieka juos guleti. Saraso jie negadina (imami tik
+  // .tmb), bet uzima vieta, tad trynimas issiveza ir juos.
+  SD.remove((path + ".part").c_str());
+  SD.remove((path + ".old").c_str());
   String names[2];
   if (bootAnimName == name || (bootAnimShuffleSelected(bootAnimName) && listBootAnims(names, 2) < 2)) {
     bootAnimName = "";
@@ -4242,7 +4463,7 @@ bool rejectIfResumePending() {
 
 // GET /api/resin-profile - the picker: built-ins, then the card, plus which one
 // is active. One file read per profile (resinProfileInfo), and no sdCardReady()
-// gate on purpose: without a card the two built-ins are still perfectly usable,
+// gate on purpose: without a card the built-ins are still perfectly usable,
 // and an empty picker would look like a broken feature.
 void handleApiResinProfileList() {
   if (rejectIfBusy()) return;
@@ -4495,6 +4716,47 @@ void handleApiResinProfileRename() {
 extern const uint8_t PWA_ICON_192[];
 extern const size_t PWA_ICON_192_LEN;
 
+// ---- Why the last WiFi attempt failed -------------------------------------
+// Until now every failure looked the same from the outside: the bar ran out and
+// the screen said "WiFi: offline mode". A wrong password, a router out of reach
+// and a router that simply will not have the ESP32 all ended on that one line,
+// so remote support was guesswork (GitHub #118: a printer that joined a repeater
+// but never the user's own router - neither he nor we could tell why).
+//
+// The chip does say why: a failed attempt ends in a STA_DISCONNECTED event
+// carrying an esp_wifi reason code. Keep the last one and show it.
+//
+// Deliberately NOT exposed over HTTP: when this matters the printer is offline,
+// so there is no API to ask. The screen is the only place it can be read.
+volatile uint8_t wifiLastReason = 0;   // written from the WiFi event task
+
+// Short label + the raw code. Kept to 20 characters so it fits the 160 px line
+// at FreeSans8pt ("Reset WiFi settings?" is the width reference). The number
+// stays even when the label is clear - a code is what makes a support answer
+// possible when the user is on the other side of an issue thread.
+String wifiReasonText() {
+  uint8_t r = wifiLastReason;
+  if (!r) return String("");
+  const char *w;
+  switch (r) {
+    case WIFI_REASON_NO_AP_FOUND:            w = "AP not found";  break;
+    case WIFI_REASON_AUTH_FAIL:              w = "Bad password";  break;
+    case WIFI_REASON_AUTH_EXPIRE:            w = "Auth expired";  break;
+    case WIFI_REASON_ASSOC_FAIL:             w = "Assoc refused"; break;
+    // A wrong password does NOT come back as AUTH_FAIL on this chip - the
+    // 4-way handshake simply never completes, so the honest esp_wifi answer is
+    // a timeout (measured on hardware 08-29: a deliberately wrong key gave
+    // 204, not 202). "Auth timeout" is true and useless; nobody reads it as
+    // "check your password", which is the one thing it almost always means.
+    // The question mark keeps it honest - 204 can also be a signal too weak to
+    // finish the handshake.
+    case WIFI_REASON_HANDSHAKE_TIMEOUT:      w = "Wrong pass?";   break;
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: w = "Wrong pass?";   break;
+    default:                                 w = "WiFi error";
+  }
+  return String(w) + " (" + String(r) + ")";
+}
+
 void network_setup() {
   // Idempotent (0-33): the boot now brings the network up BEFORE the resume
   // prompt, and the prompt exits still call finishRestorePromptBoot, which
@@ -4528,6 +4790,41 @@ void network_setup() {
   }
 
   WiFiManager wm;
+
+  // Listen before the first attempt - the reason code only exists if someone is
+  // subscribed when that attempt fails. Covers both branches below: our own
+  // 15 s connect AND the config portal, where WiFiManager does the connecting.
+  // Once per boot: System -> Update clears networkStarted and re-runs this
+  // function, and onEvent() appends rather than replaces.
+  //
+  // KEEP THIS A LAMBDA. A named handler would be the tidier read, but its
+  // parameters are WiFi.h types, and PlatformIO auto-generates a prototype for
+  // every named function, hoisting it above the first definition in the
+  // concatenated .ino - which sits OUTSIDE the #if ENABLE_NETWORK guard, while
+  // #include <WiFi.h> sits inside it. The ENABLE_NETWORK 0 build would then
+  // stop compiling on a type it has never heard of. Anonymous functions get no
+  // prototype (audit, 08-29).
+  static bool reasonHooked = false;
+  if (!reasonHooked) {
+    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+      if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+        wifiLastReason = 0;                // connected: the old reason is history
+        return;
+      }
+      if (event != ARDUINO_EVENT_WIFI_STA_DISCONNECTED) return;
+      uint8_t r = info.wifi_sta_disconnected.reason;
+      // ASSOC_LEAVE (8) is us leaving, not a failure. The watchdog in
+      // network_loop() nudges WiFi.reconnect() every 15 s while offline, and
+      // that is esp_wifi_disconnect() + esp_wifi_connect() - so an unfiltered 8
+      // would overwrite the real reason within seconds and the screen would
+      // read "WiFi error (8)" nearly every time. WiFiManager and
+      // wifiEraseCredentials() disconnect the same way before a fresh attempt.
+      if (r == WIFI_REASON_ASSOC_LEAVE) return;
+      wifiLastReason = r;
+      DBG("WiFi disconnected, reason %u\n", (unsigned)r);
+    });
+    reasonHooked = true;
+  }
 
   // esp_wifi must be initialized before reading its config
   WiFi.mode(WIFI_STA);
@@ -4627,8 +4924,9 @@ void network_setup() {
   // The watchdog already re-announces it the moment the link returns.
   bool bootOnline = (WiFi.status() == WL_CONNECTED);
   if (!bootOnline) {
-    netMessage("WiFi: offline mode", "");
-    delay(1200);
+    String why = wifiReasonText();     // #118: say WHY, not just that it failed
+    netMessage("WiFi: offline mode", why.c_str());
+    delay(why.length() ? 2500 : 1200); // a code needs longer than a blank line
   }
 
   // Modem sleep (the default) delays the first request after an idle spell by
@@ -4701,6 +4999,7 @@ void network_setup() {
   server.on("/api/discord/test", HTTP_POST, handleApiDiscordTest);
   server.on("/api/print/start", HTTP_POST, handleApiPrintStart);
   server.on("/api/vat/refilled", HTTP_POST, handleApiVatRefilled);
+  server.on("/api/thanks/seen", HTTP_POST, handleApiThanksSeen);   // 1.0.0 K8
   server.on("/api/vat/weight", HTTP_POST, handleApiVatWeight);   // 0.17 0-16
   server.on("/api/resin/calibrate", HTTP_POST, handleApiResinCalibrate);   // R-cal 0.17
   server.on("/api/update", HTTP_GET, handleApiUpdateGet);
@@ -4915,8 +5214,16 @@ void network_loop() {
   // rejoins in the background; this is the belt-and-suspenders nudge for when
   // the core gives up, and it re-announces mDNS - tinymaker.local dies across a
   // reconnect - once the link is back. Non-blocking: reconnect() just kicks the
-  // WiFi task. Dormant during a print (network_loop isn't reached then); the
-  // background auto-reconnect covers that window.
+  // WiFi task.
+  //
+  // CORRECTION (09-13): this used to claim network_loop() is not reached during
+  // a print. It is. Motor.ino:200 and Motor.ino:310 call it every 300 ms through
+  // every lift and every lower, and network_service_window(160) calls it between
+  // layers. The watchdog above is safe anyway - reconnect() only kicks the WiFi
+  // task and returns - but the old sentence was load-bearing in the wrong
+  // direction: it reads as a licence to put blocking network work here, which
+  // would land squarely inside a curing layer. Anything added below must assume
+  // it CAN run mid-print, and gate on printerBusy() if that matters.
   static unsigned long wifiWatchTs = 0;
   // Seeded from the boot result: a printer that booted offline still owes an
   // mDNS announcement, even if the link returns before this watchdog's first
@@ -4970,6 +5277,13 @@ void wifiInfoValues() {
     gfx2->print(WiFi.localIP());
   } else {
     gfx2->print("Not connected");
+    // The boot message is gone in seconds; this screen is where the user can
+    // come back and read the reason - and quote it in a support thread.
+    String why = wifiReasonText();
+    if (why.length()) {
+      gfx2->setCursor(5, 55);
+      gfx2->print(why);
+    }
   }
 }
 

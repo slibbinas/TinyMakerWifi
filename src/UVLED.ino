@@ -116,6 +116,7 @@ void turn_on_LED(){
     }
     if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
       screen1111();
+      const int wasPhase = current_state;   // ka pertraukiam (zr. publishStopEstimate)
       current_state = 4;
       screen1111_state();
       gfx2->fillRect(136, 12, 16, 16, 0x8410);
@@ -123,7 +124,7 @@ void turn_on_LED(){
       gfx2->fillRect(146, 52, 6, 16, 0x8410);
       gfx2->drawRoundRect(128, 4, 32, 32, 3, 0x8410);
       print_canceled = true;
-      publishStopEstimate();   // kada sustos - nuo pirmos sekundes
+      publishStopEstimate(wasPhase);   // kada sustos - nuo pirmos sekundes
       Duration2 = 0;
       startTime2 = millis();
     }  
@@ -152,6 +153,9 @@ void turn_on_LED(){
   // arithmetic lift_finished_print() does - distance over speed - just started a
   // little earlier. That lift recomputes it exactly when it begins, so the number
   // only sharpens.
-  if (print_canceled) publishStopEstimate();   // zr. Motor.ino
+  // Faze cia zinoma is anksto: si eilute pasiekiama TIK ka tik pasibaigus
+  // ekspozicijai, tad pertraukem butent ja (1). `current_state` klausti negalima -
+  // nutraukimas ji jau pasistate i 4 (auditas 09-01).
+  if (print_canceled) publishStopEstimate(1);   // zr. Motor.ino
   if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
 }

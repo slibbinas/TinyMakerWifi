@@ -39,3 +39,13 @@ scripts/dev/model-slices/
 scripts/__pycache__/
 scripts/dev/local/
 scripts/dev/index.html
+scripts/dev/local-links.json
+
+# Python bytecode: build output, not source
+__pycache__/
+
+# Test output (generated SVG previews), not source
+scripts/dev/test-out/
+
+# Resin lab: personal data path (Drive), not for the public repo
+scripts/dev/resin-lab/local.json

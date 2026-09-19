@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **TinyMakerWifi** — the WiFi / wireless-upload / OTA
+All notable changes to **TinyMakerWifi** - the WiFi / wireless-upload / OTA
 firmware for the open-source TinyMaker MSLA resin printer. Written for humans:
 skim it to see what each version added and who contributed what, without
 digging through pull requests.
@@ -13,22 +13,293 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased] — 0.17
+## [0.17.7] - 2026-09-19
+
+A fix for the SD list on a computer screen.
+
+### Fixed
+
+- **The SD list no longer flickers between pages.** A model with a long name that
+  had just appeared on the card (marked **New**) could wrap into three lines. When
+  it sat at the top of a page, the list shrank to three rows per page, and pressing
+  **Next** made it jump back and forth between two pages many times a second. Model
+  names now stay on one line - cut with "…" only when they do not fit, full name on
+  hover - and the **New** mark sits at the end of the date line, so every row is the
+  same height.
+
+## [0.17.6] - 2026-09-18
+
+The browser slicer is **on by default**. Until now it shipped switched off, so only
+the people who went looking for the switch ever found it - and the whole point of
+slicing on the printer's own page is that it is there when you need it.
+
+### Changed
+
+- **The slicer is on from the start** (plan K9). A fresh printer shows the **STL
+  slicer** card straight away, with nothing to switch on first.
+
+  **Printers upgrading from 0.17 get it switched on once.** Their stored answer is
+  almost never a real choice: 0.17 defaulted to off and wrote that "off" on every
+  settings save, so a new default alone would have changed nothing for them. The
+  switch-on happens exactly once, and after it your own answer stands - switch it
+  off and it stays off, across updates. Settings backups made from now on carry
+  that distinction, so restoring one after a full reflash no longer turns the
+  slicer off for good.
+
+- **Docs follow:** the README and the manual no longer tell you to switch the
+  slicer on first, and say where to switch it off instead.
+
+### Also in this release
+
+- Slicing in the browser no longer loses the progress line when the window
+  changes size mid-job (a phone doing that on every scroll), and when the engine
+  slices the part again it says which pass it is and why (#177).
+- The printer's own folders on the SD card can no longer be replaced by a model
+  named after them (#172), and a model can no longer be imported over one (#175).
+- The dashboard does not say "Printer busy" while the slicer is showing its own
+  progress (#174); in the slicer view the shape tools step aside while a fit or a
+  lay-flat runs (#173), and the card says what to do when the slicer module is
+  not on the card and there is no internet (#171).
+- Resin **Buy** links say that they are affiliate links (#168, #169).
+
+## [0.17.5] - 2026-09-16 (beta)
+
+Two things. The self-update now checks that it is really talking to GitHub before it
+flashes anything - the most important security fix since WiFi arrived, contributed by
+[@DeadlySIn777](https://github.com/DeadlySIn777). And once, after your third print that
+actually came out, the dashboard says thank you and asks - a single time, and never
+again - whether the firmware is worth a few euros to you.
+
+### Security
+
+- **The self-update checks who it is talking to** (by
+  [@DeadlySIn777](https://github.com/DeadlySIn777), #146). Until now both the version
+  check and the firmware download skipped the certificate check, so on a hostile
+  network - a café, a shared flat, a compromised router - anyone answering as GitHub
+  could hand the printer a firmware of their own, and the printer would flash it and
+  reboot into it. Both now verify GitHub's certificate, and the printer only flashes
+  files from our own release folder: a forged `version.txt` can no longer point it
+  anywhere else. If the check fails, the update stops and the printer says so -
+  **Choose & flash** in the dashboard's Update tab and USB flashing keep working.
+- **Room for GitHub to change certificates** (#166). The printer now also trusts Let's
+  Encrypt's ECDSA roots, so a change on GitHub's side cannot quietly take self-update
+  away from printers in the field.
+
+  Tested on the printer: the version check, a real install through the verified
+  connection, rejected bad version strings, the slicer module check, and free memory
+  before and after.
 
 ### Added
+
+- **A thank-you note after the third good print.** The printer counts prints that ran
+  to the end with the UV on; the third one brings up a small dialog in the dashboard
+  with three amounts and a link for any other amount. Each button is an ordinary link
+  to a payment page - the printer never learns whether you paid, or whether you opened
+  the link at all, and the note does not come back either way.
+
+  **Why the third and not the first:** the first print is usually a test, and later
+  ones can still fail. Three that came out mean you came back on your own. A failed
+  print does not move the counter, so nobody is asked after a bad evening. If you
+  press **No thanks**, that is the end of it - the dialog is shown once per printer.
+
+### Changed
+
+- **`/api/status` reports two more fields** (`printsOk`, `thanksSeen`), and a new
+  `POST /api/thanks/seen` marks the note as shown. Both are ordinary dashboard API
+  calls behind the usual web-control and busy guards; if you drive the printer from
+  your own scripts, nothing you already use changed.
+
+## [0.17.4] - 2026-09-15 (beta)
+
+A slicer card update for the 0.17 beta: you now choose how the slicer places a part on
+its own, and switching between the slicer and the SD card no longer leaves pieces of
+one on the other. The firmware core is unchanged; everything here is in the dashboard.
+It only matters if you switched on **Settings → STL slicer in the dashboard**.
+
+### Added
+
+- **Fit by and Size.** Two new switches under the slicer settings decide how a part is
+  placed. **Fit by:** *flat* lays it on its widest side, *supports* tilts it so it
+  needs the fewest supports. **Size:** *keep* leaves your size and scales down only
+  when it does not fit, *max* makes the part as large as the plate allows, up to 300 %.
+  They apply at once to the model you have loaded, to every STL you load next, and to
+  the orange button when a part does not fit; the card says how much the part was
+  scaled. **Reset to defaults** puts them back to flat and keep.
+
+### Changed
+
+- **One Fit button on the 3D view instead of two.** "Fast fit" and "Optimal fit" are
+  replaced by a single **Fit**, which places the part the way Fit by and Size say -
+  handy after turning it by hand. The orange button is named after Fit by: "Fit flat"
+  or "Fit for supports".
+- **A thin line above Fit by and Size** sets them apart from the settings that change
+  the slicing itself.
+- **The ? help button always stands first in the corner of the 3D view**, and the
+  defect marking tool sits next to it.
+
+### Fixed
+
+- **The slicer's shape tools no longer stay on the SD preview.** After loading an STL
+  and opening the SD card, the Fit, Lay flat, Flip, Tilt, Rotate and Scale buttons
+  stayed on top of the SD model, and pressing one jumped back into the slicer.
+- **The preview title comes back with the slicer.** Returning from the SD card to a
+  sliced part kept the SD model's name above the slicer's result.
+- **No empty row above the view buttons on the SD side.** They now move back up when
+  the shape tools leave.
+- **The camera frames the slicer's part again after a visit to the SD card.** It used
+  to stay where the SD model had left it, often so close that the plate filled the
+  whole view.
+
+## [0.17.3] - 2026-09-15 (beta)
+
+An important optimization for the 0.17 beta: the dashboard no longer rushes a printer
+that is busy printing.
+
+This is a small printer with a small heart - the same loop that times the UV exposure
+and drives the Z motor also answers the network. While a layer cures it does not answer
+the network at all; it catches up between layers and during lifts. Since 0.17.0 the
+dashboard gave it only 4 seconds to answer, which was far too strict for that rhythm: a
+longer layer made two answers in a row come late, and the dashboard showed "Syncing
+with printer at the next safe network window..." during perfectly normal prints. The
+printer itself was fine the whole time.
+
+The firmware core is unchanged; this is the dashboard that ships inside it.
+
+### Changed
+
+- **The wait is now automatic and follows the print.** While printing, the dashboard
+  waits as long as the longest exposure in your settings plus 10 seconds, and never
+  less than 20 seconds, so base layers that cure for a minute are covered too. An idle
+  printer still has to answer within 4 seconds, so an upload from PrusaSlicer is still
+  explained right away.
+- **A slow network can be given more time, and the dashboard tells you where.** If the
+  printer keeps answering late anyway - for example when the phone or laptop reaches it
+  through a WiFi extender - the message now says the printer answers slowly on this
+  network and points to **Settings > Network > Wait while printing**. The value is kept
+  in that browser only, because the delay belongs to the network that device is on; 0
+  keeps it automatic.
+
+## [0.17.2] - 2026-09-13 (beta)
+
+A slicer fix-up for the 0.17 beta. The firmware itself is unchanged; everything here is
+in the dashboard's slicer card and in the slicer module it loads. It only matters if
+you switched on **Settings → STL slicer in the dashboard** - the slicer stays off by
+default until 1.0.0.
+
+This release also pairs the dashboard with slicer module 3.5.0, which is already
+published. A 0.17.1 dashboard can install that module, but it was built for an older
+one and does not know how the new module decides whether a part fits.
+
+### Changed
+
+- **Parts get more of the plate.** The slicer used to keep 3.1 mm clear on every side
+  of the whole model - the room a support foot and the pad rim need - so a part could
+  use only 68 % of the plate and was scaled down for no measured reason. The margin is
+  now 1.0 mm, measured on a printed edge coupon (the screen cures to within 0.5 mm of
+  its lit edge; the rest is the plate's sideways play). Usable area goes from 68 % to
+  89 %.
+- **The fit check happens after the supports exist.** Instead of guessing from the
+  worst case, the slicer now measures the real footprint of the part with its supports
+  and pad. Only if that really reaches past the plate is the part sliced again, smaller
+  by exactly what is needed.
+- **Heavy models are laid down faster.** For parts with 150 000 triangles or more, the
+  careful placement search is split across up to four workers (never on a device with
+  under 4 GB of memory). A 300 000 triangle bust went from about 4.8 s to 1.5 s, with
+  the same result.
+
+### Fixed
+
+- **A part scaled down to fit is now said out loud.** The card shows "Scaled down N% -
+  the supports reached past the plate.", and if the part still overhangs after that, it
+  says so and asks you to scale it down by hand. The scale slider and the height field
+  move to the new size, so the next nudge does not push the part back past the edge.
+- **The size line under the file name follows that scale-down.** It kept showing the
+  size from before, so someone printing a part that must be a real size (a ring, a
+  bracket on a shaft) read the old numbers and got a smaller part.
+- **The percent field's up arrow grows the part again.** It did nothing anywhere; the
+  down arrow worked.
+- **Discard stays on the right when the result line is long.** When a part still
+  overhangs after the scale-down, the longer message pushed the Discard button onto its
+  own line on the left. The message now wraps in its own column.
+- **A clean card asks for slicer module 3.5.0.** A card that already had a module
+  installed was not affected - the installed one is always used.
+
+## [0.17.1] - 2026-09-12 (beta)
+
+### Fixed
+
+- **A dashboard Stop pressed while the plate rose into a pause showed "Paused".** The
+  print did stop, but once the plate reached the pause height the pause was parked
+  anyway: for the ~24 s final lift the dashboard said "Paused" with **Resume** live and
+  the printer screen showed the pause icons (a resin pause would also have sent its
+  refill message to Telegram). A stopped print now stays "Canceling..." to the end.
+  Stop from the printer's own buttons was not affected - they are not read during that
+  lift.
+- **The same after Resume.** A dashboard Stop pressed while the plate travelled back
+  down stopped the print, but once the plate arrived the printer screen redrew live
+  Stop and Pause buttons next to "Canceling...". They now stay grey to the end.
+- **After a print resumed from a power cut, the plate is no longer raised at the end.**
+  After such a resume the plate's height is only an estimate, and the lift to the top
+  could drive the plate into the top of its travel. The printer now leaves the plate
+  where it is and says "Raise the plate" - lift it with the manual lift. A pause in such
+  a print also lifts the plate no higher than 62 mm (instead of 68 mm), to leave room
+  for the small height error.
+- **"Lift plate only" after a power cut stops short of the top, and can be stopped.** That
+  lift runs on an estimated height, and the Z axis has only 3 mm of travel above its
+  68 mm limit (measured), so it now stops 6 mm lower. The screen says "Watch it - BACK
+  stops", and BACK does stop the move.
+- **A power cut during a long plate move no longer offers a risky resume.** While the
+  plate rises into a pause, travels back down after Resume, or rises at the end of a
+  print, its real height does not match the one saved for resuming, and resuming could
+  press the part into the screen or drive the plate into the top. The saved point is
+  now dropped before those moves and written again when the plate stops, so a cut
+  there simply boots normally.
+
+## [0.17.0] - 2026-09-11 (beta)
+
+### Added
+
+- **Slice an STL in the browser** (plan SL-params, SL-mod). The printer now brings
+  its own slicer: open the dashboard, pick an STL, and the model is oriented,
+  supported, sliced and sent to the card - no PrusaSlicer, no ChiTuBox, no desktop
+  computer at all. A phone is enough, and so is a printer with no internet, because
+  the module lives on the SD card.
+  - `Choose STL` -> orientation (**Fast fit**; **Optimal fit**, which searches for
+    the rotation needing the fewest supports, the way PrusaSlicer does; **Lay flat**,
+    **Flip over**, **Tilt 90 deg**, **Rotate 90 deg**) -> **Supports** and
+    **Strength** -> **Slice** -> **Send to printer**.
+  - Six controls sit under those buttons - Supports, Strength, Placement, Tip, Raft
+    and Smoothing - plus **Reset**. The raft is counted in **layers**, not millimetres:
+    the file is always sliced at 0.05 mm, and the printer decides how many of those
+    images it actually exposes, so the same raft setting is a different number of
+    millimetres at a different layer height. The default is **3 layers**, and the
+    choice is 2, 3 or 6 - a one-layer raft was dropped because the pad does not bond
+    to the part at all. Measured on this printer: a printed pad comes out about
+    0.15 mm thicker than asked, so the 3-layer default lands on the ~0.3 mm that
+    PrusaSlicer's plate gives, and it lifts off with a spatula without force.
+  - The engine is PrusaSlicer's own **libslic3r**, unmodified, compiled to
+    WebAssembly and used under **AGPL-3.0** - so the geometry is theirs, not an
+    approximation of it.
 
 - **Named resin profiles** (plan 0-16). A profile is the whole print recipe for
   one resin: base and regular exposure, base and transition layers, all four
   lift settings, the resin's density and its weighing calibration. Switching
-  resin is one press instead of nine fields, and a value that took an exposure
+  resin is one press instead of ten fields, and a value that took an exposure
   test to find can no longer be lost to a stray edit.
-  - Two profiles are **built into the firmware** — `Fast` and `Slow` — so the
-    picker is never empty: no SD card, no network, after a factory reset. Fast
-    carries the values measured on this printer (18 s / 8.0 s / 4 base layers,
-    density 1.157); Slow is the factory set.
+  - Four profiles are **built into the firmware** - `Fast fine`, `Fast draft`,
+    `Slow fine`, `Slow draft` - two resins at both layer heights, so the picker is
+    never empty: no SD card, no network, after a factory reset. The Fast pair
+    carries the values measured on this printer (18 s / 8.0 s, density 1.157);
+    the Slow pair is the factory set. The names say the LAYER: *fine* is 0.05 mm,
+    *draft* is 0.10 mm, and the base-layer COUNT differs between them so that the
+    printed base is 0.20 mm either way. The exposure is the same at both heights
+    per the resins' own sheets; it has not been measured here at 0.10 mm.
+    ⚠️ A profile of your own named `fast-draft` or `slow-fine` on the card becomes
+    an overlay of the built-in with that slug: it keeps your values but shows the
+    built-in's name, and “Reset to factory” deletes it. Rename yours first.
   - Editing a built-in writes an **overlay file** on the card that shadows the
     flash values; "Reset to factory" deletes it. Everything else lives in
-    `/resin/*.json` — installed from the gh-pages library or saved by hand.
+    `/resin/*.json` - installed from the gh-pages library or saved by hand.
   - **Layer height is part of the profile**, because exposure without it is only
     half a number: 0.05 mm needs less light than 0.10 mm. Two profiles for one
     resin is the normal case, exactly like a slicer's material x layer-height
@@ -39,13 +310,13 @@ unless noted. Community contributors are tagged inline.
     opens the recipe underneath it. Switching asks first if the values on screen
     have not been saved yet.
   - Printer screen: Advanced → Resin → **Resin profile** cycles and applies.
-    Creating, renaming and deleting stay in the dashboard — there is no keyboard
+    Creating, renaming and deleting stay in the dashboard - there is no keyboard
     at the printer.
 - **Resin left, by weight**. Enter the empty vat's weight once, then weigh the
   vat and the printer works out the millilitres left, instead of assuming a full
   vat from the marker.
 - **Per-model print time in the SD list** (plan EST-model), recomputed from the
-  resin profile in force — switch profile and every row updates.
+  resin profile in force - switch profile and every row updates.
 
 - **Model preview, rebuilt as a real 3D view** (plan #93, PV-native, PV-slices,
   PV-stage). It used to draw 36 slices stacked like pancakes, which made anything
@@ -99,6 +370,43 @@ unless noted. Community contributors are tagged inline.
 - **Two-step low-resin handling** (GitHub #40): a heads-up before the stop, on the
   phone and in the dashboard, and paused or cancelled messages that carry the layer
   and the time elapsed instead of a bare word.
+- **The low-resin stop can now be set to a level that works, and it is on by
+  default.** The VAT is 42 x 52 mm inside, so a millimetre of resin is about 2.2 ml
+  and a full 15 ml VAT is under 7 mm deep. Poured resin stops covering the whole
+  floor at about 4 ml, and it clings to the walls, so the middle can open a dry
+  patch a little above that. Below that level nothing prints, whatever the shape.
+  The stop level used to be locked to 1-3 ml, so its highest setting was 1.4 mm -
+  under the floor: the setting could not be made to work in any of its positions,
+  and a print stopped forming layers without ever tripping it. It is now **3-8 ml,
+  default 4**, the warning is **5-8 ml, default 5**, and the mid-print pause is
+  **on** rather than opt-in, because carrying on below the floor prints nothing.
+  Levels of 1 or 2 ml carried over from an earlier version are lifted to 4 on the
+  first boot; a restored backup and **Back to Default** land on the same values.
+  Worth knowing when planning a print: roughly 4 ml of every filling is there to be
+  stood in, not printed with, so a 15 ml VAT gives about 11 ml of printing.
+- **A resin pause is left by a full refill, not by pressing Resume.** When the printer
+  stopped for low resin, Resume simply carried on: the level was not reset, nothing
+  asked about it, and the low-resin stop stayed disarmed for the rest of the print.
+  Now the dashboard's Resume stays grey and the printer answers
+  "only Stop available, please refill" until the VAT is marked full; the orange
+  **Set VAT full** button is the way on. On the printer's own screen the resume box
+  asks **VAT filled full?** and Yes marks the refill before resuming, so a printer
+  used without the dashboard is not left with Stop as the only way out. There is
+  deliberately no "carry on without refilling": that means trusting the estimate,
+  and refilling costs nothing - unused resin goes back into the bottle. A new
+  `refillPending` field in `/api/status` says when this is the case.
+- **One refill question everywhere, and a button named for what it does.** The same
+  question was worded four ways; it is now **VAT filled full?** with No and Yes, on
+  the dashboard and on the printer, before a print and in the resin pause. "VAT
+  refilled" became **Set VAT full** on the dashboard and in the Advanced menu - it
+  sets the level to a full VAT and measures nothing, so the word *full* has to be
+  there. It also works while printing now, behind its confirm. While the plate lifts
+  into a pause, the printer's title band says **Resin low...** or **Pausing...**
+  instead of staying blank for the whole lift.
+- **TinyStatus has a home in the README.** The Wear OS watch app lives in its own
+  repository ([slibbinas/TinyStatus](https://github.com/slibbinas/TinyStatus)); the
+  README says what it shows, what firmware it needs and what its polling costs the
+  printer, and `docs/api.md` lists it under "Known consumers".
 - **Everyday dashboard work**: the newest model on top of the SD list (it is a work
   queue, not an archive); Start and Delete appearing under the mouse on a desktop, so
   a row can be printed without paying for a preview; one SD footer line instead of
@@ -107,6 +415,17 @@ unless noted. Community contributors are tagged inline.
 
 ### Changed
 
+- **The factory resin calibration is measured now, not assumed.** `Fast fine` and
+  `Fast draft` ship with ×1.010 + 0.63 ml, fitted from two weighed prints
+  (1.15 ml → 2.07 g and 3.34 ml → 4.63 g); it used to be ×1.092 + 0.39. The slope
+  says the geometry was right all along - the whole correction is the ~0.6 ml of
+  film left on the plate after every print. The published `sunlu-tough` library
+  profile carries the same numbers, so "resin left" changes for everyone after
+  the update.
+- **"Reset to factory" and "Delete" say what they take with them.** Both remove
+  the weighed prints stored in the same profile file; the confirmation now counts
+  them, and the list refreshes as soon as a weighing is entered, so the warning
+  cannot stay silent exactly when it matters.
 - **Writes are accepted only from the printer's own dashboard** (GitHub #95). Any
   request that changes something must come with a matching Origin or the
   `X-TinyMaker: 1` header, so a page open in another tab cannot drive the printer.
@@ -132,6 +451,60 @@ unless noted. Community contributors are tagged inline.
   off the card, but F5 during a print still brings the progress view straight back.
 
 ### Fixed
+- **After a resin stop the printer's screen showed pause and resume at once** - the
+  yellow pause bars and the green play triangle on top of each other. The bars are
+  now wiped before the triangle is drawn.
+- **Old models in the SD list kept a blank icon after a print** until the page was
+  reloaded: a row whose icon request met the busy printer marked itself "no icon"
+  for the life of the page. The marks are cleared when the print ends.
+- **The SD list during a print is quiet and says why it may be empty.** A browser that
+  never saved the list (a phone opened mid-print) showed nothing under the lock line; it
+  now adds that this browser has not saved the SD list yet and the card cannot be read
+  while printing. While the printer is busy, Prev and Next are greyed out like the rows,
+  and every row shows the drawn mark: the rows used to ask the printer for their icons
+  and paging repeated that, all served from inside the print loop, and rows with an icon
+  saved in the browser made the locked list look random. The icons return when the print
+  ends.
+- **The SD card no longer hangs one row below the left column when a print starts.** The
+  preview card is briefly taller at the start; the list was fitted to that and stayed too
+  long for about 11 s after the card shrank back. The list now refits whenever any card in
+  the left column changes size.
+- **Touching the endstop is a homing, and the pause lift no longer dives.**
+  Reaching the endstop now zeroes the height counter and the screen says
+  **Plate is home**. Before this, a pause lift requested at or above the ceiling
+  did `moveTo(ceiling)` - which drove the plate *down into the part* mid-print.
+- **"Save config" silently switched dry run off**, so the next print cured with
+  the UV LEDs on when a dry run had been intended.
+- **The 3D view comes back when the print ends**, not when the layer counter
+  happens to fill up.
+- **A dashboard opened mid-print showed the active resin as "Fast (missing)"**,
+  so a phone and a PC disagreed about what was in the vat: an empty profile list
+  was read as "gone" before it had loaded at all.
+- **Supports stay on screen while the model is on its way to the printer.**
+  Pressing Send used to strip them from the 3D view for the whole upload and
+  unpack (~40 s on an 800-layer model), leaving the part hanging in the air.
+- **The slicer card stopped jumping.** The "Saved as …" line always keeps its
+  place now (46 px → 1 px when a slice finishes), the module version left the card
+  (it lives under Settings → Update), and the preview no longer flashes an empty
+  "Tap a model" box between a finished send and the model opening by itself.
+- **The delete dialog names the file** instead of "Delete this SD item?", and the
+  Update card no longer promises "Picked versions still work" when the printer
+  cannot reach GitHub.
+- **Smaller dashboard fixes from the test rounds:** test models say how long they
+  take; a profile whose file is gone says so instead of carrying stale values; a
+  broken boot-animation download no longer takes the old one with it; both layer
+  sliders are the same length and usable on a phone; a print started by someone
+  else no longer looks like a dead printer; a disabled control says why; the
+  "firmware updated" message stays long enough to be read; the status bar fits
+  its frame and the final lift says what it does; and the layer number no longer
+  swallows clicks or drags the slider with it.
+- **The manual jog stops at the top instead of grinding into it.** Above
+  `max_height` the ULN2003 quietly drops steps while the counter keeps counting,
+  so the plate ended up lower than the screen claimed. It now stops at the
+  ceiling and says **Plate is at the top** - which is what you see right after a
+  print, since the finishing lift parks the plate there. The limit applies only
+  once the printer has homed: without a homing the zero is wherever the carriage
+  happened to stand, and a limit measured from it would mean nothing.
 
 - **A print of zero layers could be started.** The guard before Start compares
   the layer count against the height it was counted with - but switching resin
@@ -197,20 +570,20 @@ unless noted. Community contributors are tagged inline.
 - **A preview cut used to lie about what was inside**, an upload of our own was
   reported as somebody else's, and a cancelled upload kept saying it was uploading.
 
-## [0.16.2] — 2026-08-03 (beta)
+## [0.16.2] - 2026-08-03 (beta)
 
 Beta fixes and polish on top of 0.16.0.
 
 ### Added
 - **Power-loss resume on/off switch** (System → Advanced → Resin, and the
   dashboard's Settings). Off means the printer never writes a checkpoint and
-  never offers to resume after an outage — it starts fresh, like the stock
+  never offers to resume after an outage - it starts fresh, like the stock
   firmware. On by default.
 - **Dashboard header cleanup.** The firmware version is now a small badge next
   to the TinyMaker name; it turns orange with an ↑ when a newer version is
   waiting, and tapping it jumps to the Update screen. The theme toggle moved to
   the top-right corner, and the build hash is shown in **Update** and **About**.
-- **Manual FAQ additions** — SD card formatting (FAT32, ≤32 GB), washing &
+- **Manual FAQ additions** - SD card formatting (FAT32, ≤32 GB), washing &
   curing, cleaning the resin vat, a clear layer-height warning (slice at
   0.05 mm), and a power-supply note for reliable power-loss recovery.
 
@@ -221,16 +594,16 @@ Beta fixes and polish on top of 0.16.0.
   the checkpoint *before* the lift, so a power dip mid-lift can't leave a stale
   resume prompt with an already-raised plate.
 
-## [0.16.1] — 2026-07-28 (beta)
+## [0.16.1] - 2026-07-28 (beta)
 
 ### Added
 - **"Buy me a coffee" link** in the dashboard's About footer.
 
 ### Fixed
-- Menu item info text looked shrunk after a boot animation played — the badge
+- Menu item info text looked shrunk after a boot animation played - the badge
   font is now restored so Maintenance / Settings / System read at full size.
 
-## [0.16.0] — 2026-07-23 (beta)
+## [0.16.0] - 2026-07-23 (beta)
 
 The biggest release since WiFi landed: your printer survives a power cut, every
 long operation tells you what it's doing on every open dashboard, and the
@@ -241,36 +614,36 @@ self-update channel follows once early testers confirm it.
 ### Added
 - **Power-loss resume.** If the power drops mid-print, the printer remembers the
   layer on the SD card and, on the next boot, offers to **pick the print back up
-  from where it stopped** — no starting over. A third choice safely **lifts the
+  from where it stopped** - no starting over. A third choice safely **lifts the
   plate** off a stuck print (up only, never into the vat). You can answer all of
-  this **from the dashboard on your phone**, not just at the machine — a first
+  this **from the dashboard on your phone**, not just at the machine - a first
   for a resin printer in this class. Field-tested with real power cuts and a
-  resin print. *(Checkpoint engine by **Tanner Steorts ([@Tann2019](https://github.com/Tann2019)), PR #11** — thank you.)*
+  resin print. *(Checkpoint engine by **Tanner Steorts ([@Tann2019](https://github.com/Tann2019)), PR #11** - thank you.)*
 - **Clear live feedback on Stop / Pause / Resume.** Instead of a easy-to-miss
-  button label, one message with a live countdown ("Stopping — finishing the
+  button label, one message with a live countdown ("Stopping - finishing the
   current layer · ~18s"), shown centred on every connected dashboard.
 - **Background SD work.** Deleting a model or importing an upload no longer
-  freezes the dashboard — the work runs in the background and every connected
+  freezes the dashboard - the work runs in the background and every connected
   device sees what the printer is doing and when it finished.
 - **Mid-print preview from any device.** Open the dashboard mid-print on a fresh
   phone and still see the model preview (served from a RAM snapshot). *(Reported
   by Simon Fell.)*
-- **A print-aware screen saver** — dims the idle screen, gently drifts the
+- **A print-aware screen saver** - dims the idle screen, gently drifts the
   printer name/IP (no burn-in), shows live progress while printing, on by default.
-- **Reorganized menus** on the printer and dashboard — Advanced grouped
+- **Reorganized menus** on the printer and dashboard - Advanced grouped
   (Network / Resin / Display), a new **Statistics** screen (print hours, UV time,
   boot info), Update kept visible with an "update available" badge.
-- **On-screen status badges** — a **DR** chip when dry-run is on (the UV LED is
+- **On-screen status badges** - a **DR** chip when dry-run is on (the UV LED is
   disabled), a **NEW** chip when a firmware update is available, and a messenger
-  bubble when notifications are enabled — all on the printer's own screen.
-- **Release notes in the updater** — a link to what changed next to every version.
+  bubble when notifications are enabled - all on the printer's own screen.
+- **Release notes in the updater** - a link to what changed next to every version.
 - **Model details in the status panel** (layers, time, resin) and a smoother 3D
   progress view.
-- **A self-refreshing model list** — a model uploaded from one device shows up on
+- **A self-refreshing model list** - a model uploaded from one device shows up on
   every open dashboard, no reload needed.
-- **"Why did it restart?" diagnostics** — after an unexpected reboot the printer
+- **"Why did it restart?" diagnostics** - after an unexpected reboot the printer
   records the reason (and the layer, if printing) and shows it in Statistics.
-- **Feedback tickets** — the feedback form now gives you a reference number and a
+- **Feedback tickets** - the feedback form now gives you a reference number and a
   status link, and shows a "recently handled" list.
 
 ### Fixed
@@ -282,25 +655,25 @@ self-update channel follows once early testers confirm it.
 - A **security pass** over the HTTP surface (POST endpoints, file paths, gate
   consistency); boot-animation install restricted to trusted hosts.
 
-## [0.15.8] — 2026-07-19
+## [0.15.8] - 2026-07-19
 
 A readability fix for the light theme.
 
 ### Fixed
 - **The boot-animation list is readable in light theme again.** The animation
   names and sizes were painted in a hardcoded near-white grey that vanished
-  against the light theme's white card — the whole list looked disabled
+  against the light theme's white card - the whole list looked disabled
   (reported by a contributor). They now use the theme's own text colours, so
   they read clearly in both light and dark.
 
-## [0.15.7] — 2026-07-18
+## [0.15.7] - 2026-07-18
 
 WiFi that comes back on its own, and a tidier main menu.
 
 ### Fixed
 - **The printer rejoins WiFi after a dropout.** Until now the firmware only
   connected at boot, so if the router dropped the link mid-use the printer
-  stayed offline until a reboot — and the only recovery some users found was
+  stayed offline until a reboot - and the only recovery some users found was
   re-entering the WiFi password (the credentials were never actually lost). It
   now auto-reconnects in the background, with an idle watchdog that also
   re-announces `tinymaker.local` after a reconnect. It runs entirely off the
@@ -312,23 +685,23 @@ WiFi that comes back on its own, and a tidier main menu.
   and the whole menu drops 2 px so the WiFi/Connect badge no longer crowds the
   highlighted box frame.
 
-## [0.15.6] — 2026-07-20
+## [0.15.6] - 2026-07-20
 
 Two small screens that matter at the worst moments.
 
 ### Fixed
 - **The leveling screen now leads with safety.** Before homing, the warning
-  reads *"Plate must be EMPTY. Homing goes DOWN."* — because leveling drives
+  reads *"Plate must be EMPTY. Homing goes DOWN."* - because leveling drives
   the plate toward the film, and a user recovering from a power outage lands
   on that screen in a panic (a real field incident prompted this). The manual
   gets a power-outage section too: raise the plate with *Move Build Plate*,
   never re-level with a print still attached.
 - **Boot animations no longer pretend to load forever during a print.** The
   list said "Loading animations…" with a busy error below it; now it says
-  plainly that animations live on the SD card and are locked while printing —
+  plainly that animations live on the SD card and are locked while printing -
   and the list reloads by itself the moment the print ends.
 
-## [0.15.5] — 2026-07-16
+## [0.15.5] - 2026-07-16
 
 A screen-feedback patch: every long operation now shows live progress, and
 nothing repaints more pixels than it changes.
@@ -337,10 +710,10 @@ nothing repaints more pixels than it changes.
 - **The unpacking screen no longer flickers.** Extracting layers repainted the
   whole LCD every 20 layers; it now paints once and only grows a progress bar
   and updates the layer counter in place. The firmware-flashing screen never
-  flickered for exactly this reason — now every progress screen works that way.
+  flickered for exactly this reason - now every progress screen works that way.
 - **Real progress bars where a "wrapping" bar used to loop.** Model upload and
   boot-animation download showed a bar that swept and started over because the
-  total size was "unknown" — it was in fact available (the upload's
+  total size was "unknown" - it was in fact available (the upload's
   Content-Length; the animation's exact size from its own TMB header). Both now
   fill once, left to right. Flashing firmware from the dashboard gains a real
   bar too.
@@ -352,268 +725,268 @@ nothing repaints more pixels than it changes.
   printer's own menu shows, and the dashboard message stays up until the
   printer confirms.
 
-## [0.15.0 – 0.15.4] — 2026-07-15 / 2026-07-16
+## [0.15.0 – 0.15.4] - 2026-07-15 / 2026-07-16
 
 One beta wave, promoted to stable as 0.15.4 on 2026-07-16 (0.15.1–0.15.4 were
 fix-ups of the 0.15.0 beta found during live testing).
 
 ### Added
-- **Feedback link** — the dashboard header links a 30-second feedback form
+- **Feedback link** - the dashboard header links a 30-second feedback form
   (firmware version attached automatically), so impressions and problems can
   land with the maintainer without a GitHub or Facebook account.
-- **Always-on Model preview card** — the dashboard's 3D card no longer hides:
+- **Always-on Model preview card** - the dashboard's 3D card no longer hides:
   idle shows a pick-a-model hint, the last previewed model is remembered and
   restored from the saved preview after a page reload, and a print started on
   the printer itself replaces a stale preview with a note instead of showing
-  the wrong model. The SD list marks which row the preview came from — an
+  the wrong model. The SD list marks which row the preview came from - an
   accent rail and an *In preview* chip on the model you are looking at.
-- **Home-screen app (PWA manifest)** — *Add to Home screen* now pins the
+- **Home-screen app (PWA manifest)** - *Add to Home screen* now pins the
   dashboard with the project icon; on iPhone it opens fullscreen like an app.
-- **WhatsApp and Discord notifications** — same three messages as Telegram
+- **WhatsApp and Discord notifications** - same three messages as Telegram
   (finished / low-resin pause / canceled): WhatsApp through the free CallMeBot
   gateway (one-time activation, inline help), Discord through a channel
   webhook (no bot needed). Settings has one *Phone notifications* choice:
-  Off / Telegram / WhatsApp / Discord. **Both are shipped untested** — they
+  Off / Telegram / WhatsApp / Discord. **Both are shipped untested** - they
   ride on your own CallMeBot key or channel webhook, so the only test that
   proves anything is yours. Reports are very welcome, working or not.
-- **Exposure undo** — when the exposure test (or a config save) replaces your
+- **Exposure undo** - when the exposure test (or a config save) replaces your
   Regular exposure, the old value is remembered and an *Undo (Xs)* link
   appears next to the field.
 - **The 3D preview draws a surface instead of a fog of dots.** The printed part
-  used to be a flat orange blob — harder to read than the unprinted ghost next
+  used to be a flat orange blob - harder to read than the unprinted ghost next
   to it. Every voxel was drawn, including the 86% buried inside, and the light
   was a gradient over the grid, so a flat top and a vertical wall came out the
   same colour and the shape disappeared. Only the faces the camera can see are
-  drawn now, as the quads they are, shaded from a real surface normal — blocky
+  drawn now, as the quads they are, shaded from a real surface normal - blocky
   geometry that reads as round, because the eye takes curvature from light.
-- **A liveness dot next to State while printing** — green means the printer
+- **A liveness dot next to State while printing** - green means the printer
   answered within the last few seconds; amber with *syncing* means it is
   mid-move and will answer at its next network window. Mid-print pauses stop
   reading as "the page hung", and the *Getting started* first-print step now
   explains the same thing up front.
-- **Phase countdown** — the status card counts the current phase down next to
+- **Phase countdown** - the status card counts the current phase down next to
   its name: *Curing · 9s*, *Lifting · 4s*. Curing is exact; lifting and
   dropping use the previous layer's measured duration, so the first layer
   shows no number. The ride to the top after Stop or a finished print counts
-  down the same way (*Canceling · 25s*) — that wait finally has a number.
-- **The dashboard answers mid-print** — refreshing (or first opening) the page
+  down the same way (*Canceling · 25s*) - that wait finally has a number.
+- **The dashboard answers mid-print** - refreshing (or first opening) the page
   used to stall until the printer's next between-phase window, up to a full
   base exposure (~35 s). HTTP is now served during the exposure, during homing
-  and during the final lift after Stop or a finished print — only the peel
+  and during the final lift after Stop or a finished print - only the peel
   moves stay silent, where a service pause could mark the part. The UV LED is
   switched off by a hardware one-shot timer at the exact
-  deadline, so serving a page can never lengthen an exposure — that timer also
+  deadline, so serving a page can never lengthen an exposure - that timer also
   removes a small overrun that button presses have caused since the original
   firmware.
 - The dashboard header links the project site, **tinymakerwifi.com**.
-- **Light theme** — the dashboard gets a light/dark toggle (the crescent next
+- **Light theme** - the dashboard gets a light/dark toggle (the crescent next
   to *Manual*); your choice sticks per browser. Same orange, no flash on load.
-- **Branded WiFi setup** — the `TinyMaker-Setup` portal now shows the project
+- **Branded WiFi setup** - the `TinyMaker-Setup` portal now shows the project
   logo, firmware version and where to find the manual, styled to match the
   dashboard.
-- **Getting started guide** — a dismissible first-steps checklist on the
+- **Getting started guide** - a dismissible first-steps checklist on the
   dashboard (WiFi → slicer → first model → first print → exposure →
   integrations); the printer ticks steps off by itself where it can. Small
   **?** marks next to tricky settings (layer height, resin tracking, web
   control, backup) open short explanations.
-- **Exposure test result entry** — after the test strip, the printer asks
+- **Exposure test result entry** - after the test strip, the printer asks
   *"Best bar (count dots)?"*: cycle to the number of dots on the crispest bar
-  and it sets *Regular exposure* itself — no manual Settings trip. Two extra
+  and it sets *Regular exposure* itself - no manual Settings trip. Two extra
   positions shift the whole ladder shorter/longer for a re-run when no bar
   was right.
-- **Install confirmation on the printer** — the on-device self-update now asks
+- **Install confirmation on the printer** - the on-device self-update now asks
   *"Install update?"* (with versions) before flashing, so a stray OK on the
   Update screen can't start it.
-- **Anonymous usage ping** — once per firmware version (the first boot after a
+- **Anonymous usage ping** - once per firmware version (the first boot after a
   flash) the printer sends a hash of its factory MAC, the firmware version and
   the lifetime print hours, so we know how many printers are out there and
   which versions they run. Nothing else is sent, ever; switch it off in
   Settings (*Anonymous usage ping*).
-- **Project logo** — the dashboard favicon is now the layer-stack + WiFi mark,
+- **Project logo** - the dashboard favicon is now the layer-stack + WiFi mark,
   and the Update tab shows a community counter (*N printers running
   TinyMakerWifi*) fed by the anonymous ping.
-- **Web flasher** — the easiest first-time install ever:
+- **Web flasher** - the easiest first-time install ever:
   [connect.tinymakerwifi.com/flash.php](https://connect.tinymakerwifi.com/flash.php)
-  flashes the latest release straight from a Chrome/Edge browser over USB —
+  flashes the latest release straight from a Chrome/Edge browser over USB -
   nothing to download or install. *(contributed by [@Briadark](https://github.com/Briadark))*
-- **Safe model imports** — uploads unpack into a temporary folder and only
+- **Safe model imports** - uploads unpack into a temporary folder and only
   replace the old model once the new one has unpacked successfully; uploading
   a name that already exists asks *Replace / Rename / Cancel* (a PrusaSlicer
   re-upload just replaces, as before). Each model now carries a `model.json`
   with its metadata, so the resin estimate and details survive without
   re-scanning, and previews are cached on the SD card.
   *(contributed by [@Briadark](https://github.com/Briadark))*
-- **Connect auto-backup & recovery** — an *Auto backup settings to Connect*
+- **Connect auto-backup & recovery** - an *Auto backup settings to Connect*
   checkbox (Settings → Network → TinyMaker Connect, with a confirmation on
   toggle) keeps a settings backup on the Connect server after changes and
   prints; a per-printer **recovery code** (Retrieve / Copy buttons) lets you
   reclaim your Connect profile after a reset. The Connect tab itself is now
   **loaded from the Connect server** (only once registered), so it can grow
   without costing printer flash. *(contributed by [@Briadark](https://github.com/Briadark))*
-- **Boot animations rework** — picking an animation is now staged and applied
+- **Boot animations rework** - picking an animation is now staged and applied
   with *Save config*; a **Show** button plays any installed animation on the
   printer's screen (idle only); a **Default library** hosted on the project's
   GitHub Pages offers one-click **Install**; and a **Shuffle** option plays a
   random installed animation each boot *(Shuffle by [@Briadark](https://github.com/Briadark);
   boot animations base by [@Tann2019](https://github.com/Tann2019))*.
-  Installing no longer auto-selects. Recommended animation length is 2–4 s —
+  Installing no longer auto-selects. Recommended animation length is 2–4 s -
   the firmware hard-caps playback at 250 frames / 10 s, and Back skips it.
-- **Model preview in the dashboard** — every SD model row now has
+- **Model preview in the dashboard** - every SD model row now has
   *Preview | Start | Delete*; Preview renders the model into the dashboard's
   **Model preview** card (the former *Print progress 3D* card) with a live %
   progress bar, a compact info line (layers · height · time · resin) and a
   *Share model* button. Starting a print takes the card over automatically.
-- **Quick resin estimate** — the preview render now yields a free `~X ml
+- **Quick resin estimate** - the preview render now yields a free `~X ml
   (quick)` estimate when the exact value isn't known yet; clicking the `~`
-  value runs the exact printer-side scan (confirmed first — it decodes every
+  value runs the exact printer-side scan (confirmed first - it decodes every
   layer and takes about a minute per 100 layers).
 - The manual gained an advanced section on deriving your resin's **working
   curve (Jacobs)** from the test strip with calipers.
 
 ### Changed
-- **The SD manager is ordered by how often each part is used** — the model
+- **The SD manager is ordered by how often each part is used** - the model
   list first, upload as a small one-click button in the card's header (pick a
   file and it uploads; it turns orange only when the card has no models, when
   it really is the call to action), and storage as a slim footer that turns
   amber past 85%. The action column lines up from the header down, model rows
   dropped the *Model folder* subtitle, and on phones Preview/Start scroll the
-  preview card into view — it used to render above the fold where nothing
+  preview card into view - it used to render above the fold where nothing
   seemed to happen.
-- **The Update tab installs from one row** — version picker, *Install
+- **The Update tab installs from one row** - version picker, *Install
   selected* and the file fallback side by side. Flashing a downloaded
   firmware.bin is one click into a confirm that names the file and its size,
-  and the file path no longer disappears when GitHub is unreachable — it is
+  and the file path no longer disappears when GitHub is unreachable - it is
   the offline lifeline, after all.
-- **The status card reads in pairs that belong together** — condition
+- **The status card reads in pairs that belong together** - condition
   (State · SD card), network (WiFi · IP), the two lifetime counters, resin;
   while printing, resin sits next to resin and the two clocks share a row,
   with Layer closing the card. Phones keep the two columns now instead of
   stacking everything single-file.
-- The screen-sleep setting is called **Idle screen timeout** — it only ever
+- The screen-sleep setting is called **Idle screen timeout** - it only ever
   applied when idle, but the old name read as if the screen should sleep
   mid-print too.
-- **Settings got second-level tabs** — *Print / Network / Notifications /
+- **Settings got second-level tabs** - *Print / Network / Notifications /
   Boot animation / Backup*, one section at a time, each with its own *Save
   config* (saving from any section preserves the others' values). The Backup
   section keeps only actions; the Connect auto-backup switch lives under
   Network. The Connect tab's sub-tabs share the same underline style, with the
   registration status shown at the bottom.
-- **WiFi boot** — while connecting, the printer shows animated signal bars
+- **WiFi boot** - while connecting, the printer shows animated signal bars
   (they turn green on success) instead of a progress bar; the separate
   *"WiFi connected / IP"* screen is gone, **except** after first-time portal
   setup, where the IP is still shown. The IP is always available under
   System → WiFi Info.
 - The old separate model-details view is no longer reachable from the
-  dashboard — the Model preview card replaces it (Connect deep-links still
+  dashboard - the Model preview card replaces it (Connect deep-links still
   use it).
 
 ### Fixed
 - **Stop during homing brings the plate back.** Cancelling a print while it was
   still homing left the plate hanging wherever it stood. It now retraces the
-  descent — up, and only as far as it came down. (It cannot lift to the top
+  descent - up, and only as far as it came down. (It cannot lift to the top
   there: mid-homing the endstop hasn't been reached, so the true height is
   unknown, and lifting blind would drive into the top. Retracing needs no
   reference at all.)
-- **The SD card list survives a reload mid-print** — a page opened or reloaded
+- **The SD card list survives a reload mid-print** - a page opened or reloaded
   while printing showed an empty card, because a fresh tab has nothing cached
   and the printer won't read the SD while it feeds layers. The list is kept in
   the browser now; it can't go stale, since the card is locked for the whole
   print anyway.
 - **The upload button is a single gate.** Two places decided whether it was
-  enabled — one watching web control, the other the printer — and neither saw
+  enabled - one watching web control, the other the printer - and neither saw
   the whole picture, which could leave an enabled button in front of a disabled
   file picker: a control that silently did nothing.
-- **"Printer busy" errors say when they pass** — every action blocked during
-  a print now answers *"The printer is busy printing — this unlocks when the
+- **"Printer busy" errors say when they pass** - every action blocked during
+  a print now answers *"The printer is busy printing - this unlocks when the
   print ends."* instead of the bare server text.
 - **Starting a print no longer flashes a false "timeout".** The printer's
   answer can miss the browser's window when the firmware sits in a network
-  timeout, but the command has already landed — the dashboard now confirms
+  timeout, but the command has already landed - the dashboard now confirms
   via the status and says *Print started* instead of crying failure over a
   start that worked.
 - **Homing no longer freezes the motor and the dashboard for seconds at a
-  time.** The homing loop serviced the full network stack — including MQTT
+  time.** The homing loop serviced the full network stack - including MQTT
   and Connect sync, whose timeouts run up to ~8 s. It serves plain HTTP now.
 - **A garbled printer answer can no longer blank the SD manager** *(reported
-  through the feedback form by a beta tester — thank you!)*: the file-list
+  through the feedback form by a beta tester - thank you!)*: the file-list
   reply could go out truncated right after a heavy upload, and the dashboard
   rendered it as an empty list until a page refresh. Fixed on three layers,
   and the error state now offers a Retry link.
-- **Stop and Pause are the same size** — Stop had borrowed the small SD-row
+- **Stop and Pause are the same size** - Stop had borrowed the small SD-row
   delete style along with its red.
 - **A dashboard opened mid-print no longer shows the idle "pick a model"
-  card** — and a temporary "printer busy" answer no longer erases the
+  card** - and a temporary "printer busy" answer no longer erases the
   remembered preview, so the model comes back on its own once the print
   finishes.
 - **A print started from the web wakes the printer's screen.** If the screen
   had blanked on its timeout, a dashboard-started print used to run entirely
-  on a dark display — with the buttons still acting, invisibly.
+  on a dark display - with the buttons still acting, invisibly.
 - **A cut-off boot-animation download is no longer installed as if it worked.**
   If the connection dropped or stalled mid-download, the printer kept the
-  partial file, wrote its metadata and reported success — the animation then
+  partial file, wrote its metadata and reported success - the animation then
   simply stopped wherever the bytes ran out. On a slow link a 1.4 MB animation
   arrived as 538 KB and still looked installed. The file's own header states
   how big it should be, so a short download is now deleted and reported
   instead. *(found by [@Briadark](https://github.com/Briadark))*
 - **Boot animations play at the speed they were drawn.** The player slept a
   full frame delay *on top of* the time it takes to read each frame off the SD
-  card, so everything ran about 1.8× slow — the *Malfunction* animation dragged
+  card, so everything ran about 1.8× slow - the *Malfunction* animation dragged
   on for 6.3 s. It now paces frames to the `fps` the animation was authored at.
   *Malfunction* was also the longest in the library by a wide margin, so it was
   re-timed to 24 fps: 6.3 s → 2.3 s. Install it again from the Connect tab to
   get the shorter version; the animation itself is unchanged.
 - **The exposure test strip works at low exposures again.** With *Regular
-  exposure* at 1 s, all eight bars rounded to the same whole second — the strip
+  exposure* at 1 s, all eight bars rounded to the same whole second - the strip
   burned eight identical bars that blanked at once and measured nothing, which
   is exactly where fast resins live. Below ~5 s the ladder now steps 1 s at a
   time instead of by percentage: eight distinct bars, each one a value you can
   actually set. Above that, the ladder is unchanged.
 - **The printer no longer freezes for seconds at a time when GitHub is slow.**
   A failed firmware-version check wasn't remembered, so every dashboard
-  request for the update state re-ran the blocking check — the web UI and the
+  request for the update state re-ran the blocking check - the web UI and the
   screen stalled with it. Failures are now cached for a minute, successes for
   five as before.
 - The **print-canceled phone notification** is sent the moment the cancel is
-  final (with the run time), instead of after the final lift finishes — it
+  final (with the run time), instead of after the final lift finishes - it
   used to arrive up to a minute late.
 - **Connect sync retries back off exponentially** (30 s → … → 30 min) and give
-  up after repeated failures — an unreachable Connect server no longer
+  up after repeated failures - an unreachable Connect server no longer
   freezes the printer for 8 s every 30 s indefinitely.
 - Model uploads now **fail with a clear message after 10 minutes** of printer
   silence instead of waiting forever.
 - Model uploads no longer look stuck at *"Uploading 100%"* while the printer
-  unpacks the archive — the indicator now says *Unpacking on the printer…*
+  unpacks the archive - the indicator now says *Unpacking on the printer…*
   with a running timer (applies to the SD manager upload and Connect Import
   alike).
-- Boot-animation **Show** now wakes a screen blanked by the UI timeout —
+- Boot-animation **Show** now wakes a screen blanked by the UI timeout -
   it used to play onto a switched-off display, which looked like nothing
   happened.
-- **mDNS stability** — WiFi modem sleep is disabled, so `tinymaker.local`
+- **mDNS stability** - WiFi modem sleep is disabled, so `tinymaker.local`
   resolves reliably instead of timing out when the printer naps.
 - Dashboard requests get a single fresh-connection retry, the status toast
   only appears after repeated failures (not one hiccup), and settings forms
-  refuse to post until the settings have actually loaded — no more
+  refuse to post until the settings have actually loaded - no more
   accidentally saving a blank form over your config.
 
-## [0.14.3] — 2026-07-13
+## [0.14.3] - 2026-07-13
 
 ### Added
-- **Telegram notifications** — the printer messages you when a print
+- **Telegram notifications** - the printer messages you when a print
   **finishes** (with time + resin used), **pauses for low resin**, or is
   **canceled**. One On/Off switch, a bot token and a chat id, and a *Send test*
   button; inline setup steps (@BotFather / @userinfobot) right in the dashboard.
 - **Restore from SD** button on the dashboard (enabled only when a backup file
   is present), and the **date of the SD backup** shown in Settings.
-- **Downloadable boot animations** — a small on-device library of named
+- **Downloadable boot animations** - a small on-device library of named
   animations you can pick on the printer or in the dashboard, and install
   straight from the community site. *(contributed by [@Tann2019](https://github.com/Tann2019))*
-- **Build tag in the dashboard header** — experimental builds show their git
+- **Build tag in the dashboard header** - experimental builds show their git
   commit next to the version (`Firmware 0.14.3 (abc1234)`), so you can tell
   exactly which build is flashed.
-- **TinyMaker Connect (early preview)** — an opt-in link to the community
+- **TinyMaker Connect (early preview)** - an opt-in link to the community
   model-sharing service being built by [@Briadark](https://github.com/Briadark).
   Off by default; when enabled in Settings, a Connect tab shows your shared-model
-  activity. The service itself is still in testing — more when it opens up.
+  activity. The service itself is still in testing - more when it opens up.
 
 ### Changed
 - **Dashboard styling pass:** native browser confirm dialogs replaced with a
@@ -634,15 +1007,15 @@ fix-ups of the 0.15.0 beta found during live testing).
   (script-injection escaping, the Connect registration is now included in the
   backup).
 
-## [0.14.2] — 2026-07-12
+## [0.14.2] - 2026-07-12
 
 ### Fixed
 - Status messages (Config saved, Backup to SD, resets…) were invisible in the
-  Settings and Update tabs — the toast lived in a hidden part of the page.
+  Settings and Update tabs - the toast lived in a hidden part of the page.
   Moved so feedback shows in every tab; most visibly, **Backup to SD** now
   confirms it worked.
 
-## [0.14.1] — 2026-07-12
+## [0.14.1] - 2026-07-12
 
 ### Added / Changed
 - **Exposure calibration test** improvements: each bar carries its number as
@@ -654,15 +1027,15 @@ fix-ups of the 0.15.0 beta found during live testing).
 ### Fixed
 - Running-time display no longer flickers between two formats each second.
 
-## [0.14.0] — 2026-07-11
+## [0.14.0] - 2026-07-11
 
 The last feature release before the pre-1.0.0 freeze.
 
 ### Added
-- **Settings backup & restore** — one file holds every setting and the lifetime
+- **Settings backup & restore** - one file holds every setting and the lifetime
   counters; keep it on the SD card and the printer offers to restore it on the
   first boot after a full USB reflash.
-- **Boot update check** — shortly after WiFi connects the printer checks for new
+- **Boot update check** - shortly after WiFi connects the printer checks for new
   firmware and offers *Install / Later* on screen. *(contributed by [@Briadark](https://github.com/Briadark))*
 - **Exposure calibration test**, **UV LED lifetime hours**, **print-finish ETA**
   (NTP), heap/uptime instrumentation for soak testing, and an illustrated

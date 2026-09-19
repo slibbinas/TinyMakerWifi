@@ -3,27 +3,34 @@
     "KANONAS: kuri saka kuriai sriciai priklauso SIANDIEN.",
     "Pervadinai saka arba perkelei darba i kita - atnaujink CIA, tame paciame commit'e.",
     "scripts/dev/kur_esu.py si faila skaito ir PERSPEJA, jei tikrove nesutampa su irasu,",
-    "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu."
+    "tad pasenes irasas issiduoda pats, o ne po dvieju savaiciu.",
+    "Laukas 'saka' = NAMU saka, kur srities darbas galiausiai sugula. Sesija gali teisetai",
+    "sedeti kitoje (laikinoje, antroje tos pacios srities, bendroje main/experimental) -",
+    "tai ne pasenimas, ir kur_esu.py tokiais atvejais tyli.",
+    "Adresas zinutems (SendMessage) cia NERASOMAS samoningai: jis gimsta is darbo",
+    "katalogo vardo, per sesijos pervadinima NESIKEICIA ir mirsta kartu su langu.",
+    "Sesijos ANTRASTE (TinyMakerPrint, TinyMakerSlicer) adresu NEVEIKIA - gyva adresa",
+    "imti TIK is ListAgents pirmos eilutes. Ismatuota 2026-09-12."
   ],
-  "_atnaujinta": "2026-08-23",
+  "_atnaujinta": "2026-09-12",
   "sritys": [
     {
       "sritis": "Printeris",
       "priesdelis": "prnt/",
-      "saka": "0.17/slicer-merge",
+      "saka": "main",
       "katalogas": "Documents/PlatformIO/Projects/TinyMakerWiFi",
       "repo": "TinyMakerWifi",
       "uz_ka": "firmware, pultas, dokumentacija, leidyba",
-      "pastaba": "0.17 integracine saka - joje VISKAS, kas ruosiama testams. Po isleidimo darbas pereis i prnt/0.18-*"
+      "pastaba": "2026-09-12: 0.17 isleista (0.17.0 ir 0.17.1 beta kanale), tad integracines sakos nebereikia - namu saka yra main. Funkciniai darbai daromi prnt/* sakose ir merginami i main; leidyba kertama TIK is main. Artimiausia laukiama laida - 0.17.2 (0.17.x linija), 0.18 neplanuojama. Sena 0.17/slicer-merge palikta gulėti: jos turinys visas main viduje, bet ant jos tebestovi V pagrindinis medis"
     },
     {
       "sritis": "Sliceris",
       "priesdelis": "slcr/",
-      "saka": "slcr/dev",
+      "saka": "slcr/1.0-dev",
       "katalogas": "C:/PIO-build/exp2-wt",
       "repo": "TinyMakerWifi",
       "uz_ka": "narsykles pjaustykle, WASM modulis",
-      "pastaba": "iki 2026-08-23 vadinosi experimental2. Laboratorija: slcr/lab (C:/PIO-build/s3-wt)"
+      "pastaba": "2026-09-12 sakos suvienytos: dirbama nuo main atsakotoje slcr/1.0-dev. Senoji slcr/dev ir laboratorija slcr/lab archyvuotos zymese archive/slcr-dev-2026-09-11 ir archive/slcr-lab-2026-09-11; ju sakos istrintos"
     },
     {
       "sritis": "Connect Live",

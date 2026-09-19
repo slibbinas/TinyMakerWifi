@@ -131,7 +131,7 @@ String resinProfilePath(const String &name);
 int listResinProfiles(String out[], int maxN);
 bool resinProfileExists(const String &name);
 bool applyResinProfile(const String &name);
-void publishStopEstimate();   // Motor.ino - stabdymo laukimo ivertis
+void publishStopEstimate(int fromPhase);   // Motor.ino - stabdymo laukimo ivertis
 bool writeResinProfile(const String &name, const String &display);
 bool writeResinProfileValues(const String &name, const String &display,
                              const ResinProfileValues &vals, const ResinProfileMeta &meta);
@@ -218,10 +218,24 @@ bool selIsArchive = false;
 // vatRemainingMl counts down from "VAT refilled" by each layer's cured-volume
 // estimate. -1 = never set; lazily seeded to Vat_Capacity_Ml (see vatRemaining()).
 float vatRemainingMl = -1;
-bool lowResinPauseEnabled = false;  // pause between layers when estimate runs low
-uint8_t lowResinThresholdMl = 2;    // 0.17 #40: STOP level (ml, 1..3) - pause/stop trigger; also pre-start check
-uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 3..15) - warns (keeps printing), independent of the stop checkbox
+/* On by default since 0.17 (V 2026-09-10). It used to be opt-in, back when the stop
+   level was a matter of taste. It is not one any more: below the level the vat floor
+   goes dry, and no part of any shape can print. Leaving the choice in front of people
+   only offered them "let the printer carry on into an empty vat" - and a fresh printer
+   took that option by itself, since the box started out unticked. */
+bool lowResinPauseEnabled = true;   // pause between layers when estimate runs low
+/* The vat is 42x52 mm inside, so 1 mm of resin is 2.18 ml. Poured resin stops covering
+   the whole floor at 3.98 ml, i.e. 1.8 mm (weighed 2026-09-10: 61.17 g against 56.56 g
+   empty). Resin also clings to the walls, so the middle can open a dry patch above that
+   level. Hence 3 ml is the floor of the range and 4 ml the default - V's own millilitre
+   of margin over the measurement.
+   Until 0.17 the range was 1..3, so its highest setting was 1.4 mm: BELOW the level
+   where printing is still possible. The setting could not be made to work in any of its
+   positions, and a print stopped forming layers without ever tripping it. */
+uint8_t lowResinThresholdMl = 4;    // 0.17 #40: STOP level (ml, 3..8) - pause/stop trigger; also pre-start check
+uint8_t lowResinWarnMl = 5;         // 0.17 #40: WARN level (ml, 5..8) - warns (keeps printing), independent of the stop checkbox
 bool lowResinNotified = false;      // latch: pause fires once per threshold crossing
+bool pauseLiftForResin = false;     // 0.17: the pause lift under way is a resin pause - the LCD band says "Resin low..."
 bool lowResinPreWarned = false;     // 0.17 #40: latch - one-shot warning per print (re-armed on refill)
 bool resinWarnAccepted = false;     // pre-start low-resin warning acknowledged
 double resinSampledMl = 0;          // resinUsedMl already subtracted from the VAT
@@ -274,8 +288,15 @@ double resinUsedRawMl = 0.0;        // RAM twin of resinUsedMl, WITHOUT the fact
 // 0.17 SL-mod: whether the slicer module is live. Deliberately a PRINTER
 // setting, not a web lookup - it has to work with no internet, and switching it
 // must not need a firmware release or a git push. No UI writes it; the slicer
-// module owns it (POST /api/config slicer_on=1). Off until it says otherwise.
-bool slicerModuleOn = false;
+// module owns it (POST /api/config slicer_on=1).
+// 1.0.0 K9: on by default. 0.17 shipped it off, and loadDeviceConfig() switches
+// it on exactly once for printers upgrading from there (see "slicerK9").
+bool slicerModuleOn = true;
+
+// 1.0.0 K8: prints that ran to the end with UV on - not stopped, not a homing
+// error, not a dry run. The dashboard asks for a thank-you once, after the third.
+uint16_t printsOkCount = 0;
+bool thanksSeen = false;       // the ask was shown on this printer (any browser)
 
 String resinProfileName = "";
 // Bumped whenever a profile is applied, written or deleted, so the LCD menu
@@ -415,6 +436,27 @@ void savePrintTime() {
   sysPrefs.end();
 }
 
+// 1.0.0 K8: one more print that made it to the end. Called only from the single
+// print exit point, and only when it was a real print - see the call site.
+void countSuccessfulPrint() {
+  if (printsOkCount < 0xFFFF) printsOkCount++;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putUShort("printsOk", printsOkCount);
+  sysPrefs.end();
+}
+
+// K8: the dashboard showed the thank-you once - never again, in any browser.
+// Returns true only for the call that actually set the mark, so when a phone and a
+// PC poll at the same moment, only one of them shows the ask.
+bool markThanksSeen() {
+  if (thanksSeen) return false;
+  thanksSeen = true;
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putBool("thanksSeen", true);
+  sysPrefs.end();
+  return true;
+}
+
 // One-off write for LED time outside prints (Clean Resin Vat exposure).
 void saveUvLedTime() {
   sysPrefs.begin("tinymaker", false);
@@ -438,6 +480,8 @@ void loadDeviceConfig() {
   pauseLiftMm = sysPrefs.getUChar("pauseLift", 20);   // 0.17 #82
   if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
+  printsOkCount = sysPrefs.getUShort("printsOk", 0);     // 1.0.0 K8
+  thanksSeen = sysPrefs.getBool("thanksSeen", false);
   prevRegularExposure = sysPrefs.getUShort("prevRegDs", 0);   // 0.17 0-3: deciseconds (new key; old UChar prevRegExp abandoned)
   prevBaseExposure = sysPrefs.getUChar("prevBaseS", 0);       // sveikos sekundes
   bootAnimName = sysPrefs.getString("bootAnimName", "");
@@ -486,12 +530,20 @@ void loadDeviceConfig() {
   if (tgEnabled) { waEnabled = false; dcEnabled = false; }  // one channel at a time
   else if (waEnabled) dcEnabled = false;
   vatRemainingMl = sysPrefs.getFloat("vatRemMl", -1);
-  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", false);
-  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 2);
-  if (lowResinThresholdMl < 1 || lowResinThresholdMl > 3)
-    lowResinThresholdMl = 3;  // range shrank to 1..3 in 0.12.2 - clamp old values
+  lowResinPauseEnabled = sysPrefs.getBool("lowResinOn", true);
+  lowResinThresholdMl = sysPrefs.getUChar("lowResinMl", 4);
+  /* The clamp doubles as the upgrade path, and needs no marker to do it: 1 and 2 are
+     the only values an older build could hold below the new floor, so lifting anything
+     out of range to the default lands them on 4. A one-shot marker WOULD have been
+     possible - the read-write window further down writes calUnit exactly that way -
+     it is simply not needed here. */
+  if (lowResinThresholdMl < 3 || lowResinThresholdMl > 8)
+    lowResinThresholdMl = 4;  // range was 1..3 until 0.17
   lowResinWarnMl = sysPrefs.getUChar("lowResinWarn", 5);   // 0.17 #40: WARN level
-  if (lowResinWarnMl < 3 || lowResinWarnMl > 15) lowResinWarnMl = 5;
+  /* Clamped per end, not to the default: someone who had picked 10, 12 or 15 on the old
+     ladder means "warn me early", so they land on the new ceiling, not on its floor. */
+  if (lowResinWarnMl < 5) lowResinWarnMl = 5;
+  else if (lowResinWarnMl > 8) lowResinWarnMl = 8;
   // R-cal: a corrupt/absurd factor would silently distort every resin number -
   // clamp on load, exactly like the low-resin ranges above.
   resinCalFactor = sysPrefs.getFloat("resinCal", 1.0f);
@@ -501,7 +553,14 @@ void loadDeviceConfig() {
   if (!(resinFixedMl >= 0.0f && resinFixedMl <= RESIN_FIXED_MAX)) resinFixedMl = 0.0f;
   resinDensity = sysPrefs.getFloat("resinDens", RESIN_DENSITY_DEF);
   if (!(resinDensity >= 0.8f && resinDensity <= 2.0f)) resinDensity = RESIN_DENSITY_DEF;
-  slicerModuleOn = sysPrefs.getBool("slicerOn", false);   // 0.17 SL-mod
+  slicerModuleOn = sysPrefs.getBool("slicerOn", true);    // 0.17 SL-mod, on since 1.0.0 (K9)
+  /* K9: 0.17 left the slicer off, and saveDeviceConfig() wrote that "off" on every
+     settings save (~35 callers), so on an upgraded printer the stored value is not
+     the owner's choice - it is 0.17's default. A new default alone would change
+     nothing for them. Switch it on ONCE; the marker makes sure a later "off" by
+     the owner is kept. The write happens after this read-only block closes. */
+  const bool slicerK9Pending = !sysPrefs.getBool("slicerK9", false);
+  if (slicerK9Pending) slicerModuleOn = true;
   /* Rakto NERA (svarus NVS) -> „slow", ir tai tiesa: EEPROM tada tikrai laiko
      gamyklinius skaicius, o „slow" butent jie ir yra.
      Raktas YRA, bet tuscias -> paliekam tuscia. Anksciau cia stovejo prievarta
@@ -533,6 +592,22 @@ void loadDeviceConfig() {
   askRefillEnabled = sysPrefs.getBool("askRefill", true);
   previewFlip = sysPrefs.getBool("prevFlip", false);
   sysPrefs.end();
+  // K9 one-time switch-on (see the read above): store it together with the marker,
+  // so the next boot reads the owner's value and never flips it again.
+  if (slicerK9Pending) {
+    /* If the marker does not stick (NVS full or unavailable), every boot would switch
+       the slicer on again and overrule the owner's "off". Say so on serial (debug
+       builds only) - the slicer still works this boot, and nothing else depends on
+       the marker. The marker is written only after slicerOn stuck. */
+    bool k9Stored = sysPrefs.begin("tinymaker", false);
+    if (k9Stored) {
+      // Both must stick: the marker alone would keep 0.17's stored "off" for good.
+      k9Stored = sysPrefs.putBool("slicerOn", true) > 0;
+      if (k9Stored) k9Stored = sysPrefs.putBool("slicerK9", true) > 0;
+      sysPrefs.end();
+    }
+    if (!k9Stored) DBGLN("K9: could not store the slicer switch-on marker (NVS)");
+  }
   // Now that the read-only handle is closed, persist the gateway seq jump read
   // above. Only for a printer that actually has a gateway key: an unconfigured
   // one must not spend a flash write on every boot.
@@ -950,6 +1025,7 @@ bool printing_item_updown = 1; //1=up,0=down.
 
 // Printing Flags
 bool homing_canceled = false; // Flag: Homing process canceled
+bool zHomed = false;          // Z reference valid: homing reached the endstop since boot
 bool print_paused = false;    // Flag: Print is currently paused
 bool print_canceled = false;  // Flag: Print process canceled
 
@@ -1172,6 +1248,7 @@ String buildConfigBackupJson(bool includeSecrets = true) {
                                        jungiklis tyliai grizta i OFF, o su juo
                                        dingsta ir slicerio kortele (auditas 08-22) */
   out += slicerModuleOn ? "true" : "false";
+  out += ",\"slicerK9\":true";       // K9: this slicerOn is the owner's choice (see applyConfigBackup)
   out += ",\"previewFlip\":";
   out += previewFlip ? "true" : "false";
   out += ",\"uiTimeout\":";
@@ -1344,8 +1421,11 @@ void applyConfigBackup(const String &j) {
   Drop_Back_Feedrate = backupClamp(backupNum(j, "dropBackFeedrate", Drop_Back_Feedrate), 20, 50);
   Vat_Capacity_Ml = backupClamp(backupNum(j, "vatMl", Vat_Capacity_Ml), 10, 40);
   lowResinPauseEnabled = backupBool(j, "lowResinPause", lowResinPauseEnabled);
-  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 1, 3);
-  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 3, 15);
+  /* Same range as on load: a backup taken before 0.17 carries 1..3 for the stop level
+     and up to 15 for the warning, and restoring those verbatim would hand back a stop
+     that fires only after the vat floor has gone dry. */
+  lowResinThresholdMl = backupClamp(backupNum(j, "lowResinMl", lowResinThresholdMl), 3, 8);
+  lowResinWarnMl = backupClamp(backupNum(j, "lowResinWarnMl", lowResinWarnMl), 5, 8);
   // R-cal: fractional - backupClamp() casts to long and would turn 1.35 into 1.
   {
     float cal = (float)backupNum(j, "resinCalFactor", resinCalFactor);
@@ -1379,7 +1459,13 @@ void applyConfigBackup(const String &j) {
     }
   }
   askRefillEnabled = backupBool(j, "askRefill", askRefillEnabled);
-  slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
+  /* K9: a 0.17 backup nearly always says "slicerOn":false - 0.17's default, stored on
+     every save, not the owner's choice. Restoring it after a full reflash would switch
+     the slicer off for good, because the one-time switch-on has already run. So the
+     value is taken only from backups that carry the K9 marker (written since 1.0.0);
+     from older ones the current value stays. Same idea as hadCal/calUnit above. */
+  if (backupFind(j, "slicerK9") >= 0)
+    slicerModuleOn = backupBool(j, "slicerOn", slicerModuleOn);   // 0.17 SL-mod
   previewFlip = backupBool(j, "previewFlip", previewFlip);
   uiTimeoutSecs = backupClamp(backupNum(j, "uiTimeout", uiTimeoutSecs), 0, 3600);
   uvLedEnabled = !backupBool(j, "dryRun", !uvLedEnabled);
@@ -1672,6 +1758,15 @@ void resetEverythingToFactory() {
   resumeEnabled = true;
   resumePrecise = false;
   pauseLiftMm = 20;
+  /* The three resin-level settings belong here too. They were left out while the stop
+     level was a matter of taste; it is not one any more - 3 ml is where this vat's floor
+     goes dry, measured, so the defaults below are the only values that make the feature
+     work at all. Without this, "Reset settings?" promised a factory state and handed
+     back whatever the person had, which on an upgraded printer is the old level that
+     could never fire in time. */
+  lowResinPauseEnabled = true;
+  lowResinThresholdMl = 4;
+  lowResinWarnMl = 5;
   // „Undo" turi rodyti i tai, kas buvo pakeista, o po atstatymo tokio dalyko nera.
   prevRegularExposure = 0;
   prevBaseExposure = 0;
@@ -2593,6 +2688,7 @@ void loop() {
           resumeCheckpoint('E');   // stationary at the next layer's height
         } else {
         resumeWriteStart();        // 'S': a loss during homing restarts cleanly
+        zHomed = false;            // no reference until this run reaches the endstop
         stepper.setCurrentPosition(0);
         stepper.setMaxSpeed(Drop_Back_Feedrate * steps_mm / 60);
         stepper.enableOutputs();
@@ -2694,6 +2790,7 @@ void loop() {
         if (homing_canceled != true){
           stepper.disableOutputs();
           stepper.setCurrentPosition(0);
+          zHomed = true;           // endstop reached: API heights mean something again
           digitalWrite(FAN, HIGH);
           if (screen != 11111){
             gfx2->fillRect(136, 52, 6, 16, YELLOW);
@@ -2738,7 +2835,11 @@ void loop() {
           // VAT bookkeeping: subtract this layer's cured volume; checkpoint to
           // NVS every 25 layers so a power loss costs little (flash-wear-friendly)
           vatRemaining();
-          vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
+          // Sausas ratas dervos nesukietina, tad ir nurasyti nera ko: iki 09-01
+          // nurasymas ejo be salygos, ir vien testai per viena vakara „suvalge"
+          // ~5 ml is skaitiklio - o ties 2 ml isijungia „mazai dervos" stabdymas
+          // (T-115). UV skaitiklis tokia pat apsauga turejo nuo pat pradziu.
+          if (uvLedEnabled) vatRemainingMl -= (float)(resinUsedMl - resinSampledMl);
           resinSampledMl = resinUsedMl;
           if (vatRemainingMl < 0) vatRemainingMl = 0;
           if (current_layer % 25 == 0) {
@@ -2876,12 +2977,32 @@ void loop() {
             }
             #endif
             Position_before_pause = stepper.currentPosition();
+            /* No resume across this lift (V 2026-09-12: if resuming could damage the
+               printer or the part, drop the record). During the 20-40 mm rise the card
+               still holds the lower cycle height; "Lift plate only" at the boot prompt
+               would then add 20 mm on top of the real height and could hit the top.
+               The exact 'P' record is written once the plate is parked. */
+            resumeClear();
             stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
             stepper.enableOutputs();
-            if (Position_before_pause + (pauseLiftMm * steps_mm) <= max_height * steps_mm)
-              stepper.move(pauseLiftMm * steps_mm);
-            else
-              stepper.moveTo(max_height * steps_mm);
+            /* Three cases, not two. The plain lift fits, or it is trimmed to the
+               ceiling - and, if the plate somehow ALREADY stands at or above the
+               ceiling, nothing moves at all. That third branch matters more here
+               than in the manual jog: a bare moveTo(ceiling) from above would
+               drive the plate DOWNWARDS, into the part, in the middle of a print
+               (audit 09-05, same shape as manual_lift). */
+            {
+              /* After a power-loss resume the height is an estimate kept LOW by up to the
+                 peel distance (2-6 mm), so a pause near the top could lift the plate that
+                 far past 68 mm. Unhomed, the ceiling is 6 mm lower: 62 mm (V 2026-09-12). */
+              const long ceilingSteps = (long)((zHomed ? max_height : max_height - 6) * steps_mm);
+              const long wanted = Position_before_pause + (long)(pauseLiftMm * steps_mm);
+              if (wanted <= ceilingSteps)
+                stepper.move(pauseLiftMm * steps_mm);
+              else if (Position_before_pause < ceilingSteps)
+                stepper.moveTo(ceilingSteps);
+              // else: already as high as it may go - the pause simply happens here.
+            }
             #if ENABLE_NETWORK
             // Phase countdown for the dashboard ("Pausing - ~Ns"): publish the
             // lift's estimated duration; polls are answered during the move
@@ -2892,6 +3013,11 @@ void loop() {
                            (Fast_Lift_Feedrate * steps_mm));
             phaseWaitStage = "pauseLift";   // antras pauzes etapas: kyla plokste
             #endif
+            /* Draw the lift's state NOW. Nothing did before: the band kept whatever was
+               there, and after a dimmed screen screen1111() redrew the card with an empty
+               band for the whole lift (V 2026-09-10, photo). */
+            pauseLiftForResin = lowResinPauseNow;
+            screen1111_state();
             {
               // Answer HTTP every 200ms DURING the lift (the homing-return
               // pattern) - one pre-move window was not enough, a 2s poll loop
@@ -2910,16 +3036,28 @@ void loop() {
             stepper.disableOutputs();
             delay(10); 
 
-            current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
-            phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
-            bool lowResinNotifyPending = lowResinPauseNow;
-            lowResinPauseNow = false;
-            saveVatRemaining();   // checkpoint at the pause point
-            resumeCheckpoint('P');  // parked position is exact
-            screen1111_state();
-            gfx2->fillRect(136, 12, 16, 16, RED);
-            gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
-            screen1111DOWN();
+            pauseLiftForResin = false;   // the lift is over; the parked state has its own text
+            /* Park only if the pause still stands. The lift answers HTTP but reads no
+               buttons, so a web/Connect Stop can land mid-lift: requestPrintStop() sets state 4
+               and clears print_paused. Parking on top of it showed "Paused" with Resume live on
+               the dashboard and the pause icons on the LCD for the whole ~24 s final lift (and a
+               resin pause would still send its Telegram) - measured 2026-09-11. Checked as
+               print_paused, not print_canceled: that is the flag the loop below waits on, so a
+               parked pause can never be left without its loop. */
+            bool lowResinNotifyPending = false;
+            if (print_paused) {
+              current_state = lowResinPauseNow ? 10 : 6;  // 10 = "Refill VAT" pause
+              phaseWaitStage = "";   // laukimas baigesi - stovim, skaiciuoti nebera ko
+              lowResinNotifyPending = lowResinPauseNow;
+              saveVatRemaining();   // checkpoint at the pause point
+              resumeCheckpoint('P');  // parked position is exact
+              screen1111_state();
+              gfx2->fillRect(136, 12, 16, 16, RED);
+              gfx2->fillRect(136, 52, 6, 16, BLACK);   // wipe the pause bars before the play triangle -
+              gfx2->fillRect(146, 52, 6, 16, BLACK);   // both used to show at once (V 2026-09-10)
+              gfx2->fillTriangle(136, 52, 136, 68, 152, 60, GREEN);
+              screen1111DOWN();
+            }
             #if ENABLE_NETWORK
             // Notify only after the checkpoint is saved and the pause UI is
             // drawn: on weak WiFi the blocking send can hold the loop for
@@ -2970,14 +3108,25 @@ void loop() {
               }
               if (Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11111){
               screen1111();
+              const int wasPhase = current_state;   // pauze (6) arba „pripilk dervos" (10)
               current_state = 4;
               screen1111_state();
               screen1111UP();
               print_canceled = true;
-              publishStopEstimate();
+              publishStopEstimate(wasPhase);
               print_paused = false;
-              }  
+              // A web Resume that arrived in this same pass must not win over the Stop just
+              // confirmed here: requestPrintStop() clears it on the web path, this button
+              // path did not, so the branch below would still start the travel (audit
+              // 2026-09-11).
+              webResumePrint = false;
+              }
               if ((Duration2 >= 500 && digitalRead(buttonOK) == LOW && screen == 11113) || webResumePrint){
+              /* On the printer the confirm box IS the refill acknowledgement: during a
+                 resin pause it asks "VAT filled full?", and the paused screen has no other
+                 way to say it (the menu loop is not running, UP/DOWN are dead). A web resume
+                 never reaches here with the latch set - requestPrintResume() refuses it. */
+              if (!webResumePrint && current_state == 10 && lowResinNotified) vatMarkRefilled();
               webResumePrint = false;
               screen1111();
               current_state = 7;
@@ -2986,6 +3135,11 @@ void loop() {
               gfx2->fillRect(136, 52, 6, 16, 0x8410);
               gfx2->fillRect(146, 52, 6, 16, 0x8410);
               gfx2->drawRoundRect(128, 44, 32, 32, 3, 0x8410);
+              /* No resume across this travel either: the card says 'P' at the pause height
+                 while the plate is already on its way down, so a resume after a power cut
+                 here would drive the part into the FEP and the screen below it. The 'M'
+                 record is written again once the plate is down (V 2026-09-12). */
+              resumeClear();
               stepper.setMaxSpeed(Fast_Lift_Feedrate * steps_mm / 60);
               stepper.enableOutputs();
               stepper.moveTo(Position_before_pause);
@@ -3016,13 +3170,25 @@ void loop() {
               delay(10);
               // Back at the post-lift height; the drop to the next layer
               // follows - same uncertainty window as a normal peel cycle.
+              // Written even when a Stop landed during the travel: the plate IS down
+              // here now, and the pause's 'P' record would put it ~20 mm higher for a
+              // power-loss recovery - which would then drive it into the part (audit
+              // 2026-09-11). Outside the condition below on purpose.
               resumeCheckpointAt('M', Position_before_pause -
                   (long)((Slow_Lift_Distance + Fast_Lift_Distance) * steps_mm));
-              gfx2->fillRect(136, 12, 16, 16, RED);
-              gfx2->fillRect(136, 52, 6, 16, YELLOW);
-              gfx2->fillRect(146, 52, 6, 16, YELLOW); 
-              gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
-              print_paused = false;    
+              /* A web/Connect Stop can land during this travel too (it answers HTTP but
+                 reads no buttons): requestPrintStop() sets state 4, clears print_paused and
+                 greys the icons. Redrawing the live icons on top of that showed active
+                 buttons over "Canceling..." for the whole final lift (audit 2026-09-11, the
+                 same shape as the pause-lift fix above). Only a resume that still stands
+                 gets its live icons back. */
+              if (print_paused) {
+                gfx2->fillRect(136, 12, 16, 16, RED);
+                gfx2->fillRect(136, 52, 6, 16, YELLOW);
+                gfx2->fillRect(146, 52, 6, 16, YELLOW);
+                gfx2->drawRoundRect(128, 44, 32, 32, 3, WHITE);
+              }
+              print_paused = false;
               }       
             }                     
           }
@@ -3046,12 +3212,24 @@ void loop() {
           }
         }
         #if ENABLE_NETWORK
-        // Canceled: tell the phone NOW - the decision is final and the run
-        // time is known, while the lift below takes tens of seconds. Finished
-        // stays after the lift: that message means "come peel the print".
+        /* Pranesimas telefonui siunciamas PO pakelimo (zemiau, ten pat, kur
+           „Finished"). Iki 09-01 jis buvo cia, kad zinia ateitu anksciau, bet
+           kaina pasirode per didele: blokuojantis TLS laiko visa `loop()` 2-4 s,
+           o tuo metu printeris neatsakineja net i busenos uzklausas - pultas po
+           Stop rodydavo bevardi sakini ir „Printer not answering" (ismatuota
+           2026-09-01: isjungus pranesimus tarpas be atsakymo krito nuo 7,8 s iki
+           2,8 s, T-116). Zinia telefone veluoja tiek, kiek trunka pakelimas;
+           prie pulto stovintis zmogus uz tai gauna gyva sasaja. */
+        // Kabliukas: sarga lieka tam, kad grazinus ankstyva pranesima kur nors
+        // auksciau uztektu cia parasyti `cancelNotified = true`. Siandien niekas
+        // jos neuzdeda, tad zemiau esanti salyga visada tiesa (auditas 09-01).
         bool cancelNotified = false;
-        if (print_canceled || homing_canceled) { tgNotifyCanceled(); cancelNotified = true; }
         #endif
+        /* K8: decided HERE, before the final lift - every layer is cured by now. A Stop
+           pressed during that lift sets print_canceled, but the part has already come
+           out, and it counts (V 2026-09-15). A Stop or homing error before this point
+           still does not, and neither does a dry run. */
+        const bool k8RanToEnd = !print_canceled && !homing_canceled && uvLedEnabled;
         if (!homing_canceled){
           if (!print_canceled){
             current_state = 8;
@@ -3075,6 +3253,8 @@ void loop() {
         current_state = 0;
         phaseWaitStage = "";
         savePrintTime();   // single exit point: finish, cancel and homing-abort
+        // K8: only a print that really came out counts - see k8RanToEnd above.
+        if (k8RanToEnd) countSuccessfulPrint();
         savePrintActiveFlag(false);  // 0-30: clean exit - no crash record
         saveVatRemaining();
         saveLastPrintRaw();          // R-cal: this print is the calibration reference

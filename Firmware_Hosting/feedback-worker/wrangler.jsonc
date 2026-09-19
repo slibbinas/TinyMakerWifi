@@ -48,5 +48,9 @@
   "kv_namespaces": [
     { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }
   ],
-  "triggers": { "crons": ["0 6 * * 1"] }
+  "triggers": { "crons": ["0 6 * * 1"] },
+  // Request logs in Cloudflare Workers Observability. Without this the one worker
+  // that takes crash reports and feedback was the only one with no log at all, so
+  // a report that never arrived left no trace anywhere.
+  "observability": { "enabled": true }
 }

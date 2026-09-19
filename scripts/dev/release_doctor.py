@@ -128,6 +128,25 @@ def main():
         ok("manual (live)", "v%s" % v)
     else:
         fail("manual (live)", "NErodo v%s — publikuok manual į gh-pages" % v)
+    road = fetch("/roadmap/")
+    if road is None:
+        warn("roadmap (live)", "nepavyko parsisiųsti")
+    else:
+        # Curated proza: patch'ui perrašinėt nereikia, bet ŠITOS minor linijos
+        # puslapis turi bent jau prasitart (0.17.0 / 0.17.x / „0.17 beta").
+        # Kilmė: iki 08-29 puslapis rodė „stable 0.15.8", nors jau buvo 0.16.2.
+        prose = re.sub(r"<(style|script)\b.*?</\1>", " ", road, flags=re.S | re.I)
+        minor = ".".join(v.split(".")[:2])
+        want = [v, minor + ".x"]          # „0.17.0" arba „0.17.x"
+        hit = [w for w in want if re.search(r"\b%s\b" % re.escape(w), prose)]
+        if hit:
+            ok("roadmap (live)", "kalba apie %s" % hit[0])
+        else:
+            # Vien „0.17" neužtenka: senas puslapis taip vadino BŪSIMĄ laidą.
+            seen = sorted(set(re.findall(r"\b\d+\.\d+(?:\.\d+|\.x)?\b", prose)))
+            fail("roadmap (live)", "nemini nei %s, nei %s.x (mato: %s) - perrašyk "
+                 "gh-pages roadmap/index.html (rankinė proza, negeneruojama)" %
+                 (v, minor, ", ".join(seen) or "?"))
     vers = ghpages("versions.txt")
     if vers is None:
         warn("versions.txt", "nerasta gh-pages")
@@ -155,6 +174,29 @@ def main():
     ok("experimental", "neatsilikęs nuo main") if not out else \
         fail("experimental", "atsilikęs %d commit'ais — sync main→experimental" %
              len(out.splitlines()))
+
+    print("  WEB FLASHER")
+    # /releases/latest yra tas adresas, is kurio web flasher'is duoda binara PIRMA karta
+    # atejusiam zmogui. GitHub „Latest" nera pririsimas prie vX.Y.Z: ja pasiima naujausia
+    # ne-prerelease laida, jei kas nors aiskiai nepazymejo kitaip (mes zymim per
+    # release.py --promote, make_latest=true). 2026-09-10 i sia repozitorija buvo
+    # paskelbtos laikrodzio programeles laidos su prerelease=false - tada „Latest" butu
+    # nuslydusi i .apk, ir naujokas, atejes diegti firmware, butu gaves ne ta faila.
+    # Laidos jau perkeltos i slibbinas/TinyStatus, bet taisykle lieka: sita tikrina
+    # skriptas, ne atmintis.
+    rc, out = gh("api", "repos/slibbinas/TinyMakerWifi/releases/latest",
+                 "--jq", ".tag_name + \" \" + ([.assets[].name] | join(\",\"))")
+    if rc == 127:
+        warn("releases/latest", "gh CLI neprieinamas - patikrink rankomis")
+    elif not out:
+        warn("releases/latest", "nepavyko perskaityti")
+    else:
+        tag = out.split(" ")[0]
+        if "firmware.bin" in out:
+            ok("releases/latest", "%s neša firmware.bin" % tag)
+        else:
+            fail("releases/latest", "%s NETURI firmware.bin - web flasher'is duotų ne tą "
+                                    "failą (turinys: %s)" % (tag, out))
 
     print("  ISSUE'AI")
     rc, out = gh("issue", "list", "--state", "open", "--search", "[%s]" % v,

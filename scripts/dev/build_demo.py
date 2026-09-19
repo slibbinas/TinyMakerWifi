@@ -10,6 +10,7 @@ app script runs. Output is one self-contained HTML - host it anywhere
 import io
 import os
 import re
+import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,7 +46,19 @@ shim, n = re.subn(r"firmwareVersion:'\d+\.\d+\.\d+'",
 assert n == 1, f"expected exactly one firmwareVersion literal in the shim, patched {n}"
 marker = "<title>TinyMaker</title>"
 assert marker in html, "title marker not found"
-html = html.replace(marker, marker + "<script>\n" + shim + "\n</script>", 1)
+# The demo is reachable both as tinymakerwifi.com/demo/ and on github.io; the
+# canonical link tells search engines which one to index (Search Console 09-16).
+CANONICAL = '<link rel="canonical" href="https://tinymakerwifi.com/demo/">'
+html = html.replace(marker, marker + CANONICAL + "<script>\n" + shim + "\n</script>", 1)
 
 io.open(OUT, "w", encoding="utf-8").write(html)
 print(f"wrote {OUT}: {len(html)} bytes")
+
+# The demo's SD models all show one real sliced model; the page fetches its
+# layers from models/ next to itself (gh-pages: demo/models/). Copied, not
+# inlined, so the page stays small.
+MODEL = os.path.join(HERE, "demo_model.sl1")
+mdir = os.path.join(os.path.dirname(os.path.abspath(OUT)), "models")
+os.makedirs(mdir, exist_ok=True)
+shutil.copyfile(MODEL, os.path.join(mdir, "demo_model.sl1"))
+print(f"copied {MODEL} -> {mdir}")

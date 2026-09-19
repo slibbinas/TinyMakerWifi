@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<title>WASM slicerio rezultatas - vaizdas</title>
+<style>body{margin:0;background:#12151a}canvas{display:block}</style>
+</head>
+<body>
+<script src="sla-web.js"></script>
+<script type="module">
+import * as THREE from './three.min.js';
+
+/*
+ * Nupiesia tai, ka WASM sliceris pagamino: modelis pilkas, atramos melynos,
+ * raftas tamsesnis. Piesiama i drobę, is kurios paimamas PNG - tad vaizdas
+ * gaunamas be ekrano nuotraukos.
+ */
+window.piesk = async function (stlUrl, sluoksnis, medis, plotis, aukstis) {
+  plotis = plotis || 900; aukstis = aukstis || 900;
+  const M = window.SLAMOD || (window.SLAMOD = await createSLA());
+  const r = await fetch(stlUrl);
+  M.FS.writeFile('/in.stl', new Uint8Array(await r.arrayBuffer()));
+  const t0 = performance.now();
+  const info = M.cwrap('sla_slice', 'string', ['string', 'number', 'number'])('/in.stl', sluoksnis, medis ? 1 : 0);
+  const truko = Math.round(performance.now() - t0);
+
+  /* Binarinis STL -> three.js geometrija. */
+  function parseSTL(buf) {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const n = dv.getUint32(80, true);
+    const pos = new Float32Array(n * 9);
+    let o = 84;
+    for (let i = 0; i < n; i++) {
+      o += 12;                                   // normale - praleidziam
+      for (let v = 0; v < 9; v++) { pos[i * 9 + v] = dv.getFloat32(o, true); o += 4; }
+      o += 2;                                    // atributu baitai
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    return g;
+  }
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x12151a);
+  const grupe = new THREE.Group();
+
+  const dalys = [
+    ['/out_model.stl',    0x9aa3af, 1.0],
+    ['/out_supports.stl', 0x4f9dff, 1.0],
+    ['/out_pad.stl',      0x2f3948, 1.0],
+  ];
+  let bbox = new THREE.Box3();
+  for (const [kelias, spalva, op] of dalys) {
+    let baitai; try { baitai = M.FS.readFile(kelias); } catch (e) { continue; }
+    if (!baitai || baitai.length < 90) continue;
+    const g = parseSTL(baitai);
+    const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({
+      color: spalva, shininess: 18, flatShading: false, opacity: op, transparent: op < 1 }));
+    grupe.add(m);
+    g.computeBoundingBox();
+    bbox.union(g.boundingBox);
+  }
+  scene.add(grupe);
+
+  /* Centruojam ir statom kamera izometriskai, kaip pulte. */
+  const c = bbox.getCenter(new THREE.Vector3());
+  const dydis = bbox.getSize(new THREE.Vector3());
+  grupe.position.set(-c.x, -c.y, -c.z);
+  const R = Math.max(dydis.x, dydis.y, dydis.z);
+
+  const cam = new THREE.PerspectiveCamera(32, plotis / aukstis, 0.1, 4000);
+  cam.up.set(0, 0, 1);
+  cam.position.set(R * 1.5, -R * 1.9, R * 1.25);
+  cam.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const l1 = new THREE.DirectionalLight(0xffffff, 0.85); l1.position.set(1, -1.4, 1.6); scene.add(l1);
+  const l2 = new THREE.DirectionalLight(0x88aaff, 0.35); l2.position.set(-1.2, 0.8, 0.4); scene.add(l2);
+
+  const cv = document.createElement('canvas');
+  const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+  ren.setPixelRatio(1); ren.setSize(plotis, aukstis, false);
+  ren.render(scene, cam);
+  document.body.appendChild(cv);
+  return { png: cv.toDataURL('image/png'), info: info, truko: truko };
+};
+</script>
+</body>
+</html>

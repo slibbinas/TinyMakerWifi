@@ -53,6 +53,30 @@ let sliceRunning=false, sliceRun=0;
    „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
    raudona zinute, ir tai atrode kaip sugedes mygtukas). */
 let slicerFits=true;
+/* FIT BY ir SIZE (V sprendimas 2026-09-13). Jie nustato, kaip sliceris detale
+   pastato PATS, kai zmogus ikonos nespaudzia: iskart ikelus STL ir oranziniu
+   mygtuku, kai detale netelpa. Ikonos ant vaizdo nuo ju nepriklauso - kiekviena
+   daro savo buda, kad abi padetis butu galima palyginti nepjaustant (V: be ju
+   padeti pamatytum tik supjaustes).
+   `function`, ne `const`: `slicerStep` jas kviecia, o jis gali suveikti anksciau,
+   nei vykdymas pasiekia sio failo vidu. */
+/* Nustatymu bloko jungikliai, kurie PJAUSTYMO nekeicia (zr. `slicerParamaiParasas`). */
+const SLICER_NE_PJOVIMO=/^slicer(FitBy|Size)$/;
+function slicerPasirinkta(vardas,numatyta){
+  return (document.querySelector('input[name='+vardas+']:checked')||{}).value||numatyta;
+}
+function slicerFitBy(){return slicerPasirinkta('slicerFitBy','flat');}
+function slicerSizeMode(){return slicerPasirinkta('slicerSize','keep');}
+/* Pavadinimas sako REZULTATA, ne greiti (V 09-13): po ROT-par abu budai greiti,
+   o skiriasi tuo, ar detale guli plokscia, ar pakreipta del atramu. */
+function slicerFitVardas(budas){
+  return (budas||slicerFitBy())==='supports'?'Fit for supports':'Fit flat';
+}
+/* Oranzinis zingsnis ir juostos ikona seka FIT BY. */
+function slicerFitNumatytas(){
+  const b=$(slicerFitBy()==='supports'?'slicerAutoFitPro':'slicerAutoFit');
+  if(b&&!b.disabled)b.click();
+}
 const slicerStep=()=>{
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
@@ -62,10 +86,19 @@ const slicerStep=()=>{
   /* Netelpa - tai oranzinis zingsnis yra „Auto fit", ne „Slice": kelias veda
      per ji, ir juosta rodo butent ta mygtuka, kuris dabar ka nors pakeis. */
   {const tools=$('gl3dTools');
+   const pro=slicerFitBy()==='supports';
    const ft=tools&&tools.querySelector("[data-tool='fit']");
    if(ft)ft.classList.toggle('step',loaded&&!sliced&&!slicerFits);
    const go=$('slicerGo'), fitNow=$('slicerFitNow'), send=$('slicerSend'), save=$('slicerSave');
    const netelpa=loaded&&!sliced&&!slicerFits;
+   if(fitNow){
+     fitNow.textContent=slicerFitVardas();
+     fitNow.title=pro?'Tilts the part so it needs the fewest supports, then scales it to fit'
+                    :'Lays it on its widest side, then scales it to fit';
+   }
+   /* Tas pats vardas ir „Too large" eilutes mygtuke - jis gimsta piesiant, tad
+      perjungus FIT BY be perpiesimo liktu senas. */
+   {const fh=$('slicerFitHere'); if(fh)fh.textContent=slicerFitVardas();}
    /* Spausdinant sliceris nieko nedaro: pjaustymas piestu i vaizda, kuris priklauso
       spaudiniui, o „Send to printer" vis tiek grizdavo su 409 - printeris tuo metu SD
       neduoda (V 08-20: „spausdinimo metu leidzia slicint, nelogiska"). Failo pasirinkima
@@ -78,7 +111,7 @@ const slicerStep=()=>{
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits||spausdina;
      go.title=spausdina?'Not while the printer is working'
-              :(netelpa?'Does not fit yet - Fast fit, or turn it by hand':'');
+              :(netelpa?'Does not fit yet - '+slicerFitVardas()+', or turn it by hand':'');
      /* Vienas lizdas, trys pavidalai: netelpa -> „Fit it", telpa -> „Slice",
         supjaustyta -> „Send to printer". Mygtukas priesais akis visada yra tas,
         kuris daro kita zingsni (V 08-20). */
@@ -112,6 +145,12 @@ const slicerStep=()=>{
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
     });
+    /* „Reset“ yra NUORODA, tad i ejima per input/select/textarea ji nepatenka.
+       Ta pati idioma, kaip `slicerDiscardLink` virsuje: klase ant konteinerio,
+       o ne stilius ant elemento - kad prigesinimas ir pointer-events keliautu
+       kartu ir nesiskirtu (V 09-02). */
+    {const pr=$('slicerParams');
+     if(pr)pr.classList.toggle('uzrakintas',!!spausdina);}
     /* Ir formos irankiai ant vaizdo - jie yra ta pati kortele, tik kitoje vietoje. */
     const t=$('gl3dTools');
     if(t&&spausdina)t.querySelectorAll('button').forEach(b=>{
@@ -121,7 +160,7 @@ const slicerStep=()=>{
      supjaustyta: rezultatas tyliai issimeta, o zmogus to neprase - jis tiesiog
      paspaude ta, kas buvo ekrane (V 08-19). Grazina „Discard". */
   {const tools=$('gl3dTools');
-   if(tools)['fit','fitpro','flat','flip','tilt','rot','scale'].forEach(k=>{
+   if(tools)['fit','flat','flip','tilt','rot','scale'].forEach(k=>{
      const b=tools.querySelector("[data-tool='"+k+"']");
      if(b)b.style.display=sliced?'none':'';});
    /* Abi grupes - per vidury, tad jos negali stoveti ant tos pacios eilutes: formos
@@ -132,7 +171,11 @@ const slicerStep=()=>{
    if(zoom){
      /* Pagal BUSENA, ne pagal `display`: uzdarius mastelio langeli irankiai dar
         akimirka buna paslepti, ir grupe atsistodavo ant ju (V 08-20). */
-     const yraFormos=loaded&&!sliced;
+     /* Ir tik kai perziura MUSU: nuo #157 SD pusėje formos irankiu juosta paslepiama,
+        o be sitos salygos vaizdo grupe likdavo nuleista po nebesamos eilutes - SD
+        peržiūroje virs jos stovedavo tuscia juosta (V 09-15, „irankiai nusoko per
+        eilute zemyn"). */
+     const yraFormos=loaded&&!sliced&&!!slicerOwnsPreview;
      /* Atstumas imamas is TIKRO juostos aukscio, ne is skaiciaus: siaurame ekrane ji
         lauzoma i dvi eilutes (54 px), ir su ikaltais 44 px vaizdo grupe atsistodavo ant
         antros eilutes (ismatuota telefono kadre, 08-21). */
@@ -247,13 +290,19 @@ const previewShowFor=()=>{
   if(typeof statusData!=='undefined'&&statusData&&statusData.busy)return;
   if(slicerIsOpen()){
     slicerOwns(true);
-    if(slicerOut){slicerBuildView(false);
+    /* Grizus is SD kamera stovi ten, kur ja paliko SD modelis - didelio kupono kadre
+       slicerio plokste uzpildydavo visa langa (V 09-15). Todel slicerio modelis
+       kadruojamas is naujo: supjaustytas - per `slicerBuildView(true)` (3D vaizde
+       kadras laukia ir atramu), sluoksniu vaizduose - tiesiogiai; nesupjaustytas -
+       per `slicerHome`, kaip naujai ikeltas. */
+    if(slicerOut){slicerBuildView(true);
+      if(slicerView!==0&&window.gl3dFrameAll)gl3dFrameAll();
       /* Sluoksniu slankiklis gyvena su REZULTATU, ne su piesimu: be sios eilutes
          grizus is SD jis likdavo paslėptas, nors modelis jau vel ekrane. Kartu
          grazinam ir ta pati sluoksni - zmogus paliko ji tam tikroje vietoje. */
       slicerLayerUI(true);
       slicerShowLayer(slicerLayerN||slicerOut.layers); return;}
-    if(slicerRaw){slicerRender();return;}
+    if(slicerRaw){slicerHome=true; slicerRender();return;}
     slicerOwns(false); dashPreviewPlaceholder(); return;
   }
   slicerOwns(false);
@@ -323,7 +372,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.2.1';
+  const SV='3.5.0';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -336,8 +385,16 @@ const slicerLoadMod=async()=>{
       idiegus nauja moduli senasis lieka gyvas, kol puslapis neperkrautas, ir
       apie tai butina pasakyti (V 08-24). */
    window.slicerLoadedVer=(slicerMod&&slicerMod.VERSION)||'';}
+  /* Nepavyko, o korteleje modulio nera - vadinasi, nepasieke ir interneto. Nuo 1.0.0
+     sliceris ijungtas visiems (K9), tad taip atrodys pirmas atidarymas be tinklo:
+     zmogui reikia pasakyti, kad uztenka karta prisijungti, o ne tik „neuzsikrove".
+     Jei kortelej modulis yra, bet vis tiek neuzsikrove - lieka bendras pranesimas. */
+  let kort='';
+  if(!slicerMod&&window.slicerCardVer){try{kort=await window.slicerCardVer();}catch(e){}}
   slicerSay('slicerInfo',slicerMod?'Choose an STL file to begin.'
-                                  :'The slicer module could not be loaded.');
+    :(kort?'The slicer module could not be loaded.'
+          :'The slicer is not on the printer\'s card yet and the internet could not be reached. '
+          +'Open this page once with internet - the slicer copies itself to the card and works offline after that.'));
   return slicerMod;
 };
 $('slicerToggle').addEventListener('click',()=>{
@@ -348,12 +405,30 @@ $('slicerToggle').addEventListener('click',()=>{
 
 /* Bet koks pakeitimas panaikina supjaustyta rezultata: kitaip „Save"
    siulytu issaugoti tai, ko ekrane jau nebera (V 08-12). */
-const slicerInvalidate=()=>{
+/* `tyliai` - nepiesti modelio: kvietejas ji perpies pats. Be sito `slicerRender`
+   po pjaustymo dirbtu du kartus (du `place`, du `toSceneMesh`, du normalu
+   skaiciavimai) - zieduje su 275 tukst. trikampiu tai matytusi kaip blyksnis. */
+const slicerInvalidate=(tyliai)=>{
   if(typeof slicerOut==='undefined'||!slicerOut)return;
   slicerOut=null;
   /* Atramos priklauso TAM rezultatui: be sito senojo modelio atramos likdavo
      stovėti scenoje salia naujo (V 08-20 - ikelus kita modeli suportai liko seni). */
   if(window.gl3dSupports)gl3dSupports(null);
+  /*
+   * ⚠️ Ir PATS MODELIS grazinamas ant ploksces.
+   *
+   * Pakelima modeliui uzdeda `slicerGeomView` (zr. `slicerKelk`), o be naujo
+   * pjaustymo tas kelias nebeivyksta - tad nuemus atramas scenoje likdavo
+   * pakeltas modelis, kabantis ore be nieko po juo. Iki „lifted" jungiklio to
+   * atvejo buti negalejo: modelis visada buvo piesiamas ant ploksces.
+   * Pagavo V, 09-03, is karto po `Reset to defaults`.
+   *
+   * Cia pakelimo NEskaiciuojam: rezultato jau nebera, o be jo ir pakelimo nera -
+   * detale grizta lygiai i ta busena, kurioje buvo pries pjaustyma.
+   */
+  if(!tyliai&&window.gl3dMesh&&slicerRaw&&slicerTr&&slicerMod&&slicerMod.place&&slicerMod.toSceneMesh){
+    try{gl3dMesh(slicerMod.toSceneMesh(slicerMod.place(slicerRaw,slicerTr)),false);}catch(e){}
+  }
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
   $('slicerDiscardLink').style.visibility='hidden';
@@ -403,7 +478,12 @@ const slicerScaleUI=b=>{
   if(pr&&!scaleDragging){pr.min=floor; pr.max=top; pr.step=step; pr.value=shown;}
   /* Skaiciu laukelis lieka platesnis uz juosta: iraseiciau bet koki procenta, o
      „netelpa" sarga pasakys, jei perlenkta - juosta tik neveda ten uz rankos. */
-  if(pp){pp.min=SCALE_MIN_PCT; pp.step=step; pp.value=shown;}
+  /* `min` turi guleti ant to paties tinklelio kaip `step`: narsykle rodykles
+     zingsni skaiciuoja NUO `min`. Su min 0,1 ir zingsniu 1 leistinos reiksmes
+     buvo 100,1 · 101,1…, tad rodykle aukstyn is 100 nesdavo i 100,1, o tas
+     apvalinamas zemyn atgal i 100 - procentu rodykle aukstyn neveikdavo niekur,
+     zemyn veikdavo (V 09-13). Rasyti ranka maziau uz min vis tiek galima. */
+  if(pp){pp.min=step<1?SCALE_MIN_PCT:1; pp.step=step; pp.value=shown;}
   if(pm)pm.value=b.size[2].toFixed(1);
 };
 /* Tempimo zyme. `pointerup` ir `change` - abu: pirmas pagauna pele/pirsta, antras
@@ -425,9 +505,17 @@ window.slicerRetryRender=()=>{
   slicerRenderPending=false;
   slicerRender();
 };
+/* Matmenu eilute po failo vardu. Atskirai nuo `slicerRender`, nes ja reikia
+   perrasyti ir po automatinio sumazinimo (FIT-real), o `slicerRender` ten kviesti
+   negalima - jis ismeta ka tik supjaustyta rezultata. */
+const slicerDimsLine=b=>{
+  $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
+    b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
+    +' mm  ·  '+(slicerRaw.length/9).toLocaleString()+' triangles';
+};
 const slicerRender=()=>{
   if(slicerPrinting()){slicerRenderPending=true;return;}
-  slicerInvalidate();
+  slicerInvalidate(true);          // modeli perpiesim zemiau, su ta pacia `place()` isvestimi
   const S=slicerMod;
   const placed=S.place(slicerRaw,slicerTr);
   const b=S.bounds(placed), f=S.fitCheck(b.size);
@@ -445,7 +533,7 @@ const slicerRender=()=>{
         +'% · <button type="button" id="slicerFitHere" style="display:inline-flex;'
         +'width:auto;min-height:0;margin:0 0 0 4px;padding:2px 10px;border-radius:6px;'
         +'background:var(--accent);color:#fff;border:0;font-size:.85rem;cursor:pointer">'
-        +'Fast fit</button> or turn it by hand';col='var(--warncol)';}
+        +slicerFitVardas()+'</button> or turn it by hand';col='var(--warncol)';}
    if(slicerBudget&&n>slicerBudget)vd+=' · more detail than the printer can show';
    /* Apatines ribos pjaustymas neturi, ir dabar, kai mastelis leidziasi iki 0,1 %,
       i viena sluoksni sumazinta detale supjaustoma bei issaugoma be nė zodzio
@@ -471,10 +559,8 @@ const slicerRender=()=>{
       to paties pobudzio pastabos apie sluoksnius (V 08-12). */
    $('slicerInfo').innerHTML='<span style="color:'+col+'">'+vd+'</span>';
    {const fh=$('slicerFitHere');
-    if(fh)fh.addEventListener('click',()=>$('slicerAutoFit').click());}
-   $('slicerDims').textContent=(slicerFileName?slicerFileName+'  ·  ':'')+
-     b.size[0].toFixed(1)+' × '+b.size[1].toFixed(1)+' × '+b.size[2].toFixed(1)
-     +' mm  ·  '+n.toLocaleString()+' triangles';}
+    if(fh)fh.addEventListener('click',slicerFitNumatytas);}
+   slicerDimsLine(b);}
   const fit=$('slicerFit');
   slicerFits=!!f.fits;
   if(f.fits){
@@ -547,7 +633,14 @@ $('slicerFile').addEventListener('change',async e=>{
     slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
     const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
-    slicerTr=best.tr;
+    slicerTr=best.tr; slicerScalePriesMax=null;
+    /* FIT BY / SIZE ikeliant (V 09-13). Ploksciai - kaip iki siol, tik su `max`
+       dydis iskart pritaikomas plokstei. Pakreipimas del atramu ateina zemiau, po
+       pirmo piesimo: jis asinchroninis, o modelis tuo metu jau matosi. Netelpancio
+       ikeliant nemazinam nei vienu keliu - tam lieka oranzinis mygtukas. */
+    const pakreipti=slicerFitBy()==='supports'&&!!slicerMod.autoOrientPro;
+    slicerPlaceNote(null,null);
+    if(!pakreipti)slicerSizeNote('Fit flat',slicerDydis(false));
     slicerButtons(true);
     /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
        issisaugodavo ne tuo pavadinimu (V 08-12). */
@@ -559,6 +652,7 @@ $('slicerFile').addEventListener('change',async e=>{
            Sliceriui buti grieztesniam nera pagrindo (V 08-20). */
     $('slicerGo').disabled=false;
     slicerRender();
+    if(pakreipti)slicerBusyPaint(FIT_PRO_UZRASAS,()=>slicerFitSupports(true));
   }catch(err){slicerSay('slicerInfo',err.message);slicerButtons(false);}
 });
 
@@ -578,17 +672,18 @@ $('slicerFile').addEventListener('change',async e=>{
 /* Kol vyksta ilgas darbas, ekrane lieka VIEN zinute. Nei sukti, nei priartinti,
    nei zymeti nera ko: daikto dar nera arba jis kaip tik gaminamas (V 08-20).
    Formos eilute pasitraukia per `slicerButtons(false)`, visa kita - cia. */
-const slicerWorkUI=dirba=>{
+/* `tyliai` keliauja i `slicerLayerUI`: grazinam valdiklius, bet vaizdo neliesime. */
+const slicerWorkUI=(dirba,paliktiAtramas,tyliai)=>{
   ['gl3dZoom','gl3dZoomCorner','gl3dMarkWrap','gl3dPad','gl3dRot','gl3dHelp']
     .forEach(id=>{const e=$(id); if(e&&dirba)e.style.display='none';});
   /* Ir sluoksniu slankiklis: kol pjaustoma, slinkti dar nera ko - o jis rodydavo
      „334 / 334" salia „Slicing 85 %" (V 08-20). */
-  if(dirba)slicerLayerUI(false);
+  if(dirba)slicerLayerUI(false,paliktiAtramas);
   if(!dirba){
     /* Grazina tas pats, kas ir sprendzia, kas kuriame vaizde matoma. */
     slicerViewChrome();
     slicerMarkUI(!!slicerOwnsPreview);
-    if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true);
+    if(typeof slicerOut!=='undefined'&&slicerOut)slicerLayerUI(true,false,tyliai);
   }
 };
 /* Ar vaizdas DABAR musu. Darbas gali tesltis fone (pjaustymas trunka 26 s), bet jei
@@ -614,7 +709,16 @@ const slicerOverlayOff=()=>{
   if(typeof pvFit==='function'){const c=pvFit(cv);c.clearRect(0,0,PREV_W,PREV_H);}
   cv.style.zIndex=''; cv.style.position=''; cv.style.visibility='';
 };
+/* Ar sliceris dabar dirba ilga darba (arba baige ne seniau kaip pries `ms`). Pultas
+   pagal tai nerodo tylaus „Printer busy": ekrane tuo metu jau stovi slicerio uzrasas
+   su eiga, o printeris pirmo pastatymo metu tikrai kelias sekundes tyli (ismatuota
+   09-17 V printeryje: busenos apklausa kabojo 3-3,7 s, zinute issoko jau po darbo).
+   Todel ir `ms` uodega - apklausa, issiusta darbo metu, gali nukristi jau po jo.
+   Pjaustyma zymi pulto `slicerBusyNow`, tad jis irgi skaitomas. */
+let slicerDarbai=0, slicerDarbasBaigtas=0;
+window.slicerDirbo=ms=>slicerBusyNow||slicerDarbai>0||Date.now()-slicerDarbasBaigtas<(ms||0);
 const slicerBusyPaint=(uzrasas,darbas)=>{
+  slicerDarbai++;
   slicerPaint(uzrasas,null);
   slicerWorkUI(true);
   /* `await` cia butinas: kruopstusis pastatymas (`autoOrientPro`) sukasi variklio
@@ -625,11 +729,23 @@ const slicerBusyPaint=(uzrasas,darbas)=>{
      tad `requestAnimationFrame` nesuveikia NIEKADA - „Auto fit" ir „Lay flat" tokiame
      lange tyliai nieko nedarydavo (rado stendas 08-20; ta pati pamoka jau buvo
      `paintStage` pulte, V 08-14). Laikmatis paleidzia darba ir fone. */
+  /* Formos irankiai uzrakinami ir paslepiami visam darbui. Iki siol juosta likdavo
+     ekrane ir spaudziama: apvertus modeli paieskos metu grizdavo valdikliai, o baigta
+     paieska tyliai perrasydavo apvertima (ismatuota demo 09-17, taip pat ir 0.17.3).
+     Atrakinam tik tai, ka uzrakinom patys: jei irankiai jau buvo uzrakinti (pjaustymas,
+     spaudinys), ju nelieciam. */
+  const fit=$('slicerAutoFit');
+  const atrakinta=!!(fit&&!fit.disabled);
+  if(atrakinta)slicerButtons(false);
   let paleista=false;
   const eik=async()=>{
     if(paleista)return; paleista=true;
     try{await darbas();}
-    finally{slicerOverlayOff();slicerWorkUI(false);}
+    finally{
+      slicerDarbai--; slicerDarbasBaigtas=Date.now();
+      if(atrakinta&&slicerRaw&&!slicerPrinting())slicerButtons(true);
+      slicerOverlayOff();slicerWorkUI(false);
+    }
   };
   requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(eik,0)));
   setTimeout(eik,150);
@@ -646,17 +762,69 @@ const slicerTelpa=tr=>{
 /* Kruopstaus pastatymo verdiktas viena eilute. Be jo mygtukas butu tikejimo
    klausimas, o akis apgauna: drakonas ant sparno atrodo blogai pastatytas, nors
    kaip tik toks telpa 34 % didesnis (matuota 08-20). */
-const slicerPlaceNote=(pro,fast)=>{
+/* Eilute turi dvi dalis: palyginima (tik po „Fit for supports") ir dydzio
+   pakeitima (SIZE). Laikomos atskirai, nes rankinis mastelis panaikina tik antraja -
+   palyginimas nuo mastelio nepriklauso, o „scaled up to 148%" po rankinio
+   pakeitimo jau meluotu. */
+let slicerNoteCmp='', slicerNoteWarn=false, slicerNoteSize='', slicerNoteVardas='';
+const slicerNotePaint=()=>{
   const e=$('slicerPlaceNote'); if(!e)return;
-  if(!pro||!fast){e.textContent='';return;}
-  const sant=fast.kiek?pro.kiek/fast.kiek:1, proc=Math.round((sant-1)*100);
-  const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
-  e.style.color=proc<0?'var(--warncol)':'';
-  e.textContent=Math.abs(proc)<1
-    ? 'Optimal fit: the same size as Fast fit'+auksciai+'.'
-    : (proc>0 ? 'Optimal fit: the part prints '+proc+'% bigger than with Fast fit'+auksciai+'.'
-              : 'Optimal fit: '+(-proc)+'% smaller than with Fast fit'+auksciai+
-                ' - Fast fit suits this model better.');
+  /* Vardas priekyje tik viena karta: po palyginimo („Fit for supports: ...") dydis
+     eina atskiru sakiniu, kitaip vardas kartotusi dukart vienoje eiluteje. */
+  const dydis=!slicerNoteSize?'':(slicerNoteCmp
+    ?slicerNoteSize.charAt(0).toUpperCase()+slicerNoteSize.slice(1)
+    :slicerNoteVardas+': '+slicerNoteSize);
+  e.textContent=[slicerNoteCmp,dydis].filter(Boolean).join(' ');
+  e.style.color=slicerNoteWarn?'var(--warncol)':'';
+};
+/* `(null,null)` reiskia „pastatymas pasikeite": nuimamos abi dalys. */
+const slicerPlaceNote=(pro,fast)=>{
+  slicerNoteSize=''; slicerNoteCmp=''; slicerNoteWarn=false;
+  if(pro&&fast){
+    const sant=fast.kiek?pro.kiek/fast.kiek:1, proc=Math.round((sant-1)*100);
+    const auksciai=' ('+pro.h.toFixed(1)+' mm vs '+fast.h.toFixed(1)+' mm tall)';
+    slicerNoteWarn=proc<0;
+    slicerNoteCmp=Math.abs(proc)<1
+      ? 'Fit for supports: the same size as Fit flat'+auksciai+'.'
+      : (proc>0 ? 'Fit for supports: the part can print '+proc+'% bigger than with Fit flat'+auksciai+'.'
+                : 'Fit for supports: '+(-proc)+'% smaller than with Fit flat'+auksciai+
+                  ' - Fit flat suits this model better.');
+  }
+  slicerNotePaint();
+};
+const slicerSizeNote=(vardas,t)=>{slicerNoteVardas=vardas||''; slicerNoteSize=t||''; slicerNotePaint();};
+/* SIZE (V 09-13). `keep` - dydis toks, kokį nustatė zmogus; mazinama tik tada, kai
+   netelpa, ir tik jei `mazinti` (ikeliant nemazinam - kaip iki siol, lieka oranzinis
+   mygtukas). `max` - iki didziausio telpancio pagal kontura; kad atramos gal islys uz
+   krasto, patikrins FIT-real po pjaustymo (V sprendimas: nespeti atsargos is anksto).
+   Virsus 300 %, kaip slankiklio ir laukelio. Grazina sakini be vardo arba ''. */
+const SIZE_MAX=3;
+const slicerDydis=mazinti=>{
+  const pries=slicerTr.scale, max=slicerSizeMode()==='max';
+  const f=slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size);
+  let lubos=false;
+  if(max&&f.worst>0){
+    const s=Math.floor(pries/f.worst*1000)/1000;
+    lubos=s>SIZE_MAX; slicerTr.scale=Math.min(SIZE_MAX,s);
+  }else if(!max&&!f.fits&&mazinti){
+    slicerTr.scale=pries*f.scaleToFit;
+  }
+  if(Math.abs(slicerTr.scale-pries)<1e-9)return '';
+  const pct=Math.round(slicerTr.scale*1000)/10;
+  const kryptis=slicerTr.scale>pries?'up':'down';
+  /* Didinimas toks pat garsus, kaip mazinimas (V 09-12): zmogus turi zinoti, kad
+     detale jau ne tokio dydzio, kokia buvo faile. */
+  return 'scaled '+kryptis+' to '+pct+'%'
+    +(lubos?' - 300% is the most the slicer scales.'
+      :(max?' - the largest size that fits the plate.':' so it fits the plate.'));
+};
+/* Kai modelis ka tik pradejo tilpti, nuimam skunda „does not fit": jis gyvena savo
+   6 s ir atrodytu, kad mygtukas nesuveike (V 08-19). Svetimo pranesimo neliecam. */
+const slicerNuimkNetelpa=()=>{
+  const e=$('statusMsg');
+  if(/does not fit/i.test(e.textContent||'')&&
+     slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
+    msg('',false);
 };
 /* Greitasis pastatymas nuo 3.1.1 turi SAVO gija (`autoOrientFast`) - ta pati skaiciuote,
    tik ne pulto gijoje. Del to pagaliau juda ir juostele: anksciau drakonui 7 s naršykle
@@ -665,33 +833,25 @@ const slicerPlaceNote=(pro,fast)=>{
 const slicerGreitas=async()=>(slicerMod.autoOrientFast
   ? await slicerMod.autoOrientFast(slicerRaw)
   : slicerMod.autoOrient(slicerRaw));
-$('slicerAutoFit').addEventListener('click',()=>{
-  if(!slicerRaw)return;
-  slicerBusyPaint('Turning the part to fit…',async()=>{
+/* Fit flat (buvo „Fast fit"): paguldo ant placiausios plokstumos, tada dydis pagal SIZE.
+   Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta, ir masteli
+   (V 08-17). */
+const slicerFitFlat=async()=>{
   if(slicerMod.autoOrientFast)slicerPaintIndet('Turning the part to fit…');
   const s0=slicerTr.scale;
   slicerTr=(await slicerGreitas()).tr; slicerTr.scale=s0;
   slicerPlaceNote(null,null);   // pastatymas pasikeite - senas verdiktas nebegalioja
-  const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
-  const f=slicerMod.fitCheck(b.size);
-  if(!f.fits){
-    slicerTr.scale*=f.scaleToFit;
-    /* Be snacko: modelis vaizde pajuda, o korteles eilute pasako ir verdikta,
-       ir masteli - pranesimas kartotu tai, kas jau matosi (V 08-17). */
-  }
-  /* Skundas „netelpa" gyvena savo 6 s, o Auto fit kaip tik ta priezasti pasalina:
-     modelis jau telpa, o eilute dar kabo ir atrodo, kad mygtukas nesuveike (V 08-19).
-     Nuimam TIK ta viena sakini ir tik kai tikrai tilpo - svetimo pranesimo neliecam. */
-  {const e=$('statusMsg');
-   if(/does not fit/i.test(e.textContent||'')&&
-      slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
-     msg('',false);}
-  /* Po autofito vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
-     sumazejo, tad senas zvilgsnis jam nebetinka - jis likdavo mazas lango viduryje
-     (V 08-18). Rankiniai posukiai kameros ir toliau neliecia. */
+  slicerSizeNote('Fit flat',slicerDydis(true));
+  slicerNuimkNetelpa();
+  /* Po pastatymo vaizdas kadruojamas is naujo: modelis ka tik pasisuko ir galbut
+     pakeite dydi, tad senas zvilgsnis jam nebetinka (V 08-18). Rankiniai posukiai
+     kameros ir toliau neliecia. */
   slicerHome=true;
   slicerRender();
-  });
+};
+$('slicerAutoFit').addEventListener('click',()=>{
+  if(!slicerRaw)return;
+  slicerBusyPaint('Turning the part to fit…',slicerFitFlat);
 });
 /* Kruopstusis kelias (modulis 3.1.0): PAKRYPIMA - kuria puse guldyti - parenka
    tikras PrusaSlicer Rotfinder, sukamas variklio gijoje, o posuki ant plokstes,
@@ -705,13 +865,15 @@ $('slicerAutoFit').addEventListener('click',()=>{
    ateina pirmas skaicius, sukasi vaikstantis ruozelis - ji sustabdo pati juostele,
    vos tik gauna skaiciu. Sustabdyti paieskos negalima: variklio gija viso
    skaiciavimo metu blokuota, tad musu zinute jos nepasiektu (slicerio sesija, #108). */
-$('slicerAutoFitPro').addEventListener('click',()=>{
-  if(!slicerRaw||!slicerMod.autoOrientPro)return;
-  slicerBusyPaint('Searching for optimal fit…\nmay take long',async()=>{
+/* Uzrasas be „may take long": po ROT-par (3.5.0) sunkiausias bandytas modelis
+   kompiuteryje pastatomas per ~1,5 s. `ikelimas` - kvieciama iskart ikelus STL
+   (FIT BY: supports): tada, kaip ir plokscio kelio, netelpancio nemazinam. */
+const FIT_PRO_UZRASAS='Finding the tilt with the fewest supports…';
+const slicerFitSupports=async(ikelimas)=>{
     /* Variklis sukasi savo gijoje, tad pulto gija laisva ir ruozelis tikrai juda.
        Skaiciaus nera - variklis jo neatiduoda (vienas nedalomas kvietimas), tad
        juostele nieko nematuoja, tik sako „dirbama" (V 08-20). */
-    slicerPaintIndet('Searching for optimal fit…\nmay take long');
+    slicerPaintIndet(FIT_PRO_UZRASAS);
     const s0=slicerTr.scale;
     const fast=slicerTelpa((await slicerGreitas()).tr);
     let pro=null;
@@ -723,9 +885,7 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
         const f=total?done/total:null;
         /* Skaicius - PRIE uzraso, kaip pjaustant („Slicing 85 %"): vien juosta
            nesako, ar liko sekunde, ar dvylika (V 08-20). */
-        slicerPaint(
-          'Searching for optimal fit…'+(f!==null?' '+Math.round(f*100)+'%':'')
-          +'\nmay take long',f);
+        slicerPaint(FIT_PRO_UZRASAS+(f!==null?' '+Math.round(f*100)+'%':''),f);
       });
       slicerTr=r.tr; pro=slicerTelpa(r.tr);
     }catch(e){
@@ -736,16 +896,14 @@ $('slicerAutoFitPro').addEventListener('click',()=>{
     }
     slicerTr.scale=s0;
     slicerPlaceNote(pro,fast);
-    const b=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
-    const f=slicerMod.fitCheck(b.size);
-    if(!f.fits)slicerTr.scale*=f.scaleToFit;
-    {const e=$('statusMsg');
-     if(/does not fit/i.test(e.textContent||'')&&
-        slicerMod.fitCheck(slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr)).size).fits)
-       msg('',false);}
+    slicerSizeNote('Fit for supports',slicerDydis(!ikelimas));
+    slicerNuimkNetelpa();
     slicerHome=true;
     slicerRender();
-  });
+};
+$('slicerAutoFitPro').addEventListener('click',()=>{
+  if(!slicerRaw||!slicerMod.autoOrientPro)return;
+  slicerBusyPaint(FIT_PRO_UZRASAS,()=>slicerFitSupports(false));
 });
 $('slicerFlat').addEventListener('click',()=>{
   if(!slicerRaw)return;
@@ -865,6 +1023,17 @@ window.addEventListener('resize',()=>{
   if(!(slicerMaskOn&&slicerView===2))return;
   slicerViewChrome();
 });
+/* Darbo metu lango pokytis grazindavo 3D irankius ant eigos uzraso: pultas savo
+   „resize" perpiesia GPU vaizda (`gl3dShow(true)`), o tas parodo visas grupes ir
+   paslepia drobe. Telefone langas keiciasi vien nuo slinkimo (adreso juosta), tad
+   irankiai islysdavo vidury pjaustymo (V 09-17, ismatuota: 0 -> 4 grupes). Pulto
+   klausytojas uzregistruotas anksciau, tad cia darbo busena atstatoma PO jo. */
+window.addEventListener('resize',()=>{
+  if(!slicerDirbo(0)||!slicerVaizdasMusu())return;
+  slicerWorkUI(true);
+  const cv=$('printPreviewCanvas');
+  if(cv&&lastPreviewMsg)paintPreviewProgress(cv,lastPreviewMsg.label,lastPreviewMsg.frac,true);
+});
 /* „Lango didinimas" savo auksti nustato pats ir „resize" nesukelia, tad chrome
    po jo persistatom rankomis. */
 {const g=$('stageOpen');
@@ -904,7 +1073,9 @@ function slicerMaskSet(on){
 }
 /* Supportai atsiranda patys, tad kortelei lieka tik pasakyti, kas gavosi -
    jokiu nustatymu neatsiranda (V 08-12). */
-const SUP_IDLE='Supports and a raft are added on their own, wherever the part hangs - nothing to set.';
+/* Vienoje eiluteje (V 09-08): ilgesnis sakinys lauzdavosi i dvi, o kortele ir taip
+   auga zemyn labiau uz kaireje esancia perziura. */
+const SUP_IDLE='Supports and a raft are added where the part hangs.';
 function slicerSupportFacts(s){
   const a=$('slicerSupports'), b=$('slicerIslands');
   if(!a||!b)return;
@@ -942,7 +1113,26 @@ function slicerSupportFacts(s){
 }
 /* Sluoksnio valdikliai gimsta ir dingsta kartu: slankiklis, kaukes mygtukas ir
    pati kauke. Anksciau trys vietos slepe tik slankikli. */
-function slicerLayerUI(on){
+/* `paliktiAtramas` - tik siuntimo keliui. Slepiant valdiklius atramos is scenos
+   ISIMAMOS, ir tai teisinga visur, kur rezultato nebeliko: naujas STL, „Discard",
+   isejimas is slicerio. Bet siunciant rezultatas NIEKUR nedingsta, tad ju isemimas
+   nieko neduoda - tik atima is zmogaus ta, ka jis ka tik pasidare (V 09-08).
+   Ka jis matydavo iki 09-08: paspaudus „Save", visa siuntimo ir ispakavimo laika
+   (~40 s prie 800 sluoksniu) - detale BE ATRAMU ir KABANCIA ORE, nes `slicerGeomView`
+   piesia ja pakelta per atramu auksti (ta pati yda aprasyta auksciau, prie
+   `slicerKelk`). Ir butent tuo metu patikrinti nieko negali.
+   ⚠️ Ko si veliavele NEISPRENDZIA, ir tai zinoma:
+     * jei pries „Save" zmogus buvo uzsukes i SLUOKSNIU ar kaukes vaizda, atramu
+       scenoje jau nebera - jas isima `slicerBuildView`, ir tai atskiras kelias;
+     * uodegoje, po ispakavimo, drobe vis tiek buna tuscia ~6-10 s: atramos
+       nuimamos, paskui `dashPreviewPlaceholder`, iki 6 s laukiama `uiBusy`, tada
+       `loadFiles` ir tik po to `pickModel`. Pataisa uzdengia ILGAJA dali, ne visa. */
+/* `tyliai` (V 09-10): grazina valdiklius, BET vaizdo neperpiesia. Reikalinga
+   atsaukus siuntima - siunciant ant drobes nieko neuzdedama (eiga eina i korteles
+   eilute ir i snacka), tad piesinys tebestovi toks, koks buvo. `slicerSetView` cia
+   tik nuvestu kamera i pradine padeti ir sunaikintu zmogaus pasukta ir priartinta
+   vaizda - o jo niekas neprase keisti. */
+function slicerLayerUI(on,paliktiAtramas,tyliai){
   /* Rodyti slankikli ant svetimo vaizdo nera prasmes: jis valdo MUSU rezultata. */
   if(on&&!slicerIsOpen())return;
   const L=$('gl3dLayer'); if(L)L.style.display=on?'flex':'none';
@@ -954,8 +1144,20 @@ function slicerLayerUI(on){
   /* Sluoksnio NUMERIS cia NEBENULINAMAS: valdikliai dingsta ir grizta kaskart
      perjungiant akordeona, o zmogaus vieta sluoksniuose priklauso REZULTATUI -
      ji nulinama tik ten, kur rezultatas keiciasi (`slicerReset`, „Discard"). */
-  if(!on){slicerMaskSet(false); slicerView=0;
-          if(window.gl3dSupports)gl3dSupports(null);}
+  /* Siunciant (`paliktiAtramas`) NIEKO nesugriaunam: kauke tik pasislepia, o jos drobe,
+     sluoksnio numeris, atramos ir `slicerView` lieka tokie patys. Taip „Cancel" grazina
+     zmogu tiksliai i ta vieta, is kurios jis isejo, ir grazina ja NIEKO nepiesdamas.
+     Visais kitais atvejais (akordeonas, „Discard", pabaigtas siuntimas) rezultatas is
+     tikruju paliekamas - tada valom viska (V 09-10). */
+  if(!on){
+    if(paliktiAtramas){const mb=$('slicerMask'); if(mb)mb.style.display='none';}
+    else{slicerMaskSet(false); slicerView=0;
+         if(window.gl3dSupports)gl3dSupports(null);}
+  }
+  else if(tyliai){
+    slicerViewChrome();
+    if(slicerView===2&&slicerMaskOn){const mb=$('slicerMask'); if(mb)mb.style.display='flex';}
+  }
   else slicerSetView(slicerView);
 }
 /* Kurioje 3D poros pusėje zmogus buvo paskutini karta. Be sios atminties
@@ -1048,11 +1250,41 @@ const slicerJoin=(bufs)=>{
   let o=0;parts.forEach(a=>{out.set(a,o);o+=a.length;});
   return out;
 };
+/*
+ * Kiek variklis PAKELE modeli virs pado. Nulis - kai nekele.
+ *
+ * Reiksme imama is paties rezultato (`wasm.z.modelis[0]`), o ne is konstantos:
+ * pakelimo dydis gyvena variklyje (`bridge.cpp` PAKELIMAS_MM), ir antra jo
+ * kopija pulte issiskirtu tyliai - vaizdas nuslinktu, o niekas nezinotu kodel.
+ */
+const slicerPakelimas=()=>{
+  const w=slicerOut&&slicerOut.wasm;
+  return (w&&w.pakelta&&w.z&&w.z.modelis&&w.z.modelis[0])||0;
+};
+const slicerKelk=(pos,dz)=>{
+  if(!dz)return pos;
+  const o=new Float32Array(pos);
+  for(let i=2;i<o.length;i+=3)o[i]+=dz;
+  return o;
+};
+
 const slicerGeomView=(home)=>{
   if(!slicerRaw||!slicerTr||!slicerMod)return false;
   if(!slicerMod.geometrija&&!slicerMod.supportMesh)return false;
   const placed=slicerMod.place(slicerRaw,slicerTr);
-  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(placed),false);
+  /*
+   * ⚠️ Pakeltame rezime modelis vaizde turi buti PAKELTAS.
+   *
+   * Atramos ir padas ateina is variklio jo koordinatemis, o `placed` yra musu
+   * kopija, gulinti ant ploksces. Kol pakelimo nebuvo, abi sutapo (zr. komentara
+   * zemiau), bet ijungus „lifted" jos issiskiria per 5 mm: vaizde matosi ilgos
+   * atramos, tarpas po detale - ir pati detale, gulinti pade. V pastebejo
+   * 09-03: „supportai gerai, kaip pakeltam objektui, o pats objektas nepakeltas".
+   * Faile viskas buvo teisinga (ismatuota: modelis z 5..11, atramos 0..10,3) -
+   * klaida buvo tik piesinyje, bet zmogus sprendzia pagal ji.
+   */
+  const kelk=slicerPakelimas();
+  if(window.gl3dMesh)gl3dMesh(slicerMod.toSceneMesh(slicerKelk(placed,kelk)),false);
   /* Pjuvio aukstis - PER SAVO lauka, ne per bendra `slicesCache`: i ji rasant
      kito modelio perziura likdavo su musu aukščiu ir suplokstedavo (V 08-20). */
   {const H=slicerModelH(); window.gl3dClipHeight=H||null;}
@@ -1159,6 +1391,11 @@ $('slicerGo').addEventListener('click',async()=>{
   const go=$('slicerGo'), prog=$('slicerProg');
   const myRun=++sliceRun;
   sliceRunning=true;
+  /* Eilute lieka issiskleidusi visa pjaustyma, nors `slicerProg` tuscias -
+     kitaip ji issitiestu tik pabaigoje ir pastumtu viska zemiau butent tada,
+     kai zmogus ziuri i rezultata. Kviesti PO `sliceRunning=true`: pries ji
+     patikra dar mato `false` (pirmas bandymas 09-03 tuo ir sukluppo). */
+  if(window.slicerResRowSync)window.slicerResRowSync();
   /* Uzrakintas ir su suktuku. Raudono „Stop" cia nebera - zr. komentara virsuje. */
   btnBusy(go,true);
   /* Ir visas pultas uzsirakina, kaip per printerio darba: uzraktai skaito `uiBusy`,
@@ -1189,9 +1426,21 @@ $('slicerGo').addEventListener('click',async()=>{
        trecdalis), tada piesiami sluoksniai. Kitaip juosta nueitu iki galo ir
        pradetu is naujo - atrodytu, kad kazkas uzstrigo. */
     const supType=(document.querySelector('input[name=slicerSupType]:checked')||{}).value||'regular';
+    const pad=slicerParamai();
+    /* Variklis gali pjauti ta pati modeli kelis kartus: kai atramoms nera vietos -
+       pakelia detale, kai atramos islenda uz ploksces - sumazina (ir tada vel gali
+       pakelti). Juosta kaskart grizta atgal, ir be paaiskinimo tai atrodo kaip
+       strigimas (V 09-17: telefone „varė kokius 4 kartus"). Ratai atpazistami is
+       variklio etapo pavadinimo; pirmas ratas nevardijamas. */
+    const RATO_PRIEZASTIS={
+      'atramoms nera vietos - keliam detale':'raising the part for supports',
+      'per didelis - pjaunam is naujo':'scaled down to fit the plate'};
+    let ratas=1, ratoPriezastis='';
     const r=await slicerMod.slice(placed,{antialias:$('slicerAA').checked,
-      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,'')},
-      (done,total,phase)=>{
+      supportType:supType,name:(slicerFileName||'print').replace(/\.stl$/i,''),
+      pakelta:pad.pakelta,autoPakelti:pad.autoPakelti,parametrai:pad.parametrai},
+      (done,total,phase,etapas)=>{
+        if(RATO_PRIEZASTIS[etapas]){ratas++;ratoPriezastis=RATO_PRIEZASTIS[etapas];}
         /* `btnBusy` turi 60 s isleidimo voztuva (kad negyva uzklausa nepaliktu
            mygtuko amzinai suktis). Didelis modelis pjaustomas ilgiau, tad zyme
            gali nukristi vidury darbo - uzdedam atgal. */
@@ -1215,8 +1464,9 @@ $('slicerGo').addEventListener('click',async()=>{
         prog.textContent='';
         /* Ne piesiam tiesiogiai: atiduodam laikrodziui, kad procentas ir laikas
            visada eitu kartu ir viena neistrintu kito. */
-        paskutinis={ka:what+' '+pct+'%', dalis:f,
-                    eilute:tikri?(done+' / '+total+' layers'):''};
+        const eilute=[tikri?(done+' / '+total+' layers'):'',
+                      ratas>1?('Pass '+ratas+' - '+ratoPriezastis):''].filter(Boolean).join(' · ');
+        paskutinis={ka:what+' '+pct+'%', dalis:f, eilute:eilute};
         piesk();
       });
     /* Ir dar viena patikra: sustabdytas darbas gali sugrizti su gatavu rezultatu,
@@ -1233,8 +1483,51 @@ $('slicerGo').addEventListener('click',async()=>{
       return;}
     slicerOut=r; slicerOut.ml=ml;
     slicerSupportFacts(r.supports);
+    /* FIT-real (modulis nuo 3.4): tilpimas sprendziamas PO atramu, ir jei tikras
+       pedsakas islindo uz plokstes, variklis pats perpjove sumazinta. Pultui lieka
+       du dalykai. Pirma - PASAKYTI: tylus mazinimas yra tas pats, del ko zmogus
+       anksciau pykdavo („sumazino, o nepasake kodel"). Antra - PASITRAUKTI mastelis,
+       nes kitaip slankiklis rodytu 100 %, o faile gultu 96 %: valdiklis meluotu, ir
+       kitas jo bakstelejimas modeli issprogdintu atgal uz plokstes. */
+    let mazNote='';
+    if(r.sumazinta&&r.sumazinta.mastelis>0&&r.sumazinta.mastelis<1){
+      slicerTr.scale*=r.sumazinta.mastelis;
+      /* Ne `\n`: eilute gyvena `<span class='hint'>` be `white-space: pre-line`,
+         tad naujos eilutes nesimatytu ir frazes sulipty (auditas, 09-12). */
+      mazNote=' \u00b7 '+r.sumazinta.tekstas;
+      /* Pastatymo verdiktas („spausdinsis 23 % didesnis nei Fast fit") kalba apie
+         dydi, kurio faile jau nebera - variklis ka tik sumazino. Nuimam, kaip ir
+         prie kiekvieno kito transformacijos pakeitimo. */
+      slicerPlaceNote(null,null);
+      /* Kai NET ir po sumazinimo netelpa, spaudinys bus nupjautas ties krastu -
+         tai ne smulkmena, o sugadintas failas. `#slicerProg` tokiam pranesimui
+         netinka: pirmas „Save" ta eilute perrašo, ir vienintelis ispejimas dingsta.
+         Todel einam tuo paciu kanalu, kaip #116 ispejimas - `#slicerIslands`.
+         ⚠ IR ZENKLAS, IR SPALVA kaip visu kitu to elemento pranesimu: rimciausia
+         eilute korteleje neturi atrodyti kaip eilinis paaiskinimas.
+         SVARBU: ne perrašom, o PRIKABINAM. Ten jau gali stoveti #116 ispejimas
+         („spausdintusi ore"), ir vienas pavojus neturi uzrasyti kito - zmogus
+         pamatytu viena is dvieju ir nezinotu, kad buvo du (auditas, 09-12). */
+      if(r.sumazinta.telpa===false){
+        const isl=$('slicerIslands');
+        if(isl){
+          const senas=(isl.textContent||'').trim();
+          isl.textContent=(senas?senas+' \u00b7 ':'')+'\u26a0 '+r.sumazinta.tekstas;
+          isl.style.color='#e8a020';
+        }
+      }
+      /* Ribos perskaiciuojamos is naujo mastelio, o ne imamos senos: `slicerScaleUI`
+         is ju skaiciuoja ir slankiklio galus, ir aukscio laukeli. Matmenu eilute
+         irgi: kitaip po failo vardu likdavo dydis PRIES sumazinima, ir zmogus,
+         kuriam dydis svarbus, spausdindavo mazesne detale, nei mato (V 09-12). */
+      if(slicerRaw&&slicerMod&&slicerMod.place&&slicerMod.bounds){
+        slicerLastBounds=slicerMod.bounds(slicerMod.place(slicerRaw,slicerTr));
+        slicerScaleUI(slicerLastBounds);
+        slicerDimsLine(slicerLastBounds);
+      }
+    }
     prog.textContent='Sliced in '+((performance.now()-t0)/1000).toFixed(1)+' s \u00b7 '
-      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml';
+      +r.layers+' layers \u00b7 ~'+ml.toFixed(1)+' ml'+mazNote;
     slicerLayerN=r.layers;                          // pradzioj - visas daiktas
     show('printPreviewBarFill',false);
     {const R=$('gl3dLayerRange');
@@ -1266,12 +1559,19 @@ $('slicerGo').addEventListener('click',async()=>{
     msg(e.message,true);
   }finally{
     clearInterval(tiksi);
+    /* Vėliava nuleidziama PIRMA, dar pries isejima. Siandien sitas kelias
+       nepasiekiamas (antro ejimo neileidzia `if(sliceRunning)return`), bet
+       1.1 ateis tikras `abort()` (zr. komentara ties mygtuku), ir nutrauktas
+       ejimas paliktu `sliceRunning=true` amziams: „Slice“ liktu uzrakintas, o
+       rezultato eilute - amzinai issiskleitusi. Viena eilute dabar, valanda
+       ieskojimo tada (pasiule printerio sesija 09-03). */
+    sliceRunning=false;
+    if(window.slicerResRowSync)window.slicerResRowSync();
     /* Sustabdyto (arba pakeisto nauju) pjaustymo uodega neturi liesti nieko: pultas
        jau grizes i darbine busena, o gal jau pjausto kita. */
     if(sliceRun!==myRun)return;
     slicerOverlayOff();
     slicerWorkUI(false);
-    sliceRunning=false;
     btnBusy(go,false);
     slicerBusyNow=false;
     if(typeof syncActionLocks==='function')syncActionLocks();
@@ -1287,10 +1587,47 @@ $('slicerGo').addEventListener('click',async()=>{
 });
 
 $('slicerAA').addEventListener('change',()=>slicerInvalidate());
-/* Perjungus atramu tipa, ankstesnis rezultatas nebegalioja - kitaip „Save"
-   issaugotu tai, ko ekrane jau nebera. */
-document.querySelectorAll('input[name=slicerSupType]').forEach(r=>
-  r.addEventListener('change',()=>slicerInvalidate()));
+/* Pakeitus BET KURI parametra, ankstesnis rezultatas nebegalioja - kitaip „Save"
+   issaugotu tai, ko ekrane jau nebera, o zmogus i printeri issiustu spaudini,
+   supjaustyta su kitais nustatymais.
+   Klausom VISO bloko, o ne kiekvieno jungiklio atskirai: iki 09-03 cia kabejo
+   tik `slicerSupType`, ir penki nauji parametrai si sarga apejo - o pridejus
+   septinta jungikli istorija kartotusi (V 09-03). */
+{const pr=document.getElementById('slicerParams');
+ if(pr)pr.addEventListener('change',e=>{
+   /* FIT BY ir SIZE patys pjaustymo nekeicia, tad rezultato del ju neismetam. Bet
+      jau ikeltam modeliui jie pritaikomi ISKART (V 09-15: perjungei max, supjaustei -
+      ir nieko neistempe). Jei tai pakeicia pastatyma ar dydi, rezultata ismes pats
+      `slicerRender`, kaip ir po bet kurio kito pastatymo pakeitimo. */
+   if(e.target&&SLICER_NE_PJOVIMO.test(e.target.name||'')){
+     slicerStep(); slicerPerjungtas(e.target.name); return;
+   }
+   slicerInvalidate();
+ });}
+/* Dydis PRIES `max`, kad grizus i `keep` modelis grizti i savo dydi, o ne liktu
+   istemptas. Pamirstamas, kai dydi pakeicia pats zmogus ar ikeliamas kitas failas -
+   tada „savo dydis" jau kitas. */
+let slicerScalePriesMax=null;
+function slicerPerjungtas(vardas){
+  if(!slicerRaw||!slicerMod||sliceRunning)return;
+  if(vardas==='slicerFitBy'){slicerFitNumatytas();return;}
+  const pries=slicerTr.scale, max=slicerSizeMode()==='max';
+  let t;
+  if(max){
+    slicerScalePriesMax=pries;
+    t=slicerDydis(true);
+  }else{
+    if(slicerScalePriesMax!==null)slicerTr.scale=slicerScalePriesMax;
+    slicerScalePriesMax=null;
+    slicerDydis(true);                  // grazintas dydis gal netelpa - tada mazinam
+    const pct=Math.round(slicerTr.scale*1000)/10;
+    t=Math.abs(slicerTr.scale-pries)<1e-9?'':'back to '+pct+'%.';
+  }
+  slicerSizeNote(max?'Size max':'Size keep',t);
+  slicerNuimkNetelpa();
+  slicerHome=true;
+  slicerRender();
+}
 /* Uzdarymas VIENOJE vietoje: varnele, bakstelėjimas i vaizda ir modelio
    pasikeitimas visi grazina irankiu juosta - kitaip ji dingtu visam. */
 /* Slicer'io vaizdas VISADA detalus, tad mygtukas rodo busena, o ne
@@ -1349,7 +1686,38 @@ const slicerOwns=v=>{slicerOwnsPreview=v; window.slicerOwnsPreview=v;
                      if(!v)window.gl3dClipHeight=null;   // aukstis buvo musu, ne kito modelio
                      slicerBarUI(v);
                      slicerDetLock(v); slicerCage(v); slicerMarkUI(v); slicerBarMerge(v);
-                     if(!v)slicerLayerUI(false);};
+                     if(!v)slicerLayerUI(false);
+                     slicerToolsFollow(v);
+                     /* Antraste - kartu su perziura. Iki 09-15 ja rase tik `slicerRender`,
+                        tad grizus is SD su SUPJAUSTYTU modeliu (kelias per `slicerBuildView`)
+                        virs slicerio rezultato likdavo SD modelio vardas (printerio sesija). */
+                     if(v){const pt=$('printPreviewTitle');
+                           if(pt&&pt.textContent!=='Slicer preview')pt.textContent='Slicer preview';}};
+/* Formos irankiu juosta priklauso TAM, KAS VALDO PERZIURA, ne vien tam, ar sliceryje
+   yra modelis. Iki 09-15 ji buvo rodoma pastatant, o slepiama tik po issaugojimo -
+   perjungus i SD ji likdavo ant SD modelio, ir paspaudus bet kuri jos mygtuka
+   atsidarydavo slicerio vaizdas, nors atidarytas SD blokas (V 09-15, atkartojo
+   printerio sesija). Grizus i sliceri ji grazinama, jei yra modelis ir irankiai nera
+   uzrakinti (`slicerButtons(false)` - darbas ar spausdinimas). Mastelio langelis
+   gyvena ant tos pacios juostos, tad uzsidaro kartu. */
+function slicerToolsFollow(musu){
+  const t=$('gl3dTools'); if(!t)return;
+  const fit=$('slicerAutoFit');
+  if(musu){
+    if(slicerRaw&&fit&&!fit.disabled&&t.style.display==='none')t.style.display='flex';
+    return;
+  }
+  t.style.display='none';
+  /* Atviras mastelio langelis buvo paslepes kaimynes (`popRow(false)`). `popClose`
+     cia netinka - jis grazintu ir pacia juosta. Grazinam tik kampo grupe;
+     `#gl3dZoom` jau grazino `slicerBarMerge(false)`. */
+  const pp=$('gl3dPop');
+  if(pp&&pp.style.display!=='none'){
+    pp.style.display='none';
+    const zc=$('gl3dZoomCorner'); if(zc)zc.style.display='flex';
+  }
+  slicerStep();          // vaizdo grupe pakyla i paslepto juostos vieta
+}
 /* Sliceryje is vaizdo grupes lieka du mygtukai - narvas ir vaizdo jungiklis, - o
    del dvieju mygtuku laikyti atskira centruota eilute per daug (V 08-20). Tad
    sliceryje jie stoja i ta pacia eilute su formos irankiais, o iseinant grizta
@@ -1388,14 +1756,17 @@ function slicerMarkUI(on){
   if(!on&&typeof window.gl3dMarkOff==='function')window.gl3dMarkOff();
   slicerTopLeft();
 }
-/* Kai matomas tik vienas is dvieju virsutiniu kaireje - jis stovi pirmoje
-   vietoje; kai abu - zymeklis pirmas, pagalba antra. Kitaip likdavo tuscia vieta
-   ten, kur ka tik buvo mygtukas (V 08-20). */
+/* Du virsutiniai kaireje. „?" VISADA pirmas (V 09-15: „tada visada jis ten ir bus,
+   o dingines uz jo esantis zymejimo irankis, ir nereiks sukt galvos"); zymeklis
+   stoja uz jo. Bet plokscioje kaukeje „?" paslepiamas (`slicerViewChrome`) - tada
+   zymeklis pasislenka i pirma vieta, kad kaireje neliktu tuscios skyles (ta pati
+   V 08-20 priezastis, del kurios anksciau pirmas buvo zymeklis). */
 function slicerTopLeft(){
   const w=$('gl3dMarkWrap'), h=$('gl3dHelp');
-  if(!h)return;
-  const zymeklis=!!(w&&w.style.display&&w.style.display!=='none');
-  h.style.left=zymeklis?'44px':'10px';
+  if(h)h.style.left='10px';
+  if(!w)return;
+  const pagalba=!!(h&&h.style.display&&h.style.display!=='none');
+  w.style.left=pagalba?'44px':'10px';
 }
 /* Blokas atsidaro ir uzsidaro svarus: senas modelis, jo vardas ir vaizdas
    negali persekioti tarp atidarymu (V 08-12). */
@@ -1408,7 +1779,7 @@ const slicerReset=()=>{
   $('slicerName').value=''; $('slicerName').disabled=true;
   $('slicerFile').value='';
   $('slicerDims').textContent=''; $('slicerProg').textContent='';
-  {const pn=$('slicerPlaceNote'); if(pn)pn.textContent='';}
+  slicerPlaceNote(null,null);
   $('slicerInfo').textContent='Choose an STL file to begin.';
   $('slicerDiscardLink').style.visibility='hidden';
   slicerSupportFacts(null);
@@ -1443,8 +1814,12 @@ const popClose=()=>{
       else{p.style.display='flex';popRow(false);}
       return;
     }
-    const id={fit:'slicerAutoFit',fitpro:'slicerAutoFitPro',flat:'slicerFlat',flip:'slicerFlip',
-              tilt:'slicerRotX',rot:'slicerRotZ'}[t];
+    /* Viena „Fit" ikona (V 09-15): perjungikliai jau perstato modeli iskart, tad dvi
+       ikonos dubliavo „Fit by". Ikona lieka tam, kad po rankiniu posukiu ar mastelio
+       pastatyma butu galima grazinti vienu paspaudimu - pazymeto radijo mygtuko
+       paspaudimas nieko nedaro. */
+    if(t==='fit'){slicerFitNumatytas();return;}
+    const id={flat:'slicerFlat',flip:'slicerFlip',tilt:'slicerRotX',rot:'slicerRotZ'}[t];
     const b=id&&$(id); if(b&&!b.disabled)b.click();
   });
   const pd=document.getElementById('popDone');
@@ -1458,7 +1833,8 @@ const SCALE_MIN_PCT=0.1;
 const popScaleApply=pct=>{
   if(!slicerRaw)return;
   const v=Math.max(SCALE_MIN_PCT/100,Math.min(3,pct/100));
-  slicerTr.scale=v; slicerRender();
+  /* Dydi nustate zmogus - „scaled up to 148%" nuo sios akimirkos meluotu. */
+  slicerTr.scale=v; slicerSizeNote('',''); slicerScalePriesMax=null; slicerRender();
 };
 {const pr=$('popScaleRange');
  /* Zyme uzsideda PRIES `input`, tad pirmas pat perpiesimas jau zino, kad vyksta
@@ -1517,17 +1893,29 @@ $('gl3dLayerRange').addEventListener('pointerdown',e=>e.stopPropagation());
 $('slicerSave').addEventListener('click',async()=>{
   if(!slicerOut)return;
   if(slicerBusyStop())return;
-  let savedName='', renamed=false, namesWere=[];
+  let savedName='', renamed=false, namesWere=[], cancelled=false;
+  /* Ar issaugotas failas buvo nupjautas ties krastu, ir kuo tai paaiskinti.
+     Zyme imama PRIES valyma: `slicerOut` nunulinamas vos issaugojus, o
+     pervadinimo kelias vykdomas veliau - tad ten jis jau tuscias ir salyga
+     visada butu neteisinga. Taip ir buvo: ketvirto rato pataisa atrode teisinga,
+     bet TYLIAI atsakydavo `false`, ir zmogus butu gaves sugadinta faila be jokio
+     ispejimo (printerio sesijos auditas, penktas ratas, 09-12). */
+  let nupjZyme=false, nupjTekstas='';
   const nm=($('slicerName').value||'').trim().replace(/[^A-Za-z0-9_-]/g,'');
   if(!nm){msg('Give the model a name first.',true);$('slicerName').focus();return;}
   slicerOut.name=nm;
   const btn=$('slicerSave'), prog=$('slicerProg');
+  /* Ka kortele rase pries siuntima: „Sliced in 13.4 s · 172 layers · ~1.5 ml".
+     Atsaukus ta eilute grazinam - zr. `finally`. Vaizdo puses (`slicerView`) isiminti
+     nebereikia: siunciant ji nebenulinama, tad Cancel lieka ten, kur zmogus buvo. */
+  const progWas=prog.textContent;
   btn.disabled=true;
   /* Ikeliant ir ispakuojant ekrane - uzrasas, o ne daiktas, kuri butu galima
      sukioti ar pjaustyti sluoksniais. Tad tos pacios juostos, kaip ir pjaustant:
      formos irankiai, vaizdo jungiklis ir sluoksniu slankiklis pasitraukia
      (V 08-20: „uploading ir unpacking rodo zoom ir toolus - ne i tema"). */
-  slicerButtons(false); slicerWorkUI(true); slicerLayerUI(false);
+  /* `true` abiem: siunciant atramos lieka scenoje (zr. `slicerLayerUI`). */
+  slicerButtons(false); slicerWorkUI(true,true); slicerLayerUI(false,true);
   /* Pasisakom, kad printeri uzimam MES. Be sito pultas per savo apklausa raso
      „Printer not answering - an upload, share or other background job..." tame
      paciame lange, kuris ka tik paspaude „Save": eiga sukasi korteleje, o virsuje
@@ -1603,7 +1991,7 @@ $('slicerSave').addEventListener('click',async()=>{
      if(conflict){
        /* Tas pats langelis, kaip pulto ikelimui - su abieju modeliu palyginimu. */
        const choice=await uploadConflictChoice(conflict);
-       if(choice!=='replace'&&choice!=='rename')throw new Error('Save cancelled');
+       if(choice!=='replace'&&choice!=='rename'){cancelled=true;throw new Error('Save cancelled');}
        renamed=choice==='rename';
        await send(choice);
      }}
@@ -1638,7 +2026,22 @@ $('slicerSave').addEventListener('click',async()=>{
     /* Pervadinimo atveju TYLIM: prasytas vardas cia dar neteisingas, o blyksnis su
        netikru vardu blogiau nei sekundes tyla - tikra zinute ateina zemiau, kai
        pamatom, kuris modelis atsirado (antras auditas 08-17). */
-    if(!renamed)msg('\u201c'+done.name+'\u201d is on the printer.');
+    /* Issaugojus kortele uzsidaro ir `#slicerIslands` isvalomas, o failas su
+       nupjautu krastu jau guli kortelėje - tad tas vienas atvejis pasakomas ir
+       snackbaru. VIENAS pranesimas, ne du: du `msg()` is eiles ta pacia
+       milisekunde vienas kita perrašo, ir zmogus netektu patvirtinimo, kad failas
+       apskritai nukeliavo (pulto taisykle: vienas laukimas - vienas pranesimas;
+       ketvirtas auditas, 09-12). */
+    const nupjautas=!!(done&&done.sumazinta&&done.sumazinta.telpa===false);
+    nupjZyme=nupjautas; nupjTekstas=nupjautas?done.sumazinta.tekstas:'';
+    /* Be `sticky` (V 09-12): lipnus pranesimas pulte neturi savininko, kuris ji
+       nuimtu - busenos apklausa lipniu sаmoningai neliecia, tad telefone jie kabetu
+       per visa virsu ir dar gaudytu paspaudimus. O netelpancia detale zmogus MATO
+       ekrane slicindamas, tad pranesimo pergyvenimas per kelis pulto kelius yra ne
+       apsauga, o musu pacit susikurta pareiga. */
+    if(!renamed)
+      msg('\u201c'+done.name+'\u201d is on the printer.'
+          +(nupjautas?' \u00b7 '+done.sumazinta.tekstas:''), nupjautas);
     prog.textContent='Saved as \u201c'+done.name+'\u201d \u00b7 '+done.layers
       +' layers \u00b7 ~'+done.ml.toFixed(1)+' ml';
     /* Issaugojimas UZBAIGIA darba: modelis lieka atmintyje, o „Slice" ijungtas
@@ -1660,19 +2063,52 @@ $('slicerSave').addEventListener('click',async()=>{
     sdCollapse(false);
     savedName=done.name;
     namesWere=namesBefore;
-  }catch(e){ prog.textContent=e.message; msg(e.message,true); }
+  /* Atsaukimas nera klaida, tad ir snackas ne raudonas: raudona spalva cia sakytu,
+     kad kazkas nepavyko, o nepavykti neturejo ko - zmogus pats taip pasirinko. */
+  }catch(e){ prog.textContent=e.message; msg(e.message,!cancelled); }
   finally{
     btn.disabled=false;
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof bgJob!=='undefined')bgJob='';
     if(typeof syncActionLocks==='function')syncActionLocks();
+    /* ATSAUKIMAS NERA PABAIGA. Radus toki pati varda printeryje klausiama, ka daryti,
+       ir „Cancel" reiskia tik tiek, kad siuntimo nebuvo: suslicintas modelis liko
+       atmintyje, „Send to printer" veikia toliau. Tad ir vaizdas turi likti toks, koks
+       buvo pries paspaudziant - grazinam tik paslėptus valdiklius.
+       Be sitos sakos zmogus paspaudes Cancel likdavo su tuscia drobe („Choose an STL
+       file to slice"), be formos mygtuku ir be vaizdo juostos, nors modelis niekur
+       nedingo - o antras „Send" tada siusdavo daikta, kurio ekrane nebesimato
+       (V 09-10). `slicerOwnsPreview` cia NEnuimam, tad `slicerButtons(true)` grazina
+       ir juostele ant vaizdo. */
+    if(cancelled){
+      /* NIEKO NEPIESIAM (V 09-10). Siunciant ant drobes neuzdedama jokia perdanga -
+         eiga rodoma korteles eiluteje ir snacke, - tad piesinys visa laika stovejo
+         nepaliestas. Belieka grazinti tai, kas buvo PASLEPTA: formos irankius, vaizdo
+         juosta, sluoksniu slankikli ir kaukes dėžę. `tyliai` sarga neleidzia niekam
+         is to kelio nuklysti i `slicerSetView` - o butent jis persistato kamera ir
+         sunaikina zmogaus pasukta bei priartinta vaizda.
+         ⚠️ `slicerOverlayOff()` cia kviesti NEGALIMA: jis valo `printPreviewCanvas`,
+         o „Printed layers" vaizdas gyvena kaip tik toje drobeje - Cancel ji istrindavo. */
+      slicerButtons(true); slicerWorkUI(false,false,true);
+      prog.textContent=progWas;
+    }else{
     /* Kad ir kaip baigesi - „Unpacking..." nebeturi likti kaboti drobeje
        (V 08-12: pranesimas liko, nors failas seniai suejo). */
     slicerOwns(false);
     if(gl3dUp())gl3dClip(null);   // kitas vaizdas neturi likti nupjautas
     {const t=$('gl3dTools'); if(t)t.style.display='none';}
     slicerDetLock(false);
-    dashPreviewPlaceholder();
+    /* „Pasirink modeli" deze - TIK nepavykus. Pavykus po sios vietos dar eina
+       uodega: iki 6 s laukiama, kol printeris atsileis, tada `loadFiles`, ir tik
+       tada `pickModel` atidaro ka tik issaugota modeli. Piesiant deze cia, ta
+       6-10 s zmogus ziuretu i tuscia drobe su uzrasu „Tap a model in the SD
+       manager" - nors modelis jau printeryje ir tuoj atsidarys pats (V 09-08).
+       Nepavykus - atvirksciai: dezes reikia, nes daugiau nieko nebus.
+       ⚠️ Perdavimo (`slicerOwns(false)`) cia ATIDETI NEGALIMA - bandyta 09-08,
+       ir `dashPreviewPlaceholder()` po `pickModel` isvalydavo `dashPreviewName`,
+       o besikraunanti perziura nutrukdavo ties savo sarga. Atideta tik deze. */
+    if(!savedName)dashPreviewPlaceholder();
+    }
   }
   if(!savedName){loadFiles&&loadFiles();return;}
   /* Uodega irgi yra MUSU darbas: `loadFiles` perskaito korteles sarasa, po jo
@@ -1680,6 +2116,9 @@ $('slicerSave').addEventListener('click',async()=>{
      kaip tik po „... is on the printer." (V 08-18). Ta pati zyme, kaip perziuros
      siurbimui: apklausa tyli, kol dirbam. */
   if(typeof setPreviewBusy==='function')setPreviewBusy(true);
+  /* Ar perziura tikrai peremė drobe. Zemiau yra keliu, kur uodega baigiasi nieko
+     neatidariusi, ir tada deze reikalinga - zr. `finally`. */
+  let perimta=false;
   try{
   /* PIRMA palaukiam, kol busena atsileis, ir tik TADA imam sarasa. Atvirksciai
      buvo bergzdzia: `loadFiles` pati turi ankstyva isejima „spausdinant SD
@@ -1714,13 +2153,21 @@ $('slicerSave').addEventListener('click',async()=>{
                    .map(i=>i.name);
     if(added.length===1){
       openName=added[0];
-      msg('Saved as “'+openName+'” - that name was taken.');
+      /* Ir cia prikabinam ispejima: kortele jau uzdaryta, `#slicerIslands`
+         isvalytas, tad be sito paskutinis dalykas, kuri zmogus mato, butu
+         „issaugota", o apie nupjauta krasta neliktu nieko (auditas, 09-12). */
+      /* Skaiciuojam is `slicerOut`, o ne is toliau esancio `nupjautas`: ta eilute
+         gyvena kitoje funkcijoje, ir `node --check` tokios klaidos nepagautu -
+         ji issilietu tik naršykleje, kaip tik tame kelyje, kuri retai matom. */
+      msg('Saved as “'+openName+'” - that name was taken.'
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
       prog.textContent='Saved as “'+openName+'” (the name was taken).';
     }else{
       /* Neaisku, kuris naujas - geriau nieko neatidaryti, nei atidaryti ne ta. */
       openName='';
       prog.textContent='Saved under a new name - pick it from the list.';
-      msg('Saved under a new name - pick it from the list.');
+      msg('Saved under a new name - pick it from the list.'
+          +(nupjZyme?' · '+nupjTekstas:''), nupjZyme);
     }
   }
   if(!openName)return;   // zyme nuima `finally` zemiau
@@ -1735,19 +2182,38 @@ $('slicerSave').addEventListener('click',async()=>{
      nedingsta, jis tik susiskleidzia (V 08-20). */
   slicerOpen(false);
   if(typeof pickModel==='function')pickModel(openName);
+  /* Ar perziura is tikruju atsidare. `pickModel` ir `dashPreview` turi tylius
+     ankstyvus isejimus (printeris dar dirba, web valdymas isjungtas, vyksta
+     dalijimasis), o varda jie uzsiraso PRIES pirma `await` - tad iskart po
+     kvietimo si eilute jau sako tiesa. */
+  perimta=(typeof dashPreviewName!=='undefined'&&dashPreviewName===openName);
   }finally{
     if(typeof setPreviewBusy==='function')setPreviewBusy(false);
     slicerWorkUI(false); slicerButtons(true);
     if(slicerOut)slicerLayerUI(true);
+    /* Deze kaip atsarginis variantas. Pirmajame `finally` ji piesiama tik nepavykus,
+       nes pavykus uodega modeli atidaro pati - bet uodegoje yra trys keliai, kur tai
+       neivyksta: neaisku, kuris modelis naujas (`openName` tuscias); `pickModel`
+       tyliai grizo, nes printeris dar dirba; `filesShowName` mete. Be sios eilutes
+       drobeje tada liktu kaboti senas slicerio vaizdas be irankiu, ir jo niekas
+       nebeperimtu - apklausos sarga irgi tyli, kol `slicerOwnsPreview` nuimtas, o
+       `dashPreviewName` tuscias (printerio sesijos vartai 09-08). */
+    if(!perimta)dashPreviewPlaceholder();
   }
 });
 
 {const b=$('slicerFitNow');
- if(b)b.addEventListener('click',()=>{const a=$('slicerAutoFit'); if(a&&!a.disabled)a.click();});}
+ if(b)b.addEventListener('click',slicerFitNumatytas);}
 {const b=$('slicerSend');
  if(b)b.addEventListener('click',()=>{const sv=$('slicerSave'); if(sv&&!sv.disabled)sv.click();});}
 $('slicerDiscardLink').addEventListener('click',e=>{
   e.preventDefault(); slicerOut=null;
+  /* Atramas nuimam CIA, ne per `slicerInvalidate`: rezultatas jau isvalytas eilute
+     auksciau, tad ji ties `if(!slicerOut)return` grizta nieko nedariusi. Modelis
+     nukrenta teisingai (ji perpiesia `slicerRender`), o atramos butu likusios
+     stoveti ore aplink tuscia vieta - antroji tos pacios ydos puse, kaip po
+     „Reset“ (pagavo printerio sesijos vartai 09-03). */
+  if(window.gl3dSupports)gl3dSupports(null);
   slicerLayerN=1; slicer3dLayer=null;   // rezultato nebera - nebera ir vietos jame
   show('printPreviewBarFill',true);slicerLayerUI(false);slicerSupportFacts(null);
   $('slicerSave').disabled=true;
@@ -1766,3 +2232,147 @@ setTimeout(()=>{
   if(yra&&window.akordPradinis&&akordPradinis()==='slicer'&&!slicerIsOpen())slicerOpen(true,true);
   else akordSync();
 },0);
+
+/*
+ * SL-params (V 09-02). Surenka valdiklius i tai, ko laukia modulis.
+ *
+ * Siunciami VISI keturi laukai kiekviena karta; nulis juose reiskia „palik
+ * varikliui numatytaji". Tuo ir remiasi pazadas, kad nieko nesukant elgsena
+ * nesikeicia - NE tuo, kad laukas praleidziamas (taip klaidingai sake sitas
+ * komentaras; pagavo printerio sesija 09-02). Isimtis - RAFTAS: jo numatytoji
+ * skaiciuojama is `RAFT_MM`, siekiant 0,30 mm FIZINIO pado. Nuo 09-06 tai
+ * 3 sluoksniai (buvo 6): ismatuota, kad atspausdintas padas iseina ~0,15 mm
+ * storesnis uz nominala, tad nominalus 0,15 ir duoda tuos 0,30. Zemiau prie
+ * `RAFT_MM` - pilna matavimo lentele ir salygos.
+ */
+/*
+ * Sluoksnio aukstis, kuriuo pjausto NARSYKLE.
+ *
+ * ✅ 0,05 cia stovi SAMONINGAI (V 09-06) - tai ne trukumas ir netaisytina.
+ * Failas pjaustomas smulkiai VIENA karta, o greiti ir kokybe zmogus renkasi jau
+ * prie printerio: nustacius 0,1 mm firmware ima KAS ANTRA paveiksleli ir zengia
+ * 0,1 (`PNG.ino:229`; tas pats `Import.ino:112`, `Resume.ino:173`,
+ * `Network.ino:984`, `Network.ino:1465`). Jei narsykle pjaustytu pagal profili,
+ * to pasirinkimo nebeliktu - persigalvojus reiketu pjaustyti is naujo.
+ *
+ * ⚠️ Todel NEPADUOK cia tikrosios profilio reiksmes „pataisydamas" - sulauzytum
+ * ta pasirinkima. Plane buves punktas `SL-lh` aprase tai kaip yda; jis isimtas
+ * 09-06 V nurodymu (zr. atminties `sprendimu-registras`).
+ *
+ * Rafto pasekme, del kurios formules keisti NEREIKIA: raftas yra pirmi failo
+ * sluoksniai, tad spausdinant 0,1 mm is triju atspausdinami du - 0,20 mm vietoj
+ * 0,15. Abu V ruoze. (Jei kada sita konstanta vis delto taptu kintama: dalyba
+ * duotu 1, nes `0.15/0.1` kompiuteriui yra 1,4999999999999998 - iki 2 pakelia
+ * tik `Math.max` grindys zemiau. Pagavo printerio sesija 09-06.)
+ */
+const SLICER_LH=0.05;
+/* Rafto storis, kurio siekiam. Tikslas nepakito - vis dar 0,3 mm fizinio pado,
+   toks pat, koki duoda PrusaSlicer, ir V praktikos etalonas. Pakito supratimas:
+   ATSPAUSDINTAS padas iseina ~0,15 mm storesnis uz nominala, tad nominalus 0,15
+   praktikoje ir duoda tuos 0,3 mm. Iki 09-06 cia stovejo 0,30, t. y. sesi
+   sluoksniai, ir fiziskai isejo 0,50 mm.
+   Ismatuota ant gelezies (V 09-06, kuponas `raftai.zip`): 0,15 nominalo -> 0,30
+   fiziskai, nusiimo BE JEGOS; 0,30 -> 0,50, reikejo jegos; 0,60 -> 0,75 ir
+   1,00 -> 1,10, abu su jega. Visi keturi laikesi spausdinant, nei vienas neliko
+   ant pleveles - tad plonesnis nieko nepraranda.
+   ⚠️ SALYGOS, kuriomis tai matuota: sluoksnis 0,05 mm, greitoji derva,
+   ekspozicija 18 s / 8 s. Priedo priezastis NEISMATUOTA (itariam kietejimo gyli,
+   o jis priklauso nuo dervos ir ekspozicijos) - kita derva gali duoti kita prieda.
+   ✅ Skirtingi sluoksniu aukstai issitvarko PATYS, formules keisti nereikia.
+   Narsykle pjausto 0,05 SAMONINGAI (V 09-06): failas pjaustomas smulkiai viena
+   karta, o greiti/kokybe zmogus renkasi prie printerio - nustacius 0,1 firmware
+   ima kas antra paveiksleli (`PNG.ino:229`). Tad is triju rafto sluoksniu tada
+   atspausdinami du: 0,20 mm vietoj 0,15. Abu V ruoze. Neismatuota tik viena -
+   ar +0,15 priedas toks pat prie 0,1 mm.
+   ⚠️ Naudojama TIK numatytajai reiksmei apskaiciuoti. Zmogui milimetrai
+   NERODOMI (V 09-03): jie butu teisingi tik prie 0,05, nes `SLICER_LH` yra
+   konstanta - o sluoksniu skaicius teisingas prie bet kurio profilio. */
+const RAFT_MM=0.15;
+/* Grindys 2, ne 1: prie VIENO sluoksnio raftas prie detales nepriauga - padas ir
+   detale lieka atskiri kunai (ismatuota 09-03). Todel „1" 09-06 isimtas ir is
+   korteles mygtuku (liko 2 · 3 · 6). */
+const raftoNumatytas=()=>Math.max(2,Math.round(RAFT_MM/SLICER_LH));
+
+function slicerParamai(){
+  const r=n=>(document.querySelector('input[name='+n+']:checked')||{}).value;
+  const vieta=r('slicerPlace')||'auto';
+  return {
+    pakelta:vieta==='lift',
+    /* „auto“ palieka #116 automatika (perpjauna pakelta, jei kitaip atramu
+       nulis); „on pad“ ir „lifted“ reiskia, kad zmogus nusprende pats. */
+    autoPakelti:vieta==='auto',
+    parametrai:{
+      tankis:parseFloat(r('slicerSupDens')||'1')||1,
+      smaigalys:parseFloat(r('slicerTip')||'0')||0,
+      raftoSluoksniai:parseInt(r('slicerRaft')||String(raftoNumatytas()),10)
+                      ||raftoNumatytas(),
+      glotninimas:(r('slicerSmooth')||'on')!=='off'
+    }
+  };
+}
+
+/* „Reset“ - viena vieta, kur surasyta, kas yra numatytoji. Be jos zmogus,
+   pasukiojes kelis jungiklius, nebeturetu kaip grizti, o „kaip buvo“ atmintinai
+   neatsimenamas. */
+/*
+ * Tuscia rezultato eilute suskleidziama. Steta per stebetoja, o ne kiekvienoje
+ * vietoje, kur rasomas `slicerProg`: tu vietu yra sesios, ir septinta kada nors
+ * atsirastu be sitos eilutes (taip jau buvo su uzrakinimu - V 08-20).
+ */
+(function(){
+  const pr=document.getElementById('slicerProg');
+  const eil=pr&&pr.closest('.calRow');
+  if(!pr||!eil)return;
+  /* Pjaustant `slicerProg` istustinamas (eiga piesiama drobeje), tad be
+     `sliceRunning` salygos eilute susiskleistu visam pjaustymui, o pabaigoje
+     staiga issitiestu ir pastumtu parametrus bei faktus - butent tada, kai
+     zmogus ziuri i rezultata (pagavo printerio sesija 09-03). */
+  const tikrink=()=>eil.classList.toggle('tuscia',
+    !(pr.textContent||'').trim() && !sliceRunning);
+  window.slicerResRowSync=tikrink;
+  tikrink();
+  new MutationObserver(tikrink).observe(pr,{childList:true,characterData:true,subtree:true});
+})();
+
+(function(){
+  const a=document.getElementById('slicerParamsReset');
+  if(a)a.addEventListener('click',e=>{e.preventDefault();slicerParamaiReset();});
+  /* Numatytosios statomos cia, o ne zymeje: rafto reiksme skaiciuojama is
+     sluoksnio aukscio, tad markup'e jos ir negali buti. */
+  slicerParamaiReset();
+})();
+
+/* Kokie parametrai nustatyti dabar - vienu tekstu. Reikia tik palyginimui:
+   „Reset“ turi panaikinti rezultata TIK tada, kai jis is tikro ka nors pakeite,
+   o ne kaskart, kai i ji paspaudziama.
+   Vardai imami IS PACIO bloko, o ne surasomi ranka: ranka surasytas sarasas yra
+   tas pats spastas, kaip klausytojas ties vienu jungikliu - septintas parametras
+   i parasa nepatektu, „Reset“ jo nepamatytu, ir „Send to printer“ liktu gyvas su
+   failu, supjaustytu kitais nustatymais (pagavo printerio sesija 09-03). */
+/* Isimtis viena - tie, kurie pjaustymo nekeicia (FIT BY, SIZE). Jie is parašo
+   iskerpami VARDU, o ne atrenkami i sarasa, tad naujas pjaustymo parametras vis tiek
+   pateks i parasa pats. */
+function slicerParamaiParasas(){
+  return [...document.querySelectorAll('#slicerParams input:checked')]
+    .filter(e=>!SLICER_NE_PJOVIMO.test(e.name))
+    .map(e=>e.name+'='+e.value).join('|');
+}
+
+function slicerParamaiReset(){
+  const pries=slicerParamaiParasas();
+  const buvoFit=slicerFitBy(), buvoSize=slicerSizeMode();
+  const zym={slicerSupType:'regular',slicerSupDens:'1',slicerPlace:'auto',
+             slicerTip:'0',slicerRaft:String(raftoNumatytas()),slicerSmooth:'on',
+             slicerFitBy:'flat',slicerSize:'keep'};
+  Object.keys(zym).forEach(n=>{
+    const el=document.querySelector('input[name='+n+'][value="'+zym[n]+'"]');
+    if(el)el.checked=true;
+  });
+  if(pries!==slicerParamaiParasas())slicerInvalidate();
+  slicerStep();
+  /* Radijo zymejimas is kodo `change` ivykio nesukelia - tad Reset turi pritaikyti
+     FIT BY / SIZE pats, kaip ir rankinis perjungimas. Pradzioje (`slicerRaw` dar nera)
+     `slicerPerjungtas` tiesiog nieko nedaro. */
+  if(buvoSize!==slicerSizeMode())slicerPerjungtas('slicerSize');
+  if(buvoFit!==slicerFitBy())slicerPerjungtas('slicerFitBy');
+}

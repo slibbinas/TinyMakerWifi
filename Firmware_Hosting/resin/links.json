@@ -1,6 +1,7 @@
 {
   "_doc": "Where each resin's Buy link actually goes. The printer never sees this: profiles carry https://tinymakerwifi.com/r/<slug> (the firmware accepts a link only from our own domain), and the worker resolves it here. Value is the shop URL, or {\"url\": \"...\", \"geo\": {\"US\": \"...\"}} when the same resin is bought in different places depending on the buyer. Changing a partner is an edit here - no firmware release, no reinstalled profile. A slug missing from this file simply shows no link.",
-  "sunlu-tough": "https://www.sunlu.com/",
-  "anycubic-ww-clear": "https://www.anycubic.com/",
-  "anycubic-ww-black": "https://www.anycubic.com/"
+  "anycubic-ww": "https://www.awin1.com/cread.php?awinmid=69360&awinaffid=3097071&clickref=dashboard&ued=https%3A%2F%2Fstore.anycubic.com%2Fproducts%2Fwater-wash-resin",
+  "anycubic-ww-005": "https://www.awin1.com/cread.php?awinmid=69360&awinaffid=3097071&clickref=dashboard&ued=https%3A%2F%2Fstore.anycubic.com%2Fproducts%2Fwater-wash-resin",
+  "sunlu-tough": "https://store.sunlu.com/products/sunlu-high-toughness-and-high-temperature-uv-resin-1000g?sca_ref=12349708.pfGn2RPKtG&utm_source=sunluaffiliate&utm_medium=sunluaffiliate",
+  "sunlu-tough-010": "https://store.sunlu.com/products/sunlu-high-toughness-and-high-temperature-uv-resin-1000g?sca_ref=12349708.pfGn2RPKtG&utm_source=sunluaffiliate&utm_medium=sunluaffiliate"
 }
