@@ -359,18 +359,20 @@ function reikiamasMastelis(pedsakas) {
  * Suslicina jau pastatyta modeli.
  *
  * @param pos        trikampiai (Float32Array, 9 skaiciai vienam) - PO `place()`
- * @param opts       { supportType:'regular'|'tree', layerHeight, name }
+ * @param opts       { supportType:'regular'|'tree'|'no', layerHeight, name, nemazinti }
  * @param onProgress (done, total, phase) - kaip senajame modulyje
  * @returns { blob, files, layers, rawMl, supports, preview }
  */
 export async function slice(pos, opts, onProgress) {
   const o = opts || {};
   const medis = o.supportType === 'tree' || o.tree === true;
+  /* SL-nosup (V 09-19): „no" - nei atramu, nei rafto; modelis pjaustomas, koks yra. */
+  const beAtramu = o.supportType === 'no';
   const sluoksnis = o.layerHeight || LAYER_MM;
 
   const kopija = new Float32Array(pos);          // savininkyste keliauja i gija
   const r = await paklausk(
-    { tipas: 'pjaustyk', pos: kopija.buffer, sluoksnis, medis,
+    { tipas: 'pjaustyk', pos: kopija.buffer, sluoksnis, medis, beAtramu,
       vardas: o.name || 'spaudinys',
       /* #116: pado rezimas. `pakelta` - priverstinai, `autoPakelti` - leidimas
          darbininkui perpjauti pakelta detale, kai kitaip atramu nera. Jungiklis
@@ -401,7 +403,22 @@ export async function slice(pos, opts, onProgress) {
      perpjaunam sumazinta TIEK, kiek realiai truko, ir pasakom kodel. Antro rato
      nebedarom (`_fitAntras`): naujas mastelis skaiciuotas is tikru ribu, o
      begalinis mazinimas butu blogiau uz viena kartą per daug. */
-  if (!o._fitAntras) {
+  /* SL-keep (V 09-19): su Size keep dydis lieka toks, koks ekrane - zmogus gali
+     sąmoningai norėti didesnės detalės savo rizika. Nemazinam, tik pasakom, kad
+     krasto atramos bus nupjautos. Pats modelis uz ploksces cia nepatenka - ji
+     pultas pries pjaustyma sulaiko („It does not fit yet"). */
+  if (o.nemazinti && !o._fitAntras && reikiamasMastelis(r.pedsakas) < 1) {
+    r.uzKrasto = {
+      mastelis: 1,
+      proc: 0,
+      pedsakas: r.pedsakas,
+      pedsakasPo: r.pedsakas || null,
+      telpa: false,
+      tekstas: 'Supports reach past the plate and will be cut at the edge - '
+               + 'Size keep leaves your size as it is.'
+    };
+  }
+  if (!o._fitAntras && !o.nemazinti) {
     const mastelis = reikiamasMastelis(r.pedsakas);
     if (mastelis < 1) {
       /* Pirmo ejimo vaisiu nebereikia, o jie dideli: peržiūra ~24 MB (160 kadru
@@ -454,6 +471,13 @@ export async function slice(pos, opts, onProgress) {
      jokio perdavimo per zinutes), o cia tik paverciam ji zinute kortelei. */
   const a = r.auto;
   const perspejimas = !a ? null
+    : a.beAtramu
+      /* SL-nosup: zmogus atramas isjunge pats - sakom, kur tai nepavyks, bet
+         pjaustyti ir siusti netrukdom. */
+      ? ('Supports are off, but ' + a.salu + (a.salu === 1 ? ' spot starts' : ' spots start')
+         + ' in mid-air (the lowest around layer ' + a.sluoksnis + ', about '
+         + a.mm2.toFixed(1) + ' mm²) - it will not print there. Pick regular or tree, '
+         + 'or print it as it is at your own risk.')
     : a.pakelta
       ? ('This model had to be lifted 5 mm so supports would fit - about '
          + a.mm2.toFixed(1) + ' mm² of it would otherwise have printed in mid-air. '
@@ -481,6 +505,8 @@ export async function slice(pos, opts, onProgress) {
     /* Tikras pedsakas mm, ploksces centras - nulis. Pultui reikia, kad galetu
        parodyti, kiek vietos liko, ir kad `FIT-real` butu patikrinamas is issores. */
     pedsakas: r.pedsakas || null,
+    /* SL-keep: Size keep - dydis nekeistas, bet krasto atramos bus nupjautos. */
+    uzKrasto: r.uzKrasto || null,
     rawMl: d.turis.viso_ml,
     supports: {
       /* #116: `tasku` yra SEJOS taskai - vietos, kurioms atramu galetu reiketi.
