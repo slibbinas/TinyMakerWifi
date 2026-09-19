@@ -53,7 +53,13 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    vienas kaimynas - be inline-flex apvalkalo kampai issibegiotu i bloko krastus.
    `height:100%` ant apvalkalo irgi butinas: drobes `height:100%` matuojamas nuo
    JO, ir be sito abu susitraukia i nuli (ismatuota stende 08-22). */
-#plateFrame{position:relative;display:inline-flex;line-height:0;height:100%;
+/* Ploksce telpa i bloka ABIEM kryptimis ir laiko 4:3: plotis = mazesnis is bloko plocio ir
+   bloko aukscio x 4/3 (konteinerio vienetai). Iki tol drobe turejo `height:100%` ir
+   `max-width:100%` - aukstame siaurame bloke (isdidinta perziura telefone) aukstis
+   issitempdavo, plotis nusikirsdavo, ir sluoksnis buvo suspaustas iki 0,62 proporcijos
+   (ismatuota 0.17.7 ir 0.17.8 stende, V 2026-09-19). */
+#slicerMask{container-type:size}
+#plateFrame{position:relative;display:inline-flex;line-height:0;
   align-self:center;outline:1px solid var(--line)}
 /* KETURI kampai, ne du (V 08-22). Antro elemento cia nera is grazumo:
    pseudoelementu buna po du, tad keturiems kampams reikia dvieju seimininku. */
@@ -316,7 +322,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
              320x240 proporcija ir pati yra juoda: kas juodame staciakampyje, tas
              ir spausdinama, o aplink - kortele (V 08-19). -->
         <div id='slicerMask' style='display:none;position:absolute;inset:0;z-index:1;align-items:center;justify-content:center;background:var(--card)'>
-          <span id='plateFrame'><canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:auto;height:100%;max-width:100%;aspect-ratio:320/240;image-rendering:pixelated'></canvas><span id='plateCorners'></span></span>
+          <span id='plateFrame'><canvas id='slicerMaskCv' width='320' height='240' style='background:#000;width:min(100cqw,calc(100cqh*4/3));height:auto;aspect-ratio:320/240;image-rendering:pixelated'></canvas><span id='plateCorners'></span></span>
         </div>
         <!-- „?" VISADA pirmas, kairysis krastas (V 2026-09-15): tada jis visada toje
              pacioje vietoje, o defektu zymeklis atsiranda ir dingsta uz jo.
