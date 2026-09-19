@@ -163,7 +163,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.17.7</span>
+  <span class="badge">User Manual · v0.17.8</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -344,8 +344,9 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li><b>Stand it the right way up.</b> Two switches under the slicer settings decide how the slicer places
       the part: <b>Fit by</b> - <i>flat</i> lays it on its widest side, <i>supports</i> searches for the rotation that
       needs the fewest supports, the way PrusaSlicer does, and tells you how much bigger or smaller the part can
-      print than with a flat fit; and <b>Size</b> - <i>keep</i> leaves your size (scaling down only when it does not
-      fit), <i>max</i> makes it as large as the plate allows, up to 300&nbsp;%. Changing either switch re-places the
+      print than with a flat fit; and <b>Size</b> - <i>keep</i> leaves your size (scaling down only when the part
+      itself does not fit; if only supports reach past the plate, the size stays and the card warns that the
+      edge supports will be cut), <i>max</i> makes it as large as the plate allows, up to 300&nbsp;%. Changing either switch re-places the
       part at once. <b>Lay flat</b>, <b>Flip over</b>, <b>Tilt 90&deg;</b> and <b>Rotate 90&deg;</b> are there when you
       would rather decide yourself, and the <b>Fit</b> button on the 3D view puts it back the way the two switches say.</li>
     <li>Watch it slice - supports and a raft are generated automatically, and the dashboard locks under a spinner while it works, just like during a print.</li>
@@ -353,9 +354,15 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
     <li>Press <b>Send to printer</b> - the sliced model lands on the SD card ready to print, exactly like a PrusaSlicer upload.</li>
   </ol>
   <p><b>Six settings sit under those buttons</b>, and <b>Reset to defaults</b> puts them all back: <b>Supports</b>
-  (regular or tree), <b>Strength</b> (light, normal, strong), <b>Placement</b>, <b>Tip</b>,
+  (no, regular or tree), <b>Strength</b> (light, normal, strong), <b>Placement</b>, <b>Tip</b>,
   <b>Raft layers</b> and <b>Smoothing</b>. You can slice without touching any of them - they only nudge
   what the slicer already decided.</p>
+  <p><b>Supports: no</b> is for a part that is already flat or comes with its own supports from another
+  program: nothing is added, the part is printed the way it sits in the file (only turned on the plate to
+  fit), and the Strength, Placement and Tip settings lock. The raft is <i>off</i> by default; pick a raft
+  size and it rings the base of the part. If the slicer module on the printer is older than 3.6.2,
+  <i>no</i> stays locked until you update it under <b>Settings &gt; Update &gt; Slicer module</b> and
+  reload the page.</p>
   <div class="note">💡 <b>The raft is counted in layers, not millimetres</b>, because layers are what
   decide whether the pad grips. Your file is always sliced at 0.05&nbsp;mm and the printer decides how
   many of those images to expose, so the same setting is a different number of millimetres at a
@@ -907,7 +914,7 @@ window.addEventListener('DOMContentLoaded',window.tmSyncSite);
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.17.7 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.17.8 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>
