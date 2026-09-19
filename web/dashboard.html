@@ -3412,7 +3412,9 @@ const renderFiles=()=>{
                    :((icoMissing.has(it.name)||(statusData&&statusData.busy))?FICO_MODEL
                      :'<img class="fico ficoImg" draggable="false" alt="" data-ico="'+esc(it.name)+'" onerror="icoFallback(this)" src="/api/files/model/preview?name='+enc(it.name)+'&type=ico">')):FICO_ZIP)+
       '<div class="ftext"><div class="nm"><strong title="'+esc(it.name)+'">'+esc(it.name)+'</strong></div>'+
-      ((meta||isNew)?'<div class="meta">'+esc(meta)+(isNew?'<span class="newPill">New</span>':'')+'</div>':'')+'</div></div>'+
+      /* Datos eilute - VISADA, net tuscia: senas modelis be laiko ir dydzio kitaip gautu ~9 px
+         zemesne eilute, o `sdFitRows` zingsni ima is dvieju virsutiniu eiluciu. */
+      '<div class="meta">'+(esc(meta)||(isNew?'':'&nbsp;'))+(isNew?'<span class="newPill">New</span>':'')+'</div></div></div>'+
       /* `hov` - eilute, kurios veiksmai laukia pelės. Pazymetoje ju nereikia slepti:
          ji ir taip yra ta, su kuria dirbama. */
       '<div class="rowActions'+(isModel&&!sel?' hov':'')+'">';
