@@ -13,6 +13,20 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.7] - 2026-09-19
+
+A fix for the SD list on a computer screen.
+
+### Fixed
+
+- **The SD list no longer flickers between pages.** A model with a long name that
+  had just appeared on the card (marked **New**) could wrap into three lines. When
+  it sat at the top of a page, the list shrank to three rows per page, and pressing
+  **Next** made it jump back and forth between two pages many times a second. Model
+  names now stay on one line - cut with "…" only when they do not fit, full name on
+  hover - and the **New** mark sits at the end of the date line, so every row is the
+  same height.
+
 ## [0.17.6] - 2026-09-18
 
 The browser slicer is **on by default**. Until now it shipped switched off, so only
