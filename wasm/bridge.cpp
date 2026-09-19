@@ -142,7 +142,7 @@ static constexpr double PLOKSTE_Y_MM = 30.6;
 struct Parametrai {
     double tankis = 1.0;          // density_relative: kiek atramu tasku sejama
     double smaigalys_mm = 0.0;    // 0 = to tipo numatytasis (0,5 iprastoms, 0,4 medziui)
-    int    rafto_sluoksniai = 1;  // rafto storis SLUOKSNIAIS; 1 = kaip buvo
+    int    rafto_sluoksniai = 1;  // rafto storis SLUOKSNIAIS; 1 = kaip buvo, 0 = be rafto
     bool   glotninimas = true;    // AA: gama 1,0 ijungtas, 0,0 isjungtas
 };
 static Parametrai g_par;
@@ -355,7 +355,7 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
     const indexed_triangle_set &its = mesh.its;
     if (verbose) {
         std::printf("trikampiu        %zu\n", its.indices.size());
-        std::printf("atramu tipas     %s\n", be_atramu ? "no (be atramu ir pado)"
+        std::printf("atramu tipas     %s\n", be_atramu ? "no (be atramu)"
                     : branching ? "tree (branching)" : "regular (default)");
     }
 
@@ -428,9 +428,17 @@ static const char *run_chain(TriangleMesh &mesh, double layer_h, bool branching,
      */
     praneskEiga("dedamas raftas", 92);
     t0 = Clock::now();
-    /* SL-nosup (V 09-19): „jei atramu nera - nieko nera". Rafto irgi nededam. */
-    indexed_triangle_set pad = be_atramu ? indexed_triangle_set{}
-                                         : sla::create_pad(sm, tree.first, ctl);
+    /* Kai atramu nera (pasirinkta „no" arba niekas nekabo), Prusos „aplink objekta"
+       padas ismeta visas dalis be atramos po jomis - ir raftas tyliai dingsta
+       (bareljefas 09-18: 0 ml). Tada ijungiam ta pati Prusos jungikli „Pad around
+       object everywhere" (`BrimPadSkeleton`): raftas apjuosia detales pagrinda su
+       tilteliais. Kai atramu yra, niekas nesikeicia - rezultatas baitas i baita
+       toks pat kaip 3.6.0 (V 09-19, variantas A). */
+    if (tree.first.indices.empty()) sm.pad_cfg.embed_object.everywhere = true;
+    /* Raftas isjungtas (pultas leidzia tik su „no"). */
+    const bool be_rafto = g_par.rafto_sluoksniai == 0;
+    indexed_triangle_set pad = be_rafto ? indexed_triangle_set{}
+                                        : sla::create_pad(sm, tree.first, ctl);
     const long t_pad = ms_since(t0);
     if (verbose) std::printf("pado trikampiu   %zu\n", pad.indices.size());
 
@@ -574,7 +582,10 @@ void sla_set_params(double tankis, double smaigalys_mm, int rafto_sluoksniai,
 {
     g_par.tankis = tankis > 0 ? tankis : 1.0;
     g_par.smaigalys_mm = smaigalys_mm > 0 ? smaigalys_mm : 0.0;
-    g_par.rafto_sluoksniai = rafto_sluoksniai > 0 ? rafto_sluoksniai : 1;
+    /* Neigiamas = raftas isjungtas (SL-nosup, 3.6.1). Nulis lieka „numatytasis",
+       kaip ir kitu lauku - senas pultas siuncia nuli, kai nieko nelietė. */
+    g_par.rafto_sluoksniai = rafto_sluoksniai > 0 ? rafto_sluoksniai
+                           : rafto_sluoksniai < 0 ? 0 : 1;
     g_par.glotninimas = glotninimas != 0;
 }
 

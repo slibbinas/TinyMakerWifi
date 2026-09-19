@@ -205,7 +205,8 @@ function paduokParametrus(p) {
   p = p || {};
   setParamsFn(Number(p.tankis) > 0 ? Number(p.tankis) : 0,
               Number(p.smaigalys) > 0 ? Number(p.smaigalys) : 0,
-              Number(p.raftoSluoksniai) > 0 ? Number(p.raftoSluoksniai) : 0,
+              /* Neigiamas = be rafto (3.6.1); nulis = numatytasis. */
+              Number(p.raftoSluoksniai) || 0,
               p.glotninimas === false ? 0 : 1);
 }
 

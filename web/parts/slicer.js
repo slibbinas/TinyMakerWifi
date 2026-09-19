@@ -62,10 +62,16 @@ let slicerFits=true;
    nei vykdymas pasiekia sio failo vidu. */
 /* Nustatymu bloko jungikliai, kurie PJAUSTYMO nekeicia (zr. `slicerParamaiParasas`). */
 const SLICER_NE_PJOVIMO=/^slicer(FitBy|Size)$/;
-/* SL-nosup: su „no" atramu nera, tad ju stiprumas, vieta, smaigalys ir raftas nieko
+/* SL-nosup: su „no" atramu nera, tad ju stiprumas, vieta ir smaigalys nieko
    nebekeicia - uzrakinami visi kartu, ne po viena. Pasirinkimai lieka: grizus i
-   regular ar tree jie vel galioja. */
-const SLICER_ATRAMU_PARAM=/^slicer(SupDens|Place|Tip|Raft)$/;
+   regular ar tree jie vel galioja. Raftas lieka laisvas (V 09-19, variantas A):
+   detalei ant plokstes jo gali reiketi ir be atramu. „off" - atvirksciai, galimas
+   TIK su „no": atramos be pado neturi ant ko stoveti.
+   Fit by irgi uzrakintas (V 09-19, variantas 1): su „no" detale spausdinama tokia,
+   kokia yra - STL su savo atramomis pasuktas ar paguldytas sugestu. Sliceris tada
+   tik suka ant plokstes (atramos lieka zemyn) ir keicia dydi pagal Size. */
+const SLICER_ATRAMU_PARAM=/^slicer(SupDens|Place|Tip|FitBy)$/;
+const slicerBeRaftoDraudziama=e=>e.name==='slicerRaft'&&e.value==='0'&&!slicerBeAtramu();
 function slicerPasirinkta(vardas,numatyta){
   return (document.querySelector('input[name='+vardas+']:checked')||{}).value||numatyta;
 }
@@ -75,14 +81,37 @@ function slicerBeAtramu(){return slicerPasirinkta('slicerSupType','regular')==='
 /* Pavadinimas sako REZULTATA, ne greiti (V 09-13): po ROT-par abu budai greiti,
    o skiriasi tuo, ar detale guli plokscia, ar pakreipta del atramu. */
 function slicerFitVardas(budas){
+  if(!budas&&slicerBeAtramu())return 'Fit size';
   return (budas||slicerFitBy())==='supports'?'Fit for supports':'Fit flat';
 }
 /* Oranzinis zingsnis ir juostos ikona seka FIT BY. */
 function slicerFitNumatytas(){
+  if(slicerBeAtramu()){slicerFitDydis();return;}
   const b=$(slicerFitBy()==='supports'?'slicerAutoFitPro':'slicerAutoFit');
   if(b&&!b.disabled)b.click();
 }
+/* Su „no": virsus lieka virsumi. Posukis tik apie vertikale (`fitOnPlate` - tas
+   pats, kuriuo baigiasi ir kiti pastatymai), dydis - pagal Size. */
+function slicerStatykKaipYra(){
+  const s=slicerTr?slicerTr.scale:1;
+  const kiti=slicerTr||{};
+  const tr=slicerMod.fitOnPlate(slicerRaw,{rx:kiti.rx||0,ry:kiti.ry||0,rz:0,
+    rxDeg:kiti.rxDeg||0,ryDeg:kiti.ryDeg||0,rzDeg:0,scale:1}).tr;
+  tr.scale=s; return tr;
+}
+function slicerFitDydis(){
+  if(!slicerRaw||!slicerMod||sliceRunning||slicerPrinting())return;
+  slicerTr=slicerStatykKaipYra();
+  slicerPlaceNote(null,null);
+  slicerSizeNote('Fit size',slicerDydis(true));
+  slicerNuimkNetelpa();
+  slicerHome=true;
+  slicerRender();
+}
 const slicerStep=()=>{
+  /* Visi atramu tipo uzraktai - per sia viena vieta: ja kviecia ir perjungimas, ir
+     Reset, ir kiekvienas busenos pasikeitimas. */
+  slicerAutoFitUzraktas();
   const set=(id,on)=>{const b=$(id);if(b)b.classList.toggle('step',!!on);};
   const loaded=!!slicerRaw, sliced=!!(typeof slicerOut!=='undefined'&&slicerOut);
   set('slicerChoose',!loaded);
@@ -145,7 +174,8 @@ const slicerStep=()=>{
    {const card=$('slicerCard');
     if(card)card.querySelectorAll('input,select,textarea').forEach(e=>{
       if(e.id==='slicerName'||e.id==='slicerFile')return;   // ju busena skaiciuojama auksciau
-      e.disabled=spausdina||(slicerBeAtramu()&&SLICER_ATRAMU_PARAM.test(e.name));
+      e.disabled=spausdina||(slicerBeAtramu()&&SLICER_ATRAMU_PARAM.test(e.name))
+        ||slicerBeRaftoDraudziama(e);
     });
     if(card&&spausdina)card.querySelectorAll('button').forEach(b=>{
       if(b.id!=='slicerToggle')b.disabled=true;             // akordeonas lieka gyvas
@@ -194,6 +224,7 @@ window.slicerStep=slicerStep;   // apklausa perskaiciuoja zingsnius (V 08-20)
 const slicerButtons=on=>{
   ['slicerAutoFit','slicerAutoFitPro','slicerFlat','slicerFlip','slicerRotX','slicerRotZ']
     .forEach(id=>{const b=$(id);if(b)b.disabled=!on;});
+  slicerAutoFitUzraktas();
   /* Ta pati busena ir ant vaizdo esantiems - jie tik kita to paties veido puse. */
   const t=$('gl3dTools');
   /* Narvas ir kauke juostoje tik SVECIUOJASI (zr. `slicerBarMerge`) - jie ne apie
@@ -377,7 +408,7 @@ const slicerLoadMod=async()=>{
      nebelieka. 08-24 buvo atvirkscias atvejis - kortelej jau gulejo 3.2.0, o
      pultas vis dar prase 3.1.1, tad kiekvienas krovimas eidavo per interneta
      (1,1 MB) ir pazadas veikti be tinklo buvo sulauzytas. */
-  const SV='3.6.0';
+  const SV='3.6.1';
   slicerMod=await loadModule('slicer-wasm-'+SV,SV,
       'https://slibbinas.github.io/TinyMakerWifi/lib/slicer-wasm-'+SV+'.js');
   /* Piliuleje - `slicerMod.VERSION`, t. y. ka atsakė PATS uzsikroves modulis, o ne
@@ -637,15 +668,18 @@ $('slicerFile').addEventListener('change',async e=>{
     $('slicerDiscardLink').style.visibility='hidden';
     slicerRaw=r.positions; slicerFileName=f.name; slicerFileBytes=f.size||0;
     slicerBudget=slicerMod.detailBudget(slicerRaw);
-    const best=slicerMod.autoOrient(slicerRaw);      // padedam ant plokstumos iskart
-    slicerTr=best.tr; slicerScalePriesMax=null;
+    /* Su „no" detale nesukama ir neguldoma - lieka tokia, kokia faile (STL su savo
+       atramomis kitaip sugestu); tik pasukama ant plokstes, kad tilptu. */
+    slicerTr=slicerBeAtramu()?null:slicerMod.autoOrient(slicerRaw).tr;   // padedam ant plokstumos iskart
+    if(!slicerTr)slicerTr=slicerStatykKaipYra();
+    slicerScalePriesMax=null;
     /* FIT BY / SIZE ikeliant (V 09-13). Ploksciai - kaip iki siol, tik su `max`
        dydis iskart pritaikomas plokstei. Pakreipimas del atramu ateina zemiau, po
        pirmo piesimo: jis asinchroninis, o modelis tuo metu jau matosi. Netelpancio
        ikeliant nemazinam nei vienu keliu - tam lieka oranzinis mygtukas. */
-    const pakreipti=slicerFitBy()==='supports'&&!!slicerMod.autoOrientPro;
+    const pakreipti=!slicerBeAtramu()&&slicerFitBy()==='supports'&&!!slicerMod.autoOrientPro;
     slicerPlaceNote(null,null);
-    if(!pakreipti)slicerSizeNote('Fit flat',slicerDydis(false));
+    if(!pakreipti)slicerSizeNote(slicerFitVardas(),slicerDydis(false));
     slicerButtons(true);
     /* Naujas failas - naujas siulymas: senas vardas likdavo ir modelis
        issisaugodavo ne tuo pavadinimu (V 08-12). */
@@ -1081,19 +1115,22 @@ function slicerMaskSet(on){
 /* Vienoje eiluteje (V 09-08): ilgesnis sakinys lauzdavosi i dvi, o kortele ir taip
    auga zemyn labiau uz kaireje esancia perziura. */
 const SUP_IDLE='Supports and a raft are added where the part hangs.';
-const SUP_OFF='Supports off - the part is printed as it is, with no raft.';
+const SUP_OFF=()=>slicerRaftasIsjungtas()
+  ?'Supports off - the part is printed as it is, with no raft.'
+  :'Supports off - a raft rings the base of the part.';
+function slicerRaftasIsjungtas(){return slicerPasirinkta('slicerRaft','')==='0';}
 function slicerSupportFacts(s){
   const a=$('slicerSupports'), b=$('slicerIslands');
   if(!a||!b)return;
   b.textContent='';
-  if(s===null){a.textContent=slicerBeAtramu()?SUP_OFF:SUP_IDLE;return;}   // dar nepjaustyta
+  if(s===null){a.textContent=slicerBeAtramu()?SUP_OFF():SUP_IDLE;return;}   // dar nepjaustyta
   /* Modulis be supportu (senas, is narsykles keso). Tyleti negalima: zmogus
      matytu „pridedami patys" ir manytu, kad jie yra (auditor find, 08-13). */
   if(!s){a.textContent='This page is running an older slicer module, so NO supports were added. Reload with Ctrl+F5 and slice again.';return;}
   /* #116: „atramu nereikia" galima sakyti TIK tada, kai niekas nekabo. Jei
      modulis atsiuntė ispejima, jis jau zino, kad kabo - tada si eilute neturi
      tvirtinti, kad viskas gerai. */
-  a.textContent=s.tipas==='no'?SUP_OFF
+  a.textContent=s.tipas==='no'?SUP_OFF()
     :s.pillars
     ?'Supports: '+s.pillars+(s.pillars===1?' pillar':' pillars')
       +(s.onModel?' ('+s.onModel+' standing on the part itself)':'')
@@ -1101,7 +1138,7 @@ function slicerSupportFacts(s){
       +(s.pakelta?' · part lifted so they would fit':'')
     :s.perspejimas
       ?'No supports were built.'
-      :'No supports needed - nothing on this part hangs in the air.';
+      :'No supports needed - nothing on this part hangs in the air.'+(s.raft?' · raft on':'');
   /* Supportai patys pasitikrina: suslicinus SU jais dar kartą ieškoma kabanciu
      vietu. Jei atsirado nauju - tai MUSU pacio klaida, ir apie ja butina
      pasakyti, o ne tyliai issaugoti (V 08-13). */
@@ -1619,9 +1656,13 @@ $('slicerAA').addEventListener('change',()=>slicerInvalidate());
    /* „no" uzrakina atramu jungiklius, o tai daro `slicerStep`; ir kortelės
       eilute „Supports..." turi pasakyti, kas bus, dar pries pjaustyma. */
    if(e.target&&e.target.name==='slicerSupType'){
+     slicerRaftasPagalAtramas();
      slicerStep();
-     if(!(typeof slicerOut!=='undefined'&&slicerOut))slicerSupportFacts(null);
    }
+   /* Eilute „Supports..." pasako, kas bus, dar pries pjaustyma - ir atramu, ir
+      rafto pasirinkimas ja keicia. */
+   if(e.target&&/^slicer(SupType|Raft)$/.test(e.target.name||'')
+      &&!(typeof slicerOut!=='undefined'&&slicerOut))slicerSupportFacts(null);
  });}
 /* Dydis PRIES `max`, kad grizus i `keep` modelis grizti i savo dydi, o ne liktu
    istemptas. Pamirstamas, kai dydi pakeicia pats zmogus ar ikeliamas kitas failas -
@@ -2326,8 +2367,10 @@ function slicerParamai(){
     parametrai:{
       tankis:parseFloat(r('slicerSupDens')||'1')||1,
       smaigalys:parseFloat(r('slicerTip')||'0')||0,
-      raftoSluoksniai:parseInt(r('slicerRaft')||String(raftoNumatytas()),10)
-                      ||raftoNumatytas(),
+      /* „off" (0) keliauja kaip -1: variklyje nulis reiskia „numatytasis". */
+      raftoSluoksniai:r('slicerRaft')==='0'?-1
+                      :parseInt(r('slicerRaft')||String(raftoNumatytas()),10)
+                       ||raftoNumatytas(),
       glotninimas:(r('slicerSmooth')||'on')!=='off'
     }
   };
@@ -2374,6 +2417,28 @@ function slicerParamai(){
 /* Isimtis viena - tie, kurie pjaustymo nekeicia (FIT BY, SIZE). Jie is parašo
    iskerpami VARDU, o ne atrenkami i sarasa, tad naujas pjaustymo parametras vis tiek
    pateks i parasa pats. */
+/* Automatinis gulimas (Fit flat, Fit for supports) su „no" neaktyvus; rankiniai
+   irankiai lieka. Busena imama is kaimyno `slicerFlat`: jis rodo, ar irankiai siuo
+   metu apskritai atrakinti (modelis ikeltas, niekas nesisuka). */
+function slicerAutoFitUzraktas(){
+  const ref=$('slicerFlat');
+  ['slicerAutoFit','slicerAutoFitPro'].forEach(id=>{const b=$(id);
+    if(b&&ref)b.disabled=ref.disabled||slicerBeAtramu();});
+}
+/* Su „no" numatytoji - be rafto (V 09-19: „jei suportu nera - nieko nera"), bet
+   pasirinkti galima. Grizus i regular / tree „off" nebegalimas, tad grazinamas
+   raftas, kuris buvo pries „no". */
+let slicerRaftasPriesNo=null;
+function slicerRaftasPagalAtramas(){
+  const pasirink=v=>{const el=document.querySelector('input[name=slicerRaft][value="'+v+'"]');
+                     if(el)el.checked=true;};
+  if(slicerBeAtramu()){
+    slicerRaftasPriesNo=slicerPasirinkta('slicerRaft',String(raftoNumatytas()));
+    pasirink('0');
+  }else if(slicerRaftasIsjungtas()){
+    pasirink(slicerRaftasPriesNo&&slicerRaftasPriesNo!=='0'?slicerRaftasPriesNo:String(raftoNumatytas()));
+  }
+}
 function slicerParamaiParasas(){
   return [...document.querySelectorAll('#slicerParams input:checked')]
     .filter(e=>!SLICER_NE_PJOVIMO.test(e.name))
