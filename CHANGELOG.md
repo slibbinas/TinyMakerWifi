@@ -44,6 +44,9 @@ Switching between the slicer and the SD card no longer loses what was on screen.
   Leaving an SD preview before it finished loading hid **?**, the pan and rotate keys and
   the zoom corner on the slicer's view until the load ended, and **Share** switched on in
   the slicer view, offering to share the SD model instead of the part on screen (#203).
+- **The flat layer view keeps its shape on a phone.** In the enlarged preview on a narrow
+  screen the 2D and UV layer views were squashed to about half their width - a round part
+  showed as an ellipse. The plate now fits the window both ways and keeps its 4:3 shape (#205).
 
 ## [0.17.7] - 2026-09-19
 
