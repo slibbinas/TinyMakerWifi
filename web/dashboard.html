@@ -4840,8 +4840,15 @@ let glModelName='';   // kieno modelis siuo metu matomas GPU sluoksnyje
 let previewBusy=0;
 const setPreviewBusy=on=>{
   previewBusy=Math.max(0,previewBusy+(on?1:-1));
+  previewBusyPaint();
+};
+/* Uzimta zyma slepia valdiklius tik tada, kai drobe valdo SD perziura. Iseinant is SD
+   perziuros, kol ji kraunasi, krovimas fone tesiasi, o drobe jau perema sliceris - ir
+   zyma slicerio vaizde be reikalo slepdavo „?", stumdymo pada, vartyma ir mastelio kampa
+   iki pat krovimo pabaigos (ismatuota 18,4 s, V 2026-09-19). */
+const previewBusyPaint=()=>{
   const c=$('printPreviewCard');
-  if(c)c.classList.toggle('cardBusy',previewBusy>0);
+  if(c)c.classList.toggle('cardBusy',previewBusy>0&&!window.slicerOwnsPreview);
 };
 const paintStage=(cv,txt,n)=>{
   /* JOKIOS juostelės: šis etapas progreso neturi, o pilna juosta melavo, kad viskas
@@ -5548,6 +5555,10 @@ const setStageGrowUI=canGrow=>{
      tad klase pralaimetu (senas spastas - zr. dashboard-gotchas). */
   b.style.display=canGrow?'flex':'none';
   /* `hdrAct` zymejo, kad antraste yra lango jungiklis; nuo 08-27 ji juo nebera. */
+  /* Sliceris cia kreipiasi kaskart, kai perima ar atiduoda drobe (`slicerOwns`) - tad cia
+     ir perskaiciuojam tai, kas priklauso nuo drobes savininko: uzimtumo zyma ir Share. */
+  previewBusyPaint();
+  {const sb=$('dashShareButton'); if(sb&&statusData)sb.disabled=dashShareOff();}
 };
 /* Antraste perduoda paspaudima TAM PACIAM mygtukui, kuris stovi jos kampe: perziuros -
    lango didinimui, SD ir slicerio - bloko atidarymui. Tikras mygtukas lieka vietoje, tad
@@ -6509,6 +6520,14 @@ let prep3dRunning=false;   // savo darbo metu mygtuka valdo pats, ne busenos apk
    turejo savo sakini skirtingose vietose, ir kaskart pamirsdavau po viena (V 08-14:
    „gaunasi, kad as uz tave galvoju"). Kviečiama ir gavus busena, ir pradejus/baigus
    savo siuntima ar trynima. */
+/* Dalintis galima tik tuo, kas JAU yra printeryje: slicerio daiktas dar tik narsykleje,
+   o tuscioje perziuroje dalintis apskritai nera kuo (V 08-20 auditas). `dashPreviewName`
+   lieka SD modelio vardu ir tada, kai drobe perima sliceris - be `slicerOwnsPreview`
+   slicerio vaizde Share ijungdavo SD krovimo pabaiga (V 2026-09-19). */
+const dashShareOff=()=>{
+  const s=statusData, wc=!s||s.webControl!==false;
+  return !wc||uiBusy()||!dashPreviewName||!!window.slicerOwnsPreview;
+};
 const syncActionLocks=()=>{
   /* Slicerio zingsniai - is TOS PACIOS vietos, kaip visi kiti uzraktai: savo ikelimo
      metu apklausa tyli, tad `refreshSlicerCard` nesuveikia, ir „Choose STL" likdavo
@@ -6531,9 +6550,7 @@ const syncActionLocks=()=>{
      with Web control off it used to be orange and dead (audit 09-10). */
   {const vb=$('vatRefillButton'); if(vb)vb.classList.toggle('secondary',!s.refillPending||vbOff);}
   set('homeResinButton',!!s.busy||!wc||uploadBusy||deleteBusy);   // 0.17 0-16
-  /* Dalintis galima tik tuo, kas JAU yra printeryje: slicerio daiktas dar tik
-     narsykleje, o tuscioje peržiūroje dalintis apskritai nera kuo (V 08-20 auditas). */
-  set('dashShareButton',!wc||busy||!dashPreviewName);
+  set('dashShareButton',dashShareOff());
   /* Paieskos laukas - irgi uzraktas: kol vyksta darbas, sarasas vis tiek uzrakintas,
      o rinkti i laukeli galėdavai ir gaudavai „No models match the filter" (V 08-20). */
   set('filesFilter',!wc||busy);
