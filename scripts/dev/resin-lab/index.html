@@ -129,7 +129,14 @@ textarea{resize:vertical}
 #tourTip .acts{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
 #guide iframe{border:0;width:100%;height:78vh;border-radius:8px;background:var(--card)}
 a{color:var(--link)}
-@media(max-width:1180px){.app{grid-template-columns:200px 1fr}.col.c3{grid-column:2}}
+/* Siaurame lange (<1180) du desinieji blokai - VIENAS stulpelis su vienu slinkimu, o dervu sarasas
+   per visa auksti. Iki tol jie buvo dvi tinklelio eilutes po puse aukscio, kiekviena su savo slankikliu,
+   o sarasas baigdavosi lango viduryje (V 2026-09-20, ismatuota 1104x660). Placiame lange `.c23`
+   ismatomas (`display:contents`) ir niekas nesikeicia. */
+.c23{display:contents}
+@media(max-width:1180px){.app{grid-template-columns:200px 1fr}
+ .c23{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+ .c23>.col{overflow:visible;min-height:auto;flex:none}}
 </style>
 <header>
  <h1 class="brand"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>TinyMaker<span class="lab">Resin Lab</span></h1>
@@ -146,8 +153,8 @@ a{color:var(--link)}
 <div class="app">
  <div class="col"><div class="card list"><div id="resList" class="note"></div>
   <button class="pri" id="btnNew" style="margin-top:6px;width:100%" data-t="newResin"></button></div></div>
- <div class="col c2" id="colA"></div>
- <div class="col c3" id="colB"></div>
+ <div class="c23"><div class="col c2" id="colA"></div>
+ <div class="col c3" id="colB"></div></div>
 </div>
 <div id="viewer"><span class="nav prev">‹</span><img alt=""><div class="cap"></div><span class="nav next2">›</span></div>
 <div class="ovl" id="mdlg"><div class="box">
