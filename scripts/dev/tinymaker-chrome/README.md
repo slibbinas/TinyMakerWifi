@@ -7,7 +7,8 @@ dashboard itself asks every 4 s) and never writes to the printer.
   unpacking/deleting, `✓` after a print ends (until the popup is opened), `!` when the
   printer does not answer, nothing when idle.
 - **Popup:** state, model, progress bar, layer, running/remaining time with the end
-  clock, resin used and left, SD, WiFi; **Open dashboard**; **Refresh**.
+  clock, resin used and left, SD, WiFi; **Open dashboard** (switches to an already open dashboard tab with the same
+  address, or opens a new one); **Refresh**.
 - **Printer address:** popup -> *Printer address* (default `tinymaker.local`; the IP works too).
 
 ## Install

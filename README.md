@@ -299,7 +299,7 @@ A small Chrome extension puts the printer on the browser toolbar: the icon shows
 progress (`42%`), `II` when paused, `SD` while the card is busy, a tick when a print has just
 finished and `!` when the printer does not answer. Click it for the state, model, layer,
 time left (with the finishing time), resin used and left, and a button that opens the
-dashboard. It only reads the printer's status once a minute - it never changes anything.
+dashboard - or switches to it, if it is already open in a tab. It only reads the printer's status once a minute - it never changes anything.
 
 It is not in the Chrome Web Store yet (planned), so for now it is installed by hand:
 
