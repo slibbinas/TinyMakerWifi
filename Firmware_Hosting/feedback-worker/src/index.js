@@ -308,9 +308,10 @@ export default {
     // while the github.io ones worked. Every link we hand out should be on our
     // own domain rather than spelling out someone else's hosting - and the
     // trailing images/CSS under those paths have to come along, so this proxies
-    // the subtree, not just the page.
+    // the subtree, not just the page. /extension/ carries the Chrome toolbar
+    // extension's zip for manual install (README) until it is in the Web Store.
     if (request.method === 'GET' &&
-        /^\/(demo|manual|roadmap)(\/|$)/.test(path)) {
+        /^\/(demo|manual|roadmap|extension)(\/|$)/.test(path)) {
       const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
       const r = await fetch(upstream.replace(/\/+$/, '/'), { cf: { cacheTtl: 300 } });
       return new Response(r.body, {

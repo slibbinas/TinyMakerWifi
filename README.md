@@ -303,7 +303,7 @@ dashboard. It only reads the printer's status once a minute - it never changes a
 
 It is not in the Chrome Web Store yet (planned), so for now it is installed by hand:
 
-1. Download **[tinymaker-chrome.zip](https://slibbinas.github.io/TinyMakerWifi/extension/tinymaker-chrome.zip)**
+1. Download **[tinymaker-chrome.zip](https://tinymakerwifi.com/extension/tinymaker-chrome.zip)**
    and unzip it to a folder you will keep (Chrome loads it from there every time).
 2. Open `chrome://extensions` and switch on **Developer mode** (top right).
 3. **Load unpacked** -> pick the unzipped folder.
