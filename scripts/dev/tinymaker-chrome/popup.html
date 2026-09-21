@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root{--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--ok:#2fbf4f;--bad:#e05555}
+  body{margin:0;width:280px;background:var(--bg);color:var(--text);font:13px/1.35 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{padding:12px 14px}
+  h1{margin:0 0 2px;font-size:15px;display:flex;align-items:center;gap:8px}
+  h1 img{width:20px;height:20px}
+  .state{color:var(--muted);font-size:12px;margin-bottom:8px}
+  .model{font-weight:600;font-size:14px;margin:6px 0 4px;word-break:break-all}
+  .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:4px 0 8px}
+  .bar span{display:block;height:100%;background:var(--accent);width:0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td{padding:2px 0}td:first-child{color:var(--muted)}td:last-child{text-align:right}
+  .err{color:var(--bad);font-size:12px;margin:6px 0}
+  .row{display:flex;gap:6px;margin-top:10px}
+  button{flex:1;border:0;border-radius:7px;padding:7px 8px;font:inherit;font-weight:600;cursor:pointer;background:var(--card);color:var(--text)}
+  button.pri{background:var(--accent);color:#fff}
+  .foot{color:var(--muted);font-size:11px;margin-top:8px;display:flex;justify-content:space-between}
+  .foot a{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><img src="icons/32.png" alt="">TinyMaker <span id="ver" style="color:var(--muted);font-weight:400;font-size:12px"></span></h1>
+  <div class="state" id="state">...</div>
+  <div id="job" style="display:none">
+    <div class="model" id="model"></div>
+    <div class="bar"><span id="fill"></span></div>
+  </div>
+  <table id="facts"></table>
+  <div class="err" id="err" style="display:none"></div>
+  <div class="row">
+    <button class="pri" id="open">Open dashboard</button>
+    <button id="refresh">Refresh</button>
+  </div>
+  <div class="foot"><span id="host"></span><a href="#" id="opts">Printer address</a></div>
+</div>
+<script src="common.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>
