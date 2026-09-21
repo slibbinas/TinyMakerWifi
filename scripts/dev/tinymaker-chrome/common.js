@@ -1,7 +1,7 @@
 /* Shared by the background worker and the popup: where the printer is and how to read it.
    The printer answers GET /api/status without CORS headers; an extension with a host
    permission may read it anyway. Nothing here writes to the printer. */
-const DEFAULT_HOST = '192.168.1.138';
+const DEFAULT_HOST = 'tinymaker.local';
 
 async function getHost() {
   const { host } = await chrome.storage.local.get('host');

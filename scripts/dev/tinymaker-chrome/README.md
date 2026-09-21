@@ -8,7 +8,7 @@ dashboard itself asks every 4 s) and never writes to the printer.
   printer does not answer, nothing when idle.
 - **Popup:** state, model, progress bar, layer, running/remaining time with the end
   clock, resin used and left, SD, WiFi; **Open dashboard**; **Refresh**.
-- **Printer address:** popup -> *Printer address* (default `192.168.1.138`).
+- **Printer address:** popup -> *Printer address* (default `tinymaker.local`; the IP works too).
 
 ## Install
 
