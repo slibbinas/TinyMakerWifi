@@ -274,9 +274,8 @@ const sdCollapse=on=>{
   /* Vietos juostele LIEKA ir suskleistame bloke: ji ir yra ta santrauka - kiek modeliu
      ir kiek vietos, - o sliceriui atsidarius apacioje vis tiek yra tuscios vietos
      (V 08-20). Tada tekstine eilute nebereikalinga: ji kartotu tuos pacius skaicius. */
-  /* „Upload…" LIEKA ir suskleistame bloke: tai vienas mygtukas antrastėje, vietos
-     nekainuoja, o failo ikelimas neturi priklausyti nuo to, kuris blokas atidarytas
-     (V 08-20). */
+  /* „Upload…" suskleistame bloke NESIMATO (V 2026-09-22; buvo 08-20 - liko): suskleista
+     kortele - antraste ir vietos juostele. Slepia pulto CSS pagal `aria-expanded` zemiau. */
   const uz=$('sdUsageBox'), yraJuosta=!!(uz&&!uz.classList.contains('hidden'));
   const h=$('sdCollapsedHint');
   if(h){h.style.display=(on&&!yraJuosta)?'block':'none';

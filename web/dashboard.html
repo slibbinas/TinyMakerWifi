@@ -194,12 +194,12 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #sdSection.printFold .cardHead:hover #sdToggle,#slicerCard.printFold .cardHead:hover #slicerToggle{color:var(--muted)}
 /* Suskleista kortele rodo ▶, net jei jos akordeono busena liko „atidaryta" (V 2026-09-21).
    Zenkla raso `slicer.js`; cia jis tik uzdengiamas, tad atrakinus grizta pats. */
+#sdSection.printFold #sdToggle{font-size:0}
+#sdSection.printFold #sdToggle::after{content:'\25B6';font-size:13px}
 /* Sliceriui atidarius SD kortele suskleista: lieka antraste ir vietos juostele (kiek failu, kiek
    vietos - verta matyti pries siunciant is slicerio), be Upload (V 2026-09-22). Busena imama is
    akordeono mygtuko, kuri nustato `slicer.js` sdCollapse. */
 #sdSection:has(#sdToggle[aria-expanded="false"]) #sdActions{display:none!important}
-#sdSection.printFold #sdToggle{font-size:0}
-#sdSection.printFold #sdToggle::after{content:'\25B6';font-size:13px}
 /*#include parts/slicer.css*/</style></head><body><main class='wrap'>
 <div class='head'><div><h1><span id='brandHome' role='button' tabindex='0' aria-label='Dashboard' title='Dashboard'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</span><a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
@@ -6668,9 +6668,6 @@ const syncUploadGate=()=>{
 // even when the user picks the same file again.
 $('uploadButton').addEventListener('click',()=>{
   if(uploadBusy)return;
-  /* Blokas persijungia PRIES parenkant faila: kitaip failas nukristu i suskleista
-     sarasa ir naujas modelis nepasizymetu (V 08-20). */
-  if(window.slicerIsOpen&&slicerIsOpen()&&window.slicerOpen)slicerOpen(false);
   $('uploadFile').click();
 });
 $('uploadFile').addEventListener('change',()=>{if($('uploadFile').files[0])$('uploadForm').requestSubmit();});
