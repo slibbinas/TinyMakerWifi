@@ -335,8 +335,10 @@ window.slicerIsOpen=slicerIsOpen;
    printerio nustatymas amziams perstatytu zmogaus pasirinkima (V 08-20). */
 const AKORD_RAKTAS='tmAkordeonas';
 const akordIrasyk=kuris=>{try{localStorage.setItem(AKORD_RAKTAS,kuris);}catch(e){}};
-window.akordPradinis=()=>{try{return localStorage.getItem(AKORD_RAKTAS)||'slicer';}
-                          catch(e){return 'slicer';}};
+/* Pirma karta atidarius - SD (V 2026-09-22): naujam zmogui pirmas klausimas „ka spausdinti",
+   ir Upload suskleistame bloke nesimato. */
+window.akordPradinis=()=>{try{return localStorage.getItem(AKORD_RAKTAS)||'sd';}
+                          catch(e){return 'sd';}};
 /* Peržiūra perjungiant NIEKO neismeta: abu turiniai lieka atmintyje, o cia tik
    perpiesiam ta, kuris priklauso atidarytam blokui. Butent del sito is `slicerOpen`
    isimtas `slicerReset` - jis persikele ten, kur turinys tikrai keiciasi: i naujo STL
