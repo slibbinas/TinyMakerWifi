@@ -293,6 +293,8 @@ The printer has no resin sensor - instead it **keeps count**: every printed laye
 
 ## On the browser toolbar: TinyMaker status (Chrome extension, preview)
 
+<p align="center"><img src="Images/screenshots/chrome-extension.png" width="360" alt="TinyMaker status extension: 42% on the toolbar icon and the popup with the print's layer, times and resin"></p>
+
 A small Chrome extension puts the printer on the browser toolbar: the icon shows the print
 progress (`42%`), `II` when paused, `SD` while the card is busy, a tick when a print has just
 finished and `!` when the printer does not answer. Click it for the state, model, layer,
@@ -301,7 +303,7 @@ dashboard. It only reads the printer's status once a minute - it never changes a
 
 It is not in the Chrome Web Store yet (planned), so for now it is installed by hand:
 
-1. Download **[tinymaker-chrome.zip](https://tinymakerwifi.com/extension/tinymaker-chrome.zip)**
+1. Download **[tinymaker-chrome.zip](https://slibbinas.github.io/TinyMakerWifi/extension/tinymaker-chrome.zip)**
    and unzip it to a folder you will keep (Chrome loads it from there every time).
 2. Open `chrome://extensions` and switch on **Developer mode** (top right).
 3. **Load unpacked** -> pick the unzipped folder.
