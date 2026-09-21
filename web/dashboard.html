@@ -5631,6 +5631,8 @@ const hdrToggle=(sel,btnId)=>{
    preview" ar „Model preview" lieka paprastu uzrasu. */
 const pvLinkName=()=>{
   const t=$('printPreviewTitle'); if(!t)return '';
+  /* Spausdinant SD kortele suskleista - nuoroda nebeturi kur nuvesti (V 2026-09-21). */
+  {const sd=$('sdSection'); if(sd&&sd.classList.contains('printFold'))return '';}
   let v=(t.textContent||'').trim();
   /* „Printing 42% · Tooth" - vardas po paskutinio skirtuko. */
   const i=v.lastIndexOf(' \u00b7 '); if(i>=0)v=v.slice(i+3).trim();
@@ -6574,9 +6576,10 @@ const dashShareOff=()=>{
   const s=statusData, wc=!s||s.webControl!==false;
   return !wc||uiBusy()||!dashPreviewName||!!window.slicerOwnsPreview;
 };
-/* Spausdinant abi desiniojo stulpelio kortelės suskleistos ir uzrakintos; pasibaigus - atrakinam ir
-   atidarom SD (modelio uzkrovima po spaudinio tvarko `applyStatus`, cia jo neliecia). Zmogaus
-   pasirinkimas, kuris blokas atidarytas, neperrasomas: `slicerOpen(false, tylus=true)`. */
+/* Spausdinant abi desiniojo stulpelio kortelės suskleistos ir uzrakintos; pasibaigus - atrakinam, ir
+   visada atsidaro SD (V 2026-09-20), net jei pries spaudini buvo atidarytas sliceris. Modelio
+   uzkrovima po spaudinio tvarko `applyStatus`, cia jo neliecia. Peržiūros antrastes nuoroda
+   i SD sarasa spausdinant isjungiama (`pvLinkName`). */
 let printFoldWas=null;
 const printFoldUI=printing=>{
   if(printFoldWas===printing)return;
@@ -6585,7 +6588,7 @@ const printFoldUI=printing=>{
   if(sd)sd.classList.toggle('printFold',printing);
   if(sc)sc.classList.toggle('printFold',printing);
   [$('sdToggle'),$('slicerToggle')].forEach(b=>{if(b)b.disabled=printing;});
-  if(!printing&&window.slicerIsOpen&&slicerIsOpen()&&window.slicerOpen)slicerOpen(false,true);
+  if(typeof pvLinkSync==='function')pvLinkSync();
   if(window.sdFitRows)setTimeout(sdFitRows,0);
   printFoldWas=printing;
 };
