@@ -194,6 +194,10 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
 #sdSection.printFold .cardHead:hover #sdToggle,#slicerCard.printFold .cardHead:hover #slicerToggle{color:var(--muted)}
 /* Suskleista kortele rodo ▶, net jei jos akordeono busena liko „atidaryta" (V 2026-09-21).
    Zenkla raso `slicer.js`; cia jis tik uzdengiamas, tad atrakinus grizta pats. */
+/* Sliceriui atidarius SD kortele suskleista: lieka antraste ir vietos juostele (kiek failu, kiek
+   vietos - verta matyti pries siunciant is slicerio), be Upload (V 2026-09-22). Busena imama is
+   akordeono mygtuko, kuri nustato `slicer.js` sdCollapse. */
+#sdSection:has(#sdToggle[aria-expanded="false"]) #sdActions{display:none!important}
 #sdSection.printFold #sdToggle{font-size:0}
 #sdSection.printFold #sdToggle::after{content:'\25B6';font-size:13px}
 /*#include parts/slicer.css*/</style></head><body><main class='wrap'>
