@@ -274,9 +274,8 @@ const sdCollapse=on=>{
   /* Vietos juostele LIEKA ir suskleistame bloke: ji ir yra ta santrauka - kiek modeliu
      ir kiek vietos, - o sliceriui atsidarius apacioje vis tiek yra tuscios vietos
      (V 08-20). Tada tekstine eilute nebereikalinga: ji kartotu tuos pacius skaicius. */
-  /* „Upload…" LIEKA ir suskleistame bloke: tai vienas mygtukas antrastėje, vietos
-     nekainuoja, o failo ikelimas neturi priklausyti nuo to, kuris blokas atidarytas
-     (V 08-20). */
+  /* „Upload…" suskleistame bloke NESIMATO (V 2026-09-22; buvo 08-20 - liko): suskleista
+     kortele - antraste ir vietos juostele. Slepia pulto CSS pagal `aria-expanded` zemiau. */
   const uz=$('sdUsageBox'), yraJuosta=!!(uz&&!uz.classList.contains('hidden'));
   const h=$('sdCollapsedHint');
   if(h){h.style.display=(on&&!yraJuosta)?'block':'none';
@@ -336,8 +335,10 @@ window.slicerIsOpen=slicerIsOpen;
    printerio nustatymas amziams perstatytu zmogaus pasirinkima (V 08-20). */
 const AKORD_RAKTAS='tmAkordeonas';
 const akordIrasyk=kuris=>{try{localStorage.setItem(AKORD_RAKTAS,kuris);}catch(e){}};
-window.akordPradinis=()=>{try{return localStorage.getItem(AKORD_RAKTAS)||'slicer';}
-                          catch(e){return 'slicer';}};
+/* Pirma karta atidarius - SD (V 2026-09-22): naujam zmogui pirmas klausimas „ka spausdinti",
+   ir Upload suskleistame bloke nesimato. */
+window.akordPradinis=()=>{try{return localStorage.getItem(AKORD_RAKTAS)||'sd';}
+                          catch(e){return 'sd';}};
 /* Peržiūra perjungiant NIEKO neismeta: abu turiniai lieka atmintyje, o cia tik
    perpiesiam ta, kuris priklauso atidarytam blokui. Butent del sito is `slicerOpen`
    isimtas `slicerReset` - jis persikele ten, kur turinys tikrai keiciasi: i naujo STL
