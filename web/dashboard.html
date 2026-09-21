@@ -6030,7 +6030,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
   syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
-  if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;refreshStatus();return;}
+  if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;deleteQueuedName=name;refreshStatus();return;}
   /* Be tasko: zinute baigiasi VARDU, o vardai patys turi taskus („model.zip.")
      ir trumpinami daugtaskiu („ilgas_varda…."). Kitur pulte sakiniai taska turi -
      cia jis ne sakinio pabaiga zymi, o lipa prie svetimo teksto (V 08-27). */
@@ -6199,6 +6199,11 @@ const renderPrintWait=()=>{
 // alike - at the shared coordinate-less centre spot. Clears itself and
 // announces the result when the job ends.
 let sdJobCur='',sdJobLast='',sdJobLastName='';
+/* Musu trynimas, kuri printeris prieme i eile, bet apklausa jo darbo dar nemate. Mazas
+   modelis istrinamas greiciau, nei ateina kitas atsakymas - tada darbo apklausa
+   nepamatydavo niekada, ir „Deleting ... starting…" kabodavo, o modelis likdavo
+   sarase iki F5 (V 2026-09-22). Pirmas atsakymas be darbo = jau baigta. */
+let deleteQueuedName='';
 /* Zyme gyvena sessionStorage: perkrovus puslapi (F5) tas pats zmogus tame paciame
    skirtuke matydavo „started from another device" apie savo paties trynima (V 08-14).
    sessionStorage isnyksta uzdarius skirtuka, tad kitas langas svetimo darbo savu
@@ -6209,7 +6214,10 @@ const shortName=(n,max=24)=>{n=String(n||'');return n.length>max?(n.slice(0,max-
 const renderSdJob=s=>{
   const job=(s&&s.sdJob)||'',name=(s&&s.sdJobName)||'';
   const e=$('statusMsg');
+  if(job)deleteQueuedName='';
   if(!job){
+    if(deleteQueuedName&&!sdJobCur){sdJobCur='-';sdJobLast='delete';sdJobLastName=deleteQueuedName;}
+    deleteQueuedName='';
     if(sdJobCur){
       /* Musu paciu ikelimas gali dar vykti (jis pats piesia snacka) - tada jo neliesk. */
       if(!uploadBusy&&!deleteBusy)snackProgressClear();
