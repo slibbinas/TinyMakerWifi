@@ -48,10 +48,6 @@ const slicerBusyStop=()=>{
    pasibaigti, ir jo atsakymas neturi nei pakeisti vaizdo, nei atsukti mygtuku,
    kuriuos zmogus jau mato (V 08-20). */
 let sliceRunning=false, sliceRun=0;
-/* Siuntimas i printeri - nuo „Send" iki ispakavimo pabaigos. `uploadBusy` nuimamas vos
-   baigiasi baitai (nuo jo priklauso ispakavimo snackas), o printeris `sdJob` praneša tik
-   kitoje apklausoje - tame tarpe kortelės mygtukai trumpam atsirakindavo (V 2026-09-22). */
-let slicerSending=false;
 /* Ar dabartinis modelis telpa. „Slice" tokio nepjauna (`fitCheck` sarga zemiau),
    tad juosta apie tai turi pasakyti PRIES paspaudima, o ne po jo (V 08-19:
    „neslicina bobos ir viskas" - biustas buvo +170 % per gilus, mygtukas atsakydavo
@@ -164,8 +160,8 @@ const slicerStep=()=>{
    /* Ne tik spaudinys: kol keliauja failas, printeris ji ispakuoja ar trina, rezultato
       vis tiek nebus kur deti - tad blokas uzrakintas VISAM tam laikui. Viena taisykle
       vietoj trijų isimciu, kurias reiktu atsiminti (V 08-20). */
-   const spausdina=slicerSending||((typeof uiBusy==='function')?uiBusy()
-                   :!!(typeof statusData!=='undefined'&&statusData&&statusData.busy));
+   const spausdina=(typeof uiBusy==='function')?uiBusy()
+                   :!!(typeof statusData!=='undefined'&&statusData&&statusData.busy);
    if(go&&!sliceRunning){
      go.disabled=!loaded||sliced||!slicerFits||spausdina;
      go.title=spausdina?'Not while the printer is working'
@@ -2017,7 +2013,6 @@ $('slicerSave').addEventListener('click',async()=>{
      `uploadBusy` nuimam, kai tik baigiasi BAITAI - toliau snacka teisetai perima
      printerio ispakavimas su tikrais sluoksniu skaiciais. `bgJob` lieka iki galo:
      jei apklausa vis delto prakalbtu, ji pasakys darbo VARDA, ne bendra spėjima. */
-  slicerSending=true;
   if(typeof uploadBusy!=='undefined')uploadBusy=true;
   if(typeof bgJob!=='undefined')bgJob='Saving to the printer';
   if(typeof syncActionLocks==='function')syncActionLocks();
@@ -2163,7 +2158,6 @@ $('slicerSave').addEventListener('click',async()=>{
   }catch(e){ prog.textContent=e.message; msg(e.message,!cancelled); }
   finally{
     btn.disabled=false;
-    slicerSending=false;
     if(typeof uploadBusy!=='undefined')uploadBusy=false;
     if(typeof bgJob!=='undefined')bgJob='';
     if(typeof syncActionLocks==='function')syncActionLocks();
