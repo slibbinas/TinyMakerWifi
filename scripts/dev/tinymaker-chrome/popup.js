@@ -61,8 +61,19 @@ async function load(live) {
   render(s, err, host);
 }
 
+/* An open dashboard tab is brought forward instead of opening another one (V 2026-09-21).
+   Matched by the printer's address: `url` is readable because of the http host permission. */
 $('open').addEventListener('click', async () => {
-  chrome.tabs.create({ url: 'http://' + (await getHost()) + '/' });
+  const host = (await getHost()).toLowerCase();
+  const tabs = await chrome.tabs.query({});
+  const tab = tabs.find(t => { try { const u = new URL(t.url || ''); return u.protocol === 'http:' && u.host === host; } catch (e) { return false; } });
+  if (tab) {
+    await chrome.tabs.update(tab.id, { active: true });
+    await chrome.windows.update(tab.windowId, { focused: true });
+    window.close();
+  } else {
+    chrome.tabs.create({ url: 'http://' + host + '/' });
+  }
 });
 $('refresh').addEventListener('click', () => { chrome.runtime.sendMessage('tick'); load(true); });
 $('opts').addEventListener('click', e => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
