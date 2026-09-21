@@ -291,6 +291,30 @@ The printer has no resin sensor - instead it **keeps count**: every printed laye
 
 > ⚠️ It is an **estimate**, not a measurement - it doesn't account for resin sticking to models or drips, so treat it as a planning aid and glance at the real VAT now and then. Refills you don't confirm with "Set VAT full" won't be counted.
 
+## On the browser toolbar: TinyMaker status (Chrome extension, preview)
+
+<p align="center"><img src="Images/screenshots/chrome-extension.png" width="360" alt="TinyMaker status extension: 42% on the toolbar icon and the popup with the print's layer, times and resin"></p>
+
+A small Chrome extension puts the printer on the browser toolbar: the icon shows the print
+progress (`42%`), `II` when paused, `SD` while the card is busy, a tick when a print has just
+finished and `!` when the printer does not answer. Click it for the state, model, layer,
+time left (with the finishing time), resin used and left, and a button that opens the
+dashboard - or switches to it, if it is already open in a tab. It only reads the printer's status once a minute - it never changes anything.
+
+It is not in the Chrome Web Store yet (planned), so for now it is installed by hand:
+
+1. Download **[tinymaker-chrome.zip](https://tinymakerwifi.com/extension/tinymaker-chrome.zip)**
+   and unzip it to a folder you will keep (Chrome loads it from there every time).
+2. Open `chrome://extensions` and switch on **Developer mode** (top right).
+3. **Load unpacked** -> pick the unzipped folder.
+4. Click the puzzle icon on the toolbar and pin **TinyMaker status**.
+5. Click the icon -> **Printer address**. The default is `tinymaker.local`; if the icon shows
+   `!`, enter the printer's IP instead - the same address you open the dashboard with (the
+   printer shows it on the idle screen and under **System -> WiFi Info**).
+
+Tested in Chrome; Edge takes the same folder (`edge://extensions`) but has not been tried yet. To update: unzip the new version over the same folder and press
+the reload arrow on the extension's card in `chrome://extensions`.
+
 ## On your wrist: TinyStatus
 
 <p align="center"><a href="https://github.com/slibbinas/TinyStatus"><img src="https://raw.githubusercontent.com/slibbinas/TinyStatus/main/docs/img/tinystatus.gif" width="240" alt="TinyStatus on a Wear OS watch showing the printer's status"></a></p>
