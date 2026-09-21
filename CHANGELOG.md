@@ -42,6 +42,9 @@ extension that shows the printer on the browser toolbar.
 
 - **A locked card's header no longer turns orange under the pointer**, and during a print the
   preview title is no longer a link to the folded SD list (#207).
+- **Deleting a small model no longer hangs on "starting…".** The printer removed it before the
+  dashboard's next status check, so the message stayed and the model stayed in the list until
+  a reload. It now ends with *Deleted* and the list updates (#213).
 
 ## [0.17.8] - 2026-09-19
 
