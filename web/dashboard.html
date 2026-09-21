@@ -1699,6 +1699,9 @@ let pollWarnTxt='';
 /* Svetimas ikelimas: kada printeris paskutini karta pasake „priimu" ir kokia zinute
    del to stovi ekrane. Zr. refreshStatus. */
 let lastRxAt=0, rxSnackTxt='';
+/* Kada issiustas apdorojamas busenos atsakymas - kad trynimo pabaiga butu sprendziama tik
+   is atsakymo, paprasyto PO trynimo patvirtinimo (auditas 2026-09-22, zr. `deleteQueuedName`). */
+let statusReqAt=0;
 let statusInFlight=false,statusFailCount=0,pendingPrintCmd='',pendingPrintInFlight=false,localPrintStartedAt=0,lpsSynced=false,uploadBusy=false,updLock=false,updSawDown=false,updLockAt=0,lastSdRev=null;
 /* Kiek sekundziu tyla po ramios busenos dar vadinama uzimtumu, o ne gedimu (T-119).
    9,5 s - ismatuota trukme, kiek printeris neatsakineja ruosdamas `Bibio` (897 sluoksniai,
@@ -3007,6 +3010,7 @@ const localBusyStatus=(state,code)=>Object.assign({},statusData||{},{
 const refreshStatus=async()=>{
   if(statusInFlight)return;
   statusInFlight=true;
+  statusReqAt=Date.now();
   try{
     // While the update overlay is up the printer is rebooting: a poll on the
     // old connection can hang the full 30s and, via statusInFlight, block the
@@ -6030,7 +6034,7 @@ const deleteFile=async nameEnc=>{const name=decodeURIComponent(nameEnc);if(!awai
   // and the status-driven job snackbar (renderSdJob) takes over on every
   // device; its closure announces "Deleted X." and refreshes the list.
   syncActionLocks();   // savo zyme nuemem - mygtukai atgal tuoj pat, nelaukiant apklausos
-  if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;deleteQueuedName=name;refreshStatus();return;}
+  if(r&&r.queued){sdJobQuietUntil=Date.now()+20000;deleteQueuedName=name;deleteQueuedAt=Date.now();refreshStatus();return;}
   /* Be tasko: zinute baigiasi VARDU, o vardai patys turi taskus („model.zip.")
      ir trumpinami daugtaskiu („ilgas_varda…."). Kitur pulte sakiniai taska turi -
      cia jis ne sakinio pabaiga zymi, o lipa prie svetimo teksto (V 08-27). */
@@ -6202,8 +6206,9 @@ let sdJobCur='',sdJobLast='',sdJobLastName='';
 /* Musu trynimas, kuri printeris prieme i eile, bet apklausa jo darbo dar nemate. Mazas
    modelis istrinamas greiciau, nei ateina kitas atsakymas - tada darbo apklausa
    nepamatydavo niekada, ir „Deleting ... starting…" kabodavo, o modelis likdavo
-   sarase iki F5 (V 2026-09-22). Pirmas atsakymas be darbo = jau baigta. */
-let deleteQueuedName='';
+   sarase iki F5 (V 2026-09-22). Pirmas atsakymas be darbo, PAPRASYTAS po patvirtinimo,
+   = jau baigta. Senesnis atsakymas (apklausa, issiusta pries Delete) nieko nesako. */
+let deleteQueuedName='',deleteQueuedAt=0;
 /* Zyme gyvena sessionStorage: perkrovus puslapi (F5) tas pats zmogus tame paciame
    skirtuke matydavo „started from another device" apie savo paties trynima (V 08-14).
    sessionStorage isnyksta uzdarius skirtuka, tad kitas langas svetimo darbo savu
@@ -6216,8 +6221,10 @@ const renderSdJob=s=>{
   const e=$('statusMsg');
   if(job)deleteQueuedName='';
   if(!job){
-    if(deleteQueuedName&&!sdJobCur){sdJobCur='-';sdJobLast='delete';sdJobLastName=deleteQueuedName;}
-    deleteQueuedName='';
+    if(deleteQueuedName&&statusReqAt>=deleteQueuedAt){
+      if(!sdJobCur){sdJobCur='-';sdJobLast='delete';sdJobLastName=deleteQueuedName;}
+      deleteQueuedName='';
+    }
     if(sdJobCur){
       /* Musu paciu ikelimas gali dar vykti (jis pats piesia snacka) - tada jo neliesk. */
       if(!uploadBusy&&!deleteBusy)snackProgressClear();
