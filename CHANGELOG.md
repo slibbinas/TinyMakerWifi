@@ -13,6 +13,36 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.17.9] - 2026-09-22
+
+While a print runs, the slicer and SD cards fold away, and there is a small Chrome
+extension that shows the printer on the browser toolbar.
+
+### Added
+
+- **TinyMaker status - the printer on your browser toolbar** (Chrome extension, preview).
+  The icon shows the print progress (`42%`), `II` when paused, a tick when a print has
+  finished and `!` when the printer does not answer. Click it for the layer, time left and
+  finishing time, resin used and left, and a button that opens the dashboard - or switches
+  to it, if it is already open in a tab. It only reads the printer's status once a minute and
+  never changes anything. Not in the Chrome Web Store yet, so for now it is installed by hand.
+  [Read more](https://github.com/slibbinas/TinyMakerWifi#on-the-browser-toolbar-tinymaker-status-chrome-extension-preview)
+  (#208, #209, #211).
+
+### Changed
+
+- **While printing, the slicer and SD cards are folded and locked.** Only their grey headers
+  stay, on the phone as well as on a computer. When the print ends, the SD card opens again (#207).
+- **The first visit opens the SD card**, not the slicer. Once you pick a card, the dashboard
+  remembers your choice (#207).
+- **With the slicer open, the folded SD card shows only its header and the space bar** (how
+  many files, how much space is left). Upload is on the open SD card (#207).
+
+### Fixed
+
+- **A locked card's header no longer turns orange under the pointer**, and during a print the
+  preview title is no longer a link to the folded SD list (#207).
+
 ## [0.17.8] - 2026-09-19
 
 The browser slicer can now slice **without supports**, and **Size keep** keeps your size.
