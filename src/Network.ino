@@ -3250,7 +3250,9 @@ void crashPingMaybe() {
   uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
   uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
   uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
-  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer);
+  // Include the crash PC so two different panics on one device (same reason,
+  // no layer) are not collapsed into one report by the de-dupe below.
+  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer) + ":" + String(crashPc);
 
   sysPrefs.begin("tinymaker", true);
   String reported = sysPrefs.getString("crashPingId", "");
@@ -3263,11 +3265,27 @@ void crashPingMaybe() {
   if (!http.begin(client, CRASH_PING_URL)) return;
   http.setTimeout(5000);
   http.addHeader("Content-Type", "application/json");
+  // Backtrace PCs as hex, decoded off-device with addr2line against the elf.
+  String bt;
+  for (uint8_t i = 0; i < crashBtDepth; i++) {
+    char h[10];
+    sprintf(h, "%08x", crashBt[i]);
+    if (i) bt += " ";
+    bt += h;
+  }
+  char pcHex[10], vaddrHex[10];
+  sprintf(pcHex, "%08x", crashPc);
+  sprintf(vaddrHex, "%08x", crashExcVaddr);
   String body = "{\"id\":\"" + statsHardwareHash() +
                 "\",\"version\":\"" + connectFirmwareVersion() +
                 "\",\"reason\":\"" + String(resetReasonName(rsn)) +
                 "\",\"layer\":" + String(layer) +
-                ",\"epoch\":" + String(epoch) + "}";
+                ",\"epoch\":" + String(epoch) +
+                ",\"task\":\"" + String(crashTask) +
+                "\",\"pc\":\"" + pcHex +
+                "\",\"cause\":" + String(crashExcCause) +
+                ",\"vaddr\":\"" + vaddrHex +
+                "\",\"bt\":\"" + bt + "\"}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {
@@ -5133,6 +5151,17 @@ void network_setup() {
   // Plain endpoint for curl / UVtools testing:
   //   curl -F "file=@model.zip" http://tinymaker.local/upload
   server.on("/upload", HTTP_POST, finishUpload, handleUploadData);
+
+#if ENABLE_CRASH_TEST
+  // Dev only: force a StoreProhibited panic to verify the coredump + breadcrumb
+  // pipeline end to end. Gated by ENABLE_CRASH_TEST (0 in every release).
+  server.on("/api/debug/crashtest", HTTP_POST, []() {
+    server.send(200, "text/plain", "crashing");
+    delay(50);
+    volatile int *p = (volatile int *)0;
+    *p = 42;   // null store -> panic -> coredump written -> reboot
+  });
+#endif
 
   // Browser dashboard: http://tinymaker.local/
   server.on("/", HTTP_GET, handleRootPage);

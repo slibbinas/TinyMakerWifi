@@ -13,6 +13,15 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.1] - 2026-09-22
+
+Better crash reports, so a rare freeze can actually be found and fixed.
+
+- When the printer reboots from a crash, it now sends an anonymous **backtrace**
+  (which function and line), not just "it crashed". This is what lets a rare
+  fault be located and fixed instead of guessed at. As before, it is opt-out and
+  carries no personal data.
+
 ## [0.18.0] - 2026-09-22
 
 Self-update no longer depends on GitHub's certificate.
