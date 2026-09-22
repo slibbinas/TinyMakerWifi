@@ -893,11 +893,12 @@ const crashInboxPage = (recs, hb) => {
 h1{font-size:19px;color:#e8720c;margin:0 0 4px}.sub{color:#aaa;font-size:13px;margin-bottom:14px}
 .pill{display:inline-block;background:#3a2a10;border:1px solid #e8a020;color:#e8a020;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px}
 table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #333;font-size:13px}
-th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}</style></head>
-<body><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}
+.wrap{max-width:860px;margin:0 auto;border:1px solid #333;border-radius:10px;background:#232325;padding:18px 22px}</style></head>
+<body><div class="wrap"><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
-<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></body></html>`;
+<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div></body></html>`;
 };
 
 const contactLink = (c) => {
