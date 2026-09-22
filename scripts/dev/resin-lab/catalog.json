@@ -97,6 +97,7 @@
     "resins": [
       {
         "name": "Sunlu Toughness",
+        "type": "tough",
         "regular": 8.0,
         "base": 18,
         "rgb_normal": "4-12",
