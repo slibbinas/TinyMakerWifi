@@ -57,6 +57,8 @@ Arduino-style: all `.ino` files in `src/` are concatenated into one translation 
 
 `lib/` holds four vendor-verified libraries unpacked from the original TinyMaker3D `Firmware/Libraries/*.zip` — **do not replace with registry versions** (APIs changed): `AccelStepper` 1.64, `Arduino_GFX` 1.2.0, `PNGdec` 1.0.1, `SdFat` 1.1.2.
 
+`lib/WiFiManager` is also vendored (tzapu v2.0.17), but for a different reason: a **null-guard crash fix** in `shutdownConfigPortal()` (a boot null-deref caught by 0.18.1 crash telemetry, fixed in 0.18.2). It is byte-identical to the registry v2.0.17 except that patch. It was removed from `lib_deps` — **do not add it back** or the registry copy shadows the fix.
+
 ### Pultas: `web/dashboard.html` + `web/parts/`
 
 Pultas gzip'inamas ir įdedamas į flash'ą. Nuo 0.17 **slicerio dalys gyvena
