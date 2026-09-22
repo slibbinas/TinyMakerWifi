@@ -13,6 +13,25 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.0] - 2026-09-22
+
+Self-update no longer depends on GitHub's certificate.
+
+- **"Version check failed" fixed for good, wherever you are.** Some printers - it
+  turned out, depending on region - could not check for or install updates and
+  showed *"Version check failed - could not reach GitHub"*, even with a working
+  connection. The printer was verifying GitHub's certificate, and in some regions
+  GitHub serves a different one. Now the printer verifies **our own signature** on
+  each update instead, so the region (and the printer's clock) no longer matter.
+- **How it reaches you:** printers that can currently update will get 0.18 the
+  usual way. A printer that was stuck on "Version check failed" needs to be updated
+  **once by hand** - Settings → Update → *Choose & flash…* the 0.18 firmware from
+  the Releases page (or the browser flasher over USB). After that one step,
+  automatic updates work normally again, for good.
+- Under the hood: updates are signed with a private key and verified against a
+  public key built into the firmware; the image is streamed to flash and installed
+  only if its signature and checksum match.
+
 ## [0.17.9] - 2026-09-22
 
 While a print runs, the slicer and SD cards fold away, and there is a small Chrome
