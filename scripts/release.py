@@ -7,7 +7,9 @@ Does, in order (asking once before anything is pushed/published):
   2. build            - pio run (both envs), reports RAM/Flash
   3. push + tag       - origin main + vX.Y.Z
   4. gh-pages         - firmware.bin, firmware-X.Y.Z.bin, version.txt,
-                        versions.txt manifest (newest first)
+                        versions.txt manifest (newest first), and the SIGNED
+                        update manifests update.json + firmware-X.Y.Z.json that
+                        the 0.18 self-update verifies (needs the signing key)
   5. GitHub Release   - vX.Y.Z with firmware.bin + firmware-full.bin attached
                         (--beta marks it prerelease and not "Latest", so
                         /releases/latest - and the web flasher behind it -
@@ -35,7 +37,10 @@ Auth: the GitHub token is taken from the git credential helper (the same one
 """
 
 import argparse
+import base64
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -48,6 +53,41 @@ GHPAGES_WORKTREE = Path("C:/PIO-build/ghp-wt")
 PIO = Path.home() / ".platformio/penv/Scripts/platformio.exe"
 GH_REPO = "slibbinas/TinyMakerWiFi"
 PAGES_URL = "https://slibbinas.github.io/TinyMakerWifi"
+
+
+# The printer accepts an update only if its ECDSA-P256 signature verifies against
+# the public key baked into the firmware (src/update_pubkey.h). This is the
+# PRIVATE half - outside the repo by design. Create it once with
+# scripts/dev/gen_fw_signing_key.py.
+def signing_key_path() -> Path:
+    env = os.environ.get("TINYMAKER_SIGNING_KEY")
+    return Path(env) if env else Path.home() / ".tinymaker" / "fw_signing_key.pem"
+
+
+def load_signing_key():
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    path = signing_key_path()
+    if not path.exists():
+        fail(f"signing key not found: {path}\n"
+             "  create it once with scripts/dev/gen_fw_signing_key.py "
+             "(and back it up), or set TINYMAKER_SIGNING_KEY")
+    return load_pem_private_key(path.read_bytes(), password=None)
+
+
+# A signed manifest binds a version to the exact bytes of its firmware.bin. The
+# printer rebuilds the same message, so the format here and in otaSigOk() must
+# stay identical.
+def sign_manifest(version: str, bin_path: Path, key) -> dict:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    sha = hashlib.sha256(bin_path.read_bytes()).hexdigest()
+    msg = f"tinymaker-fw-sig-v1\n{version}\n{sha}".encode()
+    sig = key.sign(msg, ec.ECDSA(hashes.SHA256()))   # DER-encoded
+    return {"version": version, "sha256": sha, "sig": base64.b64encode(sig).decode()}
+
+
+def write_manifest(path: Path, manifest: dict) -> None:
+    path.write_text(json.dumps(manifest) + "\n", newline="\n")
 
 
 def run(cmd, cwd=REPO_ROOT, capture=False, check=True):
@@ -131,9 +171,10 @@ def prune_versions(worktree, versions, stable, outgoing=None):
         keep.add(outgoing)
     dropped = [v for v in versions if v not in keep]
     for v in dropped:
-        b = worktree / f"firmware-{v}.bin"
-        if b.exists():
-            b.unlink()
+        for suffix in (".bin", ".json"):   # the signed manifest travels with its bin
+            f = worktree / f"firmware-{v}{suffix}"
+            if f.exists():
+                f.unlink()
     if dropped:
         print(f"   picker window: dropped {', '.join(dropped)} (still on their Release pages)")
     return [v for v in versions if v in keep]
@@ -170,6 +211,12 @@ def promote(version):
     (GHPAGES_WORKTREE / "firmware.bin").write_bytes(src.read_bytes())
     (GHPAGES_WORKTREE / "version.txt").write_text(
         f"{version}\n{PAGES_URL}/firmware.bin\n", newline="\n")
+    # Stable self-update channel: reuse the version's already-signed manifest, so
+    # promotion needs no key and ships the exact bytes that were signed at build.
+    man = GHPAGES_WORKTREE / f"firmware-{version}.json"
+    if not man.exists():
+        fail(f"{man.name} is not on gh-pages - re-release the beta with a signing-aware release.py")
+    (GHPAGES_WORKTREE / "update.json").write_text(man.read_text(), newline="\n")
     # The beta pointer follows stable: with nothing newer published, a printer on
     # the beta channel would otherwise keep being offered what it already runs.
     (GHPAGES_WORKTREE / "version-beta.txt").write_text(
@@ -235,6 +282,7 @@ def main():
     if tags:
         fail(f"tag {tag} already exists - bump FIRMWARE_VERSION first")
     check_manual_version(version)
+    signing_key = load_signing_key()   # fail before building if the key is missing
     notes = f"Release {version}."
     if args.notes_file:
         notes = Path(args.notes_file).read_text(encoding="utf-8")
@@ -276,6 +324,12 @@ def main():
     data = fw.read_bytes()
     (GHPAGES_WORKTREE / f"firmware-{version}.bin").write_bytes(data)
 
+    # Signed manifests (0.18 self-update). firmware-<ver>.json travels with the
+    # versioned bin so the picker can verify any version; update.json is the
+    # stable channel the "Install latest" check reads.
+    signed = sign_manifest(version, fw, signing_key)
+    write_manifest(GHPAGES_WORKTREE / f"firmware-{version}.json", signed)
+
     # 0.17: the dashboard's 3D library is served from OUR pages, not a
     # third-party CDN - the printer imports it as a same-origin script, so
     # its contents must only change when we ship a release (V 08-12).
@@ -295,11 +349,13 @@ def main():
         # update-channel switch reads it) - points at the versioned bin.
         (GHPAGES_WORKTREE / "version-beta.txt").write_text(
             f"{version}\n{PAGES_URL}/firmware-{version}.bin\n", newline="\n")
-        print(f"   beta: version.txt/firmware.bin untouched; version-beta.txt -> {version}")
+        print(f"   beta: version.txt/firmware.bin/update.json untouched; version-beta.txt -> {version}")
     else:
         (GHPAGES_WORKTREE / "firmware.bin").write_bytes(data)
         (GHPAGES_WORKTREE / "version.txt").write_text(
             f"{version}\n{PAGES_URL}/firmware.bin\n", newline="\n")
+        # Stable self-update channel: same signed manifest, canonical name.
+        write_manifest(GHPAGES_WORKTREE / "update.json", signed)
 
     # versions.txt: newest first, one X.Y.Z per line (the dashboard's picker)
     manifest_path = GHPAGES_WORKTREE / "versions.txt"

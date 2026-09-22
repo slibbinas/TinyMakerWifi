@@ -40,8 +40,11 @@
 #include <HTTPClient.h>       // fetch version.txt
 #include <uri/UriBraces.h>   // /lib/{} - slicerio failai is korteles (0.17 SL-mod)
 #include "tm_pure.h"     // grynos funkcijos - be Arduino tipu, testuojamos ant PC
-#include "slicer_ca.h"   // gh-pages saknis: manifesto TLS tikrinamas (08-22)
-#include <HTTPUpdate.h>       // pull-and-flash firmware.bin (self-update)
+#include "slicer_ca.h"   // gh-pages saknis: slicerio manifesto TLS tikrinamas (08-22)
+#include "update_pubkey.h"   // public key: firmware self-update signature (0.18)
+#include <mbedtls/pk.h>      // ECDSA-P256 verify of the update signature
+#include <mbedtls/sha256.h>  // hash the signed message + stream the firmware
+#include <mbedtls/base64.h>  // decode the base64 signature from the manifest
 #include <esp_wifi.h>      // esp_wifi_restore() for reliable credential erase
 #include <Preferences.h>   // forcePortal flag (survives reboot)
 #include "mbedtls/sha256.h"  // three.js SD kopijos turinio patikra
@@ -76,9 +79,11 @@ bool rejectIfBusy() {
 }
 
 // Where the printer checks for a newer firmware (self-update, "Install latest").
-// version.txt must contain two lines: (1) the latest version, e.g. "0.7.0",
-// (2) the direct HTTPS URL of that firmware.bin. Both hosted on GitHub Pages.
-#define OTA_VERSION_URL "https://slibbinas.github.io/TinyMakerWifi/version.txt"
+// update.json is a signed manifest: {"version","sha256","sig"} (see release.py).
+// OTA_VERSION_URL is kept only to derive the release directory (otaTrustedBase)
+// and so older references still resolve; the self-update no longer reads it.
+#define OTA_VERSION_URL  "https://slibbinas.github.io/TinyMakerWifi/version.txt"
+#define OTA_MANIFEST_URL "https://slibbinas.github.io/TinyMakerWifi/update.json"
 #define STATS_PING_URL  "https://tinymaker-stats.slibbinas.workers.dev/ping"
 #define CRASH_PING_URL  "https://tinymakerwifi.com/crash"   // anonymous crash telemetry (feedback worker, opt-out)
 
@@ -2993,8 +2998,9 @@ void handleRootPage() {
 // Reached from the Update screen (421) and, since 0.11.0, from the dashboard
 // Update tab (idle + Web control gate, see otaWebAllowed()).
 // ===================================================================================
-String otaLatestVer = "";   // latest version parsed from version.txt
-String otaBinUrl    = "";   // direct URL of the latest firmware.bin
+String otaLatestVer = "";   // latest version from the signed manifest
+String otaBinUrl    = "";   // direct URL of the latest firmware.bin (built by us)
+String otaSha256Expected = "";  // signature-verified SHA-256 of that firmware.bin
 // State of the last check: 0=unknown, 1=checking, 2=up-to-date, 3=update available, 4=error
 int otaState = 0;
 
@@ -3007,39 +3013,91 @@ static int cmpSemver(const char *a, const char *b) {
 
 unsigned long otaCheckedAt = 0;   // millis() of the last successful check
 
-// ---- Self-update over a VERIFIED connection (security review 09-13) --------
+// ---- Self-update authenticated by OUR signature, not GitHub's cert (0.18) ---
 //
-// Both halves of the self-update ran with setInsecure(), and that was the
-// weakest link in the firmware. Not because firmware.bin is secret - it is
-// public - but because of what these bytes BECOME: whoever answered as
-// slibbinas.github.io on this network decided what code the ESP32 runs next.
-// Worse than the slicer case (08-22, see slicer_ca.h), where the payload at
-// least had to match a checksum; here it is flashed into the app partition and
-// rebooted into.
+// firmware.bin is not secret - it is public - but what these bytes BECOME is
+// total: they are flashed into the app partition and rebooted into. So the one
+// question is "did WE publish exactly these bytes?", and the answer must not
+// depend on anything we do not control.
 //
-// It was two unverified hops, and the FIRST one chose the second: line 2 of
-// version.txt becomes otaBinUrl and was never checked for scheme or host, so a
-// forged version.txt alone was enough - point it at http://anything/evil.bin
-// and the printer fetched and flashed it, no certificate examined.
+// HOW IT WORKS NOW. release.py signs, with our private key, a tiny manifest
+// (update.json / firmware-<ver>.json): the version and the SHA-256 of that
+// firmware.bin. The printer carries the matching PUBLIC key (update_pubkey.h).
+// It fetches the manifest, verifies the ECDSA-P256 signature, and only then
+// trusts that SHA-256. It streams the .bin to the flash partition while hashing
+// it, and activates the image only if the hash matches the signed value. Forge
+// anything - manifest, hash or bytes - and the signature no longer verifies.
 //
-// Both hops now verify against the same two anchors the slicer manifest uses
-// (*.github.io - the identical host, so slicer_ca.h already covered it), and
-// otaBinUrl must live under our own release directory.
+// WHY THE TRANSPORT IS setInsecure() ON PURPOSE. Authenticity comes from the
+// signature, so the TLS certificate no longer has to be trusted. This is the
+// whole point of the change: 0.17 pinned GitHub's Let's Encrypt certificate
+// (slicer_ca.h), and when GitHub served a different certificate authority in
+// some regions the printer refused every update and said "could not verify
+// GitHub" (Garry, 09-22). A signature does not care which CA GitHub uses today.
+// A man-in-the-middle can still see or block the download - both harmless: the
+// bytes are public, and a blocked update just fails closed.
 //
-// FAIL CLOSED on purpose: if verification breaks, updates stop and the printer
-// says so. USB flashing and "install from file" still work. Failing open is how
-// you flash someone else's code.
+// The URL is still built by us (otaTrustedBase + a fixed name), never taken
+// from the manifest, so a forged manifest cannot redirect the fetch elsewhere.
+//
+// FAIL CLOSED on purpose: if the signature does not verify, updates stop and the
+// printer says so. USB flashing and "install from file" still work. Failing open
+// is how you flash someone else's code.
+//
+// The slicer manifest fetch keeps its pinned-CA check (slicer_ca.h) unchanged -
+// it verifies a checksum over a trusted transport, a separate mechanism (V, 09-22).
 
-// NO CLOCK GUARD, on purpose. On Arduino-ESP32 2.0.14 mbedTLS is built without
-// MBEDTLS_HAVE_TIME_DATE (CONFIG_MBEDTLS_HAVE_TIME_DATE is unset, and
-// mbedtls/port/include/mbedtls/esp_config.h then #undef's it), so certificate
-// validity dates are never checked and verification works before SNTP has
-// synced. A guard here would defend against nothing and break real things: a
-// network that blocks NTP would lose self-update permanently, and the states it
-// produced were reported as "up to date" by the dashboard and "unknown" by the
-// LCD (maintainer review, PR #146). If a future core turns the option on, this
-// is the place - behind #ifdef MBEDTLS_HAVE_TIME_DATE, and states 0/4 plus the
-// install endpoint need handling at the same time.
+// Extract a JSON string field ("key":"value") from a small trusted-shape
+// manifest. Not a general JSON parser: the manifest is our own fixed shape.
+static String otaJsonField(const String &body, const char *key) {
+  String pat = String("\"") + key + "\":\"";
+  int i = body.indexOf(pat);
+  if (i < 0) return "";
+  i += pat.length();
+  int j = body.indexOf('"', i);
+  if (j < 0) return "";
+  return body.substring(i, j);
+}
+
+// Verify an ECDSA-P256 signature (DER, base64) over the canonical update
+// message. True only if it matches UPDATE_PUBKEY_PEM. This is the whole trust
+// decision: everything the update does downstream hangs off a true here.
+static bool otaSigOk(const String &version, const String &sha256hex, const String &sigB64) {
+  String msg = "tinymaker-fw-sig-v1\n" + version + "\n" + sha256hex;
+  unsigned char hash[32];
+  mbedtls_sha256_ret((const unsigned char *)msg.c_str(), msg.length(), hash, 0);
+
+  unsigned char sig[80];   // a P-256 DER signature is at most 72 bytes
+  size_t sigLen = 0;
+  if (mbedtls_base64_decode(sig, sizeof(sig), &sigLen,
+        (const unsigned char *)sigB64.c_str(), sigB64.length()) != 0)
+    return false;
+
+  mbedtls_pk_context pk;
+  mbedtls_pk_init(&pk);
+  bool ok = false;
+  if (mbedtls_pk_parse_public_key(&pk, (const unsigned char *)UPDATE_PUBKEY_PEM,
+        strlen(UPDATE_PUBKEY_PEM) + 1) == 0)
+    ok = (mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 32, sig, sigLen) == 0);
+  mbedtls_pk_free(&pk);
+  return ok;
+}
+
+// Fetch a small manifest from our gh-pages. setInsecure ON PURPOSE (see the
+// block above): the caller authenticates the CONTENT with otaSigOk, so the
+// certificate does not need to verify. Returns true and fills out on HTTP 200.
+static bool otaFetchManifest(const String &url, String &out, uint16_t timeoutMs) {
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient https;
+  https.setConnectTimeout(timeoutMs);
+  https.setTimeout(timeoutMs);
+  if (!https.begin(client, url)) return false;
+  int code = https.GET();
+  if (code == HTTP_CODE_OK) out = https.getString();
+  https.end();
+  return code == HTTP_CODE_OK;
+}
 
 // The release directory on gh-pages - everything we are willing to flash lives
 // under it. Derived from OTA_VERSION_URL so there is one place to change.
@@ -3069,49 +3127,33 @@ void otaCheckLatest(uint16_t timeoutMs) {
   otaState = 1;
   otaLatestVer = "";
   otaBinUrl = "";
+  otaSha256Expected = "";
   // No cache stamp here: this path is instant, so it costs nothing to retry.
   if (WiFi.status() != WL_CONNECTED) { otaState = 4; return; }
 
-  WiFiClientSecure client;
-  client.setCACert(SLICER_CA_PEM);   // verified: this decides what code we run
-  HTTPClient https;
-  https.setConnectTimeout(timeoutMs);
-  https.setTimeout(timeoutMs);
-  if (!https.begin(client, OTA_VERSION_URL)) { otaState = 4; otaCheckedAt = millis(); return; }
-
-  int code = https.GET();
-  if (code == HTTP_CODE_OK) {
-    String body = https.getString();
-    int nl = body.indexOf('\n');
-    if (nl < 0) {
-      otaLatestVer = body;
-      otaLatestVer.trim();
-    } else {
-      otaLatestVer = body.substring(0, nl);      otaLatestVer.trim();
-      otaBinUrl    = body.substring(nl + 1);      otaBinUrl.trim();
-      // Line 2 is the only part of version.txt that steers a later flash, so it
-      // is the one part that has to be checked.
-      if (otaBinUrl.length() && !otaUrlTrusted(otaBinUrl)) {
-        DBGLN("version.txt points off our release directory - ignoring the URL");
-        otaBinUrl = "";
-      }
-    }
-    // Rebuild rather than drop. release.py always writes line 2, but a truncated
-    // or tampered file should not be able to take updates away either - the
-    // canonical name next to version.txt is what we would have fetched anyway.
-    if (otaBinUrl.length() == 0) otaBinUrl = otaTrustedBase() + "firmware.bin";
-#ifdef FIRMWARE_VERSION
-    int c = cmpSemver(otaLatestVer.c_str(), FIRMWARE_VERSION);
-#else
-    int c = 1;
-#endif
-    otaState = (c > 0) ? 3 : 2;    // newer available vs. already current
-    otaCheckedAt = millis();       // cache successful result (see above)
-  } else {
-    otaState = 4;
-    otaCheckedAt = millis();       // and the failure, for a shorter while
+  String man;
+  if (!otaFetchManifest(OTA_MANIFEST_URL, man, timeoutMs)) {
+    otaState = 4; otaCheckedAt = millis(); return;
   }
-  https.end();
+  String v   = otaJsonField(man, "version");
+  String sha = otaJsonField(man, "sha256");
+  String sig = otaJsonField(man, "sig");
+  // A bad or unsigned manifest is a failed check, not "up to date": fail closed.
+  if (v.length() == 0 || sha.length() != 64 || !otaSigOk(v, sha, sig)) {
+    DBGLN("update manifest signature did not verify - ignoring");
+    otaState = 4; otaCheckedAt = millis(); return;
+  }
+  otaLatestVer = v;
+  otaSha256Expected = sha;
+  // The URL is ours, never the manifest's - a forged manifest cannot redirect it.
+  otaBinUrl = otaTrustedBase() + "firmware.bin";
+#ifdef FIRMWARE_VERSION
+  int c = cmpSemver(otaLatestVer.c_str(), FIRMWARE_VERSION);
+#else
+  int c = 1;
+#endif
+  otaState = (c > 0) ? 3 : 2;    // newer available vs. already current
+  otaCheckedAt = millis();       // cache successful result (see above)
 }
 
 void otaCheckLatest() { otaCheckLatest(6000); }
@@ -3225,44 +3267,118 @@ void crashPingMaybe() {
   }
 }
 
-// Download a firmware image over HTTPS and flash it. Shows progress on the
-// LCD; reboots on success. Shared by "Install latest" and the version picker.
-void otaFlashUrl(const String &url, const char *subtitle) {
-  // Last gate before the app partition is overwritten. Both checks answer the
-  // same question - "do we know who is sending these bytes?" - and both refuse
-  // rather than guess.
-  if (!otaUrlTrusted(url)) {
+// Download a firmware image over HTTPS and flash it, refusing unless every byte
+// hashes to expectedSha (which the caller has already checked came in a signed
+// manifest). Streams to the flash partition while hashing - firmware.bin does
+// not fit in RAM - and activates the image only on a matching hash. Reboots on
+// success. Shared by "Install latest" and the version picker.
+void otaVerifiedFlash(const String &url, const String &expectedSha, const char *subtitle) {
+  // Last gate before the app partition is overwritten: the URL must be ours, and
+  // we must have a hash to hold the bytes to. Refuse rather than guess.
+  if (!otaUrlTrusted(url) || expectedSha.length() != 64) {
     netMessage("Update refused", "not our release URL");
     delay(1800);
     restoreIdleScreen();
     return;
   }
   netProgressStart("Updating...", subtitle);
+
+  // setInsecure ON PURPOSE: authenticity is the signed hash below, not the cert.
   WiFiClientSecure client;
-  client.setCACert(SLICER_CA_PEM);   // see slicer_ca.h - same two anchors
-  httpUpdate.rebootOnUpdate(true);
-  httpUpdate.onProgress([](int done, int total) { netProgressBar(done, total); });
-  t_httpUpdate_return ret = httpUpdate.update(client, url);
-  if (ret == HTTP_UPDATE_FAILED) {   // on success the ESP reboots itself
-    netMessage("Update FAILED", httpUpdate.getLastErrorString().c_str());
-    delay(1800);
-    restoreIdleScreen();
+  client.setInsecure();
+  HTTPClient https;
+  https.setConnectTimeout(15000);
+  https.setTimeout(15000);
+  if (!https.begin(client, url)) {
+    netMessage("Update FAILED", "connect");
+    delay(1800); restoreIdleScreen(); return;
   }
+  int code = https.GET();
+  int len  = https.getSize();
+  if (code != HTTP_CODE_OK || len <= 0) {
+    https.end();
+    netMessage("Update FAILED", code != HTTP_CODE_OK ? String("HTTP " + String(code)).c_str() : "no length");
+    delay(1800); restoreIdleScreen(); return;
+  }
+  if (!Update.begin(len)) {
+    https.end();
+    netMessage("Update FAILED", "no space");
+    delay(1800); restoreIdleScreen(); return;
+  }
+
+  mbedtls_sha256_context sh;
+  mbedtls_sha256_init(&sh);
+  mbedtls_sha256_starts_ret(&sh, 0);
+  WiFiClient *stream = https.getStreamPtr();
+  uint8_t buf[1024];
+  int remaining = len;
+  bool ioOk = true;
+  unsigned long lastData = millis();
+  while (remaining > 0 && (https.connected() || stream->available())) {
+    size_t avail = stream->available();
+    if (avail) {
+      int n = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
+      if (n <= 0) { ioOk = false; break; }
+      mbedtls_sha256_update_ret(&sh, buf, n);
+      if (Update.write(buf, n) != (size_t)n) { ioOk = false; break; }
+      remaining -= n;
+      netProgressBar(len - remaining, len);
+      lastData = millis();
+    } else {
+      if (millis() - lastData > 15000UL) { ioOk = false; break; }  // stalled
+      delay(1);
+    }
+  }
+  unsigned char dig[32];
+  mbedtls_sha256_finish_ret(&sh, dig);
+  mbedtls_sha256_free(&sh);
+  char hex[65];
+  for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", dig[i]);
+  hex[64] = 0;
+  https.end();
+
+  // The image is on the partition but not yet activated. If anything is off -
+  // a short/stalled download or a hash that does not match the signed value -
+  // abort so it is never booted.
+  if (!ioOk || remaining != 0 || !expectedSha.equalsIgnoreCase(hex)) {
+    Update.abort();
+    netMessage("Update FAILED", ioOk ? "checksum mismatch" : "download error");
+    delay(2200); restoreIdleScreen(); return;
+  }
+  if (!Update.end(true)) {
+    netMessage("Update FAILED", Update.errorString());
+    delay(2200); restoreIdleScreen(); return;
+  }
+  netMessage("Update OK", "rebooting");
+  delay(800);
+  ESP.restart();
 }
 
-// Download the latest firmware.bin and flash it. Reboots on success.
+// Download the latest firmware.bin and flash it. Reboots on success. The hash
+// was signature-verified during otaCheckLatest.
 void otaInstallLatest() {
   if (!otaHasUpdate()) return;
-  otaFlashUrl(otaBinUrl, "");
+  otaVerifiedFlash(otaTrustedBase() + "firmware.bin", otaSha256Expected, "");
 }
 
-// Install a specific "X.Y.Z" hosted as firmware-X.Y.Z.bin next to version.txt
-// on gh-pages. The URL is built here (never taken from the request), so the
-// endpoint cannot be steered to another host.
+// Install a specific "X.Y.Z" hosted as firmware-X.Y.Z.bin on gh-pages. Fetch
+// and verify that version's signed manifest (firmware-X.Y.Z.json) first, then
+// flash by its signed hash. The URL is built here, never taken from the
+// manifest, so it cannot be steered to another host.
 void otaInstallVersion(const String &ver) {
-  String base = OTA_VERSION_URL;
-  base = base.substring(0, base.lastIndexOf('/') + 1);
-  otaFlashUrl(base + "firmware-" + ver + ".bin", ver.c_str());
+  String man;
+  if (!otaFetchManifest(otaTrustedBase() + "firmware-" + ver + ".json", man, 8000)) {
+    netMessage("Update FAILED", "manifest");
+    delay(1800); restoreIdleScreen(); return;
+  }
+  String v   = otaJsonField(man, "version");
+  String sha = otaJsonField(man, "sha256");
+  String sig = otaJsonField(man, "sig");
+  if (v != ver || sha.length() != 64 || !otaSigOk(v, sha, sig)) {
+    netMessage("Update refused", "bad signature");
+    delay(2200); restoreIdleScreen(); return;
+  }
+  otaVerifiedFlash(otaTrustedBase() + "firmware-" + ver + ".bin", sha, ver.c_str());
 }
 
 // GET /api/update -> installed/latest versions for the dashboard Update tab.
