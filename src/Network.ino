@@ -3049,11 +3049,22 @@ unsigned long otaCheckedAt = 0;   // millis() of the last successful check
 
 // Extract a JSON string field ("key":"value") from a small trusted-shape
 // manifest. Not a general JSON parser: the manifest is our own fixed shape.
+// Tolerates whitespace around the colon, so a pretty-printed manifest
+// ("key": "value") parses too - json.dumps writes ": " by default, and a
+// no-space parser silently returned "" and refused every update (hardware
+// test 09-22).
 static String otaJsonField(const String &body, const char *key) {
-  String pat = String("\"") + key + "\":\"";
+  String pat = String("\"") + key + "\"";
   int i = body.indexOf(pat);
   if (i < 0) return "";
   i += pat.length();
+  int n = body.length();
+  while (i < n && (body[i] == ' ' || body[i] == '\t')) i++;
+  if (i >= n || body[i] != ':') return "";
+  i++;
+  while (i < n && (body[i] == ' ' || body[i] == '\t')) i++;
+  if (i >= n || body[i] != '"') return "";
+  i++;
   int j = body.indexOf('"', i);
   if (j < 0) return "";
   return body.substring(i, j);

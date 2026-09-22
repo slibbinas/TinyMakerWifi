@@ -87,7 +87,9 @@ def sign_manifest(version: str, bin_path: Path, key) -> dict:
 
 
 def write_manifest(path: Path, manifest: dict) -> None:
-    path.write_text(json.dumps(manifest) + "\n", newline="\n")
+    # Compact (no spaces): smaller, and it matches the firmware's field parser
+    # exactly. The parser also tolerates spaces now, but keep both tidy.
+    path.write_text(json.dumps(manifest, separators=(",", ":")) + "\n", newline="\n")
 
 
 def run(cmd, cwd=REPO_ROOT, capture=False, check=True):
