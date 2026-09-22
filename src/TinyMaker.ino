@@ -22,6 +22,9 @@
 // ===================================================================================
 #define ENABLE_NETWORK       1   // 0 = firmware be WiFi/upload (kaip originalas)
 #define ENABLE_SERIAL_DEBUG  0   // 0 = jokio Serial isvesties
+#ifndef ENABLE_CRASH_TEST        // override with -DENABLE_CRASH_TEST=1 for a dev crash-pipeline test
+#define ENABLE_CRASH_TEST    0   // 1 = dev-only /api/debug/crashtest forces a panic. NEVER 1 in a release.
+#endif
 
 #if ENABLE_SERIAL_DEBUG
   #define DBG    Serial.printf
@@ -44,6 +47,7 @@
 #include <PNGdec.h>              // PNG decoder library for reading print layers
 #include <SdFat.h>               // SD card file system library
 #include <esp_system.h>          // hardware random for boot-animation shuffle
+#include <esp_core_dump.h>       // read the panic backtrace saved to the coredump partition
 #include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
@@ -800,6 +804,17 @@ uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
 uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
 
+// Panic backtrace, read once at boot from the ELF coredump the ESP wrote to the
+// coredump partition (min_spiffs.csv already carries it, so this works on every
+// device - no reflash). Decoded off-device with addr2line against that version's
+// firmware.elf. All zero when there is no coredump (a clean boot).
+uint32_t crashPc = 0;          // program counter at the exception
+uint32_t crashBt[8] = {0};     // backtrace PCs (caller chain)
+uint8_t  crashBtDepth = 0;
+char     crashTask[16] = {0};  // task that crashed
+uint32_t crashExcCause = 0;    // exception cause (LoadProhibited, etc.)
+uint32_t crashExcVaddr = 0;    // faulting address (0 = null deref)
+
 const char *resetReasonName(uint8_t r) {
   switch (r) {
     case ESP_RST_POWERON:   return "power-on";
@@ -834,6 +849,26 @@ void savePrintActiveFlag(bool active) {
 
 void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
   bootResetReason = esp_reset_reason();
+#if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
+  // A panic left an ELF coredump in flash. Read the summary (PC + backtrace +
+  // exception cause), then erase it so it is reported once and the slot frees.
+  if (esp_core_dump_image_check() == ESP_OK) {
+    esp_core_dump_summary_t *sum =
+        (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    if (sum) {
+      if (esp_core_dump_get_summary(sum) == ESP_OK) {
+        crashPc       = sum->exc_pc;
+        crashExcCause = sum->ex_info.exc_cause;
+        crashExcVaddr = sum->ex_info.exc_vaddr;
+        strncpy(crashTask, sum->exc_task, sizeof(crashTask) - 1);
+        crashBtDepth = sum->exc_bt_info.depth > 8 ? 8 : (uint8_t)sum->exc_bt_info.depth;
+        for (uint8_t i = 0; i < crashBtDepth; i++) crashBt[i] = sum->exc_bt_info.bt[i];
+      }
+      free(sum);
+    }
+    esp_core_dump_image_erase();
+  }
+#endif
   sysPrefs.begin("tinymaker", false);
   if (sysPrefs.getBool("prActive", false)) {
     crashReason = (uint8_t)bootResetReason;
