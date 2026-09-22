@@ -49,3 +49,8 @@ scripts/dev/test-out/
 
 # Resin lab: personal data path (Drive), not for the public repo
 scripts/dev/resin-lab/local.json
+
+# Firmware signing private key: NEVER in the repo (root of trust for updates)
+*.pem
+fw_signing_key*
+.tinymaker/
