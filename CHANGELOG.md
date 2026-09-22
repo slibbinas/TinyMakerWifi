@@ -13,6 +13,17 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.2] - 2026-09-22
+
+The boot crash the telemetry found is fixed.
+
+- **A rare crash on start-up is gone.** On some printers the WiFi setup step could
+  hit a bug while closing its setup screen and make the printer restart itself once
+  at power-on (or take a couple of tries to get online). It never affected prints.
+  0.18.1's crash reports pinned it to the exact line on the first report, and this
+  release fixes it. (For the curious: a null check in the WiFiManager library's
+  portal shutdown.)
+
 ## [0.18.1] - 2026-09-22
 
 Better crash reports, so a rare freeze can actually be found and fixed.
