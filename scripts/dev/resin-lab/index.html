@@ -193,7 +193,7 @@ const T={
   maker:'Gamintojas',name:'Pavadinimas',type:'Tipas',color:'Spalva',source:'Iš kur',received:'Gauta',wash:'Plovimas',status:'Būsena',reason:'Kodėl netinka (gamintojui)',
   spec:'Gamintojo spec lapas (RGB tikslesnis - TinyMaker ekranas spalvotas)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bazinė, s',monoB:'Mono bazinė, s',bl:'Baz. sl.',density:'Tankis',notes:'Pastabos',
   edit:'Keisti',create:'Sukurti',folder:'Aplankas Drive',needName:'Reikia gamintojo ir pavadinimo.',saved:'Įrašyta.',failed:'Nepavyko: {0}',
-  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',whyFloor:'ne mažiau nei Mono {0} s × {1} (spalvotas ekranas)',whyBase:'Base = didesnis iš Regular × {0} ir spec lapo bazinės {1} s',guess:'spėta',guessT:'Gamintojo skaičių nerasta - spec lapo laukuose tipinės reikšmės',guessBox:'Skaičiai spėti (gamintojo nerasta)',whyShort:'iš ko',viscous:'Tąsi derva: kaprizingi pirmi sluoksniai - pirma lėtink kėlimą, ne ilgink ekspoziciją.',
+  startParams:'Pradžiai',noStart:'įvesk spec lapo RGB arba Mono ekspoziciją - pasiūlysiu pradžią',fromRatio:'iš santykio: {0}',whyFloor:'ne mažiau nei Mono {0} s × {1} (spalvotas ekranas)',whyBase:'Base = didesnis iš Regular × {0} ir spec lapo bazinės {1} s',guess:'spėta',guessT:'Gamintojo skaičių nerasta - spec lapo laukuose tipinės reikšmės',guessBox:'Skaičiai spėti (gamintojo nerasta)',whyShort:'iš ko',anchor:'Inkaras',anchorAuto:'Auto - artimiausias',viscous:'Tąsi derva: kaprizingi pirmi sluoksniai - pirma lėtink kėlimą, ne ilgink ekspoziciją.',
   newTest:'Naujas bandymas',editTest:'Keičiamas bandymas',step:'Žingsnis',layer:'Sluoksnis',date:'Data',rating:'Įvertinimas',
   r1:'★ nepavyko',r2:'★★ prastai',r3:'★★★ vidutiniškai',r4:'★★★★ gerai',r5:'★★★★★ puikiai',
   params:'Parametrai, kaip buvo printeryje',cond:'Sąlygos ir matavimai',room:'Kambarys, °C',resinT:'Derva, °C',cure:'Kietinimas, min',ml:'Sunaudota, ml',mins:'Trukmė, min',grams:'Svoris, g',
@@ -257,7 +257,7 @@ const T={
   maker:'Maker',name:'Name',type:'Type',color:'Colour',source:'Source',received:'Received',wash:'Wash',status:'Status',reason:'Why not suitable (for the maker)',
   spec:'Maker’s datasheet (RGB is closer - the TinyMaker screen is colour)',rgb:'RGB, s',mono:'Mono, s',rgbB:'RGB bottom, s',monoB:'Mono bottom, s',bl:'Bottom layers',density:'Density',notes:'Notes',
   edit:'Edit',create:'Create',folder:'Drive folder',needName:'Maker and name are required.',saved:'Saved.',failed:'Failed: {0}',
-  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',whyFloor:'at least Mono {0} s × {1} (colour screen)',whyBase:'Base = larger of Regular × {0} and the datasheet bottom {1} s',guess:'guessed',guessT:'No maker numbers found - the datasheet fields hold typical values',guessBox:'Numbers are a guess (no maker data)',whyShort:'why',viscous:'Viscous resin: fussy first layers - slow the lift before adding exposure.',
+  startParams:'Start with',noStart:'enter the datasheet RGB or Mono exposure to get a start',fromRatio:'from the ratio: {0}',whyFloor:'at least Mono {0} s × {1} (colour screen)',whyBase:'Base = larger of Regular × {0} and the datasheet bottom {1} s',guess:'guessed',guessT:'No maker numbers found - the datasheet fields hold typical values',guessBox:'Numbers are a guess (no maker data)',whyShort:'why',anchor:'Anchor',anchorAuto:'Auto - nearest',viscous:'Viscous resin: fussy first layers - slow the lift before adding exposure.',
   newTest:'New test',editTest:'Editing test',step:'Step',layer:'Layer',date:'Date',rating:'Rating',
   r1:'★ failed',r2:'★★ poor',r3:'★★★ fair',r4:'★★★★ good',r5:'★★★★★ excellent',
   params:'Parameters as set on the printer',cond:'Conditions and measurements',room:'Room, °C',resinT:'Resin, °C',cure:'Cure, min',ml:'Used, ml',mins:'Time, min',grams:'Weight, g',
@@ -384,6 +384,9 @@ function factor(col,r){
   const refs=[];
   referenceSet(skip).forEach(x=>{const m=mid(x.ds&&x.ds[col]);if(m&&x.regular)refs.push({name:x.name,k:x.regular/m,mid:m,type:x.type});});
   if(!refs.length)return null;
+  /* Rankinis inkaras (cur._anchor): V pasirinko vieną ištestuotą dervą - imam jos
+     santykį tiesiai, apeidami hibridą. Nerado (ištrinta) - grįžtam į auto. */
+  if(r&&r._anchor){const a=refs.find(x=>x.name===r._anchor);if(a)return {k:a.k,who:[a.name],mode:'pick'};}
   const sameType=(r&&r.type&&rMid)?refs.filter(x=>x.type===r.type):[];
   if(sameType.length>=2){
     sameType.sort((a,b)=>Math.abs(a.mid-rMid)-Math.abs(b.mid-rMid));
@@ -392,6 +395,18 @@ function factor(col,r){
   }
   const ks=refs.map(x=>x.k).sort((a,b)=>a-b);
   return {k:ks.length%2?ks[(ks.length-1)/2]:(ks[ks.length/2-1]+ks[ks.length/2])/2,who:refs.map(x=>x.name),mode:'median'};
+}
+// Ištestuoti inkarai, prieinami rankiniam parinkimui - tame pačiame col, kurį imtų
+// suggest() (RGB, tada Mono). Sąrašas rodomas parinkiklyje.
+function anchorsFor(r){
+  const ds=(r&&r.datasheet)||{};
+  for(const col of ['rgb_normal','mono_normal']){
+    if(!mid(ds[col]))continue;
+    const names=[];
+    referenceSet(r&&r.slug).forEach(x=>{if(mid(x.ds&&x.ds[col])&&x.regular)names.push(x.name);});
+    if(names.length)return names;
+  }
+  return [];
 }
 function suggest(r){
   const ds=r.datasheet||{},sd=CAT.seeds;
@@ -543,6 +558,7 @@ function resinCard(){
       (ds.mono_normal?'<span>Mono <b>'+esc(ds.mono_normal)+' s</b></span>':'')+(ds.density?'<span>'+esc(t('density'))+' <b>'+esc(num(ds.density))+'</b></span>':'')+
       (r.wash?'<span>'+esc(t('wash'))+' <b>'+esc(r.wash)+'</b></span>':'')+'</div>'+
       '<div class="note">'+esc(t('startParams'))+': '+(s?'<b style="color:var(--text)">Regular '+num(s.regular_exposure)+' s · Base '+s.base_exposure+' s</b> <span class="k" style="cursor:help" title="'+esc(t('fromRatio',s.why))+'">ⓘ '+esc(t('whyShort'))+'</span>':esc(t('noStart')))+'</div>'+
+      (s&&anchorsFor(r).length?'<div class="note" style="margin-top:4px">'+esc(t('anchor'))+': <select id="anchorSel" style="font-size:12px;padding:1px 4px">'+[['',t('anchorAuto')]].concat(anchorsFor(r).map(n=>[n,n])).map(o=>'<option value="'+esc(o[0])+'"'+(o[0]===(r._anchor||'')?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select></div>':'')+
       (typeOf(r).viscous?'<div class="warn" style="padding:3px 8px;margin-top:4px">'+esc(t('viscous'))+'</div>':'')+
       (r.status==='netinka'&&r.reason?'<div class="err">'+esc(r.reason)+'</div>':'')+'</div>';
   }
@@ -801,6 +817,7 @@ function bind(){
   paramsForm(ed?ed.params:defaultParams(sel.step,sel.lh));
   $('tStep').addEventListener('change',()=>{if(editing)return;sel.step=$('tStep').value;sel.all=false;render();});
   $('tLh').addEventListener('change',()=>{if(editing)return;sel.lh=Number($('tLh').value);render();});
+  {const as=$('anchorSel');if(as)as.addEventListener('change',()=>{cur._anchor=as.value||null;render();});}
   on('btnFromSug',()=>paramsForm(startVals(Number($('tLh').value))));
   on('btnFromBest',()=>{const b=bestFor(r,Number($('tLh').value))||bestTest(r,$('tStep').value,Number($('tLh').value));if(b)paramsForm(b.params);});
   on('btnFromPrinter',fillFromPrinter);
