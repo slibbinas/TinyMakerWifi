@@ -366,27 +366,38 @@ function mid(range){
   return isFinite(a)&&isFinite(b)&&a>0?(a+b)/2:null;
 }
 function referenceSet(skip){
-  const ref=(CAT.seeds.resins||[]).map(s=>({name:s.name,regular:s.regular,ds:{rgb_normal:s.rgb_normal,mono_normal:s.mono_normal}}));
+  const ref=(CAT.seeds.resins||[]).map(s=>({name:s.name,type:s.type||'tough',regular:s.regular,ds:{rgb_normal:s.rgb_normal,mono_normal:s.mono_normal}}));
   Object.values(all).forEach(r=>{
     if(r.slug===skip||r.synthetic)return;   // etalonas (sugalvoti skaičiai) santykio nekeičia
     const b=bestFor(r,0.05)||bestFor(r,0.1);
     if(!b||!r.datasheet||ref.some(x=>x.name===r.maker+' '+r.name))return;
-    ref.push({name:r.maker+' '+r.name,regular:b.params.regular_exposure,ds:r.datasheet});
+    ref.push({name:r.maker+' '+r.name,type:r.type,regular:b.params.regular_exposure,ds:r.datasheet});
   });
   return ref;
 }
-function factor(col,skip){
-  const ks=[],who=[];
-  referenceSet(skip).forEach(x=>{const m=mid(x.ds&&x.ds[col]);if(m&&x.regular){ks.push(x.regular/m);who.push(x.name);}});
-  if(!ks.length)return null;
-  ks.sort((a,b)=>a-b);
-  return {k:ks.length%2?ks[(ks.length-1)/2]:(ks[ks.length/2-1]+ks[ks.length/2])/2,who:who};
+/* Hibridas (2026-09-22): kol tam tipui < 2 ištestuotų inkarų - globali mediana
+   (dabartinis elgesys, skaičiai nesikeičia). Kai tipui yra >=2 inkarai - santykis
+   imamas iš to paties tipo iki dviejų ARTIMIAUSIŲ pagal gamintojo ekspoziciją.
+   Tipas ir panaši gamintojo ekspozicija = artimiausias Dp/Ec, tad tikslesnė pradžia. */
+function factor(col,r){
+  const skip=r&&r.slug, rMid=r&&mid((r.datasheet||{})[col]);
+  const refs=[];
+  referenceSet(skip).forEach(x=>{const m=mid(x.ds&&x.ds[col]);if(m&&x.regular)refs.push({name:x.name,k:x.regular/m,mid:m,type:x.type});});
+  if(!refs.length)return null;
+  const sameType=(r&&r.type&&rMid)?refs.filter(x=>x.type===r.type):[];
+  if(sameType.length>=2){
+    sameType.sort((a,b)=>Math.abs(a.mid-rMid)-Math.abs(b.mid-rMid));
+    const near=sameType.slice(0,2);
+    return {k:near.reduce((s,x)=>s+x.k,0)/near.length,who:near.map(x=>x.name),mode:'type'};
+  }
+  const ks=refs.map(x=>x.k).sort((a,b)=>a-b);
+  return {k:ks.length%2?ks[(ks.length-1)/2]:(ks[ks.length/2-1]+ks[ks.length/2])/2,who:refs.map(x=>x.name),mode:'median'};
 }
 function suggest(r){
   const ds=r.datasheet||{},sd=CAT.seeds;
   for(const col of ['rgb_normal','mono_normal']){
     const m=mid(ds[col]);if(!m)continue;
-    const f=factor(col,r.slug);if(!f)continue;
+    const f=factor(col,r);if(!f)continue;
     const fR=F.find(x=>x.k==='regular_exposure'),fB=F.find(x=>x.k==='base_exposure');
     const clamp=(v,fl)=>Math.min(fl.max,Math.max(fl.min,v));
     const why=[(col==='rgb_normal'?'RGB':'Mono')+' '+num(m.toFixed(2))+' s × '+num(f.k.toFixed(2))+' ('+f.who.join(', ')+')'];
