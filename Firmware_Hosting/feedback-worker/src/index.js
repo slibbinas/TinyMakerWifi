@@ -590,6 +590,16 @@ export default {
         layer: Math.max(0, Math.min(60000, Number(f.layer) || 0)),
         epoch: Math.max(0, Number(f.epoch) || 0),
         at: stamp,
+        // 0.18.1 diagnostics: breadcrumb (which subsystem) + coredump backtrace.
+        // All optional - older firmware omits them.
+        stage: str(f.stage, 12),
+        heap: Math.max(0, Number(f.heap) || 0),
+        up: Math.max(0, Number(f.up) || 0),
+        task: str(f.task, 16),
+        pc: str(f.pc, 8),
+        cause: Math.max(0, Number(f.cause) || 0),
+        vaddr: str(f.vaddr, 8),
+        bt: str(f.bt, 160),
       };
       await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
                              JSON.stringify(rec),
@@ -872,10 +882,19 @@ const crashInboxPage = (recs, hb) => {
   } else {
     hbLine = `<div style="font-size:12px;margin:2px 0 12px;color:#e8a020">&#9679; Telemetry heartbeat: none yet (weekly cron)</div>`;
   }
-  const rows = recs.map((r) =>
-    `<tr><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
-    `<td>${r.layer ? esc(String(r.layer)) : ''}</td><td class="mono">${esc(String(r.id).slice(0, 8))}</td></tr>`
-  ).join('');
+  const rows = recs.map((r) => {
+    // 0.18.1+ diagnostics. Breadcrumb stage (+ free heap KB); coredump pc/cause/
+    // faulting address, with the full backtrace in the title for addr2line.
+    const stageCell = r.stage
+      ? `${esc(r.stage)}${r.heap ? ` <span class="sub">${Math.round(r.heap / 1024)}k</span>` : ''}`
+      : '';
+    const crashCell = r.pc && r.pc !== '00000000'
+      ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task}\nbt ${r.bt}`)}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
+      : '';
+    return `<tr><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
+      `<td>${stageCell}</td><td>${r.layer ? esc(String(r.layer)) : ''}</td>` +
+      `<td class="mono">${esc(String(r.id).slice(0, 8))}</td><td>${crashCell}</td></tr>`;
+  }).join('');
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker crash telemetry</title>
 <style>body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#1c1c1e;color:#eee;padding:20px}
 h1{font-size:19px;color:#e8720c;margin:0 0 4px}.sub{color:#aaa;font-size:13px;margin-bottom:14px}
@@ -885,7 +904,7 @@ th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,mono
 <body><h1>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
-<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th></tr>${rows}</table></body></html>`;
+<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Stage</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></body></html>`;
 };
 
 const contactLink = (c) => {

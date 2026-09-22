@@ -2287,6 +2287,7 @@ bool mqttConnect() {
 }
 
 void mqtt_loop() {
+  if (mqttEnabled && WiFi.status() == WL_CONNECTED) bcMark(BC_MQTT);
   if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) {
     if (mqttClient.connected()) mqttClient.disconnect();
     mqttDiscoverySent = false;
@@ -3098,6 +3099,7 @@ static bool otaSigOk(const String &version, const String &sha256hex, const Strin
 // block above): the caller authenticates the CONTENT with otaSigOk, so the
 // certificate does not need to verify. Returns true and fills out on HTTP 200.
 static bool otaFetchManifest(const String &url, String &out, uint16_t timeoutMs) {
+  bcMark(BC_TLS_OTA);
   WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -3200,6 +3202,7 @@ String statsHardwareHash() {
 
 void statsPingMaybe() {
   if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
+  bcMark(BC_TLS_STATS);
   String cur = connectFirmwareVersion();
   sysPrefs.begin("tinymaker", true);
   String pinged = sysPrefs.getString("statsPingVer", "");
@@ -3250,7 +3253,9 @@ void crashPingMaybe() {
   uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
   uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
   uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
-  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer);
+  // Include the crash PC so two different panics on one device (same reason,
+  // no layer) are not collapsed into one report by the de-dupe below.
+  String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer) + ":" + String(crashPc);
 
   sysPrefs.begin("tinymaker", true);
   String reported = sysPrefs.getString("crashPingId", "");
@@ -3263,11 +3268,30 @@ void crashPingMaybe() {
   if (!http.begin(client, CRASH_PING_URL)) return;
   http.setTimeout(5000);
   http.addHeader("Content-Type", "application/json");
+  // Backtrace PCs as hex, decoded off-device with addr2line against the elf.
+  String bt;
+  for (uint8_t i = 0; i < crashBtDepth; i++) {
+    char h[10];
+    sprintf(h, "%08x", crashBt[i]);
+    if (i) bt += " ";
+    bt += h;
+  }
+  char pcHex[10], vaddrHex[10];
+  sprintf(pcHex, "%08x", crashPc);
+  sprintf(vaddrHex, "%08x", crashExcVaddr);
   String body = "{\"id\":\"" + statsHardwareHash() +
                 "\",\"version\":\"" + connectFirmwareVersion() +
                 "\",\"reason\":\"" + String(resetReasonName(rsn)) +
                 "\",\"layer\":" + String(layer) +
-                ",\"epoch\":" + String(epoch) + "}";
+                ",\"epoch\":" + String(epoch) +
+                ",\"stage\":\"" + String(bcStageName(crashStage)) +
+                "\",\"heap\":" + String(crashHeap) +
+                ",\"up\":" + String(crashUptime) +
+                ",\"task\":\"" + String(crashTask) +
+                "\",\"pc\":\"" + pcHex +
+                "\",\"cause\":" + String(crashExcCause) +
+                ",\"vaddr\":\"" + vaddrHex +
+                "\",\"bt\":\"" + bt + "\"}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {
@@ -4902,6 +4926,7 @@ void network_setup() {
   static bool reasonHooked = false;
   if (!reasonHooked) {
     WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+      bcMark(BC_WIFI_EVT);   // runs in the WiFi task, not loop() - a prime idle-panic suspect
       if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
         wifiLastReason = 0;                // connected: the old reason is history
         return;
@@ -5276,6 +5301,7 @@ void sdJobRun() {
 
 void network_loop() {
   if (!networkRuntimeEnabled()) return;
+  bcMark(BC_HTTP);         // panic breadcrumb: request handling / network servicing
   server.handleClient();   // dashboard stays viewable with Web control off
                            // (actions are 403'd - see rejectIfWebControlOff)
   // Dev espota OTA is answered only while the printer is on the Update screen

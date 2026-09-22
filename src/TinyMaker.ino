@@ -44,6 +44,7 @@
 #include <PNGdec.h>              // PNG decoder library for reading print layers
 #include <SdFat.h>               // SD card file system library
 #include <esp_system.h>          // hardware random for boot-animation shuffle
+#include <esp_core_dump.h>       // read the panic backtrace saved to the coredump partition
 #include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
@@ -800,6 +801,53 @@ uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
 uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
 
+// Panic breadcrumb. The crash telemetry only carried the ESP reset reason, which
+// could not tell a network fault from a UI one. bcMark() writes the current
+// subsystem into RTC memory (survives the crash reboot) as the code runs; after
+// an abnormal reset the crash ping reports which one was last active - enough to
+// point at a subsystem (the 0.17.x panics all landed while idle, i.e. in the
+// network background 0.16.2 never had). Not a backtrace (that needs the coredump
+// partition, dev-flash only), but it works fleet-wide over OTA with no partition
+// change.
+#define BC_MAGIC 0x544D4243u   // 'TMBC'
+enum : uint8_t { BC_NONE = 0, BC_LOOP, BC_WIFI_EVT, BC_HTTP, BC_TLS_OTA, BC_TLS_STATS, BC_MQTT, BC_SD, BC_DRAW, BC_PRINT };
+struct Breadcrumb { uint32_t magic; uint8_t stage; uint32_t freeHeap; uint32_t uptime; };
+RTC_NOINIT_ATTR Breadcrumb bcRtc;
+static inline void bcMark(uint8_t stage) {
+  bcRtc.magic = BC_MAGIC;
+  bcRtc.stage = stage;
+  bcRtc.freeHeap = ESP.getFreeHeap();
+  bcRtc.uptime = (uint32_t)(millis() / 1000);
+}
+uint8_t  crashStage = 0;     // breadcrumb captured at boot from the previous life
+uint32_t crashHeap = 0;      // free heap at the last breadcrumb before the crash
+uint32_t crashUptime = 0;    // uptime (s) at that breadcrumb
+const char *bcStageName(uint8_t s) {
+  switch (s) {
+    case BC_LOOP:      return "loop";
+    case BC_WIFI_EVT:  return "wifi-evt";
+    case BC_HTTP:      return "http";
+    case BC_TLS_OTA:   return "tls-ota";
+    case BC_TLS_STATS: return "tls-stats";
+    case BC_MQTT:      return "mqtt";
+    case BC_SD:        return "sd";
+    case BC_DRAW:      return "draw";
+    case BC_PRINT:     return "print";
+    default:           return "?";
+  }
+}
+
+// Panic backtrace, read once at boot from the ELF coredump the ESP wrote to the
+// coredump partition (min_spiffs.csv already carries it, so this works on every
+// device - no reflash). Decoded off-device with addr2line against that version's
+// firmware.elf. All zero when there is no coredump (a clean boot).
+uint32_t crashPc = 0;          // program counter at the exception
+uint32_t crashBt[8] = {0};     // backtrace PCs (caller chain)
+uint8_t  crashBtDepth = 0;
+char     crashTask[16] = {0};  // task that crashed
+uint32_t crashExcCause = 0;    // exception cause (LoadProhibited, etc.)
+uint32_t crashExcVaddr = 0;    // faulting address (0 = null deref)
+
 const char *resetReasonName(uint8_t r) {
   switch (r) {
     case ESP_RST_POWERON:   return "power-on";
@@ -834,6 +882,33 @@ void savePrintActiveFlag(bool active) {
 
 void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
   bootResetReason = esp_reset_reason();
+  // The breadcrumb from the life that just ended. On a cold power-on RTC memory
+  // is garbage, so the magic gates it; bcMark() rebuilds it as this run proceeds.
+  if (bcRtc.magic == BC_MAGIC) {
+    crashStage  = bcRtc.stage;
+    crashHeap   = bcRtc.freeHeap;
+    crashUptime = bcRtc.uptime;
+  }
+#if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
+  // A panic left an ELF coredump in flash. Read the summary (PC + backtrace +
+  // exception cause), then erase it so it is reported once and the slot frees.
+  if (esp_core_dump_image_check() == ESP_OK) {
+    esp_core_dump_summary_t *sum =
+        (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    if (sum) {
+      if (esp_core_dump_get_summary(sum) == ESP_OK) {
+        crashPc       = sum->exc_pc;
+        crashExcCause = sum->ex_info.exc_cause;
+        crashExcVaddr = sum->ex_info.exc_vaddr;
+        strncpy(crashTask, sum->exc_task, sizeof(crashTask) - 1);
+        crashBtDepth = sum->exc_bt_info.depth > 8 ? 8 : (uint8_t)sum->exc_bt_info.depth;
+        for (uint8_t i = 0; i < crashBtDepth; i++) crashBt[i] = sum->exc_bt_info.bt[i];
+      }
+      free(sum);
+    }
+    esp_core_dump_image_erase();
+  }
+#endif
   sysPrefs.begin("tinymaker", false);
   if (sysPrefs.getBool("prActive", false)) {
     crashReason = (uint8_t)bootResetReason;
@@ -1980,8 +2055,10 @@ bool prepareSelectedPrintPreview() {
  * Handles button inputs and UI state transitions continuously.
  */
 void loop() {
+  bcMark(BC_LOOP);   // panic breadcrumb baseline; network subsystems overwrite it
   #if ENABLE_NETWORK
   network_loop(); // network uploads - only serviced while printer is idle
+  bcMark(BC_LOOP);  // network servicing done - back to the foreground for this frame
   sdJobRun();     // deferred delete/import - ONLY here (the idle loop), never
                   // from service windows mid-print or the motor/pause loops
   // 0-33: the dashboard answered the boot resume prompt. Only honoured while
