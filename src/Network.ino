@@ -2287,7 +2287,6 @@ bool mqttConnect() {
 }
 
 void mqtt_loop() {
-  if (mqttEnabled && WiFi.status() == WL_CONNECTED) bcMark(BC_MQTT);
   if (!mqttEnabled || mqttHost.length() == 0 || WiFi.status() != WL_CONNECTED) {
     if (mqttClient.connected()) mqttClient.disconnect();
     mqttDiscoverySent = false;
@@ -3099,7 +3098,6 @@ static bool otaSigOk(const String &version, const String &sha256hex, const Strin
 // block above): the caller authenticates the CONTENT with otaSigOk, so the
 // certificate does not need to verify. Returns true and fills out on HTTP 200.
 static bool otaFetchManifest(const String &url, String &out, uint16_t timeoutMs) {
-  bcMark(BC_TLS_OTA);
   WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -3202,7 +3200,6 @@ String statsHardwareHash() {
 
 void statsPingMaybe() {
   if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
-  bcMark(BC_TLS_STATS);
   String cur = connectFirmwareVersion();
   sysPrefs.begin("tinymaker", true);
   String pinged = sysPrefs.getString("statsPingVer", "");
@@ -3284,9 +3281,6 @@ void crashPingMaybe() {
                 "\",\"reason\":\"" + String(resetReasonName(rsn)) +
                 "\",\"layer\":" + String(layer) +
                 ",\"epoch\":" + String(epoch) +
-                ",\"stage\":\"" + String(bcStageName(crashStage)) +
-                "\",\"heap\":" + String(crashHeap) +
-                ",\"up\":" + String(crashUptime) +
                 ",\"task\":\"" + String(crashTask) +
                 "\",\"pc\":\"" + pcHex +
                 "\",\"cause\":" + String(crashExcCause) +
@@ -4926,7 +4920,6 @@ void network_setup() {
   static bool reasonHooked = false;
   if (!reasonHooked) {
     WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
-      bcMark(BC_WIFI_EVT);   // runs in the WiFi task, not loop() - a prime idle-panic suspect
       if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
         wifiLastReason = 0;                // connected: the old reason is history
         return;
@@ -5159,6 +5152,17 @@ void network_setup() {
   //   curl -F "file=@model.zip" http://tinymaker.local/upload
   server.on("/upload", HTTP_POST, finishUpload, handleUploadData);
 
+#if ENABLE_CRASH_TEST
+  // Dev only: force a StoreProhibited panic to verify the coredump + breadcrumb
+  // pipeline end to end. Gated by ENABLE_CRASH_TEST (0 in every release).
+  server.on("/api/debug/crashtest", HTTP_POST, []() {
+    server.send(200, "text/plain", "crashing");
+    delay(50);
+    volatile int *p = (volatile int *)0;
+    *p = 42;   // null store -> panic -> coredump written -> reboot
+  });
+#endif
+
   // Browser dashboard: http://tinymaker.local/
   server.on("/", HTTP_GET, handleRootPage);
 
@@ -5301,7 +5305,6 @@ void sdJobRun() {
 
 void network_loop() {
   if (!networkRuntimeEnabled()) return;
-  bcMark(BC_HTTP);         // panic breadcrumb: request handling / network servicing
   server.handleClient();   // dashboard stays viewable with Web control off
                            // (actions are 403'd - see rejectIfWebControlOff)
   // Dev espota OTA is answered only while the printer is on the Update screen

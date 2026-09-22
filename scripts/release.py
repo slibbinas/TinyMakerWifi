@@ -297,6 +297,10 @@ def main():
             print("   " + line.strip())
     fw = BUILD_DIR / "firmware.bin"
     fw_full = BUILD_DIR / "firmware-full.bin"
+    # firmware.elf is the address->source map. A crash ping only carries raw PCs;
+    # decoding them to a function+line (addr2line) needs the ELF of that exact
+    # build, so it is attached to every Release (see the crash telemetry inbox).
+    fw_elf = BUILD_DIR / "firmware.elf"
     for f in (fw, fw_full):
         if not f.exists():
             fail(f"build artifact missing: {f}")
@@ -385,7 +389,8 @@ def main():
                  {"tag_name": tag, "name": tag, "body": notes,
                   "prerelease": bool(args.beta),
                   "make_latest": "false" if args.beta else "true"})
-    for f in (fw, fw_full):
+    assets = [fw, fw_full] + ([fw_elf] if fw_elf.exists() else [])
+    for f in assets:
         print(f"   uploading {f.name}")
         gh_api(token, "POST",
                f"https://uploads.github.com/repos/{GH_REPO}/releases/{rel['id']}/assets?name={f.name}",
