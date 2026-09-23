@@ -42,7 +42,7 @@ a{color:var(--link)}
     <p class="note">A one-click Chrome Web Store version is on the way; this manual install works today.</p>
   </div>
 
-  <p class="note"><a href="https://tinymakerwifi.com/">&larr; TinyMakerWifi</a></p>
+  <p class="note"><a href="https://tinymakerwifi.com/" onclick="window.close();setTimeout(function(){location.href='https://tinymakerwifi.com/';},300);return false;">Close</a></p>
 </div>
 <script>
 (function(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();})();
