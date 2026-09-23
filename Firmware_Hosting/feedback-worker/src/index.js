@@ -894,15 +894,22 @@ const crashInboxPage = (recs, hb) => {
       `<td>${r.layer ? esc(String(r.layer)) : ''}</td>` +
       `<td class="mono">${esc(String(r.id).slice(0, 8))}</td><td>${crashCell}</td></tr>`;
   }).join('');
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker crash telemetry</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>TinyMaker crash telemetry</title>
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
-<style>body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#1c1c1e;color:#eee;padding:20px}
-h1{font-size:19px;color:#e8720c;margin:0 0 4px;display:flex;align-items:center;gap:8px}h1 .mark{width:22px;height:22px;flex:none}.sub{color:#aaa;font-size:13px;margin-bottom:14px}
-.pill{display:inline-block;background:#3a2a10;border:1px solid #e8a020;color:#e8a020;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px;cursor:pointer;user-select:none}.pill.act{background:#e8a020;color:#1c1c1e;font-weight:600}
-table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #333;font-size:13px}
-th{color:#aaa;font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:#84bcf8}tr:hover td{background:#242426}
-.wrap{max-width:860px;margin:0 auto;border:1px solid #333;border-radius:10px;background:#232325;padding:18px 22px}</style></head>
-<body><div class="wrap"><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--pill:#2a2a2e;--mono:#84bcf8}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1;--mono:#155fb0}}
+:root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1;--mono:#155fb0}
+:root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--pill:#2a2a2e;--mono:#84bcf8}
+body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--text);padding:20px}
+h1{font-size:19px;color:var(--accent);margin:0 0 4px;display:flex;align-items:center;gap:8px}h1 .mark{width:22px;height:22px;flex:none}.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.pill{display:inline-block;background:var(--pill);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:2px 10px;margin:2px;font-size:12px;cursor:pointer;user-select:none}.pill.act{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:var(--mono)}tr:hover td{background:var(--pill)}
+.wrap{max-width:860px;margin:0 auto;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:18px 22px}
+#themeToggle{position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;font-family:inherit}</style></head>
+<body><button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme">&#9680;</button><div class="wrap"><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
 <table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
@@ -910,6 +917,7 @@ ${hbLine}
 (function(){var P=document.querySelectorAll('.pill[data-r]'),R=document.querySelectorAll('tr[data-r]');
 function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);});R.forEach(function(t){t.style.display=(v==='all'||t.dataset.r===v)?'':'none';});}
 P.forEach(function(p){p.addEventListener('click',function(){sel(p.classList.contains('act')&&p.dataset.r!=='all'?'all':p.dataset.r);});});})();
+(function(){var tg=document.getElementById('themeToggle');if(!tg)return;var cur=function(){var d=document.documentElement.getAttribute('data-theme');return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};tg.addEventListener('click',function(){var next=cur()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('tmTheme',next);}catch(e){}});})();
 </script>
 </body></html>`;
 };
