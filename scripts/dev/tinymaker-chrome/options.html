@@ -2,18 +2,33 @@
 <html>
 <head>
 <meta charset="utf-8">
+<script>try{chrome.storage.local.get('theme',function(r){var t=r&&r.theme;if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);});}catch(e){}</script>
 <style>
-  body{font:13px -apple-system,Segoe UI,Roboto,sans-serif;padding:12px;min-width:320px}
-  input{width:100%;box-sizing:border-box;padding:6px 8px;margin:6px 0;font:inherit}
-  button{padding:6px 12px;font:inherit}
-  #msg{color:#2f8f4f;margin-left:8px}
+  :root{color-scheme:light dark;--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--ok:#2fbf4f}
+  @media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--ok:#2f8f4f}}
+  :root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--ok:#2f8f4f}
+  :root[data-theme=dark]{color-scheme:dark;--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--ok:#2fbf4f}
+  body{font:13px -apple-system,Segoe UI,Roboto,sans-serif;padding:14px;min-width:320px;background:var(--bg);color:var(--text)}
+  label{display:block;margin:14px 0 4px;color:var(--muted)}label:first-of-type{margin-top:0}
+  input{width:100%;box-sizing:border-box;padding:6px 8px;margin:6px 0 4px;font:inherit;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:6px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{padding:6px 14px;background:var(--card);color:var(--text);border:0;border-right:1px solid var(--line);cursor:pointer;font:inherit}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--accent);color:#fff}
+  #save{margin-top:12px;padding:6px 14px;font:inherit;background:var(--accent);color:#fff;border:0;border-radius:6px;cursor:pointer}
+  #msg{color:var(--ok);margin-left:8px}
 </style>
 </head>
 <body>
-  <label>Printer address (IP or name, e.g. 192.168.1.138 or tinymaker.local)
-    <input id="host" placeholder="tinymaker.local">
-  </label>
-  <button id="save">Save</button><span id="msg"></span>
+  <label>Theme</label>
+  <div class="seg" id="themeSeg">
+    <button data-m="system">System</button>
+    <button data-m="light">Light</button>
+    <button data-m="dark">Dark</button>
+  </div>
+  <label>Printer address (IP or name, e.g. 192.168.1.138 or tinymaker.local)</label>
+  <input id="host" placeholder="tinymaker.local">
+  <div><button id="save">Save</button><span id="msg"></span></div>
   <script src="common.js"></script>
   <script src="options.js"></script>
 </body>
