@@ -3,7 +3,7 @@
 # Kopijuoja i atskira aplanka (numatyta %USERPROFILE%\Tools\TinyMaker), kad
 # irankiai nepriklausytu nuo repo darbo katalogu, kurie keiciasi ir trinami:
 #   Resin Lab (dervu testai)       localhost:8893/resin-lab/
-#   dervu bibliotekos tvarkymas    localhost:8893/resin-publish.html
+#   dervu biblioteka               Resin Lab skiltis "Biblioteka" (resin-lab/#library)
 #   ukis (irankiu registras)       localhost:8899/
 # Ta pati komanda ir atnaujina: failai perrasomi, asmeniniai nustatymai
 # (resin-lab\local.json, local-links.json) lieka.
@@ -14,15 +14,17 @@
 #   -Target     kur diegti
 #   -Ref        GitHub saka arba zyme (numatyta main)
 #   -Source     vietinis repo katalogas vietoj GitHub (bandymams)
-#   -NoShortcut nekurti darbastalio nuorodu
+#   -NoShortcut nekurti darbastalio ir paleisties nuorodu (bandymams)
 #   -NoStart    nestabdyti veikianciu serveriu ir nepaleisti nauju
+#   -NoAutostart Resin Lab serverio nekelti kartu su Windows (paleisties nuoroda istrinama)
 
 param(
   [string]$Target = (Join-Path $env:USERPROFILE 'Tools\TinyMaker'),
   [string]$Ref = 'main',
   [string]$Source = '',
   [switch]$NoShortcut,
-  [switch]$NoStart
+  [switch]$NoStart,
+  [switch]$NoAutostart
 )
 $ErrorActionPreference = 'Stop'
 $Repo = 'slibbinas/TinyMakerWiFi'
@@ -115,6 +117,26 @@ if (-not $NoShortcut) {
   # Dervu biblioteka nuo 2026-09-24 - Resin Lab skiltis, atskira nuoroda nebereikalinga.
   Remove-Item (Join-Path $desk '00 TinyMaker dervos.lnk') -ErrorAction SilentlyContinue
   Write-Host 'Darbastalio nuorodos atnaujintos.'
+}
+
+# 5b. Paleistis (V 2026-09-24): Resin Lab serveris kyla pats prisijungus prie Windows - be lango
+# ir be narsykles (~26 MB RAM), kad pulto nuoroda "Resin Lab" veiktu visada ir serverio
+# nereiketu kelti atskirai.
+$auto = Join-Path ([Environment]::GetFolderPath('Startup')) 'TinyMaker Resin Lab server.lnk'
+if ($NoShortcut) {
+  # bandomasis diegimas - tikros paleisties nuorodos neliesti
+} elseif ($NoAutostart) {
+  Remove-Item $auto -ErrorAction SilentlyContinue
+} else {
+  $ws2 = New-Object -ComObject WScript.Shell
+  $a = $ws2.CreateShortcut($auto)
+  $a.TargetPath = $wscript
+  $a.Arguments = '"' + (Join-Path $lab 'launcher.vbs') + '" --server'
+  $a.WorkingDirectory = $lab
+  $a.IconLocation = (Join-Path $lab 'resin-lab.ico') + ',0'
+  $a.Description = 'TinyMaker Resin Lab serveris (localhost:8893)'
+  $a.Save()
+  Write-Host 'Paleistis: Resin Lab serveris kils pats prisijungus prie Windows.'
 }
 
 # 6. Serveriai laiko koda atmintyje: senieji stabdomi, Resin Lab paleidziamas is naujo.

@@ -10,6 +10,9 @@
 ' rodo cia. Argumentas - kuri puslapi atidaryti (numatyta resin-lab/). Sena
 ' "00 TinyMaker dervos" nuoroda perduoda resin-publish.html - tai dabar Resin Lab
 ' skiltis "Biblioteka", tad atidaroma ji. Langas nerodomas.
+'
+' --server: tik pakelti serveri, narsykles neatidaryti. Taip ji paleidzia Windows
+' paleisties nuoroda (install.ps1), kad pulto nuoroda "Resin Lab" veiktu visada.
 
 Option Explicit
 Dim sh, fso, labDir, py, page, base, i
@@ -56,4 +59,5 @@ If Not Serves(base & "api/lab/config") Then
   Next
 End If
 
+If page = "--server" Then WScript.Quit
 sh.Run base & page, 1, False
