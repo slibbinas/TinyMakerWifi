@@ -14,7 +14,7 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 devDir = fso.GetParentFolderName(WScript.ScriptFullName)
 If Not fso.FileExists(devDir & "\make_hub.py") Then
   MsgBox "Neradau make_hub.py aplanke:" & vbCrLf & devDir & vbCrLf & vbCrLf & _
-         "Idiekite is naujo: scripts\dev\resin-lab\install.ps1", 48, "TinyMaker ukis"
+         "Idiekite is naujo: install.ps1 is privacios repo TinyMakerResinLab (zr. jos README)", 48, "TinyMaker ukis"
   WScript.Quit
 End If
 

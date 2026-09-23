@@ -14,8 +14,8 @@ need the printer-side download path that `/bootanims/` uses.
 
 ## Preparing a profile
 
-Do not hand-write these files. `scripts/dev/resin-publish.html` (served from the
-dev hub, `http://localhost:8899/resin-publish.html`) loads the published library,
+Do not hand-write these files. The private Resin Lab tool (its Library tab; not in
+this repo) loads the published library,
 fills a form from the real file, checks every value against the firmware's own
 limits and writes `<slug>.json`, the whole `manifest.json` and `links.json` at
 once, so they cannot drift apart. You type the real shop URL; the `/r/<slug>`
