@@ -135,7 +135,11 @@
     border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
   }
   a.toggle-theme:hover{text-decoration:none; border-color:var(--accent)}
-  #themeToggle{align-self:center;width:auto;margin:0;padding:0 2px;background:none;border:0;box-shadow:none;font-size:18px;line-height:1;color:var(--muted);cursor:pointer}
+  .themeSw{align-self:center;display:inline-flex;gap:1px;align-items:center}
+  .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px;box-shadow:none;width:auto}
+  .themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .themeSw button:hover{color:var(--text)}
+  .themeSw button[aria-pressed=true]{color:var(--accent)}
 
   @media print{
     body{background:#fff; color:#000}
@@ -152,14 +156,15 @@
 <script>
 // Light by default; ?theme=dark (the printer dashboard's Manual link) opens
 // dark to match the dashboard. The toggle button still flips either way.
-(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);var t=p||localStorage.getItem('tmTheme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
+(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
 // Site links carry the current theme over (different origin - no shared storage).
-window.tmSyncSite=function(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.querySelectorAll("a[href^='https://tinymakerwifi.com']").forEach(function(a){a.href='https://tinymakerwifi.com/?theme='+(d?'dark':'light');});};
-window.addEventListener('DOMContentLoaded',window.tmSyncSite);
+window.tmSyncSite=function(){var dt=document.documentElement.getAttribute('data-theme');var q=(dt==='light'||dt==='dark')?'?theme='+dt:'';document.querySelectorAll("a[href^='https://tinymakerwifi.com']").forEach(function(a){a.href='https://tinymakerwifi.com/'+q;});};
+function tmWireSw(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();window.tmSyncSite();});mark();}
+window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWireSw();});
 </script>
 <div class="topBar">
   <a class="toggle-theme" href="#toc">Contents</a>
-  <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='dark'?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('tmTheme',n);}catch(e){}window.tmSyncSite();})()">◐</button>
+  <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
 </div>
 
 <header class="hero">
