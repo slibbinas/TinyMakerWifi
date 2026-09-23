@@ -51,10 +51,12 @@
   }
   a{color:var(--accent2); text-decoration:none}
   a:hover{text-decoration:underline}
-  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px 80px}
+  .frame{max-width:var(--maxw); margin:24px auto; border:2px solid var(--accent); border-radius:16px; background:var(--card); padding:16px 26px 34px}
+  .wrap{max-width:none; margin:0; padding:0 0 18px}
+  @media(max-width:640px){.frame{margin:12px auto;padding:12px 14px 24px}}
 
   header.hero{
-    max-width:var(--maxw); margin:0 auto; padding:40px 20px 8px; text-align:center;
+    max-width:none; margin:0; padding:20px 0 10px; text-align:center;
   }
   header.hero .badge{
     display:inline-block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
@@ -128,7 +130,7 @@
 
   footer{max-width:var(--maxw); margin:0 auto; padding:20px; text-align:center; color:var(--muted); font-size:.9rem}
 
-  .topBar{position:fixed; top:14px; right:14px; z-index:10; display:flex; gap:8px}
+  .topBar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 4px}
   .toggle-theme{
     cursor:pointer; text-decoration:none;
     background:var(--card); border:1px solid var(--border); color:var(--text);
@@ -162,6 +164,7 @@ window.tmSyncSite=function(){var dt=document.documentElement.getAttribute('data-
 function tmWireSw(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();window.tmSyncSite();});mark();}
 window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWireSw();});
 </script>
+<div class="frame">
 <div class="topBar">
   <a class="toggle-theme" href="#toc">Contents</a>
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
@@ -916,6 +919,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   <p>The dashboard asks once as well: after the third print that ran to the end with the UV on, a small dialog offers a few amounts (plain links to the same PayPal page) or <b>No thanks</b>. It appears once per printer, never again, and the printer never learns what you chose. Failed prints and dry runs do not count.</p>
 </section>
 
+</div>
 </div>
 
 <footer>
