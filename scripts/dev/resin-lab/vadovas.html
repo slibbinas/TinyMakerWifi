@@ -5,6 +5,7 @@
 <style>
 :root{color-scheme:light;--bg:#fff;--text:#1d1f24;--muted:#5b6270;--line:#dcdfe5;--accent:#e8720c;--accentbg:#fff4ea;--lab:#8a5cd6;--code:#eceef2}
 :root[data-theme=dark]{color-scheme:dark;--bg:#25252a;--text:#ececef;--muted:#a0a0aa;--line:#3a3a41;--accentbg:#3a2716;--code:#303036}
+@media(prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;--bg:#25252a;--text:#ececef;--muted:#a0a0aa;--line:#3a3a41;--accentbg:#3a2716;--code:#303036}}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI",-apple-system,Roboto,sans-serif}
 .w{max-width:860px;margin:0 auto;padding:18px 20px 60px}
 h1{font-size:1.3rem;margin:0 0 4px;color:var(--accent)}
@@ -25,7 +26,7 @@ html[lang=lt] span[data-l=lt],html[lang=en] span[data-l=en]{display:inline}
 </style>
 <script>
 (function(){var q=new URLSearchParams(location.search).get('lang');var l=q||'lt';
-try{if(!q)l=localStorage.getItem('tmLabLang')||'lt';if(localStorage.getItem('tmTheme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}
+try{if(!q)l=localStorage.getItem('tmLabLang')||'lt';var _p=new URLSearchParams(location.search).get('theme');var _t=(_p==='light'||_p==='dark')?_p:localStorage.getItem('tmTheme');if(_t==='light'||_t==='dark')document.documentElement.setAttribute('data-theme',_t);}catch(e){}
 document.documentElement.lang=(l==='en'?'en':'lt');
 document.title='TinyMaker Resin Lab - '+(l==='en'?'guide':'vadovas');})();
 </script>
