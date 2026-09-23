@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<script>try{chrome.storage.local.get('theme',function(r){var t=r&&r.theme;if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);});}catch(e){}</script>
+<script src="theme.js"></script>
 <style>
   :root{color-scheme:light dark;--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--ok:#2fbf4f}
   @media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--ok:#2f8f4f}}
