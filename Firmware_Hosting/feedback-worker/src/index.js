@@ -907,9 +907,13 @@ h1{font-size:19px;color:var(--accent);margin:0 0 4px;display:flex;align-items:ce
 .pill{display:inline-block;background:var(--pill);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:2px 10px;margin:2px;font-size:12px;cursor:pointer;user-select:none}.pill.act{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 table{border-collapse:collapse;width:100%;margin-top:14px}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px}
 th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monospace,monospace;color:var(--mono)}tr:hover td{background:var(--pill)}
-.wrap{max-width:860px;margin:0 auto;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:18px 22px}
-#themeToggle{position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;font-family:inherit}</style></head>
-<body><button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme">&#9680;</button><div class="wrap"><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
+.wrap{max-width:860px;margin:0 auto;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:18px 22px;position:relative}
+.themeSw{position:absolute;top:14px;right:18px;display:inline-flex;gap:1px;align-items:center}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}
+.themeSw button[aria-pressed=true]{color:var(--accent)}</style></head>
+<body><div class="wrap"><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
 <table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
@@ -917,7 +921,7 @@ ${hbLine}
 (function(){var P=document.querySelectorAll('.pill[data-r]'),R=document.querySelectorAll('tr[data-r]');
 function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);});R.forEach(function(t){t.style.display=(v==='all'||t.dataset.r===v)?'':'none';});}
 P.forEach(function(p){p.addEventListener('click',function(){sel(p.classList.contains('act')&&p.dataset.r!=='all'?'all':p.dataset.r);});});})();
-(function(){var tg=document.getElementById('themeToggle');if(!tg)return;var cur=function(){var d=document.documentElement.getAttribute('data-theme');return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};tg.addEventListener('click',function(){var next=cur()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('tmTheme',next);}catch(e){}});})();
+(function(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();})();
 </script>
 </body></html>`;
 };
@@ -1008,6 +1012,11 @@ header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
 h1{font-size:1.2rem;margin:0;display:flex;align-items:center;gap:8px}h1 b{color:var(--accent)}
 h1 .mark{width:24px;height:24px;flex:none}
 .counts{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
+.themeSw{display:inline-flex;gap:1px;align-items:center;flex:none}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}
+.themeSw button[aria-pressed=true]{color:var(--accent)}
 .filters{display:flex;gap:8px;flex-wrap:wrap}
 .filters a{background:var(--pill);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:600;text-decoration:none}
 .filters a.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -1066,7 +1075,10 @@ footer a{color:#84bcf8;text-decoration:none}
 </style></head><body><div class="wrap">
 <header>
   <h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg><b>TinyMakerWifi</b> feedback</h1>
-  <span class="counts">${open} open · ${all.length} total</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="counts">${open} open · ${all.length} total</span>
+    <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
+  </div>
 </header>
 ${all.length ? `<div class="filters">
   <a class="${f === 'open' ? 'on' : ''}" href="${esc(q({ f: 'open', from: 0 }))}">New (${open})</a>
@@ -1090,18 +1102,20 @@ ${hits > PAGE ? `<div class="pager">
   <span class="range">${from + 1}–${Math.min(from + PAGE, hits)} of ${hits}</span>
   ${from + PAGE < hits ? `<a href="${esc(q({ from: from + PAGE }))}">Older →</a>` : '<span></span>'}
 </div>` : ''}
-<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a> · <button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;font-family:inherit">◐</button></footer>
+<footer>Private page · <a href="/feedback/csv?key=${encodeURIComponent(listKey)}">download CSV</a> · <a href="/feedback/list?key=${encodeURIComponent(listKey)}">raw JSON</a></footer>
 </div>
 <script>
 var KEY=${JSON.stringify(listKey)};
-// Light/dark toggle: theme support already exists (data-theme + tokens); this
-// just adds a manual switch that wins over the OS preference and persists.
-(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
-  var curTheme=function(){var d=document.documentElement.getAttribute('data-theme');
-    return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
-  tg.addEventListener('click',function(){var next=curTheme()==='dark'?'light':'dark';
-    document.documentElement.setAttribute('data-theme',next);
-    try{localStorage.setItem('tmTheme',next);}catch(e){}});})();
+// Theme switcher: system / light / dark. 'system' clears the override so the
+// OS preference (prefers-color-scheme) shows through; light/dark persist.
+(function(){var sw=document.querySelector('.themeSw');if(!sw)return;
+  function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}
+  function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}
+  sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+    if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}
+    else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}
+    mark();});
+  mark();})();
 var api=function(what,note,body){
   return fetch('/feedback/'+what+'?key='+encodeURIComponent(KEY)+'&k='+encodeURIComponent(note.dataset.k),
     {method:'POST',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})
