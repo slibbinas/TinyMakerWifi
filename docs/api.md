@@ -360,6 +360,33 @@ the check's progress/outcome code; `allowed` mirrors the web-flash gate
 (idle + Web control on, or the printer's Update screen) - when it is
 `false`, `POST /api/update/install` will answer 403.
 
+### `GET /api/links` (optional owner links - advanced)
+
+A quiet, off-by-default touch for whoever runs the printer: drop a small
+`links.json` at the **root of the SD card** and its entries show up in the
+dashboard header, after *Feedback* and before the `?`. No file -> `404` and the
+header is byte-for-byte as shipped, so a normal user who has no such file sees no
+change. It is intentionally not in the user manual - a maintainer/manufacturer
+convenience (e.g. a private crash-telemetry or resin-library link on your own
+machine).
+
+Format - a JSON array of `{"t": label, "u": url}`, at most 8 entries,
+`http`/`https` only, file <= 4 KB:
+
+```json
+[
+  {"t": "TinyMaker3D", "u": "https://tinymaker3d.com/"},
+  {"t": "Community (FB)", "u": "https://www.facebook.com/groups/1486879621729571"}
+]
+```
+
+A ready sample lives at [links.example.json](links.example.json): copy it to the
+SD card root, rename to `links.json`, edit the entries, reinsert the card and
+reload the dashboard (F5). Idle-only (`409` while printing, like every SD read);
+the firmware only streams the file, never writes it. The dashboard accepts only
+`http`/`https` links and renders labels as text, so a bad entry is dropped rather
+than trusted.
+
 ---
 
 *TODO before 1.0.0: settle the deprecation-window wording with Brian.*
