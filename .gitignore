@@ -47,8 +47,10 @@ __pycache__/
 # Test output (generated SVG previews), not source
 scripts/dev/test-out/
 
-# Resin lab: personal data path (Drive), not for the public repo
-scripts/dev/resin-lab/local.json
+# Resin Lab is private (repo slibbinas/TinyMakerResinLab, V know-how) - never add it back here
+scripts/dev/resin-lab/
+scripts/dev/resin-publish.html
+scripts/dev/resin-fields.js
 
 # Firmware signing private key: NEVER in the repo (root of trust for updates)
 *.pem
