@@ -3985,6 +3985,31 @@ void handleLibThree() {
   f.close();
 }
 
+// GET /api/links - optional owner/maintainer links from SD (/links.json), a small
+// JSON array of {"t":label,"u":url}. The file is the device owner's own, placed on
+// the card by hand; we only stream it (never write it) and cap the size. No file =>
+// 404 and the dashboard header stays exactly as shipped. Gated like the three.js
+// read: during a print the SD belongs to the print.
+#define LINKS_SD_PATH "/links.json"
+#define LINKS_SD_MAX 4096u
+void handleApiLinks() {
+  if (rejectIfBusy()) return;                 // SD belongs to the print
+  if (!sdCardReady()) { server.send(503, "application/json", "[]"); return; }
+  File f = SD.open(LINKS_SD_PATH);
+  if (!f) { server.send(404, "application/json", "[]"); return; }
+  if (f.size() > LINKS_SD_MAX) { f.close(); server.send(413, "application/json", "[]"); return; }
+  server.sendHeader("Cache-Control", "no-cache");
+  server.setContentLength(f.size());
+  server.send(200, "application/json", "");
+  uint8_t buf[256];
+  int n;
+  WiFiClient client = server.client();
+  while ((n = f.read(buf, sizeof(buf))) > 0) {
+    if ((int)client.write(buf, n) != n || !client.connected()) break;
+  }
+  f.close();
+}
+
 // POST /api/lib/three - store the gzipped library the browser already fetched.
 // Upload-style handler: the body is written straight to SD in chunks, so a
 // 170 KB file costs no heap.
@@ -5127,6 +5152,7 @@ void network_setup() {
   server.on("/api/boot-anim", HTTP_GET, handleApiBootAnimList);
   server.on("/api/boot-anim/file", HTTP_GET, handleApiBootAnimFile);
   server.on("/lib/three.js", HTTP_GET, handleLibThree);
+  server.on("/api/links", HTTP_GET, handleApiLinks);   // optional /links.json from SD
   server.on("/api/files/model/slices", HTTP_GET, handleApiModelSlicesGet);
   server.on("/api/files/model/slices", HTTP_POST, handleApiModelSlicesUploadDone,
             handleApiModelSlicesUploadData);
