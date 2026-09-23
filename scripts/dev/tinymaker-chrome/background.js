@@ -33,10 +33,24 @@ function paint(p, s, doneNow) {
   chrome.action.setTitle({ title: 'TinyMaker - ' + title });
 }
 
-chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); tick(); });
-chrome.runtime.onStartup.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); tick(); });
+// Register a tiny marker content script ONLY on the user's printer dashboard
+// (the host set in options), so the dashboard can hide its "get the extension"
+// hint once we are installed. Re-run when the host changes.
+async function syncMark() {
+  try {
+    const host = await getHost();
+    try { await chrome.scripting.unregisterContentScripts({ ids: ['tmmark'] }); } catch (e) {}
+    if (!host || host.includes(':')) return;   // match patterns take no port
+    await chrome.scripting.registerContentScripts([{
+      id: 'tmmark', matches: ['http://' + host + '/*'], js: ['mark.js'], runAt: 'document_idle'
+    }]);
+  } catch (e) {}
+}
+
+chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); syncMark(); tick(); });
+chrome.runtime.onStartup.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); syncMark(); tick(); });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tick') tick(); });
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
-  if (m === 'tick') { tick().then(() => reply(true)); return true; }
+  if (m === 'tick') { syncMark(); tick().then(() => reply(true)); return true; }
   if (m === 'seen') { chrome.storage.local.set({ done: false }).then(tick).then(() => reply(true)); return true; }
 });
