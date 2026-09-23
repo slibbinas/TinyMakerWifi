@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <style>
-  :root{--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--ok:#2fbf4f;--bad:#e05555}
+  :root{color-scheme:light dark;--bg:#1f1f22;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--ok:#2fbf4f;--bad:#e05555}
+  @media(prefers-color-scheme:light){:root{--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--accent:#e8720c;--ok:#2f8f4f;--bad:#c93b45}}
   body{margin:0;width:280px;background:var(--bg);color:var(--text);font:13px/1.35 -apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{padding:12px 14px}
   h1{margin:0 0 2px;font-size:15px;display:flex;align-items:center;gap:8px}
