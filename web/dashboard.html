@@ -201,7 +201,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
    akordeono mygtuko, kuri nustato `slicer.js` sdCollapse. */
 #sdSection:has(#sdToggle[aria-expanded="false"]) #sdActions{display:none!important}
 /*#include parts/slicer.css*/</style></head><body><main class='wrap'>
-<div class='head'><div><h1><span id='brandHome' role='button' tabindex='0' aria-label='Dashboard' title='Dashboard'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</span><a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
+<div class='head'><div><h1><span id='brandHome' role='button' tabindex='0' aria-label='Dashboard' title='Dashboard'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='26' height='26' style='vertical-align:-4px;margin-right:8px'><rect x='8' y='40' width='48' height='9' rx='3' fill='#e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='#e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='#e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='#4da3ff' stroke-width='5' stroke-linecap='round'/></svg>TinyMaker</span><a href='#' id='fwVersion' class='fwBadge' title='Firmware version - tap for updates'></a><span id='fwBuild' class='fwbuild hidden' data-build=""></span><span id='wifiBars' class='wbars' title='WiFi'><i></i><i></i><i></i></span></h1><div class='fw' id='fwLinks'><a id='manualLink' href='https://slibbinas.github.io/TinyMakerWifi/manual/?theme=dark' target='_blank' rel='noopener'>Manual</a> · <a id='siteLink' href='https://tinymakerwifi.com' target='_blank' rel='noopener' title='Project site'>tinymakerwifi.com</a> &middot; <a id='roadmapLink' href='https://tinymakerwifi.com/roadmap' target='_blank' rel='noopener' title='What is coming and what shipped'>Roadmap</a> &middot; <a id='fbLink' href='https://tinymakerwifi.com/feedback/' target='_blank' rel='noopener' title='Tell us what works and what does not - 30 seconds, no account'>Feedback</a> <a href='#' id='gsBtn' title='Getting started guide'>?</a></div></div><a href='#' id='themeBtn' title='Light / dark theme'>&#9680;</a></div>
 
 <section id='resumeBanner' class='card banner hidden'>
   <strong>Power was restored - a print was interrupted.</strong>
@@ -7090,6 +7090,31 @@ const applyThemeLink=()=>{const t=document.documentElement.getAttribute('data-th
     const el=$(id); if(!el)return; try{const u=new URL(el.href); u.searchParams.set('theme',t); el.href=u.toString();}catch(e){}});};
 $('themeBtn').addEventListener('click',e=>{e.preventDefault();const toLight=document.documentElement.getAttribute('data-theme')!=='light';if(toLight)document.documentElement.setAttribute('data-theme','light');else document.documentElement.removeAttribute('data-theme');try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}applyThemeLink();if(window.gl3dTheme)gl3dTheme();repaintPreviewForTheme();});
 applyThemeLink();
+// Optional owner links from SD (/links.json): a small array of {t:label,u:url}.
+// Absent file, empty array or any error -> the header stays exactly as shipped
+// (served by handleApiLinks in Network.ino). Only http(s) is accepted; the last
+// good list is cached so it still shows on a reload during a print, when the SD
+// read is refused because it belongs to the print.
+var ownerLinksData=null;
+const ownerLinksRender=(arr)=>{const box=$('fwLinks');if(!box||!Array.isArray(arr))return;
+  box.querySelectorAll('.ownerLink').forEach(e=>e.remove());
+  const gs=$('gsBtn');
+  const th=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  arr.slice(0,8).forEach(it=>{if(!it||typeof it.t!=='string'||typeof it.u!=='string')return;
+    let href;try{const u=new URL(it.u);if(u.protocol!=='http:'&&u.protocol!=='https:')return;u.searchParams.set('theme',th);href=u.toString();}catch(e){return;}
+    const sp=document.createElement('span');sp.className='ownerLink';sp.appendChild(document.createTextNode(' · '));
+    const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener';a.textContent=it.t;
+    sp.appendChild(a);
+    if(gs&&gs.parentNode===box)box.insertBefore(sp,gs);else box.appendChild(sp);});};
+const loadOwnerLinks=async()=>{let arr=null;
+  try{const r=await fetch('/api/links',{cache:'no-store'});
+    if(r.ok){const txt=(await r.text()).trim();let v=[];if(txt){try{v=JSON.parse(txt);}catch(e){v=[];}}if(!Array.isArray(v))v=[];arr=v;try{localStorage.setItem('tmLinks',JSON.stringify(arr));}catch(e){}}
+    else if(r.status===404){try{localStorage.removeItem('tmLinks');}catch(e){}arr=[];}
+  }catch(e){}
+  if(arr===null){try{const c=localStorage.getItem('tmLinks');if(c)arr=JSON.parse(c);}catch(e){}}
+  if(Array.isArray(arr)){ownerLinksData=arr;ownerLinksRender(arr);}};
+$('themeBtn').addEventListener('click',()=>{if(ownerLinksData)ownerLinksRender(ownerLinksData);});
+loadOwnerLinks();
 $('helpClose').addEventListener('click',()=>show('helpModal',false));
 $('helpModal').addEventListener('click',e=>{if(e.target===$('helpModal'))show('helpModal',false);});
 $('tgTestButton').addEventListener('click',async()=>{msg('Sending a test message...',false,true);try{await api('/api/config',{method:'POST',body:configFormData()});const r=await api('/api/telegram/test',{method:'POST'},12000);msg(r.message||'Test message sent.',false,false,true);loadConfig();}catch(e){msg(e.message,true,false,true);loadConfig();}});
