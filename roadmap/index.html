@@ -43,7 +43,12 @@
   html,body{background:var(--bg)}
   .wrap{max-width:760px;margin:0 auto;padding:30px 18px 60px;color:var(--text);background:var(--bg);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;
-    -webkit-font-smoothing:antialiased}
+    -webkit-font-smoothing:antialiased;position:relative}
+  .themeSw{position:absolute;top:16px;right:18px;display:inline-flex;gap:1px;align-items:center}
+  .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+  .themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .themeSw button:hover{color:var(--text)}
+  .themeSw button[aria-pressed=true]{color:var(--accent)}
   header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
   header svg{width:34px;height:34px;flex:none}
   h1{font-size:1.7rem;margin:0;letter-spacing:-.01em}
@@ -67,23 +72,23 @@
 </style>
 </head>
 <body><div class="wrap">
-<button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer">&#9680;</button>
+<div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
 <script>
-(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
-  var cur=function(){var d=document.documentElement.getAttribute('data-theme');
-    return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
+(function(){var sw=document.querySelector('.themeSw');if(!sw)return;
+  function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}
   // Our own linked pages (manual, site) open in the matching theme - they read
-  // ?theme=. Runs after DOM parse: links live further down the document.
-  var applyThemeLinks=function(){
-    var dark=cur()==='dark';
+  // ?theme=. In 'system' we strip the param so the target follows its own OS.
+  var applyThemeLinks=function(){var m=mode();var q=(m==='light'||m==='dark')?'?theme='+m:'';
     document.querySelectorAll("a[href*='/manual/'], a[href*='tinymakerwifi.com']").forEach(function(a){
-      try{var u=new URL(a.href);u.search=dark?'?theme=dark':'';a.href=u.toString();}catch(e){}
+      try{var u=new URL(a.href);u.search=q;a.href=u.toString();}catch(e){}
     });
   };
-  tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
-    document.documentElement.setAttribute('data-theme',n);
-    try{localStorage.setItem('tmTheme',n);}catch(e){}
-    applyThemeLinks();});
+  function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}
+  sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+    if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}
+    else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}
+    mark();applyThemeLinks();});
+  mark();
   if(document.readyState!=='loading')applyThemeLinks();
   else document.addEventListener('DOMContentLoaded',applyThemeLinks);})();
 </script>
