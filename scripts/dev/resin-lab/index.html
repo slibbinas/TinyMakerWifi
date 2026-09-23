@@ -36,6 +36,9 @@ header .dd{color:var(--muted);font-size:.72rem;overflow:hidden;text-overflow:ell
 .themeSw button:hover{color:var(--text)}
 .themeSw button[aria-pressed=true]{color:var(--accent)}
 #topMsg{position:fixed;top:48px;right:16px;z-index:20;max-width:460px}
+.app[hidden],.libView[hidden]{display:none}
+.libView{flex:1;min-height:0;display:flex}
+.libView iframe{flex:1;border:0;width:100%;background:var(--bg)}
 .app{flex:1;min-height:0;display:grid;grid-template-columns:230px minmax(420px,1fr) minmax(500px,1.25fr);gap:10px;padding:10px}
 .col{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
@@ -145,6 +148,7 @@ a{color:var(--link)}
 </style>
 <header>
  <h1 class="brand"><svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>TinyMaker<span class="lab">Resin Lab</span></h1>
+ <span class="seg" id="viewSeg"><button data-v="lab" data-t="vLab"></button><button data-v="lib" data-t="vLib"></button></span>
  <span class="dd" id="dataDir"></span>
  <span class="pchip" id="pchip"><span class="dot"></span><span id="pchipT"></span></span>
  <button id="btnModels" data-t="models"></button>
@@ -161,6 +165,7 @@ a{color:var(--link)}
  <div class="c23"><div class="col c2" id="colA"></div>
  <div class="col c3" id="colB"></div></div>
 </div>
+<div class="libView" id="libView" hidden><iframe id="libFrame"></iframe></div>
 <div id="viewer"><span class="nav prev">‹</span><img alt=""><div class="cap"></div><span class="nav next2">›</span></div>
 <div class="ovl" id="mdlg"><div class="box">
  <h3><span data-t="modelsTitle"></span><span class="sp"></span><span class="k" id="mMsg"></span><button class="pri" id="mSave" data-t="save"></button><button id="mClose" data-t="close"></button></h3>
@@ -190,7 +195,7 @@ const today=()=>new Date().toISOString().slice(0,10);
 /* ---- kalba ------------------------------------------------------------------
    Visi užrašai čia; žinyno tekstai (tipai, žingsniai) - catalog.json lt/en laukuose. */
 const T={
- lt:{models:'▦ Modelių sąranka',settings:'⚙ Nustatymai',guide:'? Kaip dirbti',newResin:'+ Nauja derva',save:'Įrašyti',close:'Uždaryti',openTab:'atidaryti atskirai',cancel:'Atšaukti',
+ lt:{vLab:'Testai',vLib:'Biblioteka',models:'▦ Modelių sąranka',settings:'⚙ Nustatymai',guide:'? Kaip dirbti',newResin:'+ Nauja derva',save:'Įrašyti',close:'Uždaryti',openTab:'atidaryti atskirai',cancel:'Atšaukti',
   loading:'Kraunama…',noResins:'Dervų dar nėra. Pradėk nuo „+ Nauja derva“.',pick:'Pasirink dervą kairėje arba pradėk naują.',
   data:'Duomenys',printer:'Printeris',pNone:'printeris nenurodytas',pOff:'neatsako',pIdle:'laisvas',pBusy:'spausdina',
   restore:'↩ grąžinti „{0}“',tests:'band.',
@@ -226,7 +231,7 @@ const T={
   testsTitle:'Bandymai',allSteps:'Visi žingsniai',onlyStep:'Tik šis žingsnis',none:'Šiam žingsniui bandymų dar nėra. Užpildyk formą kairėje ir spausk „Įrašyti bandymą“ - kortelė atsiras čia.',compare:'Palyginti',picked:'pažymėta {0}',back:'← Atgal',
   cmpPick:'lyginti',best:'⭐ geriausias',isBest:'⭐ Geriausias',unBest:'nuimti ⭐',editB:'✎',del:'🗑',
   cmpHint:'Geltonai - kuo bandymai skiriasi. Nuotrauka atsidaro per visą ekraną, rodyklėmis vartai.',
-  libDone:'Atsidarė bibliotekos tvarkymas su užpildyta forma: pridėk parduotuvės nuorodą ir įrašyk.',
+  libDone:'Biblioteka atidaryta su užpildyta forma: pridėk parduotuvės nuorodą ir įrašyk.',
   installed:'Profilis „{0}“ įrašytas į printerį.',restored:'Grąžintas profilis „{0}“.',
   modelsTitle:'Modelių sąranka - kuris modelis kuriam žingsniui',
   modelsHelp:'Tai vienkartinis darbas, ne bandymo dalis. Standartinis testas vienodas visoms dervoms, paprastas ir sudėtingas modeliai - pagal dervos tipą. Tada kiekviena to paties tipo derva spausdina tuos pačius modelius, ir rezultatus galima palyginti. Nauji STL - į aplanką, jie atsiras čia. Plokštė 40,8 × 30,6 mm, aukštis 60 mm.',
@@ -254,7 +259,7 @@ const T={
   phSource:'SUNLU pavyzdys',pubDone:'Derva jau paskelbta bibliotekoje - nauji testai nebūtini. Įrašyk juos, tik jei tikrini iš naujo.',synth:'sintetinis',synthT:'Etalonas: visi skaičiai ir nuotraukos sugalvoti - rodo, kaip atrodo pilnai ištestuota derva. Į pradžios skaičiavimą, biblioteką ir printerį neina.',synthNo:'Tai sintetinis etalonas - į biblioteką ir printerį neina.',tour:'▶ Apžvalga',tourPrev:'Atgal',tourNext:'Toliau',tourDone:'Baigti',stripB:'🔍 Juostos',stripTitle:'Juostų nuotrauka',
   stripHelp:'Tempk pele stačiakampį aplink visas 8 juostas, tada spustelėk geriausią. Žalia - skylučių tiek, kiek turi būti, geltona - ne. Neatpažino - rink juostą mygtukais. Taisyklė: žemiausia švari juosta plius vienas žingsnis. Ar paviršius sausas, nuotrauka neparodo - žiūrėk į tikrą juostą.',
   stripFound:'Rasta juostų: {0}, reikia 8 - apvesk tiksliau arba rink mygtukais.',stripSel:'Pasirinkta #{0} · {1} % · {2} s (bandymo Regular {3} s)',stripPickHint:'Spustelėk geriausią juostą.',stripCard:'Juosta #{0} · {1} s',guideT:'Vadovas',themeT:'Šviesi / tamsi tema'},
- en:{models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
+ en:{vLab:'Tests',vLib:'Library',models:'▦ Model setup',settings:'⚙ Settings',guide:'? How it works',newResin:'+ New resin',save:'Save',close:'Close',openTab:'open in a tab',cancel:'Cancel',
   loading:'Loading…',noResins:'No resins yet. Start with “+ New resin”.',pick:'Pick a resin on the left or start a new one.',
   data:'Data',printer:'Printer',pNone:'no printer set',pOff:'not answering',pIdle:'idle',pBusy:'printing',
   restore:'↩ restore “{0}”',tests:'tests',
@@ -290,7 +295,7 @@ const T={
   testsTitle:'Tests',allSteps:'All steps',onlyStep:'This step only',none:'No tests for this step yet. Fill in the form on the left and press “Save test” - the card shows up here.',compare:'Compare',picked:'{0} picked',back:'← Back',
   cmpPick:'compare',best:'⭐ best',isBest:'⭐ Best',unBest:'unmark ⭐',editB:'✎',del:'🗑',
   cmpHint:'Yellow marks what differs. A photo opens full screen; use the arrows to browse.',
-  libDone:'The library page opened with the form filled in: add the shop link and save.',
+  libDone:'The library opened with the form filled in: add the shop link and save.',
   installed:'Profile “{0}” saved to the printer.',restored:'Profile “{0}” restored.',
   modelsTitle:'Model setup - which model for which step',
   modelsHelp:'A one-time setup, not part of a test. The standard test is the same for every resin; the simple and complex models follow the resin type. That way every resin of a type prints the same models and results stay comparable. New STL files go into the folder and show up here. Plate 40.8 × 30.6 mm, height 60 mm.',
@@ -1018,6 +1023,8 @@ function drawStrip(){
 const TOUR=[
  {q:'.brand',lt:['Resin Lab','Įrankis dervoms testuoti prieš dedant jas į pulto dervų biblioteką. Kiekviena derva eina tuo pačiu keliu: įrašai dervą → juostų testas → standartinis testas → paprastas ir sudėtingas modelis → biblioteka. Apžvalga nieko nekeičia - tik rodo.'],
   en:['Resin Lab','A tool for testing resins before they go into the dashboard resin library. Every resin follows the same path: enter the resin → exposure strip → standard test → simple and complex model → library. This walk through changes nothing - it only shows.']},
+ {q:'#viewSeg',lt:['Testai ir biblioteka','„Testai“ - dervų bandymai. „Biblioteka“ - pulto dervų bibliotekos tvarkymas: profiliai, pirkimo nuorodos ir failai, kuriuos Claude paskelbia. Iš sėkmingo testo mygtukas „→ Į biblioteką“ ją atveria su užpildyta forma.'],
+  en:['Tests and library','"Tests" are the resin trials. "Library" manages the dashboard resin library: profiles, shop links and the files Claude publishes. From a successful test, "→ To library" opens it with the form filled in.']},
  {q:'#dataDir',lt:['Kur guli duomenys','Dervų įrašai ir nuotraukos - tavo Google Drive aplanke. Kelią keiti per ⚙ Nustatymai.'],
   en:['Where the data lives','Resin records and photos are in your Google Drive folder. Change the path in ⚙ Settings.']},
  {q:'#pchip',lt:['Printeris','Printerio būsena: nenurodytas, neatsako, laisvas, spausdina. Spustelėjus atsidaro nustatymai, kur įrašai printerio IP. Jei testui buvo uždėtas laikinas profilis, spustelėjus pasiūlo grąžinti ankstesnį.'],
@@ -1218,7 +1225,7 @@ async function toLibrary(){
   try{localStorage.setItem('tmResinLabHandoff',JSON.stringify({slug:lh>0.075?base+'-010':base,p:p}));}catch(e){msg('err',errText(e));return;}
   r.library=r.library||{};r.library[Number(lh).toFixed(2)]=today();
   try{await persist(false);}catch(e){msg('err',errText(e));}
-  window.open('/resin-publish.html?lang='+LANG+'#lab','_blank');
+  showView('lib',true);
   msg('okbox',t('libDone'));render();
 }
 
@@ -1344,11 +1351,26 @@ document.querySelectorAll('#langSeg button').forEach(b=>b.addEventListener('clic
   render();loadList();refreshPrinter();if($('guide').classList.contains('on'))openGuide();
   /* Atviri langai statomi vieną kartą - perstatomi nauja kalba (neįrašyti pakeitimai juose dingsta). */
   if($('mdlg').classList.contains('on'))openModels();
-  if($('setdlg').classList.contains('on'))openSettings();}));
+  if($('setdlg').classList.contains('on'))openSettings();
+  if($('libFrame').getAttribute('src'))$('libFrame').src=libSrc(false);}));
+
+/* ---- Biblioteka: dervų bibliotekos tvarkymas (resin-publish.html) šio lango skiltyje.
+   Tas pats puslapis rėmelyje, jo antraštę, temą ir kalbą valdo Lab. Rėmelis kraunamas
+   tik pirmą kartą atidarius ir paliekamas gyvas - pradėtas darbas neprarandamas. */
+function libSrc(handoff){return '/resin-publish.html?embed=1&lang='+LANG+(handoff?'&h='+Date.now()+'#lab':'');}
+function showView(v,handoff){
+  const lib=v==='lib';
+  document.querySelector('.app').hidden=lib;$('libView').hidden=!lib;
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(lib&&(handoff||!$('libFrame').getAttribute('src')))$('libFrame').src=libSrc(handoff);
+  history.replaceState(null,'',location.pathname+location.search+(lib?'#library':''));
+}
+document.querySelectorAll('#viewSeg button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.v)));
 
 /* ---- startas --------------------------------------------------------------- */
 (async function(){
   applyStatic();$('resList').textContent=t('loading');
+  showView(location.hash==='#library'?'lib':'lab');
   try{
     CFG=await api('/api/lab/config');
     $('dataDir').textContent=t('data')+': '+CFG.data_dir;$('dataDir').title=CFG.data_dir+'\n'+CFG.models_dir;

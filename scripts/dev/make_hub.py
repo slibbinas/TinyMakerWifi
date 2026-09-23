@@ -36,7 +36,7 @@ CATALOG = {
     "scenarijai.html": ("Naudojimo scenarijai",
         "Kaip žmogus iš tikrųjų naudoja pultą: prielaidos, tikslas, žingsniai, rezultatas.", "testai"),
     "resin-publish.html": ("Dervų bibliotekos tvarkymas",
-        "Naujas profilis, taisymas, kopija, laikinas sustabdymas - be rankinio JSON.", "irankiai"),
+        "Resin Lab skilties „Biblioteka“ puslapis: naujas profilis, taisymas, kopija, sustabdymas. Atidaryti per Resin Lab.", "irankiai"),
     "demo.html": ("Pulto demo",
         "Visas dashboard be printerio (suklastoti duomenys). Generuoja build_demo.py.", "stendai"),
     "voxel-preview-lab.html": ("3D peržiūros stendas",
@@ -52,12 +52,9 @@ CATALOG = {
 TOOLS = "%USERPROFILE%\\Tools\\TinyMaker"
 REGISTRAS = [
     ("Resin Lab", "http://localhost:8893/resin-lab/",
-     "Dervų testai: įrašai, bandymai, spausdinimas printeryje, juostų nuotraukos, apžvalga.",
+     "Dervų testai (įrašai, bandymai, spausdinimas printeryje, juostų nuotraukos, apžvalga) ir skiltis „Biblioteka“ - pulto dervų bibliotekos tvarkymas.",
      TOOLS + "\\scripts\\dev\\resin-lab; duomenys - My Drive\\3Dprinter\\30 Dervos\\Testai",
      "darbalaukis „00 TinyMaker dervu testai“", "Ne"),
-    ("Dervų bibliotekos tvarkymas", "http://localhost:8893/resin-publish.html",
-     "Pulto dervų bibliotekos įrašai: naujas profilis, taisymas, revizija, sustabdymas.",
-     "tas pats Resin Lab serveris", "darbalaukis „00 TinyMaker dervos“", "Ne"),
     ("Ūkis (šis puslapis)", "http://localhost:8899/",
      "Įrankių registras ir vietiniai puslapiai: testai, scenarijai, stendai.",
      TOOLS + "\\scripts\\dev", "darbalaukis „00 TinyMaker ukis“",

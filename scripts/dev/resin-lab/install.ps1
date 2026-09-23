@@ -101,7 +101,6 @@ if (-not $NoShortcut) {
   $icon = (Join-Path $lab 'resin-lab.ico') + ',0'
   $links = @(
     @('00 TinyMaker dervu testai', (Join-Path $lab 'launcher.vbs'), '', $icon, 'TinyMaker Resin Lab'),
-    @('00 TinyMaker dervos', (Join-Path $lab 'launcher.vbs'), 'resin-publish.html', $icon, 'TinyMaker dervu biblioteka'),
     @('00 TinyMaker ukis', (Join-Path $dev 'ukis.vbs'), '', 'shell32.dll,14', 'TinyMaker ukis - irankiu registras')
   )
   foreach ($l in $links) {
@@ -113,6 +112,8 @@ if (-not $NoShortcut) {
     $s.Description = $l[4]
     $s.Save()
   }
+  # Dervu biblioteka nuo 2026-09-24 - Resin Lab skiltis, atskira nuoroda nebereikalinga.
+  Remove-Item (Join-Path $desk '00 TinyMaker dervos.lnk') -ErrorAction SilentlyContinue
   Write-Host 'Darbastalio nuorodos atnaujintos.'
 }
 
