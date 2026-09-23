@@ -8,6 +8,17 @@ async function getHost() {
   return (host || DEFAULT_HOST).trim();
 }
 
+// Theme is chosen in the extension's options; the popup only obeys it.
+// 'system' (default) = follow the OS via prefers-color-scheme.
+async function getTheme() {
+  const { theme } = await chrome.storage.local.get('theme');
+  return (theme === 'light' || theme === 'dark') ? theme : 'system';
+}
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+
 async function fetchStatus(host, timeoutMs = 5000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
