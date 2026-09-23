@@ -1,6 +1,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title data-t="title"></title>
+<script>/* Resin Lab skiltyje „Biblioteka“ šis puslapis rodomas rėmelyje: antraštę, temą ir kalbą valdo Lab. */
+if(/[?&]embed=/.test(location.search))document.documentElement.classList.add('embed');</script>
 <style>
 :root{color-scheme:light;
  --bg:#f7f7f8;--card:#fff;--line:#e3e5ea;--text:#1d1f24;--muted:#6b7280;
@@ -12,6 +14,8 @@
  --ok:#4cc46e;--okbg:#1d3326;--warn:#e0a44a;--warnbg:#33291a;--bad:#e2666e;--badbg:#3a2320}
 @media(prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;--bg:#1c1c1e;--card:#26262a;--line:#3a3a3f;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--code:#2f2f34;--link:#84bcf8;--ok:#4cc46e;--okbg:#1d3326;--warn:#e0a44a;--warnbg:#33291a;--bad:#e2666e;--badbg:#3a2320}}
 *{box-sizing:border-box}
+.embed body{padding-top:14px}
+.embed .themeSw,.embed #langSeg,.embed h1{display:none}
 body{margin:0;background:var(--bg);color:var(--text);padding:22px 16px 80px;
  font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:1080px;margin:0 auto}
@@ -322,7 +326,11 @@ try{var _p=new URLSearchParams(location.search).get('theme');var _t=(_p==='light
     if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}
     else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}
     mark();});
-  mark();})();
+  mark();
+  /* Tema pakeista kitame lange ar Lab'e (rėmelio tėve): ta pati naršyklės atmintis praneša apie tai. */
+  window.addEventListener('storage',e=>{if(e.key!=='tmTheme')return;const v=e.newValue;
+    if(v==='light'||v==='dark')document.documentElement.setAttribute('data-theme',v);else document.documentElement.removeAttribute('data-theme');
+    mark();});})();
 
 const KEYS=['name','layer_height'].concat(F.map(f=>f.k)).concat(['tested_by','tested_on','buy_url']);
 

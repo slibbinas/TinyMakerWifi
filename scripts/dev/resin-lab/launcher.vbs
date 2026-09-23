@@ -7,8 +7,9 @@
 '
 ' Paleidejas guli tame paciame aplanke kaip server.py: install.ps1 ji kopijuoja
 ' i %USERPROFILE%\Tools\TinyMaker kartu su irankiu, ir darbastalio nuorodos
-' rodo cia. Argumentas - kuri puslapi atidaryti (numatyta resin-lab/; dervu
-' bibliotekos nuoroda perduoda resin-publish.html). Langas nerodomas.
+' rodo cia. Argumentas - kuri puslapi atidaryti (numatyta resin-lab/). Sena
+' "00 TinyMaker dervos" nuoroda perduoda resin-publish.html - tai dabar Resin Lab
+' skiltis "Biblioteka", tad atidaroma ji. Langas nerodomas.
 
 Option Explicit
 Dim sh, fso, labDir, py, page, base, i
@@ -26,6 +27,7 @@ End If
 
 page = "resin-lab/"
 If WScript.Arguments.Count > 0 Then page = WScript.Arguments(0)
+If page = "resin-publish.html" Then page = "resin-lab/#library"
 
 Function Serves(u)
   Dim http
