@@ -135,7 +135,7 @@ export default {
     // so these files have no gh-pages home; the worker owns them via dedicated
     // routes (see wrangler.jsonc). Kept inline here as the single source of truth.
     if (request.method === 'GET' && path === '/robots.txt') {
-      const body = 'User-agent: *\nAllow: /\n\nSitemap: https://tinymakerwifi.com/sitemap.xml\n';
+      const body = 'User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://tinymakerwifi.com/sitemap.xml\n';
       return new Response(body, {
         headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
       });
