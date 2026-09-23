@@ -17,10 +17,11 @@
 <meta property="og:image:alt" content="TinyMakerWifi - logo and the web dashboard during a print">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
-<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');if(p==='light'||p==='dark')localStorage.setItem('tmTheme',p);if((p||localStorage.getItem('tmTheme'))==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}})()</script>
+<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 <style>
 :root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20}
 [data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
@@ -56,13 +57,17 @@ h2{color:var(--accent);font-size:24px;margin:0 0 18px}
 footer{padding:30px 0 44px;border-top:1px solid var(--line);color:var(--muted2);font-size:13px;text-align:center;text-wrap:balance}
 footer a{color:var(--muted2);text-decoration:underline}
 .pill{display:inline-block;border:1px solid var(--line2);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted);margin-left:8px;vertical-align:middle}
-#themeBtn{position:fixed;top:14px;right:16px;font-size:18px;color:var(--muted);z-index:5}#themeBtn:hover{color:var(--text);text-decoration:none}
+.wrap.hero{position:relative}
+.themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}
+.themeSw button[aria-pressed=true]{color:var(--accent)}
 </style>
 </head>
 <body>
-<a href="#" id="themeBtn" title="Light / dark theme">&#9680;</a>
-
 <div class="wrap hero">
+  <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
   <h1>TinyMakerWifi</h1>
   <p class="tag">Open-source firmware that puts the palm-sized <b>TinyMaker</b> resin 3D printer on your WiFi - send models straight from the slicer, watch prints from any browser, and never touch the SD card again.</p>
@@ -120,20 +125,19 @@ footer a{color:var(--muted2);text-decoration:underline}
     // Theme toggle (shared localStorage key with the printer dashboard).
     // Our own linked pages (manual, roadmap) open in the matching theme -
     // they read ?theme=; anything on our sites that reads it belongs here.
-    var applyThemeLinks=function(){
-      var dark=document.documentElement.getAttribute('data-theme')!=='light';
+    var mode=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';};
+    var applyThemeLinks=function(){var m=mode();var q=(m==='light'||m==='dark')?'?theme='+m:'';
       document.querySelectorAll("a[href*='/manual/'], a[href*='/roadmap/']").forEach(function(a){
-        var u=new URL(a.href);u.search=dark?'?theme=dark':'';a.href=u.toString();
+        try{var u=new URL(a.href);u.search=q;a.href=u.toString();}catch(e){}
       });
     };
-    document.getElementById('themeBtn').addEventListener('click',function(e){
-      e.preventDefault();
-      var toLight=document.documentElement.getAttribute('data-theme')!=='light';
-      if(toLight)document.documentElement.setAttribute('data-theme','light');
-      else document.documentElement.removeAttribute('data-theme');
-      try{localStorage.setItem('tmTheme',toLight?'light':'dark');}catch(err){}
-      applyThemeLinks();
-    });
+    var sw=document.querySelector('.themeSw');
+    var mark=function(){var m=mode();if(sw)sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});};
+    if(sw)sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+      if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(err){}}
+      else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(err){}}
+      mark();applyThemeLinks();});
+    mark();
     // Run after the whole document is parsed - this script sits in the hero,
     // but themed links (roadmap, get-started manual) live in later sections
     // that don't exist yet at parse time here.
