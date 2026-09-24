@@ -17,6 +17,8 @@
   .seg button.on{background:var(--accent);color:#fff}
   #save{margin-top:12px;padding:6px 14px;font:inherit;background:var(--accent);color:#fff;border:0;border-radius:6px;cursor:pointer}
   #msg{color:var(--ok);margin-left:8px}
+  #msg.bad{color:#e05555}
+  .hint{color:var(--muted);margin:6px 0 0;font-size:12px}
 </style>
 </head>
 <body>
@@ -28,6 +30,7 @@
   </div>
   <label>Printer address (IP or name, e.g. 192.168.1.138 or tinymaker.local)</label>
   <input id="host" placeholder="tinymaker.local">
+  <p class="hint">Save asks Chrome to let the extension read this one address - the printer on your network. It reads the print status and never changes anything.</p>
   <div><button id="save">Save</button><span id="msg"></span></div>
   <script src="common.js"></script>
   <script src="options.js"></script>
