@@ -109,6 +109,7 @@ const MAX_CRASH_PER_DAY = 200;             // crash pings are rare + firmware-de
 const CRASH_TTL = 60 * 60 * 24 * 90;       // crash records self-clean after 90 days
 
 const str = (v, n) => String(v || '').slice(0, n);
+const hexStr = (v, n) => String(v || '').toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, n);
 
 // The subset of a record that lives in KV metadata (see the header note).
 const metaOf = (rec) => ({
@@ -596,6 +597,10 @@ export default {
         cause: Math.max(0, Number(f.cause) || 0),
         vaddr: str(f.vaddr, 8),
         bt: str(f.bt, 160),
+        // 0.18.3: first 16 hex of the firmware.elf sha of the build that crashed
+        // (from the coredump) and of the build reporting it - see builds.json.
+        elf: hexStr(f.elf, 64),
+        run: hexStr(f.run, 64),
       };
       await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
                              JSON.stringify(rec),
@@ -812,7 +817,13 @@ export default {
         return new Response(JSON.stringify(recs, null, 1),
                            { headers: { 'Content-Type': 'application/json' } });
       const hb = await env.FEEDBACK.get('hb:last');
-      return new Response(crashInboxPage(recs, hb),
+      // builds.json (release.py): firmware.elf sha of every release -> version.
+      let builds = {};
+      try {
+        const b = await fetch(GHPAGES + '/builds.json', { cf: { cacheTtl: 300 } });
+        if (b.ok) builds = await b.json();
+      } catch (e) { /* page still renders, just without the Build column filled */ }
+      return new Response(crashInboxPage(recs, hb, builds),
                          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
@@ -863,7 +874,15 @@ const when = (iso) => {
 // Crash telemetry inbox (GitHub #70): read behind LIST_KEY. Anonymous rows -
 // hashed device id + ESP reset reason (+ optional print layer). esc() on every
 // field: reason/version come off the wire from firmware.
-const crashInboxPage = (recs, hb) => {
+const crashInboxPage = (recs, hb, builds = {}) => {
+  // Which build: the 16-hex elf sha prefix looked up in builds.json (every release
+  // since the sha is in the image). No match = not a release; all zeros = unknown.
+  const buildOf = (s) => {
+    if (!s || s.length < 16) return '';          // missing or damaged - try the other sha
+    if (/^0+$/.test(s)) return 'unknown';
+    const hit = Object.keys(builds && typeof builds === 'object' ? builds : {}).find((k) => k.startsWith(s));
+    return hit ? `v${builds[hit]} \u2713` : 'self-built \u26A0';
+  };
   const counts = {};
   for (const r of recs) counts[r.reason] = (counts[r.reason] || 0) + 1;
   const order = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -890,7 +909,11 @@ const crashInboxPage = (recs, hb) => {
     const crashCell = r.pc && r.pc !== '00000000'
       ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task}\nbt ${r.bt}`)}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
       : '';
-    return `<tr data-r="${rIdx[r.reason]}"><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td>` +
+    // The crashed build when there is a coredump (it can be older than the
+    // reporter), else the reporting build; both shas in the tooltip.
+    const b = buildOf(r.elf) || buildOf(r.run);
+    const buildCell = b ? `<span title="${esc(`crashed: ${r.elf || '-'}\nreporting: ${r.run || '-'}`)}">${esc(b)}</span>` : '';
+    return `<tr data-r="${rIdx[r.reason]}"><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td><td>${buildCell}</td>` +
       `<td>${r.layer ? esc(String(r.layer)) : ''}</td>` +
       `<td class="mono">${esc(String(r.id).slice(0, 8))}</td><td>${crashCell}</td></tr>`;
   }).join('');
@@ -916,7 +939,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monosp
 <body><div class="wrap"><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
-<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
+<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Build</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
 <script>
 (function(){var P=document.querySelectorAll('.pill[data-r]'),R=document.querySelectorAll('tr[data-r]');
 function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);});R.forEach(function(t){t.style.display=(v==='all'||t.dataset.r===v)?'':'none';});}
