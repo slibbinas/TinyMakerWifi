@@ -359,7 +359,7 @@ Three ways to update:
 * **For developers:** PlatformIO OTA - open `System → Update` on the printer (this path keeps the strict screen gate), then select the `env:tinymaker-ota` environment and Upload goes over WiFi.
 * **The browser slicer updates separately.** As long as the slicer is on, the same Update tab holds a **Slicer module** card - the version on the printer’s SD card vs the latest published, with its own install button and version picker. A slicer update copies a few megabytes to the card; the printer never reboots for it, and a running print is never interrupted.
 
-The printer checks GitHub's certificate before it installs anything, and only takes files from this project's own release folder. If that check fails - for example on a network that intercepts HTTPS - nothing is installed: the version check fails, and an install from the dashboard says it could not verify GitHub. **Choose & flash…** and USB flashing still work.
+Every release carries our own signature. Before an update from the internet is installed, the printer checks that signature against a key built into its firmware and activates the download only if it matches byte for byte - so it no longer matters which certificate GitHub shows in your region or what the printer's clock says. If the check fails, nothing is installed and the printer says the update was refused. **Choose & flash…** (a file you pick) and USB flashing still work.
 
 Do not power off during an update - and don't worry too much either: the dual OTA partition keeps the previous firmware if the update fails.
 

@@ -78,10 +78,10 @@
   @media(max-width:560px){nav.toc ol{columns:1}}
   nav.toc li{margin:3px 0; break-inside:avoid}
 
-  section{
-    background:var(--card); border:1px solid var(--border); border-radius:14px;
-    padding:6px 26px 24px; margin:22px 0; box-shadow:var(--shadow);
-  }
+  /* The orange frame is the page's one card; a section is only separated by a line,
+     so a note inside it is the second level, not the third (V 2026-09-24). */
+  section{padding:6px 0 24px; margin:0; border-top:1px solid var(--border)}
+  section:first-of-type{border-top:none}
   h2.sec{
     font-size:1.5rem; margin:26px 0 4px; padding-top:14px; letter-spacing:-.01em;
     scroll-margin-top:16px;
@@ -778,7 +778,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   </ul>
   <img class="shot" style="max-width:378px" src="images/firmware-update-page.png" alt="The dashboard Settings > Update pane: installed vs the stable channel, version picker, file upload and the Slicer module card">
   <p>Two comforts while updating: the printer also <b>checks by itself</b> - shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available - Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back - no guessing whether it finished.</p>
-  <p><b>The printer checks who it is talking to.</b> Before it installs anything from the internet it verifies GitHub’s certificate, and it only takes files from this project’s own release folder. If that check fails - for example on a network that intercepts secure connections - nothing is installed: the version check fails, and an install from the dashboard says it <i>could not verify GitHub</i>. <b>Choose &amp; flash&hellip;</b> and USB flashing still work.</p>
+  <p><b>The printer checks what it installs.</b> Every release carries our own signature. Before an update from the internet is installed, the printer checks that signature against a key built into its firmware and activates the download only if it matches byte for byte. So it no longer matters which certificate GitHub shows in your region or what the printer’s clock says. If the check fails, nothing is installed and the printer says the update was refused. <b>Choose &amp; flash&hellip;</b> (a file you pick) and USB flashing still work.</p>
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
   <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware - a slicer update never reflashes the printer.</p>
 
