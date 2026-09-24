@@ -30,6 +30,12 @@ Small dashboard improvements.
 - **Getting started no longer requires PrusaSlicer.** The step now reads *Slice - built-in
   slicer or PrusaSlicer*: the browser slicer in the dashboard is enough, PrusaSlicer stays
   an option.
+- **Crash reports now say exactly which build crashed.** A report carries a fingerprint
+  of the firmware build that crashed and of the one sending it, so a self-built copy is
+  told apart from a release. Its reason, layer and time are now that crash's own - before,
+  a printer that had once died mid-print repeated that old event in every later report.
+  The README and manual now also describe the crash reports, which share the usage-ping
+  switch.
 
 ## [0.18.2] - 2026-09-22
 
