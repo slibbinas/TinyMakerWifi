@@ -3237,19 +3237,32 @@ bool isAbnormalReset() {
   }
 }
 
-// Anonymous crash telemetry (GitHub #70): report a mid-print death (crashSeen)
-// or any abnormal reset, so the maintainer sees fleet-wide instability without
-// waiting for a user report. Same opt-out as the install ping (statsPingEnabled)
-// and the same anonymous hashed id - no IP, name or model data. De-duped per
-// crash event (crashSeen/crashReason persist across boots, so a marker keeps us
-// from re-sending the same crash on every reboot). Called once from setup().
+// The unsent mid-print death has been reported (or was, by an earlier boot).
+void clearCrashPending() {
+  sysPrefs.begin("tinymaker", false);
+  sysPrefs.putBool("crashPend", false);
+  sysPrefs.end();
+  crashUnsent = false;
+}
+
+// Anonymous crash telemetry (GitHub #70): report a mid-print death, an abnormal
+// reset or a panic's coredump, so the maintainer sees fleet-wide instability
+// without waiting for a user report. Same opt-out as the install ping
+// (statsPingEnabled) and the same anonymous hashed id - no IP, name or model
+// data. Called once from setup().
+// A mid-print death is reported as that event (its reason, layer and time) until
+// a report of it goes out - crashUnsent, kept in NVS, so a boot without WiFi (the
+// router is often slower than the printer after a power cut) does not lose it.
+// Otherwise only THIS boot's reason, with no print data. crashSeen & co. keep the
+// last death for the dashboard notice and must not stamp later reports - they
+// did, and a panic went out as a 12-day-old "power-on" (V 2026-09-24).
 void crashPingMaybe() {
   if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
-  if (!crashSeen && !isAbnormalReset()) return;   // nothing worth reporting
+  if (!crashUnsent && !isAbnormalReset() && crashPc == 0) return;   // nothing worth reporting
 
-  uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
-  uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
-  uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
+  uint8_t  rsn   = crashUnsent ? crashReason : (uint8_t)bootResetReason;
+  uint16_t layer = crashUnsent ? crashLayer  : 0;
+  uint32_t epoch = crashUnsent ? crashEpoch  : 0;
   // Include the crash PC so two different panics on one device (same reason,
   // no layer) are not collapsed into one report by the de-dupe below.
   String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer) + ":" + String(crashPc);
@@ -3257,7 +3270,10 @@ void crashPingMaybe() {
   sysPrefs.begin("tinymaker", true);
   String reported = sysPrefs.getString("crashPingId", "");
   sysPrefs.end();
-  if (reported == eventId) return;                // already sent this event
+  if (reported == eventId) {                      // already sent this event
+    if (crashUnsent) clearCrashPending();
+    return;
+  }
 
   WiFiClientSecure client;
   client.setInsecure();
@@ -3276,6 +3292,16 @@ void crashPingMaybe() {
   char pcHex[10], vaddrHex[10];
   sprintf(pcHex, "%08x", crashPc);
   sprintf(vaddrHex, "%08x", crashExcVaddr);
+  // Which build crashed (from the coredump) and which build is reporting - the
+  // first 16 hex of each firmware.elf SHA-256. The inbox matches them against the
+  // released builds, so a self-built copy that calls itself the same version is
+  // told apart and the backtrace is decoded with the right elf. The coredump side
+  // is kept to hex only: a damaged partition must not break the JSON.
+  char runElf[17] = {0};
+  esp_ota_get_app_elf_sha256(runElf, sizeof(runElf));
+  String elf;
+  for (uint8_t i = 0; i < sizeof(crashElf) && crashElf[i]; i++)
+    if (isxdigit((unsigned char)crashElf[i])) elf += (char)tolower((unsigned char)crashElf[i]);
   String body = "{\"id\":\"" + statsHardwareHash() +
                 "\",\"version\":\"" + connectFirmwareVersion() +
                 "\",\"reason\":\"" + String(resetReasonName(rsn)) +
@@ -3285,13 +3311,16 @@ void crashPingMaybe() {
                 "\",\"pc\":\"" + pcHex +
                 "\",\"cause\":" + String(crashExcCause) +
                 ",\"vaddr\":\"" + vaddrHex +
-                "\",\"bt\":\"" + bt + "\"}";
+                "\",\"bt\":\"" + bt +
+                "\",\"elf\":\"" + elf +
+                "\",\"run\":\"" + String(runElf) + "\"}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {
     sysPrefs.begin("tinymaker", false);
     sysPrefs.putString("crashPingId", eventId);
     sysPrefs.end();
+    if (crashUnsent) clearCrashPending();
     DBGLN("Crash ping sent");
   }
 }

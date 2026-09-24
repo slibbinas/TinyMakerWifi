@@ -48,6 +48,7 @@
 #include <SdFat.h>               // SD card file system library
 #include <esp_system.h>          // hardware random for boot-animation shuffle
 #include <esp_core_dump.h>       // read the panic backtrace saved to the coredump partition
+#include <esp_ota_ops.h>         // esp_ota_get_app_elf_sha256(): which build is running (crash report)
 #include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
@@ -800,6 +801,7 @@ void resinClearCalibration() {
 // during print at ~layer 42" instead of leaving the user guessing.
 esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 bool crashSeen = false;      // a mid-print death record exists (any boot)
+bool crashUnsent = false;    // ...and the crash report has not gone out yet (NVS "crashPend")
 uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
 uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
@@ -814,6 +816,12 @@ uint8_t  crashBtDepth = 0;
 char     crashTask[16] = {0};  // task that crashed
 uint32_t crashExcCause = 0;    // exception cause (LoadProhibited, etc.)
 uint32_t crashExcVaddr = 0;    // faulting address (0 = null deref)
+// Which build crashed: the first 16 hex chars of that firmware.elf's SHA-256,
+// as the coredump recorded it. A coredump waits in flash until a firmware that
+// reads it boots, so the build that crashed can be older than the one reporting
+// it; without this the backtrace cannot be matched to an elf. Every build carries
+// the sha (the Arduino build writes it); before 0.18.3 it just was not sent.
+char     crashElf[17] = {0};
 
 const char *resetReasonName(uint8_t r) {
   switch (r) {
@@ -863,6 +871,7 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
         strncpy(crashTask, sum->exc_task, sizeof(crashTask) - 1);
         crashBtDepth = sum->exc_bt_info.depth > 8 ? 8 : (uint8_t)sum->exc_bt_info.depth;
         for (uint8_t i = 0; i < crashBtDepth; i++) crashBt[i] = sum->exc_bt_info.bt[i];
+        strncpy(crashElf, (const char *)sum->app_elf_sha256, sizeof(crashElf) - 1);
       }
       free(sum);
     }
@@ -879,12 +888,15 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
     sysPrefs.putUChar("crashRsn", crashReason);
     sysPrefs.putUShort("crashLyr", crashLayer);
     sysPrefs.putULong("crashEpo", crashEpoch);
+    sysPrefs.putBool("crashPend", true);   // cleared only once the report is sent
     crashSeen = true;
+    crashUnsent = true;
   } else {  // no fresh death - keep showing the last recorded one
     crashSeen = sysPrefs.getBool("crashSeen", false);
     crashReason = sysPrefs.getUChar("crashRsn", 0);
     crashLayer = sysPrefs.getUShort("crashLyr", 0);
     crashEpoch = sysPrefs.getULong("crashEpo", 0);
+    crashUnsent = sysPrefs.getBool("crashPend", false);
   }
   sysPrefs.end();
   DBG("Boot reset reason: %s%s\n", resetReasonName((uint8_t)bootResetReason),

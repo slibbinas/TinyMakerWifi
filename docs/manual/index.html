@@ -901,7 +901,9 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
 
   <h3 id="faq-ping">What does the “Anonymous usage ping” send?</h3>
-  <p>Once per firmware version - on the first boot after a flash - the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. Nothing else, ever - no models, no settings, no network details. It feeds the <i>“N printers running TinyMakerWifi”</i> counter. To opt out, untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
+  <p>Once per firmware version - on the first boot after a flash - the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. It feeds the <i>“N printers running TinyMakerWifi”</i> counter.</p>
+  <p>If the printer restarts unexpectedly or dies in the middle of a print, it also sends a short <b>crash report</b>: the same hash, the firmware version, <b>why it restarted</b> (crash, watchdog, power dip…), the <b>layer</b> the print stopped at and roughly when, and - after a crash - the <b>program addresses</b> where it happened plus a <b>fingerprint of the exact firmware build</b>. That is what lets a rare fault be found and fixed instead of guessed at.</p>
+  <p>Nothing else, ever - no models, no settings, no network details. One switch turns both off: untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
 </section>
 
 <section>
