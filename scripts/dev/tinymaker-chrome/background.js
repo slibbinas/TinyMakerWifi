@@ -6,6 +6,12 @@ const COLORS = { printing: '#e8720c', paused: '#d69e2e', sdjob: '#4f8fe0', done:
 
 async function tick() {
   const host = await getHost();
+  // Without access to the printer's address a fetch only fails; say what is missing instead.
+  if (!(await hasAccess(host))) {
+    await chrome.storage.local.set({ last: null, lastErr: 'no-access', lastAt: Date.now() });
+    paint('setup', null, false);
+    return;
+  }
   let s = null, err = '';
   try { s = await fetchStatus(host); } catch (e) { err = String(e && e.message || e); }
   const p = phase(s);
@@ -26,6 +32,7 @@ function paint(p, s, doneNow) {
   else if (p === 'paused') { text = 'II'; color = COLORS.paused; title = 'Paused - ' + (s.model || ''); }
   else if (p === 'sdjob') { text = 'SD'; color = COLORS.sdjob; title = (s.state || 'SD card job'); }
   else if (p === 'offline') { text = '!'; color = COLORS.offline; title = 'Printer not answering'; }
+  else if (p === 'setup') { text = '?'; color = COLORS.offline; title = 'Set the printer address'; }
   else if (doneNow) { text = '✓'; color = COLORS.done; title = 'Print finished'; }
   else { title = 'Idle'; }
   chrome.action.setBadgeText({ text });
@@ -41,13 +48,20 @@ async function syncMark() {
     const host = await getHost();
     try { await chrome.scripting.unregisterContentScripts({ ids: ['tmmark'] }); } catch (e) {}
     if (!host || host.includes(':')) return;   // match patterns take no port
+    if (!(await hasAccess(host))) return;      // registering needs the printer's permission
     await chrome.scripting.registerContentScripts([{
       id: 'tmmark', matches: ['http://' + host + '/*'], js: ['mark.js'], runAt: 'document_idle'
     }]);
   } catch (e) {}
 }
 
-chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); syncMark(); tick(); });
+// A fresh install has no access to any printer: open the address field straight away.
+chrome.runtime.onInstalled.addListener(d => {
+  chrome.alarms.create('tick', { periodInMinutes: 1 }); syncMark(); tick();
+  if (d.reason === 'install') chrome.runtime.openOptionsPage();
+});
+chrome.permissions.onAdded.addListener(() => { syncMark(); tick(); });
+chrome.permissions.onRemoved.addListener(() => { syncMark(); tick(); });
 chrome.runtime.onStartup.addListener(() => { chrome.alarms.create('tick', { periodInMinutes: 1 }); syncMark(); tick(); });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tick') tick(); });
 chrome.runtime.onMessage.addListener((m, _s, reply) => {

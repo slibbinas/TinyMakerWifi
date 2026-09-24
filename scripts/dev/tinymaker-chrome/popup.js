@@ -16,9 +16,12 @@ function eta(secs) {
 function render(s, err, host) {
   $('host').textContent = host;
   if (!s) {
-    $('state').textContent = 'Not answering';
+    const setup = err === 'no-access';
+    $('state').textContent = setup ? 'Not set up yet' : 'Not answering';
     $('err').style.display = 'block';
-    $('err').textContent = err || 'No answer from the printer.';
+    $('err').textContent = setup
+      ? 'Press "Printer address" below, check the address and Save - Chrome then lets the extension read the printer.'
+      : (err || 'No answer from the printer.');
     $('job').style.display = 'none';
     $('facts').innerHTML = '';
     return;
@@ -52,7 +55,9 @@ function render(s, err, host) {
 async function load(live) {
   const host = await getHost();
   let s = null, err = '';
-  if (live) {
+  if (live && !(await hasAccess(host))) {
+    err = 'no-access';
+  } else if (live) {
     try { s = await fetchStatus(host); } catch (e) { err = String(e && e.message || e); }
   } else {
     const st = await chrome.storage.local.get(['last', 'lastErr']);
@@ -62,7 +67,7 @@ async function load(live) {
 }
 
 /* An open dashboard tab is brought forward instead of opening another one (V 2026-09-21).
-   Matched by the printer's address: `url` is readable because of the http host permission. */
+   Matched by the printer's address: `url` is readable because of the printer's host permission. */
 $('open').addEventListener('click', async () => {
   const host = (await getHost()).toLowerCase();
   const tabs = await chrome.tabs.query({});
