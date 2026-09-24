@@ -13,6 +13,30 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.3] - 2026-09-24
+
+Small dashboard improvements and more useful crash reports.
+
+- **Light, dark or system theme.** Three icons in the dashboard header - *System* follows
+  your phone or computer, *Light* and *Dark* stay put. The Manual, Feedback and Roadmap
+  links open in the same theme.
+- **"Browser extension" link in the header.** It leads to the TinyMaker browser extension
+  (print progress on the toolbar) and disappears by itself once the extension is installed.
+  The extension itself (0.1.4, separate download) now follows your theme too.
+- **Your own links in the header.** Put a `links.json` file on the SD card and its entries
+  show up next to Manual and Feedback - handy for a shop, a school or a maker who wants
+  their support page or resin list one tap away. Without the file nothing changes.
+  See [the API notes](docs/api.md) for the format.
+- **Getting started no longer requires PrusaSlicer.** The step now reads *Slice - built-in
+  slicer or PrusaSlicer*: the browser slicer in the dashboard is enough, PrusaSlicer stays
+  an option.
+- **Crash reports now say exactly which build crashed.** A report carries a fingerprint
+  of the firmware build that crashed and of the one sending it, so a self-built copy is
+  told apart from a release. Its reason, layer and time are now that crash's own - before,
+  a printer that had once died mid-print repeated that old event in every later report.
+  The README and manual now also describe the crash reports, which share the usage-ping
+  switch.
+
 ## [0.18.2] - 2026-09-22
 
 The boot crash the telemetry found is fixed.
