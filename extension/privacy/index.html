@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker status - privacy</title>
+<meta name="description" content="Privacy policy of the TinyMaker status browser extension: it talks only to your own printer and collects nothing.">
+<link rel="canonical" href="https://tinymakerwifi.com/extension/privacy/">
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--link:#84bcf8}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--link:#155fb0}}
+:root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--link:#155fb0}
+:root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--link:#84bcf8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15.5px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:26px 20px 60px;position:relative}
+h1{font-size:1.5rem;margin:0 0 6px;display:flex;align-items:center;gap:10px}
+h1 .mark{width:30px;height:30px;flex:none}
+.sub{color:var(--muted);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 16px}
+h2{font-size:1rem;margin:0 0 10px}
+ul{margin:0;padding-left:22px}li{margin:6px 0}
+code{background:var(--card);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+a{color:var(--link)}
+.note{color:var(--muted);font-size:.9rem}
+.themeSw{position:absolute;top:22px;right:0;display:inline-flex;gap:1px;align-items:center}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}.themeSw button[aria-pressed=true]{color:var(--accent)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
+  <h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Privacy policy</h1>
+  <p class="sub">TinyMaker status - the browser extension that shows your TinyMaker printer on the toolbar. Effective 24 September 2026.</p>
+
+  <div class="card">
+    <h2>In short</h2>
+    <p>The extension talks only to your own printer, on your own network. It collects no personal data, sends nothing to us or to anyone else, and has no analytics, ads or tracking.</p>
+  </div>
+
+  <div class="card">
+    <h2>What it connects to</h2>
+    <ul>
+      <li>Only the printer address you enter in the extension's options (for example <code>192.168.1.138</code> or <code>tinymaker.local</code>).</li>
+      <li>About once a minute, and when you open the popup, it reads the printer's status (<code>GET /api/status</code>). It never sends commands to the printer and never changes anything on it.</li>
+      <li>Chrome asks you to allow access to that one address when you press Save. The extension has no access to any other website.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>What it stores</h2>
+    <ul>
+      <li>The printer address, your theme choice and the last status it read (so the popup opens instantly).</li>
+      <li>All of it stays in your browser's extension storage on this device. Removing the extension deletes it.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>What it does on web pages</h2>
+    <ul>
+      <li>On your printer's own dashboard page it sets one invisible marker, so the dashboard knows the extension is installed and hides its "Browser extension" link. It reads nothing from the page.</li>
+      <li><b>Open dashboard</b> looks through your open tabs only to find the printer's dashboard and switch to it instead of opening a second one. Tab addresses are not stored or sent anywhere.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Sharing and sale of data</h2>
+    <p>No data leaves your computer, so nothing is sold, shared or transferred to third parties.</p>
+  </div>
+
+  <div class="card">
+    <h2>Contact</h2>
+    <p>Questions: the <a href="https://tinymakerwifi.com/feedback/">feedback form</a> or <a href="https://github.com/slibbinas/TinyMakerWifi/issues">GitHub issues</a>. The source code is open: <a href="https://github.com/slibbinas/TinyMakerWifi/tree/main/scripts/dev/tinymaker-chrome">scripts/dev/tinymaker-chrome</a>.</p>
+  </div>
+
+  <p class="note"><a href="../">Back to the extension page</a></p>
+</div>
+<script>
+(function(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();})();
+</script>
+</body></html>
