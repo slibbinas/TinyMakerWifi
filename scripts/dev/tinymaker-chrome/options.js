@@ -15,9 +15,25 @@
     applyTheme(m); mark();
   });
 })();
-document.getElementById('save').addEventListener('click', async () => {
-  const v = document.getElementById('host').value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  await chrome.storage.local.set({ host: v || DEFAULT_HOST });
-  chrome.runtime.sendMessage('tick');
-  document.getElementById('msg').textContent = 'Saved';
+/* Save asks Chrome for access to this one address. The request comes first, before any
+   await: Chrome grants it only inside the click (user gesture). */
+document.getElementById('save').addEventListener('click', () => {
+  const v = document.getElementById('host').value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '') || DEFAULT_HOST;
+  const msg = document.getElementById('msg');
+  chrome.permissions.request({ origins: [originFor(v)] }, async granted => {
+    if (!granted) {
+      msg.textContent = 'Not allowed - without it the extension cannot read the printer';
+      msg.className = 'bad';
+      return;
+    }
+    const old = await getHost();
+    await chrome.storage.local.set({ host: v });
+    // The previous printer's access is not needed any more.
+    if (originFor(old) !== originFor(v)) {
+      try { await chrome.permissions.remove({ origins: [originFor(old)] }); } catch (e) {}
+    }
+    chrome.runtime.sendMessage('tick');
+    msg.textContent = 'Saved';
+    msg.className = '';
+  });
 });

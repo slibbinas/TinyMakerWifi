@@ -1,4 +1,4 @@
-# TinyMaker status - Chrome extension (dev, owner's use)
+# TinyMaker status - Chrome extension
 
 Printer status on the Chrome toolbar. Reads `GET /api/status` once a minute (the
 dashboard itself asks every 4 s) and never writes to the printer.
@@ -10,6 +10,8 @@ dashboard itself asks every 4 s) and never writes to the printer.
   clock, resin used and left, SD, WiFi; **Open dashboard** (switches to an already open dashboard tab with the same
   address, or opens a new one); **Refresh**.
 - **Printer address:** popup -> *Printer address* (default `tinymaker.local`; the IP works too).
+  **Save** asks Chrome for access to that one address; a fresh install opens this page by
+  itself and shows `?` on the icon until the address is saved.
 
 ## Install
 
@@ -20,5 +22,10 @@ dashboard itself asks every 4 s) and never writes to the printer.
 
 After changing the files: `chrome://extensions` -> the extension's reload arrow.
 
-`host_permissions` is `http://*/*` so the address can be changed to any LAN name or IP
-without editing the manifest.
+Since 0.2.0 the extension holds no site access when installed: `http://*/*` is only an
+*optional* host permission, and the options page requests `http://<printer>/*` when the
+address is saved (and drops the previous printer's access). The Chrome Web Store reviews
+broad host access at length, and the extension only ever talks to the printer.
+
+Package for the store: `python scripts/dev/pack_chrome_ext.py` (zip named after the
+manifest version).
