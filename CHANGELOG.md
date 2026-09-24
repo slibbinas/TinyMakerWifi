@@ -15,7 +15,7 @@ unless noted. Community contributors are tagged inline.
 
 ## [0.18.3] - 2026-09-24
 
-Small dashboard improvements.
+Small dashboard improvements and more useful crash reports.
 
 - **Light, dark or system theme.** Three icons in the dashboard header - *System* follows
   your phone or computer, *Light* and *Dark* stay put. The Manual, Feedback and Roadmap
