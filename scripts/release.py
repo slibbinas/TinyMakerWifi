@@ -301,9 +301,16 @@ def main():
     # decoding them to a function+line (addr2line) needs the ELF of that exact
     # build, so it is attached to every Release (see the crash telemetry inbox).
     fw_elf = BUILD_DIR / "firmware.elf"
-    for f in (fw, fw_full):
+    for f in (fw, fw_full, fw_elf):
         if not f.exists():
             fail(f"build artifact missing: {f}")
+    # The image carries its own elf sha (esp_app_desc_t.app_elf_sha256, bin offset
+    # 0xB0 - the Arduino build writes it with esptool --elf-sha256-offset). builds.json
+    # below maps it to this version for the crash inbox; a bin without it would
+    # never match, so it is checked before anything is published.
+    elf_sha = hashlib.sha256(fw_elf.read_bytes()).hexdigest()
+    if fw.read_bytes()[0xB0:0xD0].hex() != elf_sha:
+        fail("firmware.bin does not carry its firmware.elf sha at 0xB0 (esp_app_desc_t.app_elf_sha256)")
 
     if args.dry_run:
         print("== dry run: stopping before push/publish ==")
@@ -372,6 +379,22 @@ def main():
     if version not in existing:
         existing.insert(0, version)
     manifest_path.write_text("\n".join(existing) + "\n", newline="\n")
+
+    # builds.json: firmware.elf SHA-256 of every release -> its version. A crash
+    # report carries the first 16 hex of the elf sha of the build that crashed and
+    # of the build reporting it (0.18.3+); the crash inbox looks them up here to
+    # tell a release from a self-built copy and to know which Release's
+    # firmware.elf decodes the backtrace.
+    builds_path = GHPAGES_WORKTREE / "builds.json"
+    builds = {}
+    if builds_path.exists():
+        try:
+            builds = json.loads(builds_path.read_text())
+        except ValueError:
+            fail("builds.json on gh-pages is not valid JSON")
+    builds[elf_sha] = version
+    builds_path.write_text(json.dumps(builds, indent=1, sort_keys=True) + "\n", newline="\n")
+    print(f"   builds.json: {elf_sha[:16]} -> {version}")
 
     run(["git", "add", "-A"], cwd=GHPAGES_WORKTREE)
     run(["git", "commit", "-m", f"gh-pages: firmware {version}"], cwd=GHPAGES_WORKTREE)
