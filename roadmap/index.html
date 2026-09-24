@@ -102,18 +102,17 @@ TinyMaker MSLA resin printer is headed. Updated at each release.</p>
 
 <h2>Where we are</h2>
 <div class="card">
-<p><b>0.17 is out as a beta</b> - the release that turned the model preview into a
-real 3D view and gave every resin its own recipe. The automatic self-update is on
-<b>0.16.2</b>; the beta is one press away in the dashboard's <i>Update &rarr; version
-picker</i> (see the <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
-for what each version adds), and it becomes the automatic update once early testers
-confirm it.</p>
+<p><b>0.18.3 is the last release with new features before 1.0.0.</b> New features are
+frozen as of 24 September 2026; from here on only fixes go in, until 1.0.0. The automatic
+self-update is on <b>0.18.3</b>, and every version is one press away in the dashboard's
+<i>Update &rarr; version picker</i> (see the
+<a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
+for what each one adds).</p>
 </div>
 
 <h2>Delivered <span class="tag ship">up to 0.16.2</span></h2>
 <div class="card">
-<p>Everything through the current automatic update <b>0.16.2</b> - on your printer now
-via <i>System &rarr; Update</i>:</p>
+<p>The foundation, on every printer since 0.16.2:</p>
 <ul>
 <li><b>WiFi that reconnects on its own</b> after a router dropout, and wireless model
 upload straight from PrusaSlicer.</li>
@@ -134,10 +133,10 @@ layer it was on.</li>
 <a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md" rel="noopener">changelog</a>.</p>
 </div>
 
-<h2>Just shipped <span class="tag dev">0.17 beta</span></h2>
+<h2>Delivered <span class="tag ship">0.17</span></h2>
 <div class="card">
-<p>Out now on the <b>beta</b> channel (<i>Update &rarr; version picker</i>), being proven
-before the automatic self-update picks it up:</p>
+<p>The release that turned the model preview into a real 3D view and gave every resin its
+own recipe - on the automatic update since 0.17.6:</p>
 <ul>
 <li><b>Named resin profiles</b> - a profile is the whole recipe for one resin:
 exposures, base layers, all four lift settings, density and layer height. Switching
@@ -173,8 +172,7 @@ for how: lay it on its widest side or search for the tilt that needs the fewest 
 (the PrusaSlicer way), and keep your size or make it as large as the plate allows. Lay
 flat, Flip, Tilt and Rotate are there when you want to decide yourself, then six settings for supports, strength, placement, tip, raft and smoothing. The
 raft is counted in layers (2, 3 or 6; default 3), because layers are what decide whether
-the pad grips. Switched on under <i>Settings &rarr; Network</i>; it becomes the default
-with 1.0.0.</li>
+the pad grips. On for everyone since 0.17.6.</li>
 <li><b>The plate knows where the top and the bottom are</b> - the manual jog stops at the
 ceiling instead of grinding into it, touching the endstop is a homing ("Plate is home"),
 and a pause lift asked for at the ceiling no longer drives the plate down into the
@@ -187,18 +185,40 @@ pressed, and a 24-hour clock.</li>
 </ul>
 <p class="muted">Under the hood: about 60&nbsp;KB of flash reclaimed, checkpoints written
 once per layer instead of twice (kinder to the card), writes accepted only from the
-printer's own dashboard, and a self-update that checks it is really talking to GitHub
-before it flashes anything.</p>
+printer's own dashboard, and a self-update that checks what it downloads before it
+flashes anything (signed updates since 0.18).</p>
 </div>
 
-<h2>Stabilizing <span class="tag now">0.17.x</span></h2>
+<h2>Just shipped <span class="tag dev">0.18</span></h2>
 <div class="card">
-<p>Right now the focus is the beta window: collecting feedback from early testers and
-fixing what turns up. Fixes ship as 0.17.x betas - see the
+<p>Updates that work wherever you are, crash reports that find the bug, and a few
+dashboard touches:</p>
+<ul>
+<li><b>Self-update no longer depends on GitHub's certificate</b> - in some regions GitHub
+serves a different one, and printers there could not update ("Version check failed").
+Each update now carries our own signature, which the printer checks before installing,
+so the region and the printer's clock no longer matter.</li>
+<li><b>Crash reports that point at the line</b> - after a crash the printer sends an
+anonymous backtrace and the fingerprint of the exact build, so a rare fault is found
+instead of guessed at. The first report already found a start-up crash, fixed in 0.18.2.
+Opt-out, no personal data.</li>
+<li><b>Light, dark or system theme</b> - three icons in the dashboard header; <i>System</i>
+follows your phone or computer.</li>
+<li><b>A browser extension</b> that shows print progress on the toolbar, linked from the
+dashboard header until it is installed.</li>
+<li><b>Your own links in the header</b> - a <code>links.json</code> file on the SD card adds
+them next to Manual and Feedback, handy for a shop or a school.</li>
+<li><b>Getting started without PrusaSlicer</b> - the built-in browser slicer is enough;
+PrusaSlicer stays an option.</li>
+</ul>
+</div>
+
+<h2>Feature freeze <span class="tag now">0.18.3 &rarr; 1.0.0</span></h2>
+<div class="card">
+<p>Right now the focus is proving 0.18.3: collecting feedback from early testers and
+fixing what turns up. No new features until 1.0.0 - fixes ship as 0.18.x (see the
 <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
-for what each one fixes - until the beta channel is quiet.</p>
-<p class="muted">Once it has run clean for a while, 0.17.x is promoted to the automatic
-self-update channel.</p>
+for what each one fixes) until it runs quiet.</p>
 </div>
 
 <h2>On the way</h2>
@@ -211,9 +231,10 @@ straight to the printer.</li>
 
 <h2>Toward 1.0.0</h2>
 <div class="card">
-<p>1.0.0 is 0.17, promoted once it has proven itself: the beta channel quiet with no
-open regressions, clean multi-hour print soak tests, a repeated full code review, and
-the browser slicer on by default for everyone.</p>
+<p>1.0.0 is 0.18.3 with its fixes, promoted once it has proven itself: two weeks with no
+serious findings, running on at least three printers, the smoke tests
+and the self-update path passing on the same build, a security review, and the manual and
+README matching the release.</p>
 </div>
 
 <h2>After 1.0.0</h2>
@@ -239,8 +260,6 @@ and removed.</li>
 resin, a threshold measured on this printer.</li>
 <li><b>A faster 3D view</b> - drawn only when something actually changes, so turning and
 cutting the model stays quick, and closed cut faces in the slicer view.</li>
-<li><b>A theme switch that can follow your system</b> - light, dark, or the same light or dark
-your phone or computer is set to.</li>
 <li><b>Sharing resin profiles through TinyMaker Connect.</b></li>
 <li><b>A web flasher that retries slower</b> when the first attempt times out.</li>
 <li><b>More security hardening</b> of the dashboard.</li>

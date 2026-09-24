@@ -78,10 +78,10 @@
   @media(max-width:560px){nav.toc ol{columns:1}}
   nav.toc li{margin:3px 0; break-inside:avoid}
 
-  section{
-    background:var(--card); border:1px solid var(--border); border-radius:14px;
-    padding:6px 26px 24px; margin:22px 0; box-shadow:var(--shadow);
-  }
+  /* The orange frame is the page's one card; a section is only separated by a line,
+     so a note inside it is the second level, not the third (V 2026-09-24). */
+  section{padding:6px 0 24px; margin:0; border-top:1px solid var(--border)}
+  section:first-of-type{border-top:none}
   h2.sec{
     font-size:1.5rem; margin:26px 0 4px; padding-top:14px; letter-spacing:-.01em;
     scroll-margin-top:16px;
@@ -171,7 +171,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 </div>
 
 <header class="hero">
-  <span class="badge">User Manual · v0.17.9</span>
+  <span class="badge">User Manual · v0.18.3</span>
   <h1>TinyMakerWifi</h1>
   <p class="tag">WiFi, wireless upload &amp; over-the-air updates for the TinyMaker resin printer</p>
   <p class="author">by <b>Viktoras Šidlauskas</b> · <a href="https://github.com/slibbinas">@slibbinas</a> · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a></p>
@@ -319,7 +319,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 <section>
   <h2 class="sec" id="screens"><span class="num">5</span>The printer screens</h2>
   <p>The small status display drives the whole on-printer interface - WiFi setup, upload progress, the resin estimate, the device toggles and self-update. Three buttons: <kbd>Back</kbd>, <kbd>Up</kbd> and <kbd>OK</kbd>. A green (connected) or grey (offline) dot on the main menu shows WiFi status.</p>
-  <img class="shot" style="max-width:728px" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer screens: boot, WiFi setup, printing, the Advanced groups, unpacking an upload, the Statistics counters, the plate notes at both ends of the travel and the resin-not-set screen">
+  <img class="shot" style="max-width:712px" src="images/printer-screens.png" alt="A montage of the TinyMakerWifi printer screens: boot, WiFi setup, printing, the Advanced groups, unpacking an upload, the Statistics counters, the plate notes at both ends of the travel and the resin-not-set screen">
   <p>The <b>System</b> menu is where the new features live: <b>WiFi Info</b>, <b>Advanced</b> (device toggles, grouped into Network / Resin / Display), <b>Statistics</b> (lifetime counters and the last boot/crash record), <b>Update</b> (firmware) and <b>About</b> (version and build info). The full item-by-item reference is in <a href="#advanced">System menu reference</a>.</p>
 </section>
 
@@ -504,7 +504,8 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 
 <section>
   <h2 class="sec" id="dashboard"><span class="num">11</span>The web dashboard</h2>
-  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates - in tabs styled to match the printer. The <b>◐ crescent</b> next to the <i>Manual</i> link switches between the <b>light and dark theme</b> (your choice sticks per browser), and small <b>?</b> marks next to the tricky settings open short explanations.</p>
+  <p>Open the printer’s IP address in any browser for the full dashboard: live print status and controls, SD-card management with one-click start/import, device settings and firmware updates - in tabs styled to match the printer. Three small icons at the top right pick the <b>theme</b>: <i>System</i> follows your phone or computer, <i>Light</i> and <i>Dark</i> stay put (your choice sticks per browser, and the Manual, Feedback and Roadmap links open in the same theme). Small <b>?</b> marks next to the tricky settings open short explanations.</p>
+  <p>The <b>Browser extension</b> link next to <i>Feedback</i> leads to the TinyMaker browser extension (print progress on the toolbar) and disappears once the extension is installed. A <code>links.json</code> file on the SD card adds your own links to that row - see the <a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/docs/api.md">API notes</a> for the format.</p>
   <div class="note">🧪 No printer at hand? <a href="https://tinymakerwifi.com/demo/">Try the dashboard live</a> - the same UI driving a simulated printer: start a print, watch the 3D progress, poke through Settings.</div>
   <div class="note">💬 The <b>Feedback</b> link in the header opens a 30-second form - what works, what doesn't, what's missing. Photos are welcome (a failed print says more than a paragraph) and your firmware version comes along automatically. No account, and it genuinely steers what gets built next.</div>
   <img class="shot" style="max-width:406px" src="images/dashboard-idle.png" alt="The dashboard in a narrow window: one column, with the status card, the print preview and the SD manager stacked">
@@ -513,7 +514,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   <img class="shot" style="max-width:406px" src="images/printing-eta.png" alt="The dashboard while printing: status with remaining time and finish-time estimate, print controls and the live 3D progress render">
   <p>That dot is worth understanding, because it explains something that looks like a fault. One ESP32 runs the screen, the motor, the UV LED and this web server, all off a single SD card - so the page is served in the gaps between layer moves. During the peel the printer deliberately answers nothing: a pause there could mark the part. <b>A few seconds of amber is the printer working, not the page hanging.</b> How long the dashboard waits follows the print - the longest exposure plus 10 seconds. If your phone or laptop reaches the printer through a slow link such as a WiFi extender and the dashboard keeps saying the printer answers slowly, give it more time under Settings → Network → <b>Wait while printing</b> (kept in that browser only; 0 = automatic). The SD card is locked for the same reason - uploads and file actions come back when the print ends, and the model list stays readable throughout.</p>
   <p>On a larger screen it spreads into two columns:</p>
-  <img class="shot" style="max-width:728px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
+  <img class="shot" style="max-width:712px" src="images/web-dashboard.png" alt="The TinyMakerWifi web dashboard on a wide screen: status and model preview on the left, STL slicer and SD manager on the right">
   <p>New to the printer? A dismissible <b>Getting Started</b> checklist on the dashboard walks you through the first steps (WiFi → slicer → first model → first print → exposure calibration → integrations) - the printer ticks steps off by itself where it can.</p>
   <p><b>Put it on your phone's home screen:</b> open the dashboard in the phone browser and pick <i>Add to Home screen</i> (Chrome: the ⋮ menu; iPhone Safari: Share → <i>Add to Home Screen</i>). You get the printer's icon on the home screen, and on iPhone it opens fullscreen like an app. (A browser "install" banner won't appear - the printer serves plain HTTP on your LAN - but the shortcut works the same.)</p>
 
@@ -777,7 +778,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   </ul>
   <img class="shot" style="max-width:378px" src="images/firmware-update-page.png" alt="The dashboard Settings > Update pane: installed vs the stable channel, version picker, file upload and the Slicer module card">
   <p>Two comforts while updating: the printer also <b>checks by itself</b> - shortly after WiFi connects at boot it looks for a newer version and shows <i>“Update available - Install / Later”</i> on the screen (choosing Later offers to turn the check off; the switch lives in System → Advanced → Network → Boot update and in dashboard Settings). And when you start an install from the browser, the dashboard locks under an <b>“Updating firmware”</b> overlay and <b>reloads itself</b> when the printer is back - no guessing whether it finished.</p>
-  <p><b>The printer checks who it is talking to.</b> Before it installs anything from the internet it verifies GitHub’s certificate, and it only takes files from this project’s own release folder. If that check fails - for example on a network that intercepts secure connections - nothing is installed: the version check fails, and an install from the dashboard says it <i>could not verify GitHub</i>. <b>Choose &amp; flash&hellip;</b> and USB flashing still work.</p>
+  <p><b>The printer checks what it installs.</b> Every release carries our own signature. Before an update from the internet is installed, the printer checks that signature against a key built into its firmware and activates the download only if it matches byte for byte. So it no longer matters which certificate GitHub shows in your region or what the printer’s clock says. If the check fails, nothing is installed and the printer says the update was refused. <b>Choose &amp; flash&hellip;</b> (a file you pick) and USB flashing still work.</p>
   <div class="note">✅ <b>Don’t worry about a failed update.</b> The printer keeps two firmware copies (dual OTA partition), so a failed flash falls back to the previous one. Just don’t power off mid-update.</div>
   <p>The same Settings → Update pane also holds the <b>Slicer module</b> card (shown when the <a href="#dashboard">browser slicer</a> is switched on): the version on the printer vs the latest published, an <b>Install latest</b> button and a version picker. It updates independently of the firmware - a slicer update never reflashes the printer.</p>
 
@@ -901,7 +902,9 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
   <p>System → Advanced → WiFi → Off. The printer behaves like the original firmware; turn WiFi back on in the same place whenever you like.</p>
 
   <h3 id="faq-ping">What does the “Anonymous usage ping” send?</h3>
-  <p>Once per firmware version - on the first boot after a flash - the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. Nothing else, ever - no models, no settings, no network details. It feeds the <i>“N printers running TinyMakerWifi”</i> counter. To opt out, untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
+  <p>Once per firmware version - on the first boot after a flash - the printer sends three things: a one-way <b>hash of its factory MAC address</b> (so each printer is counted once, without being identifiable), the <b>firmware version</b>, and the <b>lifetime print hours</b>. It feeds the <i>“N printers running TinyMakerWifi”</i> counter.</p>
+  <p>If the printer restarts unexpectedly or dies in the middle of a print, it also sends a short <b>crash report</b>: the same hash, the firmware version, <b>why it restarted</b> (crash, watchdog, power dip…), the <b>layer</b> the print stopped at and roughly when, and - after a crash - the <b>program addresses</b> where it happened plus a <b>fingerprint of the exact firmware build</b>. That is what lets a rare fault be found and fixed instead of guessed at.</p>
+  <p>Nothing else, ever - no models, no settings, no network details. One switch turns both off: untick Settings → <b>Network</b> → <i>Anonymous usage ping</i>.</p>
 </section>
 
 <section>
@@ -923,7 +926,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 </div>
 
 <footer>
-  <p>TinyMakerWifi · User Manual · v0.17.9 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
+  <p>TinyMakerWifi · User Manual · v0.18.3 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
 </footer>
 </body>
