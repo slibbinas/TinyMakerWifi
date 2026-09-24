@@ -801,6 +801,7 @@ void resinClearCalibration() {
 // during print at ~layer 42" instead of leaving the user guessing.
 esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 bool crashSeen = false;      // a mid-print death record exists (any boot)
+bool crashFresh = false;     // ...and it happened right before THIS boot
 uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
 uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
@@ -888,6 +889,7 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
     sysPrefs.putUShort("crashLyr", crashLayer);
     sysPrefs.putULong("crashEpo", crashEpoch);
     crashSeen = true;
+    crashFresh = true;
   } else {  // no fresh death - keep showing the last recorded one
     crashSeen = sysPrefs.getBool("crashSeen", false);
     crashReason = sysPrefs.getUChar("crashRsn", 0);

@@ -3237,19 +3237,23 @@ bool isAbnormalReset() {
   }
 }
 
-// Anonymous crash telemetry (GitHub #70): report a mid-print death (crashSeen)
-// or any abnormal reset, so the maintainer sees fleet-wide instability without
-// waiting for a user report. Same opt-out as the install ping (statsPingEnabled)
-// and the same anonymous hashed id - no IP, name or model data. De-duped per
-// crash event (crashSeen/crashReason persist across boots, so a marker keeps us
-// from re-sending the same crash on every reboot). Called once from setup().
+// Anonymous crash telemetry (GitHub #70): report a mid-print death, an abnormal
+// reset or a panic's coredump, so the maintainer sees fleet-wide instability
+// without waiting for a user report. Same opt-out as the install ping
+// (statsPingEnabled) and the same anonymous hashed id - no IP, name or model
+// data. Called once from setup().
+// Only THIS boot's event is reported: why this boot happened, and the print's
+// layer/time only when the printer died printing right before it (crashFresh).
+// crashSeen/crashReason/crashLayer/crashEpoch keep the LAST mid-print death for
+// the dashboard notice and must not stamp later reports - they did, and a panic
+// went out as a 12-day-old "power-on" (V 2026-09-24).
 void crashPingMaybe() {
   if (!statsPingEnabled || WiFi.status() != WL_CONNECTED) return;
-  if (!crashSeen && !isAbnormalReset()) return;   // nothing worth reporting
+  if (!crashFresh && !isAbnormalReset() && crashPc == 0) return;   // nothing worth reporting
 
-  uint8_t  rsn   = crashSeen ? crashReason : (uint8_t)bootResetReason;
-  uint16_t layer = crashSeen ? crashLayer  : 0;   // layer/epoch only meaningful
-  uint32_t epoch = crashSeen ? crashEpoch  : 0;   // for a mid-print death
+  uint8_t  rsn   = (uint8_t)bootResetReason;
+  uint16_t layer = crashFresh ? crashLayer : 0;
+  uint32_t epoch = crashFresh ? crashEpoch : 0;
   // Include the crash PC so two different panics on one device (same reason,
   // no layer) are not collapsed into one report by the de-dupe below.
   String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer) + ":" + String(crashPc);
