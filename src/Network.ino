@@ -3276,6 +3276,16 @@ void crashPingMaybe() {
   char pcHex[10], vaddrHex[10];
   sprintf(pcHex, "%08x", crashPc);
   sprintf(vaddrHex, "%08x", crashExcVaddr);
+  // Which build crashed (from the coredump) and which build is reporting - the
+  // first 16 hex of each firmware.elf SHA-256. The inbox matches them against the
+  // released builds, so a self-built copy that calls itself the same version is
+  // told apart and the backtrace is decoded with the right elf. The coredump side
+  // is kept to hex only: a damaged partition must not break the JSON.
+  char runElf[17] = {0};
+  esp_ota_get_app_elf_sha256(runElf, sizeof(runElf));
+  String elf;
+  for (uint8_t i = 0; i < sizeof(crashElf) && crashElf[i]; i++)
+    if (isxdigit((unsigned char)crashElf[i])) elf += (char)tolower((unsigned char)crashElf[i]);
   String body = "{\"id\":\"" + statsHardwareHash() +
                 "\",\"version\":\"" + connectFirmwareVersion() +
                 "\",\"reason\":\"" + String(resetReasonName(rsn)) +
@@ -3285,7 +3295,9 @@ void crashPingMaybe() {
                 "\",\"pc\":\"" + pcHex +
                 "\",\"cause\":" + String(crashExcCause) +
                 ",\"vaddr\":\"" + vaddrHex +
-                "\",\"bt\":\"" + bt + "\"}";
+                "\",\"bt\":\"" + bt +
+                "\",\"elf\":\"" + elf +
+                "\",\"run\":\"" + String(runElf) + "\"}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {
