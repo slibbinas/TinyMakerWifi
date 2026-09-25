@@ -55,6 +55,7 @@ const WIDE_CORS = {
 
 const FORM_ORIGIN = 'https://slibbinas.github.io/TinyMakerWifi/feedback/';
 const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
+const EXT_STORE = 'https://chromewebstore.google.com/detail/tinymaker-status/bhfjpfjkhopfnfpapgahmaipdgmajlde';
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
 
@@ -309,8 +310,15 @@ export default {
     // while the github.io ones worked. Every link we hand out should be on our
     // own domain rather than spelling out someone else's hosting - and the
     // trailing images/CSS under those paths have to come along, so this proxies
-    // the subtree, not just the page. /extension/ carries the Chrome toolbar
-    // extension's zip for manual install (README) until it is in the Web Store.
+    // the subtree, not just the page. /extension/ is the Chrome toolbar extension's
+    // page (the dashboard's "Browser extension" link points at it).
+    //
+    // The extension is in the Chrome Web Store since 2026-09-25 and the manual zip
+    // install is gone (V). The zip links still sit in the 09-21 FB post and older
+    // READMEs, so they lead to the store instead of a 404.
+    if (/^\/extension\/tinymaker-chrome[^/]*\.zip$/.test(path)) {
+      return Response.redirect(EXT_STORE, 301);
+    }
     if (request.method === 'GET' &&
         /^\/(demo|manual|roadmap|extension)(\/|$)/.test(path)) {
       const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
