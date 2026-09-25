@@ -1,4 +1,5 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinyMaker browser extension</title>
+<link rel="canonical" href="https://tinymakerwifi.com/extension/">
 <script>(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
@@ -14,7 +15,7 @@ h1 .mark{width:30px;height:30px;flex:none}
 .sub{color:var(--muted);margin:0 0 22px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 16px}
 h2{font-size:1rem;margin:0 0 10px}
-ol{margin:0;padding-left:22px}li{margin:6px 0}
+ol,ul{margin:0;padding-left:22px}li{margin:6px 0}
 code{background:var(--card);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
 a{color:var(--link)}
 .btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;border-radius:8px;padding:9px 18px;margin:4px 0}
@@ -28,18 +29,25 @@ a{color:var(--link)}
 <div class="wrap">
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
   <h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Browser extension</h1>
-  <p class="sub">TinyMaker print status on your browser toolbar - progress on the icon, details and a dashboard link in the popup. Chrome / Edge.</p>
+  <p class="sub">TinyMaker print status on your browser toolbar - progress on the icon, details and a dashboard link in the popup. Chrome.</p>
 
   <div class="card">
-    <h2>Install (Chrome / Edge)</h2>
+    <h2>Install</h2>
+    <p><a class="btn" href="https://chromewebstore.google.com/detail/tinymaker-status/bhfjpfjkhopfnfpapgahmaipdgmajlde">Get it in the Chrome Web Store</a></p>
     <ol>
-      <li><a class="btn" href="tinymaker-chrome.zip" download>Download the extension (.zip)</a></li>
-      <li>Unzip it to a folder you will keep.</li>
-      <li>Open <code>chrome://extensions</code> and switch on <b>Developer mode</b> (top-right).</li>
-      <li>Click <b>Load unpacked</b> and pick the unzipped folder.</li>
-      <li>Open the extension's <b>Options</b> and set your printer address (default <code>tinymaker.local</code>). Theme lives there too.</li>
+      <li><b>Add to Chrome.</b> Its options page opens by itself.</li>
+      <li>Enter your printer's address - its IP (shown on the printer's idle screen) or <code>tinymaker.local</code> - and press <b>Save</b>. Chrome asks to let the extension read that one address: <b>Allow</b>.</li>
+      <li>Pin it so the icon stays on the toolbar: the puzzle icon at the top right, then the pin next to <b>TinyMaker status</b>.</li>
     </ol>
-    <p class="note">A one-click Chrome Web Store version is on the way; this manual install works today.</p>
+  </div>
+
+  <div class="card">
+    <h2>Good to know</h2>
+    <ul>
+      <li>It only reads the printer's status, about once a minute - it never changes anything. No account, no tracking: <a href="privacy/">privacy policy</a>.</li>
+      <li>Had the earlier zip installed by hand? Remove it in <code>chrome://extensions</code> first, otherwise you get two icons. The manual zip install is gone.</li>
+      <li>For the first months Chrome may call it <i>not trusted by Enhanced Safe Browsing</i>. Every new developer starts like that, and it clears on its own.</li>
+    </ul>
   </div>
 
   <p class="note"><a href="https://tinymakerwifi.com/" onclick="window.close();setTimeout(function(){location.href='https://tinymakerwifi.com/';},300);return false;">Close</a></p>
