@@ -11,7 +11,9 @@ dashboard itself asks every 4 s) and never writes to the printer.
   address, or opens a new one); **Refresh**.
 - **Printer address:** popup -> *Printer address* (default `tinymaker.local`; the IP works too).
   **Save** asks Chrome for access to that one address; a fresh install opens this page by
-  itself and shows `?` on the icon until the address is saved.
+  itself and shows `?` on the icon until the address is saved. While the extension is not
+  pinned to the toolbar, the options page says how to pin it (Chrome does not let an
+  extension pin itself).
 
 ## Install
 
