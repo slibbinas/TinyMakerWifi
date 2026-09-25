@@ -58,7 +58,7 @@ const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
 const EXT_STORE = 'https://chromewebstore.google.com/detail/tinymaker-status/bhfjpfjkhopfnfpapgahmaipdgmajlde';
 // The inboxes open from the owner's links.json in the printer dashboard - a new tab with the
 // printer (LAN) as referrer, which script may close. Close shows only there (V 2026-09-26).
-const TM_CLOSE = String.raw`<p class="tmclose" hidden style="text-align:center;margin:18px 0 0;font-size:.9rem"><a href="#" onclick="window.close();return false;">Close</a></p><script>(function(){try{var h=document.referrer?new URL(document.referrer).hostname:'';var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(lan&&history.length<=1)document.querySelectorAll('.tmclose').forEach(function(e){e.hidden=false;});}catch(e){}})();</script>`;
+const TM_CLOSE = String.raw`<p class="tmclose" hidden style="text-align:center;margin:18px 0 0;font-size:.9rem"><a href="#" onclick="window.close();return false;">Close</a></p><script>(function(){try{var h=document.referrer?new URL(document.referrer).hostname:'';var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(!(lan&&history.length<=1))return;document.querySelectorAll('.tmclose').forEach(function(e){e.hidden=false;});var a=document.querySelector('.tmcrumb a');if(a){var o=new URL(document.referrer).origin+'/';a.textContent='Printer';a.href=o;a.title='Back to the printer dashboard';a.onclick=function(){window.close();setTimeout(function(){location.href=o;},300);return false;};}}catch(e){}})();</script>`;
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
 

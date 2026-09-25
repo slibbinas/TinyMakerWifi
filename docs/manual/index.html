@@ -935,7 +935,7 @@ addEventListener("scroll",function(){var t=document.getElementById("toc"),b=docu
 <script>/* Close only where it can close: a fresh tab opened from the printer's dashboard
    (referrer = the printer on the local network). Arriving from the web the tab cannot be
    closed by script, and the TinyMakerWifi link at the top leads home instead (V 2026-09-26). */
-(function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(lan&&history.length<=1)document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});}catch(e){}})();</script>
+(function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(!(lan&&history.length<=1))return;document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});var a=document.querySelector(".tmcrumb a,.crumb a");if(a){var o=new URL(document.referrer).origin+"/";a.textContent="Printer";a.href=o;a.title="Back to the printer dashboard";a.onclick=function(){window.close();setTimeout(function(){location.href=o;},300);return false;};}}catch(e){}})();</script>
 <footer>
   <p>TinyMakerWifi · User Manual · v0.18.3 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
