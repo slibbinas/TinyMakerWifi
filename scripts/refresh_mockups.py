@@ -26,6 +26,7 @@ Needs Pillow in that python (pip install pillow, one-time).
 
 import argparse
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -588,6 +589,11 @@ def main():
     img.save(p)
     print(f"  {p.name} ok")
     extend_printer_screens()
+    # The manual shows the same montage from its own folder. Only this copy was patched,
+    # so the manual kept 'Installed v0.16.2 / Latest v0.17.0' and old wording through
+    # three releases (V 2026-09-26). Keep both identical.
+    shutil.copyfile(MOCKUPS / "printer-screens.png", REPO_ROOT / "docs" / "manual" / "images" / "printer-screens.png")
+    print("  printer-screens.png -> docs/manual/images/ (same file)")
 
     # --- web-dashboard.png / firmware-update-page.png: NEBEPIESIAMI ---
     # Sie du buvo piesiami ranka, ir todel nuolat atsilikdavo nuo tikro pulto:
