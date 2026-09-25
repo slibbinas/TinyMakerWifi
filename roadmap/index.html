@@ -69,6 +69,7 @@
   a:hover{text-decoration:underline}
   .muted{color:var(--muted);font-size:.9rem}
   footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
+.tmcrumb{margin:-12px 0 22px;font-size:.9rem;opacity:.8;text-align:left}.tmclose{margin:18px 0 0;text-align:center;font-size:.9rem}
 </style>
 </head>
 <body><div class="wrap">
@@ -93,6 +94,7 @@
   else document.addEventListener('DOMContentLoaded',applyThemeLinks);})();
 </script>
 
+<p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Roadmap</p>
 <header>
   <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
   <h1>TinyMaker<b>WiFi</b> - Roadmap</h1>
@@ -276,6 +278,11 @@ or just send a note through the feedback form in the dashboard - 30&nbsp;seconds
 no account.</p>
 </div>
 
+<p class="tmclose" hidden><a href="#" onclick="window.close();return false;">Close</a></p>
+<script>/* Close only where it can close: a fresh tab opened from the printer's dashboard
+   (referrer = the printer on the local network). Arriving from the web the tab cannot be
+   closed by script, and the TinyMakerWifi link at the top leads home instead (V 2026-09-26). */
+(function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(lan&&history.length<=1)document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});}catch(e){}})();</script>
 <footer>
 <a href="https://tinymakerwifi.com" rel="noopener">tinymakerwifi.com</a> ·
 <a href="https://github.com/slibbinas/TinyMakerWifi" rel="noopener">GitHub</a> ·
