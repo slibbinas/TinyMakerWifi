@@ -56,6 +56,9 @@ const WIDE_CORS = {
 const FORM_ORIGIN = 'https://slibbinas.github.io/TinyMakerWifi/feedback/';
 const GHPAGES = 'https://slibbinas.github.io/TinyMakerWifi';
 const EXT_STORE = 'https://chromewebstore.google.com/detail/tinymaker-status/bhfjpfjkhopfnfpapgahmaipdgmajlde';
+// The inboxes open from the owner's links.json in the printer dashboard - a new tab with the
+// printer (LAN) as referrer, which script may close. Close shows only there (V 2026-09-26).
+const TM_CLOSE = String.raw`<p class="tmclose" hidden style="text-align:center;margin:18px 0 0;font-size:.9rem"><a href="#" onclick="window.close();return false;">Close</a></p><script>(function(){try{var h=document.referrer?new URL(document.referrer).hostname:'';var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(lan&&history.length<=1)document.querySelectorAll('.tmclose').forEach(function(e){e.hidden=false;});}catch(e){}})();</script>`;
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
 
@@ -954,7 +957,7 @@ function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);
 P.forEach(function(p){p.addEventListener('click',function(){sel(p.classList.contains('act')&&p.dataset.r!=='all'?'all':p.dataset.r);});});})();
 (function(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();})();
 </script>
-</body></html>`;
+${TM_CLOSE}</body></html>`;
 };
 
 const contactLink = (c) => {
@@ -1191,5 +1194,5 @@ document.querySelectorAll('.note').forEach(function(n){
       .catch(function(){b.disabled=false;b.textContent='Delete failed';});
   });
 });
-</script></body></html>`;
+</script>${TM_CLOSE}</body></html>`;
 }
