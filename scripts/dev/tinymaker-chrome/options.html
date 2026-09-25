@@ -19,9 +19,11 @@
   #msg{color:var(--ok);margin-left:8px}
   #msg.bad{color:#e05555}
   .hint{color:var(--muted);margin:6px 0 0;font-size:12px}
+  .pin{background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;margin:0 0 14px;line-height:1.45}
 </style>
 </head>
 <body>
+  <p class="pin" id="pin" hidden>&#128204; <b>Pin it to see the print on the toolbar:</b> click the puzzle icon &#129513; at the top right of Chrome, then the pin next to <b>TinyMaker status</b>.</p>
   <label>Theme</label>
   <div class="seg" id="themeSeg">
     <button data-m="system">System</button>

@@ -15,6 +15,18 @@
     applyTheme(m); mark();
   });
 })();
+/* Chrome lets only the user pin an extension to the toolbar - an unpinned one is
+   hidden behind the puzzle icon and its badge is never seen. Say how, until it is
+   pinned (0.2.1, V 2026-09-26). The change event needs Chrome 130+. */
+async function showPin() {
+  try {
+    const s = await chrome.action.getUserSettings();
+    document.getElementById('pin').hidden = !!s.isOnToolbar;
+  } catch (e) {}
+}
+showPin();
+if (chrome.action.onUserSettingsChanged) chrome.action.onUserSettingsChanged.addListener(showPin);
+
 /* Save asks Chrome for access to this one address. The request comes first, before any
    await: Chrome grants it only inside the click (user gesture). */
 document.getElementById('save').addEventListener('click', () => {
