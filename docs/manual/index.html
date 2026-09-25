@@ -137,6 +137,8 @@
     border-radius:999px; padding:7px 12px; font-size:.85rem; box-shadow:var(--shadow);
   }
   a.toggle-theme:hover{text-decoration:none; border-color:var(--accent)}
+  a.toggle-theme.float{position:fixed; right:18px; bottom:18px; z-index:20; opacity:0; pointer-events:none; transition:opacity .2s}
+  a.toggle-theme.float.on{opacity:1; pointer-events:auto}
   .themeSw{align-self:center;display:inline-flex;gap:1px;align-items:center}
   .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px;box-shadow:none;width:auto}
   .themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -145,13 +147,14 @@
 
   @media print{
     body{background:#fff; color:#000}
-    .topBar,nav.toc{display:none}
+    .topBar,nav.toc,#tocBtn{display:none}
     section,header.hero img{box-shadow:none}
     section{border:none; padding:0; margin:14px 0}
     h2.sec{page-break-after:avoid}
     img.shot{page-break-inside:avoid}
     a{color:#000; text-decoration:none}
   }
+.tmcrumb{margin:0 0 10px;font-size:.9rem;opacity:.8;text-align:left}.tmclose{margin:18px 0 0;text-align:center;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -166,7 +169,7 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 </script>
 <div class="frame">
 <div class="topBar">
-  <a class="toggle-theme" href="#toc">Contents</a>
+  <p style="margin:0" class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Manual</p>
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
 </div>
 
@@ -180,6 +183,9 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 
 <div class="wrap">
 
+<a class="toggle-theme float" id="tocBtn" href="#toc">&#9776; Contents</a>
+<script>/* Back to the table of contents - shown once it has scrolled out of view (V 2026-09-26). */
+addEventListener("scroll",function(){var t=document.getElementById("toc"),b=document.getElementById("tocBtn");if(t&&b)b.classList.toggle("on",t.getBoundingClientRect().bottom<0);},{passive:true});</script>
 <nav class="toc" id="toc">
   <h2>Contents</h2>
   <ol>
@@ -925,6 +931,11 @@ window.addEventListener('DOMContentLoaded',function(){window.tmSyncSite();tmWire
 </div>
 </div>
 
+<p class="tmclose" hidden><a href="#" onclick="window.close();return false;">Close</a></p>
+<script>/* Close only where it can close: a fresh tab opened from the printer's dashboard
+   (referrer = the printer on the local network). Arriving from the web the tab cannot be
+   closed by script, and the TinyMakerWifi link at the top leads home instead (V 2026-09-26). */
+(function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(lan&&history.length<=1)document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});}catch(e){}})();</script>
 <footer>
   <p>TinyMakerWifi · User Manual · v0.18.3 · by Viktoras Šidlauskas · <a href="https://tinymakerwifi.com">tinymakerwifi.com</a><br>
   Based on the open-source <a href="https://tinymaker3d.com/">TinyMaker 3D printer</a>. Firmware MIT-licensed.</p>
