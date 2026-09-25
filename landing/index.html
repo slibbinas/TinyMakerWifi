@@ -29,7 +29,7 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .hero{padding:56px 0 40px;text-align:center}
 .hero svg{width:72px;height:72px}
 h1{margin:10px 0 6px;font-size:38px;color:var(--accent)}
-.tag{font-size:18px;color:var(--tag);max-width:640px;margin:0 auto}
+.tag{font-size:18px;color:var(--tag);margin:0 auto}
 .cta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:520px;margin:26px auto 0;padding:0 20px;box-sizing:border-box}
 @media(min-width:760px){.cta{grid-template-columns:repeat(4,minmax(0,1fr));max-width:960px;padding:0 20px;box-sizing:border-box}}
 .shots{display:grid;grid-template-columns:1fr;gap:18px;max-width:520px;margin:34px auto 0;padding:0 20px;box-sizing:border-box;align-items:start;justify-items:center}
@@ -63,6 +63,21 @@ footer a{color:var(--muted2);text-decoration:underline}
 .themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .themeSw button:hover{color:var(--text)}
 .themeSw button[aria-pressed=true]{color:var(--accent)}
+.promo{background:var(--card);border:1px solid var(--line2);border-radius:14px;padding:22px 22px 24px}
+.promo h2{margin:0 0 4px}
+.promo .lead{color:var(--muted);margin:0 0 18px}
+.promo .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.promo .tile{display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--bg);color:var(--text);text-decoration:none}
+.promo .tile:hover{border-color:var(--accent);text-decoration:none}
+.promo .pic{height:170px;background:#0e0e10;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.promo .pic img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.promo .txt{padding:12px 14px 14px}
+.promo .txt b{display:block;font-size:1.02rem;margin-bottom:3px}
+.promo .txt span{color:var(--muted);font-size:.9rem;display:block;margin-bottom:8px}
+.promo .txt .go{color:var(--link);font-weight:600;margin:0}
+.promo .more{text-align:right;margin:14px 2px 0;font-size:.9rem}
+.promo .more a{color:var(--muted)}
+.promo .more a:hover{color:var(--link)}
 </style>
 </head>
 <body>
@@ -163,8 +178,8 @@ footer a{color:var(--muted2);text-decoration:underline}
   <h2>What the firmware adds</h2>
   <div class="grid">
     <div class="card"><b>WiFi in two minutes</b><p>First boot opens a setup hotspot - pick your network from your phone, done. No credentials in code, switchable off any time.</p></div>
+    <div class="card"><b>Slice in the browser</b><p>Drop an STL into the dashboard and it slices it itself - supports, raft, 3D preview - no slicer to install, and it works offline once the module is on the card.</p></div>
     <div class="card"><b>Send to printer from PrusaSlicer</b><p>The printer speaks the Prusa SL1 protocol: slice, press <i>Send to printer</i>, print. UVtools and plain SD import work too.</p></div>
-    <div class="card"><b>Slice in the browser</b><p>No slicer installed? The dashboard slices STL files itself - supports, raft, 3D preview - and works offline once the module is on the card.</p></div>
     <div class="card"><b>Web dashboard</b><p>Live print status with pause/stop and a real-time 3D render of the print, SD manager, settings, backups - in any browser, light or dark.</p></div>
     <div class="card"><b>Updates over WiFi</b><p>The printer checks for new firmware and installs it itself - from its own screen or the dashboard. Dual-partition safe.</p></div>
     <div class="card"><b>Named resin profiles</b><p>One resin, one recipe: exposures, layer height, lift settings, density. Switching resin is one press instead of ten fields; more install from a library.</p></div>
@@ -185,7 +200,7 @@ footer a{color:var(--muted2);text-decoration:underline}
   <div class="steps">
     <div class="step"><div><b>Flash once over USB - straight from your browser.</b> Plug the printer in and open the <a href="https://connect.tinymakerwifi.com/flash.php">web flasher</a> (Chrome/Edge) - it fetches the latest firmware and flashes it, nothing to install. Prefer doing it by hand? <code>firmware-full.bin</code> is on <a href="https://github.com/slibbinas/TinyMakerWifi/releases">Releases</a> and the <a href="https://slibbinas.github.io/TinyMakerWifi/manual/#install">manual</a> walks you through it.</div></div>
     <div class="step"><div><b>Join the <code>TinyMaker-Setup</code> hotspot</b> from your phone and pick your home WiFi.</div></div>
-    <div class="step"><div><b>Print.</b> Send a model from PrusaSlicer or open <code>tinymaker.local</code> in a browser. Every later update installs wirelessly.</div></div>
+    <div class="step"><div><b>Print.</b> Open <code>tinymaker.local</code> in a browser, drop an STL and slice it right there - or send from PrusaSlicer. Every later update installs wirelessly.</div></div>
   </div>
 </div></section>
 
@@ -200,6 +215,21 @@ footer a{color:var(--muted2);text-decoration:underline}
     <div class="card"><b>Support the project</b><p>TinyMakerWifi is free and open source. If it makes your printing nicer, you can <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT">buy the maintainer a coffee</a>.</p></div>
   </div>
 </div></section>
+
+<!-- More for your TinyMaker (V 2026-09-26): companions, below the fold. More tiles later -> a carousel. -->
+<section><div class="wrap"><div class="promo">
+  <h2>More for your TinyMaker</h2>
+  <p class="lead">Free companions that work with TinyMakerWifi.</p>
+  <div class="row">
+    <a class="tile" href="https://tinymakerwifi.com/extension/"><div class="pic"><img src="promo-extension.png" alt="TinyMaker status in the Chrome toolbar: print progress and details in the popup" loading="lazy"></div>
+      <div class="txt"><b>Browser extension</b><span>Print progress on your Chrome toolbar - layer, time left and resin in one click.</span><span class="go">Chrome Web Store &rarr;</span></div></a>
+    <a class="tile" href="https://tinyowllabs.com/tinystatus/"><div class="pic"><img src="promo-tinystatus.png" alt="TinyStatus on a Wear OS watch: print progress rings with time left" loading="lazy"></div>
+      <div class="txt"><b>TinyStatus watch app</b><span>Progress, time left and a nudge when the print is done - on your Wear OS watch.</span><span class="go">Coming to Google Play &rarr;</span></div></a>
+    <a class="tile" href="https://tinymakerwifi.com/manual/#resin-profiles"><div class="pic"><img src="promo-resin.png" alt="Resin profiles in the dashboard" loading="lazy"></div>
+      <div class="txt"><b>Resin library</b><span>Profiles tested on a TinyMaker - install one from the dashboard in a tap.</span><span class="go">How it works &rarr;</span></div></a>
+  </div>
+  <p class="more"><a href="https://tinyowllabs.com/">More from TinyOwl &rarr;</a></p>
+</div></div></section>
 
 <footer><div class="wrap">
   TinyMakerWifi is created and maintained by Viktoras Šidlauskas (<a href="https://github.com/slibbinas">@slibbinas</a>), with contributions from
