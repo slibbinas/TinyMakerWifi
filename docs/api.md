@@ -164,6 +164,18 @@ the field means “off”. Until 0.17 it followed the common rule, so every “S
 silently cleared dry run and the next print fired the UV LEDs (found 2026-09-01).
 Values `0`, `false`, `off` and an empty value all mean off; anything else means on.
 
+### Live gateway fields (after 1.0.0)
+
+`/api/config` carries `gatewayEnabled`, `gatewayBaseUrl`, `gatewayKeySet` and
+`gatewayLastStatus`; the POST form accepts `gateway_enabled`,
+`gateway_base_url` and `gateway_key`. The device key follows the same rule as
+the MQTT password and the Telegram token — it is never read back, and a blank
+field keeps the stored one.
+
+There is no inbound gateway endpoint on the printer: it is always the client.
+The outbound contract (beat payload, signing, command set) lives in
+[gateway-spec.md](gateway-spec.md).
+
 ## Firmware update
 
 | Endpoint | Method | Purpose |
