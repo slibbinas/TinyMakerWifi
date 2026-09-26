@@ -158,8 +158,10 @@ kompiliuoja, netestuoja ant geležies, tad auto-merge įleistų neišbandytą bu
 (žr. „gate before hardware"). Žema rizika = automatika, geležis = žmogaus akis.
 
 **Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
-`tinymaker-firmware` skill'ą. Jis globalus/plugin (ne repo viduje), tad švarioje
-debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei prieinamas".
+`esp32-firmware-patterns` skill'ą (ESP32 grėbliai, didelė dalis - iš TinyMaker). Jis
+globalus (`~/.claude/skills`, privati repo `slibbinas/claude-skills`, ne šio repo viduje),
+tad švarioje debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei
+prieinamas". Anksčiau čia minėtas `tinymaker-firmware` neegzistuoja (V 2026-09-26).
 
 ## Remotes
 
