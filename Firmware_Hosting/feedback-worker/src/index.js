@@ -612,6 +612,15 @@ export default {
         // (from the coredump) and of the build reporting it - see builds.json.
         elf: hexStr(f.elf, 64),
         run: hexStr(f.run, 64),
+        // 0.18.4 stack evidence: EPC1 (the instruction that faulted - pc can be
+        // the exception vector), A0/A1 (return address, stack pointer) and the
+        // loopTask stack top + size of the reporting boot.
+        epc1: hexStr(f.epc1, 8),
+        a0: hexStr(f.a0, 8),
+        sp: hexStr(f.sp, 8),
+        stk: hexStr(f.stk, 8),
+        stksz: Math.max(0, Math.min(1 << 20, Number(f.stksz) || 0)),
+        btbad: f.btbad ? 1 : 0,
       };
       await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
                              JSON.stringify(rec),
@@ -927,7 +936,8 @@ const crashInboxPage = (recs, hb, builds = {}) => {
     // 0.18.1+ coredump: pc / cause / faulting address / task, with the full
     // backtrace in the title for addr2line.
     const crashCell = r.pc && r.pc !== '00000000'
-      ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task}\nbt ${r.bt}`)}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
+      ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task}\nbt ${r.bt}${r.btbad ? ' (corrupted)' : ''}` +
+          (r.epc1 ? `\nepc1 0x${r.epc1} · a0 0x${r.a0} · sp 0x${r.sp}\nloop stack top 0x${r.stk} · size ${r.stksz}` : ''))}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
       : '';
     // The crashed build when there is a coredump (it can be older than the
     // reporter), else the reporting build; both shas in the tooltip.

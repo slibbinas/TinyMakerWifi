@@ -13,6 +13,14 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased]
+
+- **Crash reports say where the stack was.** A crash report now also carries the address
+  that actually faulted and the stack pointer at that moment, so a crash inside the
+  exception handler itself (seen once on 0.18.3) can be told apart as a stack overflow or a
+  corrupted stack. Still anonymous: processor registers only, nothing about you or your
+  models.
+
 ## [0.18.3] - 2026-09-24
 
 Small dashboard improvements and more useful crash reports.
