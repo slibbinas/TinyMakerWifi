@@ -2043,8 +2043,9 @@ bool prepareSelectedPrintPreview() {
   {
     int lw = firstLayerWidthPx();
     if (lw > MASK_LCD_WIDTH) {
-      printBlockMsg = "layer image " + String(lw) + " px wide, over the " +
-                      String(MASK_LCD_WIDTH) + " px screen - re-slice for TinyMaker";
+      printBlockMsg = "WARNING! The file inside is not suited for this printer. "
+                      "Check the image size - it is " + String(lw) +
+                      " px wide, but the screen is " + String(MASK_LCD_WIDTH) + " px.";
       screenLayerTooWide(lw);
       return false;
     }
