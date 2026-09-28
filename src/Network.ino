@@ -1552,10 +1552,11 @@ bool queueModelPrint(const String &requestedName, String &error) {
   selIsArchive = false;
   root = SD.open("/");
 
+  printBlockMsg = "";
   if (!prepareSelectedPrintPreview()) {
     delay(1000);
     restoreIdleScreen();
-    error = "model is not printable";
+    error = printBlockMsg.length() ? printBlockMsg : "model is not printable";
     return false;
   }
 
@@ -3289,9 +3290,12 @@ void crashPingMaybe() {
     if (i) bt += " ";
     bt += h;
   }
-  char pcHex[10], vaddrHex[10];
+  char pcHex[10], vaddrHex[10], a0Hex[10], spHex[10], stkHex[10];
   sprintf(pcHex, "%08x", crashPc);
   sprintf(vaddrHex, "%08x", crashExcVaddr);
+  sprintf(a0Hex, "%08x", crashA0);
+  sprintf(spHex, "%08x", crashSp);
+  sprintf(stkHex, "%08x", loopStackLow);
   // Which build crashed (from the coredump) and which build is reporting - the
   // first 16 hex of each firmware.elf SHA-256. The inbox matches them against the
   // released builds, so a self-built copy that calls itself the same version is
@@ -3313,7 +3317,12 @@ void crashPingMaybe() {
                 ",\"vaddr\":\"" + vaddrHex +
                 "\",\"bt\":\"" + bt +
                 "\",\"elf\":\"" + elf +
-                "\",\"run\":\"" + String(runElf) + "\"}";
+                "\",\"run\":\"" + String(runElf) +
+                "\",\"a0\":\"" + a0Hex +
+                "\",\"sp\":\"" + spHex +
+                "\",\"stk\":\"" + stkHex +
+                "\",\"stksz\":" + String((uint32_t)getArduinoLoopTaskStackSize()) +
+                ",\"btbad\":" + String(crashBtCorrupt ? 1 : 0) + "}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {

@@ -1636,6 +1636,24 @@ void screenNoLayers(){
  * @brief Screen 112: Height Warning
  * Displays warning if object height exceeds build volume.
  */
+// Shown when a model's layer image is wider than the mask LCD (MASK_LCD_WIDTH) -
+// it would overrun PNGDraw's scanline buffer and crash mid-print. Back returns to
+// the model list (screen == 112 path, like the height warning).
+void screenLayerTooWide(int w){
+  uiFrame(RED);
+  gfx2->setFont(&FreeSans8pt7b);
+  gfx2->setTextColor(WHITE);
+  gfx2->setTextSize(1);
+  gfx2->setCursor(6, 16);
+  gfx2->println("This model is too");
+  gfx2->setCursor(6, 34);
+  gfx2->println("wide for the screen.");
+  gfx2->setCursor(6, 52);
+  gfx2->print("Re-slice to print.");   // trumpiau: „for TinyMaker" nulūžta 160 px ekrane (V)
+  uiButton(0, "Back", ORANGE);
+  screen = 112;   // Back behaves like the height warning
+}
+
 void screen112(){
   uiFrame(RED);
   gfx2->fillRoundRect(9, 4, 5, 10, 1, RED);
