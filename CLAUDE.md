@@ -58,6 +58,29 @@ PlatformIO CLI is not on PATH in this environment; invoke it via
 
 Build output goes to `C:/PIO-build/TinyMakerWiFi` (set via `build_dir` in `platformio.ini`, deliberately outside the repo/Google Drive to avoid sync conflicts and locked files).
 
+### `C:/PIO-build` tvarka (V 2026-09-26/28)
+
+`C:/PIO-build` naudoja kelios sesijos ir keli projektai. Taisyklės:
+
+- **Kiekvienas virsutinio lygio katalogas turi žymę `.naudoja.json`** (poaplankiams nereikia):
+  `paskirtis`, `tipas` (`laikinas` / `irankis` / `build` / `worktree` / `archyvas`),
+  `sritis`, `naudojo: {"<sesija>": "YYYY-MM-DD"}`. Naujas katalogas - žymė iškart;
+  naudoji esamą - atnaujink savo datą. Įrašyti ranka arba
+  `python scripts/dev/pio_build.py naudoju <katalogas> --sesija X --sritis Y --tipas T --paskirtis "..."`.
+- **Git darbo medyje** žymė įrašoma į `$(git rev-parse --git-common-dir)/info/exclude`,
+  kitaip ji tampa neįtrauktu failu: `release.py` atsisako nešvaraus medžio, o `git add -A`
+  ją įtraukia į commit'ą.
+- **Šaknyje pavienių failų nededam.** Commit žinutės, ekrano kopijos, bandymai - į sesijos
+  scratchpad'ą (jis savas ir išsivalo pats).
+- **Valymas:** `python scripts/dev/pio_build.py ataskaita` parodo katalogus be žymės, senus
+  laikinus ir failus šaknyje. Nieko netrina. Valoma tik V leidus, **perkeliant** į
+  `C:/PIO-BAK/<data>/<kelias>` su `MANIFEST.md` (karantinas 30 d.); tai, ką V trina rankomis,
+  keliauja į `C:/PIO-DEL` su `SARASAS.md`.
+
+**Kodėl:** 2026-09-26 revizijoje pusei katalogų savininką teko spėti, šaknyje gulėjo 66
+pavieniai failai (daugiausia printerio sesijos), o 846 MB testų naršyklių profilių su
+slapukais niekas nebeprisiminė.
+
 **Do not upgrade** `platform = espressif32@6.5.0` (Arduino core 2.0.14) to 3.x — the vendored `Arduino_GFX` 1.2.0 in `lib/` is incompatible with it.
 
 ### firmware.bin vs firmware-full.bin
