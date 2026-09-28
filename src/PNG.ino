@@ -170,6 +170,11 @@ int32_t mySeek(PNGFILE *handle, int32_t position) {
  */
 void PNGDraw(PNGDRAW *pDraw) {
   uint16_t usPixels[320];
+  // Safety net: getLineAsRGB565 writes pDraw->iWidth pixels into usPixels[320].
+  // The print-start guard (prepareSelectedPrintPreview) already refuses models
+  // wider than the mask LCD, so this only ever fires on a path that skipped that
+  // check - never overrun the buffer regardless (0.18.3 mid-print crash).
+  if (pDraw->iWidth > MASK_LCD_WIDTH) return;
   png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff); // Convert line to RGB565
   // Count "lit" (white) pixels for resin estimation. A simple luminance
   // test on the unpacked RGB565 channels works fine here since slices are
@@ -214,6 +219,19 @@ void PNGDraw(PNGDRAW *pDraw) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+
+// First layer's pixel width (0 if it cannot be opened). Used by the print-start
+// width guard in prepareSelectedPrintPreview(); all layers share one width, so
+// the first one is representative.
+int firstLayerWidthPx() {
+  String p = String(foldersel_long) + "/1.png";
+  char nc[110];
+  p.toCharArray(nc, sizeof(nc));
+  if (png.open((const char *)nc, myOpen, myClose, myRead, mySeek, PNGDraw) != PNG_SUCCESS) return 0;
+  int w = png.getWidth();
+  png.close();
+  return w;
+}
 
 /**
  * @brief Print Next PNG

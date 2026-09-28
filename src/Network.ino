@@ -1552,10 +1552,11 @@ bool queueModelPrint(const String &requestedName, String &error) {
   selIsArchive = false;
   root = SD.open("/");
 
+  printBlockMsg = "";
   if (!prepareSelectedPrintPreview()) {
     delay(1000);
     restoreIdleScreen();
-    error = "model is not printable";
+    error = printBlockMsg.length() ? printBlockMsg : "model is not printable";
     return false;
   }
 

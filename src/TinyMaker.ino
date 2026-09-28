@@ -39,6 +39,13 @@
 // spausdintuvo limitas; Z eigos atsarga kelimui lieka (max_height = 68 mm).
 #define MAX_LAYER_FILES 1200
 
+// Mask LCD (gfx1, ST7789) is 320 px wide. PNGDraw unpacks each scanline into a
+// 320-wide stack buffer, but PNGdec writes getWidth() pixels and accepts up to
+// 2560 - a layer image sliced for another printer (not the 320x240 TinyMaker LCD)
+// overruns that buffer and crashes mid-print (0.18.3, device c6d69fcf; reproduced
+// 2026-09-28). The print-start guard and PNGDraw both clamp to this.
+#define MASK_LCD_WIDTH 320
+
 #include <SPI.h>
 #include <EEPROM.h>              // For storing settings persistently
 #include <AccelStepper.h>        // Stepper motor control library
@@ -1122,6 +1129,7 @@ SdFat SD;
 // File System Variables
 char foldersel_long[101]; // Buffer for long folder names
 String foldersel;         // Selected folder name (display version)
+String printBlockMsg;     // why prepareSelectedPrintPreview() refused a model (for the web start reply)
 int layer_counter;        // Total number of layers
 File root;                // Root directory object
 String DirAndFile;        // Full path helper
@@ -2026,6 +2034,20 @@ bool prepareSelectedPrintPreview() {
   if (layer_counter <= 0 || layer_counter > MAX_LAYER_FILES) {
     if (layer_counter <= 0) screenNoLayers(); else screen112();
     return false;
+  }
+
+  // A layer image wider than the mask LCD would overrun PNGDraw's 320-wide
+  // scanline buffer and crash mid-print (see MASK_LCD_WIDTH). Refuse it now, on
+  // both the LCD and the web start path, instead of dying at layer 1. All layers
+  // share one width, so the first is representative.
+  {
+    int lw = firstLayerWidthPx();
+    if (lw > MASK_LCD_WIDTH) {
+      printBlockMsg = "layer image " + String(lw) + " px wide, over the " +
+                      String(MASK_LCD_WIDTH) + " px screen - re-slice for TinyMaker";
+      screenLayerTooWide(lw);
+      return false;
+    }
   }
 
   /* screen111Checked(), o ne screen111(): ji skaiciuoja sluoksnius DAR KARTA, ir
