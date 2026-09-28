@@ -180,11 +180,13 @@ self-contained) → **auto-merge** (susimergina pats pažaliavus CI). **Firmware
 kompiliuoja, netestuoja ant geležies, tad auto-merge įleistų neišbandytą build'ą
 (žr. „gate before hardware"). Žema rizika = automatika, geležis = žmogaus akis.
 
-**Skill'ai:** firmware / spausdintuvo darbui, jei prieinamas, naudok
-`esp32-firmware-patterns` skill'ą (ESP32 grėbliai, didelė dalis - iš TinyMaker). Jis
-globalus (`~/.claude/skills`, privati repo `slibbinas/claude-skills`, ne šio repo viduje),
-tad švarioje debesų sesijoje ar kito žmogaus checkout'e gali jo nebūti — todėl „jei
-prieinamas". Anksčiau čia minėtas `tinymaker-firmware` neegzistuoja (V 2026-09-26).
+**Skill'ai:** firmware / spausdintuvo darbui, jei prieinami, naudok `tinymaker-firmware`
+(šio printerio geležis ir firmware vidus: kontaktai, bendra SPI, ekranai, spausdinimo eiga,
+EEPROM/NVS, tinklo vartai) ir `esp32-firmware-patterns` (bendri ESP32 grėbliai). Abu
+globalūs (`~/.claude/skills`, privati repo `slibbinas/claude-skills`, ne šio repo viduje),
+tad švarioje debesų sesijoje ar kito žmogaus checkout'e jų gali nebūti — todėl „jei
+prieinami". `tinymaker-firmware` perrašytas 2026-09-28; senas claude.ai to paties vardo
+įgūdis (v1.0.2 laikų) išjungtas.
 
 ## Remotes
 
