@@ -13,6 +13,19 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [Unreleased]
+
+- **A model that is too wide is refused instead of crashing the printer.** A layer image
+  wider than the 320 px screen (a model sliced for a different printer) used to overrun an
+  internal buffer and reboot the printer mid-print. Now the printer says the model is too wide
+  and to re-slice it for TinyMaker, both on its screen and in the dashboard, and never starts
+  such a print. The layer drawing is also hard-capped so it can never overrun.
+- **Crash reports say where the stack was.** A crash report now also carries the stack
+  pointer at the moment of the crash and where the main loop's stack lies, so a crash inside
+  the exception handler itself (seen once on 0.18.3) can be told apart as a stack overflow or
+  a corrupted stack. Still anonymous: processor registers and addresses only, nothing about
+  you or your models.
+
 ## [0.18.3] - 2026-09-24
 
 Small dashboard improvements and more useful crash reports.

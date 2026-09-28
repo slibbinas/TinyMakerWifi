@@ -612,6 +612,13 @@ export default {
         // (from the coredump) and of the build reporting it - see builds.json.
         elf: hexStr(f.elf, 64),
         run: hexStr(f.run, 64),
+        // 0.18.4 stack evidence: A0/A1 (return address, stack pointer) from the
+        // coredump and the lowest address + size of the reporting boot's loopTask stack.
+        a0: hexStr(f.a0, 8),
+        sp: hexStr(f.sp, 8),
+        stk: hexStr(f.stk, 8),
+        stksz: Math.max(0, Math.min(1 << 20, Number(f.stksz) || 0)),
+        btbad: f.btbad ? 1 : 0,
       };
       await env.FEEDBACK.put('crash:' + stamp + ':' + id.slice(0, 8),
                              JSON.stringify(rec),
@@ -925,9 +932,28 @@ const crashInboxPage = (recs, hb, builds = {}) => {
   }
   const rows = recs.map((r) => {
     // 0.18.1+ coredump: pc / cause / faulting address / task, with the full
-    // backtrace in the title for addr2line.
+    // backtrace in the title for addr2line. The summary's pc is the frame PC - 3
+    // (IDF core dump), so the faulting instruction is pc + 3 - 2026-09-25's
+    // 0x400803bd was _DoubleExceptionVector (0x400803c0).
+    const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
+    const pcHit = r.pc ? hex8(parseInt(r.pc, 16) + 3) : '';
+    // SP against the loopTask stack is only meaningful for a loopTask crash of the
+    // build that reports it (the stack lands at the same address every boot of one
+    // build, not across builds).
+    let stackLine = '';
+    if (r.sp && r.stk && r.stk !== '00000000') {
+      stackLine = `\na0 0x${r.a0} · sp 0x${r.sp}`;
+      if (r.task === 'loopTask' && !earlier(r)) {
+        const lo = parseInt(r.stk, 16), sp = parseInt(r.sp, 16);
+        // ESP32 internal DRAM is 0x3FFAE000..0x40000000; anything else is no stack.
+        stackLine += (sp < 0x3FFAE000 || sp >= 0x40000000) ? ' · not a RAM address (corrupted stack pointer)'
+          : sp < lo ? ` · ${lo - sp} B BELOW the loop stack (overflow)`
+          : sp >= lo + r.stksz ? ' · outside the loop stack (corrupted)'
+          : ` · ${sp - lo} B left of ${r.stksz}`;
+      }
+    }
     const crashCell = r.pc && r.pc !== '00000000'
-      ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task}\nbt ${r.bt}`)}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
+      ? `<span class="mono" title="${esc(`cause ${r.cause} · vaddr 0x${r.vaddr} · task ${r.task} · fault pc 0x${pcHit}\nbt ${r.bt}${r.btbad ? ' (corrupted)' : ''}${stackLine}`)}">0x${esc(r.pc)}${r.bt ? ' &hellip;' : ''}</span>`
       : '';
     // The crashed build when there is a coredump (it can be older than the
     // reporter), else the reporting build; both shas in the tooltip.
