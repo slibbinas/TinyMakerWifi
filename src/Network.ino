@@ -3289,13 +3289,12 @@ void crashPingMaybe() {
     if (i) bt += " ";
     bt += h;
   }
-  char pcHex[10], vaddrHex[10], epc1Hex[10], a0Hex[10], spHex[10], stkHex[10];
+  char pcHex[10], vaddrHex[10], a0Hex[10], spHex[10], stkHex[10];
   sprintf(pcHex, "%08x", crashPc);
   sprintf(vaddrHex, "%08x", crashExcVaddr);
-  sprintf(epc1Hex, "%08x", crashEpc1);
   sprintf(a0Hex, "%08x", crashA0);
   sprintf(spHex, "%08x", crashSp);
-  sprintf(stkHex, "%08x", bootStackTop);
+  sprintf(stkHex, "%08x", loopStackLow);
   // Which build crashed (from the coredump) and which build is reporting - the
   // first 16 hex of each firmware.elf SHA-256. The inbox matches them against the
   // released builds, so a self-built copy that calls itself the same version is
@@ -3318,7 +3317,6 @@ void crashPingMaybe() {
                 "\",\"bt\":\"" + bt +
                 "\",\"elf\":\"" + elf +
                 "\",\"run\":\"" + String(runElf) +
-                "\",\"epc1\":\"" + epc1Hex +
                 "\",\"a0\":\"" + a0Hex +
                 "\",\"sp\":\"" + spHex +
                 "\",\"stk\":\"" + stkHex +

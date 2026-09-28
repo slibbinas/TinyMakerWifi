@@ -15,11 +15,11 @@ unless noted. Community contributors are tagged inline.
 
 ## [Unreleased]
 
-- **Crash reports say where the stack was.** A crash report now also carries the address
-  that actually faulted and the stack pointer at that moment, so a crash inside the
-  exception handler itself (seen once on 0.18.3) can be told apart as a stack overflow or a
-  corrupted stack. Still anonymous: processor registers only, nothing about you or your
-  models.
+- **Crash reports say where the stack was.** A crash report now also carries the stack
+  pointer at the moment of the crash and where the main loop's stack lies, so a crash inside
+  the exception handler itself (seen once on 0.18.3) can be told apart as a stack overflow or
+  a corrupted stack. Still anonymous: processor registers and addresses only, nothing about
+  you or your models.
 
 ## [0.18.3] - 2026-09-24
 

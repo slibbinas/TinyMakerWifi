@@ -822,18 +822,19 @@ uint32_t crashExcVaddr = 0;    // faulting address (0 = null deref)
 // it; without this the backtrace cannot be matched to an elf. Every build carries
 // the sha (the Arduino build writes it); before 0.18.3 it just was not sent.
 char     crashElf[17] = {0};
-// Stack evidence (0.18.4). A 0.18.3 panic reported pc = _UserExceptionVector with a
-// one-frame backtrace and vaddr 0xffffffe0 - the vector, not the fault. EPC1 holds
-// the instruction that actually faulted; A1 is the stack pointer at that moment and
-// A0 the return address. bootStackTop is where setup() found the loopTask stack this
-// boot (the task is allocated the same way every boot), so an A1 far below it
-// (more than getArduinoLoopTaskStackSize()) or zero tells an overflow from a
-// corrupted stack.
-uint32_t crashEpc1 = 0;
+// Stack evidence (0.18.4). A 0.18.3 panic reported pc 0x400803bd with a one-frame
+// backtrace and vaddr 0xffffffe0: the summary's pc is the frame PC minus 3, and
+// 0x400803c0 is _DoubleExceptionVector - an exception while handling one, the usual
+// result of a bad stack pointer. A1 is the stack pointer the panic saw (for a double
+// exception already lowered by the handler) and A0 the return address. loopStackLow
+// is the lowest address of this boot's loopTask stack: for a loopTask crash of the
+// same build (elf == run; the task is created before WiFi, so its stack lands at the
+// same address every boot of one build) an A1 below it is an overflow, an A1 of 0 or
+// outside RAM a corrupted stack.
 uint32_t crashA0 = 0;
 uint32_t crashSp = 0;
 bool     crashBtCorrupt = false;
-uint32_t bootStackTop = 0;
+uint32_t loopStackLow = 0;
 
 const char *resetReasonName(uint8_t r) {
   switch (r) {
@@ -869,8 +870,7 @@ void savePrintActiveFlag(bool active) {
 
 void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
   bootResetReason = esp_reset_reason();
-  volatile uint32_t stackProbe = 0;   // setup() runs on loopTask: this is near its stack top
-  bootStackTop = (uint32_t)&stackProbe;
+  loopStackLow = (uint32_t)pxTaskGetStackStart(NULL);   // setup() runs on loopTask
 #if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
   // A panic left an ELF coredump in flash. Read the summary (PC + backtrace +
   // exception cause), then erase it so it is reported once and the slot frees.
@@ -888,7 +888,6 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
         strncpy(crashElf, (const char *)sum->app_elf_sha256, sizeof(crashElf) - 1);
         crashA0        = sum->ex_info.exc_a[0];
         crashSp        = sum->ex_info.exc_a[1];
-        crashEpc1      = (sum->ex_info.epcx_reg_bits & 0x01) ? sum->ex_info.epcx[0] : 0;
         crashBtCorrupt = sum->exc_bt_info.corrupted;
       }
       free(sum);
