@@ -894,8 +894,17 @@ const crashInboxPage = (recs, hb, builds = {}) => {
     const hit = Object.keys(builds && typeof builds === 'object' ? builds : {}).find((k) => k.startsWith(s));
     return hit ? `v${builds[hit]} \u2713` : 'self-built \u26A0';
   };
+  // A coredump from another build than the reporter's = an old crash that sat in
+  // flash until the first 0.18.1+ boot read it (older firmware never did). The
+  // reset reason then belongs to THIS boot (usually the restart after the update),
+  // not to the crash - 2026-09-27/28 two "software restart" rows carried 0.14.3
+  // and 0.16.0 panics. Show them as their own reason so they are not taken for
+  // fresh crashes of the running version.
+  const hex16 = (s) => (s && s.length >= 16 && !/^0+$/.test(s) ? s.slice(0, 16) : '');
+  const earlier = (r) => !!(hex16(r.elf) && hex16(r.run) && hex16(r.elf) !== hex16(r.run));
+  const reasonOf = (r) => (earlier(r) ? 'crash (earlier)' : r.reason);
   const counts = {};
-  for (const r of recs) counts[r.reason] = (counts[r.reason] || 0) + 1;
+  for (const r of recs) counts[reasonOf(r)] = (counts[reasonOf(r)] || 0) + 1;
   const order = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const rIdx = {};
   order.forEach(([k], i) => { rIdx[k] = i; });
@@ -924,7 +933,10 @@ const crashInboxPage = (recs, hb, builds = {}) => {
     // reporter), else the reporting build; both shas in the tooltip.
     const b = buildOf(r.elf) || buildOf(r.run);
     const buildCell = b ? `<span title="${esc(`crashed: ${r.elf || '-'}\nreporting: ${r.run || '-'}`)}">${esc(b)}</span>` : '';
-    return `<tr data-r="${rIdx[r.reason]}"><td>${when(r.at)}</td><td>${esc(r.reason)}</td><td>${esc(r.version)}</td><td>${buildCell}</td>` +
+    const reasonCell = earlier(r)
+      ? `<span title="${esc(`found in flash after an update; this boot: ${r.reason}`)}">crash (earlier)</span>`
+      : esc(r.reason);
+    return `<tr data-r="${rIdx[reasonOf(r)]}"><td>${when(r.at)}</td><td>${reasonCell}</td><td>${esc(r.version)}</td><td>${buildCell}</td>` +
       `<td>${r.layer ? esc(String(r.layer)) : ''}</td>` +
       `<td class="mono">${esc(String(r.id).slice(0, 8))}</td><td>${crashCell}</td></tr>`;
   }).join('');
@@ -951,7 +963,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monosp
 <body><div class="wrap"><p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Crash telemetry</p><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
-<table><tr><th>When</th><th>Reason</th><th>Version</th><th>Build</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
+<table><tr><th>When</th><th>Reason</th><th title="Firmware running when the report was sent">Running</th><th title="Build that crashed (from the coredump); without a coredump, the reporting build">Crashed on</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
 <script>
 (function(){var P=document.querySelectorAll('.pill[data-r]'),R=document.querySelectorAll('tr[data-r]');
 function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);});R.forEach(function(t){t.style.display=(v==='all'||t.dataset.r===v)?'':'none';});}
