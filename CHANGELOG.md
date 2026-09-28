@@ -13,7 +13,9 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
-## [Unreleased]
+## [0.18.4] - 2026-09-29
+
+A crash fix and better crash reports.
 
 - **A model that is too wide is refused instead of crashing the printer.** A layer image
   wider than the 320 px screen (a model sliced for a different printer) used to overrun an
