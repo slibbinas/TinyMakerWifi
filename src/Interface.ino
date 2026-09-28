@@ -1649,7 +1649,7 @@ void screenLayerTooWide(int w){
   gfx2->setCursor(6, 34);
   gfx2->println("wide for the screen.");
   gfx2->setCursor(6, 52);
-  gfx2->print("Re-slice for TinyMaker");
+  gfx2->print("Re-slice to print.");   // trumpiau: „for TinyMaker" nulūžta 160 px ekrane (V)
   uiButton(0, "Back", ORANGE);
   screen = 112;   // Back behaves like the height warning
 }
