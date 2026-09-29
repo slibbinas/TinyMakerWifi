@@ -816,6 +816,15 @@ export default {
       });
     }
 
+    // Telemetry heartbeat as data (for a device that shows crash status and must
+    // tell "quiet" from "telemetry down"). now lets the caller compute the age
+    // without a synced clock; heartbeat is null until the weekly cron first runs.
+    if (path === '/crash/status' && keyOk) {
+      const hb = await env.FEEDBACK.get('hb:last');
+      return new Response(JSON.stringify({ heartbeat: hb || null, now: new Date().toISOString() }),
+                         { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Crash telemetry admin view (same LIST_KEY as the feedback inbox).
     if ((path === '/crash/inbox' || path === '/crash/list') && keyOk) {
       const names = [];
