@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TinyMaker status",
-  "version": "0.2.1",
-  "description": "TinyMaker printer status on the toolbar: print progress on the icon, details and a dashboard link in the popup.",
+  "version": "0.3.0",
+  "description": "TinyMaker printer status on the toolbar: print progress on the icon, a model preview and details in the popup, and a notification when the print finishes.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "TinyMaker",
@@ -11,6 +11,6 @@
   "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
   "background": { "service_worker": "background.js" },
   "options_ui": { "page": "options.html", "open_in_tab": false },
-  "permissions": ["alarms", "storage", "scripting"],
+  "permissions": ["alarms", "storage", "scripting", "notifications"],
   "optional_host_permissions": ["http://*/*"]
 }
