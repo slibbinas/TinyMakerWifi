@@ -15,15 +15,45 @@ async function tick() {
   let s = null, err = '';
   try { s = await fetchStatus(host); } catch (e) { err = String(e && e.message || e); }
   const p = phase(s);
-  const { wasPrinting, done } = await chrome.storage.local.get(['wasPrinting', 'done']);
+  const st = await chrome.storage.local.get(['wasPrinting', 'done', 'notifDone', 'notifOffline', 'prevVatLow']);
+  const wasPrinting = st.wasPrinting;
+  const printingNow = p === 'printing' || p === 'paused';
   // A print that just ended shows a tick until the popup is opened.
-  let doneNow = !!done;
+  let doneNow = !!st.done;
   if (wasPrinting && p === 'idle') doneNow = true;
-  if (p === 'printing' || p === 'paused') doneNow = false;
+  if (printingNow) doneNow = false;
+
+  // Desktop notifications (0.3.0). Only on the edges, and each at most once per
+  // print, so a minute-by-minute tick never repeats them.
+  let notifDone = !!st.notifDone, notifOffline = !!st.notifOffline;
+  const vatLow = !!(s && s.vatLow);
+  if (printingNow) { notifDone = false; notifOffline = false; }         // fresh print re-arms them
+  if (wasPrinting && p === 'idle' && !notifDone) {
+    notify('done', 'Print finished', (s && s.model) ? s.model : 'Your print is done.');
+    notifDone = true;
+  }
+  if (wasPrinting && p === 'offline' && !notifOffline) {
+    notify('offline', 'Printer stopped answering', 'It was printing a moment ago - check the printer.');
+    notifOffline = true;
+  }
+  if (printingNow && vatLow && !st.prevVatLow) {
+    notify('lowresin', 'Low resin', 'The vat is near the low-resin level' + ((s && s.model) ? ' - ' + s.model : '') + '.');
+  }
+
   await chrome.storage.local.set({
-    last: s, lastErr: err, lastAt: Date.now(), wasPrinting: p === 'printing' || p === 'paused', done: doneNow
+    last: s, lastErr: err, lastAt: Date.now(), wasPrinting: printingNow, done: doneNow,
+    notifDone, notifOffline, prevVatLow: vatLow
   });
   paint(p, s, doneNow);
+}
+
+// One notification per kind (a fixed id replaces the previous rather than stacking).
+function notify(id, title, message) {
+  try {
+    chrome.notifications.create('tm-' + id, {
+      type: 'basic', iconUrl: 'icons/128.png', title: 'TinyMaker - ' + title, message
+    });
+  } catch (e) {}
 }
 
 function paint(p, s, doneNow) {

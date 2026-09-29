@@ -32,9 +32,23 @@ function render(s, err, host) {
   $('state').textContent = s.state || p;
   const printing = p === 'printing' || p === 'paused';
   $('job').style.display = printing ? 'block' : 'none';
+  const img = $('preview');
   if (printing) {
     $('model').textContent = s.model || '';
     $('fill').style.width = percent(s) + '%';
+    // The model's snapshot, served from the printer's RAM while printing (no SD
+    // read). previewCached says it exists (a plain SL1 upload with no render has
+    // none). host permission covers the <img> load; hide it if it still fails.
+    if (s.model && s.previewCached) {
+      const url = 'http://' + host + '/api/files/model/preview?name=' + encodeURIComponent(s.model);
+      if (img.dataset.url !== url) { img.dataset.url = url; img.src = url; }
+      img.onload = () => { img.style.display = 'block'; };
+      img.onerror = () => { img.style.display = 'none'; };
+    } else {
+      img.style.display = 'none'; img.removeAttribute('src'); img.dataset.url = '';
+    }
+  } else {
+    img.style.display = 'none'; img.removeAttribute('src'); img.dataset.url = '';
   }
   let h = '';
   if (printing) {
