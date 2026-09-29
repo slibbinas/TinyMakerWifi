@@ -34,6 +34,11 @@
   <input id="host" placeholder="tinymaker.local">
   <p class="hint">Save asks Chrome to let the extension read this one address - the printer on your network. It reads the print status and never changes anything.</p>
   <div><button id="save">Save</button><span id="msg"></span></div>
+  <label style="display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--text)">
+    <input type="checkbox" id="notify" style="width:auto;margin:0">
+    <span>Notify me when a print finishes, resin gets low, or the printer stops answering</span>
+  </label>
+  <p class="hint">Off by default. Turning it on asks Chrome to allow desktop notifications.</p>
   <script src="common.js"></script>
   <script src="options.js"></script>
 </body>

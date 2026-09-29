@@ -14,6 +14,15 @@
     else await chrome.storage.local.set({ theme: m });
     applyTheme(m); mark();
   });
+
+  // Notifications are opt-in: the checkbox reflects/holds the optional permission.
+  // request()/remove() must run inside the change gesture (no await before them).
+  const notify = document.getElementById('notify');
+  notify.checked = await chrome.permissions.contains({ permissions: ['notifications'] });
+  notify.addEventListener('change', () => {
+    if (notify.checked) chrome.permissions.request({ permissions: ['notifications'] }, g => { notify.checked = !!g; });
+    else chrome.permissions.remove({ permissions: ['notifications'] });
+  });
 })();
 /* Chrome lets only the user pin an extension to the toolbar - an unpinned one is
    hidden behind the puzzle icon and its badge is never seen. Say how, until it is

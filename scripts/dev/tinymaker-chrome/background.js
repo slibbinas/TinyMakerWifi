@@ -48,8 +48,11 @@ async function tick() {
 }
 
 // One notification per kind (a fixed id replaces the previous rather than stacking).
-function notify(id, title, message) {
+// Opt-in: the 'notifications' permission is optional and only granted from the options
+// toggle, so do nothing (and never touch chrome.notifications) until the user turned it on.
+async function notify(id, title, message) {
   try {
+    if (!(await chrome.permissions.contains({ permissions: ['notifications'] }))) return;
     chrome.notifications.create('tm-' + id, {
       type: 'basic', iconUrl: 'icons/128.png', title: 'TinyMaker - ' + title, message
     });
