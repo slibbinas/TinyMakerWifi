@@ -9,8 +9,9 @@ dashboard itself asks every 4 s) and never writes to the printer.
 - **Popup:** state, model, progress bar, **a preview of the printing model**, layer,
   running/remaining time with the end clock, resin used and left, SD, WiFi; **Open dashboard**
   (switches to an already open dashboard tab with the same address, or opens a new one); **Refresh**.
-- **Notifications (0.3.0):** a desktop note when a print finishes, when the resin gets low,
-  and when the printer stops answering mid-print. Each fires at most once per print.
+- **Notifications (0.3.0, opt-in):** turn them on in the options and a desktop note appears
+  when a print finishes, the resin gets low, or the printer stops answering mid-print (each at
+  most once per print). Off by default - the `notifications` permission is optional.
 - **Printer address:** popup -> *Printer address* (default `tinymaker.local`; the IP works too).
   **Save** asks Chrome for access to that one address; a fresh install opens this page by
   itself and shows `?` on the icon until the address is saved. While the extension is not
