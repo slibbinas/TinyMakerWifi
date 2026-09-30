@@ -58,6 +58,16 @@ PlatformIO CLI is not on PATH in this environment; invoke it via
 
 Build output goes to `C:/PIO-build/TinyMakerWiFi` (set via `build_dir` in `platformio.ini`, deliberately outside the repo/Google Drive to avoid sync conflicts and locked files).
 
+**Isolated toolchain (`core_dir`).** `~/.platformio` is shared by every ESP32 project on this
+machine, and the Arduino core lives in one **unversioned** `framework-arduinoespressif32` dir, so
+projects on different core versions overwrite each other's framework (global CLAUDE.md → "PlatformIO:
+bendra aplinka"). This project keeps its **own** toolchain via `PLATFORMIO_CORE_DIR=C:/PIO-core/TinyMakerWiFi`
+(outside Drive, like `build_dir`). It stays an **env var**, not a `platformio.ini` key: an absolute
+Windows path in `platformio.ini` would break CI and other machines. Build through the wrapper that
+sets it — [scripts/dev/pio.ps1](scripts/dev/pio.ps1) — e.g. `powershell -File scripts\dev\pio.ps1 run -e tinymaker`
+(or export `PLATFORMIO_CORE_DIR` yourself). First build with a fresh `core_dir` downloads ~1.5 GB (~20 min);
+after that the shared `build.lock` is not needed (isolated packages cannot clash).
+
 ### `C:/PIO-build` tvarka (V 2026-09-26/28)
 
 `C:/PIO-build` naudoja kelios sesijos ir keli projektai. Taisyklės:
