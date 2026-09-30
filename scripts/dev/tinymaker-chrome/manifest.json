@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TinyMaker status",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "TinyMaker printer status on the toolbar: progress on the icon, a model preview and details in the popup, plus print notifications.",
   "action": {
     "default_popup": "popup.html",
