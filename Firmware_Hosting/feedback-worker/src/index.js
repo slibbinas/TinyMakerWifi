@@ -854,6 +854,55 @@ export default {
                          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
+    // Fleet stats page (key-gated, next to the crash view). V opens it by URL with
+    // ?key=; its client JS carries the key to /fleet/history below.
+    if (request.method === 'GET' && path === '/fleet') {
+      if (!keyOk) return new Response('Not found', { status: 404 });
+      return new Response(fleetPage(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // Fleet version history (key-gated, same LIST_KEY as the crash view). Daily
+    // vh:<date> snapshots of the public /stats aggregate. ?range=D|W|M returns
+    // {now, ref} (both with .date) for a since-X delta; no range returns the
+    // snapshot list (newest first) for the page's graphs. The RLCD device reads
+    // this with the key, or keeps its own NVS trend.
+    if (path === '/fleet/history' && keyOk) {
+      const range = (url.searchParams.get('range') || '').toUpperCase();
+      const dates = [];
+      let vcur;
+      do {
+        const page = await env.FEEDBACK.list({ prefix: 'vh:', limit: 1000, cursor: vcur });
+        for (const k of page.keys) dates.push(k.name.slice(3));
+        vcur = page.list_complete ? null : page.cursor;
+      } while (vcur);
+      dates.sort();                                    // oldest -> newest
+      const jhead = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+      const read = async (dt) => { const v = await env.FEEDBACK.get('vh:' + dt); return v ? JSON.parse(v) : null; };
+      if (range === 'D' || range === 'W' || range === 'M') {
+        if (!dates.length) return new Response('{"now":null,"ref":null}', { headers: jhead });
+        const now = await read(dates[dates.length - 1]);
+        const back = range === 'D' ? 1 : range === 'W' ? 7 : 30;
+        const target = new Date(Date.parse(now.date + 'T00:00:00Z') - back * 86400000).toISOString().slice(0, 10);
+        let refDate = dates[0];                         // oldest we have, if nothing older than target
+        for (const dt of dates) { if (dt <= target) refDate = dt; else break; }
+        return new Response(JSON.stringify({ now, ref: await read(refDate) }), { headers: jhead });
+      }
+      const pick = dates.slice(-120);
+      const snaps = [];
+      for (const dt of pick) { const s = await read(dt); if (s) snaps.push(s); }
+      snaps.reverse();                                  // newest first
+      return new Response(JSON.stringify({ snapshots: snaps }), { headers: jhead });
+    }
+
+    // Manual snapshot now (bootstrap / test), so the history does not wait for the
+    // first daily cron.
+    if (path === '/fleet/snap' && keyOk) {
+      await snapshotFleet(env, Date.now());
+      return new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    }
+
     if (path === '/feedback/img' && keyOk) {
       const k = url.searchParams.get('k') || '';
       if (!k.startsWith('img:')) return new Response('bad key', { status: 400 });
@@ -880,9 +929,163 @@ export default {
   // show "telemetry alive" - an empty crash list then means "no crashes", not
   // "the pipeline is dead". Proves the worker + KV run on schedule.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(env.FEEDBACK.put('hb:last', new Date(event.scheduledTime).toISOString()));
+    ctx.waitUntil((async () => {
+      await env.FEEDBACK.put('hb:last', new Date(event.scheduledTime).toISOString());
+      await snapshotFleet(env, event.scheduledTime);   // daily version snapshot (idempotent per day)
+    })());
   },
 };
+
+// ------------------------------------------------------------- fleet snapshot
+// Daily snapshot of the public install-stats aggregate, stored under
+// vh:<YYYY-MM-DD> so /fleet/history can show how the version split moves over
+// days/weeks/months. The install-stats worker itself keeps no history (only the
+// current per-device record), so the trend has to be captured here, going
+// forward - there is no past to backfill. Idempotent: overwrites today's key,
+// so running on both the weekly and daily cron is harmless. Best-effort: a
+// failed fetch skips today rather than storing a hole.
+const STATS_URL = 'https://tinymaker-stats.slibbinas.workers.dev/stats';
+async function snapshotFleet(env, ms) {
+  let d;
+  try {
+    const r = await fetch(STATS_URL, { cf: { cacheTtl: 0 } });
+    if (!r.ok) return;
+    d = await r.json();
+  } catch (e) { return; }
+  if (!d || typeof d.printers !== 'number' || !d.by_version || typeof d.by_version !== 'object') return;
+  const date = new Date(ms).toISOString().slice(0, 10);
+  await env.FEEDBACK.put('vh:' + date, JSON.stringify({ date, printers: d.printers, by_version: d.by_version }),
+                         { metadata: { p: d.printers } });
+  // Keep ~400 daily snapshots (each tiny); drop the oldest beyond that.
+  try {
+    const keys = [];
+    let cur;
+    do {
+      const page = await env.FEEDBACK.list({ prefix: 'vh:', limit: 1000, cursor: cur });
+      for (const k of page.keys) keys.push(k.name);
+      cur = page.list_complete ? null : page.cursor;
+    } while (cur);
+    keys.sort();                                     // vh:YYYY-MM-DD sorts chronologically
+    for (const old of keys.slice(0, Math.max(0, keys.length - 400))) await env.FEEDBACK.delete(old);
+  } catch (e) { /* pruning is best-effort */ }
+}
+
+// ---------------------------------------------------------------- fleet page
+// Key-gated version-history dashboard (next to the crash view). All data comes
+// from /fleet/history (same key, read from the URL); nothing sensitive is baked
+// into the HTML, so this is a static shell filled in the browser.
+const fleetPage = () => `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>TinyMaker fleet</title>
+<style>
+  :root{color-scheme:light dark;--bg:#1c1c1e;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--up:#2fbf4f;--dn:#e05555}
+  @media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--up:#2f8f4f;--dn:#c93b45}}
+  :root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--up:#2f8f4f;--dn:#c93b45}
+  :root[data-theme=dark]{color-scheme:dark;--bg:#1c1c1e;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--up:#2fbf4f;--dn:#e05555}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:840px;margin:0 auto;padding:18px 16px 60px}
+  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:120px;flex:1}
+  .kpi .n{font-size:26px;font-weight:700}.kpi .l{color:var(--muted);font-size:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600;font-size:12px}
+  .up{color:var(--up)}.dn{color:var(--dn)}.z{color:var(--muted)}
+  .bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}
+  button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+  button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .msg{color:var(--muted);font-size:13px}.err{color:var(--dn)}
+  a{color:var(--accent)}svg{display:block;max-width:100%}
+  .foot{color:var(--muted);font-size:12px;margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+</style></head><body><div class="wrap">
+  <h1>TinyMaker fleet</h1>
+  <div class="sub">Anonymous install stats over time - daily snapshots of the public aggregate. <span id="asof"></span></div>
+  <div class="cards" id="kpis"></div>
+  <div class="card"><h2>Versions</h2><div id="vertbl"><div class="msg">Loading...</div></div></div>
+  <div class="card"><h2>Printers over time</h2><div id="chart"><div class="msg">Loading...</div></div></div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="pri" id="snap">Snapshot now</button>
+    <button id="reload">Reload</button>
+    <span class="msg" id="snapmsg"></span>
+  </div>
+  <div class="foot"><a id="crashlink" href="#">Crash telemetry</a><span id="cnt"></span></div>
+</div>
+<script>
+const KEY=new URLSearchParams(location.search).get('key')||'';
+const $=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;};
+const api=p=>fetch(p+(p.includes('?')?'&':'?')+'key='+encodeURIComponent(KEY),{cache:'no-store'}).then(r=>r.json());
+function refAt(snaps,days){ // snaps newest-first; latest date minus 'days', closest on/before
+  if(!snaps.length)return null;
+  const t=new Date(Date.parse(snaps[0].date+'T00:00:00Z')-days*864e5).toISOString().slice(0,10);
+  let ref=snaps[snaps.length-1];
+  for(const s of snaps){ if(s.date<=t){ref=s;break;} }
+  return ref;
+}
+function delta(now,ref){ // signed html
+  if(now==null||ref==null)return '<span class="z">-</span>';
+  const d=now-ref; if(d===0)return '<span class="z">0</span>';
+  return '<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>';
+}
+function render(hist,live){
+  const snaps=hist.snapshots||[]; // newest first
+  const cur=live&&typeof live.printers==='number'?live:(snaps[0]||null);
+  if(!cur){ $('vertbl').innerHTML='<div class="msg">No snapshots yet. Hit <b>Snapshot now</b> to seed the first one; a daily snapshot runs at 06:30 UTC.</div>'; $('chart').innerHTML=''; $('kpis').innerHTML=''; return; }
+  const rD=refAt(snaps,1),rW=refAt(snaps,7),rM=refAt(snaps,30);
+  // KPIs
+  $('kpis').innerHTML=
+    '<div class="kpi"><div class="n">'+cur.printers+'</div><div class="l">printers seen</div></div>'+
+    '<div class="kpi"><div class="n">'+delta(cur.printers,rD&&rD.printers)+'</div><div class="l">day</div></div>'+
+    '<div class="kpi"><div class="n">'+delta(cur.printers,rW&&rW.printers)+'</div><div class="l">week</div></div>'+
+    '<div class="kpi"><div class="n">'+delta(cur.printers,rM&&rM.printers)+'</div><div class="l">month</div></div>';
+  $('asof').textContent='As of '+(cur.date||'live')+(snaps.length?' | '+snaps.length+' daily snapshots':'');
+  // version table
+  const bv=cur.by_version||{};
+  const vers=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]);
+  const max=Math.max(1,...vers.map(v=>bv[v]));
+  const gv=(s,v)=>s&&s.by_version&&s.by_version[v]!=null?s.by_version[v]:null;
+  let h='<table><thead><tr><th>Version</th><th>Now</th><th>Day</th><th>Week</th><th>Month</th><th style="width:120px"></th></tr></thead><tbody>';
+  for(const v of vers){
+    h+='<tr><td>'+esc(v)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
+       '</td><td><div class="bar"><span style="width:'+Math.round(bv[v]/max*100)+'%"></span></div></td></tr>';
+  }
+  h+='</tbody></table>';
+  $('vertbl').innerHTML=h;
+  $('cnt').textContent=vers.length+' versions';
+  // printers-over-time line
+  if(snaps.length<2){ $('chart').innerHTML='<div class="msg">Chart needs at least two daily snapshots - it fills in over the coming days.</div>'; return; }
+  const pts=snaps.slice().reverse(); // oldest first
+  const W=800,H=180,pad=28;
+  const xs=pts.map((_,i)=>pad+(W-2*pad)*(pts.length===1?0:i/(pts.length-1)));
+  const mn=Math.min(...pts.map(p=>p.printers)),mx=Math.max(...pts.map(p=>p.printers));
+  const yy=v=>H-pad-(H-2*pad)*(mx===mn?0.5:(v-mn)/(mx-mn));
+  const path=pts.map((p,i)=>(i?'L':'M')+xs[i].toFixed(1)+' '+yy(p.printers).toFixed(1)).join(' ');
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">';
+  svg+='<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="var(--line)"/>';
+  svg+='<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2"/>';
+  pts.forEach((p,i)=>{svg+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+yy(p.printers).toFixed(1)+'" r="2.5" fill="var(--accent)"/>';});
+  svg+='<text x="'+pad+'" y="14" fill="var(--muted)" font-size="11">'+mx+'</text>';
+  svg+='<text x="'+pad+'" y="'+(H-pad+14)+'" fill="var(--muted)" font-size="11">'+esc(pts[0].date)+'</text>';
+  svg+='<text x="'+(W-pad)+'" y="'+(H-pad+14)+'" fill="var(--muted)" font-size="11" text-anchor="end">'+esc(pts[pts.length-1].date)+'</text>';
+  svg+='</svg>';
+  $('chart').innerHTML=svg;
+}
+async function load(){
+  if(!KEY){ $('vertbl').innerHTML='<div class="err">Missing ?key=</div>'; return; }
+  try{
+    const hist=await api('/fleet/history');
+    let live=null; try{ live=await fetch('https://tinymaker-stats.slibbinas.workers.dev/stats',{cache:'no-store'}).then(r=>r.json()); }catch(e){}
+    render(hist,live);
+  }catch(e){ $('vertbl').innerHTML='<div class="err">Load failed: '+esc(e.message||e)+'</div>'; }
+}
+$('reload').onclick=load;
+$('snap').onclick=async()=>{ $('snapmsg').textContent='Snapshotting...'; try{ const r=await api('/fleet/snap'); $('snapmsg').textContent=r&&r.ok?'Snapshot saved.':'Failed.'; load(); }catch(e){ $('snapmsg').textContent='Failed: '+(e.message||e); } };
+(function(){try{var t=localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(_){}var cl=document.getElementById('crashlink');if(cl)cl.href='/crash/inbox?key='+encodeURIComponent(KEY);})();
+load();
+</script></body></html>`;
 
 // ---------------------------------------------------------------- inbox page
 // Every field below is user-submitted, so esc() is not optional: a note is
