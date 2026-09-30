@@ -974,34 +974,37 @@ async function snapshotFleet(env, ms) {
 // Key-gated version-history dashboard (next to the crash view). All data comes
 // from /fleet/history (same key, read from the URL); nothing sensitive is baked
 // into the HTML, so this is a static shell filled in the browser.
-const fleetPage = () => `<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>TinyMaker fleet</title>
+const fleetPage = () => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>TinyMaker printer fleet</title>
+<script>(function(){try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='light'||q==='dark')?q:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})()</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
 <style>
-  :root{color-scheme:light dark;--bg:#1c1c1e;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--accent:#e8720c;--up:#2fbf4f;--dn:#e05555}
-  @media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--up:#2f8f4f;--dn:#c93b45}}
-  :root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--text:#1f2124;--muted:#5f6570;--line:#dfe1e5;--up:#2f8f4f;--dn:#c93b45}
-  :root[data-theme=dark]{color-scheme:dark;--bg:#1c1c1e;--card:#2a2a2e;--text:#eee;--muted:#9a9aa2;--line:#3a3a40;--up:#2fbf4f;--dn:#e05555}
-  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:840px;margin:0 auto;padding:18px 16px 60px}
-  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);font-size:13px;margin-bottom:16px}
-  .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:120px;flex:1}
-  .kpi .n{font-size:26px;font-weight:700}.kpi .l{color:var(--muted);font-size:12px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
-  .card h2{font-size:15px;margin:0 0 10px}
-  table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
-  th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600;font-size:12px}
-  .up{color:var(--up)}.dn{color:var(--dn)}.z{color:var(--muted)}
-  .bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}
-  button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
-  button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .msg{color:var(--muted);font-size:13px}.err{color:var(--dn)}
-  a{color:var(--accent)}svg{display:block;max-width:100%}
-  .foot{color:var(--muted);font-size:12px;margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-</style></head><body><div class="wrap">
-  <h1>TinyMaker fleet</h1>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--accent:#e8720c;--pill:#2a2a2e;--up:#2fbf4f;--dn:#e05555}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1;--up:#2f8f4f;--dn:#c93b45}}
+:root[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;--pill:#eceef1;--up:#2f8f4f;--dn:#c93b45}
+:root[data-theme=dark]{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#2c2c31;--text:#eee;--muted:#9a9aa2;--pill:#2a2a2e;--up:#2fbf4f;--dn:#e05555}
+*{box-sizing:border-box}body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--text);padding:20px}
+.wrap{max-width:860px;margin:0 auto;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:18px 22px;position:relative}
+h1{font-size:19px;color:var(--accent);margin:0 0 4px;display:flex;align-items:center;gap:8px}h1 .mark{width:22px;height:22px;flex:none}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+.tmcrumb{margin:2px 0 16px;font-size:12px;color:var(--muted)}.tmcrumb a{color:var(--accent);text-decoration:none}
+.themeSw{position:absolute;top:14px;right:18px;display:inline-flex;gap:1px;align-items:center}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}.themeSw button[aria-pressed=true]{color:var(--accent)}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.kpi{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:110px;flex:1}
+.kpi .n{font-size:24px;font-weight:700}.kpi .l{color:var(--muted);font-size:12px}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px}.card h2{font-size:15px;margin:0 0 10px}
+table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;font-size:13px}
+th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600;font-size:12px}
+.up{color:var(--up)}.dn{color:var(--dn)}.z{color:var(--muted)}
+.bar{height:9px;border-radius:99px;background:var(--line);overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}
+button{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.msg{color:var(--muted);font-size:13px}.err{color:var(--dn)}
+a{color:var(--accent)}svg{display:block;max-width:100%}
+.foot{color:var(--muted);font-size:12px;margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+</style></head>
+<body><div class="wrap"><p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Printer fleet</p><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Printer fleet</h1>
   <div class="sub">Anonymous install stats over time - daily snapshots of the public aggregate. <span id="asof"></span></div>
   <div class="cards" id="kpis"></div>
   <div class="card"><h2>Versions</h2><div id="vertbl"><div class="msg">Loading...</div></div></div>
@@ -1083,9 +1086,9 @@ async function load(){
 }
 $('reload').onclick=load;
 $('snap').onclick=async()=>{ $('snapmsg').textContent='Snapshotting...'; try{ const r=await api('/fleet/snap'); $('snapmsg').textContent=r&&r.ok?'Snapshot saved.':'Failed.'; load(); }catch(e){ $('snapmsg').textContent='Failed: '+(e.message||e); } };
-(function(){try{var t=localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(_){}var cl=document.getElementById('crashlink');if(cl)cl.href='/crash/inbox?key='+encodeURIComponent(KEY);})();
+(function(){var sw=document.querySelector('.themeSw');if(sw){function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();}var cl=document.getElementById('crashlink');if(cl)cl.href='/crash/inbox?key='+encodeURIComponent(KEY);})();
 load();
-</script></body></html>`;
+</script>${TM_CLOSE}</body></html>`;
 
 // ---------------------------------------------------------------- inbox page
 // Every field below is user-submitted, so esc() is not optional: a note is
