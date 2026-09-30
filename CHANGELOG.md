@@ -13,6 +13,18 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.5] - 2026-09-30
+
+A picture for models printed straight away.
+
+- **The printing model now shows its list icon in the dashboard and the browser extension
+  even when it has no saved 3D render.** A model started before its 3D preview finished
+  building had no render on the card, so mid-print neither the dashboard (reopened on another
+  device) nor the Chrome extension showed any picture - the small SD-list icon lives only on
+  the card and the card is off-limits while printing. It is now snapshotted into RAM at print
+  start and served from there, so render-less models (a dummy, a quick test print) get a
+  thumbnail during the print too (#262).
+
 ## [0.18.4] - 2026-09-29
 
 A crash fix and better crash reports.
