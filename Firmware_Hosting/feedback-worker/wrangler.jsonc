@@ -6,6 +6,8 @@
   "routes": [
     { "pattern": "tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
+    // Fleet version-history stats page + API (key-gated, next to the crash view).
+    { "pattern": "tinymakerwifi.com/fleet*", "zone_name": "tinymakerwifi.com" },
     // Defektu zymes is pulto (0.17). Tik apex: pultas kviecia prisegta URL, o
     // www variantas tik atidarytu ta pati kelia antru vardu be jokios naudos.
     { "pattern": "tinymakerwifi.com/slicerbug", "zone_name": "tinymakerwifi.com" },
@@ -31,6 +33,7 @@
     // The worker owns these paths on www too and 301s to the apex.
     { "pattern": "www.tinymakerwifi.com/feedback*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/crash*", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "www.tinymakerwifi.com/fleet*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/r/*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/testai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "www.tinymakerwifi.com/tests*", "zone_name": "tinymakerwifi.com" },
@@ -50,7 +53,8 @@
   "kv_namespaces": [
     { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }
   ],
-  "triggers": { "crons": ["0 6 * * 1"] },
+  // Weekly heartbeat (hb:last) + daily fleet snapshot (vh:<date> from /stats).
+  "triggers": { "crons": ["0 6 * * 1", "30 6 * * *"] },
   // Request logs in Cloudflare Workers Observability. Without this the one worker
   // that takes crash reports and feedback was the only one with no log at all, so
   // a report that never arrived left no trace anywhere.
