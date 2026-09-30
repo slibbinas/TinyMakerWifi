@@ -559,6 +559,12 @@ void capturePreviewCache(size_t slackBytes, bool allowSdInit) {
   // not depend on the layer height), legacy single preview as the fallback.
   File f = openModelRender(name);
   if (!f) f = SD.open(("/" + name + "/preview.png").c_str());   // slicer'io, kaip ir buvo
+  // Paskutine atsarga: saraso piktograma. Modelis, spausdintas is karto (Print
+  // paspaustas pries 3D perziuros pabaiga), didziojo renderio SD neturi, tad be
+  // sios eilutes spausdinant jokio paveikslelio - nei pulte, nei Chrome pletinyje
+  // - nes ico is SD spausdinant neatiduodama (rejectIfBusy). ~4 KB, telpa i RAM
+  // kaip ir didysis renderis; serve path'as (type != "ico") ja atiduoda is RAM.
+  if (!f) f = SD.open(("/" + name + "/icon.png").c_str());
   if (!f) return;
   size_t sz = f.size();
   // No PSRAM on the WROOM: cap the snapshot and require slack in the largest
