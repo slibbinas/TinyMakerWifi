@@ -31,9 +31,13 @@
   <h1><img src="icons/32.png" alt="">TinyMaker <span id="ver" style="color:var(--muted);font-weight:400;font-size:12px"></span></h1>
   <div class="state" id="state">...</div>
   <div id="job" style="display:none">
-    <div class="model" id="model"></div>
-    <div class="bar"><span id="fill"></span></div>
-    <img id="preview" alt="" style="display:none;width:100%;max-height:150px;object-fit:contain;border-radius:8px;background:var(--line);margin:2px 0 6px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <img id="preview" alt="" style="display:none;width:26px;height:26px;box-sizing:border-box;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--card);object-fit:contain;flex:none">
+      <div style="flex:1;min-width:0">
+        <div class="model" id="model" style="margin:0 0 5px"></div>
+        <div class="bar" style="margin:0"><span id="fill"></span></div>
+      </div>
+    </div>
   </div>
   <table id="facts"></table>
   <div class="err" id="err" style="display:none"></div>
