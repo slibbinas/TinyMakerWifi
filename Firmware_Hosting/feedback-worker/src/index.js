@@ -856,7 +856,7 @@ export default {
 
     // Fleet stats page (key-gated, next to the crash view). V opens it by URL with
     // ?key=; its client JS carries the key to /fleet/history below.
-    if (request.method === 'GET' && path === '/fleet') {
+    if (request.method === 'GET' && (path === '/fleet' || path === '/fleet/')) {
       if (!keyOk) return new Response('Not found', { status: 404 });
       return new Response(fleetPage(), {
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
