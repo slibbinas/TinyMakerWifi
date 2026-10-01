@@ -6734,11 +6734,11 @@ wireDnD($('sdSection'),{
 });
 wireDnD($('slicerCard'),{
   extRe:/\.stl$/i, okMime:/stl|sla|model/,
-  canDrop:()=>!!window.slicerLoadedVer && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy),
-  expand:()=>{if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen(true);},
+  canDrop:()=>!!(statusData&&statusData.slicerOn) && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy),
+  expand:()=>{const t=$('slicerToggle');if(t&&!t.disabled&&!(window.slicerIsOpen&&window.slicerIsOpen()))t.click();},
   onFile:f=>{const inp=$('slicerFile');if(!inp)return;
     try{const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
-      inp.dispatchEvent(new Event('change',{bubbles:true}));msg('STL accepted for slicing.');}catch(err){}}
+      inp.dispatchEvent(new Event('change',{bubbles:true}));}catch(err){}}
 });
 {const pw=$('cfgPollWait');if(pw){pw.value=String(pollWaitUserS());
  pw.addEventListener('change',()=>{const v=Math.round(Number(pw.value)||0);const ok=v>=5&&v<=180;
