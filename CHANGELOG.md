@@ -13,6 +13,16 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [0.18.6] - 2026-10-02
+
+Drag and drop a file onto the dashboard. Beta: pick it in the dashboard's Update tab - the automatic update channel stays on 0.18.5, so no printer updates itself for this one.
+
+- **Drag-and-drop upload.** Drop an STL on the slicer block, or an SL1/ZIP on the SD manager,
+  to load or upload it - the same as the Choose STL / Upload buttons. While dragging, a neutral
+  grey frame marks a block that accepts the file; on drop a valid file briefly flashes orange and
+  is loaded/uploaded (expanding the block if it was collapsed), a wrong one briefly flashes red
+  and is ignored (#268).
+
 ## [0.18.5] - 2026-09-30
 
 A picture for models printed straight away.
