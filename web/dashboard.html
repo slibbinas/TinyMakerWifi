@@ -6696,6 +6696,14 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
      imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
   else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;sdJobQuietUntil=Date.now()+20000;bgJob='';syncActionLocks();}});
+/* Trumpas pranešimas numetus netinkamą failą (slicerio blokas neturi savo užuominos
+   laukelio kaip SD #uploadHint). Fiksuotas toast'as, pats pasislepia. */
+const dndToast=text=>{
+  let t=document.getElementById('dndToast');
+  if(!t){t=document.createElement('div');t.id='dndToast';t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);color:var(--text);padding:8px 14px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);pointer-events:none;transition:opacity .3s';document.body.appendChild(t);}
+  t.textContent=text;t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';},1800);
+};
 /* Drag-drop i SD manageri: numestas .zip/.sl1 eina TUO PACIU keliu, kaip „Upload"
    rinkiklis - ji tiesiog idedam i `#uploadFile` ir paleidziam ta pati `submit`
    (dydzio patikra, Replace/Rename, snackbar, uzraktai - viskas nepaliesta). Priimam
@@ -6746,7 +6754,8 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
     if(!canSlice())return;
     const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(isStl);
     const inp=$('slicerFile');
-    if(!f||!inp)return;
+    if(!inp)return;
+    if(!f){dndToast('Drop an .stl file here.');return;}
     try{
       if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen();
       const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
