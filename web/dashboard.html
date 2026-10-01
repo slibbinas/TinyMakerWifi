@@ -6699,23 +6699,28 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
 /* Drag-drop i SD manageri (.zip/.sl1) ir i slicer (.stl). Numestas failas eina TUO
    PACIU keliu, kaip rinkiklis: SD -> #uploadFile + submit (dydis, Replace/Rename,
    snackbaras, uzraktai nepaliesti); slicer -> #slicerFile + change. Priimam TIK kai
-   blokas aktyvus. TEMPIANT nieko neindikuojam (nei oranzinio, nei raudono): varda
-   (pletini) narsykle duoda tik NUMETUS, o be jo STL neatskirtume nuo galiojancio SL1
-   (STL tempiant ateina su tusciu MIME - ismatuota gyvai). NUMETUS, kai faktas zinomas:
-   netinkamas - trumpai blyksteli raudonai, NEISSISKLEIDZIA ir nepriima; tinkamas -
-   trumpai oranzinis, (jei reikia) issiskleidzia ir priima. Jokio snacko. Vienodai abiem.
+   blokas aktyvus. TEMPIANT rodom tik NEUTRALU pilka remeli („cia galima numesti") - NE
+   oranzini/raudona: tinka ar ne suzinom tik NUMETUS (varda narsykle duoda tik tada, o
+   be jo STL neatskirtume nuo galiojancio SL1 - STL tempiant ateina su tusciu MIME,
+   ismatuota gyvai). NUMETUS, kai faktas zinomas: netinkamas - trumpai blyksteli raudonai,
+   NEISSISKLEIDZIA ir nepriima; tinkamas - trumpai oranzinis, (jei reikia) issiskleidzia ir
+   priima. Jokio snacko. Vienodai abiem.
    #uploadForm/#slicerFile gyvena savo vietose - cia juos tik VAROM (kodo nekeiciam). */
 function wireDnD(zone, opt){
   if(!zone) return;
-  const hi=s=>{zone.style.outline=s?('2px dashed '+(s==='bad'?'#e05555':'var(--accent)')):'';
+  let depth=0;
+  /* 'hint' (neutrali pilka var(--muted), pagal tema) = TIK „cia galima numesti" (tempiant,
+     kol fakto dar nezinom); 'ok' (oranzine) = priimta; 'bad' (raudona + sydas) = netinka. */
+  const hi=s=>{zone.style.outline=s?('2px dashed '+(s==='bad'?'#e05555':s==='ok'?'var(--accent)':'var(--muted)')):'';
     zone.style.outlineOffset=s?'-4px':'';zone.style.boxShadow=(s==='bad')?'inset 0 0 0 9999px rgba(224,85,85,.10)':'';};
   const files=e=>Array.from((e.dataTransfer&&e.dataTransfer.items)||[]).filter(i=>i.kind==='file');
-  /* Tempiant tik leidziam numesti (preventDefault) - JOKIO pasvietimo: varda gaunam
-     tik numetus, o be jo netinkamo nuo tinkamo neatskirtume (STL ateina tuscias). */
-  const allow=e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';};
-  zone.addEventListener('dragenter',allow);
-  zone.addEventListener('dragover',allow);
+  /* Tempiant rodom tik NEUTRALU „numesk cia" remeli (pilka) - NE oranzini/raudona:
+     tinka ar ne suzinom tik numetus (varda gaunam tik tada; STL tempiant ateina tuscias). */
+  zone.addEventListener('dragenter',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();depth++;hi('hint');});
+  zone.addEventListener('dragover',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';});
+  zone.addEventListener('dragleave',e=>{if(!files(e).length)return;depth=Math.max(0,depth-1);if(!depth)hi(0);});
   zone.addEventListener('drop',e=>{
+    depth=0;hi(0);
     if(!files(e).length)return;
     e.preventDefault();
     if(!opt.canDrop())return;
