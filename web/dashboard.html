@@ -6696,73 +6696,49 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
      imported", nors pulte ka tik rase „Unpacking" (V 08-14). */
   if(r&&r.queued){$('uploadHint').textContent='Uploaded in '+formatShortTime(Date.now()-started)+' - the printer is unpacking it now.';}
   else{$('uploadHint').textContent=(r&&r.renamed?'Unpacked as '+r.name+'. ':'Upload complete in '+formatShortTime(Date.now()-started)+'.');loadFiles();}}catch(err){$('uploadHint').textContent=err.message;}finally{uploadBusy=false;sdJobQuietUntil=Date.now()+20000;bgJob='';syncActionLocks();}});
-/* Trumpas pranešimas numetus netinkamą failą (slicerio blokas neturi savo užuominos
-   laukelio kaip SD #uploadHint). Fiksuotas toast'as, pats pasislepia. */
-const dndToast=text=>{
-  let t=document.getElementById('dndToast');
-  if(!t){t=document.createElement('div');t.id='dndToast';t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);border:1px solid var(--accent);color:var(--text);padding:8px 14px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.4);pointer-events:none;transition:opacity .3s';document.body.appendChild(t);}
-  t.textContent=text;t.style.opacity='1';
-  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';},1800);
-};
-/* Drag-drop i SD manageri: numestas .zip/.sl1 eina TUO PACIU keliu, kaip „Upload"
-   rinkiklis - ji tiesiog idedam i `#uploadFile` ir paleidziam ta pati `submit`
-   (dydzio patikra, Replace/Rename, snackbar, uzraktai - viskas nepaliesta). Priimam
-   TIK kai blokas aktyvus: ne spausdinant (`printFold`), ne uzsiemus ikelimu - tie
-   patys sargai, kaip „Upload" mygtuko. Neaktyvus - drop ignoruojamas ir nepasvieciama.
-   Pasvietimas - inline (didelis CSS blokas yra viena eilute, jos nekarpom). */
-(function(){
-  const zone=$('sdSection'); if(!zone) return;
-  const canUp=()=>!uploadBusy && !(statusData&&statusData.busy) && !zone.classList.contains('printFold');
-  const isArch=f=>/\.(zip|sl1)$/i.test((f&&f.name)||'');
-  const hasFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.items||[]).some(i=>i.kind==='file'));
+/* Drag-drop i SD manageri (.zip/.sl1) ir i slicer (.stl). Numestas failas eina TUO
+   PACIU keliu, kaip rinkiklis: SD -> #uploadFile + submit (dydis, Replace/Rename,
+   snackbaras, uzraktai nepaliesti); slicer -> #slicerFile + change. Priimam TIK kai
+   blokas aktyvus. Tempiant: oranzinis remelis = tinka; raudonas sydas = aiskiai
+   netinkamas tipas (pagal MIME; tuscias/octet = nezinia -> oranzinis, atmetama numetus).
+   Netinkama numetus - centruotas `msg()` snackas; suskleista bloka pirma isskleidziam.
+   #uploadForm/#slicerFile gyvena savo vietose - cia juos tik VAROM (kodo nekeiciam). */
+function wireDnD(zone, opt){
+  if(!zone) return;
   let depth=0;
-  const hi=on=>{zone.style.outline=on?'2px dashed var(--accent)':'';zone.style.outlineOffset=on?'-4px':'';};
-  zone.addEventListener('dragenter',e=>{if(!hasFiles(e)||!canUp())return;e.preventDefault();depth++;hi(true);});
-  zone.addEventListener('dragover',e=>{if(!hasFiles(e)||!canUp())return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
-  zone.addEventListener('dragleave',e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)hi(false);});
+  const hi=s=>{zone.style.outline=s?('2px dashed '+(s==='bad'?'#e05555':'var(--accent)')):'';
+    zone.style.outlineOffset=s?'-4px':'';zone.style.boxShadow=(s==='bad')?'inset 0 0 0 9999px rgba(224,85,85,.10)':'';};
+  const files=e=>Array.from((e.dataTransfer&&e.dataTransfer.items)||[]).filter(i=>i.kind==='file');
+  const bad=e=>{const it=files(e);return it.length>0&&it.every(i=>{const t=(i.type||'').toLowerCase();return t&&t!=='application/octet-stream'&&!opt.okMime.test(t);});};
+  zone.addEventListener('dragenter',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();depth++;hi(bad(e)?'bad':'ok');});
+  zone.addEventListener('dragover',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();const b=bad(e);e.dataTransfer.dropEffect=b?'none':'copy';hi(b?'bad':'ok');});
+  zone.addEventListener('dragleave',e=>{if(!files(e).length)return;depth=Math.max(0,depth-1);if(!depth)hi(0);});
   zone.addEventListener('drop',e=>{
-    depth=0;hi(false);
-    if(!hasFiles(e))return;
+    depth=0;hi(0);
+    if(!files(e).length)return;
     e.preventDefault();
-    if(!canUp()){$('uploadHint').textContent='Finish the current job before uploading.';return;}
-    const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(isArch);
-    if(!f){$('uploadHint').textContent='Drop a .zip or .sl1 file here.';return;}
-    try{const dt=new DataTransfer();dt.items.add(f);$('uploadFile').files=dt.files;$('uploadForm').requestSubmit();}
-    catch(err){$('uploadHint').textContent='Could not read the dropped file.';}
+    if(!opt.canDrop())return;
+    const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(x=>opt.extRe.test((x&&x.name)||''));
+    if(!f){msg(opt.reject,true);return;}
+    if(opt.expand)opt.expand();
+    opt.onFile(f);
   });
-})();
-/* Drag-drop i slicer: numestas .stl paduodamas slicerio failo ivesciai taip pat,
-   kaip SD atveju - idedam i #slicerFile ir issaunam `change`, o slicerio handleris
-   (web/parts/slicer.js) viska padaro. Priimam TIK kai sliceris idiegtas ir ne
-   uzsiemes (ne spausdinant); numetus - atidarom bloka. #slicerFile gyvena slicerio
-   dalyse, tad cia ji tik VAROM (kodo nekeiciam); svariau butu window.slicerLoadFile,
-   bet uztenka ir sito. Netinkamas tipas (zip) ant slicerio - tyliai (ji pasiims SD). */
-(function(){
-  const zone=$('slicerCard'); if(!zone) return;
-  const canSlice=()=>!!window.slicerLoadedVer && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy);
-  const isStl=f=>/\.stl$/i.test((f&&f.name)||'');
-  const hasFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.items||[]).some(i=>i.kind==='file'));
-  let depth=0;
-  const hi=on=>{zone.style.outline=on?'2px dashed var(--accent)':'';zone.style.outlineOffset=on?'-4px':'';};
-  zone.addEventListener('dragenter',e=>{if(!hasFiles(e)||!canSlice())return;e.preventDefault();depth++;hi(true);});
-  zone.addEventListener('dragover',e=>{if(!hasFiles(e)||!canSlice())return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
-  zone.addEventListener('dragleave',e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)hi(false);});
-  zone.addEventListener('drop',e=>{
-    depth=0;hi(false);
-    if(!hasFiles(e))return;
-    e.preventDefault();
-    if(!canSlice())return;
-    const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(isStl);
-    const inp=$('slicerFile');
-    if(!inp)return;
-    if(!f){dndToast('Drop an .stl file here.');return;}
-    try{
-      if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen();
-      const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
-      inp.dispatchEvent(new Event('change',{bubbles:true}));
-    }catch(err){}
-  });
-})();
+}
+wireDnD($('sdSection'),{
+  extRe:/\.(zip|sl1)$/i, okMime:/zip/, reject:'SD accepts only SL1 and ZIP files.',
+  canDrop:()=>!uploadBusy && !(statusData&&statusData.busy) && !$('sdSection').classList.contains('printFold'),
+  expand:()=>{const t=$('sdToggle');if(t&&t.getAttribute('aria-expanded')==='false')t.click();},
+  onFile:f=>{try{const dt=new DataTransfer();dt.items.add(f);$('uploadFile').files=dt.files;$('uploadForm').requestSubmit();}
+    catch(err){msg('Could not read the dropped file.',true);}}
+});
+wireDnD($('slicerCard'),{
+  extRe:/\.stl$/i, okMime:/stl|sla|model/, reject:'Slicer accepts only STL files.',
+  canDrop:()=>!!window.slicerLoadedVer && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy),
+  expand:()=>{if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen();},
+  onFile:f=>{const inp=$('slicerFile');if(!inp)return;
+    try{const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
+      inp.dispatchEvent(new Event('change',{bubbles:true}));msg('STL accepted for slicing.');}catch(err){}}
+});
 {const pw=$('cfgPollWait');if(pw){pw.value=String(pollWaitUserS());
  pw.addEventListener('change',()=>{const v=Math.round(Number(pw.value)||0);const ok=v>=5&&v<=180;
   try{if(ok)localStorage.setItem('tmPollWaitS',String(v));else localStorage.removeItem('tmPollWaitS');}catch(e){}
