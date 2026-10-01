@@ -125,7 +125,7 @@ const metaOf = (rec) => ({
 });
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // One canonical host: www 301s to the apex (people type www out of habit,
     // and links they then share should all look the same).
@@ -134,6 +134,21 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
     const path = url.pathname.replace(/\/$/, '') || '/';
+
+    // Edge cache for the KV-backed panel pages: a repeat view within the TTL is
+    // served from caches.default and never touches KV. The account's Workers KV
+    // free-tier daily cap is shared by every worker here (feedback, stats, orai,
+    // ...), so uncached per-visit KV reads on /tests,/orai,/plan,/map,/team were
+    // the easy win to cut (2026-10-02). Only 200s are stored; gated pages keep
+    // their key check OUTSIDE serveCached, so a 404 is never cached.
+    const _cache = caches.default;
+    const serveCached = async (builder) => {
+      const hit = await _cache.match(request);
+      if (hit) return hit;
+      const resp = await builder();
+      if (resp.status === 200) ctx.waitUntil(_cache.put(request, resp.clone()));
+      return resp;
+    };
 
     // --- SEO / AI discovery: robots.txt, sitemap.xml, llms.txt at the apex ---
     // The apex root is Cloudflare-served (not this worker) and there is no CNAME,
@@ -277,10 +292,12 @@ export default {
     }
 
     if (request.method === 'GET' && path === '/tests') {
-      const html = await env.FEEDBACK.get('panel:tests');
-      if (!html) return new Response('No panel uploaded yet', { status: 404 });
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      return serveCached(async () => {
+        const html = await env.FEEDBACK.get('panel:tests');
+        if (!html) return new Response('No panel uploaded yet', { status: 404 });
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+        });
       });
     }
 
@@ -288,10 +305,12 @@ export default {
     // Public by design: fake demo data only; linked from that project's README and its
     // Telegram bot's /demo command. Update: wrangler kv key put panel:orai --path prototipas.html
     if (request.method === 'GET' && path === '/orai') {
-      const html = await env.FEEDBACK.get('panel:orai');
-      if (!html) return new Response('No panel uploaded yet', { status: 404 });
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      return serveCached(async () => {
+        const html = await env.FEEDBACK.get('panel:orai');
+        if (!html) return new Response('No panel uploaded yet', { status: 404 });
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+        });
       });
     }
 
@@ -686,10 +705,12 @@ export default {
     // NOT a public roadmap - holds internal strategy; only V opens it by URL.
     if (request.method === 'GET' && path === '/plan') {
       if (!keyOk) return new Response('Not found', { status: 404 });
-      const html = await env.FEEDBACK.get('panel:plan');
-      if (!html) return new Response('No plan uploaded yet', { status: 404 });
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      return serveCached(async () => {
+        const html = await env.FEEDBACK.get('panel:plan');
+        if (!html) return new Response('No plan uploaded yet', { status: 404 });
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+        });
       });
     }
 
@@ -698,10 +719,12 @@ export default {
     // Stable reference (separate from the changing plan); 404 without the key.
     if (request.method === 'GET' && path === '/map') {
       if (!keyOk) return new Response('Not found', { status: 404 });
-      const html = await env.FEEDBACK.get('panel:map');
-      if (!html) return new Response('No map uploaded yet', { status: 404 });
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      return serveCached(async () => {
+        const html = await env.FEEDBACK.get('panel:map');
+        if (!html) return new Response('No map uploaded yet', { status: 404 });
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+        });
       });
     }
 
@@ -713,10 +736,12 @@ export default {
       const want = String((await env.FEEDBACK.get('key:team')) || '').trim();
       const got = (url.searchParams.get('key') || '').trim();
       if (!want || got !== want) return new Response('Not found', { status: 404 });
-      const html = await env.FEEDBACK.get('panel:team');
-      if (!html) return new Response('No team roadmap uploaded yet', { status: 404 });
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-cache' },
+      return serveCached(async () => {
+        const html = await env.FEEDBACK.get('panel:team');
+        if (!html) return new Response('No team roadmap uploaded yet', { status: 404 });
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+        });
       });
     }
 
