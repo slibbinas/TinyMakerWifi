@@ -6701,7 +6701,8 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
    snackbaras, uzraktai nepaliesti); slicer -> #slicerFile + change. Priimam TIK kai
    blokas aktyvus. Tempiant: oranzinis remelis = tinka; raudonas sydas = aiskiai
    netinkamas tipas (pagal MIME; tuscias/octet = nezinia -> oranzinis, atmetama numetus).
-   Netinkama numetus - centruotas `msg()` snackas; suskleista bloka pirma isskleidziam.
+   Netinkama numetus - nieko (jokio snacko, abiem blokam vienodai). Tinkama ant suskleisto
+   bloko - pirma isskleidziam, tada priimam.
    #uploadForm/#slicerFile gyvena savo vietose - cia juos tik VAROM (kodo nekeiciam). */
 function wireDnD(zone, opt){
   if(!zone) return;
@@ -6719,22 +6720,22 @@ function wireDnD(zone, opt){
     e.preventDefault();
     if(!opt.canDrop())return;
     const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(x=>opt.extRe.test((x&&x.name)||''));
-    if(!f){msg(opt.reject,true);return;}
+    if(!f)return;   // netinkamas tipas: blokas tempiant jau raudonas (kai tipa galima atpazinti), snacko nerodom ir nieko nedarom (V 2026-10-01, vienodai abiem blokam)
     if(opt.expand)opt.expand();
     opt.onFile(f);
   });
 }
 wireDnD($('sdSection'),{
-  extRe:/\.(zip|sl1)$/i, okMime:/zip/, reject:'SD accepts only SL1 and ZIP files.',
+  extRe:/\.(zip|sl1)$/i, okMime:/zip/,
   canDrop:()=>!uploadBusy && !(statusData&&statusData.busy) && !$('sdSection').classList.contains('printFold'),
   expand:()=>{const t=$('sdToggle');if(t&&t.getAttribute('aria-expanded')==='false')t.click();},
   onFile:f=>{try{const dt=new DataTransfer();dt.items.add(f);$('uploadFile').files=dt.files;$('uploadForm').requestSubmit();}
     catch(err){msg('Could not read the dropped file.',true);}}
 });
 wireDnD($('slicerCard'),{
-  extRe:/\.stl$/i, okMime:/stl|sla|model/, reject:'Slicer accepts only STL files.',
+  extRe:/\.stl$/i, okMime:/stl|sla|model/,
   canDrop:()=>!!window.slicerLoadedVer && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy),
-  expand:()=>{if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen();},
+  expand:()=>{if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen(true);},
   onFile:f=>{const inp=$('slicerFile');if(!inp)return;
     try{const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
       inp.dispatchEvent(new Event('change',{bubbles:true}));msg('STL accepted for slicing.');}catch(err){}}
