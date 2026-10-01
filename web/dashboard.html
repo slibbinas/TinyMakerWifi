@@ -6699,42 +6699,42 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
 /* Drag-drop i SD manageri (.zip/.sl1) ir i slicer (.stl). Numestas failas eina TUO
    PACIU keliu, kaip rinkiklis: SD -> #uploadFile + submit (dydis, Replace/Rename,
    snackbaras, uzraktai nepaliesti); slicer -> #slicerFile + change. Priimam TIK kai
-   blokas aktyvus. Tempiant: oranzinis remelis = tinka; raudonas sydas = aiskiai
-   netinkamas tipas (pagal MIME; tuscias/octet = nezinia -> oranzinis - pvz. STL ateina
-   tuscias, tad tempiant jo neatpazistam). Varda zinom tik NUMETUS: netinkamas - blokas
-   trumpai blyksteli raudonai, NEISSISKLEIDZIA ir nepriima, jokio snacko; tinkamas - (jei
-   reikia) issiskleidzia ir priima. Abiem blokam vienodai.
+   blokas aktyvus. TEMPIANT nieko neindikuojam (nei oranzinio, nei raudono): varda
+   (pletini) narsykle duoda tik NUMETUS, o be jo STL neatskirtume nuo galiojancio SL1
+   (STL tempiant ateina su tusciu MIME - ismatuota gyvai). NUMETUS, kai faktas zinomas:
+   netinkamas - trumpai blyksteli raudonai, NEISSISKLEIDZIA ir nepriima; tinkamas -
+   trumpai oranzinis, (jei reikia) issiskleidzia ir priima. Jokio snacko. Vienodai abiem.
    #uploadForm/#slicerFile gyvena savo vietose - cia juos tik VAROM (kodo nekeiciam). */
 function wireDnD(zone, opt){
   if(!zone) return;
-  let depth=0;
   const hi=s=>{zone.style.outline=s?('2px dashed '+(s==='bad'?'#e05555':'var(--accent)')):'';
     zone.style.outlineOffset=s?'-4px':'';zone.style.boxShadow=(s==='bad')?'inset 0 0 0 9999px rgba(224,85,85,.10)':'';};
   const files=e=>Array.from((e.dataTransfer&&e.dataTransfer.items)||[]).filter(i=>i.kind==='file');
-  const bad=e=>{const it=files(e);return it.length>0&&it.every(i=>{const t=(i.type||'').toLowerCase();return t&&t!=='application/octet-stream'&&!opt.okMime.test(t);});};
-  zone.addEventListener('dragenter',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();depth++;hi(bad(e)?'bad':'ok');});
-  zone.addEventListener('dragover',e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();const b=bad(e);e.dataTransfer.dropEffect=b?'none':'copy';hi(b?'bad':'ok');});
-  zone.addEventListener('dragleave',e=>{if(!files(e).length)return;depth=Math.max(0,depth-1);if(!depth)hi(0);});
+  /* Tempiant tik leidziam numesti (preventDefault) - JOKIO pasvietimo: varda gaunam
+     tik numetus, o be jo netinkamo nuo tinkamo neatskirtume (STL ateina tuscias). */
+  const allow=e=>{if(!files(e).length||!opt.canDrop())return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';};
+  zone.addEventListener('dragenter',allow);
+  zone.addEventListener('dragover',allow);
   zone.addEventListener('drop',e=>{
-    depth=0;hi(0);
     if(!files(e).length)return;
     e.preventDefault();
     if(!opt.canDrop())return;
     const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(x=>opt.extRe.test((x&&x.name)||''));
-    if(!f){hi('bad');setTimeout(()=>hi(0),700);return;}   // netinkamas: varda zinom tik NUMETUS - blokas trumpai blyksteli raudonai ir NEISSISKLEIDZIA (lieka kaip buvo), nepriimam, jokio snacko (V 2026-10-01)
+    if(!f){hi('bad');setTimeout(()=>hi(0),700);return;}   // netinkamas (faktas zinomas): trumpai raudona, NEISSISKLEIDZIA, nepriima
+    hi('ok');setTimeout(()=>hi(0),700);                    // tinkamas: trumpai oranzine, tada (jei reikia) issiskleidzia ir priima
     if(opt.expand)opt.expand();
     opt.onFile(f);
   });
 }
 wireDnD($('sdSection'),{
-  extRe:/\.(zip|sl1)$/i, okMime:/zip/,
+  extRe:/\.(zip|sl1)$/i,
   canDrop:()=>!uploadBusy && !(statusData&&statusData.busy) && !$('sdSection').classList.contains('printFold'),
   expand:()=>{const t=$('sdToggle');if(t&&t.getAttribute('aria-expanded')==='false')t.click();},
   onFile:f=>{try{const dt=new DataTransfer();dt.items.add(f);$('uploadFile').files=dt.files;$('uploadForm').requestSubmit();}
     catch(err){msg('Could not read the dropped file.',true);}}
 });
 wireDnD($('slicerCard'),{
-  extRe:/\.stl$/i, okMime:/stl|sla|model/,
+  extRe:/\.stl$/i,
   canDrop:()=>!!(statusData&&statusData.slicerOn) && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy),
   expand:()=>{const t=$('slicerToggle');if(t&&!t.disabled&&!(window.slicerIsOpen&&window.slicerIsOpen()))t.click();},
   onFile:f=>{const inp=$('slicerFile');if(!inp)return;
