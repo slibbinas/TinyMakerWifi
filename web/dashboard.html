@@ -6723,6 +6723,37 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
     catch(err){$('uploadHint').textContent='Could not read the dropped file.';}
   });
 })();
+/* Drag-drop i slicer: numestas .stl paduodamas slicerio failo ivesciai taip pat,
+   kaip SD atveju - idedam i #slicerFile ir issaunam `change`, o slicerio handleris
+   (web/parts/slicer.js) viska padaro. Priimam TIK kai sliceris idiegtas ir ne
+   uzsiemes (ne spausdinant); numetus - atidarom bloka. #slicerFile gyvena slicerio
+   dalyse, tad cia ji tik VAROM (kodo nekeiciam); svariau butu window.slicerLoadFile,
+   bet uztenka ir sito. Netinkamas tipas (zip) ant slicerio - tyliai (ji pasiims SD). */
+(function(){
+  const zone=$('slicerCard'); if(!zone) return;
+  const canSlice=()=>!!window.slicerLoadedVer && !(window.slicerDirbo&&window.slicerDirbo()) && !(statusData&&statusData.busy);
+  const isStl=f=>/\.stl$/i.test((f&&f.name)||'');
+  const hasFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.items||[]).some(i=>i.kind==='file'));
+  let depth=0;
+  const hi=on=>{zone.style.outline=on?'2px dashed var(--accent)':'';zone.style.outlineOffset=on?'-4px':'';};
+  zone.addEventListener('dragenter',e=>{if(!hasFiles(e)||!canSlice())return;e.preventDefault();depth++;hi(true);});
+  zone.addEventListener('dragover',e=>{if(!hasFiles(e)||!canSlice())return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  zone.addEventListener('dragleave',e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)hi(false);});
+  zone.addEventListener('drop',e=>{
+    depth=0;hi(false);
+    if(!hasFiles(e))return;
+    e.preventDefault();
+    if(!canSlice())return;
+    const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(isStl);
+    const inp=$('slicerFile');
+    if(!f||!inp)return;
+    try{
+      if(window.slicerOpen && !(window.slicerIsOpen&&window.slicerIsOpen()))window.slicerOpen();
+      const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+    }catch(err){}
+  });
+})();
 {const pw=$('cfgPollWait');if(pw){pw.value=String(pollWaitUserS());
  pw.addEventListener('change',()=>{const v=Math.round(Number(pw.value)||0);const ok=v>=5&&v<=180;
   try{if(ok)localStorage.setItem('tmPollWaitS',String(v));else localStorage.removeItem('tmPollWaitS');}catch(e){}
