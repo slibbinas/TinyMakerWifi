@@ -6700,9 +6700,10 @@ $('uploadForm').addEventListener('submit',async e=>{e.preventDefault();const f=$
    PACIU keliu, kaip rinkiklis: SD -> #uploadFile + submit (dydis, Replace/Rename,
    snackbaras, uzraktai nepaliesti); slicer -> #slicerFile + change. Priimam TIK kai
    blokas aktyvus. Tempiant: oranzinis remelis = tinka; raudonas sydas = aiskiai
-   netinkamas tipas (pagal MIME; tuscias/octet = nezinia -> oranzinis, atmetama numetus).
-   Netinkama numetus - nieko (jokio snacko, abiem blokam vienodai). Tinkama ant suskleisto
-   bloko - pirma isskleidziam, tada priimam.
+   netinkamas tipas (pagal MIME; tuscias/octet = nezinia -> oranzinis - pvz. STL ateina
+   tuscias, tad tempiant jo neatpazistam). Varda zinom tik NUMETUS: netinkamas - blokas
+   trumpai blyksteli raudonai, NEISSISKLEIDZIA ir nepriima, jokio snacko; tinkamas - (jei
+   reikia) issiskleidzia ir priima. Abiem blokam vienodai.
    #uploadForm/#slicerFile gyvena savo vietose - cia juos tik VAROM (kodo nekeiciam). */
 function wireDnD(zone, opt){
   if(!zone) return;
@@ -6720,7 +6721,7 @@ function wireDnD(zone, opt){
     e.preventDefault();
     if(!opt.canDrop())return;
     const f=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]).find(x=>opt.extRe.test((x&&x.name)||''));
-    if(!f)return;   // netinkamas tipas: blokas tempiant jau raudonas (kai tipa galima atpazinti), snacko nerodom ir nieko nedarom (V 2026-10-01, vienodai abiem blokam)
+    if(!f){hi('bad');setTimeout(()=>hi(0),700);return;}   // netinkamas: varda zinom tik NUMETUS - blokas trumpai blyksteli raudonai ir NEISSISKLEIDZIA (lieka kaip buvo), nepriimam, jokio snacko (V 2026-10-01)
     if(opt.expand)opt.expand();
     opt.onFile(f);
   });
