@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Resins tested for the TinyMaker</title>
-<!-- Kol puslapis neskelbiamas, jo nerodom ir paieskai: adresas veikia, bet
-     i rezultatus nepaklius, kol V jo nepaskelbs. Nuemus sia eilute - indeksuojamas. -->
+<!-- Kol puslapis neskelbiamas, is paieskos ji laiko sita eilute: adresas veikia,
+     bet gh-pages indeksuojamas, tad be jos Google ji rastu pats, be jokios nuorodos.
+     Skelbiant - nuimti. -->
 <meta name="robots" content="noindex, nofollow">
 <meta name="description" content="Every resin run on the palm-sized TinyMaker MSLA printer: the exposure that worked, what the test prints looked like, and where to buy it.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
@@ -74,7 +75,12 @@ h2{color:var(--accent);font-size:22px;margin:0 0 6px}
 .bdg{border:1px solid var(--line2);border-radius:999px;padding:1px 9px;font-size:11.5px;color:var(--muted)}
 .stars{font-size:13px;color:var(--accent);letter-spacing:1px}
 .stars i{color:var(--line2);font-style:normal}
-.verdict{margin:0 0 12px;font-size:14px;color:var(--muted)}
+/* Verdiktas kerpamas iki triju eiluciu ir tiek pat vietos uzima, kai jis
+   trumpesnis: tekstas yra vienintelis kintamo aukscio gabalas kortelėje, o
+   korteles gretimos - skirtumas matosi is karto. Visas tekstas - uzvedus pele. */
+.verdict{margin:0 0 12px;font-size:14px;color:var(--muted);min-height:calc(3 * 1.55em);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.kv .alt{color:var(--muted2);font-size:12px}
 .kv{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 14px}
 .kv td{padding:4px 0;border-top:1px solid var(--line)}
 .kv td:first-child{color:var(--muted2)}
@@ -83,6 +89,7 @@ h2{color:var(--accent);font-size:22px;margin:0 0 6px}
 .btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:9px;padding:9px 12px;text-align:center;font-size:14px;flex:1;border:0;cursor:pointer;font-family:inherit}
 .btn:hover{background:#c95f06;text-decoration:none}
 .btn.sec{background:var(--btnsec);color:var(--btnsec-t)}
+.btn.off{opacity:.5;cursor:default}
 .btn.sec:hover{background:var(--btnsec-h)}
 
 details.tests{border-top:1px solid var(--line);margin:14px -16px -16px;padding:0 16px}
@@ -182,6 +189,9 @@ function tfull(t){return (TYPES[t]||{f:t}).f;}
 function wname(w){return (WASH[w]||{s:''}).s;}
 function wfull(w){return (WASH[w]||{f:''}).f;}
 
+/* GEN:data - sita bloka perrašo scripts/dev/publish_tested.py is dervu irasu.
+   Ranka keiciamas tik maketo metu; po pirmo generavimo bet koks rankinis
+   taisymas dings per kita atnaujinima. */
 var TESTED=[
  {slug:'etalonas', maker:'Example', name:'Synthetic resin', type:'standard',
   color:'grey', wash:'ipa', demo:true, testedOn:'2026-09',
@@ -246,6 +256,7 @@ var QUEUED=[
  {maker:'Sunlu', name:'Standard Plus', type:'standard', wash:'ipa'},
  {maker:'Sunlu', name:'ABS-Like', type:'abs', wash:'alc95'}
 ];
+/* /GEN:data */
 
 /* ------------------------------------------------------------------ *
  *  Stand-in photographs. Drawn, not photographed - so nobody mistakes
@@ -309,16 +320,21 @@ function card(r){
   h+='<div class="badges"><span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
      (r.wash?'<span class="bdg" title="'+wfull(r.wash)+'">'+wname(r.wash)+'</span>':'')+
      '<span class="bdg">'+esc(r.color)+'</span>'+stars(bestStars(r))+'</div>';
-  h+='<p class="verdict">'+esc(r.verdict)+'</p>';
+  h+='<p class="verdict" title="'+esc(r.verdict)+'">'+esc(r.verdict)+'</p>';
   h+='<table class="kv"><tbody>';
-  h+='<tr><td>Layer height</td><td>'+r.best.lh.toFixed(2)+' mm</td></tr>';
+  /* Antras sluoksnio aukstis eina i ta pacia eilute, o ne i savo: kitaip viena
+     kortele turi penkias eilutes, kita keturias, ir gretimu korteliu apacios
+     issiskiria be jokios priezasties. */
+  h+='<tr><td>Layer height</td><td>'+r.best.lh.toFixed(2)+' mm'+(r.alt?' <span class="alt">&middot; also '+r.alt.lh.toFixed(2)+'</span>':'')+'</td></tr>';
   h+='<tr><td>Regular exposure</td><td>'+r.best.regular.toFixed(1)+' s</td></tr>';
   h+='<tr><td>Bottom exposure</td><td>'+r.best.base+' s &times; '+r.best.baseLayers+'</td></tr>';
-  if(r.alt) h+='<tr><td>Also profiled at</td><td>'+r.alt.lh.toFixed(2)+' mm</td></tr>';
   h+='<tr><td>Density</td><td>'+r.best.density.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;</td></tr>';
   h+='</tbody></table>';
   h+='<div class="act">';
-  h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>':'<button class="btn sec" disabled style="opacity:.5;cursor:default">Example only</button>';
+  /* Be nuorodos - toks pat <span>, ne <button>: mygtukas ir nuoroda skirtingai
+     skaiciuoja savo auksti (3 px), ir gretimu korteliu apacios issiskiria. */
+  h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>'
+          :'<span class="btn sec off">'+(r.demo?'Example only':'No shop link')+'</span>';
   h+='</div>';
   h+='<details class="tests"><summary>How it was dialled in &middot; '+r.tests.length+' test print'+(r.tests.length>1?'s':'')+'</summary><div class="tl">';
   r.tests.forEach(function(t){
