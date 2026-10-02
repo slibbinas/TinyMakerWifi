@@ -322,8 +322,13 @@ export default {
     if (/^\/extension\/tinymaker-chrome[^/]*\.zip$/.test(path)) {
       return Response.redirect(EXT_STORE, 301);
     }
+    //
+    // /resin/ carries both: the printer fetches manifest.json and the profiles
+    // from it, and index.html is the same data written for a person - the page
+    // a resin maker is handed, since they have no TinyMaker to open a dashboard
+    // on. One folder, because it is one subject.
     if (request.method === 'GET' &&
-        /^\/(demo|manual|roadmap|extension)(\/|$)/.test(path)) {
+        /^\/(demo|manual|roadmap|extension|resin)(\/|$)/.test(path)) {
       const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
       const r = await fetch(upstream.replace(/\/+$/, '/'), { cf: { cacheTtl: 300 } });
       return new Response(r.body, {
