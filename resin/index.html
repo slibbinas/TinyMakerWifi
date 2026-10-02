@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resins tested for the TinyMaker</title>
+<!-- Kol puslapis neskelbiamas, jo nerodom ir paieskai: adresas veikia, bet
+     i rezultatus nepaklius, kol V jo nepaskelbs. Nuemus sia eilute - indeksuojamas. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Every resin run on the palm-sized TinyMaker MSLA printer: the exposure that worked, what the test prints looked like, and where to buy it.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
+<style>
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f}
+[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.hero{padding:44px 0 26px;text-align:center;position:relative}
+.hero svg.logo{width:60px;height:60px}
+h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
+.tag{font-size:17px;color:var(--tag);margin:0 auto;max-width:640px}
+.themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}
+.themeSw button[aria-pressed=true]{color:var(--accent)}
+
+.demobar{background:var(--card);border:1px dashed var(--accent);border-radius:12px;padding:12px 16px;margin:0 0 26px;font-size:14px;color:var(--muted)}
+.demobar b{color:var(--accent)}
+
+.counts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:22px 0 0}
+.count{background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:8px 16px;font-size:14px;color:var(--muted)}
+.count b{color:var(--text);font-size:19px;display:block;line-height:1.25}
+
+section{padding:30px 0;border-top:1px solid var(--line)}
+h2{color:var(--accent);font-size:22px;margin:0 0 6px}
+.lede{color:var(--muted);margin:0 0 18px;font-size:14.5px}
+
+.fgroup{display:flex;align-items:center;gap:12px;margin:0 0 10px;flex-wrap:wrap}
+.flab{font-size:12px;color:var(--muted2);flex:0 0 118px;text-transform:uppercase;letter-spacing:.05em}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--btnsec);color:var(--btnsec-t);border:1px solid transparent;border-radius:999px;padding:5px 13px;font-size:13px;cursor:pointer;font-family:inherit}
+.chip:hover{background:var(--btnsec-h)}
+.chip[aria-pressed=true]{background:transparent;border-color:var(--accent);color:var(--accent)}
+/* A category with nothing tested yet stays on the list: a visitor after a
+   flexible resin should learn one is on its way, not that none exists. */
+.chip.none{background:transparent;border:1px dashed var(--line2);color:var(--muted2)}
+.chip.none:hover{border-color:var(--muted2);color:var(--muted)}
+.chip .n{opacity:.6;font-variant-numeric:tabular-nums;margin-left:5px}
+.chip .q{color:var(--muted2);font-variant-numeric:tabular-nums;margin-left:3px;font-size:12px}
+.flegend{font-size:12px;color:var(--muted2);margin:2px 0 18px 130px}
+.flegend b{color:var(--text);font-weight:600}
+@media(max-width:640px){.flegend{margin-left:0}}
+.empty{background:var(--card);border:1px dashed var(--line2);border-radius:14px;padding:22px;margin-top:4px}
+.empty b{display:block;margin-bottom:4px}
+.empty p{margin:0 0 12px;color:var(--muted);font-size:14px}
+
+/* align-items:start - without it an opened test log stretches the
+   whole row and the neighbours' Buy buttons slide to the bottom of a mostly
+   empty card. */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start}
+.rc{background:var(--card);border:1px solid var(--line2);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.rc.demo{border-style:dashed;border-color:var(--accent)}
+.pic{position:relative;background:var(--shot);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pic svg{width:100%;height:100%;display:block}
+.stamp{position:absolute;top:9px;left:9px;background:rgba(232,114,12,.92);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.06em;border-radius:5px;padding:2px 7px}
+.body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column}
+.rc h3{margin:0;font-size:17px;line-height:1.3}
+.maker{color:var(--muted2);font-size:13px;display:block;margin-bottom:2px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 10px}
+.bdg{border:1px solid var(--line2);border-radius:999px;padding:1px 9px;font-size:11.5px;color:var(--muted)}
+.stars{font-size:13px;color:var(--accent);letter-spacing:1px}
+.stars i{color:var(--line2);font-style:normal}
+.verdict{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.kv{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 14px}
+.kv td{padding:4px 0;border-top:1px solid var(--line)}
+.kv td:first-child{color:var(--muted2)}
+.kv td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.act{display:flex;gap:8px;margin:auto 0 0}
+.btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:9px;padding:9px 12px;text-align:center;font-size:14px;flex:1;border:0;cursor:pointer;font-family:inherit}
+.btn:hover{background:#c95f06;text-decoration:none}
+.btn.sec{background:var(--btnsec);color:var(--btnsec-t)}
+.btn.sec:hover{background:var(--btnsec-h)}
+
+details.tests{border-top:1px solid var(--line);margin:14px -16px -16px;padding:0 16px}
+details.tests summary{cursor:pointer;padding:11px 0;font-size:13.5px;color:var(--muted);list-style:none}
+details.tests summary::-webkit-details-marker{display:none}
+details.tests summary::before{content:"▸ ";color:var(--accent)}
+details.tests[open] summary::before{content:"▾ "}
+.tl{margin:0 0 14px}
+.tr{display:grid;grid-template-columns:78px 1fr;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.tr .th{background:var(--shot);border-radius:8px;overflow:hidden;aspect-ratio:1/1;position:relative}
+.tr .th svg{width:100%;height:100%;display:block}
+.tr b{font-size:13.5px;display:block}
+.tr p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+.tr .nums{font-size:12px;color:var(--muted2);font-variant-numeric:tabular-nums;margin-top:4px}
+
+.rows{display:grid;gap:10px}
+.row{background:var(--card);border:1px solid var(--line2);border-radius:11px;padding:11px 15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.row b{font-size:14.5px}
+.row .who{color:var(--muted2);font-size:13px}
+.row .right{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:var(--muted2)}
+.dot.go{background:var(--accent)}
+
+footer{padding:26px 0 44px;border-top:1px solid var(--line);color:var(--muted2);font-size:13px;text-align:center;text-wrap:balance}
+footer a{color:var(--muted2);text-decoration:underline}
+@media(max-width:640px){
+  h1{font-size:28px}.hero{padding-top:56px}
+  .themeSw{top:8px;right:0}
+  .tr{grid-template-columns:62px 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap hero">
+  <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
+  <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+  <h1>Resins tested for TinyMaker</h1>
+  <p class="tag">The TinyMaker has a colour LCD and a 40 x 31 mm plate, so the numbers on a resin bottle rarely fit it. Everything below was printed on the machine itself - the exposure listed is the one that worked, not the one on the label.</p>
+  <div class="counts" id="counts"></div>
+</div>
+
+<div class="wrap">
+  <div class="demobar" id="demobar"><b>Mockup.</b> Layout study for the public resin catalogue. Photographs are drawings, and one entry is a synthetic example used to show what a fully tested resin looks like. Printed numbers for Sunlu Toughness and Anycubic Water-Washable are real - they come from the profiles the printer already ships.</div>
+</div>
+
+<section id="tested"><div class="wrap">
+  <h2>Tested and published</h2>
+  <p class="lede">Each of these ran through the same four steps: exposure strip, standard coupon, a simple model, a detailed one. The profile is installed on the printer in one tap from the dashboard.</p>
+  <div class="fgroup"><span class="flab">What it is for</span><div class="filters" id="fType" role="group" aria-label="Filter by resin type"></div></div>
+  <div class="fgroup"><span class="flab">How you wash it</span><div class="filters" id="fWash" role="group" aria-label="Filter by washing method"></div></div>
+  <p class="flegend">On each chip: the <b>first number</b> is how many are finished and published, the <span>grey +number</span> how many samples are here waiting for plate time.</p>
+  <div class="grid" id="grid"></div>
+  <div id="empty" class="empty" hidden></div>
+</div></section>
+
+<section id="testing"><div class="wrap">
+  <h2>On the bench now</h2>
+  <p class="lede">Calibration under way. Tough74 V2 comes first: it is the reference resin in Resione's own table, so the other five are derived from it.</p>
+  <div class="rows" id="rowsTesting"></div>
+</div></section>
+
+<section id="queued"><div class="wrap">
+  <h2>In the queue</h2>
+  <p class="lede">Samples received from the manufacturers and waiting for plate time. Ordered by maker.</p>
+  <div class="rows" id="rowsQueued"></div>
+</div></section>
+
+<footer><div class="wrap">
+  Buying links are affiliate links: they cost you nothing and help pay for the next batch of test resin.<br>
+  A different UV panel or a colder room will shift these numbers.<br>
+  <a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &middot; <a href="https://tinymakerwifi.com/manual/">Manual</a> &middot; <a href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
+</div></footer>
+
+<script>
+/* ------------------------------------------------------------------ *
+ *  DATA - in the real page this block is generated from resin/manifest.json
+ *  plus the Resin Lab records. Kept as one object so the generator only
+ *  has to replace it.
+ * ------------------------------------------------------------------ */
+/* Two axes a buyer actually chooses on: what the resin is for, and what he has
+   to wash it in. Order here is the order the chips appear in. */
+var TYPES={
+  standard:{s:'Standard',     f:'Standard / water-washable'},
+  abs:     {s:'ABS-like',     f:'ABS-like / 14K / high detail'},
+  tough:   {s:'Tough',        f:'Tough, Nylon-, PC- and PA-like'},
+  flex:    {s:'Flexible',     f:'Flexible'},
+  cast:    {s:'Castable',     f:'Castable / burn-out'}
+};
+var WASH={
+  water: {s:'Water',          f:'Rinses under the tap - no alcohol in the room'},
+  ipa:   {s:'IPA',            f:'Isopropyl alcohol'},
+  alc95: {s:'Alcohol 95%+',   f:'Needs 95 % ethanol or IPA - ordinary IPA is not enough'}
+};
+function tname(t){return (TYPES[t]||{s:t}).s;}
+function tfull(t){return (TYPES[t]||{f:t}).f;}
+function wname(w){return (WASH[w]||{s:''}).s;}
+function wfull(w){return (WASH[w]||{f:''}).f;}
+
+var TESTED=[
+ {slug:'etalonas', maker:'Example', name:'Synthetic resin', type:'standard',
+  color:'grey', wash:'ipa', demo:true, testedOn:'2026-09',
+  verdict:'Stands in for a finished entry: strip, three coupons, then two real models. Every number here is made up.',
+  best:{lh:0.05, regular:11.5, base:33, baseLayers:4, density:1.10},
+  buy:null,
+  tests:[
+   {step:'Exposure strip', kind:'strip', lh:0.05, stars:3, regular:10.0, base:33,
+    txt:'Bars 1-3 sticky and milky, bar 4 (8.5 s) already dry with clean holes; one step up lands on 10 s.'},
+   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:3, regular:10.0, base:33,
+    txt:'Slots open only to 0.5 mm, the 0.3 mm pins snapped off, checkerboard washed out.', ml:'1.6 ml', mins:'38 min'},
+   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:5, regular:11.5, base:33,
+    txt:'Pins down to 0.2 mm survive, slots crisp. This is the one.', ml:'1.7 ml', mins:'39 min'},
+   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:4, regular:13.0, base:33,
+    txt:'Nothing broken but the fine slots start closing up - over-exposed.', ml:'1.7 ml', mins:'41 min'},
+   {step:'Simple model', kind:'model', lh:0.05, stars:5, regular:11.5, base:33,
+    txt:'Clean walls, no elephant foot, plate adhesion fine on 4 base layers.', ml:'3.2 ml', mins:'1 h 12 min'},
+   {step:'Detailed model', kind:'bust', lh:0.05, stars:5, regular:11.5, base:33,
+    txt:'Face detail holds at 0.05 mm; supports come off without marks.', ml:'4.9 ml', mins:'2 h 04 min'}
+  ]},
+
+ {slug:'sunlu-tough', maker:'Sunlu', name:'Toughness', type:'tough',
+  color:'black', wash:'ipa', demo:false, testedOn:'2026-09',
+  verdict:'The house resin for functional parts - forgiving exposure window and it does not shatter when a part is pried off the plate.',
+  best:{lh:0.05, regular:8.0, base:18, baseLayers:4, density:1.157},
+  alt:{lh:0.10, regular:8.0, base:18, baseLayers:2},
+  buy:'https://tinymakerwifi.com/r/sunlu-tough',
+  tests:[
+   {step:'Exposure strip', kind:'strip', lh:0.05, stars:4, regular:8.0, base:18,
+    txt:'Placeholder - the real strip photo goes here once the archive is wired in.'},
+   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:5, regular:8.0, base:18,
+    txt:'Placeholder text for the mockup.', ml:'1.5 ml', mins:'26 min'}
+  ]},
+
+ {slug:'anycubic-ww', maker:'Anycubic', name:'Water-Washable', type:'standard',
+  color:'grey', wash:'water', demo:false, testedOn:'2026-09',
+  verdict:'The one to start with: rinse under the tap, no alcohol in the room. Wants noticeably more light than the tough resins.',
+  best:{lh:0.10, regular:14.0, base:35, baseLayers:2, density:1.10},
+  alt:{lh:0.05, regular:14.0, base:35, baseLayers:4},
+  buy:'https://tinymakerwifi.com/r/anycubic-ww',
+  tests:[
+   {step:'Exposure strip', kind:'strip', lh:0.10, stars:4, regular:14.0, base:35,
+    txt:'Placeholder - real photo pending.'},
+   {step:'Simple model', kind:'model', lh:0.10, stars:4, regular:14.0, base:35,
+    txt:'Placeholder text for the mockup.', ml:'2.8 ml', mins:'44 min'}
+  ]}
+];
+
+var TESTING=[
+ {maker:'Resione', name:'Tough74 V2', type:'tough', wash:'alc95', note:'reference resin - ratio 1.0'},
+ {maker:'Resione', name:'M70 High Precision', type:'standard', wash:'', note:'anti-aliasing must be off'}
+];
+
+var QUEUED=[
+ {maker:'Resione', name:'Anti-Impact Nylon-Like', type:'tough', wash:'alc95'},
+ {maker:'Resione', name:'TH-TGM Durable Miniature', type:'tough', wash:''},
+ {maker:'Resione', name:'F69 Flexible', type:'flex', wash:''},
+ {maker:'Resione', name:'ABS+', type:'abs', wash:''},
+ {maker:'Sunlu', name:'14K Standard', type:'standard', wash:'ipa'},
+ {maker:'Sunlu', name:'Toughness (Solid White)', type:'tough', wash:'ipa'},
+ {maker:'Sunlu', name:'Nylon-Like', type:'tough', wash:'alc95'},
+ {maker:'Sunlu', name:'Standard Plus', type:'standard', wash:'ipa'},
+ {maker:'Sunlu', name:'ABS-Like', type:'abs', wash:'alc95'}
+];
+
+/* ------------------------------------------------------------------ *
+ *  Stand-in photographs. Drawn, not photographed - so nobody mistakes
+ *  the mockup for a finished page.
+ * ------------------------------------------------------------------ */
+function svgStrip(){
+  var b='';
+  for(var i=0;i<8;i++){
+    var x=14+i*34, h=118-i*2, o=(0.30+i*0.085).toFixed(2);
+    b+='<rect x="'+x+'" y="'+(150-h)+'" width="26" height="'+h+'" rx="3" fill="#cfd3d8" opacity="'+o+'"/>';
+    for(var k=0;k<=i;k++){
+      var cy=150-h+14+k*12;
+      if(cy<146) b+='<circle cx="'+(x+13)+'" cy="'+cy+'" r="3.4" fill="#0c0c0e" opacity="'+(0.25+i*0.09).toFixed(2)+'"/>';
+    }
+  }
+  return '<svg viewBox="0 0 300 225"><rect width="300" height="225" fill="#191a1d"/>'+
+    '<rect x="6" y="18" width="288" height="150" rx="6" fill="#111214" stroke="#2a2c31"/>'+b+
+    '<text x="150" y="196" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#6d727a">exposure strip &middot; 8 bars</text></svg>';
+}
+function svgCoupon(){
+  var p='';
+  for(var i=0;i<6;i++) p+='<circle cx="'+(58+i*26)+'" cy="66" r="'+(9-i*1.2)+'" fill="#cfd3d8" opacity=".85"/>';
+  for(var j=0;j<6;j++) p+='<rect x="'+(50+j*26)+'" y="98" width="'+(11-j*1.4)+'" height="34" rx="2" fill="#0c0c0e" opacity=".8"/>';
+  var ch='';
+  for(var a=0;a<4;a++)for(var c=0;c<4;c++) if((a+c)%2===0) ch+='<rect x="'+(196+c*13)+'" y="'+(96+a*13)+'" width="13" height="13" fill="#cfd3d8" opacity=".7"/>';
+  return '<svg viewBox="0 0 300 225"><rect width="300" height="225" fill="#191a1d"/>'+
+    '<rect x="26" y="40" width="248" height="120" rx="8" fill="#23252a" stroke="#31343a"/>'+p+ch+
+    '<text x="150" y="190" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#6d727a">test coupon &middot; pins, slots, grid</text></svg>';
+}
+function svgModel(){
+  return '<svg viewBox="0 0 300 225"><rect width="300" height="225" fill="#191a1d"/>'+
+    '<path d="M150 36 L214 78 L214 156 L150 196 L86 156 L86 78 Z" fill="#2a2d33" stroke="#3a3e46" stroke-width="2"/>'+
+    '<path d="M150 36 L214 78 L150 118 L86 78 Z" fill="#cfd3d8" opacity=".55"/>'+
+    '<path d="M150 118 L214 78 L214 156 L150 196 Z" fill="#cfd3d8" opacity=".25"/>'+
+    '<text x="150" y="214" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#6d727a">simple model</text></svg>';
+}
+function svgBust(){
+  return '<svg viewBox="0 0 300 225"><rect width="300" height="225" fill="#191a1d"/>'+
+    '<ellipse cx="150" cy="80" rx="34" ry="42" fill="#cfd3d8" opacity=".6"/>'+
+    '<path d="M106 196 C106 140 122 122 150 122 C178 122 194 140 194 196 Z" fill="#cfd3d8" opacity=".35"/>'+
+    '<path d="M132 74 q8 -9 16 0 M152 74 q8 -9 16 0" stroke="#191a1d" stroke-width="3" fill="none" opacity=".7"/>'+
+    '<text x="150" y="214" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#6d727a">detailed model</text></svg>';
+}
+var PIC={strip:svgStrip,coupon:svgCoupon,model:svgModel,bust:svgBust};
+function pic(kind){return (PIC[kind]||svgModel)();}
+
+/* ------------------------------------------------------------------ */
+function stars(n){var s='';for(var i=1;i<=5;i++)s+=i<=n?'&#9733;':'<i>&#9733;</i>';return '<span class="stars" title="'+n+' of 5">'+s+'</span>';}
+/* The card's rating is the best print the resin gave, not an average:
+   the early strip and the over-exposed coupons are steps on the way, not marks
+   against it. */
+function bestStars(r){return (r.tests||[]).reduce(function(m,t){return Math.max(m,t.stars||0);},0);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+function card(r){
+  var hero=r.tests&&r.tests.length?r.tests[r.tests.length-1].kind:'model';
+  var h='<article class="rc'+(r.demo?' demo':'')+'" data-type="'+r.type+'">';
+  h+='<div class="pic">'+pic(hero)+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
+  h+='<div class="body">';
+  h+='<span class="maker">'+esc(r.maker)+'</span><h3>'+esc(r.name)+'</h3>';
+  h+='<div class="badges"><span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
+     (r.wash?'<span class="bdg" title="'+wfull(r.wash)+'">'+wname(r.wash)+'</span>':'')+
+     '<span class="bdg">'+esc(r.color)+'</span>'+stars(bestStars(r))+'</div>';
+  h+='<p class="verdict">'+esc(r.verdict)+'</p>';
+  h+='<table class="kv"><tbody>';
+  h+='<tr><td>Layer height</td><td>'+r.best.lh.toFixed(2)+' mm</td></tr>';
+  h+='<tr><td>Regular exposure</td><td>'+r.best.regular.toFixed(1)+' s</td></tr>';
+  h+='<tr><td>Bottom exposure</td><td>'+r.best.base+' s &times; '+r.best.baseLayers+'</td></tr>';
+  if(r.alt) h+='<tr><td>Also profiled at</td><td>'+r.alt.lh.toFixed(2)+' mm</td></tr>';
+  h+='<tr><td>Density</td><td>'+r.best.density.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;</td></tr>';
+  h+='</tbody></table>';
+  h+='<div class="act">';
+  h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>':'<button class="btn sec" disabled style="opacity:.5;cursor:default">Example only</button>';
+  h+='</div>';
+  h+='<details class="tests"><summary>How it was dialled in &middot; '+r.tests.length+' test print'+(r.tests.length>1?'s':'')+'</summary><div class="tl">';
+  r.tests.forEach(function(t){
+    h+='<div class="tr"><div class="th">'+pic(t.kind)+'</div><div>';
+    h+='<b>'+esc(t.step)+' '+stars(t.stars)+'</b>';
+    h+='<p>'+esc(t.txt)+'</p>';
+    h+='<div class="nums">'+t.lh.toFixed(2)+' mm &middot; '+t.regular.toFixed(1)+' s &middot; bottom '+t.base+' s'+(t.ml?' &middot; '+t.ml:'')+(t.mins?' &middot; '+t.mins:'')+'</div>';
+    h+='</div></div>';
+  });
+  h+='</div></details>';
+  h+='</div></article>';
+  return h;
+}
+
+var pick={type:'',wash:''};
+function matches(r,p){return (!p.type||r.type===p.type)&&(!p.wash||r.wash===p.wash);}
+
+function render(){
+  var hit=TESTED.filter(function(r){return matches(r,pick);});
+  document.getElementById('grid').innerHTML=hit.map(card).join('');
+  var box=document.getElementById('empty');
+  if(hit.length){box.hidden=true;return;}
+
+  // Nothing tested under this combination - say what is coming instead of
+  // showing a blank page.
+  var soon=TESTING.concat(QUEUED).filter(function(r){return matches(r,pick);});
+  var what=[pick.type?tname(pick.type).toLowerCase():'', pick.wash?wname(pick.wash).toLowerCase()+'-wash':''].filter(Boolean).join(', ');
+  var h='<b>Nothing finished here yet</b>';
+  h+='<p>No '+(what||'matching')+' resin has been published for the TinyMaker yet.'+
+     (soon.length?' These samples are already here and waiting for plate time:':' Nothing of this kind is in the queue either.')+'</p>';
+  if(soon.length) h+='<div class="rows">'+rowsHtml(soon,false)+'</div>';
+  box.innerHTML=h;box.hidden=false;
+}
+
+function rowsHtml(list,live){
+  return list.map(function(x){
+    return '<div class="row"><span class="dot'+(live?' go':'')+'"></span><b>'+esc(x.name)+'</b>'+
+      '<span class="who">'+esc(x.maker)+'</span>'+
+      '<span class="bdg" title="'+tfull(x.type)+'">'+tname(x.type)+'</span>'+
+      (x.wash?'<span class="bdg" title="'+wfull(x.wash)+'">'+wname(x.wash)+'</span>':'')+
+      '<span class="right">'+(x.note?esc(x.note):'sample received')+'</span></div>';
+  }).join('');
+}
+
+/* Chips cover every category that appears anywhere - tested, on the bench or in
+   the queue. Both numbers are shown: a lone "0" next to Flexible read as
+   "there is no flexible resin" even though one is sitting on the shelf. */
+function chips(host,key,map,all){
+  var soonAll=TESTING.concat(QUEUED);
+  var keys=Object.keys(map).filter(function(k){return all.some(function(r){return r[key]===k;});});
+  host.innerHTML='<button class="chip" data-v="" aria-pressed="true">All</button>'+
+    keys.map(function(k){
+      var n=TESTED.filter(function(r){return r[key]===k;}).length;
+      var q=soonAll.filter(function(r){return r[key]===k;}).length;
+      var t=n+' tested'+(q?', '+q+' waiting for plate time':'')+' - '+map[k].f;
+      return '<button class="chip'+(n?'':' none')+'" data-v="'+k+'" aria-pressed="false" title="'+t+'">'+
+             map[k].s+'<span class="n">'+n+'</span>'+(q?'<span class="q">+'+q+'</span>':'')+'</button>';
+    }).join('');
+  host.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-v]');if(!b)return;
+    host.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+    pick[key]=b.dataset.v;render();
+  });
+}
+
+(function init(){
+  /* Įdėtas į Resin Lab (?embed=1): temos jungiklis ir logotipas ten jau yra lango
+     antraštėje, o du vienodi jungikliai viename lange tik klaidina. Atskirai
+     atidarytas puslapis lieka toks, koks buvo. */
+  if(new URLSearchParams(location.search).has('embed')){
+    document.querySelector('.themeSw').remove();
+    document.querySelector('.hero').style.paddingTop='18px';
+  }
+  document.getElementById('counts').innerHTML=
+    '<span class="count"><b>'+TESTED.length+'</b>tested</span>'+
+    '<span class="count"><b>'+TESTING.length+'</b>on the bench</span>'+
+    '<span class="count"><b>'+QUEUED.length+'</b>in the queue</span>';
+
+  var all=TESTED.concat(TESTING,QUEUED);
+  chips(document.getElementById('fType'),'type',TYPES,all);
+  chips(document.getElementById('fWash'),'wash',WASH,all);
+
+  render();
+  document.getElementById('rowsTesting').innerHTML=rowsHtml(TESTING,true);
+  document.getElementById('rowsQueued').innerHTML=rowsHtml(QUEUED,false);
+
+  // Theme toggle - same localStorage key as the dashboard and the landing page.
+  // Embedded in Resin Lab the switch is removed above, so everything here is
+  // guarded: without it init threw at the last line and quietly skipped it.
+  var sw=document.querySelector('.themeSw');
+  if(sw){
+    var mode=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';};
+    var mark=function(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});};
+    sw.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+      if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(err){}}
+      else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(err){}}
+      mark();
+    });
+    mark();
+  }
+})();
+</script>
+</body>
+</html>
