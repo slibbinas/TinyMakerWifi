@@ -901,6 +901,36 @@ export default {
       return new Response(JSON.stringify({ snapshots: snaps }), { headers: jhead });
     }
 
+    // Release metadata for the fleet page ONLY (date + stable/beta per version,
+    // latest of each, and the set of real shipped versions to flag ghosts like a
+    // device reporting a nonexistent 0.18.13). Kept SEPARATE from /fleet/history
+    // on purpose: that endpoint the RLCD device reads stays byte-for-byte unchanged.
+    // Both fetches are fail-safe and edge-cached; on failure the page just omits
+    // dates/pills/ghost-split. GitHub lists newest-first, so the first non-prerelease
+    // is the latest stable and the first prerelease is the latest beta.
+    if (path === '/fleet/releases' && keyOk) {
+      const out = { map: {}, latestStable: null, latestBeta: null, real: [] };
+      try {
+        const rr = await fetch('https://api.github.com/repos/slibbinas/TinyMakerWifi/releases?per_page=100',
+          { headers: { 'User-Agent': 'tinymaker-fleet', 'Accept': 'application/vnd.github+json' }, cf: { cacheTtl: 3600 } });
+        if (rr.ok) {
+          for (const r of await rr.json()) {
+            const v = String(r.tag_name || '').replace(/^v/, '');
+            if (!v) continue;
+            out.map[v] = { date: String(r.published_at || '').slice(0, 10), beta: !!r.prerelease };
+            if (r.prerelease) { if (!out.latestBeta) out.latestBeta = v; }
+            else if (!out.latestStable) out.latestStable = v;
+          }
+        }
+      } catch (e) { /* page falls back to no dates/pills */ }
+      try {
+        const br = await fetch(GHPAGES + '/builds.json', { cf: { cacheTtl: 3600 } });
+        if (br.ok) out.real = [...new Set(Object.values(await br.json()))];
+      } catch (e) { /* ghost-split just won't apply */ }
+      return new Response(JSON.stringify(out),
+        { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } });
+    }
+
     // Manual snapshot now (bootstrap / test), so the history does not wait for the
     // first daily cron.
     if (path === '/fleet/snap' && keyOk) {
@@ -1038,7 +1068,7 @@ function delta(now,ref){ // signed html
   const d=now-ref; if(d===0)return '<span class="z">0</span>';
   return '<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>';
 }
-function render(hist,live){
+function render(hist,live,rel){
   const snaps=hist.snapshots||[]; // newest first
   const cur=live&&typeof live.printers==='number'?live:(snaps[0]||null);
   if(!cur){ $('vertbl').innerHTML='<div class="msg">No snapshots yet. Hit <b>Snapshot now</b> to seed the first one; a daily snapshot runs at 06:30 UTC.</div>'; $('chart').innerHTML=''; $('kpis').innerHTML=''; return; }
@@ -1052,15 +1082,29 @@ function render(hist,live){
   $('asof').textContent='As of '+(cur.date||'live')+(snaps.length?' | '+snaps.length+' daily snapshots':'');
   // version table
   const bv=cur.by_version||{};
-  const vers=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]);
+  const relMap=(rel&&rel.map)||{};
+  const realSet=rel?new Set([...Object.keys(relMap),...(rel.real||[])]):null;
+  const allVers=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]);
+  const vers=realSet?allVers.filter(v=>realSet.has(v)):allVers;      // real releases
+  const ghosts=realSet?allVers.filter(v=>!realSet.has(v)):[];        // e.g. a bogus 0.18.13
   const max=Math.max(1,...vers.map(v=>bv[v]));
   const gv=(s,v)=>s&&s.by_version?(s.by_version[v]!=null?s.by_version[v]:0):null;
-  let h='<table><thead><tr><th>Version</th><th>Now</th><th>Day</th><th>Week</th><th>Month</th><th style="width:120px"></th></tr></thead><tbody>';
+  const pill=(txt,bg)=>' <span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:'+bg+';color:#fff;vertical-align:middle">'+txt+'</span>';
+  let h='<table><thead><tr><th>Version</th><th>Released</th><th>Now</th><th>Day</th><th>Week</th><th>Month</th><th style="width:120px"></th></tr></thead><tbody>';
   for(const v of vers){
-    h+='<tr><td>'+esc(v)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
+    let tag='';
+    if(rel&&v===rel.latestStable)tag+=pill('Stable','var(--ok,#2e9b4e)');
+    if(rel&&v===rel.latestBeta)tag+=pill('Beta','var(--accent)');
+    const dt=(relMap[v]&&relMap[v].date)||'';
+    h+='<tr><td>'+esc(v)+tag+'</td><td style="color:var(--muted);white-space:nowrap">'+esc(dt)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
        '</td><td><div class="bar"><span style="width:'+Math.round(bv[v]/max*100)+'%"></span></div></td></tr>';
   }
   h+='</tbody></table>';
+  if(ghosts.length){
+    h+='<div class="msg" style="margin-top:8px">Unrecognized '+(ghosts.length>1?'versions':'version')+
+       ' (not a published release - self-built or a version-read bug): '+
+       ghosts.map(v=>esc(v)+' ('+bv[v]+')').join(', ')+'</div>';
+  }
   $('vertbl').innerHTML=h;
   $('cnt').textContent=vers.length+' versions';
   // printers-over-time line
@@ -1086,7 +1130,8 @@ async function load(){
   try{
     const hist=await api('/fleet/history');
     let live=null; try{ live=await fetch('https://tinymaker-stats.slibbinas.workers.dev/stats',{cache:'no-store'}).then(r=>r.json()); }catch(e){}
-    render(hist,live);
+    let rel=null; try{ rel=await api('/fleet/releases'); }catch(e){}
+    render(hist,live,rel);
   }catch(e){ $('vertbl').innerHTML='<div class="err">Load failed: '+esc(e.message||e)+'</div>'; }
 }
 $('reload').onclick=load;
