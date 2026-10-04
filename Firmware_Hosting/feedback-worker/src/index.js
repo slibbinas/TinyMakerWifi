@@ -1068,6 +1068,53 @@ function delta(now,ref){ // signed html
   const d=now-ref; if(d===0)return '<span class="z">0</span>';
   return '<span class="'+(d>0?'up':'dn')+'">'+(d>0?'+':'')+d+'</span>';
 }
+// Sortable version table. Default: newest version first. Click a header to sort by
+// that column (click again flips direction). Unknown/empty values sort to the end.
+let _vt=null,_sort={key:'ver',dir:'desc'};
+function svCmp(a,b){const pa=String(a).split('.').map(x=>parseInt(x,10)||0),pb=String(b).split('.').map(x=>parseInt(x,10)||0);for(let i=0;i<Math.max(pa.length,pb.length);i++){const d=(pa[i]||0)-(pb[i]||0);if(d)return d;}return 0;}
+function drawVerTable(){
+  if(!_vt)return;
+  const bv=_vt.bv,relMap=_vt.relMap,rel=_vt.rel,rD=_vt.rD,rW=_vt.rW,rM=_vt.rM;
+  const gv=(s,v)=>s&&s.by_version?(s.by_version[v]!=null?s.by_version[v]:0):null;
+  const realSet=rel?new Set([...Object.keys(relMap),...(rel.real||[])]):null;
+  const allVers=Object.keys(bv);
+  const vers=realSet?allVers.filter(v=>realSet.has(v)):allVers.slice(); // real releases
+  const ghosts=realSet?allVers.filter(v=>!realSet.has(v)):[];           // e.g. a bogus 0.18.13
+  const max=Math.max(1,...vers.map(v=>bv[v]));
+  const dnum=(v,ref)=>ref==null?null:(bv[v]-ref);
+  const k=_sort.key,dir=_sort.dir,sgn=dir==='desc'?-1:1;
+  vers.sort((a,b)=>{
+    if(k==='ver')return (dir==='desc'?-1:1)*svCmp(a,b);
+    let x,y;
+    if(k==='rel'){x=(relMap[a]&&relMap[a].date)||'';y=(relMap[b]&&relMap[b].date)||'';}
+    else if(k==='now'){x=bv[a];y=bv[b];}
+    else if(k==='d'){x=dnum(a,gv(rD,a));y=dnum(b,gv(rD,b));}
+    else if(k==='w'){x=dnum(a,gv(rW,a));y=dnum(b,gv(rW,b));}
+    else if(k==='m'){x=dnum(a,gv(rM,a));y=dnum(b,gv(rM,b));}
+    else return 0;
+    const an=(x==null||x===''),bn=(y==null||y==='');
+    if(an&&bn)return -svCmp(a,b); if(an)return 1; if(bn)return -1;   // empties last
+    return sgn*(x<y?-1:x>y?1:0);
+  });
+  const pill=(txt,bg)=>' <span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:'+bg+';color:#fff;vertical-align:middle">'+txt+'</span>';
+  const arr=c=>k===c?(dir==='desc'?' ▾':' ▴'):'';
+  const th=c=>{const lbl={ver:'Version',rel:'Released',now:'Now',d:'Day',w:'Week',m:'Month'}[c];return '<th data-k="'+c+'" style="cursor:pointer;user-select:none">'+lbl+arr(c)+'</th>';};
+  let h='<table><thead><tr>'+th('ver')+th('rel')+th('now')+th('d')+th('w')+th('m')+'<th style="width:120px"></th></tr></thead><tbody>';
+  for(const v of vers){
+    let tag='';
+    if(rel&&v===rel.latestStable)tag+=pill('Stable','var(--ok,#2e9b4e)');
+    if(rel&&v===rel.latestBeta)tag+=pill('Beta','var(--accent)');
+    const dt=(relMap[v]&&relMap[v].date)||'';
+    h+='<tr><td>'+esc(v)+tag+'</td><td style="color:var(--muted);white-space:nowrap">'+esc(dt)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
+       '</td><td><div class="bar"><span style="width:'+Math.round(bv[v]/max*100)+'%"></span></div></td></tr>';
+  }
+  h+='</tbody></table>';
+  if(ghosts.length){h+='<div class="msg" style="margin-top:8px">Unrecognized '+(ghosts.length>1?'versions':'version')+
+     ' (not a published release - self-built or a version-read bug): '+ghosts.map(v=>esc(v)+' ('+bv[v]+')').join(', ')+'</div>';}
+  const box=$('vertbl');box.innerHTML=h;
+  box.querySelectorAll('th[data-k]').forEach(el=>el.onclick=()=>{const c=el.getAttribute('data-k');if(_sort.key===c)_sort.dir=_sort.dir==='desc'?'asc':'desc';else{_sort.key=c;_sort.dir='desc';}drawVerTable();});
+  $('cnt').textContent=vers.length+' versions';
+}
 function render(hist,live,rel){
   const snaps=hist.snapshots||[]; // newest first
   const cur=live&&typeof live.printers==='number'?live:(snaps[0]||null);
@@ -1080,33 +1127,9 @@ function render(hist,live,rel){
     '<div class="kpi"><div class="n">'+delta(cur.printers,rW&&rW.printers)+'</div><div class="l">week</div></div>'+
     '<div class="kpi"><div class="n">'+delta(cur.printers,rM&&rM.printers)+'</div><div class="l">month</div></div>';
   $('asof').textContent='As of '+(cur.date||'live')+(snaps.length?' | '+snaps.length+' daily snapshots':'');
-  // version table
-  const bv=cur.by_version||{};
-  const relMap=(rel&&rel.map)||{};
-  const realSet=rel?new Set([...Object.keys(relMap),...(rel.real||[])]):null;
-  const allVers=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]);
-  const vers=realSet?allVers.filter(v=>realSet.has(v)):allVers;      // real releases
-  const ghosts=realSet?allVers.filter(v=>!realSet.has(v)):[];        // e.g. a bogus 0.18.13
-  const max=Math.max(1,...vers.map(v=>bv[v]));
-  const gv=(s,v)=>s&&s.by_version?(s.by_version[v]!=null?s.by_version[v]:0):null;
-  const pill=(txt,bg)=>' <span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:'+bg+';color:#fff;vertical-align:middle">'+txt+'</span>';
-  let h='<table><thead><tr><th>Version</th><th>Released</th><th>Now</th><th>Day</th><th>Week</th><th>Month</th><th style="width:120px"></th></tr></thead><tbody>';
-  for(const v of vers){
-    let tag='';
-    if(rel&&v===rel.latestStable)tag+=pill('Stable','var(--ok,#2e9b4e)');
-    if(rel&&v===rel.latestBeta)tag+=pill('Beta','var(--accent)');
-    const dt=(relMap[v]&&relMap[v].date)||'';
-    h+='<tr><td>'+esc(v)+tag+'</td><td style="color:var(--muted);white-space:nowrap">'+esc(dt)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
-       '</td><td><div class="bar"><span style="width:'+Math.round(bv[v]/max*100)+'%"></span></div></td></tr>';
-  }
-  h+='</tbody></table>';
-  if(ghosts.length){
-    h+='<div class="msg" style="margin-top:8px">Unrecognized '+(ghosts.length>1?'versions':'version')+
-       ' (not a published release - self-built or a version-read bug): '+
-       ghosts.map(v=>esc(v)+' ('+bv[v]+')').join(', ')+'</div>';
-  }
-  $('vertbl').innerHTML=h;
-  $('cnt').textContent=vers.length+' versions';
+  // version table - sortable (default newest version first); drawn by drawVerTable()
+  _vt={bv:cur.by_version||{},relMap:(rel&&rel.map)||{},rel:rel,rD:rD,rW:rW,rM:rM};
+  drawVerTable();
   // printers-over-time line
   if(snaps.length<2){ $('chart').innerHTML='<div class="msg">Chart needs at least two daily snapshots - it fills in over the coming days.</div>'; return; }
   const pts=snaps.slice().reverse(); // oldest first
