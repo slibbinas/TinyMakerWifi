@@ -1054,7 +1054,7 @@ function render(hist,live){
   const bv=cur.by_version||{};
   const vers=Object.keys(bv).sort((a,b)=>bv[b]-bv[a]);
   const max=Math.max(1,...vers.map(v=>bv[v]));
-  const gv=(s,v)=>s&&s.by_version&&s.by_version[v]!=null?s.by_version[v]:null;
+  const gv=(s,v)=>s&&s.by_version?(s.by_version[v]!=null?s.by_version[v]:0):null;
   let h='<table><thead><tr><th>Version</th><th>Now</th><th>Day</th><th>Week</th><th>Month</th><th style="width:120px"></th></tr></thead><tbody>';
   for(const v of vers){
     h+='<tr><td>'+esc(v)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
