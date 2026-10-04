@@ -1105,7 +1105,9 @@ function drawVerTable(){
     if(rel&&v===rel.latestStable)tag+=pill('Stable','var(--ok,#2e9b4e)');
     if(rel&&v===rel.latestBeta)tag+=pill('Beta','var(--accent)');
     const dt=(relMap[v]&&relMap[v].date)||'';
-    h+='<tr><td>'+esc(v)+tag+'</td><td style="color:var(--muted);white-space:nowrap">'+esc(dt)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
+    const vurl=relMap[v]?('https://github.com/slibbinas/TinyMakerWifi/releases/tag/v'+encodeURIComponent(v)):'';
+    const vcell=vurl?('<a href="'+vurl+'" target="_blank" rel="noopener" style="color:var(--link,#4da3ff)">'+esc(v)+'</a>'):esc(v);
+    h+='<tr><td>'+vcell+tag+'</td><td style="color:var(--muted);white-space:nowrap">'+esc(dt)+'</td><td>'+bv[v]+'</td><td>'+delta(bv[v],gv(rD,v))+'</td><td>'+delta(bv[v],gv(rW,v))+'</td><td>'+delta(bv[v],gv(rM,v))+
        '</td><td><div class="bar"><span style="width:'+Math.round(bv[v]/max*100)+'%"></span></div></td></tr>';
   }
   h+='</tbody></table>';
