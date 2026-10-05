@@ -1335,7 +1335,7 @@ function inboxPage(notes, listKey, view) {
   const statsRows = versions.map((v) => {
     const s = all.filter((m) => m.fw === v);
     return `<tr${fw === v ? ' class="on"' : ''}>
-      <td><a href="${esc(q({ fw: v, from: 0 }))}">fw ${esc(v)}</a> <a href="https://github.com/slibbinas/TinyMakerWifi/releases/tag/v${encodeURIComponent(v)}" target="_blank" rel="noopener" title="What shipped in ${esc(v)} (GitHub release)" style="color:var(--muted);text-decoration:none">&#8599;</a></td>
+      <td><a href="${esc(q({ fw: v, from: 0 }))}">${esc(v)}</a> <a href="https://github.com/slibbinas/TinyMakerWifi/releases/tag/v${encodeURIComponent(v)}" target="_blank" rel="noopener" title="What shipped in ${esc(v)} (GitHub release)" style="color:var(--muted);text-decoration:none">&#8599;</a></td>
       <td>${s.length}</td>
       <td${s.filter((m) => m.tag === 'bug').length ? ' class="bug"' : ''}>${s.filter((m) => m.tag === 'bug').length}</td>
       <td>${s.filter((m) => m.tag === 'feature').length}</td>
@@ -1360,7 +1360,7 @@ function inboxPage(notes, listKey, view) {
       <div class="meta">
         ${n.num ? `<a class="num" href="#n${esc(n.num)}" title="Link to this case">#${esc(n.num)}</a>` : ''}
         <time>${when(n.at)}</time>
-        ${n.fw ? `<span class="pill">fw ${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
+        ${n.fw ? `<span class="pill">${esc(n.fw)}${n.build ? ` <em>${esc(n.build)}</em>` : ''}</span>` : ''}
         ${n.src === 'printer' ? '<span class="pill src" title="Sent from a printer dashboard, not the open site">🖨 from a printer</span>' : ''}
         ${n.src === 'slicer' ? '<span class="pill src" title="Marked on the model in the dashboard preview - coordinates and the exact build are in the note">⌖ slicer markers</span>' : ''}
         ${contactLink(n.contact)}
@@ -1469,10 +1469,10 @@ ${all.length ? `<div class="filters">
   <a class="${f === 'open' ? 'on' : ''}" href="${esc(q({ f: 'open', from: 0 }))}">New (${open})</a>
   ${TAGS.map(([v, label]) => `<a class="${f === v ? 'on' : ''}" href="${esc(q({ f: v, from: 0 }))}">${label} (${count(v)})</a>`).join('')}
   <a class="${f === 'all' ? 'on' : ''}" href="${esc(q({ f: 'all', from: 0 }))}">All (${all.length})</a>
-  ${fw ? `<a class="fwOff" href="${esc('/feedback/inbox?key=' + encodeURIComponent(listKey) + '&f=' + esc(f))}">fw ${esc(fw)} ✕</a>` : ''}
+  ${fw ? `<a class="fwOff" href="${esc('/feedback/inbox?key=' + encodeURIComponent(listKey) + '&f=' + esc(f))}">${esc(fw)} ✕</a>` : ''}
 </div>` : ''}
 ${versions.length ? `<details class="stats"${versions.length > 1 ? ' open' : ''}>
-  <summary>Per release${fw ? ` — filtering by fw ${esc(fw)}` : ''}</summary>
+  <summary>Per release${fw ? ` — filtering by ${esc(fw)}` : ''}</summary>
   <div class="scroll"><table>
     <thead><tr><th>Release</th><th>Notes</th><th>Bugs</th><th>Features</th><th>Photos</th><th>Open</th></tr></thead>
     <tbody>${statsRows}</tbody>
