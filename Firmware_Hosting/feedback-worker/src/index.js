@@ -588,6 +588,15 @@ export default {
       const reason = str(f.reason, 48);
       if (!id || !reason) return new Response('bad', { status: 400 });
 
+      // V's own bench printer floods the telemetry with dev reboots/panics/brownouts
+      // and skews the real-user stats, so drop it at ingest (ack it so the device does
+      // not retry). Matches the FULL device id only - every other device (e.g. the
+      // ESP-RLCD) passes through unchanged. Remove the id if this printer ever needs
+      // real crash capture.
+      const CRASH_IGNORE_IDS = ['ad4cdf9061dd424ba091e406493f84228cde799e6582434fe7833fc702a490fd'];
+      if (CRASH_IGNORE_IDS.includes(id))
+        return new Response(JSON.stringify({ ok: true, ignored: true }), { headers: { 'Content-Type': 'application/json' } });
+
       const gate = 'cgate:' + id;                 // 1 crash / 60 s / device
       if (await env.FEEDBACK.get(gate))
         return new Response('slow down', { status: 429 });
