@@ -59,6 +59,11 @@ const EXT_STORE = 'https://chromewebstore.google.com/detail/tinymaker-status/bhf
 // The inboxes open from the owner's links.json in the printer dashboard - a new tab with the
 // printer (LAN) as referrer, which script may close. Close shows only there (V 2026-09-26).
 const TM_CLOSE = String.raw`<p class="tmclose" hidden style="text-align:center;margin:18px 0 0;font-size:.9rem"><a href="#" onclick="window.close();return false;">Close</a></p><script>(function(){try{var h=document.referrer?new URL(document.referrer).hostname:'';var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(!(lan&&history.length<=1))return;document.querySelectorAll('.tmclose').forEach(function(e){e.hidden=false;});var a=document.querySelector('.tmcrumb a');if(a){var o=new URL(document.referrer).origin+'/';a.textContent='Printer';a.href=o;a.title='Back to the printer dashboard';a.onclick=function(){window.close();setTimeout(function(){location.href=o;},300);return false;};}}catch(e){}})();</script>`;
+// Shared footer nav across the three key-gated admin pages (fleet, crash, feedback
+// inbox). The key is read from the current URL client-side (same ?key= everywhere),
+// so no page function needs it passed in; the current page's own link is bolded, not
+// linked. Insert as ${TM_NAV} just before ${TM_CLOSE}.
+const TM_NAV = String.raw`<nav class="tmnav" style="max-width:900px;margin:16px auto 0;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)">Jump to: <a data-nav="/fleet" href="#" style="color:var(--accent);text-decoration:none">Fleet stats</a> &middot; <a data-nav="/crash/inbox" href="#" style="color:var(--accent);text-decoration:none">Crash telemetry</a> &middot; <a data-nav="/feedback/inbox" href="#" style="color:var(--accent);text-decoration:none">Feedback inbox</a></nav><script>(function(){try{var k=new URLSearchParams(location.search).get('key')||'';var e=encodeURIComponent(k);document.querySelectorAll('a[data-nav]').forEach(function(a){var p=a.getAttribute('data-nav');if(location.pathname.indexOf(p)===0){a.style.fontWeight='700';a.style.color='var(--text)';a.removeAttribute('href');}else{a.setAttribute('href',p+'?key='+e);}});}catch(_){}})();</script>`;
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;   // the form sends ~300 KB; this is the hard stop
 
@@ -1173,7 +1178,7 @@ $('reload').onclick=load;
 $('snap').onclick=async()=>{ $('snapmsg').textContent='Snapshotting...'; try{ const r=await api('/fleet/snap'); $('snapmsg').textContent=r&&r.ok?'Snapshot saved.':'Failed.'; load(); }catch(e){ $('snapmsg').textContent='Failed: '+(e.message||e); } };
 (function(){var sw=document.querySelector('.themeSw');if(sw){function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();}var cl=document.getElementById('crashlink');if(cl)cl.href='/crash/inbox?key='+encodeURIComponent(KEY);})();
 load();
-</script>${TM_CLOSE}</body></html>`;
+</script>${TM_NAV}${TM_CLOSE}</body></html>`;
 
 // ---------------------------------------------------------------- inbox page
 // Every field below is user-submitted, so esc() is not optional: a note is
@@ -1210,6 +1215,9 @@ const crashInboxPage = (recs, hb, builds = {}) => {
   const hex16 = (s) => (s && s.length >= 16 && !/^0+$/.test(s) ? s.slice(0, 16) : '');
   const earlier = (r) => !!(hex16(r.elf) && hex16(r.run) && hex16(r.elf) !== hex16(r.run));
   const reasonOf = (r) => (earlier(r) ? 'crash (earlier)' : r.reason);
+  // Running-version cell links to that version's GitHub release (what shipped in it),
+  // opening in a new tab. Non-release/odd strings still link; GitHub just 404s.
+  const verLink = (v) => v ? `<a href="https://github.com/slibbinas/TinyMakerWifi/releases/tag/v${encodeURIComponent(v)}" target="_blank" rel="noopener" style="color:var(--mono)">${esc(v)}</a>` : '';
   const counts = {};
   for (const r of recs) counts[reasonOf(r)] = (counts[reasonOf(r)] || 0) + 1;
   const order = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -1262,7 +1270,7 @@ const crashInboxPage = (recs, hb, builds = {}) => {
     const reasonCell = earlier(r)
       ? `<span title="${esc(`found in flash after an update; this boot: ${r.reason}`)}">crash (earlier)</span>`
       : esc(r.reason);
-    return `<tr data-r="${rIdx[reasonOf(r)]}"><td>${when(r.at)}</td><td>${reasonCell}</td><td>${esc(r.version)}</td><td>${buildCell}</td>` +
+    return `<tr data-r="${rIdx[reasonOf(r)]}"><td>${when(r.at)}</td><td>${reasonCell}</td><td>${verLink(r.version)}</td><td>${buildCell}</td>` +
       `<td>${r.layer ? esc(String(r.layer)) : ''}</td>` +
       `<td class="mono">${esc(String(r.id).slice(0, 8))}</td><td>${crashCell}</td></tr>`;
   }).join('');
@@ -1296,7 +1304,7 @@ function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);
 P.forEach(function(p){p.addEventListener('click',function(){sel(p.classList.contains('act')&&p.dataset.r!=='all'?'all':p.dataset.r);});});})();
 (function(){var sw=document.querySelector('.themeSw');if(!sw)return;function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}mark();});mark();})();
 </script>
-${TM_CLOSE}</body></html>`;
+${TM_NAV}${TM_CLOSE}</body></html>`;
 };
 
 const contactLink = (c) => {
@@ -1537,5 +1545,5 @@ document.querySelectorAll('.note').forEach(function(n){
       .catch(function(){b.disabled=false;b.textContent='Delete failed';});
   });
 });
-</script>${TM_CLOSE}</body></html>`;
+</script>${TM_NAV}${TM_CLOSE}</body></html>`;
 }
