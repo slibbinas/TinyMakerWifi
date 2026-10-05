@@ -593,7 +593,8 @@ export default {
       // not retry). Matches the FULL device id only - every other device (e.g. the
       // ESP-RLCD) passes through unchanged. Remove the id if this printer ever needs
       // real crash capture.
-      const CRASH_IGNORE_IDS = ['ad4cdf9061dd424ba091e406493f84228cde799e6582434fe7833fc702a490fd'];
+      const CRASH_IGNORE_IDS = ['ad4cdf9061dd424ba091e406493f84228cde799e6582434fe7833fc702a490fd',
+                                '9a0a4c54a2d5f35d53e76861bb7d039ff4afc0b78a260c4e0c97eb26a6984bed'];
       if (CRASH_IGNORE_IDS.includes(id))
         return new Response(JSON.stringify({ ok: true, ignored: true }), { headers: { 'Content-Type': 'application/json' } });
 
