@@ -1335,7 +1335,7 @@ function inboxPage(notes, listKey, view) {
   const statsRows = versions.map((v) => {
     const s = all.filter((m) => m.fw === v);
     return `<tr${fw === v ? ' class="on"' : ''}>
-      <td><a href="${esc(q({ fw: v, from: 0 }))}">fw ${esc(v)}</a></td>
+      <td><a href="${esc(q({ fw: v, from: 0 }))}">fw ${esc(v)}</a> <a href="https://github.com/slibbinas/TinyMakerWifi/releases/tag/v${encodeURIComponent(v)}" target="_blank" rel="noopener" title="What shipped in ${esc(v)} (GitHub release)" style="color:var(--muted);text-decoration:none">&#8599;</a></td>
       <td>${s.length}</td>
       <td${s.filter((m) => m.tag === 'bug').length ? ' class="bug"' : ''}>${s.filter((m) => m.tag === 'bug').length}</td>
       <td>${s.filter((m) => m.tag === 'feature').length}</td>
