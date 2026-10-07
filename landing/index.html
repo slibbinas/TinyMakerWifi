@@ -36,7 +36,6 @@ h1{margin:10px 0 6px;font-size:38px;color:var(--accent)}
 @media(min-width:760px){.shots{grid-template-columns:1fr 1fr;max-width:960px;padding:0 20px;box-sizing:border-box}}
 .shots figure{margin:0}
 .shots img{width:100%;border-radius:14px;border:2px solid var(--accent);display:block}
-.shots figure:last-child img{border:0}
 .shots figcaption{font-size:13px;color:var(--muted2);margin-top:8px;text-align:center}
 .btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;padding:13px 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn:hover{background:#c95f06;text-decoration:none}
@@ -146,18 +145,26 @@ footer a{color:var(--muted2);text-decoration:underline}
         try{var u=new URL(a.href);u.search=q;a.href=u.toString();}catch(e){}
       });
     };
+    // Theme-aware UI screenshots: a dark dashboard shot looks out of place on
+    // the light page, so each .tswap <img> carries data-light/data-dark and we
+    // set src to match the effective theme (data-theme if set, else the system
+    // pref). onerror falls back to the dark shot if a light file is missing.
+    var mql=window.matchMedia('(prefers-color-scheme:light)');
+    var effTheme=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:(mql.matches?'light':'dark');};
+    var applyShots=function(){var t=effTheme();document.querySelectorAll('img.tswap').forEach(function(im){var u=im.dataset[t];if(u&&im.getAttribute('src')!==u){im.onerror=function(){im.onerror=null;if(im.dataset.dark&&im.getAttribute('src')!==im.dataset.dark)im.setAttribute('src',im.dataset.dark);};im.setAttribute('src',u);}});};
+    if(mql.addEventListener)mql.addEventListener('change',applyShots);
     var sw=document.querySelector('.themeSw');
     var mark=function(){var m=mode();if(sw)sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});};
     if(sw)sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
       if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(err){}}
       else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(err){}}
-      mark();applyThemeLinks();});
+      mark();applyThemeLinks();applyShots();});
     mark();
     // Run after the whole document is parsed - this script sits in the hero,
     // but themed links (roadmap, get-started manual) live in later sections
     // that don't exist yet at parse time here.
-    if(document.readyState!=='loading')applyThemeLinks();
-    else document.addEventListener('DOMContentLoaded',applyThemeLinks);
+    if(document.readyState!=='loading'){applyThemeLinks();applyShots();}
+    else document.addEventListener('DOMContentLoaded',function(){applyThemeLinks();applyShots();});
     // Live community counter from the anonymous usage pings (shown from 2 up -
     // a lone "1" reads worse than nothing while the community is young).
     fetch('https://tinymaker-stats.slibbinas.workers.dev/stats').then(function(r){return r.json();}).then(function(s){
@@ -169,8 +176,8 @@ footer a{color:var(--muted2);text-decoration:underline}
   })();
   </script>
   <div class="shots">
-    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/printer-hand.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer"><figcaption>The printer - palm-sized, open source</figcaption></figure>
-    <figure><img src="https://slibbinas.github.io/TinyMakerWifi/landing/dashboard-print-0-17-2.png" alt="The web dashboard during a print: live status, print controls and a real-time 3D render of the print"><figcaption>The dashboard mid-print - live 3D progress, controls, SD manager</figcaption></figure>
+    <figure><img src="printer-hand-wide.jpg" alt="The palm-sized TinyMaker MSLA resin 3D printer"><figcaption>The printer - palm-sized, open source</figcaption></figure>
+    <figure><img class="tswap" data-light="hero-slicer-light.png" data-dark="hero-slicer-dark.png" src="hero-slicer-dark.png" alt="The web dashboard with the built-in slicer: an STL sliced in the browser with a 3D preview, supports and settings"><figcaption>The dashboard with the built-in slicer - slice an STL in the browser, 3D preview, send to print</figcaption></figure>
   </div>
 </div>
 
