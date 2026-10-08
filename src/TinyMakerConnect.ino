@@ -711,7 +711,7 @@ void handleApiConnectRestore() {
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700);
-    ESP.restart();
+    tmRestart();
   }
 }
 

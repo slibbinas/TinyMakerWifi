@@ -1858,22 +1858,45 @@ void resetSettingsToDefault() {
 // it, so a plain C++ definition would be name-mangled and silently never override.
 extern "C" bool verifyRollbackLater() { return true; }
 
-static void otaConfirmRunning(void *) {
+static esp_timer_handle_t otaConfirmTimer = nullptr;
+
+// true once the running image is confirmed (or was never pending, e.g. USB-flashed).
+static bool otaConfirmNow() {
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_img_states_t state;
-  if (running && esp_ota_get_state_partition(running, &state) == ESP_OK &&
-      state == ESP_OTA_IMG_PENDING_VERIFY) {
-    esp_ota_mark_app_valid_cancel_rollback();
-    DBGLN("OTA: new firmware confirmed - rollback cancelled");
+  if (!running || esp_ota_get_state_partition(running, &state) != ESP_OK) return true;
+  if (state != ESP_OTA_IMG_PENDING_VERIFY) return true;
+  if (esp_ota_mark_app_valid_cancel_rollback() != ESP_OK) {
+    DBGLN("OTA: confirming the new firmware failed - will retry");
+    return false;
   }
+  DBGLN("OTA: new firmware confirmed - rollback cancelled");
+  return true;
+}
+
+// A failed confirm must not leave a good image pending for good: then any later
+// restart, a week on, would roll it back. Retry until it sticks.
+static void otaConfirmTimerCb(void *) {
+  if (!otaConfirmNow() && otaConfirmTimer) esp_timer_start_once(otaConfirmTimer, OTA_CONFIRM_US);
 }
 
 static void otaConfirmAfterBoot() {
   esp_timer_create_args_t args = {};
-  args.callback = &otaConfirmRunning;
+  args.callback = &otaConfirmTimerCb;
   args.name = "otaConfirm";
-  esp_timer_handle_t t;
-  if (esp_timer_create(&args, &t) == ESP_OK) esp_timer_start_once(t, OTA_CONFIRM_US);
+  if (esp_timer_create(&args, &otaConfirmTimer) != ESP_OK ||
+      esp_timer_start_once(otaConfirmTimer, OTA_CONFIRM_US) != ESP_OK) {
+    otaConfirmNow();   // no timer: give up the rollback rather than risk a false one later
+  }
+}
+
+// Every restart the firmware asks for itself goes through here (not the ones right
+// after flashing another firmware). A printer that got as far as a menu or a saved
+// setting is running fine, so confirm it first - otherwise a reboot in its first
+// minute would quietly send it back to the previous version.
+void tmRestart() {
+  otaConfirmNow();
+  ESP.restart();
 }
 
 void setup() {
@@ -3519,7 +3542,7 @@ void loop() {
         gfx2->setCursor(8, 43);
         gfx2->print("Restarting...");
         delay(1200);
-        ESP.restart();
+        tmRestart();
         break;
       case 311:
       if(setting_item_updown == 1){
