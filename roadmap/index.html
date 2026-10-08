@@ -104,9 +104,9 @@ TinyMaker MSLA resin printer is headed. Updated at each release.</p>
 
 <h2>Where we are</h2>
 <div class="card">
-<p><b>0.18.3 is the last release with new features before 1.0.0.</b> New features are
-frozen as of 24 September 2026; from here on only fixes go in, until 1.0.0. The automatic
-self-update is on <b>0.18.3</b>, and every version is one press away in the dashboard's
+<p><b>1.0.0 is out</b> (8 October 2026) - the first stable release, and the automatic
+self-update is on it: printers offer to update by themselves. From here 1.0.x carries fixes
+only; new features come in 1.1. Every version is one press away in the dashboard's
 <i>Update &rarr; version picker</i> (see the
 <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
 for what each one adds).</p>
@@ -191,10 +191,10 @@ printer's own dashboard, and a self-update that checks what it downloads before 
 flashes anything (signed updates since 0.18).</p>
 </div>
 
-<h2>Just shipped <span class="tag dev">0.18</span></h2>
+<h2>Delivered <span class="tag ship">0.18 &rarr; 1.0.0</span></h2>
 <div class="card">
 <p>Updates that work wherever you are, crash reports that find the bug, and a few
-dashboard touches:</p>
+dashboard touches - promoted as 1.0.0:</p>
 <ul>
 <li><b>Self-update no longer depends on GitHub's certificate</b> - in some regions GitHub
 serves a different one, and printers there could not update ("Version check failed").
@@ -212,15 +212,22 @@ dashboard header until it is installed.</li>
 them next to Manual and Feedback, handy for a shop or a school.</li>
 <li><b>Getting started without PrusaSlicer</b> - the built-in browser slicer is enough;
 PrusaSlicer stays an option.</li>
+<li><b>Drag and drop</b> - drop an STL on the slicer, or an SL1/ZIP on the SD manager,
+instead of picking the file.</li>
 </ul>
 </div>
 
-<h2>Feature freeze <span class="tag now">0.18.3 &rarr; 1.0.0</span></h2>
+<h2>Next fixes <span class="tag now">1.0.1</span></h2>
 <div class="card">
-<p>Right now the focus is proving 0.18.3: collecting feedback from early testers and
-fixing what turns up. No new features until 1.0.0 - fixes ship as 0.18.x (see the
-<a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
-for what each one fixes) until it runs quiet.</p>
+<p>A sturdier update path, found in the review before 1.0.0:</p>
+<ul>
+<li><b>A version that fails to start rolls back by itself</b> - the printer keeps the
+previous firmware until the new one has started and connected, so a bad update never needs
+a USB cable.</li>
+<li><b>No false &ldquo;checksum mismatch&rdquo;</b> in the first minutes after a release, when
+the download servers have not caught up yet.</li>
+<li><b>A steadier download</b> - less memory pressure while an update is fetched.</li>
+</ul>
 </div>
 
 <h2>On the way</h2>
@@ -231,21 +238,13 @@ straight to the printer.</li>
 </ul>
 </div>
 
-<h2>Toward 1.0.0</h2>
+<h2>Next: 1.1</h2>
 <div class="card">
-<p>1.0.0 is 0.18.3 with its fixes, promoted once it has proven itself: two weeks with no
-serious findings, running on at least three printers, the smoke tests
-and the self-update path passing on the same build, a security review, and the manual and
-README matching the release.</p>
-</div>
-
-<h2>After 1.0.0</h2>
-<div class="card">
-<p>Once 1.0.0 lands, the community will help shape what comes next - you'll be
-able to vote on priorities in the
-<a href="https://www.facebook.com/groups/1486879621729571" rel="noopener">Facebook group</a>.
-The poll sets the direction; final calls on what actually ships stay with the
-maintainer.</p>
+<p>With 1.0.0 out, ideas from the people who print with it shape what comes next - share
+them in the
+<a href="https://www.facebook.com/groups/1486879621729571" rel="noopener">Facebook group</a>
+or through the feedback form in the dashboard. Final calls on what actually ships stay with
+the maintainer.</p>
 <p>Already planned for <b>1.1</b>:</p>
 <ul>
 <li><b>Several remembered WiFi networks</b> - take the printer to a show, a workshop or a
@@ -266,8 +265,8 @@ cutting the model stays quick, and closed cut faces in the slicer view.</li>
 <li><b>A web flasher that retries slower</b> when the first attempt times out.</li>
 <li><b>More security hardening</b> of the dashboard.</li>
 </ul>
-<p class="muted">Got an idea? The vote opens with 1.0.0 - and the feedback form
-in the dashboard is open any time.</p>
+<p class="muted">Got an idea? Post it in the Facebook group - the feedback form in the
+dashboard is open any time.</p>
 </div>
 
 <h2>Contributing</h2>
