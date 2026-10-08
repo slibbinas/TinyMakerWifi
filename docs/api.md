@@ -168,9 +168,22 @@ Values `0`, `false`, `off` and an empty value all mean off; anything else means 
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/update` | GET | installed vs latest (printer-side GitHub check), `hasUpdate`, `allowed` |
+| `/api/update` | GET | installed vs latest (printer-side check of the signed manifest on GitHub Pages), `hasUpdate`, `allowed` |
 | `/api/update/install` | POST | self-update; no arg = latest, `version=X.Y.Z` = that release (strict SemVer validation, 400 on anything else) |
 | `/update` | GET/POST | human fallback page / multipart `firmware.bin` flash |
+
+Since 0.18 every self-update is authenticated by **our own signature**, not by
+GitHub's TLS certificate. The printer fetches a signed manifest - `update.json`
+for the latest stable, `firmware-X.Y.Z.json` for a picked version - holding the
+version and the SHA-256 of that `firmware.bin`, verifies its ECDSA-P256 signature
+against the public key compiled into the firmware (`src/update_pubkey.h`), and
+activates the download only if the hash matches. It fails closed: a manifest
+that does not verify means no update - the latest check then reports a failed
+version check (`state` 4), and a picked version is refused on the printer's
+screen (*Update refused - bad signature*).
+The automatic channel is the stable one; betas are reachable only with
+`version=X.Y.Z`. A file uploaded through `/update` is the owner's explicit choice
+and is not signature-checked.
 
 ## Browser modules on the SD card
 
@@ -185,7 +198,7 @@ falls back to the plain canvas renderer (3D) or to no slicer at all.
 | `/lib/three.js` | GET | the 3D library out of the card (stored gzipped, served with `Content-Encoding: gzip`); 404 when not cached |
 | `/api/lib/three` | POST | store the gzipped library the browser just fetched. Verified against a SHA-256 **compiled into the firmware** - only our own published bytes are accepted |
 | `/lib/<name>` | GET | one slicer file out of the card. Stored as `<name>.gz`, served under the plain name because the module resolves its satellites by relative name. `.wasm` is served as `application/wasm` |
-| `/api/lib/slicer` | GET | which slicer version the card holds, read off the filenames: `{"version":"3.1.1","files":5}`. Needs no internet; 409 while printing |
+| `/api/lib/slicer` | GET | which slicer version the card holds, read off the filenames: `{"version":"3.6.2","files":5}`. Needs no internet; 409 while printing |
 | `/api/lib/slicer/check` | POST | `ver=X.Y.Z` - the printer fetches `lib/slicer-X.Y.Z.sha256` from gh-pages over **certificate-verified** HTTPS (`src/slicer_ca.h`), keeps the sums in RAM and answers with the file list and which of them are already on the card. Idle-only, and 503 until the clock is SNTP-synced (certificate dates need it) |
 | `/api/lib/slicer` | POST | multipart upload of ONE file the check above authorised. The filename must be in the RAM list and the bytes must match its sum, or the file is deleted again |
 
@@ -346,8 +359,8 @@ is display material, never the sort key.
 ```json
 {
   "ok": true,
-  "installed": "0.15.8",
-  "latest": "0.15.8",
+  "installed": "1.0.0",
+  "latest": "1.0.0",
   "state": 2,
   "hasUpdate": false,
   "allowed": true
@@ -366,9 +379,8 @@ A quiet, off-by-default touch for whoever runs the printer: drop a small
 `links.json` at the **root of the SD card** and its entries show up in the
 dashboard header, after *Feedback* and before the `?`. No file -> `404` and the
 header is byte-for-byte as shipped, so a normal user who has no such file sees no
-change. It is intentionally not in the user manual - a maintainer/manufacturer
-convenience (e.g. a private crash-telemetry or resin-library link on your own
-machine).
+change. Handy for a maintainer or manufacturer (e.g. a private crash-telemetry or
+resin-library link on your own machine); the user manual describes it too.
 
 Format - a JSON array of `{"t": label, "u": url}`, at most 8 entries,
 `http`/`https` only, file <= 4 KB:
