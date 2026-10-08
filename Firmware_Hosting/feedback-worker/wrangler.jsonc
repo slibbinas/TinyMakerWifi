@@ -27,6 +27,7 @@
     { "pattern": "tinymakerwifi.com/orai*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/oi/*", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/robots.txt", "zone_name": "tinymakerwifi.com" },
+    { "pattern": "connect.tinymakerwifi.com/robots.txt", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/sitemap.xml", "zone_name": "tinymakerwifi.com" },
     { "pattern": "tinymakerwifi.com/llms.txt", "zone_name": "tinymakerwifi.com" },
     // www would otherwise fall through to bare gh-pages: /testai 404'd and
