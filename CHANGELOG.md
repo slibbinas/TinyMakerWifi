@@ -13,6 +13,24 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [1.0.0] - 2026-10-08
+
+The first stable release. 1.0.0 is 0.18.6 - in beta since 2026-10-02 - with only the
+version number changed, and it goes out on the automatic update channel to every printer.
+
+- **Drag-and-drop upload for everyone.** Until now it was in the 0.18.6 beta only: drop an
+  STL on the slicer block, or an SL1/ZIP on the SD manager.
+- **What 1.0 means here:** the features have been frozen since 2026-09-24. From now on 1.0.x
+  carries fixes only; new features go to 1.1.
+- **Documentation matches the firmware:** the README, the user manual (drag-and-drop, models
+  sliced too wide, the power-restored message, stable vs beta, update troubleshooting), the
+  LAN API notes and the hosting notes (#283).
+
+Coming from 0.17 or older? The 0.18 line added signed self-updates (0.18.0), crash reports
+with a backtrace (0.18.1) that name the exact build (0.18.3), owner links and the three-way
+theme switch (0.18.3) and a refusal of models sliced for a wider screen (0.18.4) - see the
+entries below.
+
 ## [0.18.6] - 2026-10-02
 
 Drag and drop a file onto the dashboard. Beta: pick it in the dashboard's Update tab - the automatic update channel stays on 0.18.5, so no printer updates itself for this one.
