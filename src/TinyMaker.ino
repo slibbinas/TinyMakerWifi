@@ -56,6 +56,7 @@
 #include <esp_system.h>          // hardware random for boot-animation shuffle
 #include <esp_core_dump.h>       // read the panic backtrace saved to the coredump partition
 #include <esp_ota_ops.h>         // esp_ota_get_app_elf_sha256(): which build is running (crash report)
+#include <esp_timer.h>           // one-shot timer that confirms a new firmware after it has run (OTA rollback)
 #include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
@@ -1840,11 +1841,47 @@ void resetSettingsToDefault() {
  * @brief Setup Function
  * Initializes all hardware components, loads settings, and sets the initial state
  */
+// -----------------------------------------------------------------------------------
+// OTA rollback (1.0.1): a new firmware is confirmed only after it has run.
+// The core marks every new image valid in initArduino(), before setup() - so a
+// firmware that crashed while starting would boot-loop until a USB reflash. With
+// verifyRollbackLater() returning true the core leaves the image PENDING_VERIFY;
+// we confirm it once it has stayed up OTA_CONFIRM_US. A reset before that and the
+// bootloader starts the previous firmware again. The clock starts at boot, not at
+// the end of setup(): setup() has several exits and a print or the WiFi portal can
+// keep loop() from running, but "alive for a minute" holds on every path, with or
+// without WiFi. Images flashed over USB are not pending, so this does nothing there.
+// -----------------------------------------------------------------------------------
+#define OTA_CONFIRM_US (60ULL * 1000000ULL)
+
+// C linkage: the weak default lives in esp32-hal-misc.c (C) and no header declares
+// it, so a plain C++ definition would be name-mangled and silently never override.
+extern "C" bool verifyRollbackLater() { return true; }
+
+static void otaConfirmRunning(void *) {
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state;
+  if (running && esp_ota_get_state_partition(running, &state) == ESP_OK &&
+      state == ESP_OTA_IMG_PENDING_VERIFY) {
+    esp_ota_mark_app_valid_cancel_rollback();
+    DBGLN("OTA: new firmware confirmed - rollback cancelled");
+  }
+}
+
+static void otaConfirmAfterBoot() {
+  esp_timer_create_args_t args = {};
+  args.callback = &otaConfirmRunning;
+  args.name = "otaConfirm";
+  esp_timer_handle_t t;
+  if (esp_timer_create(&args, &t) == ESP_OK) esp_timer_start_once(t, OTA_CONFIRM_US);
+}
+
 void setup() {
 
   #if ENABLE_SERIAL_DEBUG
   Serial.begin(115200);
   #endif
+  otaConfirmAfterBoot();
 
   // -----------------------------------------------------------------------------------
   // Pin Configuration

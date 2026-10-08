@@ -3383,7 +3383,9 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
   mbedtls_sha256_init(&sh);
   mbedtls_sha256_starts_ret(&sh, 0);
   WiFiClient *stream = https.getStreamPtr();
-  uint8_t buf[1024];
+  // static (1.0.1): off the loopTask stack (8 KB), which the TLS session above
+  // already presses on. One update runs at a time, so sharing it is safe.
+  static uint8_t buf[1024];
   int remaining = len;
   bool ioOk = true;
   unsigned long lastData = millis();
@@ -3427,11 +3429,15 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
   ESP.restart();
 }
 
-// Download the latest firmware.bin and flash it. Reboots on success. The hash
-// was signature-verified during otaCheckLatest.
+// Download the latest release and flash it. Reboots on success. The hash was
+// signature-verified during otaCheckLatest. 1.0.1: fetch firmware-<ver>.bin, not
+// firmware.bin - the CDN caches update.json and firmware.bin separately (up to 10
+// min), so right after a release a fresh manifest could meet a stale firmware.bin
+// and fail as "checksum mismatch". The versioned name never changes its bytes.
 void otaInstallLatest() {
   if (!otaHasUpdate()) return;
-  otaVerifiedFlash(otaTrustedBase() + "firmware.bin", otaSha256Expected, "");
+  if (!tmVersionLooksValid(otaLatestVer.c_str())) return;
+  otaVerifiedFlash(otaTrustedBase() + "firmware-" + otaLatestVer + ".bin", otaSha256Expected, "");
 }
 
 // Install a specific "X.Y.Z" hosted as firmware-X.Y.Z.bin on gh-pages. Fetch
