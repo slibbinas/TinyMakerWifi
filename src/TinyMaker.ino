@@ -56,6 +56,7 @@
 #include <esp_system.h>          // hardware random for boot-animation shuffle
 #include <esp_core_dump.h>       // read the panic backtrace saved to the coredump partition
 #include <esp_ota_ops.h>         // esp_ota_get_app_elf_sha256(): which build is running (crash report)
+#include <esp_timer.h>           // one-shot timer that confirms a new firmware after it has run (OTA rollback)
 #include "ModelImport.h"         // Shared ZIP import result/option structs
 
 #if ENABLE_NETWORK
@@ -1840,11 +1841,73 @@ void resetSettingsToDefault() {
  * @brief Setup Function
  * Initializes all hardware components, loads settings, and sets the initial state
  */
+// -----------------------------------------------------------------------------------
+// OTA rollback (1.0.1): a new firmware is confirmed only after it has run.
+// The core marks every new image valid in initArduino(), before setup() - so a
+// firmware that crashed while starting would boot-loop until a USB reflash. With
+// verifyRollbackLater() returning true the core leaves the image PENDING_VERIFY;
+// we confirm it once it has stayed up OTA_CONFIRM_US. A reset before that and the
+// bootloader starts the previous firmware again. The clock starts at boot, not at
+// the end of setup(): setup() has several exits and a print or the WiFi portal can
+// keep loop() from running, but "alive for a minute" holds on every path, with or
+// without WiFi. Images flashed over USB are not pending, so this does nothing there.
+// -----------------------------------------------------------------------------------
+#define OTA_CONFIRM_US (60ULL * 1000000ULL)
+
+// C linkage: the weak default lives in esp32-hal-misc.c (C) and no header declares
+// it, so a plain C++ definition would be name-mangled and silently never override.
+extern "C" bool verifyRollbackLater() { return true; }
+
+static esp_timer_handle_t otaConfirmTimer = nullptr;
+
+// true once the running image is confirmed (or was never pending, e.g. USB-flashed).
+// Also called before any new firmware is received: the Arduino Updater writes the
+// other slot without esp_ota_begin(), so nothing else stops a second flash from
+// leaving a still-pending image as the only fallback.
+bool otaConfirmNow() {
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state;
+  if (!running || esp_ota_get_state_partition(running, &state) != ESP_OK) return true;
+  if (state != ESP_OTA_IMG_PENDING_VERIFY) return true;
+  if (esp_ota_mark_app_valid_cancel_rollback() != ESP_OK) {
+    DBGLN("OTA: confirming the new firmware failed - will retry");
+    return false;
+  }
+  DBGLN("OTA: new firmware confirmed - rollback cancelled");
+  return true;
+}
+
+// A failed confirm must not leave a good image pending for good: then any later
+// restart, a week on, would roll it back. Retry until it sticks.
+static void otaConfirmTimerCb(void *) {
+  if (!otaConfirmNow() && otaConfirmTimer) esp_timer_start_once(otaConfirmTimer, OTA_CONFIRM_US);
+}
+
+static void otaConfirmAfterBoot() {
+  esp_timer_create_args_t args = {};
+  args.callback = &otaConfirmTimerCb;
+  args.name = "otaConfirm";
+  if (esp_timer_create(&args, &otaConfirmTimer) != ESP_OK ||
+      esp_timer_start_once(otaConfirmTimer, OTA_CONFIRM_US) != ESP_OK) {
+    otaConfirmNow();   // no timer: give up the rollback rather than risk a false one later
+  }
+}
+
+// Every restart the firmware asks for itself goes through here (not the ones right
+// after flashing another firmware). A printer that got as far as a menu or a saved
+// setting is running fine, so confirm it first - otherwise a reboot in its first
+// minute would quietly send it back to the previous version.
+void tmRestart() {
+  otaConfirmNow();
+  ESP.restart();
+}
+
 void setup() {
 
   #if ENABLE_SERIAL_DEBUG
   Serial.begin(115200);
   #endif
+  otaConfirmAfterBoot();
 
   // -----------------------------------------------------------------------------------
   // Pin Configuration
@@ -3482,7 +3545,7 @@ void loop() {
         gfx2->setCursor(8, 43);
         gfx2->print("Restarting...");
         delay(1200);
-        ESP.restart();
+        tmRestart();
         break;
       case 311:
       if(setting_item_updown == 1){
