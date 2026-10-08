@@ -68,8 +68,11 @@ footer a{color:var(--muted2);text-decoration:underline}
 .promo .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 .promo .tile{display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--bg);color:var(--text);text-decoration:none}
 .promo .tile:hover{border-color:var(--accent);text-decoration:none}
-.promo .pic{height:170px;padding:12px;box-sizing:border-box;background:#0e0e10;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.promo .pic{height:170px;padding:12px;box-sizing:border-box;background:#0e0e10;display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid var(--line2)}
+[data-theme=light] .promo .pic{background:#f2f2f4}
+@media(prefers-color-scheme:light){:root:not([data-theme]) .promo .pic{background:#f2f2f4}}
 .promo .pic img{max-width:100%;max-height:100%;object-fit:contain;display:block;border-radius:8px}
+.promo .pic img.extimg{border-radius:0}
 .promo .txt{padding:12px 14px 14px;flex:1;display:flex;flex-direction:column}
 .promo .txt b{display:block;font-size:1.02rem;margin-bottom:3px}
 .promo .txt span{color:var(--muted);font-size:.9rem;display:block;margin-bottom:8px}
@@ -141,7 +144,7 @@ footer a{color:var(--muted2);text-decoration:underline}
     // they read ?theme=; anything on our sites that reads it belongs here.
     var mode=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';};
     var applyThemeLinks=function(){var m=mode();var q=(m==='light'||m==='dark')?'?theme='+m:'';
-      document.querySelectorAll("a[href*='/manual/'], a[href*='/roadmap/']").forEach(function(a){
+      document.querySelectorAll("a[href*='/manual/'], a[href*='/roadmap/'], a[href*='/extension/'], a[href*='/demo/'], a[href*='tinyowllabs.com']").forEach(function(a){
         try{var u=new URL(a.href);u.search=q;a.href=u.toString();}catch(e){}
       });
     };
@@ -228,11 +231,11 @@ footer a{color:var(--muted2);text-decoration:underline}
   <h2>More for your TinyMaker</h2>
   <p class="lead">Free companions that work with TinyMakerWifi.</p>
   <div class="row">
-    <a class="tile" href="https://tinymakerwifi.com/extension/"><div class="pic"><img src="promo-extension.png" alt="TinyMaker status in the Chrome toolbar: print progress and details in the popup" loading="lazy"></div>
+    <a class="tile" href="https://tinymakerwifi.com/extension/"><div class="pic"><img class="tswap extimg" data-light="ext-popup-light.png" data-dark="ext-popup-dark.png" src="ext-popup-dark.png" alt="TinyMaker status in the Chrome toolbar: print progress and details in the popup" loading="lazy"></div>
       <div class="txt"><b>Browser extension</b><span>Print progress on your Chrome toolbar - layer, time left and resin in one click.</span><span class="go">Chrome Web Store &rarr;</span></div></a>
-    <a class="tile" href="https://tinyowllabs.com/tinystatus/"><div class="pic"><img src="promo-tinystatus.png?v=3" alt="TinyStatus on a Wear OS watch: print progress rings with time left" loading="lazy"></div>
+    <a class="tile" href="https://tinyowllabs.com/tinystatus/"><div class="pic"><img class="tswap" data-light="promo-tinystatus-light.png" data-dark="promo-tinystatus.png" src="promo-tinystatus.png" alt="TinyStatus on a Wear OS watch: print progress rings with time left" loading="lazy"></div>
       <div class="txt"><b>TinyStatus watch app</b><span>Progress, time left and a nudge when the print is done - on your Wear OS watch.</span><span class="go">Coming to Google Play &rarr;</span></div></a>
-    <a class="tile" href="https://tinymakerwifi.com/manual/#resin-profiles"><div class="pic"><img src="promo-resin.png" alt="Resin profiles in the dashboard" loading="lazy"></div>
+    <a class="tile" href="https://tinymakerwifi.com/manual/#resin-profiles"><div class="pic"><img class="tswap" data-light="promo-resin-light.png" data-dark="promo-resin-dark.png" src="promo-resin-dark.png" alt="Resin profiles in the dashboard" loading="lazy"></div>
       <div class="txt"><b>Resin library</b><span>Profiles tested on a TinyMaker - install one from the dashboard in a tap.</span><span class="go">How it works &rarr;</span></div></a>
   </div>
   <p class="more"><a href="https://tinyowllabs.com/">More from TinyOwl &rarr;</a></p>
