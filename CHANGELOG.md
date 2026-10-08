@@ -20,9 +20,10 @@ A sturdier update path - three fixes from the review before 1.0.0.
 - **A firmware that fails to start rolls back by itself.** The printer already kept the
   previous firmware, but marked a new one as good before it had even started, so a version
   that crashed while starting would have restarted forever until a USB reflash. Now a new
-  firmware counts as good only after it has run for a minute; if the printer restarts before
-  that, it starts the previous firmware again. It works with or without WiFi, and protects
-  1.0.1 itself.
+  firmware counts as good only after it has run for a minute; if it crashes or loses power
+  before that, the printer starts the previous firmware again. A restart you ask for (Reboot,
+  WiFi or factory reset) is not a failure and keeps the new version. It works with or without
+  WiFi, and protects 1.0.1 itself.
 - **No false "checksum mismatch" right after a release.** For the first minutes after a new
   version is published, the download servers could hand out the new description with the old
   file, and the update failed as a checksum mismatch. The printer now downloads the file named
