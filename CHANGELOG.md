@@ -13,6 +13,24 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [1.0.1] - 2026-10-08
+
+A sturdier update path - three fixes from the review before 1.0.0.
+
+- **A firmware that fails to start rolls back by itself.** The printer already kept the
+  previous firmware, but marked a new one as good before it had even started, so a version
+  that crashed while starting would have restarted forever until a USB reflash. Now a new
+  firmware counts as good only after it has run for a minute; if it crashes or loses power
+  before that, the printer starts the previous firmware again. A restart you ask for (Reboot,
+  WiFi or factory reset) is not a failure and keeps the new version. It works with or without
+  WiFi, and protects 1.0.1 itself.
+- **No false "checksum mismatch" right after a release.** For the first minutes after a new
+  version is published, the download servers could hand out the new description with the old
+  file, and the update failed as a checksum mismatch. The printer now downloads the file named
+  after the version, which never changes. This helps updates from 1.0.1 onwards.
+- **A steadier download.** The buffer used while an update is fetched no longer sits on the
+  same small stack as the secure connection. This too helps updates from 1.0.1 onwards.
+
 ## [1.0.0] - 2026-10-08
 
 The first stable release. 1.0.0 is 0.18.6 - in beta since 2026-10-02 - with only the

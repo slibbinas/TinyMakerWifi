@@ -601,7 +601,7 @@ void applyWifiToggleAndReboot() {
     webDashboardEnabled = true;
   }
   saveDeviceConfig();
-  ESP.restart();
+  tmRestart();
 }
 
 // ---- Advanced menu groups (0-17a) ------------------------------------------

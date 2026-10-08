@@ -803,6 +803,7 @@ void handleUpdateUpload() {
     // hundred bytes on ~1.4 MB. Close enough for a bar, and it is the only total
     // we get: Update.begin() is handed UPDATE_SIZE_UNKNOWN.
     otaTotalBytes = server.clientContentLength();
+    otaConfirmNow();   // serving this upload proves the running image works
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
       DBGLN("Update.begin failed");
     }
@@ -1857,7 +1858,7 @@ void handleApiConfigSave() {
     // teardown path, so reboot to shut the radio down cleanly. The printer
     // is idle here (printerBusy() gate above).
     delay(700); // let the response reach the client first
-    ESP.restart();
+    tmRestart();
   }
 }
 
@@ -1904,7 +1905,7 @@ void handleApiConfigRestore() {
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
-    ESP.restart();
+    tmRestart();
   }
 }
 
@@ -1934,7 +1935,7 @@ void handleApiConfigRestoreSd() {
   sendApiOk(configJson());
   if (wifiWasEnabled && !wifiEnabled) {
     delay(700); // same as the config-save path: reboot to shut the radio down
-    ESP.restart();
+    tmRestart();
   }
 }
 
@@ -3006,7 +3007,6 @@ void handleRootPage() {
 // Update tab (idle + Web control gate, see otaWebAllowed()).
 // ===================================================================================
 String otaLatestVer = "";   // latest version from the signed manifest
-String otaBinUrl    = "";   // direct URL of the latest firmware.bin (built by us)
 String otaSha256Expected = "";  // signature-verified SHA-256 of that firmware.bin
 // State of the last check: 0=unknown, 1=checking, 2=up-to-date, 3=update available, 4=error
 int otaState = 0;
@@ -3144,7 +3144,6 @@ void otaCheckLatest(uint16_t timeoutMs) {
   if (otaState == 4 && millis() - otaCheckedAt < 60000UL) return;
   otaState = 1;
   otaLatestVer = "";
-  otaBinUrl = "";
   otaSha256Expected = "";
   // No cache stamp here: this path is instant, so it costs nothing to retry.
   if (WiFi.status() != WL_CONNECTED) { otaState = 4; return; }
@@ -3161,10 +3160,14 @@ void otaCheckLatest(uint16_t timeoutMs) {
     DBGLN("update manifest signature did not verify - ignoring");
     otaState = 4; otaCheckedAt = millis(); return;
   }
+  // The version goes into the download URL (firmware-<ver>.bin), so it must be a
+  // plain X.Y.Z here - otherwise "update available" would lead to an install
+  // that cannot start.
+  if (!tmVersionLooksValid(v.c_str())) {
+    otaState = 4; otaCheckedAt = millis(); return;
+  }
   otaLatestVer = v;
   otaSha256Expected = sha;
-  // The URL is ours, never the manifest's - a forged manifest cannot redirect it.
-  otaBinUrl = otaTrustedBase() + "firmware.bin";
 #ifdef FIRMWARE_VERSION
   int c = cmpSemver(otaLatestVer.c_str(), FIRMWARE_VERSION);
 #else
@@ -3178,7 +3181,7 @@ void otaCheckLatest() { otaCheckLatest(6000); }
 
 const char *otaLatestVerStr() { return otaLatestVer.c_str(); }
 int  otaVersionState()        { return otaState; }
-bool otaHasUpdate()           { return otaState == 3 && otaBinUrl.length() > 0; }
+bool otaHasUpdate()           { return otaState == 3 && otaLatestVer.length() > 0; }
 
 void otaBootCheckMaybePrompt() {
   // Never hijack the boot with an update prompt while a power-loss resume is
@@ -3373,6 +3376,7 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
     netMessage("Update FAILED", code != HTTP_CODE_OK ? String("HTTP " + String(code)).c_str() : "no length");
     delay(1800); restoreIdleScreen(); return;
   }
+  otaConfirmNow();   // the running image becomes the fallback - it must not be pending
   if (!Update.begin(len)) {
     https.end();
     netMessage("Update FAILED", "no space");
@@ -3383,7 +3387,9 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
   mbedtls_sha256_init(&sh);
   mbedtls_sha256_starts_ret(&sh, 0);
   WiFiClient *stream = https.getStreamPtr();
-  uint8_t buf[1024];
+  // static (1.0.1): off the loopTask stack (8 KB), which the TLS session above
+  // already presses on. One update runs at a time, so sharing it is safe.
+  static uint8_t buf[1024];
   int remaining = len;
   bool ioOk = true;
   unsigned long lastData = millis();
@@ -3427,11 +3433,15 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
   ESP.restart();
 }
 
-// Download the latest firmware.bin and flash it. Reboots on success. The hash
-// was signature-verified during otaCheckLatest.
+// Download the latest release and flash it. Reboots on success. The hash was
+// signature-verified during otaCheckLatest. 1.0.1: fetch firmware-<ver>.bin, not
+// firmware.bin - the CDN caches update.json and firmware.bin separately (up to 10
+// min), so right after a release a fresh manifest could meet a stale firmware.bin
+// and fail as "checksum mismatch". The versioned name never changes its bytes. The
+// URL is built here from our own base, never taken from the manifest.
 void otaInstallLatest() {
   if (!otaHasUpdate()) return;
-  otaVerifiedFlash(otaTrustedBase() + "firmware.bin", otaSha256Expected, "");
+  otaVerifiedFlash(otaTrustedBase() + "firmware-" + otaLatestVer + ".bin", otaSha256Expected, "");
 }
 
 // Install a specific "X.Y.Z" hosted as firmware-X.Y.Z.bin on gh-pages. Fetch
@@ -5252,7 +5262,7 @@ void network_setup() {
   // No password by default (home LAN); add ArduinoOTA.setPassword("...")
   // + upload_flags = --auth=... in platformio.ini if the network is shared.
   ArduinoOTA.setHostname("tinymaker");
-  ArduinoOTA.onStart([]() { netProgressStart("PlatformIO OTA...", ""); });
+  ArduinoOTA.onStart([]() { otaConfirmNow(); netProgressStart("PlatformIO OTA...", ""); });
   ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
     netProgressBar(done, total);
   });
@@ -5541,7 +5551,7 @@ void wifiDoReset() {
   netPrefs.putBool("forcePortal", true);
   netPrefs.end();
   delay(400);
-  ESP.restart();
+  tmRestart();
 }
 
 #endif // ENABLE_NETWORK
