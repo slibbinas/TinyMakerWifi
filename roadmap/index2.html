@@ -9,6 +9,7 @@
 <meta property="og:title" content="TinyMakerWiFi - Roadmap">
 <meta property="og:description" content="What's shipped and what's coming in the TinyMakerWifi firmware for the TinyMaker resin 3D printer.">
 <meta property="og:url" content="https://tinymakerwifi.com/roadmap/">
+<link rel="canonical" href="https://tinymakerwifi.com/roadmap/">
 <meta property="og:image" content="https://tinymakerwifi.com/og-card.png?v=0162">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -42,7 +43,12 @@
   html,body{background:var(--bg)}
   .wrap{max-width:760px;margin:0 auto;padding:30px 18px 60px;color:var(--text);background:var(--bg);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;
-    -webkit-font-smoothing:antialiased}
+    -webkit-font-smoothing:antialiased;position:relative}
+  .themeSw{position:absolute;top:16px;right:18px;display:inline-flex;gap:1px;align-items:center}
+  .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+  .themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .themeSw button:hover{color:var(--text)}
+  .themeSw button[aria-pressed=true]{color:var(--accent)}
   header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
   header svg{width:34px;height:34px;flex:none}
   h1{font-size:1.7rem;margin:0;letter-spacing:-.01em}
@@ -63,30 +69,32 @@
   a:hover{text-decoration:underline}
   .muted{color:var(--muted);font-size:.9rem}
   footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
+.tmcrumb{margin:-12px 0 22px;font-size:12px;opacity:.8;text-align:left}.tmclose{margin:18px 0 0;text-align:center;font-size:.9rem}
 </style>
 </head>
 <body><div class="wrap">
-<button id="themeToggle" title="Light / dark theme" aria-label="Toggle theme" style="position:fixed;top:14px;right:16px;z-index:20;width:auto;margin:0;padding:0;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer">&#9680;</button>
+<div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
 <script>
-(function(){var tg=document.getElementById('themeToggle');if(!tg)return;
-  var cur=function(){var d=document.documentElement.getAttribute('data-theme');
-    return d||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');};
+(function(){var sw=document.querySelector('.themeSw');if(!sw)return;
+  function mode(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';}
   // Our own linked pages (manual, site) open in the matching theme - they read
-  // ?theme=. Runs after DOM parse: links live further down the document.
-  var applyThemeLinks=function(){
-    var dark=cur()==='dark';
+  // ?theme=. In 'system' we strip the param so the target follows its own OS.
+  var applyThemeLinks=function(){var m=mode();var q=(m==='light'||m==='dark')?'?theme='+m:'';
     document.querySelectorAll("a[href*='/manual/'], a[href*='tinymakerwifi.com']").forEach(function(a){
-      try{var u=new URL(a.href);u.search=dark?'?theme=dark':'';a.href=u.toString();}catch(e){}
+      try{var u=new URL(a.href);u.search=q;a.href=u.toString();}catch(e){}
     });
   };
-  tg.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
-    document.documentElement.setAttribute('data-theme',n);
-    try{localStorage.setItem('tmTheme',n);}catch(e){}
-    applyThemeLinks();});
+  function mark(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});}
+  sw.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+    if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(_){}}
+    else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(_){}}
+    mark();applyThemeLinks();});
+  mark();
   if(document.readyState!=='loading')applyThemeLinks();
   else document.addEventListener('DOMContentLoaded',applyThemeLinks);})();
 </script>
 
+<p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Roadmap</p>
 <header>
   <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
   <h1>TinyMaker<b>WiFi</b> - Roadmap</h1>
@@ -96,18 +104,17 @@ TinyMaker MSLA resin printer is headed. Updated at each release.</p>
 
 <h2>Where we are</h2>
 <div class="card">
-<p><b>0.17.0 is out as a beta</b> - the release that turned the model preview into a
-real 3D view and gave every resin its own recipe. The automatic self-update is on
-<b>0.16.2</b>; the beta is one press away in the dashboard's <i>Update &rarr; version
-picker</i> (see the <a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
-for what each version adds), and it becomes the automatic update once early testers
-confirm it.</p>
+<p><b>1.0.0 is out</b> (8 October 2026) - the first stable release, and the automatic
+self-update is on it: printers offer to update by themselves. From here 1.0.x carries fixes
+only; new features come in 1.1. Every version is one press away in the dashboard's
+<i>Update &rarr; version picker</i> (see the
+<a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
+for what each one adds).</p>
 </div>
 
 <h2>Delivered <span class="tag ship">up to 0.16.2</span></h2>
 <div class="card">
-<p>Everything through the current automatic update <b>0.16.2</b> - on your printer now
-via <i>System &rarr; Update</i>:</p>
+<p>The foundation, on every printer since 0.16.2:</p>
 <ul>
 <li><b>WiFi that reconnects on its own</b> after a router dropout, and wireless model
 upload straight from PrusaSlicer.</li>
@@ -128,10 +135,10 @@ layer it was on.</li>
 <a href="https://github.com/slibbinas/TinyMakerWifi/blob/main/CHANGELOG.md" rel="noopener">changelog</a>.</p>
 </div>
 
-<h2>Just shipped <span class="tag dev">0.17.0 beta</span></h2>
+<h2>Delivered <span class="tag ship">0.17</span></h2>
 <div class="card">
-<p>Out now on the <b>beta</b> channel (<i>Update &rarr; version picker</i>), being proven
-before the automatic self-update picks it up:</p>
+<p>The release that turned the model preview into a real 3D view and gave every resin its
+own recipe - on the automatic update since 0.17.6:</p>
 <ul>
 <li><b>Named resin profiles</b> - a profile is the whole recipe for one resin:
 exposures, base layers, all four lift settings, density and layer height. Switching
@@ -162,12 +169,12 @@ says where it failed rather than "it failed".</li>
 is no longer a mystery, and a push message tells you when power came back.</li>
 <li><b>The browser slicer can live on the SD card</b>, so a printer with no internet
 still slices, and the dashboard checks for a newer module by itself.</li>
-<li><b>The browser slicer places the part for you</b> - Fast fit, Optimal fit (the
-PrusaSlicer search for the tilt that needs the fewest supports), Lay flat, Flip, Tilt and
-Rotate, then six settings for supports, strength, placement, tip, raft and smoothing. The
+<li><b>The browser slicer places the part for you</b> - one Fit button, with two switches
+for how: lay it on its widest side or search for the tilt that needs the fewest supports
+(the PrusaSlicer way), and keep your size or make it as large as the plate allows. Lay
+flat, Flip, Tilt and Rotate are there when you want to decide yourself, then six settings for supports, strength, placement, tip, raft and smoothing. The
 raft is counted in layers (2, 3 or 6; default 3), because layers are what decide whether
-the pad grips. Switched on under <i>Settings &rarr; Network</i>; it becomes the default
-with 1.0.0.</li>
+the pad grips. On for everyone since 0.17.6.</li>
 <li><b>The plate knows where the top and the bottom are</b> - the manual jog stops at the
 ceiling instead of grinding into it, touching the endstop is a homing ("Plate is home"),
 and a pause lift asked for at the ceiling no longer drives the plate down into the
@@ -179,56 +186,86 @@ under the mouse on a desktop, a wider preview window, buttons that show they wer
 pressed, and a 24-hour clock.</li>
 </ul>
 <p class="muted">Under the hood: about 60&nbsp;KB of flash reclaimed, checkpoints written
-once per layer instead of twice (kinder to the card), and writes accepted only from the
-printer's own dashboard.</p>
+once per layer instead of twice (kinder to the card), writes accepted only from the
+printer's own dashboard, and a self-update that checks what it downloads before it
+flashes anything (signed updates since 0.18).</p>
 </div>
 
-<h2>Stabilizing <span class="tag now">0.17.x</span></h2>
+<h2>Delivered <span class="tag ship">0.18 &rarr; 1.0.0</span></h2>
 <div class="card">
-<p>Right now the focus is the beta window: collecting feedback from early testers and
-fixing what turns up. Fixes ship as 0.17.x betas - see the
-<a href="https://github.com/slibbinas/TinyMakerWifi/releases" rel="noopener">releases</a>
-for what each one fixes - until the beta channel is quiet.</p>
-<p class="muted">Once it has run clean for a while, 0.17.x is promoted to the automatic
-self-update channel.</p>
+<p>Updates that work wherever you are, crash reports that find the bug, and a few
+dashboard touches - promoted as 1.0.0:</p>
+<ul>
+<li><b>Self-update no longer depends on GitHub's certificate</b> - in some regions GitHub
+serves a different one, and printers there could not update ("Version check failed").
+Each update now carries our own signature, which the printer checks before installing,
+so the region and the printer's clock no longer matter.</li>
+<li><b>Crash reports that point at the line</b> - after a crash the printer sends an
+anonymous backtrace and the fingerprint of the exact build, so a rare fault is found
+instead of guessed at. The first report already found a start-up crash, fixed in 0.18.2.
+Opt-out, no personal data.</li>
+<li><b>Light, dark or system theme</b> - three icons in the dashboard header; <i>System</i>
+follows your phone or computer.</li>
+<li><b>A browser extension</b> that shows print progress on the toolbar, linked from the
+dashboard header until it is installed.</li>
+<li><b>Your own links in the header</b> - a <code>links.json</code> file on the SD card adds
+them next to Manual and Feedback, handy for a shop or a school.</li>
+<li><b>Getting started without PrusaSlicer</b> - the built-in browser slicer is enough;
+PrusaSlicer stays an option.</li>
+<li><b>Drag and drop</b> - drop an STL on the slicer, or an SL1/ZIP on the SD manager,
+instead of picking the file.</li>
+</ul>
+</div>
+
+<h2>Next fixes <span class="tag now">1.0.1</span></h2>
+<div class="card">
+<p>A sturdier update path, found in the review before 1.0.0:</p>
+<ul>
+<li><b>A version that fails to start rolls back by itself</b> - the printer keeps the
+previous firmware until the new one has started and connected, so a bad update never needs
+a USB cable.</li>
+<li><b>No false &ldquo;checksum mismatch&rdquo;</b> in the first minutes after a release, when
+the download servers have not caught up yet.</li>
+<li><b>A steadier download</b> - less memory pressure while an update is fetched.</li>
+</ul>
 </div>
 
 <h2>On the way</h2>
 <div class="card">
 <ul>
-<li><b>Slicing in the browser</b> - the dashboard can slice an STL itself, supports and
-raft included, with no slicer installed. It is there to switch on today and becomes the
-default once it has been proven on enough machines.</li>
-<li><b>A resin profile library</b> - published recipes for common resins that install in
-one press, so a new bottle does not start with an exposure test.</li>
 <li><b>TinyMaker Connect</b> - a community platform for sharing print-ready models
 straight to the printer.</li>
 </ul>
 </div>
 
-<h2>Toward 1.0.0</h2>
+<h2>Next: 1.1</h2>
 <div class="card">
-<p>1.0.0 is 0.17, promoted once it has proven itself: the beta channel quiet with no
-open regressions, clean multi-hour print soak tests, a repeated full code review, and
-the browser slicer on by default for everyone.</p>
-</div>
-
-<h2>After 1.0.0</h2>
-<div class="card">
-<p>Once 1.0.0 lands, the community will help shape what comes next - you'll be
-able to vote on priorities in the
+<p>With 1.0.0 out, the community helps shape what comes next - vote on priorities in the
 <a href="https://www.facebook.com/groups/1486879621729571" rel="noopener">Facebook group</a>.
 The poll sets the direction; final calls on what actually ships stay with the
 maintainer.</p>
-<p>Software feature ideas already on the table:</p>
+<p>Already planned for <b>1.1</b>:</p>
 <ul>
-<li><b>A basic / advanced firmware mode</b> - keep the dashboard simple, or go deep.</li>
-<li><b>More notification options</b> for print start / finish / errors.</li>
-<li><b>More dashboard customization</b> - extra themes and layout choices.</li>
-<li><b>Smarter print helpers</b> - settings-mismatch warnings and better estimates.</li>
+<li><b>Several remembered WiFi networks</b> - take the printer to a show, a workshop or a
+friend's place and back home without setting WiFi up again.</li>
+<li><b>An &ldquo;erase everything for a new owner&rdquo; reset</b> - the WiFi password and every
+stored key go too, before you sell or lend the printer.</li>
+<li><b>A trash bin for models</b> - deleting becomes instant, and the wrong model comes back
+with one press.</li>
+<li><b>The last print, marked in the SD list</b> - which model ran last and how it ended.</li>
+<li><b>Hidden card entries explained</b> - a damaged or oddly named model can still be found
+and removed.</li>
+<li><b>A real Stop while slicing</b> in the browser.</li>
+<li><b>Sharper thin supports</b> - the slicer stops sending grey levels too dim to cure the
+resin, a threshold measured on this printer.</li>
+<li><b>A faster 3D view</b> - drawn only when something actually changes, so turning and
+cutting the model stays quick, and closed cut faces in the slicer view.</li>
+<li><b>Sharing resin profiles through TinyMaker Connect.</b></li>
+<li><b>A web flasher that retries slower</b> when the first attempt times out.</li>
+<li><b>More security hardening</b> of the dashboard.</li>
 </ul>
-<p class="muted">Got an idea? The vote opens with 1.0.0 - and the feedback form
-in the dashboard is open any time.</p>
+<p class="muted">Got an idea? The poll opens with the 1.0.0 announcement in the Facebook
+group - and the feedback form in the dashboard is open any time.</p>
 </div>
 
 <h2>Contributing</h2>
@@ -239,6 +276,11 @@ or just send a note through the feedback form in the dashboard - 30&nbsp;seconds
 no account.</p>
 </div>
 
+<p class="tmclose" hidden><a href="#" onclick="window.close();return false;">Close</a></p>
+<script>/* Close only where it can close: a fresh tab opened from the printer's dashboard
+   (referrer = the printer on the local network). Arriving from the web the tab cannot be
+   closed by script, and the TinyMakerWifi link at the top leads home instead (V 2026-09-26). */
+(function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(!(lan&&history.length<=1))return;document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});var a=document.querySelector(".tmcrumb a,.crumb a");if(a){var o=new URL(document.referrer).origin+"/";a.textContent="Printer";a.href=o;a.title="Back to the printer dashboard";a.onclick=function(){window.close();setTimeout(function(){location.href=o;},300);return false;};}}catch(e){}})();</script>
 <footer>
 <a href="https://tinymakerwifi.com" rel="noopener">tinymakerwifi.com</a> ·
 <a href="https://github.com/slibbinas/TinyMakerWifi" rel="noopener">GitHub</a> ·
