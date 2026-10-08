@@ -1861,7 +1861,10 @@ extern "C" bool verifyRollbackLater() { return true; }
 static esp_timer_handle_t otaConfirmTimer = nullptr;
 
 // true once the running image is confirmed (or was never pending, e.g. USB-flashed).
-static bool otaConfirmNow() {
+// Also called before any new firmware is received: the Arduino Updater writes the
+// other slot without esp_ota_begin(), so nothing else stops a second flash from
+// leaving a still-pending image as the only fallback.
+bool otaConfirmNow() {
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_img_states_t state;
   if (!running || esp_ota_get_state_partition(running, &state) != ESP_OK) return true;

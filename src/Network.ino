@@ -803,6 +803,7 @@ void handleUpdateUpload() {
     // hundred bytes on ~1.4 MB. Close enough for a bar, and it is the only total
     // we get: Update.begin() is handed UPDATE_SIZE_UNKNOWN.
     otaTotalBytes = server.clientContentLength();
+    otaConfirmNow();   // serving this upload proves the running image works
     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
       DBGLN("Update.begin failed");
     }
@@ -3375,6 +3376,7 @@ void otaVerifiedFlash(const String &url, const String &expectedSha, const char *
     netMessage("Update FAILED", code != HTTP_CODE_OK ? String("HTTP " + String(code)).c_str() : "no length");
     delay(1800); restoreIdleScreen(); return;
   }
+  otaConfirmNow();   // the running image becomes the fallback - it must not be pending
   if (!Update.begin(len)) {
     https.end();
     netMessage("Update FAILED", "no space");
@@ -5260,7 +5262,7 @@ void network_setup() {
   // No password by default (home LAN); add ArduinoOTA.setPassword("...")
   // + upload_flags = --auth=... in platformio.ini if the network is shared.
   ArduinoOTA.setHostname("tinymaker");
-  ArduinoOTA.onStart([]() { netProgressStart("PlatformIO OTA...", ""); });
+  ArduinoOTA.onStart([]() { otaConfirmNow(); netProgressStart("PlatformIO OTA...", ""); });
   ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
     netProgressBar(done, total);
   });
