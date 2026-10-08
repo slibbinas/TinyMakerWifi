@@ -369,6 +369,10 @@ def main():
             f"{version}\n{PAGES_URL}/firmware.bin\n", newline="\n")
         # Stable self-update channel: same signed manifest, canonical name.
         write_manifest(GHPAGES_WORKTREE / "update.json", signed)
+        # The beta pointer follows stable, as in --promote: a stable released
+        # straight away (1.0.0) otherwise left it on the older beta.
+        (GHPAGES_WORKTREE / "version-beta.txt").write_text(
+            f"{version}\n{PAGES_URL}/firmware-{version}.bin\n", newline="\n")
 
     # versions.txt: newest first, one X.Y.Z per line (the dashboard's picker)
     manifest_path = GHPAGES_WORKTREE / "versions.txt"

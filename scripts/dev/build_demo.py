@@ -44,6 +44,11 @@ shim = io.open(SHIM, encoding="utf-8").read()
 shim, n = re.subn(r"firmwareVersion:'\d+\.\d+\.\d+'",
                   f"firmwareVersion:'{FW}'", shim)
 assert n == 1, f"expected exactly one firmwareVersion literal in the shim, patched {n}"
+# The Update tab reads its own mock (installed/latest); left as a literal it kept
+# showing 0.15.4 long after the release moved on.
+shim, n = re.subn(r"installed:'\d+\.\d+\.\d+',latest:'\d+\.\d+\.\d+'",
+                  f"installed:'{FW}',latest:'{FW}'", shim)
+assert n == 1, f"expected exactly one UPDATE installed/latest literal in the shim, patched {n}"
 marker = "<title>TinyMaker</title>"
 assert marker in html, "title marker not found"
 # The demo is reachable both as tinymakerwifi.com/demo/ and on github.io; the

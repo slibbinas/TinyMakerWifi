@@ -144,6 +144,15 @@ export default {
     // The apex root is Cloudflare-served (not this worker) and there is no CNAME,
     // so these files have no gh-pages home; the worker owns them via dedicated
     // routes (see wrangler.jsonc). Kept inline here as the single source of truth.
+    // connect.tinymakerwifi.com is a Custom Domain on the connect-proxy worker, and
+    // its /robots.txt fell through to the app's HTML (200), so crawlers fetched
+    // users' shared model downloads under /api/. This route runs before the
+    // Custom Domain worker and answers only this one path; the proxy is untouched.
+    if (request.method === 'GET' && path === '/robots.txt' && url.hostname === 'connect.tinymakerwifi.com') {
+      return new Response('User-agent: *\nDisallow: /api/\n', {
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+      });
+    }
     if (request.method === 'GET' && path === '/robots.txt') {
       const body = 'User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://tinymakerwifi.com/sitemap.xml\n';
       return new Response(body, {
