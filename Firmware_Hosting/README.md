@@ -1,29 +1,31 @@
 # Firmware hosting for self-update (GitHub Pages)
 
 The printer's **System → Update** screen can check for a newer firmware and
-install it over WiFi with no computer ("Install"). For that to work, two files
-must be reachable over HTTPS from a stable URL. We host them on **GitHub Pages**
-(the `gh-pages` branch), which serves a single host with no redirects — the
-ESP32's TLS + `httpUpdate` handles that cleanly.
+install it over WiFi with no computer ("Install"). The files live on **GitHub
+Pages** (the `gh-pages` branch), served from one host with no redirects.
 
-The URL the firmware checks is set in `src/Network.ino`:
+Since 0.18 the printer trusts **our signature, not GitHub's certificate**. It
+fetches a signed manifest `{"version","sha256","sig"}`, verifies the ECDSA-P256
+signature against the public key compiled into the firmware
+(`src/update_pubkey.h`), and flashes `firmware.bin` only if its SHA-256 matches.
+A manifest that does not verify means no update (fail closed). The URLs are set
+in `src/Network.ino`:
 
 ```c
-#define OTA_VERSION_URL "https://slibbinas.github.io/TinyMakerWifi/version.txt"
+#define OTA_MANIFEST_URL "https://slibbinas.github.io/TinyMakerWifi/update.json"
+#define OTA_VERSION_URL  "https://slibbinas.github.io/TinyMakerWifi/version.txt"  // only for the base directory
 ```
+
+The private signing key lives outside the repo (`~/.tinymaker/fw_signing_key.pem`,
+or `$TINYMAKER_SIGNING_KEY`); create it once with `scripts/dev/gen_fw_signing_key.py`.
+`release.py` refuses to publish without it. **Losing it means no printer can
+update itself again until each one is flashed by hand** - keep a backup.
 
 ## Files to publish on `gh-pages`
 
-1. **`version.txt`** — two lines: latest version, then the direct firmware URL.
-   Use `Firmware_Hosting/version.txt` in this repo as the template:
-
-   ```
-   0.7.0
-   https://slibbinas.github.io/TinyMakerWifi/firmware.bin
-   ```
-
-2. **`firmware.bin`** — the app-only image (OTA image, **not** `firmware-full.bin`).
-   Built at `C:/PIO-build/TinyMakerWiFi/tinymaker/firmware.bin`.
+`release.py` writes all of them (list below). For orientation: `firmware.bin` is
+the app-only image (OTA image, **not** `firmware-full.bin`), built at
+`C:/PIO-build/TinyMakerWiFi/tinymaker/firmware.bin`.
 
 ## One-time setup
 
@@ -50,14 +52,25 @@ creates the GitHub Release with `firmware.bin` + `firmware-full.bin` attached.
 `--dry-run` stops after the build; the GitHub token comes from the git
 credential helper automatically.
 
-## Files on `gh-pages` (Level B - version picker)
+## Files on `gh-pages`
 
-- `version.txt` — two lines: latest version + firmware.bin URL (the printer's
-  "Install latest" check).
-- `firmware.bin` — always the latest build.
-- `firmware-X.Y.Z.bin` — one archived copy per release; the dashboard's
-  version picker installs these directly.
-- `versions.txt` — the picker's manifest: one `X.Y.Z` per line, newest first.
+- `update.json` - the **signed manifest of the stable release**; this is what
+  the self-update reads.
+- `firmware-X.Y.Z.json` - the signed manifest of each release; the version
+  picker verifies it before installing that version.
+- `firmware.bin` - the stable build; `firmware-X.Y.Z.bin` - one copy per release.
+- `version.txt` - two lines: stable version + firmware.bin URL (kept for the
+  dashboard and older references; the self-update no longer reads it).
+- `version-beta.txt` - the newest beta (follows stable when there is none).
+- `versions.txt` - the picker's list: one `X.Y.Z` per line, newest first.
+- `builds.json` - `firmware.elf` SHA-256 of every release -> its version, so a
+  crash report's build fingerprint resolves to the exact release.
+
+A **beta** (`release.py --beta`) publishes `firmware-X.Y.Z.bin/.json`, the picker
+list and `version-beta.txt`, but leaves `update.json` / `version.txt` /
+`firmware.bin` on the previous stable. `--promote` later copies that version's
+already-signed manifest to `update.json`, so promotion needs no key and ships the
+exact bytes that were signed.
 
 ### Slicer module (0.17 SL-mod)
 

@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 **Firmware version + build**
-<!-- Dashboard header or Settings → About, e.g. 0.15.8 (28da502).
+<!-- Dashboard header or Settings → About, e.g. 1.0.0 (75a44fe).
      Not sure which channel you're on? The Update tab shows it. -->
 
 **What happened**
