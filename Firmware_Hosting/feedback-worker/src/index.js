@@ -1002,17 +1002,22 @@ export default {
 // current per-device record), so the trend has to be captured here, going
 // forward - there is no past to backfill. Idempotent: overwrites today's key,
 // so running on both the weekly and daily cron is harmless. Best-effort: a
-// failed fetch skips today rather than storing a hole.
+// failed fetch skips today rather than storing a hole - but it leaves the reason
+// in fleet:lasterr (and the log). The silent version lost nine days unnoticed.
 const STATS_URL = 'https://tinymaker-stats.slibbinas.workers.dev/stats';
 async function snapshotFleet(env, ms) {
+  const date = new Date(ms).toISOString().slice(0, 10);
+  const fail = async (why) => {
+    console.error('fleet snapshot ' + date + ': ' + why);
+    try { await env.FEEDBACK.put('fleet:lasterr', JSON.stringify({ at: new Date().toISOString(), date, why })); } catch (e) {}
+  };
   let d;
   try {
-    const r = await fetch(STATS_URL, { cf: { cacheTtl: 0 } });
-    if (!r.ok) return;
+    const r = await env.STATS.fetch(STATS_URL);
+    if (!r.ok) return fail('HTTP ' + r.status);
     d = await r.json();
-  } catch (e) { return; }
-  if (!d || typeof d.printers !== 'number' || !d.by_version || typeof d.by_version !== 'object') return;
-  const date = new Date(ms).toISOString().slice(0, 10);
+  } catch (e) { return fail(String(e && e.message || e)); }
+  if (!d || typeof d.printers !== 'number' || !d.by_version || typeof d.by_version !== 'object') return fail('unexpected /stats shape');
   await env.FEEDBACK.put('vh:' + date, JSON.stringify({ date, printers: d.printers, by_version: d.by_version }),
                          { metadata: { p: d.printers } });
   // Keep ~400 daily snapshots (each tiny); drop the oldest beyond that.
