@@ -56,6 +56,12 @@
   "kv_namespaces": [
     { "binding": "FEEDBACK", "id": "4eb7904e55fc490e854f85f631e6c35e" }
   ],
+  // The fleet snapshot reads tinymaker-stats through this binding, not its public
+  // workers.dev URL: the cron wrote no snapshot on any day (10-01..10-09) while
+  // the same fetch from a page request (/fleet/snap) worked.
+  "services": [
+    { "binding": "STATS", "service": "tinymaker-stats" }
+  ],
   // Weekly heartbeat (hb:last) + daily fleet snapshot (vh:<date> from /stats).
   "triggers": { "crons": ["0 6 * * 1", "30 6 * * *"] },
   // Request logs in Cloudflare Workers Observability. Without this the one worker
