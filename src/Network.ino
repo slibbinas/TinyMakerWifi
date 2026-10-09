@@ -941,6 +941,7 @@ uint32_t remainingPrintSecs() {
     secs += (Base_Layer - current_layer) * Base_Exposure;
   }
   secs += layersLeft * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
+  secs += layersLeft * preExposureWaitDs / 10;
   if (layersLeft > 1) {
     secs += (uint32_t)((layersLeft - 1) * motor_updown_time);
   }
@@ -1661,6 +1662,8 @@ String configJson() {
   out += resumePrecise ? "true" : "false";
   out += ",\"pauseLiftMm\":";
   out += String(pauseLiftMm);
+  out += ",\"preExposureWait\":";
+  out += String(preExposureWaitDs / 10.0, 1);
   out += ",\"statsPing\":";
   out += statsPingEnabled ? "true" : "false";
   out += ",\"mqttEnabled\":";
@@ -1790,6 +1793,11 @@ void applyConfigRequest() {
   resumePrecise = formCheck("resume_precise", resumePrecise);   // checked = Precise cadence, else Balanced
   pauseLiftMm = formLong("pause_lift", pauseLiftMm, 20, 40);   // 0.17 #82: inspection lift height
   pauseLiftMm = ((pauseLiftMm + 2) / 5) * 5;   // #82: snap to 5 mm so web matches the LCD cycle
+  if (server.hasArg("pre_exposure_wait")) {
+    // seconds from the form (step 0.5), stored in deciseconds
+    long ds = lroundf(server.arg("pre_exposure_wait").toFloat() * 10.0f);
+    preExposureWaitDs = ds < 0 ? 0 : (ds > 100 ? 100 : ds);
+  }
   statsPingEnabled = formCheck("stats_ping", statsPingEnabled);
   mqttEnabled = formCheck("mqtt_enabled", mqttEnabled);
   if (!wifiEnabled) mqttEnabled = false;

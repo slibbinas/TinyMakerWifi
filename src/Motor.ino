@@ -490,7 +490,7 @@ void publishPauseEstimate(int fromPhase) {
     total += prevLiftMs;
   } else if (fromPhase == 3) {
     // Leidziamasi: pauzes taskas ateina tik po KITO sluoksnio ekspozicijos ir pakelimo.
-    total += exposureMsForLayer(current_layer + 1) + prevLiftMs;
+    total += (unsigned long)preExposureWaitDs * 100UL + exposureMsForLayer(current_layer + 1) + prevLiftMs;
   }
   // Plius pauzes pakelimas apziurai, apkarpytas pagal likusi auksti (kaip TinyMaker.ino).
   float fastSps = Fast_Lift_Feedrate * steps_mm / 60.0f;

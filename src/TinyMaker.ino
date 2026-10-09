@@ -370,6 +370,7 @@ bool resumePrecise = false;         // 0.17 1-38b: false = Balanced cadence, tru
 long resumeLiveSteps = 0;           // 0.17: physical relabel height loaded from a checkpoint (== base for legacy records)
 long resumeCycleBaseSteps = 0;      // 0.17: exact pre-lift base of the current layer cycle (drift-free target reference)
 int pauseLiftMm = 20;               // 0.17 #82: Pause plate-lift height for inspection (mm, 20-40; runtime-clamped to headroom)
+int preExposureWaitDs = 0;          // test build: wait after the plate settles, before UV (deciseconds, 0-100; 0 = off)
 // Granular-checkpoint cadence during the ~9s lift/drop motion (0.17 1-38b).
 // Defined here (the first-concatenated TU) so Motor.ino - concatenated before
 // Resume.ino - can see them.
@@ -483,6 +484,8 @@ void loadDeviceConfig() {
   resumePrecise = sysPrefs.getBool("resumePrec", false);
   pauseLiftMm = sysPrefs.getUChar("pauseLift", 20);   // 0.17 #82
   if (pauseLiftMm < 20 || pauseLiftMm > 40) pauseLiftMm = 20;   // clamp legacy/garbage
+  preExposureWaitDs = sysPrefs.getUChar("preExpWait", 0);
+  if (preExposureWaitDs > 100) preExposureWaitDs = 0;
   statsPingEnabled = sysPrefs.getBool("statsPing", true);
   printsOkCount = sysPrefs.getUShort("printsOk", 0);     // 1.0.0 K8
   thanksSeen = sysPrefs.getBool("thanksSeen", false);
@@ -608,6 +611,7 @@ void saveDeviceConfig() {
   sysPrefs.putBool("resumeEn", resumeEnabled);
   sysPrefs.putBool("resumePrec", resumePrecise);
   sysPrefs.putUChar("pauseLift", (uint8_t)pauseLiftMm);   // 0.17 #82
+  sysPrefs.putUChar("preExpWait", (uint8_t)preExposureWaitDs);
   sysPrefs.putBool("statsPing", statsPingEnabled);
   sysPrefs.putString("bootAnimName", bootAnimName);
   sysPrefs.putBool("mqttEnabled", mqttEnabled);
@@ -1299,6 +1303,8 @@ String buildConfigBackupJson(bool includeSecrets = true) {
   out += resumePrecise ? "true" : "false";
   out += ",\"pauseLiftMm\":";
   out += String(pauseLiftMm);
+  out += ",\"preExposureWait\":";
+  out += String(preExposureWaitDs / 10.0, 1);
   out += ",\"bootAnim\":\"";
   out += backupEscape(bootAnimName);
   out += "\"";
@@ -1498,6 +1504,7 @@ void applyConfigBackup(const String &j) {
   resumeEnabled = backupBool(j, "resumeEnabled", resumeEnabled);
   resumePrecise = backupBool(j, "resumePrecise", resumePrecise);
   pauseLiftMm = backupClamp(backupNum(j, "pauseLiftMm", pauseLiftMm), 20, 40);
+  preExposureWaitDs = backupClamp(lround(backupNum(j, "preExposureWait", preExposureWaitDs / 10.0) * 10.0), 0, 100);
   bootAnimName = backupStr(j, "bootAnim", bootAnimName);
   mqttEnabled = wifiEnabled && backupBool(j, "mqttEnabled", mqttEnabled);
   mqttHost = backupStr(j, "mqttHost", mqttHost);
@@ -1779,6 +1786,7 @@ void resetEverythingToFactory() {
   resumeEnabled = true;
   resumePrecise = false;
   pauseLiftMm = 20;
+  preExposureWaitDs = 0;
   /* The three resin-level settings belong here too. They were left out while the stop
      level was a matter of taste; it is not one any more - 3 ml is where this vat's floor
      goes dry, measured, so the defaults below are the only values that make the feature
@@ -2919,7 +2927,8 @@ void loop() {
           motor_updown_time_total = 0;
           if (current_layer < Base_Layer)
             estimated_seconds += (Base_Layer - current_layer) * Base_Exposure;                
-          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s            
+          estimated_seconds += (layer_counter - current_layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
+          estimated_seconds += (layer_counter - current_layer) * preExposureWaitDs / 10;
           motor_updown_time_total += (layer_counter - current_layer - 1) * motor_updown_time;            
           estimated_seconds += motor_updown_time_total;             
           estimated_hours = estimated_seconds / 3600;

@@ -1481,6 +1481,7 @@ void screen111(){
   // Calculate print time
   estimated_seconds += Base_Layer * Base_Exposure;
   estimated_seconds += (layer_counter - Base_Layer) * Regular_Exposure / 10;   // 0.17 0-3: ds -> s
+  estimated_seconds += layer_counter * preExposureWaitDs / 10;
   motor_updown_time_total = motor_updown_time * (layer_counter - 1);
   estimated_seconds += motor_updown_time_total; 
   estimated_hours = estimated_seconds / 3600;

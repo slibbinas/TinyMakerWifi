@@ -725,6 +725,7 @@ button.secondary:disabled,.button.secondary:disabled,button.delete:disabled{
          default is 4, a millilitre above the measurement. -->
     <label><span>Low resin stop (ml)</span><input name='low_resin_ml' id='cfgLowResinMl' type='number' min='3' max='8' step='1'></label>
     <label><span>Pause lift height (mm)</span><input name='pause_lift' id='cfgPauseLift' type='number' min='20' max='40' step='5'></label>
+    <label><span>Wait before exposure (s)</span><input name='pre_exposure_wait' id='cfgPreExposureWait' type='number' min='0' max='10' step='0.5'></label>
     <label><span>Idle screen timeout (s, 0=off)</span><input name='ui_timeout' id='cfgUiTimeout' type='number' min='0' max='3600' step='5'></label>
     <label class='check'><input name='low_resin_pause' id='cfgLowResinPause' type='checkbox' value='1'><span>Low resin stop (mid-print)</span></label>
     <label class='check'><input name='ask_refill' id='cfgAskRefill' type='checkbox' value='1'><span>Ask refill before print</span></label>
@@ -6369,7 +6370,7 @@ const loadConfig=async()=>{
     connectConfig=c;
     $('cfgLayerHeight').value=Number(c.layerHeight).toFixed(2); $('cfgBaseExposure').value=c.baseExposure; $('cfgRegularExposure').value=c.regularExposure; $('cfgBaseLayers').value=c.baseLayers; $('cfgTransitionLayers').value=c.transitionLayers;
     // One-click undo of the last replaced exposure (test pick / config save)
-    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl;
+    $('cfgSlowLiftDistance').value=c.slowLiftDistance; $('cfgFastLiftDistance').value=c.fastLiftDistance; $('cfgSlowLiftFeedrate').value=c.slowLiftFeedrate; $('cfgFastLiftFeedrate').value=c.fastLiftFeedrate; $('cfgDropBackFeedrate').value=c.dropBackFeedrate; $('cfgPauseLift').value=c.pauseLiftMm; $('cfgPreExposureWait').value=c.preExposureWait;$('cfgVatMl').value=c.vatMl; $('cfgLowResinMl').value=c.lowResinMl; $('cfgLowResinWarn').value=c.lowResinWarnMl;
     $('cfgVatEmptyG').value=c.vatEmptyG;   /* 0.17 0-16 */
     $('cfgSlicerOn').checked=!!c.slicerOn;   /* 0.17 SL-mod: modulio jungiklis */
     $('vatEmptyShow').textContent=Number(c.vatEmptyG||0).toFixed(2);

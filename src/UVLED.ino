@@ -30,36 +30,49 @@ void turn_on_LED(){
   }
   if(current_layer > Base_Layer + Transition_Layer)
     ExposureMillis = Regular_Exposure * 100;   // regular layers: deciseconds -> ms
-  
+
+  // Test build: the plate has settled at the layer height; give viscous resin
+  // time to flow back under it before the light comes on. The wait runs inside
+  // this loop, so buttons, HTTP and Stop/Pause behave exactly as during exposure.
+  const unsigned long waitMs = (unsigned long)preExposureWaitDs * 100UL;
+
   startTime = millis();
   Duration = 0;
   startTime2 = millis();
-  digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
   // Countdown bookkeeping - the dashboard shows "Curing · Ns" from these.
   // Laukimo ivertis (pauze/stabdymas) yra atskiras skaicius - jo NEPERRASOM.
   // Pauze paspaudus leidziantis, iki pauzes tasko praeina dar visas sluoksnis, ir
   // zmogus visa ta laika turi matyti VIENA mazejanti skaiciu (V 08-18).
   if (current_state != 4 && current_state != 5) {
     phaseStartMs = startTime;
-    phaseTotalMs = ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0;
+    phaseTotalMs = waitMs + (ExposureMillis > 0 ? (unsigned long)ExposureMillis : 0);
     phaseWaitStage = "";
   }
-  if (uvLedEnabled && ExposureMillis > 0) {
-    if (!uvOffTimer) {
-      esp_timer_create_args_t targs = {};
-      targs.callback = uvOffTimerCb;
-      targs.name = "uvoff";
-      esp_timer_create(&targs, &uvOffTimer);
-    }
-    if (uvOffTimer) {
-      esp_timer_stop(uvOffTimer);   // may not be armed; harmless
-      esp_timer_start_once(uvOffTimer, (uint64_t)ExposureMillis * 1000ULL);
-    }
-  }
+  bool lit = false;
+  unsigned long litAt = 0;
 
-  while (Duration <= ExposureMillis && !print_canceled){
+  // Exposure is timed from the moment the light comes on, not from the start of
+  // the wait: a blocked loop must not eat into it.
+  while ((!lit || millis() - litAt <= (unsigned long)ExposureMillis) && !print_canceled){
     Duration = millis()-startTime;
     Duration2 = millis()-startTime2;
+    if (!lit && (unsigned long)Duration >= waitMs) {
+      lit = true;
+      litAt = millis();
+      digitalWrite(LED, uvLedEnabled ? HIGH : LOW);
+      if (uvLedEnabled && ExposureMillis > 0) {
+        if (!uvOffTimer) {
+          esp_timer_create_args_t targs = {};
+          targs.callback = uvOffTimerCb;
+          targs.name = "uvoff";
+          esp_timer_create(&targs, &uvOffTimer);
+        }
+        if (uvOffTimer) {
+          esp_timer_stop(uvOffTimer);   // may not be armed; harmless
+          esp_timer_start_once(uvOffTimer, (uint64_t)ExposureMillis * 1000ULL);
+        }
+      }
+    }
 
     // Service HTTP while the LED burns. The exposure counts wall time, so
     // this costs it nothing - but without it the dashboard stalled until the
@@ -157,5 +170,5 @@ void turn_on_LED(){
   // ekspozicijai, tad pertraukem butent ja (1). `current_state` klausti negalima -
   // nutraukimas ji jau pasistate i 4 (auditas 09-01).
   if (print_canceled) publishStopEstimate(1);   // zr. Motor.ino
-  if (uvLedEnabled) uvLedSessionMs += Duration;  // LED aging: count lit time only
+  if (uvLedEnabled && lit) uvLedSessionMs += millis() - litAt;  // LED aging: count lit time only
 }
