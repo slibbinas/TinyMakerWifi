@@ -1,0 +1,20 @@
+// TinyMaker Live gateway - deploy with: npx wrangler deploy
+//
+// Separate worker from tinymaker-feedback on purpose: this one answers a
+// printer on a timer and must stay boring. A bug in the feedback inbox should
+// never be able to stall a beat, and vice versa.
+{
+  "name": "tinymaker-gateway",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "routes": [
+    // Plain HTTP matters here: the printer speaks http:// only (no TLS during
+    // a print - see docs/gateway-spec.md), and it does not follow redirects.
+    // The zone must therefore NOT force HTTPS on this path; see README.
+    { "pattern": "tinymakerwifi.com/gw/*", "zone_name": "tinymakerwifi.com" }
+  ],
+  "kv_namespaces": [
+    // Create with: npx wrangler kv namespace create GATEWAY
+    { "binding": "GATEWAY", "id": "REPLACE_WITH_NAMESPACE_ID" }
+  ]
+}
