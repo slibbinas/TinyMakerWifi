@@ -7,9 +7,13 @@
 <!-- Kol puslapis neskelbiamas, is paieskos ji laiko sita eilute: adresas veikia,
      bet gh-pages indeksuojamas, tad be jos Google ji rastu pats, be jokios nuorodos.
      Skelbiant - nuimti. -->
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="index, follow">
 <meta name="description" content="Every resin run on the palm-sized TinyMaker MSLA printer: the exposure that worked, what the test prints looked like, and where to buy it.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='8' y='40' width='48' height='9' rx='3' fill='%23e8720c'/><rect x='14' y='27' width='36' height='9' rx='3' fill='%23e8720c' opacity='.75'/><rect x='20' y='14' width='24' height='9' rx='3' fill='%23e8720c' opacity='.5'/><path d='M22 6 A14 14 0 0 1 42 6' fill='none' stroke='%234da3ff' stroke-width='5' stroke-linecap='round'/></svg>">
+<!-- Piktograma - TIKRAS failas, ne data: URI. Google ja parsisiuncia atskirai ir
+     data: adreso parsisiusti negali: 2026-10-08 paieskoje vietoj zenklo buvo gaublys.
+     Tas pats adresas kaip landinge - viso domeno piktograma turi buti viena. -->
+<link rel="icon" type="image/png" sizes="144x144" href="https://tinymakerwifi.com/favicon.png">
+<link rel="apple-touch-icon" href="https://tinymakerwifi.com/apple-touch-icon.png">
 <script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 <style>
 :root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f}
@@ -22,7 +26,8 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .hero{padding:44px 0 26px;text-align:center;position:relative}
 .hero svg.logo{width:60px;height:60px}
 h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
-.tag{font-size:17px;color:var(--tag);margin:0 auto;max-width:640px}
+.tag{font-size:17px;color:var(--tag);margin:0 auto;max-width:820px;line-height:1.55}
+.tag b{color:var(--text)}
 .themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
 .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
 .themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -62,7 +67,16 @@ h2{color:var(--accent);font-size:22px;margin:0 0 6px}
 /* align-items:start - without it an opened test log stretches the
    whole row and the neighbours' Buy buttons slide to the bottom of a mostly
    empty card. */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:stretch}
+/* Ant stalo stovinti derva - gyviausias puslapio turinys, tad jai visas plotis
+   ir atversta istorija; siaurame stulpelyje viena kortele atrodo nuskriausta. */
+/* Viso plocio kortele, bet isdestymas toks pat kaip visur: nuotrauka virsuje,
+   informacija po ja. Dvieju stulpeliu variantas (V 2026-10-10) buvo blogesnis. */
+#gridBench{grid-template-columns:1fr}
+#gridBench .pic.shot{aspect-ratio:auto}
+/* Visas kadras, ne apkirptas: cover kirpdavo krastus, o ant stalo stovincios
+   dervos nuotrauka yra pats turinys. */
+#gridBench .pic.shot img{object-fit:contain;max-height:460px;background:var(--shot)}
 .rc{background:var(--card);border:1px solid var(--line2);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .rc.demo{border-style:dashed;border-color:var(--accent)}
 .pic{position:relative;background:var(--shot);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -81,19 +95,42 @@ h2{color:var(--accent);font-size:22px;margin:0 0 6px}
 .verdict{margin:0 0 12px;font-size:14px;color:var(--muted);min-height:calc(3 * 1.55em);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .kv .alt{color:var(--muted2);font-size:12px}
+.alt2{margin:-6px 0 12px;font-size:12.5px;color:var(--muted2);padding:7px 10px;border-radius:8px;
+  background:var(--btnsec)}
+.alt2 b{color:var(--muted)}
 .kv{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 14px}
 .kv td{padding:4px 0;border-top:1px solid var(--line)}
 .kv td:first-child{color:var(--muted2)}
 .kv td:last-child{text-align:right;font-variant-numeric:tabular-nums}
-.act{display:flex;gap:8px;margin:auto 0 0}
+.act{display:flex;gap:8px;margin:14px 0 0}
+.body>.fold:last-of-type{margin-bottom:0}
+.spacer{flex:1}
 .btn{display:block;background:var(--accent);color:#fff;font-weight:600;border-radius:9px;padding:9px 12px;text-align:center;font-size:14px;flex:1;border:0;cursor:pointer;font-family:inherit}
 .btn:hover{background:#c95f06;text-decoration:none}
 .btn.sec{background:var(--btnsec);color:var(--btnsec-t)}
 .btn.off{opacity:.5;cursor:default}
 .btn.sec:hover{background:var(--btnsec-h)}
 
-details.tests{border-top:1px solid var(--line);margin:14px -16px -16px;padding:0 16px}
-details.tests summary{cursor:pointer;padding:11px 0;font-size:13.5px;color:var(--muted);list-style:none}
+details.fold{border-top:1px solid var(--line);margin:0 -16px;padding:0 16px}
+.fold summary{cursor:pointer;padding:10px 0;font-size:13.5px;color:var(--muted);list-style:none;
+  display:flex;align-items:center;gap:6px}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary::before{content:"B8";color:var(--accent);font-size:11px;transition:transform .15s}
+.fold[open] summary::before{transform:rotate(90deg)}
+.fold summary:hover{color:var(--text)}
+.fold>p{margin:0 0 12px;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.fold.note>p{border-left:3px solid var(--accent);padding-left:10px}
+.fold.tests{margin-bottom:0;background:linear-gradient(0deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent)}
+.fold.tests summary{padding:13px 0}
+.fold.tests summary::before{font-size:13px}
+.tsum{color:var(--accent);font-weight:600;font-size:14px}
+.tcnt{color:var(--muted2);font-size:12.5px;margin-left:auto}
+.fold.tests summary:hover .tsum{text-decoration:underline}
+.kv{margin-bottom:14px!important}
+.tests{border-top:1px solid var(--line);margin:14px -16px -16px;padding:0 16px}
+details.tests summary{cursor:pointer;padding:12px 0;font-size:14px;font-weight:600;color:var(--text);list-style:none}
+.tests summary:hover{color:var(--accent)}
+.act{margin-top:14px!important}
 details.tests summary::-webkit-details-marker{display:none}
 details.tests summary::before{content:"▸ ";color:var(--accent)}
 details.tests[open] summary::before{content:"▾ "}
@@ -120,6 +157,59 @@ footer a{color:var(--muted2);text-decoration:underline}
   .themeSw{top:8px;right:0}
   .tr{grid-template-columns:62px 1fr}
 }
+.pic.shot{display:block;padding:0;background:var(--shot);aspect-ratio:4/3;overflow:hidden}
+.pic.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.th img{width:100%;height:100%;object-fit:cover;border-radius:8px;display:block}
+.prog{margin:10px 0 12px}
+.pbar{display:flex;gap:4px}
+.pstep{flex:1;font-size:10.5px;line-height:1.2;text-align:center;padding:5px 2px;border-radius:6px;
+  background:var(--btnsec);color:var(--muted);border:1px solid var(--line);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pstep.done{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.pstep.doing{background:transparent;border-color:var(--accent);color:var(--accent);font-weight:600;
+  border-style:dashed}
+.pnum b{color:var(--accent)}
+.snote{margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--muted);
+  border-left:3px solid var(--accent);padding-left:10px}
+.pnum{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+.kvnote{font-size:12px;color:var(--muted);font-style:italic;padding-top:8px!important}
+.tag .why{display:inline-block;margin-top:10px;font-size:15px;color:var(--muted)}
+.product{margin:-6px 0 8px;font-size:13px;line-height:1.35;color:var(--muted)}
+/* BUTINA: be sios eilutes `display:flex` nugali [hidden], ir langas kabo ant
+   puslapio nuo pat atidarymo, o X jo neuzdaro. */
+#lb[hidden]{display:none}
+#lb{position:fixed;inset:0;z-index:90;background:rgba(8,8,10,.92);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 20px}
+#lb img{max-width:min(1100px,96vw);max-height:84vh;object-fit:contain;border-radius:10px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55)}
+#lbc{margin-top:12px;font-size:13.5px;color:#cfd3d8;text-align:center;max-width:720px}
+#lbx{position:absolute;top:14px;right:16px;width:40px;height:40px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;
+  font-size:26px;line-height:1;cursor:pointer}
+#lbx:hover{background:rgba(255,255,255,.16)}
+.future{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.future b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:6px}
+.future p{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.rc .product:empty{min-height:calc(13px * 1.35)}
+.hownote{margin:2px 0 10px;font-size:12px;line-height:1.45;color:var(--muted);
+  border-left:2px solid var(--line);padding-left:8px}
+.hownote.warn{color:var(--accent);border-left-color:var(--accent)}
+.vsum{margin:0 0 12px;font-size:13.5px;line-height:1.55;color:var(--text)}
+.mnote{margin:8px 0 0;padding:8px 10px;border-left:3px solid var(--accent);background:var(--btnsec);
+  font-size:13px;line-height:1.45;color:var(--muted)}
+.mnote b{color:var(--text);margin-right:4px}
+.right.retest{color:var(--accent)}
+#method{border-top:1px solid var(--line);margin-top:8px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:18px 0 20px}
+.mcard{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--btnsec)}
+.mcard h3{margin:0 0 6px;font-size:15px}
+.mcard p{margin:0;font-size:13.5px;line-height:1.55;color:var(--muted)}
+.mcard.assets{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:start}
+.mcard.assets h3{grid-column:1/-1}
+.mcard .mark{width:56px;height:56px;display:block}
+.sig{font-size:14px;line-height:1.6;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+.sig b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -128,17 +218,23 @@ footer a{color:var(--muted2);text-decoration:underline}
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
   <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
   <h1>Resins tested for TinyMaker</h1>
-  <p class="tag">The TinyMaker has a colour LCD and a 40 x 31 mm plate, so the numbers on a resin bottle rarely fit it. Everything below was printed on the machine itself - the exposure listed is the one that worked, not the one on the label.</p>
+  <p class="tag"><b>Resin settings that actually work on the TinyMaker.</b><br>
+  Every resin here was printed on the machine, step by step, until the numbers held - then the whole
+  profile goes to your printer in one tap: exposure and base layers, lift distances and speeds, and the
+  density the printer uses to work out how much resin a model will take.<br>
+  <span class="why">Why not just use the bottle? Those figures assume a mono screen. The TinyMaker masks
+  with a colour LCD, so the same resin needs roughly <b>four times</b> the exposure.</span></p>
   <div class="counts" id="counts"></div>
 </div>
 
-<div class="wrap">
-  <div class="demobar" id="demobar"><b>Mockup.</b> Layout study for the public resin catalogue. Photographs are drawings, and one entry is a synthetic example used to show what a fully tested resin looks like. Printed numbers for Sunlu Toughness and Anycubic Water-Washable are real - they come from the profiles the printer already ships.</div>
-</div>
 
 <section id="tested"><div class="wrap">
   <h2>Tested and published</h2>
-  <p class="lede">Each of these ran through the same four steps: exposure strip, standard coupon, a simple model, a detailed one. The profile is installed on the printer in one tap from the dashboard.</p>
+  <p class="lede">Each step answers what the previous one left open. The <b>exposure strip</b> cures
+  eight bars at once and brackets the figure. The <b>standard coupon</b> narrows it and shows what that
+  figure costs fine detail - pins, slots, a checkerboard. A <b>simple model</b> checks the number survives
+  a real print with plate adhesion and lift, and a <b>complex model</b> - thin lattice walls, channels that
+  must stay open - checks it survives a hard one. Only the last number is published.</p>
   <div class="fgroup"><span class="flab">What it is for</span><div class="filters" id="fType" role="group" aria-label="Filter by resin type"></div></div>
   <div class="fgroup"><span class="flab">How you wash it</span><div class="filters" id="fWash" role="group" aria-label="Filter by washing method"></div></div>
   <p class="flegend">On each chip: the <b>first number</b> is how many are finished and published, the <span>grey +number</span> how many samples are here waiting for plate time.</p>
@@ -149,19 +245,86 @@ footer a{color:var(--muted2);text-decoration:underline}
 <section id="testing"><div class="wrap">
   <h2>On the bench now</h2>
   <p class="lede">Calibration under way. Tough74 V2 comes first: it is the reference resin in Resione's own table, so the other five are derived from it.</p>
+  <div class="grid" id="gridBench"></div>
   <div class="rows" id="rowsTesting"></div>
 </div></section>
 
 <section id="queued"><div class="wrap">
   <h2>In the queue</h2>
-  <p class="lede">Samples received from the manufacturers and waiting for plate time. Ordered by maker.</p>
+  <p class="lede">Samples here and waiting for plate time, ordered by maker. A few already have working
+  numbers published above: those were measured by hand before the current method existed, and they are
+  back in the queue because the method keeps growing - a resin is only as calibrated as the sequence it
+  went through.</p>
   <div class="rows" id="rowsQueued"></div>
 </div></section>
+
+<section id="method"><div class="wrap">
+  <h2>How these numbers are made</h2>
+  <p class="lede">Every resin runs the same sequence on the same machine, and the sequence itself is written
+  down rather than carried in someone's head - that is the only reason two resins on this page can be
+  compared at all.</p>
+  <div class="mgrid">
+    <div class="mcard"><h3>One machine, one vat</h3><p>All of it is printed on the same TinyMaker with the
+      same film and the same UV panel. A different panel or a colder room shifts these numbers, which is
+      exactly why they are measured rather than copied between printers.</p></div>
+    <div class="mcard"><h3>The screen is the limit, not the resin</h3><p>The pixel is 0.1275 mm, so nothing
+      thinner than about two pixels prints in any resin. Features are measured in pixels before they are
+      blamed on chemistry - it has saved a full round on more than one resin.</p></div>
+    <div class="mcard"><h3>Written down as it happens</h3><p>Each step is recorded with its exposure, the
+      resin used, the time it took and what the part looked like afterwards. The published profile is the
+      last line of that record, not a separate opinion.</p></div>
+    <div class="mcard"><h3>The method keeps moving</h3><p>When the sequence gains a step, earlier resins go
+      back in the queue. Entries measured before the current method say so on their card instead of quietly
+      passing as finished work.</p></div>
+  </div>
+  <p class="sig">Tested and written by <b>Viktoras Sidlauskas</b>, who maintains the TinyMaker WiFi firmware.
+  Manufacturers are welcome to send resin: it gets the same sequence as everything else, and the result is
+  published whichever way it comes out.</p>
+</div></section>
+
+<section id="makers"><div class="wrap">
+  <h2>For resin manufacturers</h2>
+  <p class="lede">Send a bottle and it goes through the same sequence as everything else on this page.
+  There is no fee, no agreement to sign, and no promise about the outcome - the numbers are published
+  whichever way they come out, because a catalogue that only prints good news is worth nothing to the
+  person choosing a resin.</p>
+  <div class="mgrid">
+    <div class="mcard"><h3>Your product, your name</h3><p>The resin is listed under the name you use in
+      your own shop, with a link to it. If you would rather see different wording or your own photo on
+      the card, say so and it goes in.</p></div>
+    <div class="mcard"><h3>Numbers your customers can use</h3><p>The result is not a review - it is a
+      working profile. A TinyMaker owner installs it in one tap and prints, instead of burning a tank
+      finding the exposure for a colour screen themselves.</p></div>
+    <div class="mcard"><h3>Free to reuse</h3><p>Quote the figures, link to the page, put them in your own
+      settings table or on the product page. They were measured on one machine and that is stated, so
+      nobody is misled either way.</p></div>
+    <div class="mcard assets"><h3>Logo and assets</h3>
+      <img class="mark" src="tinymakerwifi-logo.svg" alt="TinyMakerWifi logo" width="56" height="56">
+      <p>If you want to link back, take the mark here - no need to ask:
+      <a href="tinymakerwifi-logo.svg" download="tinymakerwifi-logo.svg">SVG</a> &middot;
+      <a href="tinymakerwifi-logo-512.png" download="tinymakerwifi-logo-512.png">PNG 512</a>.
+      Point it wherever fits: <a href="https://tinymakerwifi.com/resin/">the resin results</a> if the
+      link sits next to a product, or <a href="https://tinymakerwifi.com/">tinymakerwifi.com</a> for the
+      project itself.</p></div>
+  </div>
+  <p class="sig">To send a sample or ask anything, write to
+  <a href="mailto:hello@tinyowllabs.com">hello@tinyowllabs.com</a> - or find me
+  in the <a href="https://www.facebook.com/groups/1486879621729571" rel="noopener" target="_blank">TinyMaker
+  owners' group</a>, where the results get discussed by the people actually printing with them.
+  The firmware, the manual and the source are at <a href="https://tinymakerwifi.com/">tinymakerwifi.com</a>
+  and on <a href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>.</p>
+</div></section>
+
+<div id="lb" hidden>
+  <button id="lbx" type="button" aria-label="Close">&times;</button>
+  <img id="lbi" alt="">
+  <div id="lbc"></div>
+</div>
 
 <footer><div class="wrap">
   Buying links are affiliate links: they cost you nothing and help pay for the next batch of test resin.<br>
   A different UV panel or a colder room will shift these numbers.<br>
-  <a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &middot; <a href="https://tinymakerwifi.com/manual/">Manual</a> &middot; <a href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
+  <a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &middot; <a href="https://tinymakerwifi.com/manual/">Manual</a> &middot; <a href="https://www.facebook.com/groups/1486879621729571" rel="noopener" target="_blank">Owners' group</a> &middot; <a href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
 </div></footer>
 
 <script>
@@ -189,73 +352,450 @@ function tfull(t){return (TYPES[t]||{f:t}).f;}
 function wname(w){return (WASH[w]||{s:''}).s;}
 function wfull(w){return (WASH[w]||{f:''}).f;}
 
-/* GEN:data - sita bloka perrašo scripts/dev/publish_tested.py is dervu irasu.
-   Ranka keiciamas tik maketo metu; po pirmo generavimo bet koks rankinis
-   taisymas dings per kita atnaujinima. */
+/* GEN:data - sugeneruota publish_tested.py */
 var TESTED=[
- {slug:'etalonas', maker:'Example', name:'Synthetic resin', type:'standard',
-  color:'grey', wash:'ipa', demo:true, testedOn:'2026-09',
-  verdict:'Stands in for a finished entry: strip, three coupons, then two real models. Every number here is made up.',
-  best:{lh:0.05, regular:11.5, base:33, baseLayers:4, density:1.10},
-  buy:null,
-  tests:[
-   {step:'Exposure strip', kind:'strip', lh:0.05, stars:3, regular:10.0, base:33,
-    txt:'Bars 1-3 sticky and milky, bar 4 (8.5 s) already dry with clean holes; one step up lands on 10 s.'},
-   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:3, regular:10.0, base:33,
-    txt:'Slots open only to 0.5 mm, the 0.3 mm pins snapped off, checkerboard washed out.', ml:'1.6 ml', mins:'38 min'},
-   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:5, regular:11.5, base:33,
-    txt:'Pins down to 0.2 mm survive, slots crisp. This is the one.', ml:'1.7 ml', mins:'39 min'},
-   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:4, regular:13.0, base:33,
-    txt:'Nothing broken but the fine slots start closing up - over-exposed.', ml:'1.7 ml', mins:'41 min'},
-   {step:'Simple model', kind:'model', lh:0.05, stars:5, regular:11.5, base:33,
-    txt:'Clean walls, no elephant foot, plate adhesion fine on 4 base layers.', ml:'3.2 ml', mins:'1 h 12 min'},
-   {step:'Detailed model', kind:'bust', lh:0.05, stars:5, regular:11.5, base:33,
-    txt:'Face detail holds at 0.05 mm; supports come off without marks.', ml:'4.9 ml', mins:'2 h 04 min'}
-  ]},
-
- {slug:'sunlu-tough', maker:'Sunlu', name:'Toughness', type:'tough',
-  color:'black', wash:'ipa', demo:false, testedOn:'2026-09',
-  verdict:'The house resin for functional parts - forgiving exposure window and it does not shatter when a part is pried off the plate.',
-  best:{lh:0.05, regular:8.0, base:18, baseLayers:4, density:1.157},
-  alt:{lh:0.10, regular:8.0, base:18, baseLayers:2},
-  buy:'https://tinymakerwifi.com/r/sunlu-tough',
-  tests:[
-   {step:'Exposure strip', kind:'strip', lh:0.05, stars:4, regular:8.0, base:18,
-    txt:'Placeholder - the real strip photo goes here once the archive is wired in.'},
-   {step:'Standard coupon', kind:'coupon', lh:0.05, stars:5, regular:8.0, base:18,
-    txt:'Placeholder text for the mockup.', ml:'1.5 ml', mins:'26 min'}
-  ]},
-
- {slug:'anycubic-ww', maker:'Anycubic', name:'Water-Washable', type:'standard',
-  color:'grey', wash:'water', demo:false, testedOn:'2026-09',
-  verdict:'The one to start with: rinse under the tap, no alcohol in the room. Wants noticeably more light than the tough resins.',
-  best:{lh:0.10, regular:14.0, base:35, baseLayers:2, density:1.10},
-  alt:{lh:0.05, regular:14.0, base:35, baseLayers:4},
-  buy:'https://tinymakerwifi.com/r/anycubic-ww',
-  tests:[
-   {step:'Exposure strip', kind:'strip', lh:0.10, stars:4, regular:14.0, base:35,
-    txt:'Placeholder - real photo pending.'},
-   {step:'Simple model', kind:'model', lh:0.10, stars:4, regular:14.0, base:35,
-    txt:'Placeholder text for the mockup.', ml:'2.8 ml', mins:'44 min'}
-  ]}
+ {
+  "slug": "anycubic-ww-005",
+  "maker": "Anycubic",
+  "name": "Water-Washable",
+  "type": "standard",
+  "color": "black and clear",
+  "wash": "",
+  "demo": false,
+  "testedOn": "",
+  "verdict": "",
+  "future": "",
+  "buy": "https://tinymakerwifi.com/r/anycubic-ww-005",
+  "product": "Water-Wash Resin 2.0",
+  "hero": "photos/anycubic-water-wash-resin-2-0-aw1.jpg",
+  "methodNote": "Measured by hand, before the current method existed - the numbers work, but they have not been through the full sequence. Queued for a retest as the method keeps improving.",
+  "retest": true,
+  "steps": [
+   {
+    "k": "vat",
+    "s": "Exposure strip",
+    "st": "todo"
+   },
+   {
+    "k": "coupon",
+    "s": "Standard coupon",
+    "st": "todo"
+   },
+   {
+    "k": "simple",
+    "s": "Simple model",
+    "st": "todo"
+   },
+   {
+    "k": "complex",
+    "s": "Complex model",
+    "st": "todo"
+   }
+  ],
+  "stageNote": "",
+  "best": {
+   "lh": 0.05,
+   "regular": 14.0,
+   "base": 35,
+   "baseLayers": 4,
+   "density": 1.1,
+   "transition": 5,
+   "lift": [
+    1,
+    2,
+    40,
+    50,
+    50
+   ]
+  },
+  "tests": [],
+  "alt": {
+   "lh": 0.1,
+   "regular": 14.0,
+   "base": 35,
+   "baseLayers": 2,
+   "transition": 5
+  }
+ },
+ {
+  "slug": "sunlu-tough",
+  "maker": "Sunlu",
+  "name": "Toughness",
+  "type": "tough",
+  "color": "black",
+  "wash": "",
+  "demo": false,
+  "testedOn": "2026-09",
+  "verdict": "Parameters taken from the published profile sunlu-tough-010. The exposure for 0.10 mm was NOT measured (the 08-07 test covered only 0.05 mm) - the same 8.0 s / 18 s was carried over; the 0.997 calibration comes from weighing.",
+  "future": "",
+  "buy": "https://tinymakerwifi.com/r/sunlu-tough",
+  "product": "",
+  "hero": "photos/sunlu-toughness-st1.jpg",
+  "methodNote": "Measured by hand, before the current method existed - the numbers work, but they have not been through the full sequence. Queued for a retest as the method keeps improving.",
+  "retest": true,
+  "steps": [
+   {
+    "k": "vat",
+    "s": "Exposure strip",
+    "st": "todo"
+   },
+   {
+    "k": "coupon",
+    "s": "Standard coupon",
+    "st": "done"
+   },
+   {
+    "k": "simple",
+    "s": "Simple model",
+    "st": "todo"
+   },
+   {
+    "k": "complex",
+    "s": "Complex model",
+    "st": "todo"
+   }
+  ],
+  "stageNote": "",
+  "best": {
+   "lh": 0.05,
+   "regular": 8.0,
+   "base": 18,
+   "baseLayers": 4,
+   "density": 1.157,
+   "transition": 5,
+   "lift": [
+    1,
+    2,
+    40,
+    50,
+    50
+   ]
+  },
+  "tests": [
+   {
+    "step": "coupon",
+    "kind": "coupon",
+    "lh": 0.1,
+    "stars": 4,
+    "regular": 8,
+    "base": 18,
+    "txt": "Parameters taken from the published profile sunlu-tough-010. The exposure for 0.10 mm was NOT measured (the 08-07 test covered only 0.05 mm) - the same 8.0 s / 18 s was carried over; the 0.997 calibration comes from weighing.",
+    "photo": "",
+    "props": []
+   }
+  ],
+  "alt": {
+   "lh": 0.1,
+   "regular": 8.0,
+   "base": 18,
+   "baseLayers": 2,
+   "transition": 5
+  }
+ }
 ];
 
-var TESTING=[
- {maker:'Resione', name:'Tough74 V2', type:'tough', wash:'alc95', note:'reference resin - ratio 1.0'},
- {maker:'Resione', name:'M70 High Precision', type:'standard', wash:'', note:'anti-aliasing must be off'}
+var BENCH=[
+ {
+  "slug": "resione-tough74-v2",
+  "maker": "Resione",
+  "name": "Tough74 V2 Wear-resistant Tough Resin",
+  "product": "",
+  "type": "tough",
+  "color": "grey",
+  "wash": "",
+  "verdict": "BRIDGES: ALL FOUR HOLD (V: “all OK”). Measured from the model, the gaps between the supports are 2 / 4 / 6 and 8 mm, so the longest span with no sag is 8 mm.\n\n⚠️ 8 mm is the MODEL's ceiling, not the resin's limit. There is no longer gap in this model, so the real limit lies somewhere above it and stays unmeasured. Against other resins this reads as “held everything it was given”, not “can do no more”.\n\n⭐ Why it matters in practice: the bridge is the only one of the three simple models that measures an OVERHANG - whether a layer carries itself with nothing underneath. That is what decides how many supports real prints will need. 8 mm with no sag is a quarter of the length of our plate (40.8 x 30.6 mm).",
+  "future": "Resione's technical support pointed out that this printer has no <b>pre-exposure wait</b> - a pause after the plate settles and before the UV comes on, which lets a viscous resin flow back under the part. They are right: the parameter does not exist in the firmware today, and it is going into a future release.<br>The first three steps went through without it and the numbers held - resolution down to the pixel limit, slots and channels open, a clip that survived 25 cycles. The fourth step is where its absence may be showing. A tall lattice cube comes out leaning, and it leans more the further from the plate, which is what a part being pulled sideways every layer would look like - either by plain peel force, or by resin that has not flowed back underneath it. The wait has moved from a nice-to-have to something worth measuring.",
+  "buy": "https://www.resione.com/products/tough74-v2",
+  "hero": "",
+  "best": {
+   "lh": 0.05,
+   "regular": 10.0,
+   "base": 40,
+   "baseLayers": 4,
+   "density": 1.123
+  },
+  "steps": [
+   {
+    "k": "vat",
+    "s": "Exposure strip",
+    "st": "done"
+   },
+   {
+    "k": "coupon",
+    "s": "Standard coupon",
+    "st": "done"
+   },
+   {
+    "k": "simple",
+    "s": "Simple model",
+    "st": "done"
+   },
+   {
+    "k": "complex",
+    "s": "Complex model",
+    "st": "doing"
+   }
+  ],
+  "stageNote": "The fourth step is open and this is honestly where it stands. The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch, square by construction. It printed - and it still leans, though less. Near the plate the edges are square; the further from the plate, the more they tilt. So the distortion builds up during the print rather than sitting in the file. Two suspects: the peel force on a tall, slender part, and the missing pre-exposure wait. The next run changes the lift timing only, which tells the two apart. Until that is answered the step stays open and no profile is published.",
+  "tests": [
+   {
+    "step": "vat",
+    "kind": "vat",
+    "lh": 0.05,
+    "stars": 4,
+    "regular": 10.0,
+    "base": 55,
+    "txt": "Eight bars from 4.0 to 16.0 s on the film. The first two were too thin for their exposure and peeled off; from 7.0 s adhesion was solid and every remaining bar came out dry, with open holes and crisp edges. Regular was set one step above the lowest dry bar - 8.5 s - and taken to the coupon.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-02-vat-005-t1.jpg",
+    "props": []
+   },
+   {
+    "step": "coupon",
+    "kind": "coupon",
+    "lh": 0.05,
+    "stars": 4,
+    "regular": 8.5,
+    "base": 55,
+    "txt": "First coupon at 8.5 s. Six of the seven pillars stood straight in every row and only the thinnest leaned; slots, checkerboard and the embossed lettering all came out clean. The part gripped the plate so hard it needed the freezer to come off, which points at the base exposure rather than at the resin.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-04-coupon-005-k1.jpg",
+    "props": [
+     {
+      "q": "Pillars straight, out of 7",
+      "u": "iš 7",
+      "v": "6"
+     },
+     {
+      "q": "Side pillar field (other angle)",
+      "u": "",
+      "v": "all OK"
+     },
+     {
+      "q": "Adhesion to the plate",
+      "u": "",
+      "v": "too strong - cannot be lifted without freezing"
+     },
+     {
+      "q": "Elephant foot",
+      "u": "",
+      "v": "not visible"
+     }
+    ]
+   },
+   {
+    "step": "coupon",
+    "kind": "coupon",
+    "lh": 0.05,
+    "stars": 5,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "The same coupon one step up, at 10.0 s. The thinnest pillar now stood in three rows instead of one, and the slots stayed open - so the usable window is wide, not a knife edge. With the base dropped to 40 s the part came off with a spatula and no freezing. These are the numbers the profile is built on.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-04-coupon-005-m1.jpg",
+    "props": [
+     {
+      "q": "Pillars straight, out of 7",
+      "u": "iš 7",
+      "v": "6"
+     },
+     {
+      "q": "Thinnest pillar straight up to row",
+      "u": "eilutė",
+      "v": "3"
+     },
+     {
+      "q": "Adhesion to the plate",
+      "u": "",
+      "v": "good - held for the whole print"
+     },
+     {
+      "q": "Bristles thicker than at 8.5 s?",
+      "u": "",
+      "v": "no"
+     },
+     {
+      "q": "Elephant foot",
+      "u": "",
+      "v": "not visible"
+     },
+     {
+      "q": "Removal from the plate",
+      "u": "",
+      "v": "with the spatula, no freezing"
+     }
+    ]
+   },
+   {
+    "step": "coupon",
+    "kind": "coupon",
+    "lh": 0.05,
+    "stars": 5,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "Base check with the hardest first layer we have: three pads of 24, 11 and 8 mm, 757 mm&sup2; in one layer - 61 % of the plate. All three stayed on the plate and came off normally afterwards, so 40 s has margin and is not lowered further.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-06-coupon-005-b1.jpg",
+    "props": [
+     {
+      "q": "Smallest pad that still stuck",
+      "u": "mm",
+      "v": "8"
+     }
+    ]
+   },
+   {
+    "step": "simple",
+    "kind": "simple",
+    "lh": 0.05,
+    "stars": 5,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "A spring clip pushed onto its rod and off again 25 times. No cracks, no loosening - it stays hard and still springs back. This is the test that measures toughness rather than fineness, and it is the reason this resin was picked up in the first place.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-07-simple-005-s1.jpg",
+    "props": [
+     {
+      "q": "Pushes on and off without cracking",
+      "u": "ciklai",
+      "v": "25"
+     }
+    ]
+   },
+   {
+    "step": "simple",
+    "kind": "simple",
+    "lh": 0.05,
+    "stars": 4,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "A field of pins from 1.20 mm down to 0.30 mm. All seven stood, including the 0.30 mm one - 2.3 pixels wide. Slots stayed open down to 0.60 mm and holes down to 1.00 mm; below that it is the screen that runs out, not the resin.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-simple-005-p1.jpg",
+    "props": [
+     {
+      "q": "Thinnest pin that printed",
+      "u": "mm",
+      "v": "0.30"
+     }
+    ]
+   },
+   {
+    "step": "simple",
+    "kind": "simple",
+    "lh": 0.05,
+    "stars": 5,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "Four unsupported spans of 2, 4, 6 and 8 mm. All four held with no sag, so the resin carried the longest gap this model offers. The real ceiling is somewhere above 8 mm and stays unmeasured.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-simple-005-tl1.jpg",
+    "props": [
+     {
+      "q": "Longest span with no sag",
+      "u": "mm",
+      "v": "8"
+     }
+    ]
+   },
+   {
+    "step": "complex",
+    "kind": "complex",
+    "lh": 0.05,
+    "stars": 5,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "A lattice cube printed standing on its corner, 20 mm tall. The grid stayed open all the way through - the inner cube is visible only when light passes every cell instead of stopping at the first - and every support held.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-c1.jpg",
+    "props": []
+   },
+   {
+    "step": "complex",
+    "kind": "complex",
+    "lh": 0.05,
+    "stars": 4,
+    "regular": 10.0,
+    "base": 40,
+    "txt": "The same lattice at 28 mm. Resolution held: 0.51 mm walls, four pixels across, reproduced cleanly. The cube itself came out leaning, but the test model is under suspicion and is being replaced, so the lean is not counted against the resin until that is settled.",
+    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-k28a.jpg",
+    "props": []
+   }
+  ]
+ }
 ];
+
+var TESTING=[];
 
 var QUEUED=[
- {maker:'Resione', name:'Anti-Impact Nylon-Like', type:'tough', wash:'alc95'},
- {maker:'Resione', name:'TH-TGM Durable Miniature', type:'tough', wash:''},
- {maker:'Resione', name:'F69 Flexible', type:'flex', wash:''},
- {maker:'Resione', name:'ABS+', type:'abs', wash:''},
- {maker:'Sunlu', name:'14K Standard', type:'standard', wash:'ipa'},
- {maker:'Sunlu', name:'Toughness (Solid White)', type:'tough', wash:'ipa'},
- {maker:'Sunlu', name:'Nylon-Like', type:'tough', wash:'alc95'},
- {maker:'Sunlu', name:'Standard Plus', type:'standard', wash:'ipa'},
- {maker:'Sunlu', name:'ABS-Like', type:'abs', wash:'alc95'}
+ {
+  "maker": "Resione",
+  "name": "ABS+ High-Stiffness Tough Resin",
+  "type": "abs",
+  "wash": ""
+ },
+ {
+  "maker": "Resione",
+  "name": "Anti-impact Durable Nylon-like Resin",
+  "type": "tough",
+  "wash": ""
+ },
+ {
+  "maker": "Resione",
+  "name": "F69 Black Flexible Rubber-like Resin",
+  "type": "flex",
+  "wash": ""
+ },
+ {
+  "maker": "Resione",
+  "name": "M70 High Precision 3D Printer Resin",
+  "type": "standard",
+  "wash": ""
+ },
+ {
+  "maker": "Resione",
+  "name": "TH-TGM Durable Miniature Resin",
+  "type": "tough",
+  "wash": ""
+ },
+ {
+  "maker": "Sunlu",
+  "name": "14K Standard",
+  "type": "standard",
+  "wash": ""
+ },
+ {
+  "maker": "Sunlu",
+  "name": "ABS-Like",
+  "type": "abs",
+  "wash": ""
+ },
+ {
+  "maker": "Sunlu",
+  "name": "Nylon-Like",
+  "type": "tough",
+  "wash": ""
+ },
+ {
+  "maker": "Sunlu",
+  "name": "Standard Plus",
+  "type": "standard",
+  "wash": ""
+ },
+ {
+  "maker": "Sunlu",
+  "name": "Toughness",
+  "type": "tough",
+  "wash": "",
+  "retest": true
+ },
+ {
+  "maker": "Sunlu",
+  "name": "Toughness (Solid White)",
+  "type": "tough",
+  "wash": ""
+ },
+ {
+  "maker": "Anycubic",
+  "name": "Water-Washable",
+  "type": "standard",
+  "wash": "",
+  "retest": true
+ }
 ];
+
 /* /GEN:data */
 
 /* ------------------------------------------------------------------ *
@@ -311,16 +851,60 @@ function stars(n){var s='';for(var i=1;i<=5;i++)s+=i<=n?'&#9733;':'<i>&#9733;</i
 function bestStars(r){return (r.tests||[]).reduce(function(m,t){return Math.max(m,t.stars||0);},0);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 
-function card(r){
+/* Antras argumentas - derva dar ant stalo: skaiciai jau yra, bet profilis dar
+   neskelbiamas, tad vietoj pirkimo mygtuko rodom, kiek zingsniu nueita. */
+function steps(r){
+  if(!r.steps||!r.steps.length) return '';
+  var done=r.steps.filter(function(s){return s.st==='done';}).length;
+  var now=r.steps.filter(function(s){return s.st==='doing';})[0];
+  var h='<div class="prog"><div class="pbar">'+r.steps.map(function(s){
+      return '<span class="pstep '+s.st+'" title="'+s.s+'">'+s.s+'</span>';
+    }).join('')+'</div><span class="pnum">'+done+' of '+r.steps.length+' steps closed'+
+    (now?' &middot; <b>'+now.s.toLowerCase()+' under way</b>':'')+'</span>';
+  return h+'</div>';
+}
+/* Kortelės viršuje - tikra nuotrauka iš geriausiai įvertinto bandymo; jos nesant
+   piešinys, kad maketas nesimaišytų su rezultatu. */
+function heroShot(r){
+  if(r.hero) return r.hero;   /* V pazymejo konkretu kadra - jis virsesnis uz speijima */
+  var ts=(r.tests||[]).filter(function(x){return x.photo;});
+  if(!ts.length) return null;
+  return ts.reduce(function(m,x){return (x.stars||0)>=(m.stars||0)?x:m;},ts[0]).photo;
+}
+/* Kaip skaičiai gauti - viena eilutė, visada. Trys galimos būsenos, ir visos
+   trys yra teiginiai apie metodą, ne apie dervą. */
+function howNote(r,bench){
+  if(bench) return 'Working numbers - still being checked, not published as a profile yet.';
+  if(r.retest) return 'Dialled in by hand, before the current method - to be repeated through the full sequence.';
+  return 'Dialled in through the full four-step sequence.';
+}
+function card(r,bench){
   var hero=r.tests&&r.tests.length?r.tests[r.tests.length-1].kind:'model';
+  var shot=heroShot(r);
   var h='<article class="rc'+(r.demo?' demo':'')+'" data-type="'+r.type+'">';
-  h+='<div class="pic">'+pic(hero)+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
+  h+=shot?'<a class="pic shot" href="'+shot+'" target="_blank" rel="noopener"><img src="'+shot+'" alt="'+esc(r.name)+'" loading="lazy"></a>'
+          :'<div class="pic">'+pic(hero)+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
   h+='<div class="body">';
   h+='<span class="maker">'+esc(r.maker)+'</span><h3>'+esc(r.name)+'</h3>';
+  /* Eilutė rašoma ir tuščia: be jos kortelė be produkto vardo pakyla aukštyn,
+     ir gretimose kortelėse nebesutampa nė viena tolesnė eilutė. */
+  h+='<p class="product">'+(r.product?esc(r.product):'')+'</p>';
   h+='<div class="badges"><span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
      (r.wash?'<span class="bdg" title="'+wfull(r.wash)+'">'+wname(r.wash)+'</span>':'')+
-     '<span class="bdg">'+esc(r.color)+'</span>'+stars(bestStars(r))+'</div>';
-  h+='<p class="verdict" title="'+esc(r.verdict)+'">'+esc(r.verdict)+'</p>';
+     (r.color?'<span class="bdg">'+esc(r.color)+'</span>':'')+
+     /* Zvaigzdutes tik tada, kai yra is ko vertinti: tuscia penkiu zvaigzduciu
+        eilute prie paskelbtos dervos skaitosi kaip "ivertinta nuliu". */
+     (r.tests&&r.tests.length?stars(bestStars(r)):'')+'</div>';
+  /* Viskas, ko ilgis nenuspejamas, suskleista i viena eilute - tada visu korteliu
+     matoma dalis vienoda, ir jos nebesiskiria auksciu. */
+
+
+  h+=steps(r);
+  h+='<p class="hownote'+(r.retest?' warn':'')+'">'+howNote(r,bench)+'</p>';
+  /* Ant stalo stovinti derva yra VIENA ir per visa ploti - jai etapo prierasas
+     rodomas is karto, nes butent jis pasako, kas siandien vyksta. Tinklelio
+     kortelese jis lieka po suskleidimu, kad korteliu auksciai sutaptu. */
+  if(bench&&r.stageNote) h+='<p class="snote">'+esc(r.stageNote)+'</p>';
   h+='<table class="kv"><tbody>';
   /* Antras sluoksnio aukstis eina i ta pacia eilute, o ne i savo: kitaip viena
      kortele turi penkias eilutes, kita keturias, ir gretimu korteliu apacios
@@ -329,38 +913,77 @@ function card(r){
   h+='<tr><td>Regular exposure</td><td>'+r.best.regular.toFixed(1)+' s</td></tr>';
   h+='<tr><td>Bottom exposure</td><td>'+r.best.base+' s &times; '+r.best.baseLayers+'</td></tr>';
   h+='<tr><td>Density</td><td>'+r.best.density.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;</td></tr>';
+  /* Profilyje guli ne vien ekspozicija - keltuvas lemia, ar didesne detale isvis
+     islaikys forma, tad jis rodomas kartu su ja. */
+  if(r.best.transition!=null) h+='<tr><td>Transition layers</td><td>'+r.best.transition+'</td></tr>';
+  if(r.best.lift&&r.best.lift[0]!=null)
+    h+='<tr><td>Lift</td><td title="slow + fast distance, then slow / fast / return speed">'+
+       r.best.lift[0]+' + '+r.best.lift[1]+' mm &middot; '+r.best.lift[2]+' / '+r.best.lift[3]+' / '+r.best.lift[4]+' mm&#8239;min<sup>-1</sup></td></tr>';
   h+='</tbody></table>';
-  h+='<div class="act">';
-  /* Be nuorodos - toks pat <span>, ne <button>: mygtukas ir nuoroda skirtingai
-     skaiciuoja savo auksti (3 px), ir gretimu korteliu apacios issiskiria. */
-  h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>'
-          :'<span class="btn sec off">'+(r.demo?'Example only':'No shop link')+'</span>';
-  h+='</div>';
-  h+='<details class="tests"><summary>How it was dialled in &middot; '+r.tests.length+' test print'+(r.tests.length>1?'s':'')+'</summary><div class="tl">';
-  r.tests.forEach(function(t){
-    h+='<div class="tr"><div class="th">'+pic(t.kind)+'</div><div>';
+  /* Antras sluoksnio aukstis turi SAVO ekspozicija - be jos spausdinantis 0,10 mm
+     savo skaiciaus kortelėje nerastu. */
+  if(r.alt) h+='<p class="alt2">At <b>'+r.alt.lh.toFixed(2)+' mm</b>: '+r.alt.regular.toFixed(1)+
+     ' s &middot; bottom '+r.alt.base+' s &times; '+r.alt.baseLayers+
+     (r.alt.transition!=null?' &middot; '+r.alt.transition+' transition':'')+'</p>';
+  /* Be irasytu bandymu skiltis butu tuscia, o antraste rasytu "0 test print" -
+     geriau jos visai nerodyti, negu sukurti ispudi, kad kazko trūksta. */
+  /* Virs sios eilutes - tik pastovaus auksčio turinys, kad visos kortelės
+     atrodytų vienodai. Viskas, ko ilgis nenuspėjamas, yra po ja. */
+  var ts=r.tests||[];
+  if(ts.length||r.methodNote||r.stageNote||r.future||bench){
+  var nfoto=ts.filter(function(x){return x.photo;}).length;
+  h+='<details class="fold tests"><summary><span class="tsum">'+
+     'See how it was dialled in'+'</span>'+
+     '<span class="tcnt">'+(ts.length?ts.length+' test print'+(ts.length>1?'s':'')+
+     (nfoto?' &middot; '+nfoto+' photo'+(nfoto>1?'s':''):''):'method notes')+
+     '</span></summary><div class="tl">';
+  if(!bench&&r.stageNote) h+='<p class="snote">'+esc(r.stageNote)+'</p>';
+  if(r.methodNote) h+='<p class="mnote"><b>Method</b> '+esc(r.methodNote)+'</p>';
+  ts.forEach(function(t){
+    h+='<div class="tr"><div class="th">'+
+       (t.photo?'<a href="'+t.photo+'" target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>':pic(t.kind))+
+       '</div><div>';
     h+='<b>'+esc(t.step)+' '+stars(t.stars)+'</b>';
     h+='<p>'+esc(t.txt)+'</p>';
     h+='<div class="nums">'+t.lh.toFixed(2)+' mm &middot; '+t.regular.toFixed(1)+' s &middot; bottom '+t.base+' s'+(t.ml?' &middot; '+t.ml:'')+(t.mins?' &middot; '+t.mins:'')+'</div>';
     h+='</div></div>';
   });
+  if(r.future) h+='<div class="future"><b>Future notes</b><p>'+r.future+'</p></div>';
   h+='</div></details>';
+  }
+  h+='<div class="spacer"></div><div class="act">';
+  /* Be nuorodos - toks pat <span>, ne <button>: mygtukas ir nuoroda skirtingai
+     skaiciuoja savo auksti (3 px), ir gretimu korteliu apacios issiskiria. */
+  /* Pirkimo nuoroda ir "profilis dar neskelbiamas" yra DU skirtingi dalykai:
+     derva parduodama jau dabar, tik musu skaiciai dar nebaigti. Uzrasas apie
+     profili stovi prie skaiciu, o mygtukas lieka toks pat kaip visur. */
+  h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>'
+          :'<span class="btn sec off">'+(r.demo?'Example only':'Shop link coming')+'</span>';
+  h+='</div>';
   h+='</div></article>';
   return h;
 }
 
+/* Ant stalo stovincios dervos dabar turi savo sarasa (BENCH), tad visur, kur
+   anksciau uzteko TESTING, reikia abieju - kitaip skaitikliai rodo nuli. */
+function benchAll(){return (typeof BENCH!=='undefined'?BENCH:[]).concat(TESTING);}
 var pick={type:'',wash:''};
 function matches(r,p){return (!p.type||r.type===p.type)&&(!p.wash||r.wash===p.wash);}
 
 function render(){
   var hit=TESTED.filter(function(r){return matches(r,pick);});
-  document.getElementById('grid').innerHTML=hit.map(card).join('');
+  /* ⛔ ne hit.map(card): Array.map perduoda INDEKSĄ antru argumentu, tad antroji
+     kortelė gaudavo bench=1 ir piešdavosi kitaip nei pirma. */
+  document.getElementById('grid').innerHTML=hit.map(function(r){return card(r);}).join('');
+  var bench=(typeof BENCH!=='undefined'?BENCH:[]).filter(function(r){return matches(r,pick);});
+  var gb=document.getElementById('gridBench');
+  if(gb) gb.innerHTML=bench.map(function(r){return card(r,true);}).join('');
   var box=document.getElementById('empty');
   if(hit.length){box.hidden=true;return;}
 
   // Nothing tested under this combination - say what is coming instead of
   // showing a blank page.
-  var soon=TESTING.concat(QUEUED).filter(function(r){return matches(r,pick);});
+  var soon=benchAll().concat(QUEUED).filter(function(r){return matches(r,pick);});
   var what=[pick.type?tname(pick.type).toLowerCase():'', pick.wash?wname(pick.wash).toLowerCase()+'-wash':''].filter(Boolean).join(', ');
   var h='<b>Nothing finished here yet</b>';
   h+='<p>No '+(what||'matching')+' resin has been published for the TinyMaker yet.'+
@@ -375,7 +998,8 @@ function rowsHtml(list,live){
       '<span class="who">'+esc(x.maker)+'</span>'+
       '<span class="bdg" title="'+tfull(x.type)+'">'+tname(x.type)+'</span>'+
       (x.wash?'<span class="bdg" title="'+wfull(x.wash)+'">'+wname(x.wash)+'</span>':'')+
-      '<span class="right">'+(x.note?esc(x.note):'sample received')+'</span></div>';
+      '<span class="right'+(x.retest?' retest':'')+'">'+
+        (x.retest?'published - queued for retest':(x.note?esc(x.note):'sample received'))+'</span></div>';
   }).join('');
 }
 
@@ -383,7 +1007,7 @@ function rowsHtml(list,live){
    the queue. Both numbers are shown: a lone "0" next to Flexible read as
    "there is no flexible resin" even though one is sitting on the shelf. */
 function chips(host,key,map,all){
-  var soonAll=TESTING.concat(QUEUED);
+  var soonAll=benchAll().concat(QUEUED);
   var keys=Object.keys(map).filter(function(k){return all.some(function(r){return r[key]===k;});});
   host.innerHTML='<button class="chip" data-v="" aria-pressed="true">All</button>'+
     keys.map(function(k){
@@ -400,6 +1024,26 @@ function chips(host,key,map,all){
   });
 }
 
+/* Nuotrauka atsidaro cia pat, su X mygtuku, Esc klavisu ir paspaudimu salia -
+   naujoje kortelėje atsidariusi vercia grizti narsykles mygtuku. */
+(function lightbox(){
+  var lb=document.getElementById('lb'), im=document.getElementById('lbi'), cap=document.getElementById('lbc');
+  if(!lb) return;
+  function open(src,txt){ im.src=src; cap.textContent=txt||''; lb.hidden=false;
+    document.body.style.overflow='hidden'; document.getElementById('lbx').focus(); }
+  function close(){ lb.hidden=true; im.src=''; document.body.style.overflow=''; }
+  document.addEventListener('click',function(ev){
+    var a=ev.target.closest&&ev.target.closest('a.pic.shot, .th a');
+    if(a&&a.getAttribute('href')){ ev.preventDefault();
+      var c=a.closest('.tr'); var b=c?c.querySelector('b'):null;
+      open(a.getAttribute('href'), b?b.textContent.trim():(a.querySelector('img')||{}).alt);
+    }
+  });
+  document.getElementById('lbx').addEventListener('click',close);
+  lb.addEventListener('click',function(ev){ if(ev.target===lb) close(); });
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'&&!lb.hidden) close(); });
+})();
+
 (function init(){
   /* Įdėtas į Resin Lab (?embed=1): temos jungiklis ir logotipas ten jau yra lango
      antraštėje, o du vienodi jungikliai viename lange tik klaidina. Atskirai
@@ -410,7 +1054,7 @@ function chips(host,key,map,all){
   }
   document.getElementById('counts').innerHTML=
     '<span class="count"><b>'+TESTED.length+'</b>tested</span>'+
-    '<span class="count"><b>'+TESTING.length+'</b>on the bench</span>'+
+    '<span class="count"><b>'+benchAll().length+'</b>on the bench</span>'+
     '<span class="count"><b>'+QUEUED.length+'</b>in the queue</span>';
 
   var all=TESTED.concat(TESTING,QUEUED);
