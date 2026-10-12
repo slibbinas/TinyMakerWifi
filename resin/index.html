@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Resins dialled in for the TinyMaker</title>
+<!-- Lango pavadinimas ir antraste SAMONINGAI skirtingi: antraste skaito zmogus,
+     o si eilute - paieska. Zodzio "dialled" Google niekas nerasys, tad cia stovi tie
+     zodziai, kuriais iestkoma: resin settings, exposure, profiles. -->
+<title>Resin settings for the TinyMaker - tested resin profiles</title>
 <meta name="robots" content="index, follow">
 <meta name="description" content="Print settings dialled in on the TinyMaker itself: exposure, base layers, lift and density for each resin, with the test prints they came from. A colour LCD and a 41 x 31 mm plate need their own numbers - the ones on the bottle do not transfer.">
 <!-- Piktograma - TIKRAS failas, ne data: URI. Google ja parsisiuncia atskirai ir
@@ -25,6 +28,11 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 /* Toks pat plotis kaip dervų kortelių: siauresnis tekstas atrodė kaip kito puslapio dalis. */
 .tag{font-size:17px;color:var(--tag);margin:0 auto;line-height:1.55}
+/* Paaiškinimas - rėmelyje, kaip landinge „Try it live". Trys pastraipos viena po kita
+   skirtingo pločio atrodė kaip netvarka; dabar vienas sakinys ir vienas blokas. */
+.hnote{margin:18px auto 0;border:1px solid var(--accent);border-radius:12px;
+  padding:14px 18px;font-size:14px;line-height:1.6;color:var(--muted);text-align:left}
+.hnote b{color:var(--text)}
 .tag b{color:var(--text)}
 .themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
 .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
@@ -351,6 +359,65 @@ details.steps[open] > summary{border-bottom:1px solid var(--line);margin-bottom:
 
 .lht.empty{color:var(--muted2);font-weight:400}
 .lht.empty.on{background:var(--btnsec);color:var(--muted)}
+
+/* ---- kortele kaip skleidziama eilute (V 2026-10-13) ---- */
+/* Fiksuotas zenkleliu stulpelis: su automatiniu plociu jis prasidedavo ten, kur
+   baigdavosi vardas, tad gretimose eilutese busenos zenklelis stovedavo skirtingai. */
+details.rc>summary{list-style:none;cursor:pointer;display:grid;
+  grid-template-columns:72px minmax(0,1fr) 250px 92px 16px;align-items:center;gap:14px;
+  padding:12px 16px;user-select:none}
+details.rc>summary::-webkit-details-marker{display:none}
+details.rc>summary::after{content:"";width:0;height:0;border-left:7px solid var(--muted);
+  border-top:5px solid transparent;border-bottom:5px solid transparent;transition:transform .15s}
+details.rc[open]>summary::after{transform:rotate(90deg);border-left-color:var(--accent)}
+details.rc>summary:hover{background:var(--btnsec)}
+details.rc[open]>summary{border-bottom:1px solid var(--line)}
+.rth{display:block;width:72px;height:54px;object-fit:cover;border-radius:8px;background:var(--shot)}
+.rname{display:flex;flex-direction:column;gap:1px;font-weight:700;font-size:15px;line-height:1.25}
+.rname .maker{font-weight:400;font-size:11.5px;color:var(--muted);letter-spacing:.03em;
+  text-transform:uppercase}
+.rbadges{display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap}
+.rsum .schip{min-width:104px;text-align:center}
+.rnums{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.rnums b{font-size:15px}
+.rnums span{font-size:11.5px;color:var(--muted)}
+details.rc[open] .top{padding-top:16px}
+.steps{border-top:1px solid var(--line)}
+@media(max-width:760px){
+  details.rc>summary{grid-template-columns:56px 1fr 14px;gap:10px;padding:10px 12px}
+  .rth{width:56px;height:42px}
+  .rbadges,.rnums{display:none}
+}
+
+/* Jungiklis zenkleliu eiluteje: prispaustas desinen, be remelio per visa ploti. */
+.badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badges .lhtabs{margin-left:auto;display:inline-flex;align-items:stretch;flex:0 0 auto;
+  border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.lhtabs .lht{padding:4px 10px;font-size:12px;font-weight:600;border:0;background:none;
+  color:var(--muted);cursor:pointer;font-family:inherit}
+.lhtabs .lht+.lht{border-left:1px solid var(--line)}
+.lhtabs .lht.on{background:var(--accent);color:#fff}
+.lhtabs .lht.empty{color:var(--muted2);font-weight:400;opacity:.55}
+.lhtabs .lht.empty.on{background:var(--btnsec);color:var(--muted);opacity:1}
+.lhtabs .lht:not(.on):hover{background:var(--btnsec)}
+.lhu{display:inline-flex;align-items:center;padding:0 9px;font-size:11.5px;color:var(--muted);
+  background:var(--btnsec);border-left:1px solid var(--line)}
+
+/* Filtras - vienas visam puslapiui, po skaitikliais. Be isorinio remelio:
+   piliule piliuleje neveikia. Grupes skiria plona vertikali linija, o uzrasai
+   tamsus ir pastorinti - pilki susiliedavo su paciais mygtukais. */
+.filterbar{margin:16px auto 0;display:inline-flex;align-items:center;gap:8px;
+  flex-wrap:wrap;justify-content:center}
+.filterbar .flab{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--text);
+  text-transform:uppercase;letter-spacing:.07em;margin-left:12px;padding-left:18px;
+  border-left:1px solid var(--line)}
+.filterbar .flab:first-child{margin-left:0;padding-left:0;border-left:0}
+.filterbar .filters{display:inline-flex;gap:6px;flex-wrap:wrap}
+.fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
+.fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
+  color:var(--accent);cursor:pointer;font-weight:600}
+.fclear:hover{text-decoration:underline}
+@media(max-width:760px){.filterbar{border-radius:14px;display:flex}}
 </style>
 </head>
 <body>
@@ -358,24 +425,35 @@ details.steps[open] > summary{border-bottom:1px solid var(--line);margin-bottom:
 <div class="wrap hero">
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
   <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
-  <h1>Ready-made print settings for the TinyMaker</h1>
-  <p class="tag"><b>Pick a resin, tap once, and your printer is set up for it.</b><br>
-  Exposure, base layers, lift and density - every number printed and measured on this machine.<br>
-  <span class="why">Why its own list? The TinyMaker masks with a <b>colour screen</b>, not a mono
-  one, and a colour screen lets through far less UV: the same resin needs about <b>four times</b>
-  the exposure written on the bottle. Its plate is small as well, <b>41 &times; 31 mm</b>, so
-  parts release from the film with different forces. Settings from other printers do not
-  fit.</span></p>
+  <h1>Resins dialled in for the TinyMaker</h1>
+  <p class="tag">Pick a resin, tap once, and your printer is set up for it: exposure, base layers,
+  lift and density, every number printed and measured on this machine.</p>
+  <div class="hnote"><b>Why a separate list for this printer?</b> The TinyMaker masks with a
+  colour screen, not a mono one, and a colour screen lets through far less UV - the same resin
+  needs about <b>four times</b> the exposure written on the bottle. Its plate is small as well,
+  <b>41 &times; 31 mm</b>, so parts release from the film with different forces. Settings from
+  other printers do not fit.</div>
   <div class="counts" id="counts"></div>
+  <div class="filterbar">
+    <span class="flab">Type</span><span class="filters" id="fType" role="group" aria-label="Filter by resin type"></span>
+    <span class="flab">Washing</span><span class="filters" id="fWash" role="group" aria-label="Filter by washing method"></span>
+    <button type="button" class="fclear" id="fClear" hidden>&times; Clear</button>
+  </div>
 </div>
 
 
-<section id="tested"><div class="wrap">
-  <h2>Resins</h2>
-  <div class="fgroup"><span class="flab">What it is for</span><div class="filters" id="fType" role="group" aria-label="Filter by resin type"></div></div>
-  <div class="fgroup"><span class="flab">Washing</span><div class="filters" id="fWash" role="group" aria-label="Filter by washing method"></div></div>
-  <div class="grid" id="grid"></div>
+<section id="testing"><div class="wrap">
+  <h2>On the bench</h2>
+  <p class="lede">Being measured right now. The numbers are working figures, not a published
+  profile yet.</p>
+  <div class="grid" id="gridBench"></div>
   <div class="rows" id="rowsTesting"></div>
+</div></section>
+
+<section id="tested"><div class="wrap">
+  <h2>Dialled in and published</h2>
+  <p class="lede">Finished profiles. Each one installs on the printer in one tap.</p>
+  <div class="grid" id="grid"></div>
   <div id="empty" class="empty" hidden></div>
 </div></section>
 
@@ -1168,11 +1246,24 @@ function statusChip(bench){
     ? '<span class="schip bench" title="Being measured right now. The figures below are working '+
       'numbers and are not published as an installable profile yet.">On the bench</span>'
     : '<span class="schip done" title="The sequence is finished and the profile is published: a '+
-      'TinyMaker installs these numbers in one tap.">Tested</span>';
+      'TinyMaker installs these numbers in one tap.">Dialled in</span>';
 }
 function card(r,bench){
   var shot=heroShot(r), ts=r.tests||[];
-  var h='<article class="rc'+(r.demo?' demo':'')+'" data-type="'+r.type+'">';
+  var done=(r.steps||[]).filter(function(s){return s.st==='done';}).length;
+  var h='<details class="rc'+(r.demo?' demo':'')+'" data-type="'+r.type+'"'+
+        '>';
+  /* Suskleista eilute turi pasakyti tiek, kad nereiketu atidaryti vien pasiziureti,
+     kas tai: nuotrauka, vardas, busena, ekspozicija ir kiek zingsniu uzdaryta. */
+  h+='<summary class="rsum">';
+  h+=shot?'<img class="rth" src="'+shot+'" alt="" loading="lazy">':'<span class="rth"></span>';
+  h+='<span class="rname"><span class="maker">'+esc(r.maker)+'</span>'+esc(r.name)+'</span>';
+  h+='<span class="rbadges">'+statusChip(bench)+
+     '<span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
+     (r.color?'<span class="bdg">'+esc(r.color)+'</span>':'')+'</span>';
+  h+='<span class="rnums"><b>'+r.best.regular.toFixed(1)+' s</b>'+
+     '<span>'+done+' of '+(r.steps||[]).length+' steps</span></span>';
+  h+='</summary>';
   h+='<div class="top">';
   /* Kaireje - nuotrauka ir po ja aprasymas. Anksciau po nuotrauka likdavo tuscia
      juosta, o aprasymas desineje ilgindavo visa bloka. */
@@ -1193,7 +1284,7 @@ function card(r,bench){
      (r.color?'<span class="bdg" title="The bottle these numbers were measured with. Pigment '+
        'changes how deep the light cures, so another colour of the same resin can need its own '+
        'exposure.">'+esc(r.color)+'</span>':'')+
-     (bestStars(r)?stars(bestStars(r),'Best print so far'):'')+'</div>';
+     (bestStars(r)?stars(bestStars(r),'Best print so far'):'')+lhTabs(r)+'</div>';
   h+=steps(r);
   /* Parametrai dviem stulpeliais: tie patys skaiciai, o blokas per puse zemesnis. */
   h+=profiles(r);
@@ -1203,9 +1294,8 @@ function card(r,bench){
   h+='</div></div></div>';
   /* Zingsniai - plytelemis, matomi be jokio spaudimo. Devyni telpa i dvi eilutes. */
   if(ts.length){
-    h+='<details class="steps"><summary class="stitle"><span class="arw" aria-hidden="true"></span>'+
-       'How it was dialled in<span>'+ts.length+' test print'+(ts.length>1?'s':'')+'</span></summary>'+
-       '<div class="tiles">';
+    h+='<div class="steps"><div class="stitle">How it was dialled in'+
+       '<span>'+ts.length+' test print'+(ts.length>1?'s':'')+'</span></div><div class="tiles">';
     ts.forEach(function(t,i){
       h+='<figure class="tile">';
       h+=t.photo?'<a href="'+t.photo+'" target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>'
@@ -1219,11 +1309,11 @@ function card(r,bench){
     if(r.future) h+='<details class="fold"><summary><span class="tsum">Future notes</span>'+
                     '<span class="tcnt">what is still open</span></summary>'+
                     '<div class="tl"><p class="fut">'+r.future+'</p></div></details>';
-    /* Kelias atgal i virsu: po devyniu plyteliu antraste jau toli uz ekrano. */
+    /* Kelias atgal i virsu: po devyniu plyteliu korteles pradzia jau toli uz ekrano. */
     h+='<button type="button" class="collapse">Collapse</button>';
-    h+='</details>';
+    h+='</div>';
   }
-  h+='</article>';
+  h+='</details>';
   return h;
 }
 
@@ -1233,18 +1323,32 @@ function card(r,bench){
 /* Abu auksciai, kuriuos moka printeris. Ta pati pora guli catalog.json
    (`layer_heights`) - cia ji kartojama, nes puslapis statomas be jo. */
 var LH=[0.05,0.10];
-function profiles(r){
-  var turim={};
-  (r.full||[]).forEach(function(x){turim[Number(x.lh).toFixed(2)]=x;});
-  /* Numatytasis - tas, kuriam profilis yra; jei abu yra, pirmas. */
-  var pirmas=0;
-  for(var j=0;j<LH.length;j++){ if(turim[LH[j].toFixed(2)]){pirmas=j;break;} }
-  var h='<div class="lhtabs" role="group" aria-label="Layer height">';
+function lhTurim(r){
+  var t={};
+  (r.full||[]).forEach(function(x){t[Number(x.lh).toFixed(2)]=x;});
+  return t;
+}
+function lhPirmas(turim){
+  for(var j=0;j<LH.length;j++){ if(turim[LH[j].toFixed(2)]) return j; }
+  return 0;
+}
+/* Jungiklis - zenkleliu eiluteje, desineje. Atskira eilute jam buvo per daug: du
+   mygtukai, o remelis per visa korteles ploti. */
+function lhTabs(r){
+  var turim=lhTurim(r), pirmas=lhPirmas(turim);
+  var h='<span class="lhtabs" role="group" aria-label="Layer height" '+
+        'title="Layer height - the profile below changes with it">';
   LH.forEach(function(lh,i){
-    h+='<button type="button" class="lht'+(i===pirmas?' on':'')+
-       (turim[lh.toFixed(2)]?'':' empty')+'" data-lh="'+i+'">'+lh.toFixed(2)+' mm</button>';
+    var yra=!!turim[lh.toFixed(2)];
+    h+='<button type="button" class="lht'+(i===pirmas?' on':'')+(yra?'':' empty')+
+       '" data-lh="'+i+'" title="'+(yra?'Profile for '+lh.toFixed(2)+' mm layers'
+       :'No profile at '+lh.toFixed(2)+' mm yet')+'">'+lh.toFixed(2)+'</button>';
   });
-  h+='</div>';
+  return h+'<span class="lhu">mm</span></span>';
+}
+function profiles(r){
+  var turim=lhTurim(r), pirmas=lhPirmas(turim);
+  var h='';
   LH.forEach(function(lh,i){
     var x=turim[lh.toFixed(2)];
     h+='<div class="lhpane'+(i===pirmas?'':' off')+'" data-lh="'+i+'">';
@@ -1257,7 +1361,6 @@ function profiles(r){
     }
     var p=x.p;
     h+='<div class="kv2">';
-    h+=kvrow('Layer height', Number(x.lh).toFixed(2)+' mm');
     h+=kvrow('Regular exposure', Number(p.regular_exposure).toFixed(1)+' s');
     h+=kvrow('Bottom exposure', p.base_exposure+' s &times; '+p.base_layers);
     if(p.density!=null) h+=kvrow('Density',
@@ -1307,31 +1410,51 @@ function benchAll(){return (typeof BENCH!=='undefined'?BENCH:[]).concat(TESTING)
 var pick={type:'',wash:''};
 function matches(r,p){return (!p.type||r.type===p.type)&&(!p.wash||r.wash===p.wash);}
 
+/* Viena eilute vietoj tuscios skilties. */
+function tuscia(id,n,txt){
+  var el=document.getElementById(id);
+  if(!el) return;
+  var s=el.parentNode.querySelector('.fnone');
+  if(n){ if(s) s.remove(); return; }
+  if(!s){ s=document.createElement('p'); s.className='fnone'; el.parentNode.insertBefore(s,el.nextSibling); }
+  s.textContent=txt;
+}
 function render(){
+  /* Filtras bendras visam puslapiui: jis stovi po skaitikliais, ne prie vienos
+     skilties, tad veikia visas tris - ant stalo, suderintas ir eile. */
   var hit=TESTED.filter(function(r){return matches(r,pick);});
   var bench=(typeof BENCH!=='undefined'?BENCH:[]).filter(function(r){return matches(r,pick);});
-  /* Vienas sarasas abiem busenoms. Ant stalo stovincios eina priekyje - jos
-     juda siandien, o uzbaigtos niekur nedings.
-     ⛔ ne .map(card): Array.map perduoda INDEKSA antru argumentu, tad kortele
-     gautu bench=1 ir piestusi kitaip. */
-  /* Pirma tai, kas ant stalo - ten juda siandien. Paskui pagal senuma: seniausiai
-     istestuota priekyje, kad eile butu istorija, o ne atsitiktine tvarka. */
+  /* Suderintos rikiuojamos pagal senuma: seniausiai istestuota priekyje, kad eile
+     butu istorija, o ne atsitiktine tvarka. */
   hit.sort(function(a,b){return String(a.testedOn||'').localeCompare(String(b.testedOn||''))
                               || String(a.name).localeCompare(String(b.name));});
-  document.getElementById('grid').innerHTML=
-      bench.map(function(r){return card(r,true);})
-           .concat(hit.map(function(r){return card(r);})).join('');
+  /* Dvi skiltys: ant stalo atskirai, suderintos atskirai. Filtras veikia abi, bet
+     stovi prie suderintu - ten jis ir reikalingas.
+     ⛔ ne .map(card): Array.map perduoda INDEKSA antru argumentu, tad kortele
+     gautu bench=1 ir piestusi kitaip. */
+  var gb=document.getElementById('gridBench');
+  if(gb) gb.innerHTML=bench.map(function(r){return card(r,true);}).join('');
+  /* Tuscia skiltis NEDINGSTA - dingstanti atrodo kaip klaida. Ji pasako, kad po siuo
+     filtru joje nieko nera. */
+  tuscia('gridBench', bench.length, 'Nothing on the bench under this filter.');
+  /* Eile piesiama CIA, ne paleidziant: kitaip ji nupiestu viena karta su tusciu
+     filtru ir daugiau niekada nebeatsinaujintu. */
+  var eile=QUEUED.filter(function(r){return matches(r,pick);});
+  document.getElementById('rowsQueued').innerHTML=rowsHtml(eile,false);
+  tuscia('rowsQueued', eile.length, 'Nothing in the queue under this filter.');
+  document.getElementById('grid').innerHTML=hit.map(function(r){return card(r);}).join('');
   var box=document.getElementById('empty');
-  if(hit.length+bench.length){box.hidden=true;return;}
+  if(hit.length){box.hidden=true;return;}
 
-  // Nothing tested under this combination - say what is coming instead of
-  // showing a blank page.
+  /* Nieko nerasta. Eiles eiluciu CIA nebekartojam - eile yra atskira skiltis tiesiai
+     po sia, ir tie patys pavadinimai pasirodydavo dukart. Lieka sakinys ir nuoroda. */
   var soon=benchAll().concat(QUEUED).filter(function(r){return matches(r,pick);});
   var what=[pick.type?tname(pick.type).toLowerCase():'', pick.wash?wname(pick.wash).toLowerCase()+'-wash':''].filter(Boolean).join(', ');
   var h='<b>Nothing finished here yet</b>';
   h+='<p>No '+(what||'matching')+' resin has been published for the TinyMaker yet.'+
-     (soon.length?' These samples are already here and waiting for plate time:':' Nothing of this kind is in the queue either.')+'</p>';
-  if(soon.length) h+='<div class="rows">'+rowsHtml(soon,false)+'</div>';
+     (soon.length?' '+soon.length+' such sample'+(soon.length>1?'s are':' is')+
+      ' already here - see <a href="#queued">In the queue</a> below.'
+     :' Nothing of this kind is in the queue either.')+'</p>';
   box.innerHTML=h;box.hidden=false;
 }
 
@@ -1352,14 +1475,12 @@ function rowsHtml(list,live){
 function chips(host,key,map,all){
   var soonAll=benchAll().concat(QUEUED);
   var keys=Object.keys(map).filter(function(k){return all.some(function(r){return r[key]===k;});});
-  host.innerHTML='<button class="chip" data-v="" aria-pressed="true">All<span class="n">'+
-      all.length+'</span></button>'+
-    keys.map(function(k){
+  /* Be „All": nieko nepasirinkus rodoma viskas, o antras paspaudimas mygtuka atleidzia.
+     Du „All" mygtukai greta neleido suprasti, kuris kurios grupes. */
+  host.innerHTML=keys.map(function(k){
       var n=TESTED.filter(function(r){return r[key]===k;}).length;
       var q=soonAll.filter(function(r){return r[key]===k;}).length;
-      var t=n+' tested'+(q?', '+q+' waiting for plate time':'')+' - '+map[k].f;
-      /* VIENAS skaicius - kiek dervu po tuo mygtuku is viso. Buvo du ("1 +6"), ir be
-         paaiskinimo jie neskaitesi; kiek is ju baigta, pasako uzvedimo uzrasas. */
+      var t=n+' dialled in'+(q?', '+q+' waiting for plate time':'')+' - '+map[k].f;
       return '<button class="chip'+(n?'':' none')+'" data-v="'+k+'" aria-pressed="false" title="'+t+'">'+
              map[k].s+'<span class="n">'+(n+q)+'</span></button>';
     }).join('');
@@ -1368,8 +1489,13 @@ function chips(host,key,map,all){
   if(g) g.hidden=!keys.length;
   host.addEventListener('click',function(e){
     var b=e.target.closest('button[data-v]');if(!b)return;
-    host.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
-    pick[key]=b.dataset.v;render();
+    var buvo=pick[key]===b.dataset.v;          /* tas pats dar karta - atleidziam */
+    pick[key]=buvo?'':b.dataset.v;
+    host.querySelectorAll('button').forEach(function(x){
+      x.setAttribute('aria-pressed',String(!buvo&&x===b));});
+    var c=document.getElementById('fClear');
+    if(c) c.hidden=!(pick.type||pick.wash);
+    render();
   });
 }
 
@@ -1382,7 +1508,7 @@ function chips(host,key,map,all){
     document.body.style.overflow='hidden'; document.getElementById('lbx').focus(); }
   function close(){ lb.hidden=true; im.src=''; document.body.style.overflow=''; }
   document.addEventListener('click',function(ev){
-    var a=ev.target.closest&&ev.target.closest('a.pic.shot, .th a');
+    var a=ev.target.closest&&ev.target.closest('a.pic.shot, .th a, .tile a');
     if(a&&a.getAttribute('href')){ ev.preventDefault();
       var c=a.closest('.tr'); var b=c?c.querySelector('b'):null;
       open(a.getAttribute('href'), b?b.textContent.trim():(a.querySelector('img')||{}).alt);
@@ -1407,8 +1533,8 @@ function chips(host,key,map,all){
   /* Skaitiklis - ne tik skaicius, bet ir kelias: paspaudus nuveda i pirma tos
      busenos derva. Kitaip zmogus mato „13 in the queue" ir pats ieško, kur ta eile. */
   document.getElementById('counts').innerHTML=
-    '<button type="button" class="count" data-go="tested"><b>'+TESTED.length+'</b>tested</button>'+
     '<button type="button" class="count" data-go="bench"><b>'+benchAll().length+'</b>on the bench</button>'+
+    '<button type="button" class="count" data-go="tested"><b>'+TESTED.length+'</b>dialled in</button>'+
     '<button type="button" class="count" data-go="queue"><b>'+QUEUED.length+'</b>in the queue</button>';
 
   var all=TESTED.concat(TESTING,QUEUED);
@@ -1417,7 +1543,7 @@ function chips(host,key,map,all){
 
   render();
   document.getElementById('rowsTesting').innerHTML=rowsHtml(TESTING,true);
-  document.getElementById('rowsQueued').innerHTML=rowsHtml(QUEUED,false);
+
 
   // Theme toggle - same localStorage key as the dashboard and the landing page.
   // Embedded in Resin Lab the switch is removed above, so everything here is
@@ -1446,10 +1572,10 @@ document.addEventListener('toggle',function(e){
 document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('.collapse');
   if(!b) return;
-  var d=b.closest('details.steps');
+  var d=b.closest('details.rc');
   if(!d) return;
   d.open=false;
-  d.querySelector('summary').scrollIntoView({block:'nearest'});
+  d.scrollIntoView({block:'nearest'});
 });
 
 /* Sluoksnio auksčio perjungimas kortelėje. */
@@ -1465,18 +1591,33 @@ document.addEventListener('click',function(e){
 document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('.count');
   if(!b) return;
-  var k=b.dataset.go, t=null;
-  if(k==='queue') t=document.getElementById('queued');
-  else {
-    var rc=[...document.querySelectorAll('#grid .rc')];
-    t=rc.find(function(c){return !!c.querySelector('.schip.bench')===(k==='bench');});
-  }
+  var k=b.dataset.go;
+  var t=document.getElementById(k==='queue'?'queued':(k==='bench'?'testing':'tested'));
   if(!t) return;
   /* `scrollIntoView` su „smooth" kai kuriuose languose tyliai nieko nedaro, tad
      skaičiuojam vietą patys ir, jei po akimirkos nepajudėjom, nustumiam be animacijos. */
   var y=t.getBoundingClientRect().top+window.pageYOffset-12;
   try{window.scrollTo({top:y,behavior:'smooth'});}catch(err){window.scrollTo(0,y);}
   setTimeout(function(){if(Math.abs(window.pageYOffset-y)>8)window.scrollTo(0,y);},400);
+});
+
+/* Viena atidaryta derva vienu metu - visoms vienodai. Suskleista eilute rodo
+   nuotrauka, ekspozicija ir kiek zingsniu uzdaryta, tad atidaryti reikia tik tada,
+   kai nori daugiau. */
+document.addEventListener('toggle',function(e){
+  var d=e.target;
+  if(!d.classList||!d.classList.contains('rc')||!d.open) return;
+  document.querySelectorAll('details.rc[open]').forEach(function(x){if(x!==d)x.open=false;});
+},true);
+
+/* „Clear" - atleidzia abi grupes. */
+document.addEventListener('click',function(e){
+  if(!e.target.closest||!e.target.closest('#fClear')) return;
+  pick.type=''; pick.wash='';
+  document.querySelectorAll('.filters .chip').forEach(function(x){
+    x.setAttribute('aria-pressed','false');});
+  document.getElementById('fClear').hidden=true;
+  render();
 });
 </script>
 </body>
