@@ -2131,7 +2131,17 @@ document.addEventListener('toggle',function(e){
      nereikalautu atsiminti, kurioje vietoje spaudi. */
   var kl=d.classList.contains('rc')?'rc':(d.classList.contains('row')?'row':'');
   if(!kl) return;
+  /* Uzsidaranti kortele nuslenka visa, kas po jos, auksyn - ir atidaryta eilute
+     nusoka is po pirsto. Todel isimenam, kur ji stovejo, ir po uzdarymo tiek pat
+     pastumiam puslapi: eilute lieka toje pacioje vietoje ekrane. */
+  var pries=d.getBoundingClientRect().top;
   document.querySelectorAll('details.'+kl+'[open]').forEach(function(x){if(x!==d)x.open=false;});
+  var po=d.getBoundingClientRect().top;
+  if(po!==pries) window.scrollBy(0,po-pries);
+  /* Jei vis tiek atsidure uz ekrano (pvz. atidaryta buvo zemiau matomos dalies),
+     atvedam ja i virsu - geriau matyti pradzia, negu vidurį. */
+  var t=d.getBoundingClientRect().top;
+  if(t<0||t>window.innerHeight-90) d.scrollIntoView({block:'start'});
 },true);
 
 /* „Clear" - atleidzia abi grupes. */
