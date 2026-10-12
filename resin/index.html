@@ -539,7 +539,10 @@ details.row>summary:hover{background:var(--btnsec)}
    kuri yra summary::after; be jo ji nukrisdavo i antra eilute. */
 /* Gamintojo zenklas vietoj tuscio stulpelio: spaudinio dar nera, o zenklas
    pasako, kieno tai derva, greiciau nei perskaitytas vardas. */
-.mlogo{display:block;max-width:66px;max-height:34px;object-fit:contain;
+/* Vienodo dydzio deze visiems zenklams: Resione zenklas yra dvieiliu (zenklas ir
+   vardas po juo), tad su laisvu auksciu jo eilute buvo auksciau uz SUNLU. Geriau
+   zenklas mazesnis, negu nelygios eilutes. */
+.mlogo{display:block;width:66px;height:30px;object-fit:contain;
   justify-self:center;opacity:.85}
 /* Zenklai juodi ar spalvoti ant balto - tamsioje temoje juos apverciam i balta.
    Taisykle TIK tamsiai temai: be @media salygos ji veike ir sviesioje, kur
