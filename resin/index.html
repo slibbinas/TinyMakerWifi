@@ -186,12 +186,13 @@ footer a{color:var(--muted2);text-decoration:underline}
 #lb img{max-width:min(1100px,96vw);max-height:84vh;object-fit:contain;border-radius:10px;
   box-shadow:0 18px 50px rgba(0,0,0,.55)}
 #lbc{margin-top:12px;font-size:13.5px;color:#cfd3d8;text-align:center;max-width:720px}
-#lbx{position:fixed;top:16px;right:18px;height:40px;padding:0 16px 0 12px;border-radius:999px;
+#lbx,#lbx2{position:fixed;top:16px;right:18px;height:40px;padding:0 16px 0 12px;border-radius:999px;
   display:flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.35);
   background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:14px;font-weight:600;
   cursor:pointer;z-index:2;backdrop-filter:blur(4px)}
-#lbx span{font-size:22px;line-height:1}
-#lbx:hover{background:rgba(255,255,255,.16)}
+#lbx2{top:auto;bottom:18px}
+#lbx span,#lbx2 span{font-size:22px;line-height:1}
+#lbx:hover,#lbx2:hover{background:rgba(255,255,255,.16)}
 .future{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
 .future b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;
   color:var(--accent);margin-bottom:6px}
@@ -225,7 +226,9 @@ footer a{color:var(--muted2);text-decoration:underline}
 /* ---- plati kortele (V 2026-10-12): nuotrauka + aprasymas virsuje, zingsniai plytelemis ---- */
 .grid{grid-template-columns:1fr;gap:22px}
 .rc .top{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+.rc .left .snote{margin:10px 14px 14px 18px}
 .rc .top .pic{aspect-ratio:4/3;border-radius:12px 0 0 0}
+.rc .left{display:flex;flex-direction:column}
 .rc .top .body{padding:16px 18px 16px 0}
 .rc h3{min-height:0}
 .rc .product{margin:-4px 0 8px}
@@ -275,11 +278,44 @@ details.steps > summary > span:last-child{margin-left:auto;text-transform:none;l
   border-top:7px solid transparent;border-bottom:7px solid transparent;transition:transform .15s}
 details.steps[open] .arw{transform:rotate(90deg)}
 details.steps[open] > summary{border-bottom:1px solid var(--line);margin-bottom:12px}
-.collapse{display:block;margin:14px 0 0 auto;background:none;border:1px solid var(--line);
-  border-radius:999px;padding:6px 14px;font:inherit;font-size:12px;color:var(--accent);
-  cursor:pointer}
-.collapse:hover{border-color:var(--accent)}
-.collapse::before{content:'\25B2';font-size:9px;margin-right:6px;vertical-align:1px}
+.collapse{display:block;margin:10px 0 0 auto;background:none;border:0;padding:10px 2px 4px 14px;
+  font:inherit;font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer}
+.collapse:hover{text-decoration:underline}
+.collapse::before{content:'\25B2';font-size:9px;margin-right:7px;vertical-align:1px}
+
+/* ---- zingsniu juosta: viena seka, ne keturi mygtukai (V 2026-10-12) ----
+   Rodykles formos segmentai pasako, kad tai eiga nuo Strip iki Complex, o ne
+   keturi nepriklausomi mygtukai. Vienodo plocio - kad niekas neatrodytu svarbesnis. */
+.pbar{display:grid;grid-template-columns:repeat(4,1fr);gap:0;align-items:stretch}
+/* Rodykles gilesnes (16 px), o tarp segmentu paliekamas 5 px tarpas: persidengia
+   ne per visa rodykles gyli, o 5 px maziau, tad pro ji matosi korteles fonas -
+   balta linija. Anksciau segmentai lietesi ir riba skendo oranzinėje. */
+.pbar .pstep{flex:none;border:0;border-radius:0;margin-left:-11px;padding:7px 8px 7px 24px;
+  font-size:10.5px;line-height:1.3;text-align:center;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;background:var(--btnsec);color:var(--muted);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%)}
+.pbar .pstep:first-child{margin-left:0;padding-left:10px;border-radius:5px 0 0 5px;
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%)}
+.pbar .pstep:last-child{border-radius:0 5px 5px 0;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%,16px 50%)}
+/* Spalva - tik apacioje. Uzpildyti segmentai pernelyg svere kortele, o sodrus
+   oranzinis ties dabartiniu zingsniu dar ir apgaudavo: akis uzpildyta desinėje
+   skaito kaip „baigta“. Dabar fonas ramus, o eiga matyti is oranzines juostos
+   apacioje - ji eina is kaires i desine, kaip ir pati seka. */
+.pbar .pstep.done{background:linear-gradient(to top,var(--accent) 3px,var(--btnsec) 3px);
+  color:var(--text);font-weight:600}
+/* Vykstantis zingsnis - sviesus pilkas remelis ir oranzinis tekstas.
+   Tikro  cia buti negali: clip-path, kuris daro rodykles forma, remeli
+   nukerpa. Todel remelis piesiamas fonu - isorinis sluoksnis iki border-box pilkas,
+   vidinis iki padding-box korteles spalvos; clip-path abu nukerpa kartu, ir lieka
+   1,5 px pilkas kontūras aplink rodykle. */
+.pbar .pstep.doing{
+  border:1.5px solid transparent;
+  background:linear-gradient(var(--card),var(--card)) padding-box,
+             linear-gradient(rgba(128,134,144,.55),rgba(128,134,144,.55)) border-box;
+  color:var(--accent);font-weight:700}
+.pbar .pstep.todo{background:linear-gradient(to top,var(--line) 3px,var(--btnsec) 3px);
+  color:var(--muted);font-weight:400}
 </style>
 </head>
 <body>
@@ -370,7 +406,8 @@ details.steps[open] > summary{border-bottom:1px solid var(--line);margin-bottom:
 </div></section>
 
 <div id="lb" hidden>
-  <button id="lbx" type="button" aria-label="Close"><span>×</span> Close</button>
+  <button id="lbx" class="lbclose" type="button" aria-label="Close"><span>×</span> Close</button>
+  <button id="lbx2" class="lbclose bot" type="button" aria-label="Close"><span>×</span> Close</button>
   <img id="lbi" alt="">
   <div id="lbc"></div>
 </div>
@@ -946,7 +983,14 @@ var PIC={strip:svgStrip,coupon:svgCoupon,model:svgModel,bust:svgBust};
 function pic(kind){return (PIC[kind]||svgModel)();}
 
 /* ------------------------------------------------------------------ */
-function stars(n){var s='';for(var i=1;i<=5;i++)s+=i<=n?'&#9733;':'<i>&#9733;</i>';return '<span class="stars" title="'+n+' of 5">'+s+'</span>';}
+/* Žvaigždutės vertina SPAUDINĮ, ne dervą: kiek švariai išėjo smulkmenos su šiais
+   skaičiais. Vien „5 of 5“ to nepasako, todėl užvedąs pelę žmogus gauna sakinį. */
+function stars(n,ctx){
+  var s='';for(var i=1;i<=5;i++)s+=i<=n?'&#9733;':'<i>&#9733;</i>';
+  var t=(ctx||'This print')+': '+n+' of 5. The rating is for the print, not for the resin - '+
+        'how cleanly the fine features came out at these numbers.';
+  return '<span class="stars" title="'+t+'">'+s+'</span>';
+}
 /* The card's rating is the best print the resin gave, not an average:
    the early strip and the over-exposed coupons are steps on the way, not marks
    against it. */
@@ -983,29 +1027,34 @@ function howNote(r,bench){
 /* Viena eilute pasako, kurioje busenoje derva. Abi kortelės vienodos, skiriasi
    tik sis zenklelis - todel ir sarasas gali buti vienas. */
 function statusChip(bench){
-  return bench ? '<span class="chip bench">On the bench</span>'
-               : '<span class="chip done">Tested</span>';
+  return bench
+    ? '<span class="chip bench" title="Being measured right now. The figures below are working '+
+      'numbers and are not published as an installable profile yet.">On the bench</span>'
+    : '<span class="chip done" title="The sequence is finished and the profile is published: a '+
+      'TinyMaker installs these numbers in one tap.">Tested</span>';
 }
 function card(r,bench){
   var shot=heroShot(r), ts=r.tests||[];
   var h='<article class="rc'+(r.demo?' demo':'')+'" data-type="'+r.type+'">';
   h+='<div class="top">';
+  /* Kaireje - nuotrauka ir po ja aprasymas. Anksciau po nuotrauka likdavo tuscia
+     juosta, o aprasymas desineje ilgindavo visa bloka. */
+  h+='<div class="left">';
   h+=shot?'<a class="pic shot" href="'+shot+'" target="_blank" rel="noopener"><img src="'+shot+'" alt="'+esc(r.name)+'" loading="lazy"></a>'
           :'<div class="pic">'+pic('model')+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
+  h+='<p class="snote">'+(r.stageNote?esc(r.stageNote):(r.methodNote?esc(r.methodNote):howNote(r,bench)))+'</p>';
+  h+='</div>';
   h+='<div class="body">';
   h+='<span class="maker">'+esc(r.maker)+'</span><h3>'+esc(r.name)+'</h3>';
   if(r.product) h+='<p class="product">'+esc(r.product)+'</p>';
   h+='<div class="badges">'+statusChip(bench)+
      '<span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
      (r.wash?'<span class="bdg" title="'+wfull(r.wash)+'">'+wname(r.wash)+'</span>':'')+
-     (r.color?'<span class="bdg">'+esc(r.color)+'</span>':'')+
-     (bestStars(r)?stars(bestStars(r)):'')+'</div>';
+     (r.color?'<span class="bdg" title="The bottle these numbers were measured with. Pigment '+
+       'changes how deep the light cures, so another colour of the same resin can need its own '+
+       'exposure.">'+esc(r.color)+'</span>':'')+
+     (bestStars(r)?stars(bestStars(r),'Best print so far'):'')+'</div>';
   h+=steps(r);
-  /* Viena paaiskinimo eilute, ne trys: ant stalo - kas vyksta, kitaip - kaip gauti
-     skaiciai. Ilgi tekstai cia netelpa ir neturi tilpti. */
-  if(r.stageNote)       h+='<p class="snote">'+esc(r.stageNote)+'</p>';
-  else if(r.methodNote) h+='<p class="snote">'+esc(r.methodNote)+'</p>';
-  else                  h+='<p class="snote">'+howNote(r,bench)+'</p>';
   /* Parametrai dviem stulpeliais: tie patys skaiciai, o blokas per puse zemesnis. */
   h+='<div class="kv2">';
   h+=kvrow('Layer height', r.best.lh.toFixed(2)+' mm'+(r.alt?' <span class="alt">&middot; also '+r.alt.lh.toFixed(2)+'</span>':''));
@@ -1064,6 +1113,10 @@ function render(){
      juda siandien, o uzbaigtos niekur nedings.
      ⛔ ne .map(card): Array.map perduoda INDEKSA antru argumentu, tad kortele
      gautu bench=1 ir piestusi kitaip. */
+  /* Pirma tai, kas ant stalo - ten juda siandien. Paskui pagal senuma: seniausiai
+     istestuota priekyje, kad eile butu istorija, o ne atsitiktine tvarka. */
+  hit.sort(function(a,b){return String(a.testedOn||'').localeCompare(String(b.testedOn||''))
+                              || String(a.name).localeCompare(String(b.name));});
   document.getElementById('grid').innerHTML=
       bench.map(function(r){return card(r,true);})
            .concat(hit.map(function(r){return card(r);})).join('');
@@ -1129,6 +1182,9 @@ function chips(host,key,map,all){
     }
   });
   document.getElementById('lbx').addEventListener('click',close);
+  /* Antras mygtukas apacioje: ilga nuotrauka telefone uzima visa ekrana, ir
+     virsutinis lieka uz matomos srities. */
+  document.getElementById('lbx2').addEventListener('click',close);
   lb.addEventListener('click',function(ev){ if(ev.target===lb) close(); });
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'&&!lb.hidden) close(); });
 })();
