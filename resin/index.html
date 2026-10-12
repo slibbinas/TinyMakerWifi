@@ -226,6 +226,7 @@ footer a{color:var(--muted2);text-decoration:underline}
 /* ---- plati kortele (V 2026-10-12): nuotrauka + aprasymas virsuje, zingsniai plytelemis ---- */
 .grid{grid-template-columns:1fr;gap:22px}
 .rc .top{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+.rc .left .about{margin:12px 14px 0 18px;font-size:13px;line-height:1.5;color:var(--muted)}
 .rc .left .snote{margin:10px 14px 14px 18px}
 .rc .top .pic{aspect-ratio:4/3;border-radius:12px 0 0 0}
 .rc .left{display:flex;flex-direction:column}
@@ -240,6 +241,19 @@ footer a{color:var(--muted2);text-decoration:underline}
 .kv2 .r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
 .kv2 .r span{color:var(--muted)}
+.allp{margin-top:10px}
+.allp>summary{list-style:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--accent);
+  padding:8px 0;user-select:none}
+.allp>summary::-webkit-details-marker{display:none}
+.allp>summary::before{content:'\25B8';margin-right:7px;display:inline-block;transition:transform .15s}
+.allp[open]>summary::before{transform:rotate(90deg)}
+.allp>summary:hover{text-decoration:underline}
+.aptab{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 26px}
+.aphead{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+  padding:4px 0 6px;border-bottom:1px solid var(--line)}
+.aptab .r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.aptab .r span{color:var(--muted)}
 .rc .act{margin-top:14px}
 .rc .btn{max-width:260px}
 .steps{border-top:1px solid var(--line);margin:0 18px;padding:14px 0 18px}
@@ -316,6 +330,17 @@ details.steps[open] > summary{border-bottom:1px solid var(--line);margin-bottom:
   color:var(--accent);font-weight:700}
 .pbar .pstep.todo{background:linear-gradient(to top,var(--line) 3px,var(--btnsec) 3px);
   color:var(--muted);font-weight:400}
+
+.lhtabs{display:inline-flex;gap:0;margin:2px 0 10px;border:1px solid var(--line);border-radius:8px;
+  overflow:hidden}
+.lht{background:none;border:0;padding:6px 14px;font:inherit;font-size:12.5px;font-weight:600;
+  color:var(--muted);cursor:pointer}
+.lht+.lht{border-left:1px solid var(--line)}
+.lht.on{background:var(--accent);color:#fff}
+.lht:not(.on):hover{background:var(--btnsec)}
+.lhpane.off{display:none}
+.nolh{margin:10px 0 0;font-size:12.5px;line-height:1.5;color:var(--accent);
+  border-left:3px solid var(--accent);padding-left:10px}
 </style>
 </head>
 <body>
@@ -461,6 +486,8 @@ var TESTED=[
   "hero": "photos/anycubic-water-wash-resin-2-0-aw2.jpg",
   "methodNote": "Measured by hand, before the current method existed - the numbers work, but they have not been through the full sequence. Queued for a retest as the method keeps improving.",
   "retest": true,
+  "about": "Anycubic's water-wash standard resin. It cleans in plain water instead of alcohol, which is why it gets used for quick parts.",
+  "take": "The published numbers print, but they were set by hand before the current method existed. A full re-run is queued.",
   "steps": [
    {
     "k": "vat",
@@ -504,6 +531,44 @@ var TESTED=[
    ]
   },
   "tests": [],
+  "full": [
+   {
+    "lh": 0.05,
+    "p": {
+     "layer_height": 0.05,
+     "base_exposure": 35,
+     "regular_exposure": 14.0,
+     "base_layers": 4,
+     "transition_layers": 5,
+     "slow_lift_distance": 1,
+     "fast_lift_distance": 2,
+     "slow_lift_feedrate": 40,
+     "fast_lift_feedrate": 50,
+     "drop_back_feedrate": 50,
+     "density": 1.1,
+     "cal_factor": 1.0,
+     "cal_fixed_ml": 0.0
+    }
+   },
+   {
+    "lh": 0.1,
+    "p": {
+     "layer_height": 0.1,
+     "base_exposure": 35,
+     "regular_exposure": 14.0,
+     "base_layers": 2,
+     "transition_layers": 5,
+     "slow_lift_distance": 1,
+     "fast_lift_distance": 2,
+     "slow_lift_feedrate": 40,
+     "fast_lift_feedrate": 50,
+     "drop_back_feedrate": 50,
+     "density": 1.1,
+     "cal_factor": 1.0,
+     "cal_fixed_ml": 0.0
+    }
+   }
+  ],
   "alt": {
    "lh": 0.1,
    "regular": 14.0,
@@ -528,6 +593,8 @@ var TESTED=[
   "hero": "photos/sunlu-toughness-st1.jpg",
   "methodNote": "Measured by hand, before the current method existed - the numbers work, but they have not been through the full sequence. Queued for a retest as the method keeps improving.",
   "retest": true,
+  "about": "SUNLU's tough resin. Made to give a little instead of snapping, so it suits parts that have to be handled.",
+  "take": "Re-measured on 11 October: at 9.2 s the lettering stayed legible and the cut-outs open, where 8.0 s went mushy. Simple and complex models still to come.",
   "steps": [
    {
     "k": "vat",
@@ -605,6 +672,44 @@ var TESTED=[
     "props": []
    }
   ],
+  "full": [
+   {
+    "lh": 0.05,
+    "p": {
+     "layer_height": 0.05,
+     "base_exposure": 18,
+     "regular_exposure": 9.2,
+     "base_layers": 4,
+     "transition_layers": 5,
+     "slow_lift_distance": 1,
+     "fast_lift_distance": 2,
+     "slow_lift_feedrate": 40,
+     "fast_lift_feedrate": 50,
+     "drop_back_feedrate": 50,
+     "density": 1.157,
+     "cal_factor": 1.01,
+     "cal_fixed_ml": 0.63
+    }
+   },
+   {
+    "lh": 0.1,
+    "p": {
+     "layer_height": 0.1,
+     "base_exposure": 18,
+     "regular_exposure": 8.0,
+     "base_layers": 2,
+     "transition_layers": 5,
+     "slow_lift_distance": 1,
+     "fast_lift_distance": 2,
+     "slow_lift_feedrate": 40,
+     "fast_lift_feedrate": 50,
+     "drop_back_feedrate": 50,
+     "density": 1.157,
+     "cal_factor": 0.997,
+     "cal_fixed_ml": 0.63
+    }
+   }
+  ],
   "alt": {
    "lh": 0.1,
    "regular": 8.0,
@@ -627,6 +732,8 @@ var BENCH=[
   "verdict": "BRIDGES: ALL FOUR HOLD (V: “all OK”). Measured from the model, the gaps between the supports are 2 / 4 / 6 and 8 mm, so the longest span with no sag is 8 mm.\n\n⚠️ 8 mm is the MODEL's ceiling, not the resin's limit. There is no longer gap in this model, so the real limit lies somewhere above it and stays unmeasured. Against other resins this reads as “held everything it was given”, not “can do no more”.\n\n⭐ Why it matters in practice: the bridge is the only one of the three simple models that measures an OVERHANG - whether a layer carries itself with nothing underneath. That is what decides how many supports real prints will need. 8 mm with no sag is a quarter of the length of our plate (40.8 x 30.6 mm).",
   "future": "Resione's technical support pointed out that this printer has no <b>pre-exposure wait</b> - a pause after the plate settles and before the UV comes on, which lets a viscous resin flow back under the part. They are right: the parameter does not exist in the firmware today, and it is going into a future release.<br>The first three steps went through without it and the numbers held - resolution down to the pixel limit, slots and channels open, a clip that survived 25 cycles. The fourth step is where its absence may be showing. A tall lattice cube comes out leaning, and it leans more the further from the plate, which is what a part being pulled sideways every layer would look like - either by plain peel force, or by resin that has not flowed back underneath it. The wait has moved from a nice-to-have to something worth measuring.",
   "buy": "https://www.resione.com/products/tough74-v2",
+  "about": "Resione's tough, wear-resistant resin: stiff and hard rather than brittle, and smooth straight off the plate.",
+  "take": "Sharp down to the pixel limit, and a printed clip took 25 cycles without cracking. Not finished: the lattice cube still prints leaning, and that is being chased now.",
   "hero": "",
   "best": {
    "lh": 0.05,
@@ -670,6 +777,25 @@ var BENCH=[
    }
   ],
   "stageNote": "The fourth step is open and this is honestly where it stands. The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch, square by construction. It printed - and it still leans, though less. Near the plate the edges are square; the further from the plate, the more they tilt. So the distortion builds up during the print rather than sitting in the file. Two suspects: the peel force on a tall, slender part, and the missing pre-exposure wait. The next run changes the lift timing only, which tells the two apart. Until that is answered the step stays open and no profile is published.",
+  "full": [
+   {
+    "lh": 0.05,
+    "p": {
+     "base_exposure": 40,
+     "regular_exposure": 10.0,
+     "base_layers": 4,
+     "transition_layers": 5,
+     "slow_lift_distance": 1,
+     "fast_lift_distance": 2,
+     "slow_lift_feedrate": 40,
+     "fast_lift_feedrate": 50,
+     "drop_back_feedrate": 50,
+     "density": 1.123,
+     "cal_factor": 1.0,
+     "cal_fixed_ml": 0.0
+    }
+   }
+  ],
   "tests": [
    {
     "step": "vat",
@@ -1042,7 +1168,10 @@ function card(r,bench){
   h+='<div class="left">';
   h+=shot?'<a class="pic shot" href="'+shot+'" target="_blank" rel="noopener"><img src="'+shot+'" alt="'+esc(r.name)+'" loading="lazy"></a>'
           :'<div class="pic">'+pic('model')+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
-  h+='<p class="snote">'+(r.stageNote?esc(r.stageNote):(r.methodNote?esc(r.methodNote):howNote(r,bench)))+'</p>';
+  /* Du trumpi tekstai: kas tai per derva ir ką apie ją sakom. Etapo prierašas ir
+     metodo pastaba cia nebeeina - ju ilgis nenuspejamas, tad jie po suskleidimu. */
+  if(r.about) h+='<p class="about">'+esc(r.about)+'</p>';
+  h+='<p class="snote">'+(r.take?esc(r.take):howNote(r,bench))+'</p>';
   h+='</div>';
   h+='<div class="body">';
   h+='<span class="maker">'+esc(r.maker)+'</span><h3>'+esc(r.name)+'</h3>';
@@ -1056,19 +1185,7 @@ function card(r,bench){
      (bestStars(r)?stars(bestStars(r),'Best print so far'):'')+'</div>';
   h+=steps(r);
   /* Parametrai dviem stulpeliais: tie patys skaiciai, o blokas per puse zemesnis. */
-  h+='<div class="kv2">';
-  h+=kvrow('Layer height', r.best.lh.toFixed(2)+' mm'+(r.alt?' <span class="alt">&middot; also '+r.alt.lh.toFixed(2)+'</span>':''));
-  h+=kvrow('Regular exposure', r.best.regular.toFixed(1)+' s');
-  h+=kvrow('Bottom exposure', r.best.base+' s &times; '+r.best.baseLayers);
-  h+=kvrow('Density', r.best.density.toFixed(3).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;');
-  if(r.best.transition!=null) h+=kvrow('Transition layers', r.best.transition);
-  if(r.best.lift&&r.best.lift[0]!=null)
-    h+=kvrow('Lift', r.best.lift[0]+' + '+r.best.lift[1]+' mm &middot; '+r.best.lift[2]+' / '+
-             r.best.lift[3]+' / '+r.best.lift[4]+' mm&#8239;min<sup>-1</sup>');
-  h+='</div>';
-  if(r.alt) h+='<p class="alt2">At <b>'+r.alt.lh.toFixed(2)+' mm</b>: '+r.alt.regular.toFixed(1)+
-     ' s &middot; bottom '+r.alt.base+' s &times; '+r.alt.baseLayers+
-     (r.alt.transition!=null?' &middot; '+r.alt.transition+' transition':'')+'</p>';
+  h+=profiles(r);
   h+='<div class="act">';
   h+=r.buy?'<a class="btn" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">Buy</a>'
           :'<span class="btn sec off">'+(r.demo?'Example only':'Shop link coming')+'</span>';
@@ -1098,7 +1215,68 @@ function card(r,bench){
   h+='</article>';
   return h;
 }
+
+/* Vienas profilis - skaiciai, kuriuos printeris irasys. Du profiliai - du perjungimai.
+   Sarasas lieka apie DERVAS, o ne apie profilius: dervu kortele viena, o aukstis joje
+   pasirenkamas. */
+function profiles(r){
+  var f=r.full&&r.full.length?r.full:null;
+  if(!f) return '';
+  var h='';
+  if(f.length>1){
+    h+='<div class="lhtabs" role="group" aria-label="Layer height">';
+    f.forEach(function(x,i){
+      h+='<button type="button" class="lht'+(i?'':' on')+'" data-lh="'+i+'">'+
+         Number(x.lh).toFixed(2)+' mm</button>';
+    });
+    h+='</div>';
+  }
+  f.forEach(function(x,i){
+    var p=x.p;
+    h+='<div class="lhpane'+(i?' off':'')+'" data-lh="'+i+'"><div class="kv2">';
+    h+=kvrow('Layer height', Number(x.lh).toFixed(2)+' mm');
+    h+=kvrow('Regular exposure', Number(p.regular_exposure).toFixed(1)+' s');
+    h+=kvrow('Bottom exposure', p.base_exposure+' s &times; '+p.base_layers);
+    if(p.density!=null) h+=kvrow('Density',
+        String(Number(p.density).toFixed(3)).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;');
+    if(p.transition_layers!=null) h+=kvrow('Transition layers', p.transition_layers);
+    if(p.slow_lift_distance!=null)
+      h+=kvrow('Lift', p.slow_lift_distance+' + '+p.fast_lift_distance+' mm &middot; '+
+               p.slow_lift_feedrate+' / '+p.fast_lift_feedrate+' / '+p.drop_back_feedrate+
+               ' mm&#8239;min<sup>-1</sup>');
+    h+='</div>';
+    /* Ar prie SIO auksčio apskritai kas nors spausdinta? Jei ne - skaiciai paimti
+       nuo kito profilio, ir to nutyleti negalima. */
+    var sava=(r.tests||[]).some(function(t){return Math.abs(t.lh-x.lh)<0.005;});
+    if(!sava) h+='<p class="nolh">No test print at this layer height yet - these numbers were '+
+                 'carried over from the other profile and still have to be checked.</p>';
+    h+=allParams(x);
+    h+='</div>';
+  });
+  return h;
+}
 function kvrow(k,v){return '<div class="r"><span>'+k+'</span><b>'+v+'</b></div>';}
+/* Visi parametrai, kokius isirašo printeris. Vardai zmoniski, eile ta pati, kaip
+   printerio nustatymuose - kad butu galima sutikrinti akimis. */
+var PNAME={layer_height:'Layer height',regular_exposure:'Regular exposure',
+  base_exposure:'Bottom exposure',base_layers:'Bottom layers',
+  transition_layers:'Transition layers',slow_lift_distance:'Slow lift distance',
+  fast_lift_distance:'Fast lift distance',slow_lift_feedrate:'Slow lift speed',
+  fast_lift_feedrate:'Fast lift speed',drop_back_feedrate:'Drop back speed',
+  density:'Density',cal_factor:'Resin calibration factor',cal_fixed_ml:'Fixed resin offset'};
+var PUNIT={layer_height:' mm',regular_exposure:' s',base_exposure:' s',
+  slow_lift_distance:' mm',fast_lift_distance:' mm',slow_lift_feedrate:' mm/min',
+  fast_lift_feedrate:' mm/min',drop_back_feedrate:' mm/min',density:' g/cm\u00b3',
+  cal_fixed_ml:' ml'};
+function allParams(f){
+  if(!f||!f.p) return '';
+  var h='<details class="allp"><summary>All printer settings</summary><div class="aptab"><div>';
+  Object.keys(PNAME).forEach(function(k){
+    if(f.p[k]===undefined||f.p[k]===null||f.p[k]==='') return;
+    h+='<div class="r"><span>'+PNAME[k]+'</span><b>'+f.p[k]+(PUNIT[k]||'')+'</b></div>';
+  });
+  return h+'</div></div></details>';
+}
 
 /* Ant stalo stovincios dervos dabar turi savo sarasa (BENCH), tad visur, kur
    anksciau uzteko TESTING, reikia abieju - kitaip skaitikliai rodo nuli. */
@@ -1241,6 +1419,15 @@ document.addEventListener('click',function(e){
   if(!d) return;
   d.open=false;
   d.querySelector('summary').scrollIntoView({block:'nearest'});
+});
+
+/* Sluoksnio auksčio perjungimas kortelėje. */
+document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('.lht');
+  if(!b) return;
+  var rc=b.closest('.rc'), n=b.dataset.lh;
+  rc.querySelectorAll('.lht').forEach(function(x){x.classList.toggle('on',x===b);});
+  rc.querySelectorAll('.lhpane').forEach(function(x){x.classList.toggle('off',x.dataset.lh!==n);});
 });
 </script>
 </body>
