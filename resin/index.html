@@ -489,6 +489,11 @@ details.rc[open] .top{padding-top:16px}
 
 /* Spalvos lopinelis zymoje. Sviesioms spalvoms reikia rémelio, kitaip baltas
    lopinelis baltoje zymoje nematomas. */
+/* Is kur skaicius: pasvertas ar nurasytas. Mazas, bet matomas. */
+.prov{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--muted2);
+  letter-spacing:.02em}
+.prov.ok{color:var(--accent)}
+
 .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
   vertical-align:-1px;box-shadow:0 0 0 1px var(--pill)}
 
@@ -615,6 +620,10 @@ details.row>summary:hover{background:var(--btnsec)}
       resin used, the time it took and what the part looked like afterwards. The published profile is the
       last line of that record, not a separate opinion.</p></div>
   </div>
+  <p class="mmore"><b>Density is weighed, not copied.</b> How much resin a print costs is worked out
+  from the layer images and the resin's density, so the density has to be a measurement: a known volume
+  on a scale, once per bottle. Until a resin has been weighed here, its card says the density came off
+  the label - the exposure numbers are ours, that one is not yet.</p>
   <p class="mmore"><b>The method keeps moving.</b> When the sequence gains a step, earlier resins go back in
   the queue. Entries measured before the current method say so on their card instead of quietly passing as
   finished work.</p>
@@ -716,6 +725,7 @@ var TESTED=[
   "retest": true,
   "about": "Anycubic's water-wash standard resin. It cleans in plain water instead of alcohol, which is why it gets used for quick parts.",
   "take": "The published numbers print, but they were set by hand before the current method existed. A full re-run is queued.",
+  "densityMeasured": false,
   "steps": [
    {
     "k": "vat",
@@ -825,6 +835,7 @@ var TESTED=[
   "retest": true,
   "about": "SUNLU's tough resin. Made to give a little instead of snapping, so it suits parts that have to be handled.",
   "take": "Re-measured on 11 October: at 9.2 s the lettering stayed legible and the cut-outs open, where 8.0 s went mushy. Simple and complex models still to come.",
+  "densityMeasured": false,
   "steps": [
    {
     "k": "vat",
@@ -968,6 +979,7 @@ var TESTED=[
   "retest": true,
   "about": "The clear bottle of the same water-wash resin. Pigment changes how deep the light cures, so it needs its own numbers.",
   "take": "Installable now, but the figures come from the black bottle of the same resin. The clear one has not been measured yet.",
+  "densityMeasured": false,
   "steps": [
    {
     "k": "vat",
@@ -1075,6 +1087,7 @@ var BENCH=[
   "logo": "logos/resione.png",
   "about": "Resione's tough, wear-resistant resin: stiff and hard rather than brittle, and smooth straight off the plate.",
   "take": "Sharp down to the pixel limit, and a printed clip took 25 cycles without cracking. Not finished: the lattice cube still prints leaning, and that is being chased now.",
+  "densityMeasured": false,
   "hero": "",
   "best": {
    "lh": 0.05,
@@ -1760,7 +1773,11 @@ function profiles(r){
     h+=kvrow('Regular exposure', Number(p.regular_exposure).toFixed(1)+' s');
     h+=kvrow('Bottom exposure', p.base_exposure+' s &times; '+p.base_layers);
     if(p.density!=null) h+=kvrow('Density',
-        String(Number(p.density).toFixed(3)).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;');
+        String(Number(p.density).toFixed(3)).replace(/0+$/,'').replace(/\.$/,'')+' g/cm&sup3;'+
+        /* Tankis lemia, kiek dervos puslapis parodo sunaudota. Kol jis nurasytas nuo
+           etiketes, tai spejimas - kortele to neslepia. */
+        '<i class="prov'+(r.densityMeasured?' ok':'')+'">'+
+        (r.densityMeasured?'weighed':'from the label')+'</i>');
     if(p.transition_layers!=null) h+=kvrow('Transition layers', p.transition_layers);
     if(p.slow_lift_distance!=null)
       h+=kvrow('Lift', p.slow_lift_distance+' + '+p.fast_lift_distance+' mm &middot; '+
