@@ -1709,7 +1709,7 @@ function card(r,bench){
   h+=shot?'<img class="rth" src="'+shot+'" alt="" loading="lazy">':'<span class="rth"></span>';
   h+='<span class="rname">'+
      (r.logo?'':'<span class="maker">'+esc(r.maker)+'</span>')+
-     esc(dervosVardas(r.name,r.color))+'</span>';
+     esc(dervosVardas(r.name,r.color,r.type))+'</span>';
   h+='<span class="rbadges">'+statusChip(bench)+
      '<span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
      (r.color?'<span class="bdg col">'+swatch(r.color)+esc(r.color)+'</span>':'')+'</span>';
@@ -1731,7 +1731,7 @@ function card(r,bench){
   /* Pirkimo mygtukas - vardo eiluteje, desineje: atidarius kortele zvilgsnis krenta
      cia, o parametru blokas zemiau lieka vientisas, be pardavimo plokstes gale. */
   h+='<div class="nameline"><div><span class="maker">'+esc(r.maker)+'</span>'+
-     '<h3>'+esc(dervosVardas(r.name,r.color))+'</h3>'+
+     '<h3>'+esc(dervosVardas(r.name,r.color,r.type))+'</h3>'+
      (r.product?'<p class="product">'+esc(r.product)+'</p>':'')+'</div></div>';
   h+='<div class="badges">'+statusChip(bench)+
      '<span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
@@ -1959,11 +1959,23 @@ function swatch(c){
    zymos "white". Nuimam ja TIK is rodomo teksto - irasuose vardas lieka toks, koks
    yra, nes pagal varda prie testo iraso rysamas bibliotekos profilis (du vienodi
    vardai ji suklaidintu). */
-function dervosVardas(n,c){
+function dervosVardas(n,c,t){
   if(!n) return '';
   /* Puslapis visas apie dervas, tad kiekvieno vardo gale kabantis „Resin" nieko
      neprideda. Nuimam ji ir kartu „3D Printer" - lieka tai, kuo derva skiriasi. */
   n = n.replace(/\s*(3D\s*Printer\s*)?(UV\s*)?Resins?\s*$/i, '') || n;
+  /* Tipas stovi zymoje salia, tad varde jis antras kartas: „Tough74 V2
+     Wear-resistant Tough" su zyma „Tough". Nuimam tik tada, kai zodis gale
+     SUTAMPA su zyma - „ABS+ High-Stiffness Tough" su zyma „ABS-like" lieka. */
+  if(t){
+    var zyma=tname(t)||'';
+    if(zyma && n.toLowerCase().slice(-(zyma.length+1)) === ' '+zyma.toLowerCase()){
+      var liks=n.slice(0, n.length-zyma.length-1);
+      /* Bet tik tada, kai lieka bent du zodziai: „14K Standard" be „Standard"
+         virstu tiesiog „14K" - ten tipas yra paties produkto vardas. */
+      if(liks.split(/\s+/).length>=2) n=liks;
+    }
+  }
   if(!c) return n;
   return n.replace(/\s*\(([^)]+)\)\s*$/, function(visas,vidus){
     var a=vidus.toLowerCase().replace(/(solid|matte|opaque)/g,'').replace(/\s+/g,' ').trim();
@@ -1983,7 +1995,7 @@ function rowsHtml(list,live){
       '<span class="rthx"></span>'+
       '<span class="rname">'+
       (x.logo?'':'<span class="maker">'+esc(x.maker)+'</span>')+
-      esc(dervosVardas(x.name,x.color))+'</span>'+
+      esc(dervosVardas(x.name,x.color,x.type))+'</span>'+
       '<span class="rbadges"><span class="bdg" title="'+tfull(x.type)+'">'+tname(x.type)+'</span>'+
       (x.wash?'<span class="bdg" title="'+wfull(x.wash)+'">'+wname(x.wash)+'</span>':'')+
       (x.color?'<span class="bdg col">'+swatch(x.color)+esc(x.color)+'</span>':'')+'</span>'+
