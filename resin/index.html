@@ -455,16 +455,19 @@ details.rc[open] .top{padding-top:16px}
    tamsus ir pastorinti - pilki susiliedavo su paciais mygtukais. */
 /* Abi grupes tvarkomos vienodai: uzrasas savo stulpelyje kaireje, zymos salia.
    Su laisvu isdestymu vienos grupes zymos atsidurdavo po uzrasu, kitos - salia. */
-.filterbar{margin:0;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:7px 12px;
-  border-top:1px solid var(--line);padding:11px 16px;background:var(--btnsec);text-align:left}
-.fgrp{display:contents}
-.filterbar .flab{align-self:center;font-size:11px;font-weight:700;color:var(--text);
-  text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+/* Viena eilute, kol telpa: abi grupes - savarankiski blokeliai, tad siaurejant
+   jos persikelia viena po kita, o uzrasai lieka vienodo plocio ir susilygiuoja. */
+.filterbar{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;
+  border-top:1px solid var(--line);padding:11px 14px;background:var(--btnsec);text-align:left}
+.fgrp{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
+.filterbar .flab{flex:0 0 auto;width:62px;font-size:11px;font-weight:700;color:var(--text);
+  text-transform:uppercase;letter-spacing:.06em}
 .filterbar .filters{display:flex;gap:6px;flex-wrap:wrap}
-.filterbar .fclear{grid-column:3;grid-row:1/span 2;align-self:center;justify-self:end;margin:0}
+.filterbar .fclear{margin-left:auto}
 @media(max-width:620px){
-  .filterbar{grid-template-columns:70px minmax(0,1fr);gap:7px 10px;padding:10px 12px}
-  .filterbar .fclear{grid-column:2;grid-row:3;justify-self:start;padding-left:0}
+  .filterbar{gap:7px 12px;padding:10px 12px}
+  .filterbar .flab{width:66px}
+  .filterbar .fclear{margin-left:0}
   .count{font-size:12px;padding:11px 4px;gap:5px}}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
 .fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
@@ -653,8 +656,9 @@ details.row>summary:hover{background:var(--btnsec)}
     </div>
     <div class="optxt">
       <p><b>Every resin tested here goes into the printer's resin library.</b> Any TinyMaker owner
-      installs it from the dashboard's <b>Resin</b> card in one tap, prints with it, and edits the
-      numbers afterwards if their own vat or room asks for something different.</p>
+      installs it from the dashboard's <b>Resin</b> card in one tap, edits the numbers afterwards if
+      their own vat asks for it, and gets a <b>Buy</b> link in the same row for the resins that carry
+      a shop address.</p>
       <p>The printer lists sixteen named profiles, four of them built in; the ticked one is what the
       next print uses. Exposure, bottom layers, lift and density travel with the profile, and the line
       <b>tested by TinyMakerWiFi</b> says which month the numbers were measured.</p>
