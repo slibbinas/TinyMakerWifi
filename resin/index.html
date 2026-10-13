@@ -457,7 +457,9 @@ details.rc[open] .top{padding-top:16px}
 .filterbar .filters{display:inline-flex;gap:6px;flex-wrap:wrap}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
 .fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
-  color:var(--accent);cursor:pointer;font-weight:600}
+  color:var(--accent);cursor:pointer;font-weight:600;
+  visibility:hidden;pointer-events:none}
+.fclear.on{visibility:visible;pointer-events:auto}
 .fclear:hover{text-decoration:underline}
 @media(max-width:760px){.filterbar{border-radius:14px;display:flex}}
 
@@ -599,7 +601,7 @@ details.row>summary:hover{background:var(--btnsec)}
   <div class="filterbar">
     <span class="flab">Type</span><span class="filters" id="fType" role="group" aria-label="Filter by resin type"></span>
     <span class="flab">Washing</span><span class="filters" id="fWash" role="group" aria-label="Filter by washing method"></span>
-    <button type="button" class="fclear" id="fClear" hidden>&times; Clear</button>
+    <button type="button" class="fclear" id="fClear">&times; Clear</button>
   </div>
 </div>
 
@@ -2016,7 +2018,7 @@ function chips(host,key,map,all){
     host.querySelectorAll('button').forEach(function(x){
       x.setAttribute('aria-pressed',String(!buvo&&x===b));});
     var c=document.getElementById('fClear');
-    if(c) c.hidden=!(pick.type||pick.wash);
+    if(c) c.classList.toggle('on', !!(pick.type||pick.wash));
     render();
   });
 }
@@ -2212,7 +2214,7 @@ document.addEventListener('click',function(e){
   pick.type=''; pick.wash='';
   document.querySelectorAll('.filters .chip').forEach(function(x){
     x.setAttribute('aria-pressed','false');});
-  document.getElementById('fClear').hidden=true;
+  document.getElementById('fClear').classList.remove('on');
   render();
 });
 </script>
