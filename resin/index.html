@@ -1688,6 +1688,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
    neskelbiamas, tad vietoj pirkimo mygtuko rodom, kiek zingsniu nueita. */
 function steps(r){
   if(!r.steps||!r.steps.length) return '';
+  if(r.retest && !r.steps.filter(function(s){return s.st==='done';}).length) return '';
   var done=r.steps.filter(function(s){return s.st==='done';}).length;
   var now=r.steps.filter(function(s){return s.st==='doing';})[0];
   var h='<div class="prog"><div class="pbar">'+r.steps.map(function(s){
@@ -1739,7 +1740,8 @@ function card(r,bench){
      '<span class="bdg" title="'+tfull(r.type)+'">'+tname(r.type)+'</span>'+
      (r.color?'<span class="bdg col">'+swatch(r.color)+esc(r.color)+'</span>':'')+'</span>';
   h+='<span class="rnums"><b>'+r.best.regular.toFixed(1)+' s</b>'+
-     '<span>'+done+' of '+(r.steps||[]).length+' steps</span></span>';
+     '<span>'+((r.retest&&!done)?'measured before the method'
+                              :done+' of '+(r.steps||[]).length+' steps')+'</span></span>';
   h+='</summary>';
   h+='<div class="top">';
   /* Kaireje - nuotrauka ir po ja aprasymas. Anksciau po nuotrauka likdavo tuscia
