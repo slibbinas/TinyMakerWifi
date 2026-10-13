@@ -474,9 +474,11 @@ details.rc[open] .top{padding-top:16px}
 .filterbar .fclear{margin-left:auto}
 @media(max-width:620px){
   .filterbar{gap:7px 12px;padding:10px 12px}
-  .filterbar .flab{width:66px}
-  /* Grupes stovi viena po kita, tad vertikalus skyriklis nebeturi ka skirti,
-     o jo iktrauka nustumdavo antra uzrasa i sona. */
+  /* Tinklelis, ne eilute: zymoms persikeliant i kita eilute uzrasas lieka savo
+     stulpelyje. Su paprasta eilute viena grupe lauzesi i dvi eilutes, o kita
+     likdavo vienoje, ir jos atrodydavo skirtingos. */
+  .fgrp{display:grid;grid-template-columns:66px minmax(0,1fr);align-items:start;gap:6px 9px}
+  .filterbar .flab{width:auto;padding-top:6px}
   .fgrp + .fgrp{border-left:0;padding-left:0}
   .filterbar .fclear{margin-left:0}
   .count{font-size:12px;padding:11px 4px;gap:5px}}
