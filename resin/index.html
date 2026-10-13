@@ -538,7 +538,8 @@ details.rc[open] .top{padding-top:16px}
 .rarr{width:0;height:0;border-left:7px solid var(--muted);
   border-top:5px solid transparent;border-bottom:5px solid transparent;
   justify-self:end;transition:transform .15s}
-details.row[open]>summary .rarr{transform:rotate(90deg)}
+/* Atidaryta - oranzine, kaip ir korteliu rodykle: viena spalva abiem skiltims. */
+details.row[open]>summary .rarr{transform:rotate(90deg);border-left-color:var(--accent)}
 details.row>summary:hover{background:var(--btnsec)}
 /* Tie patys stulpeliai kaip dervu eilutese, tad zenkleliai ir desineje esantis
    uzrasas stovi vienoje linijoje per visa puslapi. Penktas stulpelis - rodyklei,
