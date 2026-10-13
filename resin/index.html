@@ -16,9 +16,9 @@
 <link rel="apple-touch-icon" href="https://tinymakerwifi.com/apple-touch-icon.png">
 <script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 <style>
-:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f;--mark:#8b9199;--pill:#3e3e46}
-[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--mark:#8b9199;--pill:#cdd1d7}
-@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--mark:#8b9199;--pill:#cdd1d7}}
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f;--pill:#3e3e46}
+[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
@@ -35,16 +35,9 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 .hnote{margin:18px auto 0;border:1px solid var(--accent);border-radius:12px;
   padding:14px 18px;font-size:14px;line-height:1.6;color:var(--muted);text-align:left}
 .hnote b{color:var(--text)}
-.hnote{display:flex;align-items:flex-start;gap:20px}
-/* Forma is paveikslelio, SPALVA is temos: PNG turi viena spalva, o tamsiam fonui
-   reikia kitos nei sviesiam. Kauke tai isprendzia be antro failo. */
-.tmmark{flex:0 0 auto;margin-top:2px;width:55px;height:100px;background:var(--mark);
-  -webkit-mask:url(tinymaker-printer.png) center/contain no-repeat;
-          mask:url(tinymaker-printer.png) center/contain no-repeat}
 .hcred{display:block;margin-top:8px;font-size:12.5px;color:var(--muted2)}
 .hcred a{color:var(--link)}
-@media(max-width:620px){.hnote{gap:14px;padding:14px}
-  .hnote .tmmark{width:38px;height:70px}}
+@media(max-width:620px){.hnote{padding:14px}}
 .tag b{color:var(--text)}
 .themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
 .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
@@ -594,7 +587,6 @@ details.row>summary:hover{background:var(--btnsec)}
   <p class="tag">Pick a resin, tap once, and your printer is set up for it: exposure, base layers,
   lift and density, every number printed and measured on this machine.</p>
   <div class="hnote">
-  <span class="tmmark" role="img" aria-label="TinyMaker printer"></span>
   <div><b>Why a separate list for this printer?</b> The TinyMaker masks with a
   colour screen, not a mono one, and a colour screen lets through far less UV - the same resin
   needs about <b>four times</b> the exposure written on the bottle. Its plate is small as well,
