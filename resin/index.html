@@ -1960,7 +1960,11 @@ function swatch(c){
    yra, nes pagal varda prie testo iraso rysamas bibliotekos profilis (du vienodi
    vardai ji suklaidintu). */
 function dervosVardas(n,c){
-  if(!n||!c) return n||'';
+  if(!n) return '';
+  /* Puslapis visas apie dervas, tad kiekvieno vardo gale kabantis „Resin" nieko
+     neprideda. Nuimam ji ir kartu „3D Printer" - lieka tai, kuo derva skiriasi. */
+  n = n.replace(/\s*(3D\s*Printer\s*)?(UV\s*)?Resins?\s*$/i, '') || n;
+  if(!c) return n;
   return n.replace(/\s*\(([^)]+)\)\s*$/, function(visas,vidus){
     var a=vidus.toLowerCase().replace(/(solid|matte|opaque)/g,'').replace(/\s+/g,' ').trim();
     var b=String(c).toLowerCase().trim();
