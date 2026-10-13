@@ -1,0 +1,17 @@
+{
+ "maker": "Resione",
+ "name": "F69 Black Flexible Rubber-like Resin",
+ "logo": "logos/resione.png",
+ "color": "black",
+ "buy": "https://www.resione.com/products/f69-black-flexible-rubber-like-3d-printer-resin-1kg",
+ "type": "flex",
+ "wash": "ipa",
+ "bottle": "bottles/resione-f69-flexible.png",
+ "ds": {
+  "mono_normal": "5-7.5",
+  "mono_bottom": "40-80",
+  "density": "1.079",
+  "guess": true
+ },
+ "slug": "resione-f69-black-flexible-rubber-like-resin"
+}

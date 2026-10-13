@@ -1,0 +1,89 @@
+{
+ "resins": [
+  {
+   "slug": "anycubic-ww-005",
+   "sritis": "tested",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-tough",
+   "sritis": "tested",
+   "hidden": false
+  },
+  {
+   "slug": "anycubic-ww-clear-005",
+   "sritis": "tested",
+   "hidden": false
+  },
+  {
+   "slug": "resione-tough74-v2",
+   "sritis": "bench",
+   "hidden": false
+  },
+  {
+   "slug": "resione-abs-high-stiffness-tough-resin",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "resione-anti-impact-durable-nylon-like-resin",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "resione-f69-black-flexible-rubber-like-resin",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "resione-m70-high-precision-3d-printer-resin",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "resione-th-tgm-durable-miniature-resin",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-14k-standard",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-abs-like",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-nylon-like",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-standard-plus",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-toughness",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "sunlu-toughness-solid-white",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "anycubic-water-washable",
+   "sritis": "queued",
+   "hidden": false
+  },
+  {
+   "slug": "anycubic-water-washable-clear",
+   "sritis": "queued",
+   "hidden": false
+  }
+ ]
+}

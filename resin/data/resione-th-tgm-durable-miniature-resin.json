@@ -1,0 +1,17 @@
+{
+ "maker": "Resione",
+ "name": "TH-TGM Durable Miniature Resin",
+ "logo": "logos/resione.png",
+ "color": "matte grey",
+ "buy": "https://www.resione.com/products/th-tgm",
+ "type": "tough",
+ "wash": "ipa",
+ "bottle": "bottles/resione-th-tgm-durable-miniature.png",
+ "ds": {
+  "mono_normal": "2.4-3.6",
+  "mono_bottom": "50-70",
+  "density": "1.10",
+  "guess": true
+ },
+ "slug": "resione-th-tgm-durable-miniature-resin"
+}

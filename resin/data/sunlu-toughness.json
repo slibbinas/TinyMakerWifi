@@ -1,0 +1,16 @@
+{
+ "maker": "Sunlu",
+ "name": "Toughness",
+ "logo": "logos/sunlu.png",
+ "color": "black",
+ "buy": "https://tinymakerwifi.com/r/sunlu-tough",
+ "type": "tough",
+ "wash": "ipa",
+ "bottle": "bottles/sunlu-toughness.png",
+ "ds": {
+  "rgb_normal": "4-12",
+  "mono_normal": "1.5-4"
+ },
+ "retest": true,
+ "slug": "sunlu-toughness"
+}

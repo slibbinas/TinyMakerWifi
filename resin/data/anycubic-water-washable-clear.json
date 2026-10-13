@@ -1,0 +1,17 @@
+{
+ "maker": "Anycubic",
+ "name": "Water-Washable (Clear)",
+ "logo": "logos/anycubic.png",
+ "color": "clear",
+ "buy": "https://tinymakerwifi.com/r/anycubic-ww",
+ "type": "standard",
+ "wash": "water",
+ "bottle": "bottles/anycubic-water-wash-clear.png",
+ "ds": {
+  "mono_normal": "2-2.5",
+  "mono_bottom": "25-40",
+  "density": "1.08"
+ },
+ "retest": true,
+ "slug": "anycubic-water-washable-clear"
+}

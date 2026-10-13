@@ -1,0 +1,17 @@
+{
+ "maker": "Resione",
+ "name": "ABS+ High-Stiffness Tough Resin",
+ "logo": "logos/resione.png",
+ "color": "black",
+ "buy": "https://www.resione.com/products/abs-plus",
+ "type": "abs",
+ "wash": "ipa",
+ "bottle": "bottles/resione-abs-plus.png",
+ "ds": {
+  "mono_normal": "3.5-6",
+  "mono_bottom": "30-60",
+  "density": "1.10",
+  "guess": true
+ },
+ "slug": "resione-abs-high-stiffness-tough-resin"
+}

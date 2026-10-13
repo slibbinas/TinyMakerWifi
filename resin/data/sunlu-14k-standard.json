@@ -1,0 +1,18 @@
+{
+ "maker": "Sunlu",
+ "name": "14K Standard",
+ "logo": "logos/sunlu.png",
+ "color": "Maple",
+ "buy": "https://tinymakerwifi.com/r/sunlu-14k",
+ "type": "standard",
+ "wash": "ipa",
+ "bottle": "bottles/sunlu-14k-standard.png",
+ "ds": {
+  "rgb_normal": "6-15",
+  "mono_normal": "2-3.5",
+  "rgb_bottom": "40-100",
+  "mono_bottom": "30-80",
+  "bottom_layers": "5"
+ },
+ "slug": "sunlu-14k-standard"
+}

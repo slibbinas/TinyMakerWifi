@@ -1,0 +1,17 @@
+{
+ "maker": "Resione",
+ "name": "M70 High Precision 3D Printer Resin",
+ "logo": "logos/resione.png",
+ "color": "salmon",
+ "buy": "https://www.resione.com/products/m70-salmon-high-precision-3d-printer-resin-1kg",
+ "type": "standard",
+ "wash": "ipa",
+ "bottle": "bottles/resione-m70-high-precision.png",
+ "ds": {
+  "mono_normal": "3-4.5",
+  "mono_bottom": "70-110",
+  "density": "1.145",
+  "guess": true
+ },
+ "slug": "resione-m70-high-precision-3d-printer-resin"
+}

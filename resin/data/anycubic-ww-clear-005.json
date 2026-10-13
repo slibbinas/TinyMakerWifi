@@ -1,0 +1,110 @@
+{
+ "slug": "anycubic-ww-clear-005",
+ "maker": "Anycubic",
+ "name": "Water-Washable (Clear)",
+ "type": "standard",
+ "color": "clear",
+ "wash": "water",
+ "demo": false,
+ "testedOn": "",
+ "verdict": "",
+ "future": "",
+ "buy": "https://tinymakerwifi.com/r/anycubic-ww-clear-005",
+ "bottle": "bottles/anycubic-water-wash-clear.png",
+ "logo": "logos/anycubic.png",
+ "product": "Water-Wash Resin 2.0",
+ "hero": "photos/anycubic-water-wash-clear-anycubic-water-wash-clear-card-01.jpg",
+ "methodNote": "The numbers are the ones measured on the black bottle of the same resin, carried over so the profile is installable today. Pigment changes how deep the light cures, so the clear bottle still has to be measured on its own - it is in the queue for that.",
+ "retest": true,
+ "about": "The clear bottle of the same water-wash resin. Pigment changes how deep the light cures, so it needs its own numbers.",
+ "take": "Installable now, but the figures come from the black bottle of the same resin. The clear one has not been measured yet.",
+ "densityMeasured": false,
+ "steps": [
+  {
+   "k": "vat",
+   "s": "Exposure strip",
+   "k2": "Strip",
+   "st": "todo"
+  },
+  {
+   "k": "coupon",
+   "s": "Standard coupon",
+   "k2": "Coupon",
+   "st": "todo"
+  },
+  {
+   "k": "simple",
+   "s": "Simple model",
+   "k2": "Simple",
+   "st": "todo"
+  },
+  {
+   "k": "complex",
+   "s": "Complex model",
+   "k2": "Complex",
+   "st": "todo"
+  }
+ ],
+ "stageNote": "",
+ "best": {
+  "lh": 0.05,
+  "regular": 14.0,
+  "base": 35,
+  "baseLayers": 4,
+  "density": 1.1,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
+ "tests": [],
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "layer_height": 0.05,
+    "base_exposure": 35,
+    "regular_exposure": 14.0,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.1,
+    "cal_factor": 1.0,
+    "cal_fixed_ml": 0.0
+   }
+  },
+  {
+   "lh": 0.1,
+   "p": {
+    "layer_height": 0.1,
+    "base_exposure": 35,
+    "regular_exposure": 14.0,
+    "base_layers": 2,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.1,
+    "cal_factor": 1.0,
+    "cal_fixed_ml": 0.0
+   }
+  }
+ ],
+ "alt": {
+  "lh": 0.1,
+  "regular": 14.0,
+  "base": 35,
+  "baseLayers": 2,
+  "transition": 5
+ }
+}

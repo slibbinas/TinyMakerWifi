@@ -1,0 +1,17 @@
+{
+ "maker": "Resione",
+ "name": "Anti-impact Durable Nylon-like Resin",
+ "logo": "logos/resione.png",
+ "color": "white-grey",
+ "buy": "https://www.resione.com/products/anti-impact",
+ "type": "tough",
+ "wash": "ipa",
+ "bottle": "bottles/resione-anti-impact-nylon-like.png",
+ "ds": {
+  "mono_normal": "2.5-3.75",
+  "mono_bottom": "40-60",
+  "density": "1.075",
+  "guess": true
+ },
+ "slug": "resione-anti-impact-durable-nylon-like-resin"
+}

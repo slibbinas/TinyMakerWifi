@@ -1,0 +1,18 @@
+{
+ "maker": "Sunlu",
+ "name": "Standard Plus",
+ "logo": "logos/sunlu.png",
+ "color": "dark grey",
+ "buy": "https://tinymakerwifi.com/r/sunlu-standard-plus",
+ "type": "standard",
+ "wash": "ipa",
+ "bottle": "bottles/sunlu-standard-plus.png",
+ "ds": {
+  "rgb_normal": "4-15",
+  "mono_normal": "1.5-3",
+  "rgb_bottom": "30-80",
+  "mono_bottom": "20-60",
+  "bottom_layers": "5"
+ },
+ "slug": "sunlu-standard-plus"
+}

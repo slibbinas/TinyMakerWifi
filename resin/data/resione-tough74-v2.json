@@ -1,0 +1,256 @@
+{
+ "slug": "resione-tough74-v2",
+ "maker": "Resione",
+ "name": "Tough74 V2 Wear-resistant Tough Resin",
+ "product": "",
+ "type": "tough",
+ "color": "grey",
+ "wash": "ipa",
+ "verdict": "BRIDGES: ALL FOUR HOLD (V: “all OK”). Measured from the model, the gaps between the supports are 2 / 4 / 6 and 8 mm, so the longest span with no sag is 8 mm.\n\n⚠️ 8 mm is the MODEL's ceiling, not the resin's limit. There is no longer gap in this model, so the real limit lies somewhere above it and stays unmeasured. Against other resins this reads as “held everything it was given”, not “can do no more”.\n\n⭐ Why it matters in practice: the bridge is the only one of the three simple models that measures an OVERHANG - whether a layer carries itself with nothing underneath. That is what decides how many supports real prints will need. 8 mm with no sag is a quarter of the length of our plate (40.8 x 30.6 mm).",
+ "future": "Resione's technical support pointed out that this printer has no <b>pre-exposure wait</b> - a pause after the plate settles and before the UV comes on, which lets a viscous resin flow back under the part. They are right: the parameter does not exist in the firmware today, and it is going into a future release.<br>The first three steps went through without it and the numbers held - resolution down to the pixel limit, slots and channels open, a clip that survived 25 cycles. The fourth step is where its absence may be showing. A tall lattice cube comes out leaning, and it leans more the further from the plate, which is what a part being pulled sideways every layer would look like - either by plain peel force, or by resin that has not flowed back underneath it. The wait has moved from a nice-to-have to something worth measuring.",
+ "buy": "https://www.resione.com/products/tough74-v2",
+ "bottle": "bottles/resione-tough74-v2.png",
+ "logo": "logos/resione.png",
+ "about": "Resione's tough, wear-resistant resin: stiff and hard rather than brittle, and smooth straight off the plate.",
+ "take": "Sharp down to the pixel limit, and a printed clip took 25 cycles without cracking. Not finished: the lattice cube still prints leaning, and that is being chased now.",
+ "densityMeasured": false,
+ "hero": "",
+ "best": {
+  "lh": 0.05,
+  "regular": 10.0,
+  "base": 40,
+  "baseLayers": 4,
+  "density": 1.123,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
+ "steps": [
+  {
+   "k": "vat",
+   "s": "Exposure strip",
+   "k2": "Strip",
+   "st": "done"
+  },
+  {
+   "k": "coupon",
+   "s": "Standard coupon",
+   "k2": "Coupon",
+   "st": "done"
+  },
+  {
+   "k": "simple",
+   "s": "Simple model",
+   "k2": "Simple",
+   "st": "done"
+  },
+  {
+   "k": "complex",
+   "s": "Complex model",
+   "k2": "Complex",
+   "st": "doing"
+  }
+ ],
+ "stageNote": "The fourth step is open and this is honestly where it stands. The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch, square by construction. It printed - and it still leans, though less. Near the plate the edges are square; the further from the plate, the more they tilt. So the distortion builds up during the print rather than sitting in the file. Two suspects: the peel force on a tall, slender part, and the missing pre-exposure wait. The next run changes the lift timing only, which tells the two apart. Until that is answered the step stays open and no profile is published.",
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "base_exposure": 40,
+    "regular_exposure": 10.0,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.123,
+    "cal_factor": 1.0,
+    "cal_fixed_ml": 0.0
+   }
+  }
+ ],
+ "tests": [
+  {
+   "step": "vat",
+   "kind": "vat",
+   "lh": 0.05,
+   "stars": 4,
+   "regular": 10.0,
+   "base": 55,
+   "txt": "Eight bars from 4.0 to 16.0 s. Dry and crisp from 7.0 s; 8.5 s taken forward.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-02-vat-005-t1.jpg",
+   "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 4,
+   "regular": 8.5,
+   "base": 55,
+   "txt": "Six of seven pillars straight and the detail clean, but it gripped the plate too hard to lift.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-04-coupon-005-k1.jpg",
+   "props": [
+    {
+     "q": "Pillars straight, out of 7",
+     "u": "iš 7",
+     "v": "6"
+    },
+    {
+     "q": "Side pillar field (other angle)",
+     "u": "",
+     "v": "all OK"
+    },
+    {
+     "q": "Adhesion to the plate",
+     "u": "",
+     "v": "too strong - cannot be lifted without freezing"
+    },
+    {
+     "q": "Elephant foot",
+     "u": "",
+     "v": "not visible"
+    }
+   ]
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "One step up at 10.0 s: the thinnest pillar stands in three rows, slots open, and base 40 s releases cleanly. The profile is built on these.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-04-coupon-005-m1.jpg",
+   "props": [
+    {
+     "q": "Pillars straight, out of 7",
+     "u": "iš 7",
+     "v": "6"
+    },
+    {
+     "q": "Thinnest pillar straight up to row",
+     "u": "eilutė",
+     "v": "3"
+    },
+    {
+     "q": "Adhesion to the plate",
+     "u": "",
+     "v": "good - held for the whole print"
+    },
+    {
+     "q": "Bristles thicker than at 8.5 s?",
+     "u": "",
+     "v": "no"
+    },
+    {
+     "q": "Elephant foot",
+     "u": "",
+     "v": "not visible"
+    },
+    {
+     "q": "Removal from the plate",
+     "u": "",
+     "v": "with the spatula, no freezing"
+    }
+   ]
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "Hardest first layer we have - 61 % of the plate in one layer. It held, and came off normally.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-06-coupon-005-b1.jpg",
+   "props": [
+    {
+     "q": "Smallest pad that still stuck",
+     "u": "mm",
+     "v": "8"
+    }
+   ]
+  },
+  {
+   "step": "simple",
+   "kind": "simple",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "A spring clip pushed on and off 25 times. No cracks, still springs back.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-07-simple-005-s1.jpg",
+   "props": [
+    {
+     "q": "Pushes on and off without cracking",
+     "u": "ciklai",
+     "v": "25"
+    }
+   ]
+  },
+  {
+   "step": "simple",
+   "kind": "simple",
+   "lh": 0.05,
+   "stars": 4,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "Pins down to 0.30 mm all stood - 2.3 pixels wide. Below that the screen runs out, not the resin.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-simple-005-p1.jpg",
+   "props": [
+    {
+     "q": "Thinnest pin that printed",
+     "u": "mm",
+     "v": "0.30"
+    }
+   ]
+  },
+  {
+   "step": "simple",
+   "kind": "simple",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "Unsupported spans of 2, 4, 6 and 8 mm. All four held with no sag.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-simple-005-tl1.jpg",
+   "props": [
+    {
+     "q": "Longest span with no sag",
+     "u": "mm",
+     "v": "8"
+    }
+   ]
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "Lattice cube standing on its corner, 20 mm. The grid stayed open all the way through.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-c1.jpg",
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 4,
+   "regular": 10.0,
+   "base": 40,
+   "txt": "The same lattice at 28 mm. 0.51 mm walls came out clean, but the cube itself leans.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-k28a.jpg",
+   "props": []
+  }
+ ]
+}
