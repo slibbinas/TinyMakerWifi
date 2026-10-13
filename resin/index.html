@@ -48,13 +48,18 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 .demobar{background:var(--card);border:1px dashed var(--accent);border-radius:12px;padding:12px 16px;margin:0 0 26px;font-size:14px;color:var(--muted)}
 .demobar b{color:var(--accent)}
 
-.counts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:22px 0 0}
-/* Vienodas plotis ir viena eilute: skaicius ir uzrasas greta, ne vienas po kitu.
-   Trys skirtingo plocio deziutes atrodė kaip trys atsitiktiniai dalykai. */
-.count{display:inline-flex;align-items:baseline;justify-content:center;gap:7px;
-  min-width:150px;background:var(--card);border:1px solid var(--line2);border-radius:999px;
-  padding:9px 18px;font:inherit;font-size:13.5px;color:var(--muted);cursor:pointer;
-  transition:border-color .15s,color .15s}
+/* Skaitliukai ir filtras - viena deze, perskirta plonomis linijomis. Trys atskiros
+   piliules telefone i eilute netilpdavo, o ju apvalumas musasi su staciakampemis
+   kortelemis visame puslapyje. */
+.ctrl{max-width:860px;margin:22px auto 0;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;overflow:hidden}
+.counts{display:grid;grid-template-columns:repeat(3,1fr)}
+.count{display:flex;align-items:baseline;justify-content:center;gap:7px;min-width:0;
+  background:none;border:0;border-left:1px solid var(--line);border-radius:0;
+  padding:12px 6px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;
+  transition:color .15s,background .15s}
+.count:first-child{border-left:0}
+.count:hover{background:var(--btnsec)}
 .count b{color:var(--text);font-size:18px;line-height:1}
 .count:hover{border-color:var(--accent);color:var(--text)}
 .count:hover b{color:var(--accent)}
@@ -448,20 +453,24 @@ details.rc[open] .top{padding-top:16px}
 /* Filtras - vienas visam puslapiui, po skaitikliais. Be isorinio remelio:
    piliule piliuleje neveikia. Grupes skiria plona vertikali linija, o uzrasai
    tamsus ir pastorinti - pilki susiliedavo su paciais mygtukais. */
-.filterbar{margin:16px auto 0;display:inline-flex;align-items:center;gap:8px;
-  flex-wrap:wrap;justify-content:center}
-.filterbar .flab{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--text);
-  text-transform:uppercase;letter-spacing:.07em;margin-left:12px;padding-left:18px;
-  border-left:1px solid var(--line)}
-.filterbar .flab:first-child{margin-left:0;padding-left:0;border-left:0}
-.filterbar .filters{display:inline-flex;gap:6px;flex-wrap:wrap}
+/* Abi grupes tvarkomos vienodai: uzrasas savo stulpelyje kaireje, zymos salia.
+   Su laisvu isdestymu vienos grupes zymos atsidurdavo po uzrasu, kitos - salia. */
+.filterbar{margin:0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:7px 12px;
+  border-top:1px solid var(--line);padding:11px 14px;background:var(--btnsec);text-align:left}
+.fgrp{display:contents}
+.filterbar .flab{align-self:center;font-size:11px;font-weight:700;color:var(--text);
+  text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.filterbar .filters{display:flex;gap:6px;flex-wrap:wrap}
+.filterbar .fclear{grid-column:2;justify-self:end;margin:0}
+@media(max-width:620px){
+  .filterbar{grid-template-columns:70px minmax(0,1fr);gap:7px 10px;padding:10px 12px}
+  .count{font-size:12px;padding:11px 4px;gap:5px}}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
 .fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
   color:var(--accent);cursor:pointer;font-weight:600;
   visibility:hidden;pointer-events:none}
 .fclear.on{visibility:visible;pointer-events:auto}
 .fclear:hover{text-decoration:underline}
-@media(max-width:760px){.filterbar{border-radius:14px;display:flex}}
 
 /* Trupiniai - tokie patys kaip /roadmap ir /manual. */
 .tmcrumb{margin:0 0 10px;font-size:12px;opacity:.8;text-align:left}
@@ -495,7 +504,7 @@ details.rc[open] .top{padding-top:16px}
 /* Pulto dervu kortele: ta pati nuotrauka sviesiai ir tamsiai temai. Rodoma
    per CSS, nes tema cia perjungiama ir ranka, ne vien pagal sistemos nustatyma. */
 .opgrid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;align-items:start}
-.shotpair img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}
+.shotpair img{display:block;width:100%;height:auto;border-radius:12px}
 .shotpair .dark{display:none}
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]) .shotpair .light{display:none}
@@ -597,11 +606,13 @@ details.row>summary:hover{background:var(--btnsec)}
   <span class="hcred">The TinyMaker is an open-source MSLA printer by
   <a href="https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer" rel="noopener" target="_blank">TinyMaker3D</a>;
   this page comes from the TinyMakerWifi firmware project.</span></div></div>
+  <div class="ctrl">
   <div class="counts" id="counts"></div>
   <div class="filterbar">
-    <span class="flab">Type</span><span class="filters" id="fType" role="group" aria-label="Filter by resin type"></span>
-    <span class="flab">Washing</span><span class="filters" id="fWash" role="group" aria-label="Filter by washing method"></span>
+    <div class="fgrp"><span class="flab">Type</span><span class="filters" id="fType" role="group" aria-label="Filter by resin type"></span></div>
+    <div class="fgrp"><span class="flab">Washing</span><span class="filters" id="fWash" role="group" aria-label="Filter by washing method"></span></div>
     <button type="button" class="fclear" id="fClear">&times; Clear</button>
+  </div>
   </div>
 </div>
 
@@ -639,16 +650,11 @@ details.row>summary:hover{background:var(--btnsec)}
            loading="lazy" width="896" height="652">
     </div>
     <div class="optxt">
-      <p>The printer keeps its resin settings as named profiles. Four come built in, and the list
-      holds sixteen in all, so there is room for about a dozen of your own. The one with the tick is
-      what the next print uses, and the printer asks for it in plain words: pick what is in the vat.</p>
-      <p>Installing one from this list takes a tap in the dashboard's <b>Resin</b> card. It lands next
-      to profiles you made yourself and carries the line <b>tested by TinyMakerWiFi</b> with the month
-      it was measured, so a year from now it is still clear which numbers were measured and which were
-      typed in by hand.</p>
-      <p>Exposure, bottom layers, lift and density all travel with the profile. Nothing has to be
-      retyped on the printer's screen, and nothing silently changes behind your back - editing a
-      profile is a separate, deliberate step.</p>
+      <p>The printer holds sixteen named profiles, four of them built in. The ticked one is what the
+      next print uses.</p>
+      <p>Installing one from this list is a tap in the dashboard's <b>Resin</b> card. Exposure, bottom
+      layers, lift and density come with it, and the line <b>tested by TinyMakerWiFi</b> says which
+      month the numbers were measured.</p>
       <p class="opmore"><a href="https://tinymakerwifi.com/manual/#resin-profiles">How resin profiles
       work, in the manual &rarr;</a></p>
     </div>
@@ -669,16 +675,16 @@ details.row>summary:hover{background:var(--btnsec)}
     <div class="mcard"><h3>Written down as it happens</h3><p>Each step is recorded with its exposure, the
       resin used, the time it took and what the part looked like afterwards. The published profile is the
       last line of that record, not a separate opinion.</p></div>
+    <div class="mcard"><h3>Density is weighed, not copied</h3><p>Consumption is worked out from the
+      layer images and the resin's density, so density has to be measured - a known volume on a scale,
+      once per bottle. Until then the card says the number came off the label.</p></div>
+    <div class="mcard"><h3>The method keeps moving</h3><p>When the sequence gains a step, earlier resins
+      go back in the queue. Entries measured before the current method say so on their card instead of
+      passing as finished work.</p></div>
+    <div class="mcard"><h3>One pair of hands</h3><p>Tested and written by <b>Viktoras
+      &#352;idlauskas</b>, who maintains the TinyMakerWifi firmware. The same hands, the same printer,
+      the same notebook for every resin here.</p></div>
   </div>
-  <p class="mmore"><b>Density is weighed, not copied.</b> How much resin a print costs is worked out
-  from the layer images and the resin's density, so the density has to be a measurement: a known volume
-  on a scale, once per bottle. Until a resin has been weighed here, its card says the density came off
-  the label - the exposure numbers are ours, that one is not yet.</p>
-  <p class="mmore"><b>The method keeps moving.</b> When the sequence gains a step, earlier resins go back in
-  the queue. Entries measured before the current method say so on their card instead of quietly passing as
-  finished work.</p>
-  <p class="sig">Tested and written by <b>Viktoras &#352;idlauskas</b>, who maintains the TinyMaker WiFi
-  firmware.</p>
 </div></section>
 
 <section id="makers"><div class="wrap">
