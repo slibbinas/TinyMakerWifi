@@ -43,7 +43,8 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
           mask:url(tinymaker-printer.png) center/contain no-repeat}
 .hcred{display:block;margin-top:8px;font-size:12.5px;color:var(--muted2)}
 .hcred a{color:var(--link)}
-@media(max-width:620px){.hnote{flex-direction:column;align-items:flex-start;gap:12px}}
+@media(max-width:620px){.hnote{gap:14px;padding:14px}
+  .hnote .tmmark{width:38px;height:70px}}
 .tag b{color:var(--text)}
 .themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
 .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
@@ -479,7 +480,8 @@ details.rc[open] .top{padding-top:16px}
 .assetband .mark{flex:0 0 auto}
 .assetband b{display:block;font-size:14px;margin-bottom:4px}
 .assetband p{margin:0;font-size:13.5px;line-height:1.6;color:var(--muted)}
-@media(max-width:620px){.assetband{flex-direction:column;gap:10px}}
+@media(max-width:620px){.assetband{gap:14px;padding:14px}
+  .assetband .mark{width:44px;height:44px}}
 
 .nameline>div{min-width:0}
 /* Pirkimas po parametrais, desineje ir plonas: nuoroda, o ne pagrindinis veiksmas. */
@@ -530,7 +532,7 @@ details.rc[open] .top{padding-top:16px}
 .bshot.big{width:104px;height:104px;float:left;margin:0 14px 10px 0;
   border:1px solid var(--line);padding:4px}
 .dsbox::after{content:"";display:block;clear:both}
-@media(max-width:620px){.bshot.big{float:none;margin:0 0 10px}}
+@media(max-width:620px){.bshot.big{width:76px;height:76px;margin:0 12px 8px 0}}
 
 /* Eiles eilute - skleidziama, kai yra ka parodyti. */
 .row>summary{list-style:none;cursor:pointer}
