@@ -504,7 +504,9 @@ details.rc[open] .top{padding-top:16px}
    lopinelis baltoje zymoje nematomas. */
 /* Pulto dervu kortele: ta pati nuotrauka sviesiai ir tamsiai temai. Rodoma
    per CSS, nes tema cia perjungiama ir ranka, ne vien pagal sistemos nustatyma. */
-.opgrid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:28px;align-items:start}
+.opgrid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:26px;
+  align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--card);
+  padding:20px 22px;margin-top:4px}
 .shotpair img{display:block;width:100%;height:auto;border-radius:12px}
 .shotpair .dark{display:none}
 @media (prefers-color-scheme: dark){
@@ -642,7 +644,6 @@ details.row>summary:hover{background:var(--btnsec)}
 
 <section id="onprinter"><div class="wrap">
   <h2>What the printer does with this</h2>
-  <p class="lede">A profile is not a note to copy by hand - it is a file the printer reads.</p>
   <div class="opgrid">
     <div class="shotpair">
       <img class="light" src="promo-resin-light.png" alt="Resin card in the TinyMaker dashboard"
@@ -651,11 +652,12 @@ details.row>summary:hover{background:var(--btnsec)}
            loading="lazy" width="896" height="652">
     </div>
     <div class="optxt">
-      <p>The printer lists sixteen named profiles, four of them built in. The ticked one is what the
-      next print uses.</p>
-      <p>Installing one from this list is a tap in the dashboard's <b>Resin</b> card. Exposure, bottom
-      layers, lift and density come with it, and the line <b>tested by TinyMakerWiFi</b> says which
-      month the numbers were measured.</p>
+      <p><b>Every resin tested here goes into the printer's resin library.</b> Any TinyMaker owner
+      installs it from the dashboard's <b>Resin</b> card in one tap, prints with it, and edits the
+      numbers afterwards if their own vat or room asks for something different.</p>
+      <p>The printer lists sixteen named profiles, four of them built in; the ticked one is what the
+      next print uses. Exposure, bottom layers, lift and density travel with the profile, and the line
+      <b>tested by TinyMakerWiFi</b> says which month the numbers were measured.</p>
       <p class="opmore"><a href="https://tinymakerwifi.com/manual/#resin-profiles">How resin profiles
       work, in the manual &rarr;</a></p>
     </div>
