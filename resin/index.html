@@ -51,7 +51,7 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 /* Skaitliukai ir filtras - viena deze, perskirta plonomis linijomis. Trys atskiros
    piliules telefone i eilute netilpdavo, o ju apvalumas musasi su staciakampemis
    kortelemis visame puslapyje. */
-.ctrl{max-width:860px;margin:22px auto 0;background:var(--card);border:1px solid var(--line);
+.ctrl{margin:22px 0 0;background:var(--card);border:1px solid var(--line);
   border-radius:14px;overflow:hidden}
 .counts{display:grid;grid-template-columns:repeat(3,1fr)}
 .count{display:flex;align-items:baseline;justify-content:center;gap:7px;min-width:0;
@@ -455,15 +455,16 @@ details.rc[open] .top{padding-top:16px}
    tamsus ir pastorinti - pilki susiliedavo su paciais mygtukais. */
 /* Abi grupes tvarkomos vienodai: uzrasas savo stulpelyje kaireje, zymos salia.
    Su laisvu isdestymu vienos grupes zymos atsidurdavo po uzrasu, kitos - salia. */
-.filterbar{margin:0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:7px 12px;
-  border-top:1px solid var(--line);padding:11px 14px;background:var(--btnsec);text-align:left}
+.filterbar{margin:0;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:7px 12px;
+  border-top:1px solid var(--line);padding:11px 16px;background:var(--btnsec);text-align:left}
 .fgrp{display:contents}
 .filterbar .flab{align-self:center;font-size:11px;font-weight:700;color:var(--text);
   text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
 .filterbar .filters{display:flex;gap:6px;flex-wrap:wrap}
-.filterbar .fclear{grid-column:2;justify-self:end;margin:0}
+.filterbar .fclear{grid-column:3;grid-row:1/span 2;align-self:center;justify-self:end;margin:0}
 @media(max-width:620px){
   .filterbar{grid-template-columns:70px minmax(0,1fr);gap:7px 10px;padding:10px 12px}
+  .filterbar .fclear{grid-column:2;grid-row:3;justify-self:start;padding-left:0}
   .count{font-size:12px;padding:11px 4px;gap:5px}}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
 .fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
@@ -650,7 +651,7 @@ details.row>summary:hover{background:var(--btnsec)}
            loading="lazy" width="896" height="652">
     </div>
     <div class="optxt">
-      <p>The printer holds sixteen named profiles, four of them built in. The ticked one is what the
+      <p>The printer lists sixteen named profiles, four of them built in. The ticked one is what the
       next print uses.</p>
       <p>Installing one from this list is a tap in the dashboard's <b>Resin</b> card. Exposure, bottom
       layers, lift and density come with it, and the line <b>tested by TinyMakerWiFi</b> says which
