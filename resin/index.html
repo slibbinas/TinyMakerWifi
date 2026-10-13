@@ -68,7 +68,8 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
    pusiau, o blokai ir taip sulygiuoti i 960 px. */
 section{padding:0}
 section>.wrap{border-top:1px solid var(--line);padding:34px 20px}
-section:first-of-type>.wrap{border-top:0}
+/* Linija yra tarp VISU skilciu, pirmosios irgi: ji atskiria antraste su valdikliais
+   nuo saraso taip pat, kaip skiriasi visos kitos. */
 h2{color:var(--accent);font-size:22px;margin:0 0 6px}
 .lede{color:var(--muted);margin:0 0 18px;font-size:14.5px}
 
@@ -457,16 +458,26 @@ details.rc[open] .top{padding-top:16px}
    Su laisvu isdestymu vienos grupes zymos atsidurdavo po uzrasu, kitos - salia. */
 /* Viena eilute, kol telpa: abi grupes - savarankiski blokeliai, tad siaurejant
    jos persikelia viena po kita, o uzrasai lieka vienodo plocio ir susilygiuoja. */
-.filterbar{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;
+.filterbar{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;
   border-top:1px solid var(--line);padding:11px 14px;background:var(--btnsec);text-align:left}
 .fgrp{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
-.filterbar .flab{flex:0 0 auto;width:62px;font-size:11px;font-weight:700;color:var(--text);
+/* Linija tarp dvieju grupiu: be jos „Flexible 1" ir „WASHING" atrodo kaip ta pati
+   eile. Antroji grupe nesiosi skyrikli pati, tad jis dingsta kartu su ja. */
+.fgrp + .fgrp{border-left:1px solid var(--pill);padding-left:16px;align-self:stretch}
+/* Plotis NEfiksuojamas, kol grupes stovi viena salia kitos: „WASHING" ilgesnis uz
+   „TYPE", ir fiksuotame 62 px langelyje jis suvalgydavo tarpa iki pirmos zymos -
+   viena grupe atrodydavo tankesne uz kita. Telefone, kur grupes viena po kita,
+   plotis grazinamas, kad uzrasai sustotu i stulpeli. */
+.filterbar .flab{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--text);
   text-transform:uppercase;letter-spacing:.06em}
 .filterbar .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filterbar .fclear{margin-left:auto}
 @media(max-width:620px){
   .filterbar{gap:7px 12px;padding:10px 12px}
   .filterbar .flab{width:66px}
+  /* Grupes stovi viena po kita, tad vertikalus skyriklis nebeturi ka skirti,
+     o jo iktrauka nustumdavo antra uzrasa i sona. */
+  .fgrp + .fgrp{border-left:0;padding-left:0}
   .filterbar .fclear{margin-left:0}
   .count{font-size:12px;padding:11px 4px;gap:5px}}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
