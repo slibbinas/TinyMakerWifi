@@ -83,6 +83,7 @@ h2{color:var(--accent);font-size:22px;margin:0 0 6px}
    flexible resin should learn one is on its way, not that none exists. */
 .chip.none{background:transparent;border:1px dashed var(--line2);color:var(--muted2)}
 .chip.none:hover{border-color:var(--muted2);color:var(--muted)}
+.chip.none[aria-pressed=true]{border-style:solid;border-color:var(--accent);color:var(--accent)}
 .chip .n{opacity:.6;font-variant-numeric:tabular-nums;margin-left:5px}
 .chip .q{color:var(--muted2);font-variant-numeric:tabular-nums;margin-left:3px;font-size:12px}
 .flegend{font-size:12px;color:var(--muted2);margin:2px 0 18px 130px}
@@ -456,31 +457,28 @@ details.rc[open] .top{padding-top:16px}
    tamsus ir pastorinti - pilki susiliedavo su paciais mygtukais. */
 /* Abi grupes tvarkomos vienodai: uzrasas savo stulpelyje kaireje, zymos salia.
    Su laisvu isdestymu vienos grupes zymos atsidurdavo po uzrasu, kitos - salia. */
-/* Viena eilute, kol telpa: abi grupes - savarankiski blokeliai, tad siaurejant
-   jos persikelia viena po kita, o uzrasai lieka vienodo plocio ir susilygiuoja. */
-.filterbar{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;
-  border-top:1px solid var(--line);padding:11px 14px;background:var(--btnsec);text-align:left}
-.fgrp{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
-/* Linija tarp dvieju grupiu: be jos „Flexible 1" ir „WASHING" atrodo kaip ta pati
-   eile. Antroji grupe nesiosi skyrikli pati, tad jis dingsta kartu su ja. */
-.fgrp + .fgrp{border-left:1px solid var(--pill);padding-left:16px;align-self:stretch}
+/* Viena grupe - viena eilute, visuose plociuose. Bandymas sudeti abi i viena
+   eilute reiske, kad prie vienu plociu jos stovi greta, prie kitu viena po kita,
+   ir tas pats puslapis atrodydavo skirtingai be jokios priezasties. */
+/* Du blokeliai greta: uzrasas virsuje, po juo savo zymos. Taip abi grupes
+   atrodo vienodai nepriklausomai nuo to, kiek zymu kurioje, ir siaurejant jos
+   tiesiog atsistoja viena po kita. */
+.filterbar{position:relative;margin:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 20px;
+  border-top:1px solid var(--line);padding:12px 14px;background:var(--btnsec);text-align:left}
+.fgrp{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
 /* Plotis NEfiksuojamas, kol grupes stovi viena salia kitos: „WASHING" ilgesnis uz
    „TYPE", ir fiksuotame 62 px langelyje jis suvalgydavo tarpa iki pirmos zymos -
    viena grupe atrodydavo tankesne uz kita. Telefone, kur grupes viena po kita,
    plotis grazinamas, kad uzrasai sustotu i stulpeli. */
+/* `flex:0 0 auto` butinas: bazine .flab taisykle turi `flex:0 0 96px`, o stulpelio
+   kryptimi tas 96px tampa AUKSCIU - uzrasas issitempdavo ir po juo zioedavo tarpas. */
 .filterbar .flab{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--text);
   text-transform:uppercase;letter-spacing:.06em}
 .filterbar .filters{display:flex;gap:6px;flex-wrap:wrap}
-.filterbar .fclear{margin-left:auto}
+/* Prisegtas kampe: eilutes su zymomis nuo jo nei trumpeja, nei ilgeja. */
+.filterbar .fclear{position:absolute;top:9px;right:12px;margin:0}
 @media(max-width:620px){
-  .filterbar{gap:7px 12px;padding:10px 12px}
-  /* Tinklelis, ne eilute: zymoms persikeliant i kita eilute uzrasas lieka savo
-     stulpelyje. Su paprasta eilute viena grupe lauzesi i dvi eilutes, o kita
-     likdavo vienoje, ir jos atrodydavo skirtingos. */
-  .fgrp{display:grid;grid-template-columns:66px minmax(0,1fr);align-items:start;gap:6px 9px}
-  .filterbar .flab{width:auto;padding-top:6px}
-  .fgrp + .fgrp{border-left:0;padding-left:0}
-  .filterbar .fclear{margin-left:0}
   .count{font-size:12px;padding:11px 4px;gap:5px}}
 .fnone{margin:10px 0 0;font-size:13px;color:var(--muted)}
 .fclear{background:none;border:0;padding:5px 10px;font:inherit;font-size:12.5px;
