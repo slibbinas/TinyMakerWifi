@@ -13,6 +13,12 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [1.0.2] - 2026-10-15
+
+- **A Resins link in the dashboard.** The resin list says a profile was tested by TinyMakerWiFi;
+  the new link next to Roadmap (and in About) opens [tinymakerwifi.com/resin](https://tinymakerwifi.com/resin/),
+  which shows how each one was calibrated - steps, photos and the full parameters (#292).
+
 ## [1.0.1] - 2026-10-08
 
 A sturdier update path - three fixes from the review before 1.0.0.
