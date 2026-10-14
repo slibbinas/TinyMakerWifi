@@ -1231,6 +1231,89 @@ const when = (iso) => {
 // Crash telemetry inbox (GitHub #70): read behind LIST_KEY. Anonymous rows -
 // hashed device id + ESP reset reason (+ optional print layer). esc() on every
 // field: reason/version come off the wire from firmware.
+// Two bar charts under the crash table: interrupted prints per week and per version,
+// each split by cause. Only red is ours (panic/watchdog); amber, blue and grey are the
+// supply or the person. Plain counts - a per-printer rate per version would lie, as old
+// versions keep their old reports while few printers remain on them. Coredumps found
+// in flash after an update ("crash (earlier)") are left out: their date and version
+// are the reporter's, not the crash's.
+const CRASH_GROUPS = [
+  { label: 'Firmware crash', color: '#e05555', reasons: ['crash (panic)', 'watchdog', 'task watchdog', 'interrupt watchdog'] },
+  { label: 'Power dip', color: '#e8a020', reasons: ['brownout (power dip)'] },
+  { label: 'Power cut', color: '#4da3ff', reasons: ['power-on'] },
+  { label: 'Restart', color: '#8a8a94', reasons: ['software restart'] },
+];
+const crashCharts = (recs, reasonOf) => {
+  const grp = (r) => { const i = CRASH_GROUPS.findIndex((g) => g.reasons.includes(r)); return i < 0 ? 3 : i; };
+  const used = recs.filter((r) => reasonOf(r) !== 'crash (earlier)');
+  const skipped = recs.length - used.length;
+  if (!used.length) return '';
+  const legend = '<div class="clegend">' + CRASH_GROUPS.map((g) =>
+    `<span><i style="background:${g.color}"></i>${esc(g.label)}</span>`).join('') + '</div>';
+  const W = 800;
+  // A: per week (Monday), every week from the first report to this one - a quiet
+  // week shows as 0, not as a missing bar.
+  const monday = (ms) => { const d = new Date(ms); d.setUTCHours(0, 0, 0, 0); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.getTime(); };
+  const byWeek = new Map();
+  let first = Infinity;
+  for (const r of used) { const m = monday(Date.parse(r.at)); first = Math.min(first, m); }
+  for (let m = first; m <= monday(Date.now()); m += 7 * 86400000) byWeek.set(m, CRASH_GROUPS.map(() => 0));
+  for (const r of used) { const row = byWeek.get(monday(Date.parse(r.at))); if (row) row[grp(r.reason)]++; }
+  const weeks = [...byWeek.keys()];
+  const H = 230, pl = 16, pr = 16, pt = 24, pb = 34;
+  const mx = Math.max(1, ...weeks.map((w) => byWeek.get(w).reduce((a, b) => a + b, 0)));
+  const bw = (W - pl - pr) / weeks.length;
+  let a = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><line x1="${pl}" y1="${H - pb}" x2="${W - pr}" y2="${H - pb}" stroke="var(--line)"/>`;
+  weeks.forEach((w, i) => {
+    const cx = pl + i * bw + bw / 2, x = cx - bw * 0.32;
+    let y = H - pb;
+    const row = byWeek.get(w), tot = row.reduce((s, n) => s + n, 0);
+    const day = new Date(w).toISOString().slice(5, 10);
+    const tip = `week of ${new Date(w).toISOString().slice(0, 10)}: ${tot} report(s)` +
+      CRASH_GROUPS.map((g, j) => row[j] ? `\n${g.label}: ${row[j]}` : '').join('');
+    a += `<g><title>${esc(tip)}</title>`;
+    row.forEach((n, j) => {
+      if (!n) return;
+      const h = (H - pt - pb) * n / mx;
+      y -= h;
+      a += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${h.toFixed(1)}" fill="${CRASH_GROUPS[j].color}"/>`;
+    });
+    a += `<text x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}" fill="var(--text)" font-size="12" font-weight="600" text-anchor="middle">${tot}</text>`;
+    a += `<text x="${cx.toFixed(1)}" y="${H - pb + 16}" fill="var(--muted)" font-size="11" text-anchor="middle">${day}</text></g>`;
+  });
+  a += '</svg>';
+  // B: per version (the running one), oldest first.
+  const sv = (v) => String(v).split('.').map((x) => parseInt(x, 10) || 0);
+  const cmp = (p, q) => { const x = sv(p), y = sv(q); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+  const byVer = new Map();
+  for (const r of used) {
+    const v = r.version || '?';
+    if (!byVer.has(v)) byVer.set(v, CRASH_GROUPS.map(() => 0));
+    byVer.get(v)[grp(r.reason)]++;
+  }
+  const vers = [...byVer.keys()].sort(cmp);
+  const H2 = 26 * vers.length + 12, lx = 64, bx = 74, bwid = W - bx - 40;
+  const mv = Math.max(1, ...vers.map((v) => byVer.get(v).reduce((s, n) => s + n, 0)));
+  let b = `<svg viewBox="0 0 ${W} ${H2}" width="${W}" height="${H2}">`;
+  vers.forEach((v, i) => {
+    const y = 6 + i * 26, row = byVer.get(v), tot = row.reduce((s, n) => s + n, 0);
+    const tip = `${v}: ${tot} report(s)` + CRASH_GROUPS.map((g, j) => row[j] ? `\n${g.label}: ${row[j]}` : '').join('');
+    b += `<g><title>${esc(tip)}</title><text x="${lx}" y="${y + 14}" fill="var(--text)" font-size="12" text-anchor="end">${esc(v)}</text>`;
+    let x = bx;
+    row.forEach((n, j) => {
+      if (!n) return;
+      const w = bwid * n / mv;
+      b += `<rect x="${x.toFixed(1)}" y="${y + 2}" width="${w.toFixed(1)}" height="16" fill="${CRASH_GROUPS[j].color}"/>`;
+      x += w;
+    });
+    b += `<text x="${(x + 6).toFixed(1)}" y="${y + 14}" fill="var(--text)" font-size="12" font-weight="600">${tot}</text></g>`;
+  });
+  b += '</svg>';
+  const note = skipped ? `<div class="sub" style="margin:6px 0 0">${skipped} earlier crash(es) found in flash after an update are not counted: their date and version belong to the report, not to the crash.</div>` : '';
+  return `<h2 class="ch">Interrupted prints per week, by cause</h2>${legend}${a}` +
+    `<h2 class="ch">Interrupted prints per version, by cause</h2>${legend}${b}${note}`;
+};
+
 const crashInboxPage = (recs, hb, builds = {}) => {
   // Which build: the 16-hex elf sha prefix looked up in builds.json (every release
   // since the sha is in the image). No match = not a release; all zeros = unknown.
@@ -1327,11 +1410,14 @@ th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monosp
 .themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
 .themeSw button svg{width:17px;height:17px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .themeSw button:hover{color:var(--text)}
-.themeSw button[aria-pressed=true]{color:var(--accent)}</style></head>
+.themeSw button[aria-pressed=true]{color:var(--accent)}
+h2.ch{font-size:15px;margin:26px 0 4px}.wrap>svg{display:block;max-width:100%;height:auto}
+.clegend{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:12px;margin:0 0 8px}.clegend span{display:inline-flex;align-items:center;gap:5px}.clegend i{width:10px;height:10px;border-radius:2px;display:inline-block}</style></head>
 <body><div class="wrap"><p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Crash telemetry</p><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Crash telemetry</h1><div class="sub">${recs.length} report(s) &middot; anonymous (hashed device id + ESP reset reason). Newest first, 90-day retention.</div>
 ${hbLine}
 <div>${summary}</div>
-<table><tr><th>When</th><th>Reason</th><th title="Firmware running when the report was sent">Running</th><th title="Build that crashed (from the coredump); without a coredump, the reporting build">Crashed on</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table></div>
+<table><tr><th>When</th><th>Reason</th><th title="Firmware running when the report was sent">Running</th><th title="Build that crashed (from the coredump); without a coredump, the reporting build">Crashed on</th><th>Layer</th><th>Device</th><th>Crash (pc)</th></tr>${rows}</table>
+${crashCharts(recs, reasonOf)}</div>
 <script>
 (function(){var P=document.querySelectorAll('.pill[data-r]'),R=document.querySelectorAll('tr[data-r]');
 function sel(v){P.forEach(function(p){p.classList.toggle('act',p.dataset.r===v);});R.forEach(function(t){t.style.display=(v==='all'||t.dataset.r===v)?'':'none';});}
