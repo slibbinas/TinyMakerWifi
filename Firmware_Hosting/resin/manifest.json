@@ -31,6 +31,20 @@
       "testedBy": "TinyMakerWiFi",
       "testedOn": "2026-09",
       "buyUrl": "https://tinymakerwifi.com/r/sunlu-tough-010"
+    },
+    {
+      "name": "anycubic-ww-clear-005",
+      "display": "Anycubic Water-Washable (Clear)",
+      "file": "anycubic-ww-clear-005.json",
+      "layerHeight": 0.05,
+      "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-clear-005"
+    },
+    {
+      "name": "anycubic-ww-clear",
+      "display": "Anycubic Water-Washable (Clear)",
+      "file": "anycubic-ww-clear.json",
+      "layerHeight": 0.1,
+      "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-clear"
     }
   ],
   "retired": []
