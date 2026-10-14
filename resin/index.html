@@ -60,6 +60,8 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
   transition:color .15s,background .15s}
 .count:first-child{border-left:0}
 .count:hover{background:var(--btnsec)}
+.cgo{margin-left:6px;color:var(--muted2);font-size:12px}
+.count:hover .cgo{color:var(--accent)}
 .count b{color:var(--text);font-size:18px;line-height:1}
 .count:hover{border-color:var(--accent);color:var(--text)}
 .count:hover b{color:var(--accent)}
@@ -603,6 +605,20 @@ details.row>summary:hover{background:var(--btnsec)}
 .lbnav:hover{background:rgba(255,255,255,.2)}
 .lbnav[hidden]{display:none}
 @media(max-width:860px){.lbnav{width:40px;height:54px;font-size:26px}}
+
+/* Pastabu rezimas - tik vietiniam skaitymui, ziurovas jo nemato. */
+.rvBtn{border:0;background:none;color:var(--accent);cursor:pointer;font:inherit;
+  font-size:13px;line-height:1;padding:0 4px;opacity:.55}
+.rvBtn:hover{opacity:1}
+.rvBtn.has{opacity:1;font-weight:700}
+.rvBar{position:fixed;right:14px;bottom:14px;z-index:70;display:flex;gap:8px;align-items:center;
+  background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:8px 12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:13px}
+.rvBar button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--btnsec);color:var(--btnsec-t);cursor:pointer}
+.rvBar b{color:var(--accent)}
+.rvNote{display:block;margin-top:4px;font-size:12.5px;color:var(--accent);
+  border-left:2px solid var(--accent);padding-left:8px}
 </style>
 </head>
 <body>
@@ -611,18 +627,15 @@ details.row>summary:hover{background:var(--btnsec)}
   <p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Resins</p>
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
   <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
-  <h1>Resins dialled in for the TinyMaker</h1>
-  <p class="tag">Pick a resin, tap once, and your printer is set up for it: exposure, base layers,
-  lift and density, every number printed and measured on this machine.</p>
+  <h1>Resin profiles for the TinyMaker</h1>
+  <p class="tag">Pick a resin, tap once, and the printer takes its exposure, bottom layers, lift
+  and density - every value calibrated on this machine.</p>
   <div class="hnote">
   <div><b>Why a separate list for this printer?</b> The TinyMaker masks with a
   colour screen, not a mono one, and a colour screen lets through far less UV - the same resin
   needs about <b>four times</b> the exposure written on the bottle. Its plate is small as well,
   <b>41 &times; 31 mm</b>, so parts release from the film with different forces. Settings from
-  other printers do not fit.
-  <span class="hcred">The TinyMaker is an open-source MSLA printer by
-  <a href="https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer" rel="noopener" target="_blank">TinyMaker3D</a>;
-  this page comes from the TinyMakerWifi firmware project.</span></div></div>
+  other printers do not fit.</div></div>
   <div class="ctrl">
   <div class="counts" id="counts"></div>
   <div class="filterbar">
@@ -635,16 +648,16 @@ details.row>summary:hover{background:var(--btnsec)}
 
 
 <section id="testing"><div class="wrap">
-  <h2>On the bench</h2>
-  <p class="lede">Being measured right now. The numbers are working figures, not a published
-  profile yet.</p>
+  <h2>In calibration</h2>
+  <p class="lede">Calibration under way. These are working values - printed and checked, but not
+  published as a profile yet.</p>
   <div class="grid" id="gridBench"></div>
   <div class="rows" id="rowsTesting"></div>
 </div></section>
 
 <section id="tested"><div class="wrap">
-  <h2>Dialled in and published</h2>
-  <p class="lede">Finished profiles. Each one installs on the printer in one tap.</p>
+  <h2>Calibrated profiles</h2>
+  <p class="lede">Calibration finished. Each profile installs on the printer in one tap.</p>
   <div class="grid" id="grid"></div>
   <div id="empty" class="empty" hidden></div>
 </div></section>
@@ -657,7 +670,7 @@ details.row>summary:hover{background:var(--btnsec)}
 </div></section>
 
 <section id="onprinter"><div class="wrap">
-  <h2>What the printer does with this</h2>
+  <h2>How profiles are used on the TinyMaker</h2>
   <div class="opgrid">
     <div class="shotpair">
       <img class="light" src="promo-resin-light.png" alt="Resin card in the TinyMaker dashboard"
@@ -673,26 +686,26 @@ details.row>summary:hover{background:var(--btnsec)}
       <p>The printer lists sixteen named profiles, four of them built in; the ticked one is what the
       next print uses. Exposure, bottom layers, lift and density travel with the profile, and the line
       <b>tested by TinyMakerWiFi</b> says which month the numbers were measured.</p>
-      <p class="opmore"><a href="https://tinymakerwifi.com/manual/#resin-profiles">How resin profiles
-      work, in the manual &rarr;</a></p>
+      <p class="opmore"><a href="https://tinymakerwifi.com/demo/">See it running in the live demo
+      &rarr;</a> &middot; <a href="https://tinymakerwifi.com/manual/#resin-profiles">in the manual</a></p>
     </div>
   </div>
 </div></section>
 
 <section id="method"><div class="wrap">
-  <h2>How these numbers are made</h2>
-  <p class="lede">The same sequence, the same machine, written down. That is why two resins here can
-  be compared at all.</p>
+  <h2>How calibration is done</h2>
+  <p class="lede">One machine, one sequence, written down as it runs. That is what makes two resins
+  here comparable at all.</p>
   <div class="mgrid">
-    <div class="mcard"><h3>One machine, one vat</h3><p>All of it is printed on the same TinyMaker with the
-      same film and the same UV panel. A different panel or a colder room shifts these numbers, which is
-      exactly why they are measured rather than copied between printers.</p></div>
-    <div class="mcard"><h3>The screen is the limit, not the resin</h3><p>The pixel is 0.1275 mm, so nothing
-      thinner than about two pixels prints in any resin. Features are measured in pixels before they are
-      blamed on chemistry - it has saved a full round on more than one resin.</p></div>
-    <div class="mcard"><h3>Written down as it happens</h3><p>Each step is recorded with its exposure, the
-      resin used, the time it took and what the part looked like afterwards. The published profile is the
-      last line of that record, not a separate opinion.</p></div>
+    <div class="mcard"><h3>One machine, one vat</h3><p>Every print here comes off the same TinyMaker,
+      with the same film and the same UV panel. Another panel, or a colder room, moves these numbers -
+      which is why they are measured here instead of copied from another printer.</p></div>
+    <div class="mcard"><h3>The screen sets the limit</h3><p>One pixel is 0.1275 mm, so no resin prints a
+      wall thinner than about two of them. A feature that fails is measured in pixels first; more than
+      once that has saved a round of blaming the chemistry.</p></div>
+    <div class="mcard"><h3>Every print is logged</h3><p>Exposure, resin, time and what the part looked
+      like afterwards - each step is written down as it happens. The published profile is the last line
+      of that log, not a verdict added later.</p></div>
     <div class="mcard"><h3>Density is weighed, not copied</h3><p>Consumption is worked out from the
       layer images and the resin's density, so density has to be measured - a known volume on a scale,
       once per bottle. Until then the card says the number came off the label.</p></div>
@@ -709,6 +722,9 @@ details.row>summary:hover{background:var(--btnsec)}
   <h2>For resin manufacturers</h2>
   <p class="lede">Send a bottle and it goes through the same sequence. No fee, no agreement, no promise
   about the outcome: the numbers are published whichever way they come out.</p>
+  <p class="lede">The TinyMaker is where a lot of people meet SLA for the first time - small, cheap and
+  forgiving, and a test print costs millilitres rather than a tank. Those owners move on to larger
+  machines, and they take the resin they already trust with them.</p>
   <div class="mgrid">
     <div class="mcard"><h3>Your product, your name</h3><p>The resin is listed under the name you use in
       your own shop, with a link to it. If you would rather see different wording or your own photo on
@@ -748,6 +764,9 @@ details.row>summary:hover{background:var(--btnsec)}
 <footer><div class="wrap">
   Some buying links are affiliate links: they cost you nothing and help pay for the next batch of
   test resin. The rest go straight to the shop.<br>
+  The TinyMaker is an open-source MSLA printer by
+  <a href="https://github.com/TinyMaker3D/TinyMaker-Open-Source-3D-Printer" rel="noopener" target="_blank">TinyMaker3D</a>;
+  this page comes from the TinyMakerWifi firmware project.<br>
   Free and open source - if it saves you a tank of resin, you can
   <a href="https://paypal.me/Sidlauskas?locale.x=en_US&amp;country.x=LT" rel="noopener" target="_blank">buy me a coffee &#9749;</a>.<br>
   <a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &middot; <a href="https://tinymakerwifi.com/manual/">Manual</a> &middot; <a href="https://www.facebook.com/groups/1486879621729571" rel="noopener" target="_blank">Owners' group</a> &middot; <a href="https://github.com/slibbinas/TinyMakerWifi">GitHub</a>
@@ -867,19 +886,19 @@ function heroShot(r){
 /* Kaip skaičiai gauti - viena eilutė, visada. Trys galimos būsenos, ir visos
    trys yra teiginiai apie metodą, ne apie dervą. */
 function howNote(r,bench){
-  if(bench) return 'Working numbers - still being checked, not published as a profile yet.';
-  if(r.retest) return 'Dialled in by hand, before the current method - to be repeated through the full sequence.';
-  return 'Dialled in through the full four-step sequence.';
+  if(bench) return 'Working numbers - calibration under way, not published as a profile yet.';
+  if(r.retest) return 'Set by hand before the current method - to be repeated through the full sequence.';
+  return 'Calibrated through the full four-step sequence.';
 }
 /* Viena eilute pasako, kurioje busenoje derva. Abi kortelės vienodos, skiriasi
    tik sis zenklelis - todel ir sarasas gali buti vienas. */
 /* ⛔ Klase NE `.chip` - ta jau priklauso filtro mygtukams, ir stiliai susikerta. */
 function statusChip(bench){
   return bench
-    ? '<span class="schip bench" title="Being measured right now. The figures below are working '+
-      'numbers and are not published as an installable profile yet.">On the bench</span>'
+    ? '<span class="schip bench" title="Calibration under way. The figures below are working '+
+      'numbers and are not published as an installable profile yet.">In calibration</span>'
     : '<span class="schip done" title="The sequence is finished and the profile is published: a '+
-      'TinyMaker installs these numbers in one tap.">Dialled in</span>';
+      'TinyMaker installs these numbers in one tap.">Calibrated</span>';
 }
 function card(r,bench){
   var shot=heroShot(r), ts=r.tests||[];
@@ -1315,6 +1334,10 @@ function pakrautiDervas(){
   });
 }
 
+/* Rodykle prie skaitliuko: jis nuveda i skilti, o po juo esantis filtras filtruoja.
+   Be zenklo abu rinkiniai atrodo vienodai, o daro skirtingus dalykus. */
+var SKOK='<span class="cgo" aria-hidden="true">↓</span>';
+
 function init(){
   /* Įdėtas į Resin Lab (?embed=1): temos jungiklis ir logotipas ten jau yra lango
      antraštėje, o du vienodi jungikliai viename lange tik klaidina. Atskirai
@@ -1326,9 +1349,9 @@ function init(){
   /* Skaitiklis - ne tik skaicius, bet ir kelias: paspaudus nuveda i pirma tos
      busenos derva. Kitaip zmogus mato „13 in the queue" ir pats ieško, kur ta eile. */
   document.getElementById('counts').innerHTML=
-    '<button type="button" class="count" data-go="bench"><b>'+benchAll().length+'</b>on the bench</button>'+
-    '<button type="button" class="count" data-go="tested"><b>'+TESTED.length+'</b>dialled in</button>'+
-    '<button type="button" class="count" data-go="queue"><b>'+QUEUED.length+'</b>in the queue</button>';
+    '<button type="button" class="count" data-go="bench"><b>'+benchAll().length+'</b>in calibration'+SKOK+'</button>'+
+    '<button type="button" class="count" data-go="tested"><b>'+TESTED.length+'</b>calibrated'+SKOK+'</button>'+
+    '<button type="button" class="count" data-go="queue"><b>'+QUEUED.length+'</b>in the queue'+SKOK+'</button>';
 
   var all=TESTED.concat(TESTING,QUEUED);
   chips(document.getElementById('fType'),'type',TYPES,all);
@@ -1438,6 +1461,113 @@ document.addEventListener('click',function(e){
 <p class="tmclose" hidden><a href="#" onclick="window.close();return false;">Close</a></p>
 <script>
 (function(){try{var h=document.referrer?new URL(document.referrer).hostname:"";var lan=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(h)||/\.local$/.test(h);if(!(lan&&history.length<=1))return;document.querySelectorAll(".tmclose").forEach(function(e){e.hidden=false;});var a=document.querySelector(".tmcrumb a,.crumb a");if(a){var o=new URL(document.referrer).origin+"/";a.textContent="Printer";a.href=o;a.title="Back to the printer dashboard";a.onclick=function(){window.close();setTimeout(function(){location.href=o;},300);return false;};}}catch(e){}})();
+/* ---- Pastabu rezimas ------------------------------------------------------
+   Prie kiekvieno teksto - zenkliukas; pastabos gula i localStorage ir niekur
+   kitur. Vienas mygtukas surenka jas i sarasa, kuri V imeta i pokalbi. */
+(function(){
+  var vietinis=/^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname);
+  if(!(window.TM_REVIEW||vietinis)) return;
+  var RAKTAS='tmResinReview', N={};
+  try{ N=JSON.parse(localStorage.getItem(RAKTAS)||'{}'); }catch(e){ N={}; }
+  var irasyk=function(){ try{ localStorage.setItem(RAKTAS,JSON.stringify(N)); }catch(e){} };
+
+  /* Ka komentuojam: tekstai, kuriuos rasom mes. Skaiciai ir zymos ne - juos
+     keiciam duomenyse, ne redaguojant sakini. */
+  var TAIKINIAI=[
+    ['h1','antraste'],['.tag','ivadas'],['.hnote>div','uzrasas'],
+    ['section>.wrap>h2','skilties antraste'],['section>.wrap>.lede','skilties ivadas'],
+    ['.rc h3','pavadinimas'],['.rc .product','produktas'],['.rc .about','kas tai per derva'],
+    ['.rc .snote','ka sakom'],['.rc .fut','kas dar atviro'],
+    ['.tile figcaption p','zingsnio komentaras'],
+    ['.mcard p','metodikos kortele'],['.optxt p','printerio skiltis'],
+    ['.dsnote','gamintojo skaiciu prierasas']
+  ];
+  /* Vardas imamas BE musu pridetu zenkliuku: kitaip antra karta skaitant i ji
+     patektu ⊕, pastabos raktas pasikeistu ir sena pastaba liktu naslaite. */
+  var svarus=function(el){
+    if(!el) return '';
+    var k=el.cloneNode(true);
+    k.querySelectorAll('.rvBtn,.rvNote').forEach(function(x){x.remove();});
+    return k.textContent.replace(/\s+/g,' ').trim();
+  };
+  var vardas=function(el){
+    var rc=el.closest('.rc'), row=el.closest('.row');
+    if(rc){ var h=rc.querySelector('h3')||rc.querySelector('.rname'); if(h) return svarus(h); }
+    if(row){ var n=row.querySelector('.rname'); if(n) return svarus(n); }
+    var s=el.closest('section'); var h2=s&&s.querySelector('h2');
+    return h2?svarus(h2):'puslapis';
+  };
+  var id=function(el,tipas){ return vardas(el)+' \u00b7 '+tipas; };
+
+  function pieskNota(el,k){
+    var v=el.parentNode.querySelectorAll('.rvNote');
+    Array.prototype.forEach.call(v,function(x){ if(x.dataset.k===k) x.remove(); });
+    if(!N[k]) return;
+    var d=document.createElement('span');
+    d.className='rvNote'; d.dataset.k=k; d.textContent='\u270e '+N[k];
+    el.insertAdjacentElement('afterend',d);
+  }
+
+  function prisek(el,tipas){
+    if(el.dataset.rv) return;
+    el.dataset.rv='1';
+    var k=id(el,tipas);
+    var b=document.createElement('button');
+    b.type='button'; b.className='rvBtn'+(N[k]?' has':''); b.title='Pastaba: '+k; b.textContent='\u2295';
+    b.addEventListener('click',function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      var v=window.prompt(k, N[k]||'');
+      if(v===null) return;
+      if(v.trim()) N[k]=v.trim(); else delete N[k];
+      irasyk(); b.classList.toggle('has',!!N[k]); pieskNota(el,k); juosta();
+    });
+    el.appendChild(document.createTextNode(' '));
+    el.appendChild(b);
+    pieskNota(el,k);
+  }
+
+  function skenuok(){
+    TAIKINIAI.forEach(function(p){
+      document.querySelectorAll(p[0]).forEach(function(el){ prisek(el,p[1]); });
+    });
+  }
+
+  function juosta(){
+    var bar=document.querySelector('.rvBar');
+    var kiek=Object.keys(N).length;
+    if(!bar){
+      bar=document.createElement('div'); bar.className='rvBar';
+      bar.innerHTML='<span>Pastabos: <b id="rvN">0</b></span>'+
+        '<button id="rvCopy">Kopijuoti</button><button id="rvClr">I\u0161valyti</button>';
+      document.body.appendChild(bar);
+      bar.querySelector('#rvCopy').addEventListener('click',function(){
+        var t=Object.keys(N).map(function(k){return k+': '+N[k];}).join('\n');
+        var ok=function(){ bar.querySelector('#rvCopy').textContent='Nukopijuota';
+          setTimeout(function(){bar.querySelector('#rvCopy').textContent='Kopijuoti';},1200); };
+        if(navigator.clipboard&&navigator.clipboard.writeText)
+          navigator.clipboard.writeText(t).then(ok,function(){ window.prompt('Pastabos (Ctrl+C):',t); });
+        else window.prompt('Pastabos (Ctrl+C):',t);
+      });
+      bar.querySelector('#rvClr').addEventListener('click',function(){
+        if(!confirm('I\u0161trinti visas pastabas?')) return;
+        N={}; irasyk();
+        document.querySelectorAll('.rvNote').forEach(function(x){x.remove();});
+        document.querySelectorAll('.rvBtn.has').forEach(function(x){x.classList.remove('has');});
+        juosta();
+      });
+    }
+    bar.querySelector('#rvN').textContent=kiek;
+  }
+
+  /* Puslapis piesiamas po duomenu parsiuntimo, o korteles - skleidziant, tad
+     zenkliukus kabinam ir veliau: stebim pokycius, ne vien pirma piesima. */
+  var laukia=null;
+  new MutationObserver(function(){
+    clearTimeout(laukia); laukia=setTimeout(skenuok,120);
+  }).observe(document.body,{childList:true,subtree:true});
+  skenuok(); juosta();
+})();
+
 </script>
 </body>
 </html>
