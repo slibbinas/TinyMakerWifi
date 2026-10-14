@@ -1066,6 +1066,7 @@ th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:
 button{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.msg{color:var(--muted);font-size:13px}.err{color:var(--dn)}
 a{color:var(--accent)}svg{display:block;max-width:100%}
+.fchart{height:auto}.fchart .pt{cursor:default}.fchart .pt:hover .dot{r:6}
 .foot{color:var(--muted);font-size:12px;margin-top:20px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 </style></head>
 <body><div class="wrap"><p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Printer fleet</p><div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div><h1><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>Printer fleet</h1>
@@ -1164,18 +1165,37 @@ function render(hist,live,rel){
   // printers-over-time line
   if(snaps.length<2){ $('chart').innerHTML='<div class="msg">Chart needs at least two daily snapshots - it fills in over the coming days.</div>'; return; }
   const pts=snaps.slice().reverse(); // oldest first
-  const W=800,H=180,pad=28;
-  const xs=pts.map((_,i)=>pad+(W-2*pad)*(pts.length===1?0:i/(pts.length-1)));
+  // Every point carries its number (and its day under the axis); with many points
+  // only every n-th is labelled so they stay readable - the rest show on hover.
+  const W=800,H=210,padL=40,padR=24,padT=26,padB=34;
+  // x by date, not by index: missed days (10-01..10-08) must show as a gap, not as
+  // one steep step.
+  const day=p=>Date.parse(p.date+'T00:00:00Z')/864e5,d0=day(pts[0]),span=Math.max(1,day(pts[pts.length-1])-d0);
+  const xs=pts.map(p=>padL+(W-padL-padR)*(day(p)-d0)/span);
   const mn=Math.min(...pts.map(p=>p.printers)),mx=Math.max(...pts.map(p=>p.printers));
-  const yy=v=>H-pad-(H-2*pad)*(mx===mn?0.5:(v-mn)/(mx-mn));
+  const yy=v=>H-padB-(H-padT-padB)*(mx===mn?0.5:(v-mn)/(mx-mn));
+  const step=Math.max(1,Math.ceil(pts.length/16));
+  const shown=i=>i===pts.length-1||(i%step===0&&pts.length-1-i>=step);
   const path=pts.map((p,i)=>(i?'L':'M')+xs[i].toFixed(1)+' '+yy(p.printers).toFixed(1)).join(' ');
-  let svg='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">';
-  svg+='<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="var(--line)"/>';
+  let svg='<svg class="fchart" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">';
+  svg+='<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)"/>';
+  svg+='<text x="'+(padL-8)+'" y="'+(yy(mx)+4).toFixed(1)+'" fill="var(--muted)" font-size="11" text-anchor="end">'+mx+'</text>';
+  if(mx!==mn)svg+='<text x="'+(padL-8)+'" y="'+(yy(mn)+4).toFixed(1)+'" fill="var(--muted)" font-size="11" text-anchor="end">'+mn+'</text>';
   svg+='<path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2"/>';
-  pts.forEach((p,i)=>{svg+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+yy(p.printers).toFixed(1)+'" r="2.5" fill="var(--accent)"/>';});
-  svg+='<text x="'+pad+'" y="14" fill="var(--muted)" font-size="11">'+mx+'</text>';
-  svg+='<text x="'+pad+'" y="'+(H-pad+14)+'" fill="var(--muted)" font-size="11">'+esc(pts[0].date)+'</text>';
-  svg+='<text x="'+(W-pad)+'" y="'+(H-pad+14)+'" fill="var(--muted)" font-size="11" text-anchor="end">'+esc(pts[pts.length-1].date)+'</text>';
+  pts.forEach((p,i)=>{
+    const x=xs[i].toFixed(1),y=yy(p.printers).toFixed(1);
+    const d=i?p.printers-pts[i-1].printers:null;
+    const tip=p.date+': '+p.printers+' printers'+(d==null?'':' ('+(d>0?'+':'')+d+' vs '+pts[i-1].date+')');
+    const anchor=i===0?'start':i===pts.length-1?'end':'middle';
+    svg+='<g class="pt"><title>'+esc(tip)+'</title>'+
+         '<circle cx="'+x+'" cy="'+y+'" r="12" fill="transparent"/>'+
+         '<circle class="dot" cx="'+x+'" cy="'+y+'" r="3.5" fill="var(--accent)"/>';
+    if(shown(i)){
+      svg+='<text x="'+x+'" y="'+(yy(p.printers)-9).toFixed(1)+'" fill="var(--text)" font-size="12" font-weight="600" text-anchor="'+anchor+'">'+p.printers+'</text>';
+      svg+='<text x="'+x+'" y="'+(H-padB+16)+'" fill="var(--muted)" font-size="11" text-anchor="'+anchor+'">'+esc(p.date.slice(5))+'</text>';
+    }
+    svg+='</g>';
+  });
   svg+='</svg>';
   $('chart').innerHTML=svg;
 }
