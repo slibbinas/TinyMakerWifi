@@ -1282,7 +1282,7 @@ const crashCharts = (recs, reasonOf) => {
     a += `<text x="${cx.toFixed(1)}" y="${H - pb + 16}" fill="var(--muted)" font-size="11" text-anchor="middle">${day}</text></g>`;
   });
   a += '</svg>';
-  // B: per version (the running one), oldest first.
+  // B: per version (the running one), newest first, like the version tables.
   const sv = (v) => String(v).split('.').map((x) => parseInt(x, 10) || 0);
   const cmp = (p, q) => { const x = sv(p), y = sv(q); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
   const byVer = new Map();
@@ -1291,7 +1291,7 @@ const crashCharts = (recs, reasonOf) => {
     if (!byVer.has(v)) byVer.set(v, CRASH_GROUPS.map(() => 0));
     byVer.get(v)[grp(r.reason)]++;
   }
-  const vers = [...byVer.keys()].sort(cmp);
+  const vers = [...byVer.keys()].sort((p, q) => cmp(q, p));
   const H2 = 26 * vers.length + 12, lx = 64, bx = 74, bwid = W - bx - 40;
   const mv = Math.max(1, ...vers.map((v) => byVer.get(v).reduce((s, n) => s + n, 0)));
   let b = `<svg viewBox="0 0 ${W} ${H2}" width="${W}" height="${H2}">`;
