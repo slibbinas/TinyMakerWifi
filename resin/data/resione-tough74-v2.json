@@ -8,7 +8,7 @@
  "wash": "ipa",
  "verdict": "BRIDGES: ALL FOUR HOLD (V: “all OK”). Measured from the model, the gaps between the supports are 2 / 4 / 6 and 8 mm, so the longest span with no sag is 8 mm.\n\n⚠️ 8 mm is the MODEL's ceiling, not the resin's limit. There is no longer gap in this model, so the real limit lies somewhere above it and stays unmeasured. Against other resins this reads as “held everything it was given”, not “can do no more”.\n\n⭐ Why it matters in practice: the bridge is the only one of the three simple models that measures an OVERHANG - whether a layer carries itself with nothing underneath. That is what decides how many supports real prints will need. 8 mm with no sag is a quarter of the length of our plate (40.8 x 30.6 mm).",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. The first three steps closed without it; the lattice cube still leans, so that step waits for the parameter.",
- "buy": "https://www.resione.com/products/tough74-v2",
+ "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
  "logo": "logos/resione.png",
  "about": "Resione's tough, wear-resistant resin: stiff and hard rather than brittle, and smooth straight off the plate.",

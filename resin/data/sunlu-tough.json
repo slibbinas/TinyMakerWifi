@@ -119,7 +119,7 @@
    "p": {
     "layer_height": 0.1,
     "base_exposure": 18,
-    "regular_exposure": 8.0,
+    "regular_exposure": 9.2,
     "base_layers": 2,
     "transition_layers": 5,
     "slow_lift_distance": 1,
@@ -135,7 +135,7 @@
  ],
  "alt": {
   "lh": 0.1,
-  "regular": 8.0,
+  "regular": 9.2,
   "base": 18,
   "baseLayers": 2,
   "transition": 5
