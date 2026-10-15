@@ -38,7 +38,7 @@ not a trunk.
 | `temp/` | Throwaway: experiments, session scratch |
 
 A release version belongs in the name, not in the prefix, so both axes stay
-readable: `prnt/0.18-pause-lift`, `slcr/supports-tree`, `cliv/gateway-auth`.
+readable: `prnt/1.1-pause-lift`, `slcr/supports-tree`, `cliv/gateway-auth`.
 CI builds every `prnt/**`, `slcr/**` and `cliv/**` push, so a branch that
 stops compiling says so the same day.
 
@@ -48,6 +48,12 @@ stops compiling says so the same day.
 commit. That file records which branch each area works on today, and
 `scripts/dev/kur_esu.py` compares it against reality at session start - so a
 stale entry announces itself the next morning instead of two weeks later.
+
+**A branch with an open PR:** rename it only in the GitHub **web UI**
+(Branches → pencil). Renaming through git (`push :old new`) or through the REST
+API (`branches/{name}/rename`) **closes the PR** as `head_ref_deleted` and it
+cannot be reopened on the new name - you end up opening a fresh PR, which is how
+#111 became #117. Learned on 2026-08-23.
 
 ## Build requirements
 
