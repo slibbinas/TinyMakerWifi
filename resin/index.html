@@ -510,6 +510,9 @@ details.rc[open] .top{padding-top:16px}
 .btn.buy{flex:0 0 auto;display:inline-block;padding:6px 15px;font-size:12.5px;
   font-weight:600;border-radius:8px;max-width:none}
 @media(max-width:620px){.rc .act{justify-content:stretch}.btn.buy{flex:1;text-align:center}}
+.mcode{font-size:12px;line-height:1.4;color:var(--muted);text-align:right}
+.mcode b{color:var(--text);letter-spacing:.04em}
+@media(max-width:620px){.rc .act,.dsbox .act{flex-wrap:wrap}.mcode{flex:1 0 100%;text-align:center}}
 
 /* Atidarytas skyrelis be suskleidimo - antraste tokia pat, kaip buvusio summary. */
 .fold.open>.foldh{display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -861,6 +864,14 @@ function stars(n,ctx){
    against it. */
 function bestStars(r){return (r.tests||[]).reduce(function(m,t){return Math.max(m,t.stars||0);},0);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+/* Gamintojo nuolaidos kodas - gamintojo lygiu, ne dervos: tas pats zodis visoms jo dervoms.
+   Nuoroda koda jau ijungia pati, tad zmogui nieko vesti nereikia - uzrasas tik paaiskina,
+   kodel kaina krepselyje mazesne. */
+var MAKER_CODE={Resione:{code:'TINYMAKER',off:'5%'}};
+function codeTag(maker){
+  var c=MAKER_CODE[maker];
+  return c?'<span class="mcode">Code <b>'+c.code+'</b>, '+c.off+' off, applied by the link</span>':'';
+}
 
 /* Antras argumentas - derva dar ant stalo: skaiciai jau yra, bet profilis dar
    neskelbiamas, tad vietoj pirkimo mygtuko rodom, kiek zingsniu nueita. */
@@ -951,7 +962,7 @@ function card(r,bench){
   h+='<div class="act">'+
      (r.bottle?'<img class="bshot" src="'+r.bottle+'" alt="" loading="lazy">':'')+
      (r.buy
-      ?'<a class="btn buy" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">'+
+      ?codeTag(r.maker)+'<a class="btn buy" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">'+
        'Buy at '+esc(r.maker)+'</a>'
       :'<span class="btn buy sec off">'+(r.demo?'Example only':'Shop link coming')+'</span>')+'</div>';
   h+='</div></div>';
@@ -1147,7 +1158,7 @@ function dsBlock(x){
      (d.guess?'. These particular numbers are read off the maker\'s range table rather than a '+
       'datasheet for this exact resin':'')+'.</p>'+
      /* Pirkimas ir cia toje pacioje vietoje kaip kortelese - po duomenimis, desineje. */
-     (x.buy?'<div class="act"><a class="btn buy" href="'+x.buy+'" rel="nofollow sponsored noopener" '+
+     (x.buy?'<div class="act">'+codeTag(x.maker)+'<a class="btn buy" href="'+x.buy+'" rel="nofollow sponsored noopener" '+
             'target="_blank">Buy at '+esc(x.maker)+'</a></div>':'')+'</div>';
   return h;
 }
