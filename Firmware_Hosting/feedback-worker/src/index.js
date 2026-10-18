@@ -341,6 +341,17 @@ export default {
     // from it, and index.html is the same data written for a person - the page
     // a resin maker is handed, since they have no TinyMaker to open a dashboard
     // on. One folder, because it is one subject.
+    //
+    // A folder asked for without its trailing slash goes to the slashed address
+    // first. Served as-is, /resin answered 200 with the page, but every relative
+    // path in it (data/index.json, photos, logos) then resolved from the site root
+    // and came back 404: on a phone opened as tinymakerwifi.com/resin the resin
+    // list never loaded (V 2026-10-18).
+    // url.pathname, not `path`: `path` has the trailing slash already cut off, so
+    // testing it would redirect /resin/ to itself forever.
+    if (request.method === 'GET' && /^\/(demo|manual|roadmap|extension|resin)$/.test(url.pathname)) {
+      return Response.redirect(url.origin + url.pathname + '/' + url.search, 301);
+    }
     if (request.method === 'GET' &&
         /^\/(demo|manual|roadmap|extension|resin)(\/|$)/.test(path)) {
       const upstream = GHPAGES + path + (url.pathname.endsWith('/') || !path.includes('.') ? '/' : '');
