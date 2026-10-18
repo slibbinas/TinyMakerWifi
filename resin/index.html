@@ -867,7 +867,9 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 /* Gamintojo nuolaidos kodas - gamintojo lygiu, ne dervos: tas pats zodis visoms jo dervoms.
    Nuoroda koda jau ijungia pati, tad zmogui nieko vesti nereikia - uzrasas tik paaiskina,
    kodel kaina krepselyje mazesne. */
-var MAKER_CODE={Resione:{code:'TINYMAKER',off:'5%'}};
+/* Sunlu: UpPromote kuponas, kuri ju nuoroda pritaiko pati - 3 % (pamatuota bandomajame
+   krepselyje 2026-10-18). Kai Sunny duos asmenini TINYMAKER, keisti tik zodi. */
+var MAKER_CODE={Resione:{code:'TINYMAKER',off:'5%'},Sunlu:{code:'PFGN2RPKTG',off:'3%'}};
 function codeTag(maker){
   var c=MAKER_CODE[maker];
   return c?'<span class="mcode">Code <b>'+c.code+'</b>, '+c.off+' off, applied by the link</span>':'';
