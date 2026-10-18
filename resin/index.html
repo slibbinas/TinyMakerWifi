@@ -1372,22 +1372,25 @@ function init(){
   document.getElementById('rowsTesting').innerHTML=rowsHtml(TESTING,true);
 
 
-  // Theme toggle - same localStorage key as the dashboard and the landing page.
-  // Embedded in Resin Lab the switch is removed above, so everything here is
-  // guarded: without it init threw at the last line and quietly skipped it.
-  var sw=document.querySelector('.themeSw');
-  if(sw){
-    var mode=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';};
-    var mark=function(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});};
-    sw.addEventListener('click',function(e){
-      var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
-      if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(err){}}
-      else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(err){}}
-      mark();
-    });
-    mark();
-  }
 }
+
+/* Theme toggle - same localStorage key as the dashboard and the landing page.
+   Wired up at once, NOT inside init(): init waits for all resin JSON files, so on a slow
+   phone connection (or if one file failed) the switch did nothing (V 2026-10-18: works on
+   PC, not on the phone). Embedded in Resin Lab, init removes the switch afterwards. */
+(function(){
+  var sw=document.querySelector('.themeSw');
+  if(!sw)return;
+  var mode=function(){var d=document.documentElement.getAttribute('data-theme');return d==='light'||d==='dark'?d:'system';};
+  var mark=function(){var m=mode();sw.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.m===m));});};
+  sw.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-m]');if(!b)return;var m=b.dataset.m;
+    if(m==='system'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('tmTheme');}catch(err){}}
+    else{document.documentElement.setAttribute('data-theme',m);try{localStorage.setItem('tmTheme',m);}catch(err){}}
+    mark();
+  });
+  mark();
+})();
 
 /* Kol duomenys kelyje, puslapis jau stovi - matosi antraste ir paaiskinimas.
    Nepavykus parsiusti sakom garsiai, o ne paliekam tuscia sarasa. */
