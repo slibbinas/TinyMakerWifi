@@ -510,6 +510,8 @@ details.rc[open] .top{padding-top:16px}
 .btn.buy{flex:0 0 auto;display:inline-block;padding:6px 15px;font-size:12.5px;
   font-weight:600;border-radius:8px;max-width:none}
 @media(max-width:620px){.rc .act{justify-content:stretch}.btn.buy{flex:1;text-align:center}}
+.buygrp{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+@media(max-width:620px){.buygrp{flex:1}}
 .mcode{font-size:12px;line-height:1.4;color:var(--muted);text-align:right}
 .mcode b{color:var(--text);letter-spacing:.04em}
 @media(max-width:620px){.rc .act,.dsbox .act{flex-wrap:wrap}.mcode{flex:1 0 100%;text-align:center}}
@@ -961,12 +963,14 @@ function card(r,bench){
   h+=steps(r);
   /* Parametrai dviem stulpeliais: tie patys skaiciai, o blokas per puse zemesnis. */
   h+=profiles(r);
-  h+='<div class="act">'+
+  /* Buteliukas prilipes prie mygtuko - tai viena grupe „stai ka perki", o kodo
+     uzrasas eina pries ja kaip paaiskinimas (V 2026-10-18, variantas A). */
+  h+='<div class="act">'+(r.buy?codeTag(r.maker):'')+'<span class="buygrp">'+
      (r.bottle?'<img class="bshot" src="'+r.bottle+'" alt="" loading="lazy">':'')+
      (r.buy
-      ?codeTag(r.maker)+'<a class="btn buy" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">'+
+      ?'<a class="btn buy" href="'+r.buy+'" rel="nofollow sponsored noopener" target="_blank">'+
        'Buy at '+esc(r.maker)+'</a>'
-      :'<span class="btn buy sec off">'+(r.demo?'Example only':'Shop link coming')+'</span>')+'</div>';
+      :'<span class="btn buy sec off">'+(r.demo?'Example only':'Shop link coming')+'</span>')+'</span></div>';
   h+='</div></div>';
   /* Zingsniai - plytelemis, matomi be jokio spaudimo. Devyni telpa i dvi eilutes. */
   if(ts.length){
