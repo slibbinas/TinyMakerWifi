@@ -7,7 +7,7 @@
  "color": "grey",
  "wash": "ipa",
  "verdict": "BRIDGES: ALL FOUR HOLD (V: “all OK”). Measured from the model, the gaps between the supports are 2 / 4 / 6 and 8 mm, so the longest span with no sag is 8 mm.\n\n⚠️ 8 mm is the MODEL's ceiling, not the resin's limit. There is no longer gap in this model, so the real limit lies somewhere above it and stays unmeasured. Against other resins this reads as “held everything it was given”, not “can do no more”.\n\n⭐ Why it matters in practice: the bridge is the only one of the three simple models that measures an OVERHANG - whether a layer carries itself with nothing underneath. That is what decides how many supports real prints will need. 8 mm with no sag is a quarter of the length of our plate (40.8 x 30.6 mm).",
- "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. The first three steps closed without it; the lattice cube still leans, so that step waits for the parameter.",
+ "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
  "logo": "logos/resione.png",
@@ -53,10 +53,10 @@
    "k": "complex",
    "s": "Complex model",
    "k2": "Complex",
-   "st": "doing"
+   "st": "done"
   }
  ],
- "stageNote": "The fourth step is open and this is honestly where it stands. The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch, square by construction. It printed - and it still leans, though less. Near the plate the edges are square; the further from the plate, the more they tilt. So the distortion builds up during the print rather than sitting in the file. Two suspects: the peel force on a tall, slender part, and the missing pre-exposure wait. The next run changes the lift timing only, which tells the two apart. Until that is answered the step stays open and no profile is published.",
+ "stageNote": "The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch. The first prints still leaned. A series of matched cubes printed since then came out square, and a 21 mm cube standing on its corner measured 21 mm on every face.",
  "full": [
   {
    "lh": 0.05,
