@@ -1243,19 +1243,22 @@ const when = (iso) => {
 // hashed device id + ESP reset reason (+ optional print layer). esc() on every
 // field: reason/version come off the wire from firmware.
 // Two bar charts under the crash table: interrupted prints per week and per version,
-// each split by cause. Only red is ours (panic/watchdog); amber, blue and grey are the
-// supply or the person. Plain counts - a per-printer rate per version would lie, as old
-// versions keep their old reports while few printers remain on them. Coredumps found
-// in flash after an update ("crash (earlier)") are left out: their date and version
-// are the reporter's, not the crash's.
+// each split by cause. Red (panic) and purple (watchdog) are ours, kept apart: a panic
+// leaves a coredump to read, a watchdog reset usually does not. Amber, blue and grey are
+// the supply or the person. Each label is the reason as the table spells it, so a
+// bar can be found among the rows. Plain counts - a per-printer rate per version would
+// lie, as old versions keep their old reports while few printers remain on them.
+// Coredumps found in flash after an update ("crash (earlier)") are left out: their date
+// and version are the reporter's, not the crash's.
 const CRASH_GROUPS = [
-  { label: 'Firmware crash', color: '#e05555', reasons: ['crash (panic)', 'watchdog', 'task watchdog', 'interrupt watchdog'] },
-  { label: 'Power dip', color: '#e8a020', reasons: ['brownout (power dip)'] },
-  { label: 'Power cut', color: '#4da3ff', reasons: ['power-on'] },
-  { label: 'Restart', color: '#8a8a94', reasons: ['software restart'] },
+  { label: 'crash (panic)', color: '#e05555', reasons: ['crash (panic)'] },
+  { label: 'watchdog', color: '#a86bd8', reasons: ['watchdog', 'task watchdog', 'interrupt watchdog'] },
+  { label: 'brownout (power dip)', color: '#e8a020', reasons: ['brownout (power dip)'] },
+  { label: 'power-on (power cut)', color: '#4da3ff', reasons: ['power-on'] },
+  { label: 'software restart', color: '#8a8a94', reasons: ['software restart'] },
 ];
 const crashCharts = (recs, reasonOf) => {
-  const grp = (r) => { const i = CRASH_GROUPS.findIndex((g) => g.reasons.includes(r)); return i < 0 ? 3 : i; };
+  const grp = (r) => { const i = CRASH_GROUPS.findIndex((g) => g.reasons.includes(r)); return i < 0 ? CRASH_GROUPS.length - 1 : i; };
   const used = recs.filter((r) => reasonOf(r) !== 'crash (earlier)');
   const skipped = recs.length - used.length;
   if (!used.length) return '';
