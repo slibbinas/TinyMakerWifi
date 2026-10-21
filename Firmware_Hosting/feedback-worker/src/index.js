@@ -1176,8 +1176,8 @@ function render(hist,live,rel){
   // printers-over-time line
   if(snaps.length<2){ $('chart').innerHTML='<div class="msg">Chart needs at least two daily snapshots - it fills in over the coming days.</div>'; return; }
   const pts=snaps.slice().reverse(); // oldest first
-  // Every point carries its number (and its day under the axis); with many points
-  // only every n-th is labelled so they stay readable - the rest show on hover.
+  // Every point has a tick under the axis and a hover tooltip; which ones also get a
+  // printed count and date is decided below, by room on the chart.
   const W=800,H=210,padL=40,padR=24,padT=26,padB=34;
   // x by date, not by index: missed days (10-01..10-08) must show as a gap, not as
   // one steep step.
@@ -1185,8 +1185,19 @@ function render(hist,live,rel){
   const xs=pts.map(p=>padL+(W-padL-padR)*(day(p)-d0)/span);
   const mn=Math.min(...pts.map(p=>p.printers)),mx=Math.max(...pts.map(p=>p.printers));
   const yy=v=>H-padB-(H-padT-padB)*(mx===mn?0.5:(v-mn)/(mx-mn));
-  const step=Math.max(1,Math.ceil(pts.length/16));
-  const shown=i=>i===pts.length-1||(i%step===0&&pts.length-1-i>=step);
+  // Labels are thinned by distance on the chart, not by index: with a point a day the
+  // dates touched. Walking back from today (the newest matters most), a date is kept
+  // when it sits at least DATE_GAP from the last kept one, a count when it differs from
+  // the last kept count and sits at least NUM_GAP from it. The first point keeps its
+  // count too when there is room. Everything else is a tick and a hover tooltip.
+  const DATE_GAP=52,NUM_GAP=34,last=pts.length-1;
+  const dotR=Math.max(1.5,Math.min(3.5,(W-padL-padR)/span/4)).toFixed(1);   // a day apart stays a dot, not a bead string
+  const showDate=new Set(),showNum=new Set();
+  let lastDateX=Infinity,lastNumX=Infinity,lastNum=null;
+  for(let i=last;i>=0;i--){
+    if(i===last||lastDateX-xs[i]>=DATE_GAP){showDate.add(i);lastDateX=xs[i];}
+    if(i===last||(pts[i].printers!==lastNum&&lastNumX-xs[i]>=NUM_GAP)){showNum.add(i);lastNumX=xs[i];lastNum=pts[i].printers;}
+  }
   const path=pts.map((p,i)=>(i?'L':'M')+xs[i].toFixed(1)+' '+yy(p.printers).toFixed(1)).join(' ');
   let svg='<svg class="fchart" viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'">';
   svg+='<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="var(--line)"/>';
@@ -1200,11 +1211,12 @@ function render(hist,live,rel){
     const anchor=i===0?'start':i===pts.length-1?'end':'middle';
     svg+='<g class="pt"><title>'+esc(tip)+'</title>'+
          '<circle cx="'+x+'" cy="'+y+'" r="12" fill="transparent"/>'+
-         '<circle class="dot" cx="'+x+'" cy="'+y+'" r="3.5" fill="var(--accent)"/>';
-    if(shown(i)){
+         '<circle class="dot" cx="'+x+'" cy="'+y+'" r="'+dotR+'" fill="var(--accent)"/>';
+    svg+='<line x1="'+x+'" y1="'+(H-padB)+'" x2="'+x+'" y2="'+(H-padB+4)+'" stroke="var(--muted)"/>';
+    if(showNum.has(i))
       svg+='<text x="'+x+'" y="'+(yy(p.printers)-9).toFixed(1)+'" fill="var(--text)" font-size="12" font-weight="600" text-anchor="'+anchor+'">'+p.printers+'</text>';
-      svg+='<text x="'+x+'" y="'+(H-padB+16)+'" fill="var(--muted)" font-size="11" text-anchor="'+anchor+'">'+esc(p.date.slice(5))+'</text>';
-    }
+    if(showDate.has(i))
+      svg+='<text x="'+x+'" y="'+(H-padB+17)+'" fill="var(--muted)" font-size="11" text-anchor="'+anchor+'">'+esc(p.date.slice(5))+'</text>';
     svg+='</g>';
   });
   svg+='</svg>';
