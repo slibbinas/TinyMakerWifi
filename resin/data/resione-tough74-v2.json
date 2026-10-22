@@ -6,7 +6,7 @@
  "type": "tough",
  "color": "grey",
  "wash": "ipa",
- "verdict": "The 10-07 clip reprinted with the same settings (10 s) for clean photos and a weighed resin use. Both rings snap onto the pin. Resin use: 72.4 → 71.3 g = 1.1 g ≈ 0.98 ml, against an uncalibrated estimate of 0.52 ml - second calibration point (×1.566 + 0.17 ml).",
+ "verdict": "The 10-08 bridges reprinted (10 s) for clean photos. All four hold (V); the spans are 2 / 4 / 6 / 8 mm by the model, so the longest with no sag is 8 mm - the model's limit, not the resin's.",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
@@ -71,8 +71,8 @@
     "fast_lift_feedrate": 50,
     "drop_back_feedrate": 50,
     "density": 1.123,
-    "cal_factor": 1.681,
-    "cal_fixed_ml": 0
+    "cal_factor": 1.566,
+    "cal_fixed_ml": 0.17
    }
   }
  ],
@@ -183,8 +183,8 @@
    "stars": 5,
    "regular": 10,
    "base": 40,
-   "txt": "Unsupported spans of 2, 4, 6 and 8 mm. All four held with no sag.",
-   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-simple-005-tl1.jpg",
+   "txt": "Reprinted at 10.0 s: all four bridges hold, spans 2 / 4 / 6 / 8 mm with no sag.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-23-simple-005-tl1.jpg",
    "props": [
     {
      "q": "Longest span with no sag",
