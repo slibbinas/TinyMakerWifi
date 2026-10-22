@@ -200,20 +200,15 @@
    "stars": 5,
    "regular": 10,
    "base": 40,
-   "txt": "Lattice cube standing on its corner, 20 mm. The grid stayed open all the way through.",
-   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-c1.jpg",
-   "props": []
-  },
-  {
-   "step": "complex",
-   "kind": "complex",
-   "lh": 0.05,
-   "stars": 4,
-   "regular": 10,
-   "base": 40,
-   "txt": "The same lattice at 28 mm. 0.51 mm walls came out clean, but the cube itself leans.",
-   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-08-complex-005-k28a.jpg",
-   "props": []
+   "txt": "A 21 mm lattice cube printed standing on its corner: every face measures 21 mm, edges straight.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-19-complex-005-d1.jpg",
+   "props": [
+    {
+     "q": "Face to face",
+     "u": "mm",
+     "v": "21.0"
+    }
+   ]
   }
  ]
 }
