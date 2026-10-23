@@ -70,6 +70,7 @@
    "base": 18,
    "txt": "Eight bars from 3.2 to 12.8 s. The lowest three never formed, which set the floor; the rest curled as they dried, so the strip gave a range, not a number.",
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-10-11-vat-050-r80-01.jpg",
+   "mm": 0,
    "props": []
   },
   {
@@ -81,6 +82,7 @@
    "base": 18,
    "txt": "The published 8.0 s, printed to check it. The embossed lettering and the round cut-out came out mushy and the surfaces furry.",
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-10-11-coupon-050-r80-01.jpg",
+   "mm": 0,
    "props": []
   },
   {
@@ -92,6 +94,7 @@
    "base": 18,
    "txt": "One step up at 9.2 s. Lettering legible, cut-out open, surfaces smooth. This is the number the profile now carries.",
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-10-11-coupon-050-r92-01.jpg",
+   "mm": 0,
    "props": []
   }
  ],

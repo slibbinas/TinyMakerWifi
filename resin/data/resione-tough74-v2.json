@@ -86,6 +86,7 @@
    "base": 40,
    "txt": "Repeated with a clean photo and a caliper: the cured strip is 0.10 mm thick at 8.5 s, 0.13 mm at 10 s and only 0.15 mm at 16 s. Flat and crisp from 10 s, which stays the setting.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-20-vat-005-t4.jpg",
+   "mm": 42.8,
    "props": []
   },
   {
@@ -97,6 +98,7 @@
    "base": 55,
    "txt": "Six of seven pillars straight and the detail clean, but it gripped the plate too hard to lift.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-04-coupon-005-k1.jpg",
+   "mm": 36.2,
    "props": [
     {
      "q": "Pillars straight, out of 7",
@@ -129,6 +131,7 @@
    "base": 40,
    "txt": "The same coupon at 10.0 s, reprinted for clean photos. Every bristle on the side printed - they only bent in the wash, being that thin - while the ones on top were too fine to print. Slots and checkerboard open.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-21-coupon-005-g1.jpg",
+   "mm": 35.5,
    "props": []
   },
   {
@@ -140,6 +143,7 @@
    "base": 40,
    "txt": "Hardest first layer we have - 61 % of the plate in one layer. It held, and came off normally.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-06-coupon-005-b5.jpg",
+   "mm": 51.4,
    "props": [
     {
      "q": "Smallest pad that still stuck",
@@ -157,6 +161,7 @@
    "base": 40,
    "txt": "The clip reprinted at 10.0 s for clean photos: both rings snap onto the pin.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-22-simple-005-s1.jpg",
+   "mm": 23.2,
    "props": []
   },
   {
@@ -168,6 +173,7 @@
    "base": 40,
    "txt": "Reprinted at 10.0 s: all seven pins stand, down to 0.30 mm - 2.3 pixels wide.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-22-simple-005-p1.jpg",
+   "mm": 40.3,
    "props": [
     {
      "q": "Thinnest pin that printed",
@@ -185,6 +191,7 @@
    "base": 40,
    "txt": "Reprinted at 10.0 s: all four bridges hold, spans 2 / 4 / 6 / 8 mm with no sag.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-23-simple-005-tl1.jpg",
+   "mm": 42.5,
    "props": [
     {
      "q": "Longest span with no sag",
@@ -202,6 +209,7 @@
    "base": 40,
    "txt": "A 21 mm lattice cube printed standing on its corner: every face measures 21 mm, edges straight.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-19-complex-005-d1.jpg",
+   "mm": 58.8,
    "props": [
     {
      "q": "Face to face",

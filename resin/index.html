@@ -237,6 +237,9 @@ footer a{color:var(--muted2);text-decoration:underline}
 .lbnums{color:#aab0b8;line-height:1.7}
 .lbtxt{color:#dfe3e8;line-height:1.6;font-size:13.5px}
 .lbtags{color:#9aa1aa;font-size:12px;letter-spacing:.02em}
+.lbact{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.lbact img{height:auto;max-width:100%;border-radius:4px;display:block}
+.lbact small{color:#9aa1aa;font-size:11.5px}
 @media(max-width:860px){
   #lb{grid-template-columns:1fr;gap:12px;justify-items:center}
   #lb img{grid-column:1;max-width:94vw;max-height:calc(100vh - 190px)}
@@ -898,6 +901,11 @@ function heroShot(r){
   if(!ts.length) return null;
   return ts.reduce(function(m,x){return (x.stars||0)>=(m.stars||0)?x:m;},ts[0]).photo;
 }
+/* Kadro tikras plotis mm tam bandymui, kurio nuotrauka stovi korteles virsuje. */
+function heroMm(r,shot){
+  var t=(r.tests||[]).filter(function(x){return x.photo===shot;})[0];
+  return t&&t.mm?t.mm:0;
+}
 /* Kaip skaičiai gauti - viena eilutė, visada. Trys galimos būsenos, ir visos
    trys yra teiginiai apie metodą, ne apie dervą. */
 function howNote(r,bench){
@@ -940,7 +948,7 @@ function card(r,bench){
   /* Kaireje - nuotrauka ir po ja aprasymas. Anksciau po nuotrauka likdavo tuscia
      juosta, o aprasymas desineje ilgindavo visa bloka. */
   h+='<div class="left">';
-  h+=shot?'<a class="pic shot" href="'+shot+'" target="_blank" rel="noopener"><img src="'+shot+'" alt="'+esc(r.name)+'" loading="lazy"></a>'
+  h+=shot?'<a class="pic shot" href="'+shot+'"'+(heroMm(r,shot)?' data-mm="'+heroMm(r,shot)+'"':'')+' target="_blank" rel="noopener"><img src="'+shot+'" alt="'+esc(r.name)+'" loading="lazy"></a>'
           :'<div class="pic">'+pic('model')+(r.demo?'<span class="stamp">SYNTHETIC</span>':'<span class="stamp">DRAWING</span>')+'</div>';
   /* Du trumpi tekstai: kas tai per derva ir ką apie ją sakom. Etapo prierašas ir
      metodo pastaba cia nebeeina - ju ilgis nenuspejamas, tad jie po suskleidimu. */
@@ -978,7 +986,7 @@ function card(r,bench){
        '<span>'+ts.length+' test print'+(ts.length>1?'s':'')+'</span></div><div class="tiles">';
     ts.forEach(function(t,i){
       h+='<figure class="tile">';
-      h+=t.photo?'<a href="'+t.photo+'" target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>'
+      h+=t.photo?'<a href="'+t.photo+'"'+(t.mm?' data-mm="'+t.mm+'"':'')+' target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>'
                 :'<div class="noimg">'+pic(t.kind)+'</div>';
       h+='<figcaption><b><span class="n">'+(i+1)+'</span>'+esc(t.step)+(t.stars?' '+stars(t.stars):'')+'</b>';
       if(t.txt) h+='<p>'+esc(t.txt)+'</p>';
@@ -1291,6 +1299,10 @@ function chips(host,key,map,all){
         });
       if(b.length) h+='<span class="lbnums">'+b.join('<br>')+'</span>';
     }
+    /* Padidinta nuotrauka atrodo kaip makro pasaulis - salia ta pati, sumazinta iki
+       tikro dydzio. Naršyklės milimetras tik apytikslis, todel „≈“. */
+    var mm=parseFloat(a.getAttribute('data-mm'));
+    if(mm>0) h+='<span class="lbact"><img src="'+a.getAttribute('href')+'" alt="" style="width:'+mm.toFixed(1)+'mm"><small>&asymp; actual size</small></span>';
     return h;
   }
   function close(){ lb.hidden=true; im.src=''; document.body.style.overflow=''; }
