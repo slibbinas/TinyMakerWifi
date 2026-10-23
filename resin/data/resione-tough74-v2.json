@@ -189,7 +189,7 @@
    "stars": 5,
    "regular": 10,
    "base": 40,
-   "txt": "Reprinted at 10.0 s: all four bridges hold, spans 2 / 4 / 6 / 8 mm with no sag.",
+   "txt": "On a resin printer a bridge starts as one layer cured between two posts with nothing beneath it, then peeled off the film. All four spans held, up to 8 mm - how far apart supports can stand under a flat area.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-23-simple-005-tl1.jpg",
    "mm": 42.5,
    "props": [
