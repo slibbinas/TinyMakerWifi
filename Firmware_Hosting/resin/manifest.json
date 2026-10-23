@@ -45,6 +45,15 @@
       "file": "anycubic-ww-clear.json",
       "layerHeight": 0.1,
       "buyUrl": "https://tinymakerwifi.com/r/anycubic-ww-clear"
+    },
+    {
+      "name": "resione-tough74-v2",
+      "display": "Resione Tough74 V2",
+      "file": "resione-tough74-v2.json",
+      "layerHeight": 0.05,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-10",
+      "buyUrl": "https://tinymakerwifi.com/r/resione-tough74-v2"
     }
   ],
   "retired": []
