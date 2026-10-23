@@ -1,35 +1,23 @@
 {
  "slug": "resione-tough74-v2",
  "maker": "Resione",
- "name": "Tough74 V2 Wear-resistant Tough Resin",
- "product": "",
+ "name": "Tough74 V2",
  "type": "tough",
  "color": "grey",
  "wash": "ipa",
+ "demo": false,
+ "testedOn": "2026-10",
  "verdict": "The 10-08 bridges reprinted (10 s) for clean photos. All four hold (V); the spans are 2 / 4 / 6 / 8 mm by the model, so the longest with no sag is 8 mm - the model's limit, not the resin's.",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
  "logo": "logos/resione.png",
+ "product": "Tough74 V2 Wear-resistant Tough Resin",
+ "hero": "",
+ "retest": false,
  "about": "Resione's tough, wear-resistant resin: stiff and hard rather than brittle, and smooth straight off the plate.",
  "take": "Sharp down to the pixel limit, and a printed clip took 25 cycles without cracking. A 21 mm lattice cube printed standing on its corner came out square, every face at 21 mm.",
  "densityMeasured": false,
- "hero": "",
- "best": {
-  "lh": 0.05,
-  "regular": 10,
-  "base": 40,
-  "baseLayers": 4,
-  "density": 1.123,
-  "transition": 5,
-  "lift": [
-   1,
-   2,
-   40,
-   50,
-   50
-  ]
- },
  "steps": [
   {
    "k": "vat",
@@ -57,25 +45,21 @@
   }
  ],
  "stageNote": "The lattice cube used at first came from another test set and turned out to be deformed, so a true cube was built from scratch. The first prints still leaned. A series of matched cubes printed since then came out square, and a 21 mm cube standing on its corner measured 21 mm on every face.",
- "full": [
-  {
-   "lh": 0.05,
-   "p": {
-    "base_exposure": 40,
-    "regular_exposure": 10,
-    "base_layers": 4,
-    "transition_layers": 5,
-    "slow_lift_distance": 1,
-    "fast_lift_distance": 2,
-    "slow_lift_feedrate": 40,
-    "fast_lift_feedrate": 50,
-    "drop_back_feedrate": 50,
-    "density": 1.123,
-    "cal_factor": 1.566,
-    "cal_fixed_ml": 0.17
-   }
-  }
- ],
+ "best": {
+  "lh": 0.05,
+  "regular": 10,
+  "base": 40,
+  "baseLayers": 4,
+  "density": 1.123,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
  "tests": [
   {
    "step": "vat",
@@ -217,6 +201,26 @@
      "v": "21.0"
     }
    ]
+  }
+ ],
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "layer_height": 0.05,
+    "base_exposure": 40,
+    "regular_exposure": 10,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.123,
+    "cal_factor": 1.443,
+    "cal_fixed_ml": 0.38
+   }
   }
  ]
 }

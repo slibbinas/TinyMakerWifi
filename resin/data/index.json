@@ -17,7 +17,12 @@
   },
   {
    "slug": "resione-tough74-v2",
-   "sritis": "bench",
+   "sritis": "tested",
+   "hidden": false
+  },
+  {
+   "slug": "resione-m70-high-precision-3d-printer-resin",
+   "sritis": "testing",
    "hidden": false
   },
   {
@@ -32,11 +37,6 @@
   },
   {
    "slug": "resione-f69-black-flexible-rubber-like-resin",
-   "sritis": "queued",
-   "hidden": false
-  },
-  {
-   "slug": "resione-m70-high-precision-3d-printer-resin",
    "sritis": "queued",
    "hidden": false
   },
