@@ -429,7 +429,6 @@ details.rc[open]>summary{border-bottom:1px solid var(--line);background:var(--bt
 .rname .maker{font-weight:400;font-size:11.5px;color:var(--muted);letter-spacing:.03em;
   text-transform:uppercase}
 .rbadges{display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap}
-.rname .maker.lg{display:none}
 .rnums{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
 .rnums b{font-size:15px}
 .rnums span{font-size:11.5px;color:var(--muted)}
@@ -437,9 +436,8 @@ details.rc[open] .top{padding-top:16px}
 .steps{border-top:1px solid var(--line)}
 @media(max-width:760px){
   details.rc>summary{grid-template-columns:56px 1fr 14px;gap:10px;padding:10px 12px}
-  details.rc>summary .mlogo{display:none}
-  .rname .maker.lg{display:block}
-  .rth{width:56px;height:42px}
+  /* Kaip eileje: telefone priekyje gamintojo zenklas, nuotrauka paslepta. */
+  details.rc>summary .rth{display:none}
   /* Telefone lieka tik spalvos zyma: ji vienintele atskiria ta pacia derva
      skirtingos spalvos buteliuose. */
   .rnums{display:none}
@@ -939,9 +937,7 @@ function card(r,bench){
            :'<span></span>';
   h+=shot?'<img class="rth" src="'+shot+'" alt="" loading="lazy">':'<span class="rth"></span>';
   h+='<span class="rname">'+
-     /* Gamintojas raidemis visada: telefone logotipas paslepiamas, ir be sito eiluteje
-        likdavo tik dervos vardas. Su logotipu platesniame ekrane raides nereikalingos. */
-     '<span class="maker'+(r.logo?' lg':'')+'">'+esc(r.maker)+'</span>'+
+     (r.logo?'':'<span class="maker">'+esc(r.maker)+'</span>')+
      esc(dervosVardas(r.name,r.color,r.type))+'</span>';
   /* Busenos zymes eiluteje nera: ja jau sako skyriaus antraste. */
   h+='<span class="rbadges">'+
