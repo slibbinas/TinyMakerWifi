@@ -7,7 +7,7 @@
  "wash": "ipa",
  "demo": false,
  "testedOn": "2026-10",
- "verdict": "The 10-08 bridges reprinted (10 s) for clean photos. All four hold (V); the spans are 2 / 4 / 6 / 8 mm by the model, so the longest with no sag is 8 mm - the model's limit, not the resin's.",
+ "verdict": "Bend test (TM_lenkimas, five strips 0.4 / 0.5 / 0.75 / 1.0 / 1.5 mm against a 30/60/90° scale). The aim is not to grade the resin's strength but to show the printer delivers the properties the resin has. V: the thick strips (1.0 and 1.5 mm) broke near 30° but only under real force; the thinner ones bent further, 0.75 mm reached 90°. There is a pattern by thickness we do not chase. The resin stiffened as it stood. Verdict: tough, not brittle - which is what matters.",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
@@ -143,10 +143,16 @@
    "stars": 5,
    "regular": 10,
    "base": 40,
-   "txt": "The clip reprinted at 10.0 s for clean photos: both rings snap onto the pin.",
-   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-22-simple-005-s1.jpg",
-   "mm": 23.2,
-   "props": []
+   "txt": "Not a strength rating - a check that the printer delivers the toughness the resin promises. Bent against the printed scale, the thick strips gave way near 30° only under real force and the thin ones bent further. Tough, not brittle.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-24-simple-005-l1.jpg",
+   "mm": 44.9,
+   "props": [
+    {
+     "q": "Strip that reached 90°",
+     "u": "mm",
+     "v": "0.75"
+    }
+   ]
   },
   {
    "step": "simple",
