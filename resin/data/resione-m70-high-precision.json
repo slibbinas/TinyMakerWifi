@@ -1,0 +1,93 @@
+{
+ "slug": "resione-m70-high-precision",
+ "maker": "Resione",
+ "name": "M70 High Precision 3D Printer Resin",
+ "product": "",
+ "type": "standard",
+ "color": "salmon",
+ "wash": "ipa",
+ "verdict": "Strip test, centre 15 s (bars 6.0-24.0 s). #1 (6.0 s) barely formed, thin and translucent; #2 (8.3 s) rolled into a tube; #3 (10.5 s) and #4 (12.8 s) formed but let go of the film and curled hard. #5 (15.0 s) holds to the film and lies flat, only its lifted edge curls a little; #6-#8 (17.3-24.0 s) hold and lie flat. Thickness: #1-#3 thinner, constant from #4 on - the light goes only shallow into this resin (high precision). Thickness does not pick the exposure here, the curl does: the coupon pair (with and without anti-aliasing) at 15 s.",
+ "future": "",
+ "buy": "https://tinymakerwifi.com/r/resione-m70",
+ "bottle": "bottles/resione-m70-high-precision.png",
+ "logo": "logos/resione.png",
+ "about": "",
+ "take": "",
+ "densityMeasured": false,
+ "hero": "",
+ "best": {
+  "lh": 0.05,
+  "regular": 15,
+  "base": 60,
+  "baseLayers": 4,
+  "density": 1.145,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
+ "steps": [
+  {
+   "k": "vat",
+   "s": "Exposure strip",
+   "k2": "Strip",
+   "st": "done"
+  },
+  {
+   "k": "coupon",
+   "s": "Standard coupon",
+   "k2": "Coupon",
+   "st": "todo"
+  },
+  {
+   "k": "simple",
+   "s": "Simple model",
+   "k2": "Simple",
+   "st": "todo"
+  },
+  {
+   "k": "complex",
+   "s": "Complex model",
+   "k2": "Complex",
+   "st": "todo"
+  }
+ ],
+ "stageNote": "",
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "base_exposure": 60,
+    "regular_exposure": 15,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.145,
+    "cal_factor": 1.443,
+    "cal_fixed_ml": 0.38
+   }
+  }
+ ],
+ "tests": [
+  {
+   "step": "vat",
+   "kind": "vat",
+   "lh": 0.05,
+   "stars": 4,
+   "regular": 15,
+   "base": 60,
+   "txt": "Bars 6-24 s. Up to 12.8 s the bars formed but curled and let go of the film; from 15 s they hold and lie flat. Thickness stops growing at 12.8 s - the light goes only shallow into this resin, as a high-precision one should - so the curl, not the thickness, sets the start: 15 s.",
+   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-26-vat-005-s1.jpg",
+   "mm": 54.8,
+   "props": []
+  }
+ ]
+}
