@@ -54,6 +54,15 @@
       "testedBy": "TinyMakerWiFi",
       "testedOn": "2026-10",
       "buyUrl": "https://tinymakerwifi.com/r/resione-tough74-v2"
+    },
+    {
+      "name": "resione-tough74-v2-010",
+      "display": "Resione Tough74 V2",
+      "file": "resione-tough74-v2-010.json",
+      "layerHeight": 0.1,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-10",
+      "buyUrl": "https://tinymakerwifi.com/r/resione-tough74-v2-010"
     }
   ],
   "retired": []
