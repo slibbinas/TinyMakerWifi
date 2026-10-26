@@ -7,7 +7,7 @@
  "wash": "ipa",
  "demo": false,
  "testedOn": "2026-10",
- "verdict": "Bend test (TM_lenkimas, five strips 0.4 / 0.5 / 0.75 / 1.0 / 1.5 mm against a 30/60/90° scale). The aim is not to grade the resin's strength but to show the printer delivers the properties the resin has. V: the thick strips (1.0 and 1.5 mm) broke near 30° but only under real force; the thinner ones bent further, 0.75 mm reached 90°. There is a pattern by thickness we do not chase. The resin stiffened as it stood. Verdict: tough, not brittle - which is what matters.",
+ "verdict": "Coupon at 0.10 mm: 13.5 s, base 40 s, 2 base layers, no pre-exposure wait. Everything printed, bristles included. The layer steps show more than at 0.05, yet the print looks even better and the bristles bent less. The bending comes from the wash (uncured they are too soft); during the print they stood straight. Resin use: vat 73.7 → 71.0 g = 2.7 g ≈ 2.40 ml, the same as the 0.05 coupon.",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
@@ -207,6 +207,18 @@
      "v": "21.0"
     }
    ]
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.1,
+   "stars": 5,
+   "regular": 13.5,
+   "base": 40,
+   "txt": "The same coupon at 0.10 mm: 13.5 s with 2 base layers. Everything printed, bristles included; the layer steps show more than at 0.05, as they should, and the bristles bent less in the wash. Resin use about 2.4 ml, the same as at 0.05.",
+   "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-25-coupon-010-x1.jpg",
+   "mm": 38.5,
+   "props": []
   }
  ],
  "full": [
@@ -227,6 +239,31 @@
     "cal_factor": 1.443,
     "cal_fixed_ml": 0.38
    }
+  },
+  {
+   "lh": 0.1,
+   "p": {
+    "layer_height": 0.1,
+    "base_exposure": 40,
+    "regular_exposure": 13.5,
+    "base_layers": 2,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.123,
+    "cal_factor": 1.443,
+    "cal_fixed_ml": 0.38
+   }
   }
- ]
+ ],
+ "alt": {
+  "lh": 0.1,
+  "regular": 13.5,
+  "base": 40,
+  "baseLayers": 2,
+  "transition": 5
+ }
 }
