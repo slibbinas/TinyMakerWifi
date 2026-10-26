@@ -1,0 +1,19 @@
+{
+  "name": "Resione Tough74 V2",
+  "layer_height": 0.10,
+  "base_exposure": 40,
+  "regular_exposure": 13.5,
+  "base_layers": 2,
+  "transition_layers": 5,
+  "slow_lift_distance": 1,
+  "fast_lift_distance": 2,
+  "slow_lift_feedrate": 40,
+  "fast_lift_feedrate": 50,
+  "drop_back_feedrate": 50,
+  "density": 1.123,
+  "cal_factor": 1.443,
+  "cal_fixed_ml": 0.38,
+  "tested_by": "TinyMakerWiFi",
+  "tested_on": "2026-10",
+  "buy_url": "https://tinymakerwifi.com/r/resione-tough74-v2-010"
+}
