@@ -13,6 +13,15 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [1.0.3] - 2026-10-30
+
+- **Long model names stay inside the dashboard.** A model name of 40 characters without
+  spaces (the longest the printer keeps) made the right column wider than its half of the
+  page, so the SD manager and slicer cards stuck out past the frame and the Start/Delete
+  buttons shifted. Long names in the model list and in the preview title are now cut with
+  "…"; in the model list the full name shows when you point at it. On a phone the name uses
+  the whole row width (#301).
+
 ## [1.0.2] - 2026-10-15
 
 - **A Resins link in the dashboard.** The resin list says a profile was tested by TinyMakerWiFi;
