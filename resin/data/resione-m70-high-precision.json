@@ -41,7 +41,7 @@
    "k": "coupon",
    "s": "Standard coupon",
    "k2": "Coupon",
-   "st": "todo"
+   "st": "done"
   },
   {
    "k": "simple",
@@ -53,7 +53,7 @@
    "k": "complex",
    "s": "Complex model",
    "k2": "Complex",
-   "st": "todo"
+   "st": "done"
   }
  ],
  "stageNote": "",
@@ -88,6 +88,36 @@
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-26-vat-005-s1.jpg",
    "mm": 54.8,
    "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 15,
+   "base": 60,
+   "txt": "Two coupons at 15 s, one with anti-aliasing and one without. We could not tell them apart, side by side or up close.",
+   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-27-coupon-005-k1.jpg",
+   "mm": 66.0,
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 15,
+   "base": 60,
+   "txt": "Two pairs of 14.5 mm lattice cubes at 15 s: with anti-aliasing on top (one mark), without below (two marks). Clean lattices, and no difference between the pairs that we could see.",
+   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-28-complex-005-c1.jpg",
+   "mm": 60.2,
+   "props": [
+    {
+     "q": "Face to face",
+     "u": "mm",
+     "v": "14.5"
+    }
+   ]
   }
  ]
 }
