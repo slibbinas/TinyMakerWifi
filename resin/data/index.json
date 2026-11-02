@@ -22,7 +22,7 @@
   },
   {
    "slug": "resione-m70-high-precision",
-   "sritis": "bench",
+   "sritis": "tested",
    "hidden": false
   },
   {
@@ -67,7 +67,7 @@
   },
   {
    "slug": "sunlu-toughness",
-   "sritis": "queued",
+   "sritis": "bench",
    "hidden": false
   },
   {
