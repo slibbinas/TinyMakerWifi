@@ -81,8 +81,8 @@
    "regular": 15,
    "base": 60,
    "txt": "Two coupons at 15 s, one with anti-aliasing and one without. We could not tell them apart, side by side or up close.",
-   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-27-coupon-005-k1.jpg",
-   "mm": 66.0,
+   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-27-coupon-005-k2.jpg",
+   "mm": 34.4,
    "props": []
   },
   {
@@ -112,7 +112,7 @@
    "base": 60,
    "txt": "The same coupon at 0.10 mm. The exposure is the 0.05 one scaled by the ratio we use for every resin, 20 s, and it printed as well as at 0.05. I broke the tip of the small hammer off by accident afterwards - no matter, it had printed.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-11-02-coupon-010-x1.jpg",
-   "mm": 34.4,
+   "mm": 34.5,
    "props": []
   }
  ],
