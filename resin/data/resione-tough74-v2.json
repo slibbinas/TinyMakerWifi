@@ -7,7 +7,7 @@
  "wash": "ipa",
  "demo": false,
  "testedOn": "2026-10",
- "verdict": "Coupon at 0.10 mm: 13.5 s, base 40 s, 2 base layers, no pre-exposure wait. Everything printed, bristles included. The layer steps show more than at 0.05, yet the print looks even better and the bristles bent less. The bending comes from the wash (uncured they are too soft); during the print they stood straight. Resin use: vat 73.7 → 71.0 g = 2.7 g ≈ 2.40 ml, the same as the 0.05 coupon.",
+ "verdict": "The 10-04 coupon repeated with the same settings (10 s, base 40 s, 4 base layers) for clean photos and a weighed resin use. Bristles: the ones on top did not print - too fine; the ones on the side ALL printed. Since they formed, they stood straight during the print - they bent only in the wash, being so thin. So the bending comes from washing, not from exposure. Resin use: vat 75.1 → 72.4 g = 2.7 g ≈ 2.40 ml, against the printer's uncalibrated estimate of 1.43 ml (×1.68) - first calibration point.",
  "future": "Resione pointed out that this printer has no <b>pre-exposure wait</b> - a pause before the UV comes on that lets a viscous resin flow back under the part. The firmware does not have it yet, and it is going into a future release. All the test prints so far came out true without it.",
  "buy": "https://tinymakerwifi.com/r/resione-tough74-v2",
  "bottle": "bottles/resione-tough74-v2.png",
@@ -125,7 +125,7 @@
    "stars": 5,
    "regular": 10,
    "base": 40,
-   "txt": "Hardest first layer we have - 61 % of the plate in one layer. It held, and came off normally.",
+   "txt": "Hardest first layer tested so far - 61 % of the plate in one layer. It held, and came off normally.",
    "photo": "photos/resione-tough74-v2-resione-tough74-v2-2026-10-06-coupon-005-b5.jpg",
    "mm": 51.4,
    "props": [

@@ -16,7 +16,7 @@
  "hero": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-28-complex-005-c1.jpg",
  "retest": false,
  "about": "Resione's high-precision standard resin in salmon, made for fine detail.",
- "take": "The light goes only shallow into it, so the curl of the strips, not their thickness, set the exposure: 15 s. At that it printed clean 14.5 mm lattice cubes, and anti-aliasing made no difference we could see.",
+ "take": "The light goes only shallow into it, so the curl of the strips, not their thickness, set the exposure: 15 s. At that it printed clean 14.5 mm lattice cubes, and anti-aliasing made no visible difference.",
  "densityMeasured": false,
  "steps": [
   {
@@ -80,7 +80,7 @@
    "stars": 5,
    "regular": 15,
    "base": 60,
-   "txt": "The coupon at 15 s. We printed it with anti-aliasing and without, and could not tell the two apart, side by side or up close.",
+   "txt": "The coupon at 15 s. Printed with anti-aliasing and without - the two could not be told apart, side by side or up close.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-27-coupon-005-k2.jpg",
    "mm": 34.4,
    "props": []
@@ -92,7 +92,7 @@
    "stars": 5,
    "regular": 15,
    "base": 60,
-   "txt": "Two pairs of 14.5 mm lattice cubes at 15 s: with anti-aliasing on top (one mark), without below (two marks). Clean lattices, and no difference between the pairs that we could see.",
+   "txt": "Two pairs of 14.5 mm lattice cubes at 15 s: with anti-aliasing on top (one mark), without below (two marks). Clean lattices, no visible difference between the pairs.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-28-complex-005-c1.jpg",
    "mm": 60.2,
    "props": [
@@ -110,7 +110,7 @@
    "stars": 5,
    "regular": 20,
    "base": 60,
-   "txt": "The same coupon at 0.10 mm. The exposure is the 0.05 one scaled by the ratio we use for every resin, 20 s, and it printed as well as at 0.05. I broke the tip of the small hammer off by accident afterwards - no matter, it had printed.",
+   "txt": "The same coupon at 0.10 mm. The exposure is the 0.05 one scaled by the ratio used for every resin, 20 s, and it printed as well as at 0.05. The tip of the small hammer broke off by accident afterwards - no matter, it had printed.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-11-02-coupon-010-x1.jpg",
    "mm": 34.5,
    "props": []
