@@ -63,6 +63,24 @@
       "testedBy": "TinyMakerWiFi",
       "testedOn": "2026-10",
       "buyUrl": "https://tinymakerwifi.com/r/resione-tough74-v2-010"
+    },
+    {
+      "name": "resione-m70-high-precision",
+      "display": "Resione M70 High Precision",
+      "file": "resione-m70-high-precision.json",
+      "layerHeight": 0.05,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-10",
+      "buyUrl": "https://tinymakerwifi.com/r/resione-m70"
+    },
+    {
+      "name": "resione-m70-high-precision-010",
+      "display": "Resione M70 High Precision",
+      "file": "resione-m70-high-precision-010.json",
+      "layerHeight": 0.1,
+      "testedBy": "TinyMakerWiFi",
+      "testedOn": "2026-11",
+      "buyUrl": "https://tinymakerwifi.com/r/resione-m70"
     }
   ],
   "retired": []
