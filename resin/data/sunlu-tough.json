@@ -14,7 +14,7 @@
  "logo": "logos/sunlu.png",
  "product": "",
  "hero": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-complex-005-h1.jpg",
- "retest": true,
+ "retest": false,
  "about": "SUNLU's tough resin. Made to give a little instead of snapping, so it suits parts that have to be handled.",
  "take": "Re-tested in November: strips and coupon confirm 9.2 s at 0.05 mm and 12.4 s at 0.10 mm. Soft and rubbery off the printer, it hardens over a couple of days but keeps a little give - it bends rather than snaps.",
  "densityMeasured": false,

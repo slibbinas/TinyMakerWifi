@@ -66,13 +66,8 @@
    "hidden": false
   },
   {
-   "slug": "sunlu-toughness",
-   "sritis": "bench",
-   "hidden": false
-  },
-  {
    "slug": "sunlu-toughness-solid-white",
-   "sritis": "queued",
+   "sritis": "testing",
    "hidden": false
   },
   {
