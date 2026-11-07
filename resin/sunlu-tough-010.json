@@ -2,7 +2,7 @@
   "name": "Sunlu Toughness",
   "layer_height": 0.10,
   "base_exposure": 18,
-  "regular_exposure": 9.2,
+  "regular_exposure": 12.4,
   "base_layers": 2,
   "transition_layers": 5,
   "slow_lift_distance": 1,
@@ -14,6 +14,6 @@
   "cal_factor": 0.997,
   "cal_fixed_ml": 0.63,
   "tested_by": "TinyMakerWiFi",
-  "tested_on": "2026-09",
+  "tested_on": "2026-11",
   "buy_url": "https://tinymakerwifi.com/r/sunlu-tough-010"
 }

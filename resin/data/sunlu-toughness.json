@@ -12,9 +12,9 @@
  "bottle": "bottles/sunlu-toughness.png",
  "logo": "logos/sunlu.png",
  "about": "SUNLU's tough resin. Made to give a little instead of snapping, so it suits parts that have to be handled.",
- "take": "Re-measured on 11 October: at 9.2 s the lettering stayed legible and the cut-outs open, where 8.0 s went mushy. Simple and complex models still to come.",
+ "take": "Re-tested in November: strips and coupon confirm 9.2 s at 0.05 mm and 12.4 s at 0.10 mm. Soft and rubbery off the printer, it hardens over a couple of days and stays springy rather than brittle.",
  "densityMeasured": false,
- "hero": "photos/sunlu-toughness-st1.jpg",
+ "hero": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-complex-005-h1.jpg",
  "best": {
   "lh": 0.05,
   "regular": 9.2,
@@ -53,7 +53,7 @@
    "k": "complex",
    "s": "Complex model",
    "k2": "Complex",
-   "st": "todo"
+   "st": "done"
   }
  ],
  "stageNote": "",
@@ -100,6 +100,36 @@
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-02-coupon-005-k1.jpg",
    "mm": 33.3,
    "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.1,
+   "stars": 0,
+   "regular": 12.4,
+   "base": 18,
+   "txt": "The same coupon at 0.10 mm. The exposure is the 0.05 one scaled by the ratio used for every resin, 12.4 s, and it printed fine.",
+   "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-coupon-010-x1.jpg",
+   "mm": 33.0,
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 9.2,
+   "base": 18,
+   "txt": "Two 14.5 mm lattice cubes at 9.2 s. The one printed on its corner came out symmetric, the upright one with slightly bulging sides. Soft and rubbery off the printer - extra UV changed nothing - they hardened over a couple of days and stayed springy: the 1 mm support pad took about ten bends before it broke.",
+   "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-complex-005-c1.jpg",
+   "mm": 51.4,
+   "props": [
+    {
+     "q": "Face to face",
+     "u": "mm",
+     "v": "14.5"
+    }
+   ]
   }
  ]
 }
