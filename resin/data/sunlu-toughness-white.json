@@ -1,0 +1,93 @@
+{
+ "slug": "sunlu-toughness-white",
+ "maker": "Sunlu",
+ "name": "Toughness (Solid White)",
+ "product": "",
+ "type": "tough",
+ "color": "white",
+ "wash": "ipa",
+ "verdict": "Two strip tests. First, centre 9.2 s (3.7-14.7 s): all bars formed but the surface stayed doughy; bars 1-4 curled after removal, 6-7 bent after ~20 min, and 3-8 flattened again on their own within an hour (not measured). Second, centre 12.4 s (5.0-19.8 s): dry surface with visible pixels; thickness by caliper #1 5.0 s 0.10 · #2 6.8 s 0.15 · #3 8.7 s 0.23 · #4 10.5 s 0.27 · #5 12.4 s 0.30 · #6 14.3 s 0.33 · #7 16.7 s 0.37 · #8 19.8 s 0.37 mm (flat from #7). #1-#2 curled, #3-#4 slightly wavy, #5-#8 straight; holes open on #3-#6, on #7 their lower half looks light in the photo and on #8 the first hole is smaller - whether they start to close is not checked. Picked #5, 12.4 s. White cures thicker than black at the same time (black 0.27 mm at 12.4 s).",
+ "future": "",
+ "buy": "https://tinymakerwifi.com/r/sunlu-tough",
+ "bottle": "bottles/sunlu-toughness-white.png",
+ "logo": "logos/sunlu.png",
+ "about": "",
+ "take": "",
+ "densityMeasured": false,
+ "hero": "",
+ "best": {
+  "lh": 0.05,
+  "regular": 12.4,
+  "base": 18,
+  "baseLayers": 4,
+  "density": 1.157,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
+ "steps": [
+  {
+   "k": "vat",
+   "s": "Exposure strip",
+   "k2": "Strip",
+   "st": "done"
+  },
+  {
+   "k": "coupon",
+   "s": "Standard coupon",
+   "k2": "Coupon",
+   "st": "todo"
+  },
+  {
+   "k": "simple",
+   "s": "Simple model",
+   "k2": "Simple",
+   "st": "todo"
+  },
+  {
+   "k": "complex",
+   "s": "Complex model",
+   "k2": "Complex",
+   "st": "todo"
+  }
+ ],
+ "stageNote": "",
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "base_exposure": 18,
+    "regular_exposure": 12.4,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.157,
+    "cal_factor": 1.01,
+    "cal_fixed_ml": 0.63
+   }
+  }
+ ],
+ "tests": [
+  {
+   "step": "vat",
+   "kind": "vat",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 12.4,
+   "base": 18,
+   "txt": "Bars 5.0-19.8 s, after a first round centred on 9.2 s left a doughy surface. From 8.7 s the bars formed, thickness grew to 0.37 mm at 16.7 s and then stopped. Thin bars curl for a while after washing and flatten again as they dry. 12.4 s (0.30 mm) is the lowest bar with a dry surface and sharp pixels - deeper than the black bottle at the same time.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-vat-005-s1.jpg",
+   "mm": 0,
+   "props": []
+  }
+ ]
+}
