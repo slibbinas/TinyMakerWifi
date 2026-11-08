@@ -41,7 +41,7 @@
    "k": "coupon",
    "s": "Standard coupon",
    "k2": "Coupon",
-   "st": "todo"
+   "st": "done"
   },
   {
    "k": "simple",
@@ -87,6 +87,30 @@
    "txt": "Bars 5.0-19.8 s, after a first round centred on 9.2 s left a doughy surface. From 8.7 s the bars formed, thickness grew to 0.37 mm at 16.7 s and then stopped. Thin bars curl for a while after washing and flatten again as they dry. 12.4 s (0.30 mm) is the lowest bar with a dry surface and sharp pixels - deeper than the black bottle at the same time.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-vat-005-s1.jpg",
    "mm": 38.4,
+   "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 12.4,
+   "base": 18,
+   "txt": "The coupon at 12.4 s, the exposure from the strips. Printed well.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-005-k1.jpg",
+   "mm": 33.3,
+   "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.1,
+   "stars": 0,
+   "regular": 14,
+   "base": 18,
+   "txt": "The same coupon at 0.10 mm, 14 s. It printed fine.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-010-x1.jpg",
+   "mm": 33.3,
    "props": []
   }
  ]
