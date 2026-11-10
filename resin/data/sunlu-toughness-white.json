@@ -6,7 +6,7 @@
  "type": "tough",
  "color": "white",
  "wash": "ipa",
- "verdict": "Two strip tests. First, centre 9.2 s (3.7-14.7 s): all bars formed but the surface stayed doughy; bars 1-4 curled after removal, 6-7 bent after ~20 min, and 3-8 flattened again on their own within an hour (not measured). Second, centre 12.4 s (5.0-19.8 s): dry surface with visible pixels; thickness by caliper #1 5.0 s 0.10 · #2 6.8 s 0.15 · #3 8.7 s 0.23 · #4 10.5 s 0.27 · #5 12.4 s 0.30 · #6 14.3 s 0.33 · #7 16.7 s 0.37 · #8 19.8 s 0.37 mm (flat from #7). #1-#2 curled, #3-#4 slightly wavy, #5-#8 straight; holes open on #3-#6, on #7 their lower half looks light in the photo and on #8 the first hole is smaller - whether they start to close is not checked. Picked #5, 12.4 s. White cures thicker than black at the same time (black 0.27 mm at 12.4 s).",
+ "verdict": "Coupon (Test_02, no anti-aliasing) at 12.4 s, bottom 18 s x 4, 295 layers. Printed well. Vat weight before the print is uncertain, so consumption is not used for calibration.",
  "future": "",
  "buy": "https://tinymakerwifi.com/r/sunlu-tough",
  "bottle": "bottles/sunlu-toughness-white.png",
@@ -14,7 +14,7 @@
  "about": "",
  "take": "",
  "densityMeasured": false,
- "hero": "",
+ "hero": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-h1.jpg",
  "best": {
   "lh": 0.05,
   "regular": 12.4,
@@ -53,7 +53,7 @@
    "k": "complex",
    "s": "Complex model",
    "k2": "Complex",
-   "st": "todo"
+   "st": "done"
   }
  ],
  "stageNote": "",
@@ -112,6 +112,24 @@
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-010-x1.jpg",
    "mm": 33.3,
    "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 7.8,
+   "base": 18,
+   "txt": "Two 14.5 mm lattice cubes. Washed straight after printing, the lattice stays open. Left standing, even for a few minutes, resin trapped in the smallest openings (0.25-0.5 mm on flat faces) hardens and closes them - the plugs come out shinier than the surface, so they cure after the print, not during it. The black bottle does not do this. Lowering the exposure did not help; 9.2 s is the lowest time that keeps the upright cube straight, at 7.8 s it leans. Hard straight off the printer. Photo: 7.8 s, washed within minutes.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-c1.jpg",
+   "mm": 43.8,
+   "props": [
+    {
+     "q": "Face to face",
+     "u": "mm",
+     "v": "14.5"
+    }
+   ]
   }
  ]
 }
