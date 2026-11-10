@@ -13,6 +13,14 @@ the upstream TinyMaker3D firmware is `1.0.2`. Format follows
 Credits: features are by **Viktoras Šidlauskas ([@slibbinas](https://github.com/slibbinas))**
 unless noted. Community contributors are tagged inline.
 
+## [1.0.4] - 2026-11-11
+
+- **Crash reports say how long the printer had been running.** A watchdog reset leaves no
+  trace of where it happened, and since 1.0.1 they come mostly from idle printers, often a few
+  minutes after a power dip. The report now carries the uptime before the reset, so it shows
+  whether they strike at a fixed moment after start or at random. Repeated idle resets on one
+  printer are no longer folded into the first one sent. Nothing else changes for the user.
+
 ## [1.0.3] - 2026-10-30
 
 - **Long model names stay inside the dashboard.** A model name of 40 characters without

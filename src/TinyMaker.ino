@@ -1921,13 +1921,14 @@ static esp_timer_handle_t uptimeTimer = nullptr;
 static void uptimeTimerCb(void *) { rtcUpS = (uint32_t)(esp_timer_get_time() / 1000000ULL); }
 static void uptimeTrackStart() {
   bootPrevUpS = (rtcUpMagic == UPTIME_MAGIC) ? rtcUpS : UINT32_MAX;
+  rtcUpMagic = 0;   // valid again only once this run is stamping, or the next report would say 0 s
   rtcUpS = 0;
-  rtcUpMagic = UPTIME_MAGIC;
   esp_timer_create_args_t args = {};
   args.callback = &uptimeTimerCb;
   args.name = "uptime";
-  if (esp_timer_create(&args, &uptimeTimer) == ESP_OK)
-    esp_timer_start_periodic(uptimeTimer, 1000000ULL);
+  if (esp_timer_create(&args, &uptimeTimer) == ESP_OK &&
+      esp_timer_start_periodic(uptimeTimer, 1000000ULL) == ESP_OK)
+    rtcUpMagic = UPTIME_MAGIC;
 }
 
 void setup() {
