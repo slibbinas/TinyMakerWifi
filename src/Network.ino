@@ -3273,9 +3273,14 @@ void crashPingMaybe() {
   uint8_t  rsn   = crashUnsent ? crashReason : (uint8_t)bootResetReason;
   uint16_t layer = crashUnsent ? crashLayer  : 0;
   uint32_t epoch = crashUnsent ? crashEpoch  : 0;
+  uint32_t upS   = crashUnsent ? crashUpS    : bootPrevUpS;
   // Include the crash PC so two different panics on one device (same reason,
-  // no layer) are not collapsed into one report by the de-dupe below.
+  // no layer) are not collapsed into one report by the de-dupe below. An idle reset
+  // has no layer, time or PC, so without the uptime every later watchdog on the
+  // device would read as the one already sent. A mid-print death keeps its id
+  // without it: crashUpS is fixed in NVS, so its retries still de-dupe.
   String eventId = String(epoch) + ":" + String(rsn) + ":" + String(layer) + ":" + String(crashPc);
+  if (!crashUnsent) eventId += ":" + String(upS);
 
   sysPrefs.begin("tinymaker", true);
   String reported = sysPrefs.getString("crashPingId", "");
@@ -3331,7 +3336,8 @@ void crashPingMaybe() {
                 "\",\"sp\":\"" + spHex +
                 "\",\"stk\":\"" + stkHex +
                 "\",\"stksz\":" + String((uint32_t)getArduinoLoopTaskStackSize()) +
-                ",\"btbad\":" + String(crashBtCorrupt ? 1 : 0) + "}";
+                ",\"btbad\":" + String(crashBtCorrupt ? 1 : 0) +
+                ",\"up\":" + (upS == UINT32_MAX ? String("-1") : String(upS)) + "}";
   int code = http.POST(body);
   http.end();
   if (code >= 200 && code < 300) {
