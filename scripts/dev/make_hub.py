@@ -57,7 +57,7 @@ REGISTRAS = [
      "darbalaukis „00 TinyMaker dervu testai“", "Ne"),
     ("Ūkis (šis puslapis)", "http://localhost:8899/",
      "Įrankių registras ir vietiniai puslapiai: testai, scenarijai, stendai.",
-     TOOLS + "\\scripts\\dev", "darbalaukis „00 TinyMaker ukis“",
+     TOOLS + "\\scripts\\dev", "darbalaukis „Ūkis (local)“",
      "Ne - bet planų kopijos imamos iš Claude atminties"),
     ("Planai", None,
      "Vidinis planas, komandos roadmap, disko žemėlapis, 0.17 testų pultas (skiltis „Planai“ žemiau).",
