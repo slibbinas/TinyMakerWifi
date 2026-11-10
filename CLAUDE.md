@@ -107,6 +107,7 @@ Both files land in `C:/PIO-build/TinyMakerWiFi/tinymaker/`.
 - Releases are automated by [scripts/release.py](scripts/release.py) (checks → build → push+tag → gh-pages incl. manifest → GitHub Release with both .bin assets). Run it with the PlatformIO penv python after bumping `FIRMWARE_VERSION` and committing. **`--beta`** publishes everything except the self-update channel (`version.txt`/`firmware.bin` stay on the previous version); promotion = raising them manually after a quiet beta window.
 - The illustrated **user manual** lives in [docs/manual/](docs/manual/) (self-contained HTML + bundled images) and is published to gh-pages at `/manual/` — the dashboard header links to it. Update it in batch before releases, not per change.
 - README mockup PNGs show version strings; refresh them with [scripts/refresh_mockups.py](scripts/refresh_mockups.py) (patches the text at fixed coordinates, versions from platformio.ini + git tags) before the release commit. Needs Pillow in the penv python.
+- **A release with nothing the user sees changing** (e.g. 1.0.4, a telemetry field only): change only what `release.py` demands - `FIRMWARE_VERSION` ×2, the manual's two version spots in the repo, CHANGELOG. Leave the README mockups, the demo, the manual on gh-pages and the tests panel alone; `release_doctor` then shows demo / manual (live) red, and that is expected (V 2026-11-12: „o kam kažką keist, jei niekas useriui nesikeitė?").
 - Hosting setup (what to publish on the `gh-pages` branch) is documented in [Firmware_Hosting/](Firmware_Hosting/).
 
 ## Source layout
