@@ -11,9 +11,10 @@
 <meta name="description" content="Print settings dialled in on the TinyMaker itself: exposure, base layers, lift and density for each resin, with the test prints they came from. A colour LCD and a 41 x 31 mm plate need their own numbers - the ones on the bottle do not transfer.">
 <!-- Piktograma - TIKRAS failas, ne data: URI. Google ja parsisiuncia atskirai ir
      data: adreso parsisiusti negali: 2026-10-08 paieskoje vietoj zenklo buvo gaublys.
-     Tas pats adresas kaip landinge - viso domeno piktograma turi buti viena. -->
-<link rel="icon" type="image/png" sizes="144x144" href="https://tinymakerwifi.com/favicon.png">
-<link rel="apple-touch-icon" href="https://tinymakerwifi.com/apple-touch-icon.png">
+     Dervu puslapis turi SAVO piktograma (V 2026-11-10: dervu ikona is Resin Lab nuorodos,
+     „labai atitinka puslapio turini"), ne bendra domeno - sprendimas sąmoningas. -->
+<link rel="icon" type="image/png" sizes="256x256" href="resin-icon.png">
+<link rel="apple-touch-icon" href="resin-icon.png">
 <script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 <style>
 :root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f;--pill:#3e3e46}
@@ -26,7 +27,7 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 /* Soninis tarpas 20px - toks pat kaip .wrap. Su nuline sonine reiksme jis buvo
    nurasomas, ir siaurame lange tekstas lipdavo prie pat ekrano krasto. */
 .hero{padding:44px 20px 26px;text-align:center;position:relative}
-.hero svg.logo{width:60px;height:60px}
+.hero .logo{width:60px;height:60px}
 h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 /* Toks pat plotis kaip dervų kortelių: siauresnis tekstas atrodė kaip kito puslapio dalis. */
 .tag{font-size:17px;color:var(--tag);margin:0 auto;line-height:1.55;text-wrap:balance}
@@ -638,7 +639,7 @@ details.row>summary:hover{background:var(--btnsec)}
 <div class="wrap hero">
   <p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo; Resins</p>
   <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
-  <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="8" y="40" width="48" height="9" rx="3" fill="#e8720c"/><rect x="14" y="27" width="36" height="9" rx="3" fill="#e8720c" opacity=".75"/><rect x="20" y="14" width="24" height="9" rx="3" fill="#e8720c" opacity=".5"/><path d="M22 6 A14 14 0 0 1 42 6" fill="none" stroke="#4da3ff" stroke-width="5" stroke-linecap="round"/></svg>
+  <img class="logo" src="resin-icon.png" alt="" width="60" height="60">
   <h1>Resin profiles for the TinyMaker</h1>
   <p class="tag">Pick a resin, tap once, and the printer takes its exposure, bottom layers, lift
   and density - all calibrated on this machine.</p>
