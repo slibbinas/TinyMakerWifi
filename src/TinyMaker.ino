@@ -813,6 +813,11 @@ bool crashUnsent = false;    // ...and the crash report has not gone out yet (NV
 uint8_t crashReason = 0;     // its esp_reset_reason value
 uint16_t crashLayer = 0;     // last checkpointed layer of that print
 uint32_t crashEpoch = 0;     // ~when it died (last checkpoint's NTP epoch; 0 = unknown)
+// How long the previous run had been up when it reset (seconds; UINT32_MAX = unknown).
+// A watchdog reset leaves no coredump, so this is the only clue whether it strikes at
+// a fixed moment after boot (the firmware confirmation at 60 s, say) or at random.
+uint32_t bootPrevUpS = UINT32_MAX;
+uint32_t crashUpS = UINT32_MAX;   // the same, for the mid-print death being reported
 
 // Panic backtrace, read once at boot from the ELF coredump the ESP wrote to the
 // coredump partition (min_spiffs.csv already carries it, so this works on every
@@ -913,6 +918,8 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
     sysPrefs.putUChar("crashRsn", crashReason);
     sysPrefs.putUShort("crashLyr", crashLayer);
     sysPrefs.putULong("crashEpo", crashEpoch);
+    crashUpS = bootPrevUpS;
+    sysPrefs.putULong("crashUp", crashUpS);
     sysPrefs.putBool("crashPend", true);   // cleared only once the report is sent
     crashSeen = true;
     crashUnsent = true;
@@ -921,6 +928,7 @@ void readBootTelemetry() {  // called once in setup(), after loadDeviceConfig()
     crashReason = sysPrefs.getUChar("crashRsn", 0);
     crashLayer = sysPrefs.getUShort("crashLyr", 0);
     crashEpoch = sysPrefs.getULong("crashEpo", 0);
+    crashUpS = sysPrefs.getULong("crashUp", UINT32_MAX);
     crashUnsent = sysPrefs.getBool("crashPend", false);
   }
   sysPrefs.end();
@@ -1902,11 +1910,32 @@ void tmRestart() {
   ESP.restart();
 }
 
+// Uptime for the crash report (bootPrevUpS): a once-a-second stamp in RTC memory,
+// which keeps its contents through a reset (watchdog, panic, brownout, restart) but
+// not through a power cut - the magic word tells a stamp from power-on garbage.
+// esp_timer runs apart from loopTask, so a hung loop still leaves its last second.
+#define UPTIME_MAGIC 0x55505431u   // "UPT1"
+RTC_NOINIT_ATTR static uint32_t rtcUpMagic;
+RTC_NOINIT_ATTR static uint32_t rtcUpS;
+static esp_timer_handle_t uptimeTimer = nullptr;
+static void uptimeTimerCb(void *) { rtcUpS = (uint32_t)(esp_timer_get_time() / 1000000ULL); }
+static void uptimeTrackStart() {
+  bootPrevUpS = (rtcUpMagic == UPTIME_MAGIC) ? rtcUpS : UINT32_MAX;
+  rtcUpS = 0;
+  rtcUpMagic = UPTIME_MAGIC;
+  esp_timer_create_args_t args = {};
+  args.callback = &uptimeTimerCb;
+  args.name = "uptime";
+  if (esp_timer_create(&args, &uptimeTimer) == ESP_OK)
+    esp_timer_start_periodic(uptimeTimer, 1000000ULL);
+}
+
 void setup() {
 
   #if ENABLE_SERIAL_DEBUG
   Serial.begin(115200);
   #endif
+  uptimeTrackStart();   // first: read the last run's uptime before this run overwrites it
   otaConfirmAfterBoot();
 
   // -----------------------------------------------------------------------------------
