@@ -6,7 +6,7 @@
  "type": "tough",
  "color": "white",
  "wash": "ipa",
- "verdict": "Coupon (Test_02, no anti-aliasing) at 12.4 s, bottom 18 s x 4, 295 layers. Printed well. Vat weight before the print is uncertain, so consumption is not used for calibration.",
+ "verdict": "Same cubes at 9.2 s, left standing before washing: the smallest openings closed up, the upright cube came out straight and hard off the printer. Basis for the 0.05 mm profile at 9.2 s, with coupons at 12.4 and 7.8 s both fine.",
  "future": "",
  "buy": "https://tinymakerwifi.com/r/sunlu-tough",
  "bottle": "bottles/sunlu-toughness-white.png",
@@ -17,7 +17,7 @@
  "hero": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-h1.jpg",
  "best": {
   "lh": 0.05,
-  "regular": 12.4,
+  "regular": 9.2,
   "base": 18,
   "baseLayers": 4,
   "density": 1.157,
@@ -62,7 +62,7 @@
    "lh": 0.05,
    "p": {
     "base_exposure": 18,
-    "regular_exposure": 12.4,
+    "regular_exposure": 9.2,
     "base_layers": 4,
     "transition_layers": 5,
     "slow_lift_distance": 1,
@@ -111,6 +111,18 @@
    "txt": "The same coupon at 0.10 mm, 14 s. It printed fine.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-010-x1.jpg",
    "mm": 33.3,
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 9.2,
+   "base": 18,
+   "txt": "The same cubes at 9.2 s, the exposure chosen for the 0.05 mm profile: the upright cube comes out straight, at 7.8 s it leans. Left standing before washing, so the smallest openings closed up as described below. The coupon is fine at both 12.4 and 7.8 s, so 9.2 s sits safely between them. Photo: the 12.4 s print, which came out the same, also left standing.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-09-complex-005-c1.jpg",
+   "mm": 37.2,
    "props": []
   },
   {
