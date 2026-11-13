@@ -11,6 +11,11 @@
    "hidden": false
   },
   {
+   "slug": "sunlu-tough-white",
+   "sritis": "tested",
+   "hidden": false
+  },
+  {
    "slug": "anycubic-ww-clear-005",
    "sritis": "tested",
    "hidden": false
@@ -73,11 +78,6 @@
   {
    "slug": "anycubic-water-washable-clear",
    "sritis": "queued",
-   "hidden": false
-  },
-  {
-   "slug": "sunlu-toughness-white",
-   "sritis": "bench",
    "hidden": false
   }
  ]

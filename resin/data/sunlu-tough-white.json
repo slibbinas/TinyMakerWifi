@@ -1,35 +1,23 @@
 {
- "slug": "sunlu-toughness-white",
+ "slug": "sunlu-tough-white",
  "maker": "Sunlu",
  "name": "Toughness (Solid White)",
- "product": "",
  "type": "tough",
  "color": "white",
  "wash": "ipa",
+ "demo": false,
+ "testedOn": "2026-11",
  "verdict": "Same cubes at 9.2 s, left standing before washing: the smallest openings closed up, the upright cube came out straight and hard off the printer. Basis for the 0.05 mm profile at 9.2 s, with coupons at 12.4 and 7.8 s both fine.",
  "future": "",
- "buy": "https://tinymakerwifi.com/r/sunlu-tough",
+ "buy": "https://tinymakerwifi.com/r/sunlu-tough-white",
  "bottle": "bottles/sunlu-toughness-white.png",
  "logo": "logos/sunlu.png",
+ "product": "",
+ "hero": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-h1.jpg",
+ "retest": false,
  "about": "",
  "take": "",
  "densityMeasured": false,
- "hero": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-h1.jpg",
- "best": {
-  "lh": 0.05,
-  "regular": 9.2,
-  "base": 18,
-  "baseLayers": 4,
-  "density": 1.157,
-  "transition": 5,
-  "lift": [
-   1,
-   2,
-   40,
-   50,
-   50
-  ]
- },
  "steps": [
   {
    "k": "vat",
@@ -47,7 +35,7 @@
    "k": "simple",
    "s": "Simple model",
    "k2": "Simple",
-   "st": "todo"
+   "st": "done"
   },
   {
    "k": "complex",
@@ -57,25 +45,21 @@
   }
  ],
  "stageNote": "",
- "full": [
-  {
-   "lh": 0.05,
-   "p": {
-    "base_exposure": 18,
-    "regular_exposure": 9.2,
-    "base_layers": 4,
-    "transition_layers": 5,
-    "slow_lift_distance": 1,
-    "fast_lift_distance": 2,
-    "slow_lift_feedrate": 40,
-    "fast_lift_feedrate": 50,
-    "drop_back_feedrate": 50,
-    "density": 1.157,
-    "cal_factor": 1.01,
-    "cal_fixed_ml": 0.63
-   }
-  }
- ],
+ "best": {
+  "lh": 0.05,
+  "regular": 9.2,
+  "base": 18,
+  "baseLayers": 4,
+  "density": 1.157,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
  "tests": [
   {
    "step": "vat",
@@ -154,6 +138,63 @@
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-12-coupon-010-x2.jpg",
    "mm": 32.5,
    "props": []
+  },
+  {
+   "step": "simple",
+   "kind": "simple",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 9.2,
+   "base": 18,
+   "txt": "Bend strips from 0.4 to 1.5 mm at 9.2 s, each bent back and forth about five times, 17 hours after printing. None broke: the thin strips flex and stay bent instead of snapping, while the thick base plate barely bends at all. Firm rather than brittle - fine details on figurines survive handling, and larger parts stay stiff and take knocks.",
+   "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-13-simple-005-l1.jpg",
+   "mm": 70,
+   "props": []
   }
- ]
+ ],
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "layer_height": 0.05,
+    "base_exposure": 18,
+    "regular_exposure": 9.2,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.157,
+    "cal_factor": 1.01,
+    "cal_fixed_ml": 0.63
+   }
+  },
+  {
+   "lh": 0.1,
+   "p": {
+    "layer_height": 0.1,
+    "base_exposure": 18,
+    "regular_exposure": 12.4,
+    "base_layers": 2,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.157,
+    "cal_factor": 1.01,
+    "cal_fixed_ml": 0.63
+   }
+  }
+ ],
+ "alt": {
+  "lh": 0.1,
+  "regular": 12.4,
+  "base": 18,
+  "baseLayers": 2,
+  "transition": 5
+ }
 }
