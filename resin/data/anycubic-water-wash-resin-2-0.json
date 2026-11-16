@@ -1,0 +1,93 @@
+{
+ "slug": "anycubic-water-wash-resin-2-0",
+ "maker": "Anycubic",
+ "name": "Water-Washable",
+ "product": "Water-Wash Resin 2.0",
+ "type": "standard",
+ "color": "black",
+ "wash": "water",
+ "verdict": "Strip test, centre 14.0 s (Anycubic factory value, bars 5.6-22.4 s). Thickness by caliper: #1 5.6 s 0.11 · #2 7.7 s 0.19 · #3 9.8 s 0.24 · #4 11.9 s 0.26 · #5 14.0 s 0.29 · #6 16.1 s 0.33 · #7 18.9 s 0.31 · #8 22.4 s 0.35 mm (still growing at #8). The bars lay flat at first and all of them curled while drying - possibly from the water wash (not checked); curl does not separate the bars. Holes look the same on every bar and detail is good throughout. Picked #3, 9.8 s.",
+ "future": "",
+ "buy": "https://tinymakerwifi.com/r/anycubic-ww",
+ "bottle": "bottles/anycubic-water-wash-resin-2-0.png",
+ "logo": "logos/anycubic.png",
+ "about": "Anycubic's water-wash standard resin. It cleans in plain water instead of alcohol, which is why it gets used for quick parts.",
+ "take": "The published numbers print, but they were set by hand before the current method existed. A full re-run is queued.",
+ "densityMeasured": false,
+ "hero": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-card-01.jpg",
+ "best": {
+  "lh": 0.05,
+  "regular": 14.0,
+  "base": 35,
+  "baseLayers": 4,
+  "density": 1.1,
+  "transition": 5,
+  "lift": [
+   1,
+   2,
+   40,
+   50,
+   50
+  ]
+ },
+ "steps": [
+  {
+   "k": "vat",
+   "s": "Exposure strip",
+   "k2": "Strip",
+   "st": "done"
+  },
+  {
+   "k": "coupon",
+   "s": "Standard coupon",
+   "k2": "Coupon",
+   "st": "todo"
+  },
+  {
+   "k": "simple",
+   "s": "Simple model",
+   "k2": "Simple",
+   "st": "todo"
+  },
+  {
+   "k": "complex",
+   "s": "Complex model",
+   "k2": "Complex",
+   "st": "todo"
+  }
+ ],
+ "stageNote": "",
+ "full": [
+  {
+   "lh": 0.05,
+   "p": {
+    "base_exposure": 35,
+    "regular_exposure": 14.0,
+    "base_layers": 4,
+    "transition_layers": 5,
+    "slow_lift_distance": 1,
+    "fast_lift_distance": 2,
+    "slow_lift_feedrate": 40,
+    "fast_lift_feedrate": 50,
+    "drop_back_feedrate": 50,
+    "density": 1.1,
+    "cal_factor": 1.0,
+    "cal_fixed_ml": 0.0
+   }
+  }
+ ],
+ "tests": [
+  {
+   "step": "vat",
+   "kind": "vat",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 14.0,
+   "base": 35,
+   "txt": "Strip test, centre 14.0 s (Anycubic factory value, bars 5.6-22.4 s). Thickness by caliper: #1 5.6 s 0.11 · #2 7.7 s 0.19 · #3 9.8 s 0.24 · #4 11.9 s 0.26 · #5 14.0 s 0.29 · #6 16.1 s 0.33 · #7 18.9 s 0.31 · #8 22.4 s 0.35 mm (still growing at #8). The bars lay flat at first and all of them curled while drying - possibly from the water wash (not checked); curl does not separate the bars. Holes look the same on every bar and detail is good throughout. Picked #3, 9.8 s.",
+   "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-14-vat-005-s1.jpg",
+   "mm": 52.2,
+   "props": []
+  }
+ ]
+}
