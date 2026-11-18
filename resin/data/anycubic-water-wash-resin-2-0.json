@@ -6,7 +6,7 @@
  "type": "standard",
  "color": "black",
  "wash": "water",
- "verdict": "Strip test, centre 14.0 s (Anycubic factory value, bars 5.6-22.4 s). Thickness by caliper: #1 5.6 s 0.11 · #2 7.7 s 0.19 · #3 9.8 s 0.24 · #4 11.9 s 0.26 · #5 14.0 s 0.29 · #6 16.1 s 0.33 · #7 18.9 s 0.31 · #8 22.4 s 0.35 mm (still growing at #8). The bars lay flat at first and all of them curled while drying - possibly from the water wash (not checked); curl does not separate the bars. Holes look the same on every bar and detail is good throughout. Picked #3, 9.8 s.",
+ "verdict": "Coupon at 9.8 s (strip bar #3). Printed complete: lettering and logo sharp, the grid and slots in the back wall open, the ring with its cross, the loops and the hooks all formed. Every pin in the comb printed; a few of the thinnest bend like hair after washing, which is not a print fault, and the side wall shows a few small bumps. Used 2.5 g (about 2.3 ml).",
  "future": "",
  "buy": "https://tinymakerwifi.com/r/anycubic-ww",
  "bottle": "bottles/anycubic-water-wash-resin-2-0.png",
@@ -17,7 +17,7 @@
  "hero": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-card-01.jpg",
  "best": {
   "lh": 0.05,
-  "regular": 14.0,
+  "regular": 9.8,
   "base": 35,
   "baseLayers": 4,
   "density": 1.1,
@@ -41,7 +41,7 @@
    "k": "coupon",
    "s": "Standard coupon",
    "k2": "Coupon",
-   "st": "todo"
+   "st": "done"
   },
   {
    "k": "simple",
@@ -62,7 +62,7 @@
    "lh": 0.05,
    "p": {
     "base_exposure": 35,
-    "regular_exposure": 14.0,
+    "regular_exposure": 9.8,
     "base_layers": 4,
     "transition_layers": 5,
     "slow_lift_distance": 1,
@@ -87,6 +87,18 @@
    "txt": "Strip test, centre 14.0 s (Anycubic factory value, bars 5.6-22.4 s). Thickness by caliper: #1 5.6 s 0.11 · #2 7.7 s 0.19 · #3 9.8 s 0.24 · #4 11.9 s 0.26 · #5 14.0 s 0.29 · #6 16.1 s 0.33 · #7 18.9 s 0.31 · #8 22.4 s 0.35 mm (still growing at #8). The bars lay flat at first and all of them curled while drying - possibly from the water wash (not checked); curl does not separate the bars. Holes look the same on every bar and detail is good throughout. Picked #3, 9.8 s.",
    "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-14-vat-005-s1.jpg",
    "mm": 52.2,
+   "props": []
+  },
+  {
+   "step": "coupon",
+   "kind": "coupon",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 9.8,
+   "base": 35,
+   "txt": "Standard coupon at 9.8 s, the third strip. Everything formed: sharp lettering, open grid and slots, the ring, loops and hooks. Every pin printed; the thinnest bend like hair after washing. 2.3 ml of resin.",
+   "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-16-coupon-005-k1.jpg",
+   "mm": 38.1,
    "props": []
   }
  ]
