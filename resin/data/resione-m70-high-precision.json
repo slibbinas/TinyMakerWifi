@@ -71,6 +71,7 @@
    "txt": "Bars 6-24 s. Up to 12.8 s the bars formed but curled and let go of the film; from 15 s they hold and lie flat. Thickness stops growing at 12.8 s - the light goes only shallow into this resin, as a high-precision one should - so the curl, not the thickness, sets the start: 15 s.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-26-vat-005-s1.jpg",
    "mm": 54.8,
+   "credit": null,
    "props": []
   },
   {
@@ -83,6 +84,7 @@
    "txt": "The coupon at 15 s. Printed with anti-aliasing and without - the two could not be told apart, side by side or up close.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-27-coupon-005-k2.jpg",
    "mm": 34.4,
+   "credit": null,
    "props": []
   },
   {
@@ -95,6 +97,7 @@
    "txt": "Two pairs of 14.5 mm lattice cubes at 15 s: with anti-aliasing on top (one mark), without below (two marks). Clean lattices, no visible difference between the pairs.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-28-complex-005-c1.jpg",
    "mm": 60.2,
+   "credit": null,
    "props": [
     {
      "q": "Face to face",
@@ -102,6 +105,22 @@
      "v": "14.5"
     }
    ]
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 5,
+   "regular": 15,
+   "base": 60,
+   "txt": "Tower of Agony at 33 mm, sliced with the standard TinyMaker profile, supports and pad: printed in full, and the quality is excellent.",
+   "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-10-31-complex-005-t1.jpg",
+   "mm": 55.0,
+   "credit": {
+    "text": "Tower of Agony by Naqash Afzal",
+    "url": "https://makerworld.com/en/models/3101093"
+   },
+   "props": []
   },
   {
    "step": "coupon",
@@ -113,6 +132,7 @@
    "txt": "The same coupon at 0.10 mm. The exposure is the 0.05 one scaled by the ratio used for every resin, 20 s, and it printed as well as at 0.05. The tip of the small hammer broke off by accident afterwards - no matter, it had printed.",
    "photo": "photos/resione-m70-high-precision-resione-m70-high-precision-2026-11-02-coupon-010-x1.jpg",
    "mm": 34.5,
+   "credit": null,
    "props": []
   }
  ],

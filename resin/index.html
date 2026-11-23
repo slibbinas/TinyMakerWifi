@@ -340,6 +340,8 @@ footer a{color:var(--muted2);text-decoration:underline}
   background:var(--accent);color:#fff;border-radius:50%;font-size:10.5px;margin-right:6px;vertical-align:1px}
 .tile p{margin:5px 0 6px;font-size:12.5px;line-height:1.45;color:var(--text)}
 .tile .nums{font-size:11.5px;color:var(--muted)}
+.tile .credit{display:block;margin:0 0 6px;font-size:11.5px;color:var(--muted)}
+.tile .credit a{color:inherit;text-decoration:underline}
 .fut{margin:0;font-size:13px;line-height:1.55;color:var(--muted)}
 @media(max-width:760px){
   .rc .top{grid-template-columns:1fr;gap:0}
@@ -1002,6 +1004,8 @@ function card(r,bench){
                 :'<div class="noimg">'+pic(t.kind)+'</div>';
       h+='<figcaption><b><span class="n">'+(i+1)+'</span>'+esc(t.step)+(t.stars?' '+stars(t.stars):'')+'</b>';
       if(t.txt) h+='<p>'+esc(t.txt)+'</p>';
+      /* Svetimas modelis - autorius ir nuoroda (autoriaus leidimo salyga). */
+      if(t.credit&&/^https:\/\//.test(t.credit.url)) h+='<span class="credit">Model: <a href="'+esc(t.credit.url).replace(/"/g,'&quot;')+'" target="_blank" rel="noopener">'+esc(t.credit.text)+'</a></span>';
       h+='<span class="nums">'+t.lh.toFixed(2)+' mm &middot; '+t.regular.toFixed(1)+' s &middot; bottom '+t.base+' s</span>';
       h+='</figcaption></figure>';
     });
@@ -1300,6 +1304,8 @@ function chips(host,key,map,all){
          (kiek?' <span class="lbst">'+kiek+'/5</span>':'')+'</span>';
       var tx=t.querySelector('figcaption p');
       if(tx) h+='<span class="lbtxt">'+tx.textContent.trim()+'</span>';
+      var cr=t.querySelector('.credit');
+      if(cr) h+='<span class="lbtxt">'+cr.innerHTML+'</span>';
       if(n)  h+='<span class="lbnums">'+n.textContent.trim()+'</span>';
     }else if(rc){
       var tab=rc.querySelector('.lht.on'), pane=rc.querySelector('.lhpane:not(.off)'), b=[];
@@ -1323,7 +1329,7 @@ function chips(host,key,map,all){
   var SET=[], IDX=0;
   function rinkinys(a){
     var rc=a.closest('.rc');
-    SET=rc?Array.prototype.slice.call(rc.querySelectorAll('a.pic.shot, .tile a')):[a];
+    SET=rc?Array.prototype.slice.call(rc.querySelectorAll('a.pic.shot, .tile > a')):[a];
     IDX=Math.max(0,SET.indexOf(a));
     var yra=SET.length>1;
     document.getElementById('lbp').hidden=!yra;
@@ -1344,7 +1350,7 @@ function chips(host,key,map,all){
   });
 
   document.addEventListener('click',function(ev){
-    var a=ev.target.closest&&ev.target.closest('a.pic.shot, .th a, .tile a');
+    var a=ev.target.closest&&ev.target.closest('a.pic.shot, .th a, .tile > a');
     if(a&&a.getAttribute('href')){ ev.preventDefault();
       rinkinys(a); open(a.getAttribute('href'), lbInfo(a));
     }
