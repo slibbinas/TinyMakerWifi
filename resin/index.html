@@ -917,7 +917,9 @@ function heroShot(r){
 /* Kadro tikras plotis mm tam bandymui, kurio nuotrauka stovi korteles virsuje. */
 function heroMm(r,shot){
   var t=(r.tests||[]).filter(function(x){return x.photo===shot;})[0];
-  return t&&t.mm?t.mm:0;
+  if(t&&t.mm) return t.mm;
+  /* Atskiras virselio kadras (ne bandymo) - jo plotis irase. */
+  return shot===r.hero&&r.heroMm?r.heroMm:0;
 }
 /* Kaip skaičiai gauti - viena eilutė, visada. Trys galimos būsenos, ir visos
    trys yra teiginiai apie metodą, ne apie dervą. */

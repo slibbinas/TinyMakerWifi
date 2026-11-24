@@ -14,6 +14,7 @@
  "logo": "logos/anycubic.png",
  "product": "Water-Wash Resin 2.0",
  "hero": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-card-01.jpg",
+ "heroMm": 150.0,
  "retest": true,
  "about": "Anycubic's water-wash standard resin. It cleans in plain water instead of alcohol, which is why it gets used for quick parts.",
  "take": "The published numbers print, but they were set by hand before the current method existed. A full re-run is queued.",

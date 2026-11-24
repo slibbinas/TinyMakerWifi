@@ -14,6 +14,7 @@
  "logo": "logos/sunlu.png",
  "product": "",
  "hero": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-h1.jpg",
+ "heroMm": 34.3,
  "retest": false,
  "about": "",
  "take": "",
@@ -71,6 +72,7 @@
    "txt": "Bars 5.0-19.8 s, after a first round centred on 9.2 s left a doughy surface. From 8.7 s the bars formed, thickness grew to 0.37 mm at 16.7 s and then stopped. Thin bars curl for a while after washing and flatten again as they dry. 12.4 s (0.30 mm) is the lowest bar with a dry surface and sharp pixels - deeper than the black bottle at the same time.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-vat-005-s1.jpg",
    "mm": 38.4,
+   "credit": null,
    "props": []
   },
   {
@@ -83,6 +85,7 @@
    "txt": "The coupon at 12.4 s, the exposure from the strips. Printed well.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-005-k1.jpg",
    "mm": 33.3,
+   "credit": null,
    "props": []
   },
   {
@@ -95,6 +98,7 @@
    "txt": "The same coupon at 0.10 mm, 14 s. It printed fine.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-08-coupon-010-x1.jpg",
    "mm": 33.3,
+   "credit": null,
    "props": []
   },
   {
@@ -107,6 +111,7 @@
    "txt": "The same cubes at 9.2 s, the exposure chosen for the 0.05 mm profile: the upright cube comes out straight, at 7.8 s it leans. Left standing before washing, so the smallest openings closed up as described below. The coupon is fine at both 12.4 and 7.8 s, so 9.2 s sits safely between them. Photo: the 12.4 s print, which came out the same, also left standing.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-09-complex-005-c1.jpg",
    "mm": 37.2,
+   "credit": null,
    "props": []
   },
   {
@@ -119,6 +124,7 @@
    "txt": "Two 14.5 mm lattice cubes. Washed straight after printing, the lattice stays open. Left standing, even for a few minutes, resin trapped in the smallest openings (0.25-0.5 mm on flat faces) hardens and closes them - the plugs come out shinier than the surface, so they cure after the print, not during it. The black bottle does not do this. Lowering the exposure did not help; 9.2 s is the lowest time that keeps the upright cube straight, at 7.8 s it leans. Hard straight off the printer. Photo: 7.8 s, washed within minutes.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-10-complex-005-c1.jpg",
    "mm": 43.8,
+   "credit": null,
    "props": [
     {
      "q": "Face to face",
@@ -137,6 +143,7 @@
    "txt": "The coupon at 0.10 mm, 12.4 s - the 0.05 mm time scaled by the same ratio as the black bottle. Printed fine, so the 14 s tried first is not needed.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-12-coupon-010-x2.jpg",
    "mm": 32.5,
+   "credit": null,
    "props": []
   },
   {
@@ -149,6 +156,7 @@
    "txt": "Bend strips from 0.4 to 1.5 mm at 9.2 s, each bent back and forth about five times, 17 hours after printing. None broke: the thin strips flex and stay bent instead of snapping, while the thick base plate barely bends at all. Firm rather than brittle - fine details on figurines survive handling, and larger parts stay stiff and take knocks.",
    "photo": "photos/sunlu-toughness-white-sunlu-toughness-white-2026-11-13-simple-005-l1.jpg",
    "mm": 70,
+   "credit": null,
    "props": []
   }
  ],
