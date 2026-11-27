@@ -73,6 +73,7 @@
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-02-vat-005-s1.jpg",
    "mm": 34.4,
    "credit": null,
+   "post": false,
    "props": []
   },
   {
@@ -86,6 +87,7 @@
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-02-coupon-005-k1.jpg",
    "mm": 33.3,
    "credit": null,
+   "post": false,
    "props": []
   },
   {
@@ -99,6 +101,7 @@
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-coupon-010-x1.jpg",
    "mm": 33.0,
    "credit": null,
+   "post": false,
    "props": []
   },
   {
@@ -112,6 +115,7 @@
    "photo": "photos/sunlu-toughness-sunlu-toughness-2026-11-03-complex-005-c1.jpg",
    "mm": 51.4,
    "credit": null,
+   "post": true,
    "props": [
     {
      "q": "Face to face",

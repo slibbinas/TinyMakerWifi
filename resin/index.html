@@ -17,9 +17,9 @@
 <link rel="apple-touch-icon" href="resin-icon.png">
 <script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 <style>
-:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f;--pill:#3e3e46}
-[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7}
-@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7}}
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--line2:#2c2c31;--text:#eee;--muted:#aaa;--muted2:#8a8a92;--tag:#bbb;--accent:#e8720c;--link:#84bcf8;--btnsec:#2e2e33;--btnsec-h:#3c3c42;--btnsec-t:#eee;--input:#1d1d20;--shot:#0e0e10;--ok:#2fbf4f;--pill:#3e3e46;--warn:#ff6b6b}
+[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7;--warn:#c62828}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--line2:#d9dbe0;--text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--tag:#444;--link:#155fb0;--btnsec:#e2e4e8;--btnsec-h:#d3d6db;--btnsec-t:#26282c;--input:#fff;--shot:#eceef1;--ok:#1d8a38;--pill:#cdd1d7;--warn:#c62828}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
 a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
@@ -37,6 +37,12 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
   padding:14px 18px;font-size:14px;line-height:1.6;color:var(--muted);text-align:left}
 .hnote b{color:var(--text)}
 .hnote>div+div{margin-top:10px}
+/* Spausdinimo testai, ne post-processing (V 2026-11-27): raudonas, kad nesupainiotu su testu rezultatu. */
+.pnote{margin:14px auto 0;border:1px solid var(--warn);border-left-width:4px;border-radius:12px;
+  padding:12px 18px;font-size:14px;line-height:1.6;color:var(--muted);text-align:left}
+.pnote>b{color:var(--warn)}
+.pnote p b{color:var(--text)}
+.pnote p{margin:6px 0 0}
 .hcred{display:block;margin-top:8px;font-size:12.5px;color:var(--muted2)}
 .hcred a{color:var(--link)}
 @media(max-width:620px){.hnote{padding:14px}}
@@ -340,6 +346,8 @@ footer a{color:var(--muted2);text-decoration:underline}
   background:var(--accent);color:#fff;border-radius:50%;font-size:10.5px;margin-right:6px;vertical-align:1px}
 .tile p{margin:5px 0 6px;font-size:12.5px;line-height:1.45;color:var(--text)}
 .tile .nums{font-size:11.5px;color:var(--muted)}
+.tile .pp{display:block;margin:0 0 6px;padding:4px 7px;border-radius:6px;font-size:11.5px;line-height:1.4;
+  color:var(--warn);border:1px solid var(--warn)}
 .tile .credit{display:block;margin:0 0 6px;font-size:11.5px;color:var(--muted)}
 .tile .credit a{color:inherit;text-decoration:underline}
 .fut{margin:0;font-size:13px;line-height:1.55;color:var(--muted)}
@@ -646,17 +654,19 @@ details.row>summary:hover{background:var(--btnsec)}
   <p class="tag">Pick a resin, tap once, and the printer takes its exposure, bottom layers, lift
   and density - all calibrated on this machine.</p>
   <div class="hnote">
-  <div><b>Why a separate list for this printer?</b> The TinyMaker masks with a
-  colour screen, not a mono one, and a colour screen lets through far less UV - the same resin
-  needs about <b>four times</b> the exposure written on the bottle. Its plate is small as well,
-  <b>41 &times; 31 mm</b>, so parts release from the film with different forces. Settings from
-  other printers do not fit.</div>
-  <div><b>Dialled in for the printer, not a resin review.</b> Each resin is tested as far as it
-  takes to print reliably on the TinyMaker - exposure, bottom layers, lift. That makes the profile
-  a dependable starting point, and owners can fine-tune it from there for their own vat and room.
-  Material properties are only checked by hand, not measured in a lab. If one of them needs a
-  closer look - flexibility, for example - the tests can be extended and this page updated with
-  them.</div></div>
+  <div><b>Why a separate list?</b> The TinyMaker masks with a <b>colour screen</b>, which lets through far
+  less UV than a mono one: the same resin needs about <b>four times</b> the exposure on the bottle. The small
+  <b>41 &times; 31 mm</b> plate also releases parts differently, so settings from other printers do not fit.</div>
+  <div><b>Dialled in for the printer, not a resin review.</b> Each resin is tested until it prints reliably
+  here - exposure, bottom layers, lift - giving a <b>dependable starting point</b> to fine-tune for your own
+  vat and room. Material properties are checked by hand, not in a lab; tests can be extended where needed.</div></div>
+  <div class="pnote"><b>Print tests only - post-processing is not tested yet.</b>
+  <p>Each result checks the print: exposure, detail, release from the plate. <b>Washing, drying and curing</b>
+  come next and matter most for <b>small parts and fine lattices</b>, where swelling and shrinking stress thin
+  walls. A cracked or crumbled part in a photo means the <b>print succeeded</b> and the damage came while
+  washing or drying - not that the resin is bad. Some resins soak up water or alcohol and need <b>short
+  washing and thorough drying before curing</b>; makers say so, but give no exact times.</p>
+  <p>Next: <b>measured wash, dry and cure settings</b> for each resin, with an automated TinyMaker curing station.</p></div>
   <div class="ctrl">
   <div class="counts" id="counts"></div>
   <div class="filterbar">
@@ -1005,6 +1015,7 @@ function card(r,bench){
       h+=t.photo?'<a href="'+t.photo+'"'+(t.mm?' data-mm="'+t.mm+'"':'')+' target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>'
                 :'<div class="noimg">'+pic(t.kind)+'</div>';
       h+='<figcaption><b><span class="n">'+(i+1)+'</span>'+esc(t.step)+(t.stars?' '+stars(t.stars):'')+'</b>';
+      if(t.post) h+='<span class="pp">&#10003; Print passed &middot; damaged in post-processing (washing / drying). Wash, dry &amp; cure test coming</span>';
       if(t.txt) h+='<p>'+esc(t.txt)+'</p>';
       /* Svetimas modelis - autorius ir nuoroda (autoriaus leidimo salyga). */
       if(t.credit&&/^https:\/\//.test(t.credit.url)) h+='<span class="credit">Model: <a href="'+esc(t.credit.url).replace(/"/g,'&quot;')+'" target="_blank" rel="noopener">'+esc(t.credit.text)+'</a></span>';

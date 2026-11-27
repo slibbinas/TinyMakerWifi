@@ -6,7 +6,7 @@
  "type": "standard",
  "color": "black",
  "wash": "water",
- "verdict": "A pair of 14.5 mm lattice cubes at 11.9 s, repeated after 9.8 s left more unformed struts. The lattice is equally open and the cubes stand straighter, but a few struts under the top frame still did not form in the corners. Straight off the plate, swollen after the water wash, back in shape and hard once dry.",
+ "verdict": "A pair of 14.5 mm lattice cubes at 11.9 s, repeated after 9.8 s. Straight off the plate, swollen after the water wash, back in shape and hard once dry - and a few struts under the top frame broke in the corners, most likely while drying, as the larger cubes later showed.",
  "future": "",
  "buy": "https://tinymakerwifi.com/r/anycubic-ww",
  "bottle": "bottles/anycubic-water-wash-resin-2-0.png",
@@ -89,6 +89,7 @@
    "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-14-vat-005-s1.jpg",
    "mm": 52.2,
    "credit": null,
+   "post": false,
    "props": []
   },
   {
@@ -102,6 +103,7 @@
    "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-16-coupon-005-k1.jpg",
    "mm": 38.1,
    "credit": null,
+   "post": false,
    "props": []
   },
   {
@@ -111,10 +113,39 @@
    "stars": 0,
    "regular": 11.9,
    "base": 35,
-   "txt": "A pair of 14.5 mm lattice cubes at 11.9 s, repeated after 9.8 s left more unformed struts. The lattice is equally open and the cubes stand straighter, but a few struts under the top frame still did not form in the corners. Straight off the plate, swollen after the water wash, back in shape and hard once dry.",
+   "txt": "A pair of 14.5 mm lattice cubes at 11.9 s, repeated after 9.8 s. Straight off the plate, swollen after the water wash, back in shape and hard once dry - and a few struts under the top frame broke in the corners, most likely while drying, as the larger cubes later showed.",
    "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-24-complex-005-d1.jpg",
    "mm": 28.6,
    "credit": null,
+   "post": true,
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 11.9,
+   "base": 35,
+   "txt": "A 21 mm lattice cube printed on its corner at 11.9 s. Whole and straight off the plate and after the water wash; while drying, before any curing, the outer layer split away from one corner and struts under the frame broke out.",
+   "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-26-complex-005-e1.jpg",
+   "mm": 42.7,
+   "credit": null,
+   "post": true,
+   "props": []
+  },
+  {
+   "step": "complex",
+   "kind": "complex",
+   "lh": 0.05,
+   "stars": 0,
+   "regular": 11.9,
+   "base": 35,
+   "txt": "A denser 20 mm lattice (1.6 mm cells, 0.3 mm struts) printed on its corner at 11.9 s. Perfect off the plate and after the water wash; while drying, before any curing, the sides cracked and the thin outer struts crumbled away.",
+   "photo": "photos/anycubic-water-wash-resin-2-0-anycubic-water-wash-resin-2-0-2026-11-27-complex-005-f3.jpg",
+   "mm": 43.0,
+   "credit": null,
+   "post": true,
    "props": []
   }
  ]
