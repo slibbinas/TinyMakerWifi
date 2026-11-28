@@ -43,6 +43,8 @@ h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
 .pnote>b{color:var(--warn)}
 .pnote p b{color:var(--text)}
 .pnote p{margin:6px 0 0}
+.pnote a.nx,.tile .pp a.nx{color:inherit;font-weight:600;white-space:nowrap}
+.pnote a.nx{color:var(--warn)}
 .hcred{display:block;margin-top:8px;font-size:12.5px;color:var(--muted2)}
 .hcred a{color:var(--link)}
 @media(max-width:620px){.hnote{padding:14px}}
@@ -666,7 +668,7 @@ details.row>summary:hover{background:var(--btnsec)}
   walls. A cracked or crumbled part in a photo means the <b>print succeeded</b> and the damage came while
   washing or drying - not that the resin is bad. Some resins soak up water or alcohol and need <b>short
   washing and thorough drying before curing</b>; makers say so, but give no exact times.</p>
-  <p>Next: <b>measured wash, dry and cure settings</b> for each resin, with an automated TinyMaker curing station.</p></div>
+  <p>Next: <b>measured wash, dry and cure settings</b> for each resin. Washing and curing get automated with a TinyMaker curing station; drying stays a measured step done by hand. <a class="nx" href="/resin/next/">What's next &rarr;</a></p></div>
   <div class="ctrl">
   <div class="counts" id="counts"></div>
   <div class="filterbar">
@@ -1015,7 +1017,7 @@ function card(r,bench){
       h+=t.photo?'<a href="'+t.photo+'"'+(t.mm?' data-mm="'+t.mm+'"':'')+' target="_blank" rel="noopener"><img src="'+t.photo+'" alt="'+esc(t.step)+'" loading="lazy"></a>'
                 :'<div class="noimg">'+pic(t.kind)+'</div>';
       h+='<figcaption><b><span class="n">'+(i+1)+'</span>'+esc(t.step)+(t.stars?' '+stars(t.stars):'')+'</b>';
-      if(t.post) h+='<span class="pp">&#10003; Print passed &middot; damaged in post-processing (washing / drying). Wash, dry &amp; cure test coming</span>';
+      if(t.post) h+='<span class="pp">&#10003; Print passed &middot; damaged in post-processing (washing / drying). <a class="nx" href="/resin/next/">Wash, dry &amp; cure test coming &rarr;</a></span>';
       if(t.txt) h+='<p>'+esc(t.txt)+'</p>';
       /* Svetimas modelis - autorius ir nuoroda (autoriaus leidimo salyga). */
       if(t.credit&&/^https:\/\//.test(t.credit.url)) h+='<span class="credit">Model: <a href="'+esc(t.credit.url).replace(/"/g,'&quot;')+'" target="_blank" rel="noopener">'+esc(t.credit.text)+'</a></span>';
@@ -1456,6 +1458,15 @@ document.addEventListener('toggle',function(e){
   if(!d.classList||!d.classList.contains('steps')||!d.open) return;
   document.querySelectorAll('details.steps[open]').forEach(function(x){if(x!==d)x.open=false;});
 },true);
+/* Nuoroda i „What's next" nesa tema. Skaiciuojama PASPAUDIMO metu: kraunant
+   uzrasyta tema po jungiklio liktu sena (2026-08-03 plan->map klaida). */
+document.addEventListener('click',function(e){
+  var a=e.target.closest&&e.target.closest('a.nx');
+  if(!a) return;
+  var d=document.documentElement.getAttribute('data-theme');
+  if(d!=='light'&&d!=='dark') d=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';
+  a.href='/resin/next/?theme='+d;
+});
 document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('.collapse');
   if(!b) return;

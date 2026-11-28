@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TinyMaker curing station - what's next</title>
+<script>(function(){try{var p=new URLSearchParams(location.search).get('theme');var t=(p==='light'||p==='dark')?p:localStorage.getItem('tmTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
+<style>
+/* /resin tokenai, NE plano: sis puslapis yra viesas TinyMakerWiFi puslapis ir
+   turi atrodyti kaip kiti, o ne kaip vidinis pultas (V 2026-11-28). Tamsi
+   tema cia yra numatytoji, sviesi - per [data-theme=light] ir per sistemos
+   nuostata, kai atributo nera. */
+:root{color-scheme:dark;--bg:#141416;--card:#1d1d20;--line:#26262a;--text:#eee;
+ --muted:#aaa;--muted2:#8a8a92;--accent:#e8720c;--link:#84bcf8;--warn:#ff6b6b}
+[data-theme=light]{color-scheme:light;--bg:#f2f2f4;--card:#fff;--line:#dfe1e5;
+ --text:#1f2124;--muted:#5f6570;--muted2:#6a707a;--link:#155fb0;--warn:#c62828}
+@media(prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;
+ --bg:#f2f2f4;--card:#fff;--line:#dfe1e5;--text:#1f2124;--muted:#5f6570;
+ --muted2:#6a707a;--link:#155fb0;--warn:#c62828}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.55}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.head{position:relative;padding:34px 0 10px}
+.tmcrumb{margin:0 0 10px;font-size:12px;opacity:.8;text-align:left}
+h1{margin:8px 0 6px;font-size:34px;color:var(--accent)}
+h2{color:var(--accent);font-size:22px;margin:40px 0 6px}
+p{margin:0 0 14px}
+.lead{color:var(--muted);margin:0 0 24px;font-size:17px;text-wrap:pretty}
+figure{margin:22px 0}
+figure img{width:100%;display:block;border:1px solid var(--line);border-radius:12px}
+figcaption{color:var(--muted);font-size:13.5px;margin-top:8px}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}
+.trio img{width:100%;display:block;border:1px solid var(--line);border-radius:10px}
+.trio figure{margin:0}
+.trio figcaption{margin-top:6px;font-size:13px}
+/* Pulto nuotraukos - PORA: sviesi ir tamsi, viena is ju paslepiama. Taip
+   pat daro /resin. Be sito tamsiame puslapyje butu du balti staciakampiai. */
+.shotpair img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:12px}
+.shotpair .dark{display:none}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .shotpair .light{display:none}
+  :root:not([data-theme="light"]) .shotpair .dark{display:block}}
+:root[data-theme="dark"] .shotpair .light{display:none}
+:root[data-theme="dark"] .shotpair .dark{display:block}
+:root[data-theme="light"] .shotpair .light{display:block}
+:root[data-theme="light"] .shotpair .dark{display:none}
+.note{background:var(--card);border:1px solid var(--accent);border-radius:12px;
+ padding:14px 18px;margin:22px 0;font-size:14px;line-height:1.6;color:var(--muted)}
+.steps{border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin:20px 0;
+ background:var(--card)}
+.steps div{padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;color:var(--muted)}
+.steps div:last-child{border-bottom:0}
+.steps b{display:inline-block;min-width:92px;color:var(--accent)}
+.themeSw{position:absolute;top:14px;right:0;display:inline-flex;gap:1px;align-items:center;z-index:5}
+.themeSw button{background:none;border:0;padding:5px;margin:0;cursor:pointer;color:var(--muted);line-height:0;border-radius:7px}
+.themeSw button svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.themeSw button:hover{color:var(--text)}
+.themeSw button[aria-pressed=true]{color:var(--accent)}
+footer{margin-top:44px;padding:26px 0 44px;border-top:1px solid var(--line);
+ color:var(--muted2);font-size:13px;text-align:center;text-wrap:balance}
+footer a{color:var(--muted2);text-decoration:underline}
+@media(max-width:640px){h1{font-size:28px}.head{padding-top:46px}.themeSw{top:8px;right:0}
+ .trio{grid-template-columns:1fr}}
+</style></head><body>
+<div class="wrap head">
+  <p class="tmcrumb"><a href="https://tinymakerwifi.com/">TinyMakerWifi</a> &rsaquo;
+    <a id="crumbResin" href="../">Resins</a> &rsaquo; What's next</p>
+  <div class="themeSw" role="group" aria-label="Theme"><button data-m="system" title="System" aria-label="System theme"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button><button data-m="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg></button><button data-m="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></button></div>
+</div>
+<div class="wrap">
+
+<h1>TinyMaker curing station - what's next</h1>
+<p class="lead">Printing is the easy half. The resin tests show parts that leave
+the build plate intact and then fail afterwards, during washing and drying.</p>
+
+<figure>
+  <img src="img/stotele.jpg" alt="Wash container and UV chamber on the TinyMaker base">
+  <figcaption>The wash container and the UV chamber sit on one base. Today both
+  are timed by hand, with three buttons and no record of what was done.</figcaption>
+</figure>
+
+<h2>What the tests found</h2>
+<p>Fine lattices break apart after washing. Anycubic Water-Washable black is the
+clearest case so far: the cubes came off the plate intact and survived the wash,
+then cracked and crumbled while drying, before any curing had started.</p>
+<p>Anycubic's own instructions state that a part has to be dried before it is
+cured, otherwise it absorbs water and cracks. No times are given. That is the
+gap: the print settings are measured, and everything after the print is not.</p>
+
+<h2>The second half of the tests</h2>
+<p>Post-processing needs the same treatment the print settings already had:
+measured values per resin, not advice.</p>
+<div class="steps">
+  <div><b>Wash</b>time in IPA or water, and how much agitation a thin part tolerates</div>
+  <div><b>Dry</b>time before curing. The station cannot do this one: there is
+    nothing to drain the liquid into, so the part is dried by hand. The time
+    still has to be measured, because this is where the cubes cracked</div>
+  <div><b>Cure</b>UV time and how it is split, so the surface does not set before the core</div>
+</div>
+<p>Those numbers only mean something if every run is identical, which is why the
+two steps the station does handle, wash and cure, are being automated rather
+than timed by hand.</p>
+
+<h2>Stage one: the module</h2>
+<p>The first stage runs on an off the shelf ESP32-C3 module with a 0.42 inch
+display, 72 x 40 pixels. It drives the wash motor and the UV array, and joins
+the network as curing.local.</p>
+<div class="trio">
+  <figure><img src="img/modulis-1.jpg" alt="Module at startup">
+    <figcaption>Startup</figcaption></figure>
+  <figure><img src="img/modulis-2.jpg" alt="Module waiting, ready">
+    <figcaption>Waiting: wash time, signal, ready</figcaption></figure>
+  <figure><img src="img/modulis-3.jpg" alt="Module running a wash">
+    <figcaption>Running: wash, time left</figcaption></figure>
+</div>
+<p>On the final board the module is no longer a separate part. The same chip,
+the same display and the motor drivers move onto one board, in the space the
+original electronics already use.</p>
+
+<h2>Hardware, in progress</h2>
+<div class="trio">
+  <img src="img/schema.jpg" alt="Schematic, blurred">
+  <img src="img/komponentai.jpg" alt="Component layout, blurred">
+  <img src="img/plokste.jpg" alt="Board render, blurred">
+</div>
+<div class="note">Schematic, component layout and board, deliberately blurred.
+These are working versions and they still change from week to week. The finished
+design is not being shown yet.</div>
+
+<h2>How it looks in the app</h2>
+<figure class="shotpair">
+  <img class="light" src="img/pultas.jpg" alt="TinyMaker dashboard with the curing station card">
+  <img class="dark" src="img/pultas-dark.jpg" alt="">
+  <figcaption>The station appears in the same dashboard as the printer, found on
+  the network by name.</figcaption>
+</figure>
+<p>The point is not the buttons. The station is tied to the resin profile, so
+picking a resin is what sets the times, the same way the profile already sets
+exposure.</p>
+<p>That means the resin profile needs two more fields. This page does not exist
+yet; below is what it would look like, added to the settings page the printer
+already has.</p>
+<figure class="shotpair">
+  <img class="light" src="img/dervos.jpg" alt="Resin settings with proposed wash and cure times">
+  <img class="dark" src="img/dervos-dark.jpg" alt="">
+  <figcaption>Wash time and cure time next to the exposure settings, marked as
+  proposed. Drying is deliberately not there.</figcaption>
+</figure>
+<p>Further out, and only if it turns out to be needed: the suggested times could
+also take into account how fine the model is.</p>
+
+<h2>Related</h2>
+<p>A printed storage box for the resin vat is already published:
+<a href="https://makerworld.com/en/models/3360690">TinyMaker vat storage box on
+MakerWorld</a>.</p>
+
+</div>
+<footer><a id="backLink" href="../">&larr; Resin tests</a> &middot; Work in progress.
+Images on this page show development hardware, not a finished product.</footer>
+
+<script>
+/* Temos jungiklis - tas pats, kaip /resin: trys mygtukai, tas pats tmTheme
+   raktas. „system" TRINA data-theme ir rakta, kad liktu sistemos nuostata.
+   Atvykstancia tema puslapis jau pritaike antrastej, pries pirma piesima.
+
+   Isvykstancioms nuorodoms tema dedama PASPAUDIMO metu, ne kraunant: kitaip
+   po jungiklio nuoroda nestu sena tema (klaida 2026-08-03, plan->map). */
+(function(){
+  function cur(){
+    var d = document.documentElement.getAttribute('data-theme');
+    if(d === 'light' || d === 'dark') return d;
+    return (window.matchMedia && matchMedia('(prefers-color-scheme:dark)').matches)
+      ? 'dark' : 'light';
+  }
+  var sw = document.querySelector('.themeSw');
+  if(sw){
+    var mode = function(){
+      var d = document.documentElement.getAttribute('data-theme');
+      return (d === 'light' || d === 'dark') ? d : 'system';
+    };
+    var mark = function(){
+      var m = mode();
+      sw.querySelectorAll('button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.m === m));
+      });
+    };
+    sw.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-m]'); if(!b) return;
+      var m = b.dataset.m;
+      if(m === 'system'){
+        document.documentElement.removeAttribute('data-theme');
+        try{ localStorage.removeItem('tmTheme'); }catch(err){}
+      } else {
+        document.documentElement.setAttribute('data-theme', m);
+        try{ localStorage.setItem('tmTheme', m); }catch(err){}
+      }
+      mark();
+    });
+    mark();
+  }
+  ['backLink', 'crumbResin'].forEach(function(id){
+    var a = document.getElementById(id);
+    if(!a) return;
+    a.addEventListener('click', function(){ a.href = '../?theme=' + cur(); });
+  });
+})();
+</script>
+</body></html>
