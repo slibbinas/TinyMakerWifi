@@ -27,15 +27,20 @@ h2{color:var(--accent);font-size:22px;margin:40px 0 6px}
 p{margin:0 0 14px}
 .lead{color:var(--muted);margin:0 0 24px;font-size:17px;text-wrap:pretty}
 figure{margin:22px 0}
-figure img{width:100%;display:block;border:1px solid var(--line);border-radius:12px}
+/* Remeliai - kaip landinge (.shots img): oranzinis 2px, ne pilkas 1px.
+   Tamsioje temoje pilkas 1px praktiskai nesimato, ir stoteles nuotrauka
+   atrodydavo visai be remelio (V 2026-11-28). */
+figure img{width:100%;display:block;border:2px solid var(--accent);border-radius:14px}
 figcaption{color:var(--muted);font-size:13.5px;margin-top:8px}
 .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}
-.trio img{width:100%;display:block;border:1px solid var(--line);border-radius:10px}
+.trio img{width:100%;display:block;border:2px solid var(--accent);border-radius:14px}
 .trio figure{margin:0}
 .trio figcaption{margin-top:6px;font-size:13px}
 /* Pulto nuotraukos - PORA: sviesi ir tamsi, viena is ju paslepiama. Taip
    pat daro /resin. Be sito tamsiame puslapyje butu du balti staciakampiai. */
-.shotpair img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:12px}
+/* .shotpair - BE remelio: pulto nuotraukose oranzinis remelis jau yra
+   pacioje nuotraukoje, ir CSS remelis uzdetu antra. Taip pat daro /resin. */
+.shotpair img{display:block;width:100%;height:auto;border:0;border-radius:12px}
 .shotpair .dark{display:none}
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]) .shotpair .light{display:none}
